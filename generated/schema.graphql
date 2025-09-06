@@ -86,14 +86,18 @@ input CreateMessageDto {
   bucketId: String!
   collapseId: String
   deliveryType: NotificationDeliveryType!
+  gifUrl: String
   groupId: String
+  imageUrl: String
   locale: String
   snoozes: [Float!]
   sound: String
   subtitle: String
   tapAction: NotificationActionDto
+  tapUrl: String
   title: String!
   userIds: [String!]
+  videoUrl: String
 }
 
 input CreateOAuthProviderDto {

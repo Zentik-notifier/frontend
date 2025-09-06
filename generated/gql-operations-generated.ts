@@ -106,14 +106,18 @@ export type CreateMessageDto = {
   bucketId: Scalars['String']['input'];
   collapseId?: InputMaybe<Scalars['String']['input']>;
   deliveryType: NotificationDeliveryType;
+  gifUrl?: InputMaybe<Scalars['String']['input']>;
   groupId?: InputMaybe<Scalars['String']['input']>;
+  imageUrl?: InputMaybe<Scalars['String']['input']>;
   locale?: InputMaybe<Scalars['String']['input']>;
   snoozes?: InputMaybe<Array<Scalars['Float']['input']>>;
   sound?: InputMaybe<Scalars['String']['input']>;
   subtitle?: InputMaybe<Scalars['String']['input']>;
   tapAction?: InputMaybe<NotificationActionDto>;
+  tapUrl?: InputMaybe<Scalars['String']['input']>;
   title: Scalars['String']['input'];
   userIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  videoUrl?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CreateOAuthProviderDto = {
