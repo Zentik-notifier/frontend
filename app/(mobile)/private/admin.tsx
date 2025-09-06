@@ -26,7 +26,7 @@ export default function AdministrationScreen() {
   const { t } = useI18n();
 
   const { data: userData } = useGetMeQuery({
-    fetchPolicy: "cache-first",
+    fetchPolicy: "cache-and-network",
   });
   const user = userData?.me;
 
@@ -74,7 +74,9 @@ export default function AdministrationScreen() {
     {
       id: "system-tokens",
       title: t("administration.systemTokensTitle") || "System Access Tokens",
-      description: t("administration.systemTokensDescription") || "Manage system API tokens",
+      description:
+        t("administration.systemTokensDescription") ||
+        "Manage system API tokens",
       icon: "key",
       iconColor: "#06b6d4",
       onPress: () => router.push("/(mobile)/private/system-access-tokens"),

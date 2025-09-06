@@ -36,7 +36,7 @@ export default function UserDropdown() {
   const { t } = useI18n();
 
   const { data: userData } = useGetMeQuery({
-    fetchPolicy: "cache-first",
+    fetchPolicy: "cache-and-network",
   });
   const user = userData?.me;
 

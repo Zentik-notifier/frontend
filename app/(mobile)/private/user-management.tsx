@@ -217,7 +217,7 @@ export default function UserManagementScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: userData } = useGetMeQuery({
-    fetchPolicy: "cache-first",
+    fetchPolicy: "cache-and-network",
   });
   const currentUser = userData?.me;
 

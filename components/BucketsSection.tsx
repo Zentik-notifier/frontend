@@ -44,16 +44,6 @@ const BucketsSection: React.FC = () => {
     useAppContext();
   const buckets = bucketsData?.buckets ?? [];
 
-  // Show loader while buckets are loading
-  if (bucketsLoading) {
-    return (
-      <ThemedView style={styles.container}>
-        <SectionHeader title={t("buckets.title")} iconName="buckets" />
-        <AppLoader text={t("common.loading")} size="medium" />
-      </ThemedView>
-    );
-  }
-
   const bucketStats = useMemo((): BucketStats[] => {
     return buckets
       .map((bucket) => {
@@ -93,6 +83,15 @@ const BucketsSection: React.FC = () => {
         );
       });
   }, [buckets, notifications]);
+  
+  if (bucketsLoading) {
+    return (
+      <ThemedView style={styles.container}>
+        <SectionHeader title={t("buckets.title")} iconName="buckets" />
+        <AppLoader text={t("common.loading")} size="medium" />
+      </ThemedView>
+    );
+  }
 
   const handleBucketPress = (bucketId: string) => {
     router.push(`/(mobile)/private/bucket-detail?id=${bucketId}`);
@@ -192,7 +191,7 @@ const BucketsSection: React.FC = () => {
             >
               {/* Header con icona e nome */}
               <View style={styles.bucketHeader}>
-                <BucketIcon bucketId={bucket.id} size="lg" noRouting/>
+                <BucketIcon bucketId={bucket.id} size="lg" noRouting />
 
                 <View style={styles.bucketInfo}>
                   <ThemedText

@@ -211,10 +211,8 @@ export const initApolloClient = async () => {
     defaultOptions: {
       watchQuery: {
         errorPolicy: 'all',
-        // Ensure refetch writes MERGE into cache instead of overwriting
         refetchWritePolicy: 'merge',
-        // After a network fetch, prefer reading from cache (so field read/merge apply)
-        nextFetchPolicy: 'cache-first',
+        fetchPolicy: "cache-and-network",
       },
       query: {
         errorPolicy: 'all',
