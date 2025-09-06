@@ -1,0 +1,5 @@
+{
+  "name": "with-android-manifest-fix",
+  "version": "1.0.0",
+  "main": "withAndroidManifestFix.ts"
+}

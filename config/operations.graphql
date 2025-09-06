@@ -1,0 +1,893 @@
+# Input Types
+input SnoozeScheduleInput {
+  days: [String!]!
+  timeFrom: String!
+  timeTill: String!
+  isEnabled: Boolean!
+}
+
+# Password Reset Mutations
+mutation RequestPasswordReset($input: RequestPasswordResetDto!) {
+  requestPasswordReset(input: $input) {
+    success
+    message
+  }
+}
+
+mutation ValidateResetToken($resetToken: String!) {
+  validateResetToken(resetToken: $resetToken)
+}
+
+mutation ResetPassword($input: ResetPasswordDto!) {
+  resetPassword(input: $input) {
+    success
+    message
+  }
+}
+
+# Fragments
+fragment MessageAttachmentFragment on MessageAttachment {
+  mediaType
+  url
+  name
+  attachmentUuid
+  saveOnServer
+}
+
+fragment NotificationActionFragment on NotificationAction {
+  type
+  value
+  title
+  icon
+  destructive
+}
+
+fragment MessageFragment on Message {
+  id
+  title
+  body
+  subtitle
+  attachments {
+    ...MessageAttachmentFragment
+  }
+  tapAction {
+    ...NotificationActionFragment
+  }
+  actions {
+    ...NotificationActionFragment
+  }
+  sound
+  deliveryType
+  locale
+  snoozes
+  bucket {
+    ...BucketFragment
+  }
+  createdAt
+  updatedAt
+}
+
+fragment NotificationFragment on Notification {
+  id
+  receivedAt
+  readAt
+  sentAt
+  createdAt
+  updatedAt
+  userId
+  userDeviceId
+  message {
+    ...MessageFragment
+  }
+  userDevice {
+    id
+    platform
+    deviceToken
+    lastUsed
+    onlyLocal
+  }
+}
+
+fragment NotificationWithActionsFragment on Notification {
+  id
+  receivedAt
+  readAt
+  sentAt
+  createdAt
+  updatedAt
+  userId
+  userDeviceId
+  message {
+    ...MessageFragment
+    actions {
+      ...NotificationActionFragment
+    }
+  }
+  userDevice {
+    id
+    platform
+    deviceToken
+    lastUsed
+    onlyLocal
+  }
+}
+
+fragment BucketFragment on Bucket {
+  id
+  name
+  description
+  color
+  icon
+  createdAt
+  updatedAt
+  isSnoozed
+  isProtected
+  isPublic
+}
+
+fragment BucketWithDevicesFragment on Bucket {
+  ...BucketFragment
+  user {
+    ...UserFragment
+  }
+  permissions {
+    ...EntityPermissionFragment
+  }
+}
+
+fragment BucketWithMessagesFragment on Bucket {
+  ...BucketFragment
+  messages {
+    ...MessageFragment
+  }
+}
+
+fragment BucketFullFragment on Bucket {
+  ...BucketFragment
+  user {
+    ...UserFragment
+  }
+  messages {
+    ...MessageFragment
+  }
+  permissions {
+    ...EntityPermissionFragment
+  }
+  userBucket {
+    ...UserBucketFragment
+  }
+}
+
+fragment UserFragment on User {
+  id
+  email
+  username
+  firstName
+  lastName
+  avatar
+  hasPassword
+  role
+  identities {
+    id
+    provider
+    providerId
+    email
+    avatarUrl
+    createdAt
+    updatedAt
+  }
+  createdAt
+  updatedAt
+}
+
+fragment UserDeviceFragment on UserDevice {
+  id
+  deviceToken
+  platform
+  deviceName
+  deviceModel
+  osVersion
+  lastUsed
+  createdAt
+  updatedAt
+  publicKey
+  privateKey
+  onlyLocal
+}
+
+fragment UserWebhookFragment on UserWebhook {
+  id
+  name
+  method
+  url
+  headers {
+    key
+    value
+  }
+  body
+  user {
+    id
+  }
+  createdAt
+  updatedAt
+}
+
+# Notification operations
+query GetNotifications {
+  notifications {
+    ...NotificationFragment
+  }
+}
+
+query GetNotification($id: String!) {
+  notification(id: $id) {
+    ...NotificationFragment
+  }
+}
+
+mutation CreateMessage($input: CreateMessageDto!) {
+  createMessage(input: $input) {
+    ...MessageFragment
+  }
+}
+
+mutation DeleteNotification($id: String!) {
+  deleteNotification(id: $id)
+}
+
+mutation MarkNotificationAsRead($id: String!) {
+  markNotificationAsRead(id: $id) {
+    id
+    readAt
+    receivedAt
+  }
+}
+
+mutation MarkNotificationAsUnread($id: String!) {
+  markNotificationAsUnread(id: $id) {
+    id
+    readAt
+    receivedAt
+  }
+}
+
+mutation MarkNotificationAsReceived($id: String!, $userDeviceId: String!) {
+  markNotificationAsReceived(id: $id, userDeviceId: $userDeviceId) {
+    id
+    receivedAt
+    userDeviceId
+    userDevice {
+      id
+      platform
+      deviceToken
+      lastUsed
+      onlyLocal
+    }
+  }
+}
+
+mutation DeviceReportNotificationReceived($id: String!) {
+  deviceReportNotificationReceived(id: $id) {
+    id
+    receivedAt
+    userDeviceId
+    userDevice {
+      id
+      platform
+      deviceToken
+      lastUsed
+      onlyLocal
+    }
+  }
+}
+
+mutation MarkAllNotificationsAsRead {
+  markAllNotificationsAsRead {
+    updatedCount
+    success
+  }
+}
+
+mutation MassDeleteNotifications($ids: [String!]!) {
+  massDeleteNotifications(ids: $ids) {
+    deletedCount
+    success
+  }
+}
+
+mutation MassMarkNotificationsAsRead($ids: [String!]!) {
+  massMarkNotificationsAsRead(ids: $ids) {
+    updatedCount
+    success
+  }
+}
+
+mutation MassMarkNotificationsAsUnread($ids: [String!]!) {
+  massMarkNotificationsAsUnread(ids: $ids) {
+    updatedCount
+    success
+  }
+}
+
+# Bucket operations
+query GetBuckets {
+  buckets {
+    ...BucketWithDevicesFragment
+  }
+}
+
+query GetBucket($id: String!) {
+  bucket(id: $id) {
+    ...BucketFullFragment
+  }
+}
+
+mutation CreateBucket($input: CreateBucketDto!) {
+  createBucket(input: $input) {
+    ...BucketWithDevicesFragment
+  }
+}
+
+# Update received notifications up to a target notification
+mutation UpdateReceivedNotifications($id: String!) {
+  updateReceivedNotifications(id: $id) {
+    updatedCount
+    success
+  }
+}
+
+
+
+mutation UpdateBucket($id: String!, $input: UpdateBucketDto!) {
+  updateBucket(id: $id, input: $input) {
+    ...BucketWithDevicesFragment
+  }
+}
+
+mutation DeleteBucket($id: String!) {
+  deleteBucket(id: $id)
+}
+
+# Bucket sharing operations
+query BucketPermissions($bucketId: String!) {
+  bucketPermissions(bucketId: $bucketId) {
+    ...EntityPermissionFragment
+  }
+}
+
+mutation ShareBucket($input: GrantEntityPermissionInput!) {
+  shareBucket(input: $input) {
+    ...EntityPermissionFragment
+  }
+}
+
+mutation UnshareBucket($input: RevokeEntityPermissionInput!) {
+  unshareBucket(input: $input)
+}
+
+# User operations
+query GetMe {
+  me {
+    ...UserFragment
+    devices {
+      ...UserDeviceFragment
+    }
+  }
+}
+
+# User mutations
+mutation Login($input: LoginDto!) {
+  login(input: $input) {
+    accessToken
+    refreshToken
+    user { id email username firstName lastName avatar }
+  }
+}
+
+mutation Register($input: RegisterDto!) {
+  register(input: $input) {
+    message 
+    user { id email username firstName lastName avatar }
+    emailConfirmationRequired
+    accessToken
+    refreshToken
+  }
+}
+
+mutation Logout {
+  logout
+}
+
+mutation RefreshAccessToken($refreshToken: String!) {
+  refreshAccessToken(refreshToken: $refreshToken) {
+    accessToken
+    refreshToken
+  }
+}
+mutation UpdateProfile($input: UpdateProfileInput!) {
+  updateProfile(input: $input) {
+    ...UserFragment
+  }
+}
+
+mutation ChangePassword($input: ChangePasswordInput!) {
+  changePassword(input: $input)
+}
+
+mutation SetPassword($input: ChangePasswordInput!) {
+  setPassword(input: $input)
+}
+
+mutation DeleteAccount {
+  deleteAccount
+}
+
+# Subscriptions
+subscription NotificationCreated {
+  notificationCreated {
+    ...NotificationFragment
+  }
+}
+
+subscription NotificationUpdated {
+  notificationUpdated {
+    ...NotificationFragment
+    readAt
+  }
+}
+
+subscription NotificationDeleted {
+  notificationDeleted
+}
+
+subscription BucketCreated {
+  bucketCreated {
+    ...BucketFragment
+  }
+}
+
+subscription BucketUpdated {
+  bucketUpdated {
+    ...BucketFragment
+  }
+}
+
+subscription BucketDeleted {
+  bucketDeleted
+}
+
+# User subscriptions
+subscription UserProfileUpdated {
+  userProfileUpdated {
+    ...UserFragment
+  }
+}
+
+subscription UserPasswordChanged {
+  userPasswordChanged
+}
+
+# Device operations
+query GetUserDevices {
+  userDevices {
+    ...UserDeviceFragment
+  }
+}
+
+query GetUserDevice {
+  userDevice {
+    ...UserDeviceFragment
+  }
+}
+
+# Webhook operations
+query GetUserWebhooks {
+  userWebhooks {
+    ...UserWebhookFragment
+  }
+}
+
+query GetWebhook($id: ID!) {
+  webhook(id: $id) {
+    ...UserWebhookFragment
+  }
+}
+
+mutation CreateWebhook($input: CreateWebhookDto!) {
+  createWebhook(input: $input) {
+    ...UserWebhookFragment
+  }
+}
+
+mutation UpdateWebhook($id: ID!, $input: UpdateWebhookDto!) {
+  updateWebhook(id: $id, input: $input) {
+    ...UserWebhookFragment
+  }
+}
+
+mutation DeleteWebhook($id: ID!) {
+  deleteWebhook(id: $id)
+}
+
+# Access Token Fragments
+fragment AccessTokenFragment on AccessTokenListDto {
+  id
+  name
+  expiresAt
+  createdAt
+  lastUsed
+  isExpired
+}
+
+fragment AccessTokenResponseFragment on AccessTokenResponseDto {
+  id
+  name
+  token
+  expiresAt
+  createdAt
+}
+
+# User Session Fragments
+fragment SessionInfoFragment on SessionInfoDto {
+  id
+  deviceName
+  operatingSystem
+  browser
+  ipAddress
+  location
+  lastActivity
+  expiresAt
+  isCurrent
+  isActive
+  createdAt
+  loginProvider
+}
+
+# Access Token Queries
+query GetUserAccessTokens {
+  getUserAccessTokens {
+    ...AccessTokenFragment
+  }
+}
+
+# User Session Queries
+query GetUserSessions {
+  getUserSessions {
+    ...SessionInfoFragment
+  }
+}
+
+# Access Token Mutations
+mutation CreateAccessToken($input: CreateAccessTokenDto!) {
+  createAccessToken(input: $input) {
+    ...AccessTokenResponseFragment
+  }
+}
+
+mutation RevokeAccessToken($tokenId: String!) {
+  revokeAccessToken(tokenId: $tokenId)
+}
+
+mutation RevokeAllAccessTokens {
+  revokeAllAccessTokens
+}
+
+# User Session Mutations
+mutation RevokeSession($sessionId: String!) {
+  revokeSession(sessionId: $sessionId)
+}
+
+mutation RevokeAllOtherSessions {
+  revokeAllOtherSessions
+}
+
+mutation RegisterDevice($input: RegisterDeviceDto!) {
+  registerDevice(input: $input) {
+    ...UserDeviceFragment
+  }
+}
+
+mutation RemoveDevice($deviceId: String!) {
+  removeDevice(deviceId: $deviceId)
+}
+
+mutation RemoveDeviceByToken($deviceToken: String!) {
+  removeDeviceByToken(deviceToken: $deviceToken)
+}
+
+mutation UpdateDeviceToken($input: UpdateDeviceTokenDto!) {
+  updateDeviceToken(input: $input) {
+    id
+    deviceName
+    deviceModel
+    deviceToken
+    platform
+    onlyLocal
+    updatedAt
+    createdAt
+  }
+}
+
+mutation UpdateUserDevice($input: UpdateUserDeviceInput!) {
+  updateUserDevice(input: $input) {
+    id
+    deviceName
+    deviceModel
+    platform
+    subscriptionFields {
+      endpoint
+      p256dh
+      auth
+    }
+    onlyLocal
+    updatedAt
+    createdAt
+  }
+}
+
+# Entity Permission Fragments
+fragment EntityPermissionFragment on EntityPermission {
+  id
+  resourceType
+  resourceId
+  permissions
+  expiresAt
+  createdAt
+  updatedAt
+  user {
+    ...UserFragment
+  }
+  grantedBy {
+    ...UserFragment
+  }
+}
+
+# OAuth Provider Fragments
+fragment OAuthProviderPublicFragment on OAuthProviderPublicDto {
+  id
+  name
+  providerId
+  type
+  iconUrl
+  color
+  textColor
+}
+
+fragment OAuthProviderFragment on OAuthProvider {
+  id
+  name
+  providerId
+  type
+  clientId
+  clientSecret
+  scopes
+  iconUrl
+  color
+  textColor
+  isEnabled
+  authorizationUrl
+  tokenUrl
+  userInfoUrl
+  profileFields
+  additionalConfig
+  createdAt
+  updatedAt
+}
+
+# Entity Permission Operations
+query GetResourcePermissions($input: GetResourcePermissionsInput!) {
+  getResourcePermissions(input: $input) {
+    ...EntityPermissionFragment
+  }
+}
+
+mutation GrantEntityPermission($input: GrantEntityPermissionInput!) {
+  grantEntityPermission(input: $input) {
+    ...EntityPermissionFragment
+  }
+}
+
+mutation RevokeEntityPermission($input: RevokeEntityPermissionInput!) {
+  revokeEntityPermission(input: $input)
+}
+
+mutation CleanupExpiredPermissions {
+  cleanupExpiredPermissions
+}
+
+# OAuth Provider Operations
+query AllOAuthProviders {
+  allOAuthProviders {
+    ...OAuthProviderFragment
+  }
+}
+
+query OAuthProvider($id: String!) {
+  oauthProvider(id: $id) {
+    ...OAuthProviderFragment
+  }
+}
+
+mutation CreateOAuthProvider($input: CreateOAuthProviderDto!) {
+  createOAuthProvider(input: $input) {
+    id
+    name
+    providerId
+    type
+    isEnabled
+  }
+}
+
+mutation UpdateOAuthProvider($id: String!, $input: UpdateOAuthProviderDto!) {
+  updateOAuthProvider(id: $id, input: $input) {
+    id
+    name
+    providerId
+    type
+    isEnabled
+  }
+}
+
+mutation ToggleOAuthProvider($id: String!) {
+  toggleOAuthProvider(id: $id) {
+    id
+    name
+    providerId
+    isEnabled
+  }
+}
+
+mutation DeleteOAuthProvider($id: String!) {
+  deleteOAuthProvider(id: $id)
+}
+
+# Healthcheck
+query Healthcheck {
+  healthcheck
+}
+
+# Backend Version
+query GetBackendVersion {
+  getBackendVersion
+}
+
+# Active Notifications
+# Notification Services
+fragment NotificationServiceInfoFragment on NotificationServiceInfo {
+  devicePlatform
+  service
+}
+
+query GetNotificationServices {
+  notificationServices {
+    ...NotificationServiceInfoFragment
+  }
+}
+
+mutation UpdateUserRole($input: UpdateUserRoleInput!) {
+  updateUserRole(input: $input) {
+    ...UserFragment
+  }
+}
+
+# User Bucket Operations
+fragment UserBucketFragment on UserBucket {
+  id
+  userId
+  bucketId
+  snoozeUntil
+  snoozes {
+    days
+    timeFrom
+    timeTill
+    isEnabled
+  }
+  createdAt
+  updatedAt
+  user {
+    ...UserFragment
+  }
+  bucket {
+    ...BucketFragment
+  }
+}
+
+mutation CreateUserBucket($input: CreateUserBucketDto!) {
+  createUserBucket(createUserBucketInput: $input) {
+    ...UserBucketFragment
+  }
+}
+
+mutation UpdateUserBucket($id: String!, $input: UpdateUserBucketDto!) {
+  updateUserBucket(id: $id, updateUserBucketInput: $input) {
+    ...UserBucketFragment
+  }
+}
+
+mutation RemoveUserBucket($id: String!) {
+  removeUserBucket(id: $id)
+}
+
+mutation SetBucketSnooze($bucketId: String!, $snoozeUntil: String) {
+  setBucketSnooze(bucketId: $bucketId, snoozeUntil: $snoozeUntil) {
+    ...UserBucketFragment
+  }
+}
+
+mutation UpdateBucketSnoozes($bucketId: String!, $snoozes: [SnoozeScheduleInput!]!) {
+  updateBucketSnoozes(bucketId: $bucketId, snoozes: $snoozes) {
+    ...UserBucketFragment
+  }
+}
+
+# System Access Token Operations (Admin Only)
+fragment SystemAccessTokenFragment on SystemAccessTokenDto {
+  id
+  maxCalls
+  calls
+  expiresAt
+  requester {
+    id
+    username
+    email
+    firstName
+    lastName
+  }
+  description
+  createdAt
+  updatedAt
+}
+
+# User operations for system token creation
+query GetAllUsers {
+  users {
+    ...UserFragment
+  }
+}
+
+query GetSystemAccessTokens {
+  listSystemTokens {
+    ...SystemAccessTokenFragment
+  }
+}
+
+mutation CreateSystemAccessToken($maxCalls: Float!, $expiresAt: String, $requesterId: String, $description: String) {
+  createSystemToken(
+    maxCalls: $maxCalls
+    expiresAt: $expiresAt
+    requesterId: $requesterId
+    description: $description
+  ) {
+    ...SystemAccessTokenFragment
+    rawToken
+  }
+}
+
+mutation RevokeSystemAccessToken($id: String!) {
+  revokeSystemToken(id: $id)
+}
+
+# Email Confirmation Operations
+mutation RequestEmailConfirmation($input: RequestEmailConfirmationDto!) {
+  requestEmailConfirmation(input: $input) {
+    success
+    message
+  }
+}
+
+mutation ConfirmEmail($input: ConfirmEmailDto!) {
+  confirmEmail(input: $input) {
+    success
+    message
+  }
+}
+
+# Public App Config
+query PublicAppConfig {
+  publicAppConfig {
+    emailEnabled
+    oauthProviders {
+      ...OAuthProviderPublicFragment
+    }
+  }
+}

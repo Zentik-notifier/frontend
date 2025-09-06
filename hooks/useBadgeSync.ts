@@ -1,0 +1,70 @@
+import { useAppContext } from '@/services/app-context';
+import { saveBadgeCount } from '@/services/auth-storage';
+import { useCallback, useEffect, useMemo } from 'react';
+import { Alert } from 'react-native';
+import { useI18n } from './useI18n';
+import { useMarkAllNotificationsAsRead } from './useNotifications';
+import { usePushNotifications } from './usePushNotifications';
+
+/**
+ * Hook to sync app badge count with unread notifications
+ */
+export function useBadgeSync() {
+    const { t } = useI18n();
+    const { notifications } = useAppContext();
+    const push = usePushNotifications();
+
+    const { loading: isMarkingAllAsRead, markAllAsRead } =
+        useMarkAllNotificationsAsRead();
+
+    const unreadNotifications = useMemo(() => {
+        return notifications.filter((notification) => !notification.readAt);
+    }, [notifications]);
+    const hasUnreadNotifications = !!unreadNotifications.length;
+    const unreadCount = unreadNotifications.length;
+
+    useEffect(() => {
+        const exec = async () => {
+            if (!isMarkingAllAsRead) {
+                push.setBadgeCount(unreadCount);
+                await saveBadgeCount(unreadCount);
+                console.log(`📱 Badge count synced: ${unreadCount}`);
+            }
+        }
+
+        exec();
+    }, [unreadCount, isMarkingAllAsRead]);
+
+    // Return a function to manually clear the badge
+    const clearBadge = async () => {
+        console.debug('🧹 Clearing badge manually');
+        push.clearBadge();
+        await saveBadgeCount(0);
+        console.log('📱 Badge cleared');
+    };
+
+    const handleMarkAllAsRead = useCallback(async () => {
+        if (!hasUnreadNotifications || isMarkingAllAsRead) return;
+
+        try {
+            await markAllAsRead();
+            // Badge will be updated automatically by the useEffect when unreadCount changes
+            // No need to manually clear it here
+        } catch (error) {
+            console.error("Error marking all notifications as read:", error);
+            Alert.alert(
+                t("common.error"),
+                t("notifications.errors.markAllAsReadFailed"),
+                [{ text: t("common.ok") }]
+            );
+        }
+    }, [hasUnreadNotifications, isMarkingAllAsRead, markAllAsRead, t]);
+
+    return {
+        clearBadge,
+        unreadNotifications,
+        unreadCount,
+        hasUnreadNotifications,
+        handleMarkAllAsRead
+    };
+}
