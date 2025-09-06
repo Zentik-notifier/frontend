@@ -14,8 +14,8 @@ expo-env.d.ts
 ios/
 android/
 
-# Security keys
-keys/
+keys/*.plist
+keys/*.json
 
 # Build artifacts
 dist/
