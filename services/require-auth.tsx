@@ -3,10 +3,10 @@ import { useEffect } from "react";
 import { useAppContext } from "../services/app-context";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { userId, isInitializing } = useAppContext();
+  const { lastUserId, isInitializing } = useAppContext();
   const router = useRouter();
   const segments = useSegments();
-  const showPrivateRoutes = !!userId;
+  const showPrivateRoutes = !!lastUserId;
 
   useEffect(() => {
     const isPrivate = segments?.some((segment) => segment === "private");

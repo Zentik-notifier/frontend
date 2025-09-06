@@ -29,18 +29,18 @@ export function UserSessionsSettings({
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
   const {
+    setLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
 
-  // GraphQL queries and mutations
   const { data, loading, refetch } = useGetUserSessionsQuery();
   const [revokeSession] = useRevokeSessionMutation();
   const { data: providersData } = usePublicAppConfigQuery();
+  useEffect(() => setLoading(loading), [loading]);
 
   const sessions = data?.getUserSessions || [];
   const sortedSessions = useEntitySorting(sessions, "desc");
 
-  // Refetch data when refreshing prop changes
   useEffect(() => {
     if (refreshing) {
       console.log("UserSessionsSettings: Refreshing data...");
@@ -210,10 +210,10 @@ export function UserSessionsSettings({
                         item.loginProvider === "github"
                           ? "logo-github"
                           : item.loginProvider === "google"
-                            ? "logo-google"
-                            : item.loginProvider === "local"
-                              ? "person-outline"
-                              : "key-outline"
+                          ? "logo-google"
+                          : item.loginProvider === "local"
+                          ? "person-outline"
+                          : "key-outline"
                       }
                       size={18}
                       color={Colors[colorScheme ?? "light"].text}
@@ -277,14 +277,6 @@ export function UserSessionsSettings({
       </SwipeableItem>
     );
   };
-
-  if (loading) {
-    return (
-      <ThemedView style={styles.container}>
-        <AppLoader text={t("common.loading")} size="medium" />
-      </ThemedView>
-    );
-  }
 
   return (
     <ThemedView style={styles.container}>

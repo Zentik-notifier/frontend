@@ -47,6 +47,7 @@ export const AppIcons = {
   
   // Push notifications
   push: { set: 'MaterialCommunityIcons', name: 'rocket-launch' } as const,
+  rocket: { set: 'Ionicons', name: 'rocket-outline' } as const,
   test: { set: 'MaterialIcons', name: 'science' } as const,
   send: { set: 'Ionicons', name: 'send' } as const,
   
@@ -74,6 +75,10 @@ export const AppIcons = {
   collapse: { set: 'Ionicons', name: 'chevron-down' } as const,
   chevron: { set: 'Ionicons', name: 'chevron-forward' } as const,
   search: { set: 'Ionicons', name: 'search-outline' } as const,
+  
+  // Onboarding & Tutorial
+  folder: { set: 'Ionicons', name: 'folder-outline' } as const,
+  code: { set: 'Ionicons', name: 'code-outline' } as const,
   
   // Device & Platform
   mobile: { set: 'Ionicons', name: 'phone-portrait-outline' } as const,

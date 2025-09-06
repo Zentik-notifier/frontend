@@ -12,12 +12,7 @@ import { useAppContext } from "@/services/app-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
-import {
-  Alert,
-  StyleSheet,
-  TouchableOpacity,
-  View
-} from "react-native";
+import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import SwipeableItem from "./SwipeableItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
@@ -35,6 +30,7 @@ export function AccessTokensSettings({
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
   const {
+    setLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const disabledAdd = isOfflineAuth || isBackendUnreachable;
@@ -42,6 +38,8 @@ export function AccessTokensSettings({
   // GraphQL queries and mutations
   const { data, loading, refetch } = useGetUserAccessTokensQuery();
   const [revokeAccessToken] = useRevokeAccessTokenMutation();
+
+  useEffect(() => setLoading(loading), [loading]);
 
   const tokens = data?.getUserAccessTokens || [];
   const sortedTokens = useEntitySorting(tokens, "desc");
@@ -147,14 +145,6 @@ export function AccessTokensSettings({
       </SwipeableItem>
     );
   };
-
-  if (loading) {
-    return (
-      <ThemedView style={styles.container}>
-        <AppLoader text={t("common.loading")} size="medium" />
-      </ThemedView>
-    );
-  }
 
   return (
     <ThemedView style={styles.container}>

@@ -76,7 +76,11 @@ const UserListItem: React.FC<UserListItemProps> = ({
 
     Alert.alert(
       t("administration.changeUserRole"),
-      `${t("administration.currentRole", { role: getUserRoleDisplayName(user.role) })}\n${t("administration.selectNewRole", { user: user.username || user.email })}`,
+      `${t("administration.currentRole", {
+        role: getUserRoleDisplayName(user.role),
+      })}\n${t("administration.selectNewRole", {
+        user: user.username || user.email,
+      })}`,
       buttons
     );
   };
@@ -216,9 +220,7 @@ export default function UserManagementScreen() {
   const { t } = useI18n();
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: userData } = useGetMeQuery({
-    fetchPolicy: "cache-and-network",
-  });
+  const { data: userData } = useGetMeQuery();
   const currentUser = userData?.me;
 
   const { data, loading, error, refetch } = useGetAllUsersQuery();

@@ -25,9 +25,7 @@ export default function AdministrationScreen() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
 
-  const { data: userData } = useGetMeQuery({
-    fetchPolicy: "cache-and-network",
-  });
+  const { data: userData } = useGetMeQuery({});
   const user = userData?.me;
 
   // Check if user is admin - redirect if not

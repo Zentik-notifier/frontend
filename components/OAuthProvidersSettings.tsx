@@ -2,7 +2,7 @@ import { Colors } from "@/constants/Colors";
 import {
   OAuthProviderFragment,
   useAllOAuthProvidersQuery,
-  useToggleOAuthProviderMutation
+  useToggleOAuthProviderMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
@@ -19,6 +19,7 @@ import {
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { AppLoader } from "./ui/AppLoader";
+import { useAppContext } from "@/services/app-context";
 
 interface OAuthProvidersSettingsProps {
   refreshing?: boolean;
@@ -141,9 +142,11 @@ export default function OAuthProvidersSettings({
   const [togglingProviderId, setTogglingProviderId] = useState<string | null>(
     null
   );
+  const { setLoading } = useAppContext();
 
   const { data, loading, error, refetch } = useAllOAuthProvidersQuery({});
   const [toggleOAuthProvider] = useToggleOAuthProviderMutation();
+  useEffect(() => setLoading(loading), [loading]);
 
   const allProviders = data?.allOAuthProviders || [];
 
@@ -158,7 +161,9 @@ export default function OAuthProvidersSettings({
   };
 
   const handleEditProvider = (provider: OAuthProviderFragment) => {
-    router.push(`/(mobile)/private/edit-oauth-provider?providerId=${provider.id}`);
+    router.push(
+      `/(mobile)/private/edit-oauth-provider?providerId=${provider.id}`
+    );
   };
 
   const handleToggleProvider = async (provider: OAuthProviderFragment) => {
@@ -199,14 +204,6 @@ export default function OAuthProvidersSettings({
       key={item.id}
     />
   );
-
-  if (loading) {
-    return (
-      <ThemedView style={styles.container}>
-        <AppLoader text={t("common.loading")} size="medium" />
-      </ThemedView>
-    );
-  }
 
   if (error) {
     return (

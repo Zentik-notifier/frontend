@@ -24,12 +24,12 @@ export default function BucketsSettings({
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const {
+    setLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
 
-  const { data, loading, error, refetch } = useGetBucketsQuery({
-    fetchPolicy: "cache-and-network",
-  });
+  const { data, loading, error, refetch } = useGetBucketsQuery();
+  useEffect(() => setLoading(loading), [loading]);
 
   const buckets = data?.buckets || [];
   const sortedBuckets = useEntitySorting(buckets, "desc");
@@ -43,14 +43,6 @@ export default function BucketsSettings({
   // Handle GraphQL error
   if (error) {
     console.error("Error loading buckets:", error);
-  }
-
-  if (loading) {
-    return (
-      <ThemedView style={styles.container}>
-        <AppLoader text={t("common.loading")} size="medium" />
-      </ThemedView>
-    );
   }
 
   return (

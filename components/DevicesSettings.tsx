@@ -5,13 +5,7 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import React, { useEffect, useState } from "react";
-import {
-  Alert,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useGetUserDevicesQuery } from "../generated/gql-operations-generated";
 import SwipeableDeviceItem from "./SwipeableDeviceItem";
 import { ThemedText } from "./ThemedText";
@@ -32,8 +26,11 @@ export default function DevicesSettings({ refreshing }: DevicesSettingsProps) {
 
   const { data: userDevicesData, loading, refetch } = useGetUserDevicesQuery();
   const {
+    setLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
+
+  useEffect(() => setLoading(loading), [loading]);
 
   const devices = userDevicesData?.userDevices || [];
   const sortedDevices = useEntitySorting(devices, "desc");
@@ -108,17 +105,6 @@ export default function DevicesSettings({ refreshing }: DevicesSettingsProps) {
       setManagingDevice(false);
     }
   };
-
-  if (loading) {
-    return (
-      <ThemedView style={styles.container}>
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>{t("devices.title")}</ThemedText>
-        </View>
-        <AppLoader text={t("common.loading")} size="medium" />
-      </ThemedView>
-    );
-  }
 
   return (
     <ThemedView style={styles.container}>

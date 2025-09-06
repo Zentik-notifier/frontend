@@ -44,18 +44,13 @@ import { AppLoader } from "./ui/AppLoader";
 export default function NotificationsSettings() {
   const push = usePushNotifications();
   const {
+    setLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const { t } = useI18n();
   const colorScheme = useColorScheme();
-  const {
-    getActionTypeFriendlyName,
-    getActionTypeIcon,
-    getDeliveryTypeFriendlyName,
-    getDeliveryTypeIcon,
-    getMediaTypeFriendlyName,
-    getMediaTypeIcon,
-  } = useNotificationUtils();
+  const { getDeliveryTypeFriendlyName, getDeliveryTypeIcon } =
+    useNotificationUtils();
   const [sending, setSending] = useState(false);
   const [createMessageMutation] = useCreateMessageMutation({
     refetchQueries: [GetNotificationsDocument],
@@ -65,6 +60,10 @@ export default function NotificationsSettings() {
   const { data: bucketsData, loading: bucketsLoading } = useGetBucketsQuery();
   const { data: webhooksData, loading: webhooksLoading } =
     useGetUserWebhooksQuery();
+
+  const loading = bucketsLoading || webhooksLoading;
+
+  useEffect(() => setLoading(loading), [loading]);
 
   // State for form fields
   const [title, setTitle] = useState(notificationFormDefaults.title);
@@ -292,20 +291,6 @@ export default function NotificationsSettings() {
 
   // Locale options for the picker - use the same locales supported by the i18n system
   const localeOptions: InlinePickerOption<string>[] = useLocaleOptions();
-
-  // Show loader while data is loading
-  if (bucketsLoading || webhooksLoading) {
-    return (
-      <View style={styles.section}>
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>
-            {t("notifications.title")}
-          </ThemedText>
-        </View>
-        <AppLoader text={t("common.loading")} size="medium" />
-      </View>
-    );
-  }
 
   return (
     <View style={styles.section}>

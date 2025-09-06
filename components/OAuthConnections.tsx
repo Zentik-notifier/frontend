@@ -12,7 +12,7 @@ import { ApiConfigService } from "@/services/api-config";
 import { useAppContext } from "@/services/app-context";
 import { getAccessToken } from "@/services/auth-storage";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
@@ -33,6 +33,7 @@ export default function OAuthConnections({
   const { t } = useI18n();
   const colorScheme = useColorScheme();
   const {
+    setLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const [connectingProvider, setConnectingProvider] = useState<string | null>(
@@ -41,6 +42,7 @@ export default function OAuthConnections({
 
   const { data: providersData, loading: providersLoading } =
     usePublicAppConfigQuery();
+  useEffect(() => setLoading(providersLoading), [providersLoading]);
 
   // Filter out any custom providers (those that might not be standard OAuth providers)
   const oauthIdentities =
@@ -93,7 +95,9 @@ export default function OAuthConnections({
         .replace(/\//g, "_")
         .replace(/=/g, "");
 
-      const url = `${baseWithPrefix}/auth/${providerId}?state=${encodeURIComponent(state)}`;
+      const url = `${baseWithPrefix}/auth/${providerId}?state=${encodeURIComponent(
+        state
+      )}`;
 
       console.log("🔗 OAuth connection URL:", url);
       console.log("🔗 Redirect URI:", redirect);
@@ -142,19 +146,6 @@ export default function OAuthConnections({
       setConnectingProvider(null);
     }
   };
-
-  // Show loader while providers are loading
-  if (providersLoading) {
-    return (
-      <View style={styles.container}>
-        <SectionHeader
-          title={t("userProfile.oauthConnections.title")}
-          iconName="connected"
-        />
-        <AppLoader text={t("common.loading")} size="medium" />
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>

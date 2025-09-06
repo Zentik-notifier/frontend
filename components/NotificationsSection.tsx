@@ -1,6 +1,6 @@
 import { NotificationFragment } from "@/generated/gql-operations-generated";
 import { useAppContext } from "@/services/app-context";
-import React from "react";
+import React, { useEffect } from "react";
 import NotificationsList from "./NotificationsList";
 
 interface NotificationsSectionProps {
@@ -10,7 +10,13 @@ interface NotificationsSectionProps {
 export default function NotificationsSection({
   notifications: notificationsParent,
 }: NotificationsSectionProps) {
-  const { notifications: notificationsFromContext } = useAppContext();
+  const {
+    notifications: notificationsFromContext,
+    setLoading,
+    notificationsLoading,
+  } = useAppContext();
+
+  useEffect(() => setLoading(notificationsLoading), [notificationsLoading]);
 
   const notifications = notificationsParent ?? notificationsFromContext;
 

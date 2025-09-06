@@ -215,7 +215,7 @@ class MediaCacheService {
     private async ensureDirectories(): Promise<void> {
         if (Platform.OS === 'web') return;
 
-        const typeDirs = ['IMAGE', 'VIDEO', 'GIF', 'AUDIO'];
+        const typeDirs = ['IMAGE', 'VIDEO', 'GIF', 'AUDIO', 'ICON'];
         for (const type of typeDirs) {
             const dirPath = `${this.cacheDir}${type}/`;
             const info = await FS.getInfoAsync(dirPath);

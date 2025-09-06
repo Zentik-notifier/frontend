@@ -25,7 +25,7 @@ interface DropdownItem {
 }
 
 export default function UserDropdown() {
-  const { logout } = useAppContext();
+  const { logout, showOnboarding } = useAppContext();
   const [isVisible, setIsVisible] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
   const [showInitials, setShowInitials] = useState(false);
@@ -35,9 +35,7 @@ export default function UserDropdown() {
   const { themeMode, setThemeMode, isDark } = useTheme();
   const { t } = useI18n();
 
-  const { data: userData } = useGetMeQuery({
-    fetchPolicy: "cache-and-network",
-  });
+  const { data: userData } = useGetMeQuery();
   const user = userData?.me;
 
   // Update initials state when avatar changes
@@ -169,6 +167,15 @@ export default function UserDropdown() {
   }
 
   const dropdownItems: DropdownItem[] = [
+    {
+      id: "gettingStarted",
+      label: t("userDropdown.gettingStarted"),
+      icon: "help-circle",
+      onPress: () => {
+        showOnboarding();
+        hideDropdown();
+      },
+    },
     {
       id: "theme",
       label: getThemeLabel(),
@@ -307,8 +314,8 @@ export default function UserDropdown() {
                       item.type === "destructive"
                         ? "#ff3b30"
                         : isDark
-                          ? "#ffffff"
-                          : "#000000"
+                        ? "#ffffff"
+                        : "#000000"
                     }
                     style={styles.itemIcon}
                   />

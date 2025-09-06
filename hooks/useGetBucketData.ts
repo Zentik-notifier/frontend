@@ -8,7 +8,6 @@ export function useGetBucketData(bucketId?: string) {
     const bucketSrcData = useGetBucketQuery({
         variables: { id: bucketId || '' },
         skip: !bucketId,
-        fetchPolicy: "cache-and-network",
     });
     const { data, loading, error } = bucketSrcData;
     const bucket = data?.bucket;

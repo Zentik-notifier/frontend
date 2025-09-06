@@ -5,7 +5,7 @@ import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   RefreshControl,
   ScrollView,
@@ -40,9 +40,17 @@ const BucketsSection: React.FC = () => {
     loading: bucketsLoading,
     refetch: refetchBuckets,
   } = useGetBucketsQuery();
-  const { notifications, refetchNotifications, notificationsLoading } =
-    useAppContext();
+  const {
+    notifications,
+    setLoading,
+    refetchNotifications,
+    notificationsLoading,
+  } = useAppContext();
   const buckets = bucketsData?.buckets ?? [];
+
+  const loading = notificationsLoading || bucketsLoading;
+
+  useEffect(() => setLoading(loading), [loading]);
 
   const bucketStats = useMemo((): BucketStats[] => {
     return buckets
@@ -83,15 +91,6 @@ const BucketsSection: React.FC = () => {
         );
       });
   }, [buckets, notifications]);
-  
-  if (bucketsLoading) {
-    return (
-      <ThemedView style={styles.container}>
-        <SectionHeader title={t("buckets.title")} iconName="buckets" />
-        <AppLoader text={t("common.loading")} size="medium" />
-      </ThemedView>
-    );
-  }
 
   const handleBucketPress = (bucketId: string) => {
     router.push(`/(mobile)/private/bucket-detail?id=${bucketId}`);

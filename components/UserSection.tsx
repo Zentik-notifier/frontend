@@ -37,6 +37,7 @@ export default function UserSection({
 }: UserSectionProps) {
   const {
     logout,
+    setLoading,
     refreshUserData,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
@@ -83,25 +84,14 @@ export default function UserSection({
       },
     });
 
-  const {
-    data: userData,
-    loading,
-    error,
-    refetch,
-  } = useGetMeQuery({
-    fetchPolicy: "cache-and-network",
-    notifyOnNetworkStatusChange: true,
-  });
+  const { data: userData, loading, error, refetch } = useGetMeQuery();
   const { data: providersData } = usePublicAppConfigQuery();
+  useEffect(() => setLoading(loading), [loading]);
 
   const user = userData?.me;
 
-  // Query per le sessioni utente per ottenere il provider della sessione corrente
-  const { data: sessionsData } = useGetUserSessionsQuery({
-    fetchPolicy: "cache-and-network",
-  });
+  const { data: sessionsData } = useGetUserSessionsQuery();
 
-  // Trova la sessione corrente (isCurrent: true)
   const currentSession = sessionsData?.getUserSessions?.find(
     (session) => session.isCurrent
   );
@@ -201,14 +191,6 @@ export default function UserSection({
       ]
     );
   };
-
-  if (loading) {
-    return (
-      <View style={styles.section}>
-        <AppLoader text={t("common.loading")} size="medium" />
-      </View>
-    );
-  }
 
   if (error && !user) {
     return (

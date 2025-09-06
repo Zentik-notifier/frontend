@@ -9,7 +9,6 @@ export function useDeviceRegistrationStatus(skip?: boolean) {
 
   const { data: userDevicesData, loading: devicesLoading } = useGetUserDevicesQuery({
     skip,
-    fetchPolicy: 'cache-and-network',
   });
 
   useEffect(() => {

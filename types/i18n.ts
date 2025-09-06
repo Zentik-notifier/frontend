@@ -786,6 +786,66 @@ export interface TranslationKey {
     invalidColorMessage: string;
     apply: string;
     chooseColor: string;
+    onboarding: {
+      title: string;
+      description: string;
+      welcome: {
+        title: string;
+        description: string;
+      };
+      bucket: {
+        title: string;
+        description: string;
+        nameLabel: string;
+        namePlaceholder: string;
+        createButton: string;
+        creating: string;
+      };
+      token: {
+        title: string;
+        description: string;
+        nameLabel: string;
+        namePlaceholder: string;
+        createButton: string;
+      };
+      notification: {
+        title: string;
+        description: string;
+        titleLabel: string;
+        titlePlaceholder: string;
+        bodyLabel: string;
+        bodyPlaceholder: string;
+        sendButton: string;
+        sending: string;
+      };
+      api: {
+        title: string;
+        description: string;
+        showExampleButton: string;
+      };
+      navigation: {
+        back: string;
+        next: string;
+        complete: string;
+      };
+      messages: {
+        bucketCreated: string;
+        bucketCreateError: string;
+        tokenCreated: string;
+        tokenCreateError: string;
+        notificationSent: string;
+        notificationSendError: string;
+        apiExample: string;
+        bucketNameRequired: string;
+        tokenNameRequired: string;
+        notificationFieldsRequired: string;
+        createBucketFirst: string;
+        tokenCopied: string;
+        useInHeader: string;
+        apiExampleCopied: string;
+        exampleCopied: string;
+      };
+    };
   };
   auth: {
     forgotPassword: {
@@ -1156,6 +1216,7 @@ export interface TranslationKey {
   userDropdown: {
     unknownUser: string;
     offlineMode: string;
+    gettingStarted: string;
     settings: string;
     administration: string;
     logout: string;
@@ -1416,7 +1477,7 @@ type Join<K, P> = K extends string | number
 type PathType<T> = {
   [K in keyof T]: T[K] extends object
   ? K extends string | number
-  ? T[K] extends Array<any>
+  ? T[K] extends any[]
   ? K
   : K | Join<K, PathType<T[K]>>
   : never

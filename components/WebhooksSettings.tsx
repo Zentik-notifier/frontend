@@ -5,11 +5,7 @@ import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
-import {
-  StyleSheet,
-  TouchableOpacity,
-  View
-} from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { useGetUserWebhooksQuery } from "../generated/gql-operations-generated";
 import SwipeableWebhookItem from "./SwipeableWebhookItem";
 import { ThemedText } from "./ThemedText";
@@ -28,6 +24,7 @@ export default function WebhooksSettings({
   const { t } = useI18n();
   const router = useRouter();
   const {
+    setLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const isOffline = isOfflineAuth || isBackendUnreachable;
@@ -37,6 +34,7 @@ export default function WebhooksSettings({
     loading,
     refetch,
   } = useGetUserWebhooksQuery();
+  useEffect(() => setLoading(loading), [loading]);
 
   const webhooks = userWebhooksData?.userWebhooks || [];
   const sortedWebhooks = useEntitySorting(webhooks, "desc");
@@ -52,17 +50,6 @@ export default function WebhooksSettings({
   const handleCreateWebhook = () => {
     router.push("/(mobile)/private/create-webhook");
   };
-
-  if (loading) {
-    return (
-      <ThemedView style={styles.container}>
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>{t("webhooks.title")}</ThemedText>
-        </View>
-        <AppLoader text={t("common.loading")} size="medium" />
-      </ThemedView>
-    );
-  }
 
   return (
     <ThemedView style={styles.container}>

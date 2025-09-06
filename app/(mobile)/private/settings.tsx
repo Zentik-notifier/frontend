@@ -21,7 +21,7 @@ interface SettingsOption {
 }
 
 export default function SettingsScreen() {
-  const { userId } = useAppContext();
+  const { userId, showOnboarding, setLoading, isLoading } = useAppContext();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
@@ -97,6 +97,18 @@ export default function SettingsScreen() {
     },
   ];
 
+  const handleOnboardingPress = () => {
+    showOnboarding();
+  };
+
+  const handleTestLoading = () => {
+    setLoading(true);
+    // Simula un'operazione che richiede tempo
+    setTimeout(() => {
+      setLoading(false);
+    }, 3000);
+  };
+
   return (
     <ThemedView style={styles.container}>
       <ScrollView
@@ -149,6 +161,80 @@ export default function SettingsScreen() {
               <Icon name="chevron" size="md" color="secondary" />
             </TouchableOpacity>
           ))}
+
+          {/* Onboarding Option */}
+          <TouchableOpacity
+            style={[
+              styles.optionCard,
+              {
+                backgroundColor:
+                  Colors[colorScheme ?? "light"].backgroundCard,
+                borderColor: Colors[colorScheme ?? "light"].border,
+              },
+            ]}
+            onPress={handleOnboardingPress}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[
+                styles.optionIconContainer,
+                { backgroundColor: "#8B5CF615" }, // Purple with opacity
+              ]}
+            >
+              <Icon
+                name="app"
+                size="lg"
+                color="#8B5CF6"
+              />
+            </View>
+            <View style={styles.optionTextContainer}>
+              <ThemedText style={styles.optionTitle}>
+                {t("common.onboarding.title")}
+              </ThemedText>
+              <ThemedText style={styles.optionDescription}>
+                {t("common.onboarding.description")}
+              </ThemedText>
+            </View>
+            <Icon name="chevron" size="md" color="secondary" />
+          </TouchableOpacity>
+
+          {/* Test Loading Option */}
+          <TouchableOpacity
+            style={[
+              styles.optionCard,
+              {
+                backgroundColor:
+                  Colors[colorScheme ?? "light"].backgroundCard,
+                borderColor: Colors[colorScheme ?? "light"].border,
+                opacity: isLoading ? 0.7 : 1,
+              },
+            ]}
+            onPress={handleTestLoading}
+            activeOpacity={0.7}
+            disabled={isLoading}
+          >
+            <View
+              style={[
+                styles.optionIconContainer,
+                { backgroundColor: isLoading ? "#6B728015" : "#F59E0B15" }, // Gray when loading, Amber when not
+              ]}
+            >
+              <Icon
+                name="refresh"
+                size="lg"
+                color={isLoading ? "#6B7280" : "#F59E0B"}
+              />
+            </View>
+            <View style={styles.optionTextContainer}>
+              <ThemedText style={styles.optionTitle}>
+                {isLoading ? "Loading..." : "Test Loading"}
+              </ThemedText>
+              <ThemedText style={styles.optionDescription}>
+                {isLoading ? "Loading in progress..." : "Test the generic loading indicator"}
+              </ThemedText>
+            </View>
+            <Icon name="chevron" size="md" color="secondary" />
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </ThemedView>

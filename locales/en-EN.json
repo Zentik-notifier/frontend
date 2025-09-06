@@ -761,6 +761,66 @@
     "success": "Success",
     "error": "Error",
     "ok": "OK",
+    "onboarding": {
+      "title": "Getting Started Guide",
+      "description": "Review the guide to get started with Zentik",
+      "welcome": {
+        "title": "Welcome to Zentik!",
+        "description": "We'll guide you through the first steps to start using Zentik to manage your notifications."
+      },
+      "bucket": {
+        "title": "Create your first bucket",
+        "description": "Buckets allow you to organize your notifications by category. Let's create your first bucket together.",
+        "nameLabel": "Bucket name:",
+        "namePlaceholder": "E.g: Work",
+        "createButton": "Create Bucket",
+        "creating": "Creating..."
+      },
+      "token": {
+        "title": "Generate an access token",
+        "description": "Access tokens allow you to send notifications via the REST API. Let's generate a token for you.",
+        "nameLabel": "Token name:",
+        "namePlaceholder": "E.g: Production token",
+        "createButton": "Generate Token"
+      },
+      "notification": {
+        "title": "Send your first notification",
+        "description": "Now we'll send a test notification to verify that everything works correctly.",
+        "titleLabel": "Notification title:",
+        "titlePlaceholder": "Notification title",
+        "bodyLabel": "Notification body:",
+        "bodyPlaceholder": "Notification body",
+        "sendButton": "Send Notification",
+        "sending": "Sending..."
+      },
+      "api": {
+        "title": "Use the REST API",
+        "description": "Here's how you can send notifications via the REST API using the generated token.",
+        "showExampleButton": "Show API Example"
+      },
+      "navigation": {
+        "back": "Back",
+        "next": "Next",
+        "complete": "Complete"
+      },
+      "messages": {
+        "bucketCreated": "Bucket created successfully!",
+        "bucketCreateError": "Unable to create bucket. Please try again.",
+        "tokenCreated": "Token created!",
+        "tokenCreateError": "Unable to create token. Please try again.",
+        "notificationSent": "Notification sent successfully!",
+        "notificationSendError": "Unable to send notification. Please try again.",
+        "apiExample": "REST API Example",
+        "bucketNameRequired": "Enter a name for the bucket",
+        "tokenNameRequired": "Enter a name for the token",
+        "notificationFieldsRequired": "Enter notification title and body",
+        "createBucketFirst": "Create a bucket first",
+        "tokenCopied": "Your access token has been created and copied to clipboard:",
+        "useInHeader": "Use it in the Authorization header: Bearer",
+        "apiExampleCopied": "Here's an example of how to send a notification via REST API:",
+        "exampleCopied": "The example has been copied to clipboard."
+      }
+    },
     "close": "Close",
     "loading": "Loading...",
     "exporting": "Exporting...",
@@ -1157,6 +1217,7 @@
   "userDropdown": {
     "unknownUser": "Unknown User",
     "offlineMode": "Offline Mode",
+    "gettingStarted": "Getting Started",
     "settings": "Settings",
     "administration": "Administration",
     "logout": "Logout",

@@ -4,7 +4,13 @@ import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import NotificationFiltersModal from "./NotificationFiltersModal";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
@@ -30,36 +36,40 @@ export default function NotificationFilters({
   const { t } = useI18n();
   const {
     userSettings: { settings, setNotificationFilters },
-    notificationsLoading,
   } = useAppContext();
   const filters = settings.notificationFilters;
 
   const [showFiltersModal, setShowFiltersModal] = useState(false);
-  const [internalSearchQuery, setInternalSearchQuery] = useState(filters.searchQuery || '');
+  const [internalSearchQuery, setInternalSearchQuery] = useState(
+    filters.searchQuery || ""
+  );
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
 
   // Sincronizza lo stato interno con il context esterno solo se non si sta digitando
   useEffect(() => {
     if (!isTypingRef.current) {
-      setInternalSearchQuery(filters.searchQuery || '');
+      setInternalSearchQuery(filters.searchQuery || "");
     }
   }, [filters.searchQuery]);
 
-  const handleSearchChange = useCallback((searchQuery: string) => {
-    isTypingRef.current = true;
-    
-    setInternalSearchQuery(searchQuery);
-    
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-    
-    debounceTimeoutRef.current = setTimeout(() => {
-      setNotificationFilters({ searchQuery });
-      isTypingRef.current = false;
-    }, 150);
-  }, [setNotificationFilters]);
+  const handleSearchChange = useCallback(
+    (searchQuery: string) => {
+      isTypingRef.current = true;
+
+      setInternalSearchQuery(searchQuery);
+
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+
+      debounceTimeoutRef.current = setTimeout(() => {
+        setNotificationFilters({ searchQuery });
+        isTypingRef.current = false;
+      }, 150);
+    },
+    [setNotificationFilters]
+  );
 
   // Cleanup del timeout quando il componente viene smontato
   useEffect(() => {
@@ -155,19 +165,17 @@ export default function NotificationFilters({
             name={isMultiSelectionMode ? "close" : "checkmark-circle-outline"}
             size={16}
             color={
-              isMultiSelectionMode
-                ? "white"
-                : Colors[colorScheme].textSecondary
+              isMultiSelectionMode ? "white" : Colors[colorScheme].textSecondary
             }
           />
           {isMultiSelectionMode && selectedCount > 0 && (
-            <View
-              style={[
-                styles.selectionBadge,
-                { backgroundColor: "white" },
-              ]}
-            >
-              <ThemedText style={[styles.selectionBadgeText, { color: Colors[colorScheme].tint }]}>
+            <View style={[styles.selectionBadge, { backgroundColor: "white" }]}>
+              <ThemedText
+                style={[
+                  styles.selectionBadgeText,
+                  { color: Colors[colorScheme].tint },
+                ]}
+              >
                 {selectedCount}
               </ThemedText>
             </View>
@@ -188,28 +196,16 @@ export default function NotificationFilters({
           ]}
           onPress={() => setShowFiltersModal(true)}
           activeOpacity={0.7}
-          disabled={notificationsLoading}
         >
-          {notificationsLoading ? (
-            <ActivityIndicator
-              size="small"
-              color={
-                activeFiltersCount > 0
-                  ? Colors[colorScheme].tint
-                  : Colors[colorScheme].textSecondary
-              }
-            />
-          ) : (
-            <Ionicons
-              name="filter"
-              size={16}
-              color={
-                activeFiltersCount > 0
-                  ? Colors[colorScheme].tint
-                  : Colors[colorScheme].textSecondary
-              }
-            />
-          )}
+          <Ionicons
+            name="filter"
+            size={16}
+            color={
+              activeFiltersCount > 0
+                ? Colors[colorScheme].tint
+                : Colors[colorScheme].textSecondary
+            }
+          />
           {activeFiltersCount > 0 && (
             <ThemedView
               style={[

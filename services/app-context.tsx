@@ -11,6 +11,7 @@ import {
   useLoginMutation,
   useLogoutMutation,
   useRegisterMutation,
+  useGetMeLazyQuery,
 } from "@/generated/gql-operations-generated";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -25,8 +26,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { Alert, AppState } from "react-native";
-import { useGetMeLazyQuery } from "../generated/gql-operations-generated";
+import { Alert, AppState, ActivityIndicator, View, StyleSheet } from "react-native";
 import {
   clearTokens,
   getAccessToken,
@@ -37,6 +37,7 @@ import {
   saveTokens,
 } from "./auth-storage";
 import { useUserSettings } from "./user-settings";
+import OnboardingModal from "../components/OnboardingModal";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -51,11 +52,17 @@ interface AppContextProps {
   ) => Promise<RegisterResult>;
   completeAuth: (accessToken: string, refreshToken: string) => Promise<boolean>;
   userId: string | null;
+  lastUserId: string | null;
   setUserId: (user: string | null) => void;
   refreshUserData: () => Promise<string | null>;
   openLoginModal: () => void;
   isLoginModalOpen: boolean;
   closeLoginModal: () => void;
+  showOnboarding: () => void;
+  isOnboardingOpen: boolean;
+  hideOnboarding: () => void;
+  setLoading: (loading: boolean) => void;
+  isLoading: boolean;
   userSettings: ReturnType<typeof useUserSettings>;
   connectionStatus: ReturnType<typeof useConnectionStatus>;
   deviceToken: string | null;
@@ -70,6 +77,7 @@ const AppContext = createContext<AppContextProps | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [lastUserId, setLastUserId] = useState<string | null>(null);
   const apolloClient = useApolloClient();
   const push = usePushNotifications();
   const { t } = useI18n();
@@ -82,8 +90,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const userSettings = useUserSettings();
 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Enable GQL subscriptions on app mount (can be disabled elsewhere if needed)
   useEffect(() => {
     subscriptionsEnabledVar(true);
   }, []);
@@ -182,6 +191,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await savePushNotificationsInitialized(false);
       }
       await saveLastUserId(newUserId);
+      setLastUserId(newUserId);
 
       await push.initialize();
       connectionStatus.refreshDeviceRegistration();
@@ -283,6 +293,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const funct = async () => {
       const accessToken = await getAccessToken();
       const refreshToken = await getRefreshToken();
+      const lastUserId = await getLastUserId();
+      setLastUserId(lastUserId);
       if (accessToken && refreshToken) {
         await completeAuth(accessToken, refreshToken);
       } else {
@@ -390,6 +402,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         openLoginModal: () => setIsLoginModalOpen(true),
         isLoginModalOpen,
         closeLoginModal: () => setIsLoginModalOpen(false),
+        showOnboarding: () => setIsOnboardingOpen(true),
+        isOnboardingOpen,
+        hideOnboarding: () => setIsOnboardingOpen(false),
+        setLoading: setIsLoading,
+        isLoading,
         userSettings,
         connectionStatus,
         deviceToken: push.deviceToken,
@@ -397,9 +414,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         notifications,
         notificationsLoading,
         isInitializing,
+        lastUserId,
       }}
     >
       {children}
+      <OnboardingModal
+        visible={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+      />
+      
+      {/* Global Loading Indicator - Bottom Left */}
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="small" color="#0a7ea4" />
+        </View>
+      )}
     </AppContext.Provider>
   );
 }
@@ -409,3 +438,22 @@ export function useAppContext() {
   if (!ctx) throw new Error("useAppContext must be used within AppProvider");
   return ctx;
 }
+
+const styles = StyleSheet.create({
+  loadingOverlay: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    borderRadius: 20,
+    padding: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+});
