@@ -8,6 +8,7 @@ import {
   useBucketCreatedSubscription,
   useBucketDeletedSubscription,
   useBucketUpdatedSubscription,
+  useNotificationCreatedSubscription,
   useLoginMutation,
   useLogoutMutation,
   useRegisterMutation,
@@ -26,7 +27,13 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { Alert, AppState, ActivityIndicator, View, StyleSheet } from "react-native";
+import {
+  Alert,
+  AppState,
+  ActivityIndicator,
+  View,
+  StyleSheet,
+} from "react-native";
 import {
   clearTokens,
   getAccessToken,
@@ -353,6 +360,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // GraphQL Subscriptions
+  const notificationCreatedSubscription = useNotificationCreatedSubscription({
+    skip: !userId,
+    onData: async ({ data }) => {
+      if (data?.data?.notificationCreated) {
+        await refetchNotifications();
+      }
+    },
+    onError: (error) => {
+      console.error("❌ Notification created subscription error:", error);
+    },
+  });
+
   const bucketUpdatedSubscription = useBucketUpdatedSubscription({
     skip: !userId,
     onData: async ({ data }) => {
@@ -422,7 +441,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         visible={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
       />
-      
+
       {/* Global Loading Indicator - Bottom Left */}
       {isLoading && (
         <View style={styles.loadingOverlay}>

@@ -2,19 +2,23 @@ import { Colors } from "@/constants/Colors";
 import {
   CreateBucketDto,
   CreateMessageDto,
+  CreateAccessTokenDto,
   NotificationDeliveryType,
   useCreateBucketMutation,
   useCreateMessageMutation,
+  useCreateAccessTokenMutation,
   useGetBucketsQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useColorScheme } from "@/hooks/useTheme";
-import { ApiConfigService } from "@/services/api-config";
 import * as Clipboard from "expo-clipboard";
+import { ApiConfigService } from "@/services/api-config";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Alert,
+  Linking,
   Modal,
   ScrollView,
   StyleSheet,
@@ -39,18 +43,43 @@ interface OnboardingStep {
   completed: boolean;
 }
 
-export default function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
+export default function OnboardingModal({
+  visible,
+  onClose,
+}: OnboardingModalProps) {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
+  const { registerDevice } = usePushNotifications();
   const [currentStep, setCurrentStep] = useState(0);
   const [bucketName, setBucketName] = useState("My First Bucket");
   const [tokenName, setTokenName] = useState("Test Token");
-  const [notificationTitle, setNotificationTitle] = useState("Welcome to Zentik!");
-  const [notificationBody, setNotificationBody] = useState("This is your first test notification.");
-  
-  const [createBucketMutation, { loading: creatingBucket }] = useCreateBucketMutation();
-  const [createMessageMutation, { loading: sendingMessage }] = useCreateMessageMutation();
+  const [notificationTitle, setNotificationTitle] =
+    useState("Welcome to Zentik!");
+  const [notificationBody, setNotificationBody] = useState(
+    "This is your first test notification."
+  );
+  const [createdToken, setCreatedToken] = useState<string | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  const [createBucketMutation, { loading: creatingBucket }] =
+    useCreateBucketMutation();
+  const [createMessageMutation, { loading: sendingMessage }] =
+    useCreateMessageMutation();
+  const [createAccessTokenMutation, { loading: creatingToken }] =
+    useCreateAccessTokenMutation();
   const { data: bucketsData, refetch: refetchBuckets } = useGetBucketsQuery();
+
+  // Reset modal when it opens
+  useEffect(() => {
+    if (visible) {
+      setCurrentStep(0);
+      setBucketName("My First Bucket");
+      setTokenName("Test Token");
+      setNotificationTitle("Welcome to Zentik!");
+      setNotificationBody("This is your first test notification.");
+      setCreatedToken(null);
+    }
+  }, [visible]);
 
   const steps: OnboardingStep[] = [
     {
@@ -92,7 +121,10 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
 
   const handleCreateBucket = async () => {
     if (!bucketName.trim()) {
-      Alert.alert(t("common.error"), t("common.onboarding.messages.bucketNameRequired"));
+      Alert.alert(
+        t("common.error"),
+        t("common.onboarding.messages.bucketNameRequired")
+      );
       return;
     }
 
@@ -108,49 +140,80 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
       });
 
       await refetchBuckets();
-      Alert.alert(t("common.success"), t("common.onboarding.messages.bucketCreated"));
       setCurrentStep(2);
     } catch (error) {
       console.error("Error creating bucket:", error);
-      Alert.alert(t("common.error"), t("common.onboarding.messages.bucketCreateError"));
+      Alert.alert(
+        t("common.error"),
+        t("common.onboarding.messages.bucketCreateError")
+      );
     }
   };
 
   const handleCreateToken = async () => {
     if (!tokenName.trim()) {
-      Alert.alert(t("common.error"), t("common.onboarding.messages.tokenNameRequired"));
+      Alert.alert(
+        t("common.error"),
+        t("common.onboarding.messages.tokenNameRequired")
+      );
       return;
     }
 
     try {
-      // Simuliamo la creazione del token (in realtà dovremmo chiamare l'API)
-      const mockToken = "zt_" + Math.random().toString(36).substring(2, 15);
-      await Clipboard.setStringAsync(mockToken);
-      
-      Alert.alert(
-        t("common.onboarding.messages.tokenCreated"),
-        `${t("common.onboarding.messages.tokenCopied")}\n\n${mockToken}\n\n${t("common.onboarding.messages.useInHeader")} ${mockToken}`,
-        [{ text: t("common.ok"), onPress: () => setCurrentStep(3) }]
-      );
+      const tokenData: CreateAccessTokenDto = {
+        name: tokenName.trim(),
+        expiresAt: null, // No expiration for onboarding token
+        scopes: ["messages:create", "notifications:read"], // Basic scopes for onboarding
+      };
+
+      const result = await createAccessTokenMutation({
+        variables: { input: tokenData },
+      });
+
+      if (result.data?.createAccessToken) {
+        const token = result.data.createAccessToken.token;
+        setCreatedToken(token);
+        await Clipboard.setStringAsync(token);
+
+        Alert.alert(
+          t("common.onboarding.messages.tokenCreated"),
+          `${t("common.onboarding.messages.tokenCopied")}\n\n${token}\n\n${t(
+            "common.onboarding.messages.useInHeader"
+          )} ${token}`,
+          [{ text: t("common.ok"), onPress: () => setCurrentStep(3) }]
+        );
+      }
     } catch (error) {
       console.error("Error creating token:", error);
-      Alert.alert(t("common.error"), t("common.onboarding.messages.tokenCreateError"));
+      Alert.alert(
+        t("common.error"),
+        t("common.onboarding.messages.tokenCreateError")
+      );
     }
   };
 
   const handleSendNotification = async () => {
     if (!notificationTitle.trim() || !notificationBody.trim()) {
-      Alert.alert(t("common.error"), t("common.onboarding.messages.notificationFieldsRequired"));
+      Alert.alert(
+        t("common.error"),
+        t("common.onboarding.messages.notificationFieldsRequired")
+      );
       return;
     }
 
     const buckets = bucketsData?.buckets || [];
     if (buckets.length === 0) {
-      Alert.alert(t("common.error"), t("common.onboarding.messages.createBucketFirst"));
+      Alert.alert(
+        t("common.error"),
+        t("common.onboarding.messages.createBucketFirst")
+      );
       return;
     }
 
     try {
+      // Register device before sending notification
+      await registerDevice();
+
       const messageData: CreateMessageDto = {
         title: notificationTitle.trim(),
         body: notificationBody.trim(),
@@ -162,46 +225,43 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
         variables: { input: messageData },
       });
 
-      Alert.alert(t("common.success"), t("common.onboarding.messages.notificationSent"));
       setCurrentStep(4);
     } catch (error) {
       console.error("Error sending notification:", error);
-      Alert.alert(t("common.error"), t("common.onboarding.messages.notificationSendError"));
+      Alert.alert(
+        t("common.error"),
+        t("common.onboarding.messages.notificationSendError")
+      );
     }
   };
 
-  const handleShowApiExample = async () => {
+  const buildMessagePayload = () => {
     const buckets = bucketsData?.buckets || [];
-    if (buckets.length === 0) {
-      Alert.alert(t("common.error"), t("common.onboarding.messages.createBucketFirst"));
-      return;
-    }
-
-    const apiBase = ApiConfigService.getApiBaseWithPrefix();
-    const examplePayload = {
-      title: "API Notification",
-      body: "This notification was sent via REST API",
-      bucketId: buckets[0].id,
+    return {
+      title: notificationTitle.trim(),
+      body: notificationBody.trim(),
+      bucketId: buckets[0]?.id,
       deliveryType: "NORMAL",
     };
+  };
 
-    const curlExample = `curl -X POST "${apiBase}/messages" \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \\
-  -d '${JSON.stringify(examplePayload, null, 2)}'`;
-
-    await Clipboard.setStringAsync(curlExample);
-    
-    Alert.alert(
-      t("common.onboarding.messages.apiExample"),
-      `${t("common.onboarding.messages.apiExampleCopied")}\n\n${curlExample}\n\n${t("common.onboarding.messages.exampleCopied")}`,
-      [{ text: t("common.ok"), onPress: () => setCurrentStep(5) }]
-    );
+  const copyJsonToClipboard = async () => {
+    try {
+      const jsonString = JSON.stringify(buildMessagePayload(), null, 2);
+      await Clipboard.setStringAsync(jsonString);
+      Alert.alert(t("common.success"), t("common.onboarding.preview.copied"));
+    } catch (error) {
+      Alert.alert(t("common.error"), "Failed to copy JSON to clipboard");
+    }
   };
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
+      // Scroll to top when changing step
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }, 100);
     } else {
       onClose();
     }
@@ -210,6 +270,10 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
   const handlePrevious = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
+      // Scroll to top when changing step
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }, 100);
     }
   };
 
@@ -220,7 +284,12 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
       case "welcome":
         return (
           <View style={styles.stepContent}>
-            <Icon name="app" size="xl" color="primary" style={styles.stepIcon} />
+            <Icon
+              name="app"
+              size="xl"
+              color="primary"
+              style={styles.stepIcon}
+            />
             <ThemedText style={styles.stepDescription}>
               {t("common.onboarding.welcome.description")}
             </ThemedText>
@@ -230,38 +299,50 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
       case "bucket":
         return (
           <View style={styles.stepContent}>
-            <Icon name="folder" size="xl" color="primary" style={styles.stepIcon} />
+            <Icon
+              name="folder"
+              size="xl"
+              color="primary"
+              style={styles.stepIcon}
+            />
             <ThemedText style={styles.stepDescription}>
               {t("common.onboarding.bucket.description")}
             </ThemedText>
             <View style={styles.inputContainer}>
-              <ThemedText style={styles.inputLabel}>{t("common.onboarding.bucket.nameLabel")}</ThemedText>
+              <ThemedText style={styles.inputLabel}>
+                {t("common.onboarding.bucket.nameLabel")}
+              </ThemedText>
               <TextInput
                 style={[
                   styles.textInput,
-                  { 
-                    backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
+                  {
+                    backgroundColor:
+                      Colors[colorScheme ?? "light"].backgroundCard,
                     color: Colors[colorScheme ?? "light"].text,
                     borderColor: Colors[colorScheme ?? "light"].border,
-                  }
+                  },
                 ]}
                 value={bucketName}
                 onChangeText={setBucketName}
                 placeholder={t("common.onboarding.bucket.namePlaceholder")}
-                placeholderTextColor={Colors[colorScheme ?? "light"].textSecondary}
+                placeholderTextColor={
+                  Colors[colorScheme ?? "light"].textSecondary
+                }
               />
             </View>
             <TouchableOpacity
               style={[
                 styles.actionButton,
                 { backgroundColor: Colors[colorScheme ?? "light"].tint },
-                creatingBucket && styles.disabledButton
+                creatingBucket && styles.disabledButton,
               ]}
               onPress={handleCreateBucket}
               disabled={creatingBucket}
             >
               <ThemedText style={styles.actionButtonText}>
-                {creatingBucket ? t("common.onboarding.bucket.creating") : t("common.onboarding.bucket.createButton")}
+                {creatingBucket
+                  ? t("common.onboarding.bucket.creating")
+                  : t("common.onboarding.bucket.createButton")}
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -270,35 +351,51 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
       case "token":
         return (
           <View style={styles.stepContent}>
-            <Icon name="key" size="xl" color="primary" style={styles.stepIcon} />
+            <Icon
+              name="key"
+              size="xl"
+              color="primary"
+              style={styles.stepIcon}
+            />
             <ThemedText style={styles.stepDescription}>
               {t("common.onboarding.token.description")}
             </ThemedText>
             <View style={styles.inputContainer}>
-              <ThemedText style={styles.inputLabel}>{t("common.onboarding.token.nameLabel")}</ThemedText>
+              <ThemedText style={styles.inputLabel}>
+                {t("common.onboarding.token.nameLabel")}
+              </ThemedText>
               <TextInput
                 style={[
                   styles.textInput,
-                  { 
-                    backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
+                  {
+                    backgroundColor:
+                      Colors[colorScheme ?? "light"].backgroundCard,
                     color: Colors[colorScheme ?? "light"].text,
                     borderColor: Colors[colorScheme ?? "light"].border,
-                  }
+                  },
                 ]}
                 value={tokenName}
                 onChangeText={setTokenName}
                 placeholder={t("common.onboarding.token.namePlaceholder")}
-                placeholderTextColor={Colors[colorScheme ?? "light"].textSecondary}
+                placeholderTextColor={
+                  Colors[colorScheme ?? "light"].textSecondary
+                }
               />
             </View>
             <TouchableOpacity
               style={[
                 styles.actionButton,
-                { backgroundColor: Colors[colorScheme ?? "light"].tint }
+                { backgroundColor: Colors[colorScheme ?? "light"].tint },
+                creatingToken && styles.disabledButton,
               ]}
               onPress={handleCreateToken}
+              disabled={creatingToken}
             >
-              <ThemedText style={styles.actionButtonText}>{t("common.onboarding.token.createButton")}</ThemedText>
+              <ThemedText style={styles.actionButtonText}>
+                {creatingToken
+                  ? t("common.onboarding.token.creating")
+                  : t("common.onboarding.token.createButton")}
+              </ThemedText>
             </TouchableOpacity>
           </View>
         );
@@ -306,43 +403,62 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
       case "notification":
         return (
           <View style={styles.stepContent}>
-            <Icon name="notifications" size="xl" color="primary" style={styles.stepIcon} />
+            <Icon
+              name="notifications"
+              size="xl"
+              color="primary"
+              style={styles.stepIcon}
+            />
             <ThemedText style={styles.stepDescription}>
               {t("common.onboarding.notification.description")}
             </ThemedText>
             <View style={styles.inputContainer}>
-              <ThemedText style={styles.inputLabel}>{t("common.onboarding.notification.titleLabel")}</ThemedText>
+              <ThemedText style={styles.inputLabel}>
+                {t("common.onboarding.notification.titleLabel")}
+              </ThemedText>
               <TextInput
                 style={[
                   styles.textInput,
-                  { 
-                    backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
+                  {
+                    backgroundColor:
+                      Colors[colorScheme ?? "light"].backgroundCard,
                     color: Colors[colorScheme ?? "light"].text,
                     borderColor: Colors[colorScheme ?? "light"].border,
-                  }
+                  },
                 ]}
                 value={notificationTitle}
                 onChangeText={setNotificationTitle}
-                placeholder={t("common.onboarding.notification.titlePlaceholder")}
-                placeholderTextColor={Colors[colorScheme ?? "light"].textSecondary}
+                placeholder={t(
+                  "common.onboarding.notification.titlePlaceholder"
+                )}
+                placeholderTextColor={
+                  Colors[colorScheme ?? "light"].textSecondary
+                }
               />
             </View>
             <View style={styles.inputContainer}>
-              <ThemedText style={styles.inputLabel}>{t("common.onboarding.notification.bodyLabel")}</ThemedText>
+              <ThemedText style={styles.inputLabel}>
+                {t("common.onboarding.notification.bodyLabel")}
+              </ThemedText>
               <TextInput
                 style={[
                   styles.textInput,
                   styles.multilineInput,
-                  { 
-                    backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
+                  {
+                    backgroundColor:
+                      Colors[colorScheme ?? "light"].backgroundCard,
                     color: Colors[colorScheme ?? "light"].text,
                     borderColor: Colors[colorScheme ?? "light"].border,
-                  }
+                  },
                 ]}
                 value={notificationBody}
                 onChangeText={setNotificationBody}
-                placeholder={t("common.onboarding.notification.bodyPlaceholder")}
-                placeholderTextColor={Colors[colorScheme ?? "light"].textSecondary}
+                placeholder={t(
+                  "common.onboarding.notification.bodyPlaceholder"
+                )}
+                placeholderTextColor={
+                  Colors[colorScheme ?? "light"].textSecondary
+                }
                 multiline
                 numberOfLines={3}
               />
@@ -351,13 +467,15 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
               style={[
                 styles.actionButton,
                 { backgroundColor: Colors[colorScheme ?? "light"].tint },
-                sendingMessage && styles.disabledButton
+                sendingMessage && styles.disabledButton,
               ]}
               onPress={handleSendNotification}
               disabled={sendingMessage}
             >
               <ThemedText style={styles.actionButtonText}>
-                {sendingMessage ? t("common.onboarding.notification.sending") : t("common.onboarding.notification.sendButton")}
+                {sendingMessage
+                  ? t("common.onboarding.notification.sending")
+                  : t("common.onboarding.notification.sendButton")}
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -366,19 +484,87 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
       case "api":
         return (
           <View style={styles.stepContent}>
-            <Icon name="code" size="xl" color="primary" style={styles.stepIcon} />
+            <Icon
+              name="code"
+              size="xl"
+              color="primary"
+              style={styles.stepIcon}
+            />
             <ThemedText style={styles.stepDescription}>
               {t("common.onboarding.api.description")}
             </ThemedText>
-            <TouchableOpacity
+            
+            <View style={styles.documentationContainer}>
+              <ThemedText style={styles.documentationText}>
+                {t("common.onboarding.api.documentationInfo")}{" "}
+                <ThemedText
+                  style={styles.documentationLinkText}
+                  onPress={() => {
+                    Linking.openURL(t("common.onboarding.api.documentationLink"));
+                  }}
+                >
+                  {t("common.onboarding.api.documentationLink")}
+                </ThemedText>
+              </ThemedText>
+            </View>
+
+            {/* Endpoint Information */}
+            <View style={styles.endpointContainer}>
+              <ThemedText style={styles.endpointValue}>
+                POST {ApiConfigService.getApiBaseWithPrefix()}/messages
+              </ThemedText>
+            </View>
+
+            {/* JSON Preview - Always Visible */}
+            <ThemedView
               style={[
-                styles.actionButton,
-                { backgroundColor: Colors[colorScheme ?? "light"].tint }
+                styles.jsonPreviewContainer,
+                {
+                  backgroundColor:
+                    Colors[colorScheme ?? "light"].backgroundCard,
+                },
               ]}
-              onPress={handleShowApiExample}
             >
-              <ThemedText style={styles.actionButtonText}>{t("common.onboarding.api.showExampleButton")}</ThemedText>
-            </TouchableOpacity>
+              <ScrollView
+                style={[
+                  styles.jsonPreviewScrollView,
+                  {
+                    backgroundColor:
+                      Colors[colorScheme ?? "light"].backgroundSecondary,
+                    borderColor: Colors[colorScheme ?? "light"].border,
+                  },
+                ]}
+              >
+                <ThemedText
+                  style={[
+                    styles.jsonPreviewText,
+                    { color: Colors[colorScheme ?? "light"].text },
+                  ]}
+                >
+                  {JSON.stringify(buildMessagePayload(), null, 2)}
+                </ThemedText>
+              </ScrollView>
+
+              <TouchableOpacity
+                style={[
+                  styles.copyButton,
+                  {
+                    backgroundColor:
+                      Colors[colorScheme ?? "light"].backgroundSecondary,
+                  },
+                ]}
+                onPress={copyJsonToClipboard}
+              >
+                <Icon
+                  name="copy"
+                  size="sm"
+                  color={Colors[colorScheme ?? "light"].tint}
+                />
+                <ThemedText style={styles.copyButtonText}>
+                  {t("common.onboarding.preview.copy")}
+                </ThemedText>
+              </TouchableOpacity>
+            </ThemedView>
           </View>
         );
 
@@ -397,10 +583,10 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
       <ThemedView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons 
-              name="close" 
-              size={24} 
-              color={Colors[colorScheme ?? "light"].text} 
+            <Ionicons
+              name="close"
+              size={24}
+              color={Colors[colorScheme ?? "light"].text}
             />
           </TouchableOpacity>
           <ThemedText style={styles.headerTitle}>
@@ -417,24 +603,32 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
                 style={[
                   styles.progressDot,
                   {
-                    backgroundColor: index <= currentStep 
-                      ? Colors[colorScheme ?? "light"].tint 
-                      : Colors[colorScheme ?? "light"].border,
-                  }
+                    backgroundColor:
+                      index <= currentStep
+                        ? Colors[colorScheme ?? "light"].tint
+                        : Colors[colorScheme ?? "light"].border,
+                  },
                 ]}
               />
             ))}
           </View>
           <ThemedText style={styles.progressText}>
-            Passo {currentStep + 1} di {steps.length}
+            {t("common.onboarding.navigation.step", {
+              current: currentStep + 1,
+              total: steps.length,
+            })}
           </ThemedText>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
           <ThemedText style={styles.stepTitle}>
-            {steps[currentStep].title}
+            {steps[currentStep]?.title}
           </ThemedText>
-          
+
           {renderStepContent()}
         </ScrollView>
 
@@ -444,24 +638,28 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
               style={[
                 styles.navigationButton,
                 styles.previousButton,
-                { borderColor: Colors[colorScheme ?? "light"].border }
+                { borderColor: Colors[colorScheme ?? "light"].border },
               ]}
               onPress={handlePrevious}
             >
-              <ThemedText style={styles.previousButtonText}>{t("common.onboarding.navigation.back")}</ThemedText>
+              <ThemedText style={styles.previousButtonText}>
+                {t("common.onboarding.navigation.back")}
+              </ThemedText>
             </TouchableOpacity>
           )}
-          
+
           <TouchableOpacity
             style={[
               styles.navigationButton,
               styles.nextButton,
-              { backgroundColor: Colors[colorScheme ?? "light"].tint }
+              { backgroundColor: Colors[colorScheme ?? "light"].tint },
             ]}
             onPress={handleNext}
           >
             <ThemedText style={styles.nextButtonText}>
-              {currentStep === steps.length - 1 ? t("common.onboarding.navigation.complete") : t("common.onboarding.navigation.next")}
+              {currentStep === steps.length - 1
+                ? t("common.onboarding.navigation.complete")
+                : t("common.onboarding.navigation.next")}
             </ThemedText>
           </TouchableOpacity>
         </View>
@@ -469,7 +667,6 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
     </Modal>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -596,6 +793,93 @@ const styles = StyleSheet.create({
   nextButtonText: {
     color: "white",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  endpointContainer: {
+    marginVertical: 16,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+  },
+  endpointLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  endpointValue: {
+    fontSize: 12,
+    fontFamily: "monospace",
+    opacity: 0.8,
+  },
+  documentationContainer: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  documentationLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  documentationLink: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+  },
+  documentationText: {
+    fontSize: 14,
+  },
+  documentationLinkText: {
+    fontSize: 12,
+    color: "#007AFF",
+    textDecorationLine: "underline",
+  },
+  jsonPreviewContainer: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  previewHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  previewHeaderContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  previewHeaderTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  previewDescription: {
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  jsonPreviewScrollView: {
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+    maxHeight: 200,
+  },
+  jsonPreviewText: {
+    fontFamily: "monospace",
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  copyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  copyButtonText: {
+    fontSize: 14,
     fontWeight: "600",
   },
 });

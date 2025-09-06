@@ -275,7 +275,11 @@ export default function NotificationDetailScreen() {
             {/* Bucket Info */}
             <View style={styles.bucketSection}>
               <View style={styles.bucketInfo}>
-                <BucketIcon bucketId={message?.bucket?.id} size="xxl" />
+                <BucketIcon
+                  bucketId={message?.bucket?.id}
+                  size="xxl"
+                  noRouting
+                />
                 <ThemedText style={styles.bucketName}>{bucketName}</ThemedText>
               </View>
               <View style={styles.statusSection}>

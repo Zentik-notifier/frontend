@@ -27,6 +27,7 @@ export const AppIcons = {
   notification: { set: 'Ionicons', name: 'notifications-outline' } as const,
   buckets: { set: 'Ionicons', name: 'list-outline' } as const,
   bucket: { set: 'Ionicons', name: 'list-outline' } as const,
+  refresh: { set: 'Ionicons', name: 'refresh' } as const,
   app: { set: 'MaterialCommunityIcons', name: 'bell-ring' } as const,
   
   // Status indicators

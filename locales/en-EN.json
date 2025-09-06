@@ -491,7 +491,7 @@
       "expirationPlaceholder": "Leave empty for no expiration",
       "expirationHint": "Leave empty for tokens that never expire",
       "creating": "Creating...",
-      "createButton": "Create Token",
+        "createButton": "Create Token",
       "nameRequired": "Please enter a token name",
       "createError": "Failed to create access token",
       "tokenCreatedTitle": "Token Created!",
@@ -796,12 +796,20 @@
       "api": {
         "title": "Use the REST API",
         "description": "Here's how you can send notifications via the REST API using the generated token.",
-        "showExampleButton": "Show API Example"
+        "documentationInfo": "Detailed information on how to send notifications at this link:",
+        "documentationLink": "https://notifier-docs.zentik.app/docs/notifications"
       },
       "navigation": {
         "back": "Back",
         "next": "Next",
-        "complete": "Complete"
+        "complete": "Complete",
+        "step": "Step {{current}} of {{total}}"
+      },
+      "preview": {
+        "title": "JSON Payload",
+        "description": "This is the JSON payload that will be sent to the server",
+        "copy": "Copy JSON",
+        "copied": "JSON copied to clipboard!"
       },
       "messages": {
         "bucketCreated": "Bucket created successfully!",

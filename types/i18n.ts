@@ -807,6 +807,7 @@ export interface TranslationKey {
         nameLabel: string;
         namePlaceholder: string;
         createButton: string;
+        creating: string;
       };
       notification: {
         title: string;
@@ -821,12 +822,20 @@ export interface TranslationKey {
       api: {
         title: string;
         description: string;
-        showExampleButton: string;
+        documentationInfo: string;
+        documentationLink: string;
       };
       navigation: {
         back: string;
         next: string;
         complete: string;
+        step: string;
+      };
+      preview: {
+        title: string;
+        description: string;
+        copy: string;
+        copied: string;
       };
       messages: {
         bucketCreated: string;
