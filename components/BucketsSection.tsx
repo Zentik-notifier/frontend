@@ -192,11 +192,7 @@ const BucketsSection: React.FC = () => {
             >
               {/* Header con icona e nome */}
               <View style={styles.bucketHeader}>
-                <BucketIcon
-                  icon={bucket.icon}
-                  color={bucket.color}
-                  size="lg"
-                />
+                <BucketIcon bucketId={bucket.id} size="lg" noRouting/>
 
                 <View style={styles.bucketInfo}>
                   <ThemedText

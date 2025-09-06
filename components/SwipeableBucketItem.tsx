@@ -74,11 +74,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
         >
           <View style={styles.itemHeader}>
             <View style={styles.itemInfo}>
-              <BucketIcon
-                icon={bucket.icon}
-                color={bucket.color}
-                size="lg"
-              />
+              <BucketIcon size="lg" bucketId={bucket.id} />
               <ThemedText style={styles.itemName}>{bucket.name}</ThemedText>
             </View>
             <View style={styles.headerRight}>

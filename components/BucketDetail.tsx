@@ -31,17 +31,18 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const colorScheme = useColorScheme();
   const router = useRouter();
   const [isMessageBuilderVisible, setIsMessageBuilderVisible] = useState(false);
-  const { massMarkAsRead, loading: markAllAsReadLoading } = useMassMarkNotificationsAsRead();
+  const { massMarkAsRead, loading: markAllAsReadLoading } =
+    useMassMarkNotificationsAsRead();
 
   const {
     notifications,
     refetchNotifications,
     userSettings: { settings, setIsCompactMode },
   } = useAppContext();
-  const { settings: { notificationFilters } } = useUserSettings();
+  const {
+    settings: { notificationFilters },
+  } = useUserSettings();
   const { bucket } = useGetBucketData(bucketId);
-
-
 
   // Filter notifications for this bucket
   const bucketNotifications = useMemo(() => {
@@ -77,16 +78,14 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
 
   const handleMarkAllAsRead = async () => {
     if (unreadNotifications.length === 0) return;
-    
-    const unreadIds = unreadNotifications.map(n => n.id);
+
+    const unreadIds = unreadNotifications.map((n) => n.id);
     try {
       await massMarkAsRead(unreadIds);
     } catch (error) {
       console.error("Error marking all as read:", error);
     }
   };
-
-
 
   const renderBucketHeader = () => (
     <View
@@ -97,11 +96,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
       ]}
     >
       <View style={styles.bucketInfo}>
-        <BucketIcon
-          icon={bucket?.icon}
-          color={bucket?.color}
-          size="xl"
-        />
+        <BucketIcon bucketId={bucketId} size="xl" noRouting/>
 
         <View style={styles.bucketDetails}>
           <ThemedText
@@ -136,7 +131,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
           </View>
         </View>
       </View>
-      
+
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
         {/* Mark All as Read Button */}
@@ -144,9 +139,10 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
           style={[
             styles.markAllButton,
             {
-              backgroundColor: unreadNotifications.length > 0 
-                ? "#0a7ea4" 
-                : Colors[colorScheme].backgroundSecondary,
+              backgroundColor:
+                unreadNotifications.length > 0
+                  ? "#0a7ea4"
+                  : Colors[colorScheme].backgroundSecondary,
             },
           ]}
           onPress={handleMarkAllAsRead}
@@ -155,16 +151,24 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
         >
           <View style={styles.markAllButtonContent}>
             {markAllAsReadLoading ? (
-              <ActivityIndicator 
-                size="small" 
-                color={unreadNotifications.length > 0 ? "#fff" : Colors[colorScheme].tabIconDefault} 
+              <ActivityIndicator
+                size="small"
+                color={
+                  unreadNotifications.length > 0
+                    ? "#fff"
+                    : Colors[colorScheme].tabIconDefault
+                }
               />
             ) : (
               <>
-                <Ionicons 
-                  name="checkmark-done" 
-                  size={16} 
-                  color={unreadNotifications.length > 0 ? "#fff" : Colors[colorScheme].tabIconDefault} 
+                <Ionicons
+                  name="checkmark-done"
+                  size={16}
+                  color={
+                    unreadNotifications.length > 0
+                      ? "#fff"
+                      : Colors[colorScheme].tabIconDefault
+                  }
                 />
                 {unreadNotifications.length > 0 && (
                   <ThemedText style={styles.markAllButtonText}>
@@ -175,7 +179,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
             )}
           </View>
         </TouchableOpacity>
-        
+
         {/* Edit Button */}
         <TouchableOpacity
           style={[
@@ -184,19 +188,21 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
               backgroundColor: Colors[colorScheme].backgroundSecondary,
             },
           ]}
-          onPress={() => router.push(`/(mobile)/private/edit-bucket?bucketId=${bucketId}` as any)}
+          onPress={() =>
+            router.push(
+              `/(mobile)/private/edit-bucket?bucketId=${bucketId}` as any
+            )
+          }
         >
-          <Ionicons 
-            name="pencil" 
-            size={16} 
-            color={Colors[colorScheme].tabIconDefault} 
+          <Ionicons
+            name="pencil"
+            size={16}
+            color={Colors[colorScheme].tabIconDefault}
           />
         </TouchableOpacity>
       </View>
     </View>
   );
-
-
 
   const renderMessageBuilderToggle = () => (
     <View
@@ -237,8 +243,6 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
     </View>
   );
 
-
-
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <ThemedText style={styles.emptyTitle}>
@@ -257,9 +261,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   return (
     <ThemedView style={styles.container}>
       {/* Sticky Header with Bucket Info */}
-      <View style={styles.stickyHeader}>
-        {renderBucketHeader()}
-      </View>
+      <View style={styles.stickyHeader}>{renderBucketHeader()}</View>
 
       {/* Notifications List */}
       <NotificationsList

@@ -278,7 +278,10 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> = ({
             ) : (
               !hideBucketInfo && (
                 <View style={styles.bucketIconContainer}>
-                  <BucketIcon icon={bucketIcon} color={bucketColor} size="lg" />
+                  <BucketIcon
+                    bucketId={notification.message?.bucket?.id}
+                    size="lg"
+                  />
                 </View>
               )
             )}

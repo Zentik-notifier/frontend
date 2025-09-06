@@ -18,7 +18,7 @@ export default function BucketDetailScreen() {
 
   const { bucket, loading, error } = useGetBucketData(id);
 
-  if (loading && !bucket) {
+  if (loading || !bucket) {
     return (
       <>
         <Stack.Screen

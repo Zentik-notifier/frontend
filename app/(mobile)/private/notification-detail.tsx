@@ -275,7 +275,7 @@ export default function NotificationDetailScreen() {
             {/* Bucket Info */}
             <View style={styles.bucketSection}>
               <View style={styles.bucketInfo}>
-                <BucketIcon icon={bucketIcon} color={bucketColor} size="xxl" />
+                <BucketIcon bucketId={message?.bucket?.id} size="xxl" />
                 <ThemedText style={styles.bucketName}>{bucketName}</ThemedText>
               </View>
               <View style={styles.statusSection}>
