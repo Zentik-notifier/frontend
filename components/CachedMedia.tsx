@@ -57,19 +57,19 @@ interface CachedMediaProps {
 }
 
 // Funzione per verificare se un'immagine è valida
-const checkImageValidity = async (imagePath: string): Promise<boolean> => {
-  try {
-    // Prova a caricare l'immagine per verificare se è valida
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve(true);
-      img.onerror = () => resolve(false);
-      img.src = imagePath;
-    });
-  } catch (error) {
-    return false;
-  }
-};
+// const checkImageValidity = async (imagePath: string): Promise<boolean> => {
+//   try {
+//     // Prova a caricare l'immagine per verificare se è valida
+//     return new Promise((resolve) => {
+//       const img = new Image();
+//       img.onload = () => resolve(true);
+//       img.onerror = () => resolve(false);
+//       img.src = imagePath;
+//     });
+//   } catch (error) {
+//     return false;
+//   }
+// };
 
 export const CachedMedia = React.memo(function CachedMedia({
   url,
@@ -584,24 +584,24 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
   }, [mediaSource, notificationDate]);
 
-  useEffect(() => {
-    const checkImage = async () => {
-      if (
-        mediaSource?.localPath &&
-        (mediaType === MediaType.Image || mediaType === MediaType.Icon || mediaType === MediaType.Gif) &&
-        !imageError
-      ) {
-        const isValid = await checkImageValidity(mediaSource.localPath);
-        if (!isValid) {
-          console.warn('[CachedMedia] Invalid image detected:', mediaSource.localPath);
-          setImageError(true);
-          await mediaCache.markAsPermanentFailure(url, mediaType, 'INVALID_IMAGE');
-        }
-      }
-    };
+  // useEffect(() => {
+  //   const checkImage = async () => {
+  //     if (
+  //       mediaSource?.localPath &&
+  //       (mediaType === MediaType.Image || mediaType === MediaType.Icon || mediaType === MediaType.Gif) &&
+  //       !imageError
+  //     ) {
+  //       const isValid = await checkImageValidity(mediaSource.localPath);
+  //       if (!isValid) {
+  //         console.warn('[CachedMedia] Invalid image detected:', mediaSource.localPath);
+  //         setImageError(true);
+  //         await mediaCache.markAsPermanentFailure(url, mediaType, 'INVALID_IMAGE');
+  //       }
+  //     }
+  //   };
 
-    checkImage();
-  }, [mediaSource?.localPath, mediaType, url, imageError]);
+  //   checkImage();
+  // }, [mediaSource?.localPath, mediaType, url, imageError]);
 
   useEffect(() => {
     if (videoSource && isVideoType && videoPlayer) {
