@@ -1,7 +1,7 @@
 {
   "name": "zentik-mobile",
   "main": "expo-router/entry",
-  "version": "0.0.24",
+  "version": "0.0.25",
   "scripts": {
     "start": "expo start",
     "export:web": "expo export --platform web --output-dir dist",

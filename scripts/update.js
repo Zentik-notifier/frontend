@@ -78,8 +78,8 @@ if (!fs.existsSync(packagePath)) {
     process.exit(1);
 }
 
-// Check if we're in a git repository (look for .git in parent directory)
-const gitPath = path.join(process.cwd(), '..', '.git');
+// Check if we're in a git repository
+const gitPath = path.join(process.cwd(), '.git');
 if (!fs.existsSync(gitPath)) {
     printError('.git directory not found. Make sure you are in a git repository');
     process.exit(1);
@@ -197,14 +197,14 @@ async function runUpdateProcess() {
 
         // Step 2: Git add and commit
         printInfo('Step 2/3: Committing changes to git...');
-        await runCommand('git', ['add', 'package.json'], { cwd: '..' });
-        await runCommand('git', ['commit', '-m', `"chore: bump frontend version to v${newVersion}"`], { cwd: '..' });
+        await runCommand('git', ['add', 'package.json']);
+        await runCommand('git', ['commit', '-m', `"chore: bump frontend version to v${newVersion}"`]);
         
         printSuccess('Changes committed to git');
 
         // Step 3: Git push
         printInfo('Step 3/3: Pushing to git repository...');
-        await runCommand('git', ['push'], { cwd: '..' });
+        await runCommand('git', ['push']);
         
         printSuccess('Changes pushed to git repository');
 
