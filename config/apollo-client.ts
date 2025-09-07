@@ -10,6 +10,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AsyncStorageWrapper, CachePersistor } from 'apollo3-cache-persist';
 import { createClient } from 'graphql-ws';
 import { ApiConfigService } from '../services/api-config';
+import { loadErrorMessages, loadDevMessages } from "@apollo/client/dev";
+
+if (__DEV__) {
+  // Adds messages only in a dev environment
+  loadDevMessages();
+  loadErrorMessages();
+}
 
 // Get the base URL from environment or custom setting
 const getBaseUrl = () => {
@@ -56,7 +63,7 @@ const authLink = setContext(async (_, { headers }) => {
 const createSplitLinkDynamic = () => {
   const httpLink = createHttpLinkDynamic();
   const wsLink = createWsLinkDynamic();
-  
+
   return split(
     ({ query }) => {
       const definition = getMainDefinition(query) as any;
@@ -82,6 +89,7 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
 
 // Create cache with dynamic URL resolution
 const createCacheDynamic = () => new InMemoryCache({
+  canonizeResults: false,
   typePolicies: {
     Message: {
       keyFields: ['id'],
@@ -163,8 +171,35 @@ const createCacheDynamic = () => new InMemoryCache({
               const id = readField<string>('id', item);
               if (id && !byId.has(id)) byId.set(id, item);
             }
+
+            // Filter out dangling notifications (receivedAt null but older than 24 hours)
+            // These are notifications that were dismissed or marked as read in the content extension
+            // but haven't been synced with the UI yet
+            const now = new Date();
+            const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+            const filteredArray = Array.from(byId.values()).filter((notification) => {
+              const receivedAt = readField<string>('receivedAt', notification);
+              const createdAt = readField<string>('createdAt', notification);
+
+              // Keep notifications that have receivedAt set
+              if (receivedAt) {
+                return true;
+              }
+
+              // Keep notifications that are recent (less than 24 hours old)
+              if (createdAt && new Date(createdAt) > twentyFourHoursAgo) {
+                return true;
+              }
+
+              // Filter out dangling notifications (receivedAt null and older than 24 hours)
+              const id = readField<string>('id', notification);
+              console.log(`🗑️ [Apollo] Filtering out dangling notification ${id} (created: ${createdAt}, receivedAt: ${receivedAt})`);
+              return false;
+            });
+
             // Compose merged array and sort by createdAt desc
-            const mergedArray = Array.from(byId.values());
+            const mergedArray = filteredArray;
             mergedArray.sort((a, b) => {
               const aCreated = readField<string>('createdAt', a);
               const bCreated = readField<string>('createdAt', b);
@@ -175,9 +210,8 @@ const createCacheDynamic = () => new InMemoryCache({
 
             const max = userSettings.getMaxCachedNotifications?.() ?? 500;
             const limited = max > 0 ? mergedArray.slice(0, max) : mergedArray;
-            // try {
-            //   console.debug('[Apollo] Merged notifications count', byId.size, 'limited to ', max, 'returning', limited.length);
-            // } catch { }
+
+            // console.log(`📊 [Apollo] Filtered notifications: ${byId.size} -> ${filteredArray.length} (removed ${byId.size - filteredArray.length} dangling), limited to ${limited.length}`);
             return limited;
           },
         },
@@ -195,7 +229,7 @@ export let persistor: CachePersistor<NormalizedCacheObject> | null = null;
 export const initApolloClient = async () => {
   // Ensure ApiConfigService is initialized before creating Apollo Client
   await ApiConfigService.initialize();
-  
+
   persistor = new CachePersistor({
     cache,
     storage: new AsyncStorageWrapper(AsyncStorage),
@@ -204,7 +238,7 @@ export const initApolloClient = async () => {
   await persistor.restore();
 
   const splitLink = createSplitLinkDynamic();
-  
+
   apolloClient = new ApolloClient({
     link: errorLink.concat(splitLink),
     cache,
@@ -227,20 +261,20 @@ export const initApolloClient = async () => {
 export const resetApolloCache = async () => {
   if (!apolloClient) return;
   if (persistor) {
-    try { await persistor.pause(); } catch {}
+    try { await persistor.pause(); } catch { }
   }
   try {
     const snapshot = apolloClient.cache.extract();
     for (const id of Object.keys(snapshot)) {
-      try { apolloClient.cache.evict({ id }); } catch {}
+      try { apolloClient.cache.evict({ id }); } catch { }
     }
     apolloClient.cache.gc();
     apolloClient.cache.restore({});
-  } catch {}
-  try { await apolloClient.clearStore(); } catch {}
+  } catch { }
+  try { await apolloClient.clearStore(); } catch { }
   if (persistor) {
-    try { await persistor.purge(); } catch {}
-    try { await persistor.resume(); } catch {}
+    try { await persistor.purge(); } catch { }
+    try { await persistor.resume(); } catch { }
   }
 };
 
@@ -252,32 +286,32 @@ export const purgeApolloCache = async () => {
 // Helper function to recreate Apollo client with new API URL
 export const reinitializeApolloClient = async () => {
   if (!apolloClient) return;
-  
+
   try {
     // Reinitialize ApiConfigService to pick up the new URL from storage
     await ApiConfigService.initialize();
-    
+
     console.log('🔄 Reinitializing Apollo Client with new API URL:', ApiConfigService.getApiUrlSync());
-    
+
     // Stop the cache persistor
     if (persistor) {
       await persistor.pause();
     }
-    
+
     // Clear the current cache
     await apolloClient.clearStore();
-    
+
     // Create new links with updated URL
     const splitLink = createSplitLinkDynamic();
-    
+
     // Update the Apollo Client link
     apolloClient.setLink(errorLink.concat(splitLink));
-    
+
     // Resume the cache persistor
     if (persistor) {
       await persistor.resume();
     }
-    
+
     console.log('✅ Apollo Client successfully reinitialized');
   } catch (error) {
     console.error('Failed to reinitialize Apollo Client:', error);
