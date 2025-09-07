@@ -282,13 +282,14 @@ class MediaCacheService {
 
                     this.metadata = {};
                     for (const [key, item] of Object.entries(sharedMetadata)) {
-                        this.metadata[key] = {
-                            ...item,
-                            isDownloading: false,
-                            isPermanentFailure: false,
-                        };
+                        if (item.downloadedAt) {
+                            this.metadata[key] = {
+                                ...item,
+                                isDownloading: false,
+                                isPermanentFailure: false,
+                            };
+                        }
                     }
-
                     console.log('[MediaCache] Loaded metadata:', Object.keys(this.metadata).length, 'items');
                 } else {
                     console.log('[MediaCache] No metadata file found, starting fresh');
@@ -384,12 +385,12 @@ class MediaCacheService {
     async getCachedItem(url: string, mediaType: MediaType): Promise<CacheItem | undefined> {
         const key = this.generateCacheKey(url, mediaType);
         let cachedItem = this.metadata[key];
-        
+
         // Se non esiste nel metadata, controlla se il file esiste fisicamente nello storage
         if (!cachedItem && Platform.OS !== 'web') {
             const localPath = this.getLocalPath(url, mediaType);
             const fileInfo = await FS.getInfoAsync(localPath);
-            
+
             if (fileInfo.exists && fileInfo.size) {
                 // Crea automaticamente una entry nel metadata per il file esistente
                 cachedItem = {
@@ -401,12 +402,12 @@ class MediaCacheService {
                     downloadedAt: Date.now(),
                     isDownloading: false,
                 };
-                
+
                 this.metadata[key] = cachedItem;
                 await this.saveMetadata();
             }
         }
-        
+
         return cachedItem;
     }
 

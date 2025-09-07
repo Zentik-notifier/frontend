@@ -805,7 +805,7 @@ class NotificationService: UNNotificationServiceExtension {
                             options: attachmentOptions as? [String : Any]
                         )
                         // Mark as completed in shared metadata since we're using cached file
-                        self.markMediaAsCompleted(mediaItem, success: true)
+                        self.markMediaAsCompleted(mediaItem, success: true, isNewDownload: false)
                         completion(attachment)
                         return
                     } catch {
@@ -1050,7 +1050,7 @@ class NotificationService: UNNotificationServiceExtension {
                 print("📱 [NotificationService] ✅ Created \(identifier) attachment and saved to cache: \(cacheFileUrl.path)")
                 print("📱 [NotificationService] 📁 File saved with name: \(filename)")
                 // Mark as completed in shared metadata (set isDownloading=false and update size)
-                self.markMediaAsCompleted(mediaItem, success: true)
+                self.markMediaAsCompleted(mediaItem, success: true, isNewDownload: true)
                 completion(attachment)
                 
             } catch {
@@ -1449,7 +1449,7 @@ class NotificationService: UNNotificationServiceExtension {
     private func downloadMediaToSharedCache(_ mediaAttachment: MediaAttachment, in cacheDirectory: URL, completion: @escaping () -> Void) {
         guard let url = URL(string: mediaAttachment.url) else {
             print("📱 [NotificationService] ❌ Invalid URL for pre-cache: \(mediaAttachment.url)")
-            markMediaAsCompleted(mediaAttachment, success: false)
+            markMediaAsCompleted(mediaAttachment, success: false, isNewDownload: true)
             completion()
             return
         }
@@ -1468,7 +1468,7 @@ class NotificationService: UNNotificationServiceExtension {
         // Check if already cached
         if FileManager.default.fileExists(atPath: cacheFile.path) {
             print("📱 [NotificationService] ✅ Media already cached: \(mediaAttachment.mediaType) - \(filename)")
-            markMediaAsCompleted(mediaAttachment, success: true)
+            markMediaAsCompleted(mediaAttachment, success: true, isNewDownload: false)
             completion()
             return
         }
@@ -1481,13 +1481,13 @@ class NotificationService: UNNotificationServiceExtension {
             
             if let error = error {
                 print("📱 [NotificationService] ❌ Failed to download media to shared cache: \(error)")
-                self?.markMediaAsCompleted(mediaAttachment, success: false)
+                self?.markMediaAsCompleted(mediaAttachment, success: false, isNewDownload: true)
                 return
             }
             
             guard let data = data else {
                 print("📱 [NotificationService] ❌ No data received for shared cache")
-                self?.markMediaAsCompleted(mediaAttachment, success: false)
+                self?.markMediaAsCompleted(mediaAttachment, success: false, isNewDownload: true)
                 return
             }
             
@@ -1523,10 +1523,10 @@ class NotificationService: UNNotificationServiceExtension {
                 }
                 print("📱 [NotificationService] 🔎 Saved file verification: exists=\(savedExists) path=\(cacheFile.path) size=\(savedSize)")
                 print("📱 [NotificationService] ✅ Downloaded to shared cache: \(mediaAttachment.mediaType) (\(data.count) bytes) - \(filename)")
-                self?.markMediaAsCompleted(mediaAttachment, success: true)
+                self?.markMediaAsCompleted(mediaAttachment, success: true, isNewDownload: true)
             } catch {
                 print("📱 [NotificationService] ❌ Failed to save to shared cache: \(error)")
-                self?.markMediaAsCompleted(mediaAttachment, success: false)
+                self?.markMediaAsCompleted(mediaAttachment, success: false, isNewDownload: true)
             }
         }.resume()
     }
@@ -1595,7 +1595,7 @@ class NotificationService: UNNotificationServiceExtension {
         }
     }
     
-    private func markMediaAsCompleted(_ mediaAttachment: MediaAttachment, success: Bool) {
+    private func markMediaAsCompleted(_ mediaAttachment: MediaAttachment, success: Bool, isNewDownload: Bool = true) {
         let sharedCacheDirectory = getSharedMediaCacheDirectory()
         let metadataFile = sharedCacheDirectory.appendingPathComponent("metadata.json")
         
@@ -1631,10 +1631,10 @@ class NotificationService: UNNotificationServiceExtension {
         mediaMetadata["isDownloading"] = false
         mediaMetadata["downloadProgress"] = success ? 100 : 0
         mediaMetadata["hasError"] = !success
-        if success { 
+        if success && isNewDownload { 
             mediaMetadata["downloadedAt"] = Date().timeIntervalSince1970 * 1000
             mediaMetadata["errorMessage"] = nil
-        } else {
+        } else if !success {
             mediaMetadata["errorMessage"] = "Download failed"
         }
         if let fileUrl { 
