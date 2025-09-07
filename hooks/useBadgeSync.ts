@@ -1,6 +1,6 @@
 import { useAppContext } from '@/services/app-context';
 import { saveBadgeCount } from '@/services/auth-storage';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import { useI18n } from './useI18n';
 import { useMarkAllNotificationsAsRead } from './useNotifications';
@@ -13,8 +13,9 @@ export function useBadgeSync() {
     const { t } = useI18n();
     const { notifications } = useAppContext();
     const push = usePushNotifications();
+    const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false);
 
-    const { loading: isMarkingAllAsRead, markAllAsRead } =
+    const { markAllAsRead, loading } =
         useMarkAllNotificationsAsRead();
 
     const unreadNotifications = useMemo(() => {
@@ -45,6 +46,7 @@ export function useBadgeSync() {
 
     const handleMarkAllAsRead = useCallback(async () => {
         if (!hasUnreadNotifications || isMarkingAllAsRead) return;
+        setIsMarkingAllAsRead(true);
 
         try {
             await markAllAsRead();
@@ -57,6 +59,8 @@ export function useBadgeSync() {
                 t("notifications.errors.markAllAsReadFailed"),
                 [{ text: t("common.ok") }]
             );
+        } finally {
+            setIsMarkingAllAsRead(false);
         }
     }, [hasUnreadNotifications, isMarkingAllAsRead, markAllAsRead, t]);
 
@@ -65,6 +69,7 @@ export function useBadgeSync() {
         unreadNotifications,
         unreadCount,
         hasUnreadNotifications,
-        handleMarkAllAsRead
+        handleMarkAllAsRead,
+        isMarkingAllAsRead: isMarkingAllAsRead || loading
     };
 }

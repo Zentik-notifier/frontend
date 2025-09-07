@@ -19,13 +19,15 @@ import { StatusBadge } from "./StatusBadge";
 import UserDropdown from "./UserDropdown";
 
 export default function Header() {
-  const { handleMarkAllAsRead, hasUnreadNotifications, unreadCount } =
-    useBadgeSync();
+  const {
+    handleMarkAllAsRead,
+    hasUnreadNotifications,
+    unreadCount,
+    isMarkingAllAsRead,
+  } = useBadgeSync();
   const { isLoginModalOpen, closeLoginModal } = useAppContext();
   const insets = useSafeAreaInsets();
   const { itemsInQueue, inProcessing } = useDownloadQueue();
-
-  const { loading: isMarkingAllAsRead } = useMarkAllNotificationsAsRead();
 
   return (
     <>
