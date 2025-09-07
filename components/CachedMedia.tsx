@@ -124,18 +124,21 @@ export function CachedMedia({
     });
   }, [url, mediaType, notificationDate]);
 
-  const handleSeek = useCallback((seekTime: number) => {
-    if (audioPlayer && audioState.duration > 0) {
-      audioPlayer.seekTo(seekTime);
-      setSeekTime(seekTime);
-    }
-  }, [audioPlayer, audioState.duration]);
+  const handleSeek = useCallback(
+    (seekTime: number) => {
+      if (audioPlayer && audioState.duration > 0) {
+        audioPlayer.seekTo(seekTime);
+        setSeekTime(seekTime);
+      }
+    },
+    [audioPlayer, audioState.duration]
+  );
 
   const renderSeekBar = () => {
     if (!audioState.isLoaded || audioState.duration <= 0) return null;
 
-    const progress = isSeeking 
-      ? (seekTime / audioState.duration) * 100 
+    const progress = isSeeking
+      ? (seekTime / audioState.duration) * 100
       : (audioState.currentTime / audioState.duration) * 100;
 
     const panResponder = PanResponder.create({
@@ -162,23 +165,14 @@ export function CachedMedia({
 
     return (
       <View style={defaultStyles.seekBarContainer}>
-        <View 
-          style={defaultStyles.seekBar} 
-          {...panResponder.panHandlers}
-        >
+        <View style={defaultStyles.seekBar} {...panResponder.panHandlers}>
           <View style={defaultStyles.seekBarTrack}>
-            <View 
-              style={[
-                defaultStyles.seekBarProgress, 
-                { width: `${progress}%` }
-              ]} 
+            <View
+              style={[defaultStyles.seekBarProgress, { width: `${progress}%` }]}
             />
           </View>
-          <View 
-            style={[
-              defaultStyles.seekBarThumb,
-              { left: `${progress}%` }
-            ]} 
+          <View
+            style={[defaultStyles.seekBarThumb, { left: `${progress}%` }]}
           />
         </View>
       </View>
@@ -443,13 +437,13 @@ export function CachedMedia({
           if (isCompact) {
             return (
               <Pressable onPress={onPress}>
-                <View style={getStateContainerStyle("loading") as any}>
+                <View style={[defaultStyles.stateContainerCompact, style]}>
                   <Pressable
-                    onPress={() =>
+                    onPress={() => {
                       audioPlayer?.playing
                         ? audioPlayer.pause()
-                        : audioPlayer?.play()
-                    }
+                        : audioPlayer?.play();
+                    }}
                   >
                     <View style={defaultStyles.compactAudioButton}>
                       <Ionicons
@@ -485,7 +479,7 @@ export function CachedMedia({
                   </Pressable>
                 )}
 
-                <Pressable 
+                <Pressable
                   onPress={onPress}
                   style={defaultStyles.audioInfoPressable}
                 >
@@ -493,25 +487,27 @@ export function CachedMedia({
                     <Text style={defaultStyles.audioTitle}>
                       {originalFileName || "Audio"}
                     </Text>
-                    <Text style={defaultStyles.audioDuration}>
-                      {audioState.isLoaded && audioState.duration > 0
-                        ? `${Math.floor(
-                            audioState.currentTime / 60
-                          )}:${Math.floor(audioState.currentTime % 60)
-                            .toString()
-                            .padStart(2, "0")} / ${Math.floor(
-                            audioState.duration / 60
-                          )}:${Math.floor(audioState.duration % 60)
-                            .toString()
-                            .padStart(2, "0")}`
-                        : audioState.isLoaded
-                        ? "Pronto per la riproduzione"
-                        : "Caricamento..."}
-                    </Text>
+                    {!smallButtons && (
+                      <Text style={defaultStyles.audioDuration}>
+                        {audioState.isLoaded && audioState.duration > 0
+                          ? `${Math.floor(
+                              audioState.currentTime / 60
+                            )}:${Math.floor(audioState.currentTime % 60)
+                              .toString()
+                              .padStart(2, "0")} / ${Math.floor(
+                              audioState.duration / 60
+                            )}:${Math.floor(audioState.duration % 60)
+                              .toString()
+                              .padStart(2, "0")}`
+                          : audioState.isLoaded
+                          ? "Pronto per la riproduzione"
+                          : "Caricamento..."}
+                      </Text>
+                    )}
                   </View>
                 </Pressable>
               </View>
-              
+
               {renderSeekBar()}
             </View>
           );
@@ -611,6 +607,8 @@ const defaultStyles = StyleSheet.create({
     alignItems: "center",
     minHeight: 40,
     minWidth: 40,
+    backgroundColor: "#ffffff",
+    borderWidth: 0,
   },
 
   // Contenuto centralizzato per gli stati
@@ -704,7 +702,7 @@ const defaultStyles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
   },
-  
+
   // Seek bar styles
   seekBarContainer: {
     width: "100%",

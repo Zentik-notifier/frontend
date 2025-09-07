@@ -70,18 +70,16 @@ export default function GallerySection() {
     }));
   }, [mediaWithDates]);
 
-  // Calculate optimal number of columns based on screen width
-  const getOptimalColumns = useCallback(() => {
+  // Fixed 3 columns layout
+  const numColumns = 3;
+
+  // Calculate item width for 3 columns without spacing
+  const itemWidth = useMemo(() => {
     const screenWidth = Dimensions.get("window").width;
     const horizontalPadding = 32; // 16px padding on each side
     const availableWidth = screenWidth - horizontalPadding;
-    const minItemWidth = 120; // Minimum width per item in pixels
-    const maxColumns = 4; // Maximum number of columns
-    const calculatedColumns = Math.floor(availableWidth / minItemWidth);
-    return Math.min(Math.max(calculatedColumns, 2), maxColumns); // Between 2 and 4 columns
+    return availableWidth / numColumns;
   }, []);
-
-  const numColumns = useMemo(() => getOptimalColumns(), [getOptimalColumns]);
 
   // Filter cached media based on selected types and settings
   const filteredMedia = useMemo(() => {
@@ -93,7 +91,10 @@ export default function GallerySection() {
 
       // Filter by showFaultyMedias setting
       if (!userSettings.settings.gallery.showFaultyMedias) {
-        const cachedItem = mediaCache.getCachedItemSync(item.url, item.mediaType);
+        const cachedItem = mediaCache.getCachedItemSync(
+          item.url,
+          item.mediaType
+        );
         if (cachedItem?.isUserDeleted || cachedItem?.isPermanentFailure) {
           return false;
         }
@@ -120,7 +121,10 @@ export default function GallerySection() {
 
         // Filter by showFaultyMedias setting
         if (!userSettings.settings.gallery.showFaultyMedias) {
-          const cachedItem = mediaCache.getCachedItemSync(item.url, item.mediaType);
+          const cachedItem = mediaCache.getCachedItemSync(
+            item.url,
+            item.mediaType
+          );
           if (cachedItem?.isUserDeleted || cachedItem?.isPermanentFailure) {
             return false;
           }
@@ -147,6 +151,35 @@ export default function GallerySection() {
       b.localeCompare(a)
     );
   }, [filteredGroupedMedia]);
+
+  // Create a flattened list organized in rows of 3 items for proper grid layout
+  const virtualizedData = useMemo(() => {
+    const items: Array<{ type: "header" | "row"; data: any; id: string }> = [];
+
+    for (const dateKey of filteredSortedDateKeys) {
+      const mediaList = filteredGroupedMedia.get(dateKey);
+      if (!mediaList || mediaList.length === 0) continue;
+
+      // Add date header
+      items.push({
+        type: "header",
+        data: dateKey,
+        id: `header-${dateKey}`,
+      });
+
+      // Group media items into rows of 3
+      for (let i = 0; i < mediaList.length; i += numColumns) {
+        const rowItems = mediaList.slice(i, i + numColumns);
+        items.push({
+          type: "row",
+          data: rowItems,
+          id: `row-${dateKey}-${Math.floor(i / numColumns)}`,
+        });
+      }
+    }
+
+    return items;
+  }, [filteredSortedDateKeys, filteredGroupedMedia, numColumns]);
 
   const toggleItemSelection = (itemId: string) => {
     const newSelection = new Set(selectedItems);
@@ -860,29 +893,8 @@ export default function GallerySection() {
     );
   };
 
-  const renderDateSection = (dateKey: string) => {
-    const mediaList = filteredGroupedMedia.get(dateKey);
-    if (!mediaList || mediaList.length === 0) return null;
-
-    return (
-      <View style={styles.dateSection}>
-        <ThemedText style={styles.dateSectionTitle}>
-          {formatDateKey(dateKey)}
-        </ThemedText>
-        <View style={styles.dateSectionGrid}>
-          {mediaList.map((item, index) => (
-            <View key={item.id} style={styles.gridItemContainer}>
-              {renderMediaItem({ item })}
-            </View>
-          ))}
-        </View>
-      </View>
-    );
-  };
-
   const renderMediaItem = ({ item }: { item: CachedMediaItem }) => {
     const isSelected = selectedItems.has(item.id);
-    const itemWidth = (Dimensions.get("window").width - 64) / 4; // Fixed 4 columns with spacing
     const checkSize = itemWidth * 0.5;
 
     return (
@@ -906,6 +918,7 @@ export default function GallerySection() {
               isMuted: true,
               autoPlay: userSettings.settings.gallery.autoPlay,
             }}
+            audioProps={{ showControls: true }}
             noAutoDownload
             showMediaIndicator
             smallButtons
@@ -931,6 +944,46 @@ export default function GallerySection() {
         </View>
       </Pressable>
     );
+  };
+
+  // Render function for virtualized list items
+  const renderVirtualizedItem = ({
+    item,
+  }: {
+    item: { type: "header" | "row"; data: any; id: string };
+  }) => {
+    if (item.type === "header") {
+      return (
+        <View style={styles.dateSection}>
+          <ThemedText style={styles.dateSectionTitle}>
+            {formatDateKey(item.data)}
+          </ThemedText>
+        </View>
+      );
+    } else {
+      // Render a row of media items
+      return (
+        <View style={styles.gridRow}>
+          {item.data.map((mediaItem: CachedMediaItem, index: number) => (
+            <View
+              key={mediaItem.id}
+              style={[styles.gridItemContainer, { width: itemWidth }]}
+            >
+              {renderMediaItem({ item: mediaItem })}
+            </View>
+          ))}
+          {/* Fill remaining spaces in the row if needed */}
+          {Array.from({ length: numColumns - item.data.length }).map(
+            (_, index) => (
+              <View
+                key={`empty-${index}`}
+                style={[styles.gridItemContainer, { width: itemWidth }]}
+              />
+            )
+          )}
+        </View>
+      );
+    }
   };
 
   const renderEmptyState = () => {
@@ -962,13 +1015,13 @@ export default function GallerySection() {
       {renderMediaTypeSelector()}
 
       <FlatList
-        key={`gallery-grid-${numColumns}`}
-        data={filteredSortedDateKeys}
-        keyExtractor={(dateKey) => dateKey}
-        renderItem={({ item: dateKey }) => renderDateSection(dateKey)}
+        key={`gallery-virtualized-${numColumns}`}
+        data={virtualizedData}
+        keyExtractor={(item) => item.id}
+        renderItem={renderVirtualizedItem}
         contentContainerStyle={[
           styles.galleryContainer,
-          filteredSortedDateKeys.length === 0 && styles.emptyListContainer,
+          virtualizedData.length === 0 && styles.emptyListContainer,
         ]}
         refreshControl={
           <RefreshControl
@@ -982,6 +1035,11 @@ export default function GallerySection() {
         ListHeaderComponent={showStats ? renderStatsCard : null}
         ListHeaderComponentStyle={{ width: "100%" }}
         ListEmptyComponent={renderEmptyState}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={7} // Render 7 rows at a time
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={7} // Show 7 rows initially
+        windowSize={10}
       />
 
       {/* Unified Fullscreen Viewer */}
@@ -1426,9 +1484,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "flex-start",
-    paddingHorizontal: 16,
+  },
+  gridRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
   },
   gridItemContainer: {
-    width: (Dimensions.get("window").width - 64) / 4,
+    // No spacing between items
   },
 });

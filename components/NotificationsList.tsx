@@ -426,6 +426,17 @@ export default function NotificationsList({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.listContent, contentContainerStyle]}
         ListEmptyComponent={renderEmptyState}
+        // Performance optimizations for virtualization
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={10}
+        windowSize={10}
+        getItemLayout={(data, index) => {
+          // Estimate item height based on compact mode
+          const itemHeight = isCompactMode ? 60 : 80;
+          return { length: itemHeight, offset: itemHeight * index, index };
+        }}
       />
     </ThemedView>
   );
