@@ -168,7 +168,7 @@ const BucketsSection: React.FC = () => {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={notificationsLoading}
+            refreshing={false}
             onRefresh={refetch}
             tintColor={Colors[colorScheme].tint}
           />
