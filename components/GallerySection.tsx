@@ -15,7 +15,6 @@ import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   Dimensions,
-  FlatList,
   Modal,
   Pressable,
   RefreshControl,
@@ -23,6 +22,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  VirtualizedList,
 } from "react-native";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
@@ -62,6 +62,7 @@ export default function GallerySection() {
   );
   const [showStats, setShowStats] = useState(false);
   const [showMediaTypeSelector, setShowMediaTypeSelector] = useState(false);
+  const [visibleItems, setVisibleItems] = useState<Set<string>>(new Set());
 
   const cachedMedia: CachedMediaItem[] = useMemo(() => {
     return mediaWithDates.map((item, index) => ({
@@ -893,8 +894,18 @@ export default function GallerySection() {
     );
   };
 
+  // Funzione per gestire il cambio degli elementi visibili
+  const handleViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: any[] }) => {
+      const newVisibleItems = new Set(viewableItems.map((item) => item.item.id));
+      setVisibleItems(newVisibleItems);
+    },
+    []
+  );
+
   const renderMediaItem = ({ item }: { item: CachedMediaItem }) => {
     const isSelected = selectedItems.has(item.id);
+    const isVisible = visibleItems.has(item.id);
     const checkSize = itemWidth * 0.5;
 
     return (
@@ -916,10 +927,10 @@ export default function GallerySection() {
             originalFileName={item.originalFileName}
             videoProps={{
               isMuted: true,
-              autoPlay: userSettings.settings.gallery.autoPlay,
+              autoPlay: userSettings.settings.gallery.autoPlay && isVisible,
             }}
             audioProps={{ showControls: true }}
-            noAutoDownload
+            noAutoDownload={!isVisible}
             showMediaIndicator
             smallButtons
             onPress={() => {
@@ -1014,11 +1025,14 @@ export default function GallerySection() {
       {/* Media Type Selector Modal */}
       {renderMediaTypeSelector()}
 
-      <FlatList
+      <VirtualizedList
         key={`gallery-virtualized-${numColumns}`}
         data={virtualizedData}
         keyExtractor={(item) => item.id}
         renderItem={renderVirtualizedItem}
+        getItemCount={(data) => data.length}
+        getItem={(data, index) => data[index]}
+        initialNumToRender={5}
         contentContainerStyle={[
           styles.galleryContainer,
           virtualizedData.length === 0 && styles.emptyListContainer,
@@ -1035,11 +1049,21 @@ export default function GallerySection() {
         ListHeaderComponent={showStats ? renderStatsCard : null}
         ListHeaderComponentStyle={{ width: "100%" }}
         ListEmptyComponent={renderEmptyState}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={7} // Render 7 rows at a time
-        updateCellsBatchingPeriod={50}
-        initialNumToRender={7} // Show 7 rows initially
-        windowSize={10}
+        // onViewableItemsChanged={handleViewableItemsChanged}
+        // viewabilityConfig={{
+        //   itemVisiblePercentThreshold: 50,
+        //   minimumViewTime: 100,
+        // }}
+        // removeClippedSubviews={true}
+        // maxToRenderPerBatch={5} // Render 5 rows at a time for better performance
+        // updateCellsBatchingPeriod={100}
+        // windowSize={15}
+        // disableVirtualization={false}
+        // onEndReachedThreshold={0.5}
+        // maintainVisibleContentPosition={{
+        //   minIndexForVisible: 0,
+        //   autoscrollToTopThreshold: 10,
+        // }}
       />
 
       {/* Unified Fullscreen Viewer */}

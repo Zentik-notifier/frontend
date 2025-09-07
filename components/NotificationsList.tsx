@@ -14,11 +14,11 @@ import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   RefreshControl,
   StyleSheet,
   TouchableOpacity,
   View,
+  VirtualizedList
 } from "react-native";
 import NotificationFilters from "./NotificationFilters";
 import SwipeableNotificationItem from "./SwipeableNotificationItem";
@@ -412,10 +412,12 @@ export default function NotificationsList({
 
       {customHeader}
 
-      <FlatList
+      <VirtualizedList
         data={filteredNotifications}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
+        getItemCount={(data) => data.length}
+        getItem={(data, index) => data[index]}
         onViewableItemsChanged={handleViewableItemsChanged}
         viewabilityConfig={{
           itemVisiblePercentThreshold: 50,
@@ -435,22 +437,29 @@ export default function NotificationsList({
         contentContainerStyle={[styles.listContent, contentContainerStyle]}
         ListEmptyComponent={renderEmptyState}
         // Performance optimizations for virtualization
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={5}
-        updateCellsBatchingPeriod={100}
-        initialNumToRender={8}
-        windowSize={21}
-        getItemLayout={(data, index) => {
-          // More accurate item height estimation
-          const baseHeight = isCompactMode ? 60 : 80;
-          // Add extra height for items with attachments
-          const item = data?.[index];
-          const hasAttachments = (item?.message?.attachments?.length ?? 0) > 0;
-          const hasActions = (item?.message?.actions?.length ?? 0) > 0;
-          const extraHeight = (hasAttachments ? 40 : 0) + (hasActions ? 20 : 0);
-          const itemHeight = baseHeight + extraHeight;
-          return { length: itemHeight, offset: itemHeight * index, index };
-        }}
+        // removeClippedSubviews={true}
+        // maxToRenderPerBatch={5}
+        // updateCellsBatchingPeriod={100}
+        // initialNumToRender={8}
+        // windowSize={21}
+        // VirtualizedList specific optimizations
+        // disableVirtualization={false}
+        // onEndReachedThreshold={0.5}
+        // maintainVisibleContentPosition={{
+        //   minIndexForVisible: 0,
+        //   autoscrollToTopThreshold: 10,
+        // }}
+        // getItemLayout={(data, index) => {
+        //   // More accurate item height estimation
+        //   const baseHeight = isCompactMode ? 60 : 80;
+        //   // Add extra height for items with attachments
+        //   const item = data?.[index];
+        //   const hasAttachments = (item?.message?.attachments?.length ?? 0) > 0;
+        //   const hasActions = (item?.message?.actions?.length ?? 0) > 0;
+        //   const extraHeight = (hasAttachments ? 40 : 0) + (hasActions ? 20 : 0);
+        //   const itemHeight = baseHeight + extraHeight;
+        //   return { length: itemHeight, offset: itemHeight * index, index };
+        // }}
       />
     </ThemedView>
   );
