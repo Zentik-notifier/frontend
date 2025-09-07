@@ -74,7 +74,7 @@ function runCommand(command, args, options = {}) {
 // Check we're in the correct directory
 const configPath = path.join(process.cwd(), 'app.config.ts');
 if (!fs.existsSync(configPath)) {
-    printError('app.config.ts not found. Run the script from the mobile/ directory');
+    printError('app.config.ts not found. Run the script from the frontend/ directory');
     process.exit(1);
 }
 

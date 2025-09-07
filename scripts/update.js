@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Node.js script for mobile update automation (version bump in package.json + npm run update)
+ * Node.js script for frontend update automation (version bump in package.json + npm run update)
  * Usage: node scripts/update.js [patch|minor|major]
  * Default: patch
  */
@@ -41,7 +41,7 @@ function printError(message) {
 
 function printHeader() {
     console.log(colorize('blue', '🚀 ========================================'));
-    console.log(colorize('blue', '   Zentik Mobile Update Automation'));
+    console.log(colorize('blue', '   Zentik Frontend Update Automation'));
     console.log(colorize('blue', '   Version Bump → Git Push → Update'));
     console.log(colorize('blue', '========================================'));
 }
@@ -74,12 +74,13 @@ function runCommand(command, args, options = {}) {
 // Check we're in the correct directory
 const packagePath = path.join(process.cwd(), 'package.json');
 if (!fs.existsSync(packagePath)) {
-    printError('package.json not found. Run the script from the mobile/ directory');
+    printError('package.json not found. Run the script from the frontend/ directory');
     process.exit(1);
 }
 
-// Check if we're in a git repository
-if (!fs.existsSync(path.join(process.cwd(), '..', '.git'))) {
+// Check if we're in a git repository (look for .git in parent directory)
+const gitPath = path.join(process.cwd(), '..', '.git');
+if (!fs.existsSync(gitPath)) {
     printError('.git directory not found. Make sure you are in a git repository');
     process.exit(1);
 }
@@ -186,7 +187,7 @@ printSuccess('🎉 Version bump completed successfully!');
 async function runUpdateProcess() {
     try {
         console.log('');
-        printInfo('Starting automated mobile update process...');
+        printInfo('Starting automated frontend update process...');
         
         // Step 1: Run npm run update
         printInfo('Step 1/3: Executing npm run update...');
@@ -196,8 +197,8 @@ async function runUpdateProcess() {
 
         // Step 2: Git add and commit
         printInfo('Step 2/3: Committing changes to git...');
-        await runCommand('git', ['add', 'mobile/package.json'], { cwd: '..' });
-        await runCommand('git', ['commit', '-m', `"chore: bump mobile version to v${newVersion}"`], { cwd: '..' });
+        await runCommand('git', ['add', 'package.json'], { cwd: '..' });
+        await runCommand('git', ['commit', '-m', `"chore: bump frontend version to v${newVersion}"`], { cwd: '..' });
         
         printSuccess('Changes committed to git');
 
@@ -215,7 +216,7 @@ async function runUpdateProcess() {
             printWarning(`Unable to remove backup: ${error.message}`);
         }
 
-        printSuccess('🎉 Mobile update automation completed successfully!');
+        printSuccess('🎉 Frontend update automation completed successfully!');
         console.log('');
         printInfo('Summary:');
         printInfo(`  ✅ Version bumped: ${currentVersion} → ${newVersion}`);
