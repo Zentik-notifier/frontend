@@ -178,25 +178,40 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
 
         let iconView = UIImageView()
         iconView.contentMode = .scaleAspectFit
-        iconView.layer.cornerRadius = 20
+        iconView.layer.cornerRadius = 25
         iconView.clipsToBounds = true
         iconView.backgroundColor = .secondarySystemBackground
-        iconView.widthAnchor.constraint(equalToConstant: 40).isActive = true
-        iconView.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        iconView.widthAnchor.constraint(equalToConstant: 50).isActive = true
+        iconView.heightAnchor.constraint(equalToConstant: 50).isActive = true
         headerIconImageView = iconView
 
         // Load bucket icon if available
         if let iconData = attachmentData.first(where: { ($0["mediaType"] as? String ?? "").uppercased() == "ICON" }),
            let iconUrl = iconData["url"] as? String {
+            // Ensure icon is visible since we have an ICON attachment
+            iconView.isHidden = false
             loadIconFromSharedCache(iconUrl: iconUrl, iconImageView: iconView)
         } else {
-            // Fallback to app icon
-            if let appIcon = UIImage(named: "AppIcon") {
+            // Try to find app icon
+            var fallbackImage: UIImage?
+            
+            // Try different app icon names
+            let appIconNames = ["AppIcon", "AppIcon-60", "AppIcon-76", "AppIcon-83.5", "AppIcon-1024"]
+            for iconName in appIconNames {
+                if let appIcon = UIImage(named: iconName) {
+                    fallbackImage = appIcon
+                    print("📱 [ContentExtension] ✅ Found app icon: \(iconName)")
+                    break
+                }
+            }
+            
+            if let appIcon = fallbackImage {
                 iconView.image = appIcon
+                iconView.isHidden = false
             } else {
-                // Final fallback to system icon
-                iconView.image = UIImage(systemName: "photo")
-                iconView.tintColor = .tertiaryLabel
+                // Hide icon completely if no app icon is available
+                iconView.isHidden = true
+                print("📱 [ContentExtension] ⚠️ No icon available, hiding icon view")
             }
         }
 
@@ -308,10 +323,10 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         headerBodyLabel?.text = notificationBodyText
         refreshHeaderIcon()
 
-        // Footer selector mostrato solo se esistono almeno 2 media non-ICON
+        // Footer selector mostrato solo se esistono almeno 2 media non-ICON e non-AUDIO
         let nonIconItemsCount = attachmentData.filter { (item) in
             let t = (item["mediaType"] as? String ?? "").uppercased()
-            return t != "ICON"
+            return t != "ICON" && t != "AUDIO"
         }.count
         if nonIconItemsCount > 1 {
             setupMediaSelectorFromData()
@@ -321,10 +336,10 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             footerTopToContainerConstraint?.constant = 0 // elimina il bordo/spacing quando non c'è footer
         }
         
-        // Se ci sono solo ICON, non espandere con contenuto gigante: mostra placeholder compatto
+        // Se ci sono solo ICON e AUDIO, non espandere con contenuto gigante: mostra placeholder compatto
         let hasNonIcon = attachmentData.contains { item in
             let t = (item["mediaType"] as? String ?? "").uppercased()
-            return t != "ICON"
+            return t != "ICON" && t != "AUDIO"
         }
 
         if hasNonIcon {
@@ -353,16 +368,31 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Cerca ICON negli attachmentData
         if let iconData = attachmentData.first(where: { ($0["mediaType"] as? String ?? "").uppercased() == "ICON" }),
            let iconUrl = iconData["url"] as? String {
+            // Ensure icon is visible since we have an ICON attachment
+            imageView.isHidden = false
             // Prova cache condivisa, poi download diretto
             loadIconFromSharedCache(iconUrl: iconUrl, iconImageView: imageView)
         } else {
-            // Fallback to app icon
-            if let appIcon = UIImage(named: "AppIcon") {
+            // Try to find app icon
+            var fallbackImage: UIImage?
+            
+            // Try different app icon names
+            let appIconNames = ["AppIcon", "AppIcon-60", "AppIcon-76", "AppIcon-83.5", "AppIcon-1024"]
+            for iconName in appIconNames {
+                if let appIcon = UIImage(named: iconName) {
+                    fallbackImage = appIcon
+                    print("📱 [ContentExtension] ✅ Found app icon: \(iconName)")
+                    break
+                }
+            }
+            
+            if let appIcon = fallbackImage {
                 imageView.image = appIcon
+                imageView.isHidden = false
             } else {
-                // Final fallback to system icon
-                imageView.image = UIImage(systemName: "photo")
-                imageView.tintColor = .tertiaryLabel
+                // Hide icon completely if no app icon is available
+                imageView.isHidden = true
+                print("📱 [ContentExtension] ⚠️ No icon available, hiding icon view")
             }
         }
     }
@@ -485,6 +515,13 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         var xOffset: CGFloat = spacing
         
         for (index, attachment) in attachments.enumerated() {
+            // Skip AUDIO media types - they shouldn't appear in the selector
+            let mediaType = getMediaType(for: attachment)
+            if mediaType == .audio {
+                print("📱 [ContentExtension] Skipping AUDIO attachment at index \(index) from media selector")
+                continue
+            }
+            
             let button = UIButton(type: .custom)
             button.tag = index
             button.layer.cornerRadius = 8
@@ -580,10 +617,14 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         var xOffset: CGFloat = spacing
         
         for (index, attachmentDataItem) in attachmentData.enumerated() {
-            // Skip ICON media types - they shouldn't appear in the selector
+            // Skip ICON and AUDIO media types - they shouldn't appear in the selector
             let mediaTypeString = attachmentDataItem["mediaType"] as? String ?? "UNKNOWN"
             if mediaTypeString.uppercased() == "ICON" {
                 print("📱 [ContentExtension] Skipping ICON attachment at index \(index) from media selector")
+                continue
+            }
+            if mediaTypeString.uppercased() == "AUDIO" {
+                print("📱 [ContentExtension] Skipping AUDIO attachment at index \(index) from media selector")
                 continue
             }
             
@@ -616,11 +657,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     private func findFirstNonIconMediaIndex() -> Int {
         for (index, attachmentDataItem) in attachmentData.enumerated() {
             let mediaTypeString = attachmentDataItem["mediaType"] as? String ?? "UNKNOWN"
-            if mediaTypeString.uppercased() != "ICON" {
+            if mediaTypeString.uppercased() != "ICON" && mediaTypeString.uppercased() != "AUDIO" {
                 return index
             }
         }
-        // Fallback to index 0 if all media are icons (shouldn't happen)
+        // Fallback to index 0 if all media are icons or audio (shouldn't happen)
         return 0
     }
     
@@ -3371,6 +3412,9 @@ extension NotificationViewController {
     private func loadIconFromSharedCache(iconUrl: String, iconImageView: UIImageView) {
         print("📱 [ContentExtension] Loading bucket icon from shared cache: \(iconUrl)")
         
+        // Ensure icon is visible since we have an ICON attachment
+        iconImageView.isHidden = false
+        
         // First, try to get the icon from shared cache
         let sharedCacheDir = getSharedMediaCacheDirectory()
         
@@ -3402,6 +3446,10 @@ extension NotificationViewController {
     private func downloadIconDirectly(iconUrl: String, iconImageView: UIImageView) {
         guard let url = URL(string: iconUrl) else {
             print("📱 [ContentExtension] ❌ Invalid icon URL: \(iconUrl)")
+            // Since we have an ICON attachment, show a placeholder instead of hiding
+            iconImageView.image = UIImage(systemName: "photo")
+            iconImageView.tintColor = .systemGray
+            iconImageView.isHidden = false
             return
         }
         
@@ -3414,16 +3462,11 @@ extension NotificationViewController {
                     print("📱 [ContentExtension] ✅ Bucket icon loaded via direct download")
                 } else {
                     print("📱 [ContentExtension] ❌ Failed to load bucket icon: \(error?.localizedDescription ?? "Unknown error")")
-                    // Fallback to app icon
-                    if let appIcon = UIImage(named: "AppIcon") {
-                        iconImageView.image = appIcon
-                        print("📱 [ContentExtension] ✅ Using app icon as fallback")
-                    } else {
-                        // Final fallback to system icon
-                        iconImageView.image = UIImage(systemName: "photo")
-                        iconImageView.tintColor = .tertiaryLabel
-                        print("📱 [ContentExtension] ✅ Using system icon as final fallback")
-                    }
+                    // Since we have an ICON attachment, show a placeholder instead of hiding
+                    iconImageView.image = UIImage(systemName: "photo")
+                    iconImageView.tintColor = .systemGray
+                    iconImageView.isHidden = false
+                    print("📱 [ContentExtension] ⚠️ Showing placeholder icon for failed ICON attachment")
                 }
             }
         }.resume()
