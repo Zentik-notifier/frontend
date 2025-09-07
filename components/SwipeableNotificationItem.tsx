@@ -40,15 +40,17 @@ interface SwipeableNotificationItemProps {
   hideBucketInfo?: boolean; // Renamed: hides bucket name, icon and left border
   isMultiSelectionMode?: boolean;
   isSelected?: boolean;
+  isVisible?: boolean;
   onToggleSelection?: () => void;
   onLongPress?: () => void;
 }
 
-const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> = ({
+const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> = React.memo(({
   notification,
   hideBucketInfo = false, // Default to showing bucket info
   isMultiSelectionMode = false,
   isSelected = false,
+  isVisible = true,
   onToggleSelection,
   onLongPress,
 }) => {
@@ -345,7 +347,7 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> = ({
           </ThemedView>
 
           {/* RIGA 2: Preview del media selezionato (solo in modalità estesa) */}
-          {visibleAttachment?.url && (
+          {visibleAttachment?.url && isVisible && (
             <ThemedView
               style={[
                 styles.mediaPreviewRow,
@@ -360,8 +362,9 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> = ({
                   url={visibleAttachment.url || ""}
                   style={styles.expandedImage}
                   originalFileName={visibleAttachment.name || undefined}
+                  noAutoDownload={!isVisible} // Only download when visible
                   videoProps={{
-                    autoPlay: true,
+                    autoPlay: false, // Disable autoplay for better performance
                     isMuted: true,
                     isLooping: true,
                   }}
@@ -502,7 +505,7 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> = ({
       )}
     </SwipeableItem>
   );
-};
+});
 
 const styles = StyleSheet.create({
   swipeContainer: {

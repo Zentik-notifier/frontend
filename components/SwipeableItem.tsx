@@ -85,9 +85,13 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   );
 
   const onHandlerStateChange = (event: PanGestureHandlerStateChangeEvent) => {
-    if (event.nativeEvent.state === State.END) {
-      const { translationX } = event.nativeEvent;
-      
+    const { state, translationX } = event.nativeEvent;
+    
+    if (state === State.BEGAN) {
+      // Reset any existing swipe state when starting new gesture
+      setCurrentSwipeDirection(null);
+      setShowActionBackground(null);
+    } else if (state === State.END) {
       if (translationX < -SWIPE_THRESHOLD && rightAction) {
         // Swipe left (negative) - Right action
         handleAction(rightAction, 'right');
@@ -101,6 +105,11 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
       
       // Reset swipe direction
       setCurrentSwipeDirection(null);
+    } else if (state === State.CANCELLED || state === State.FAILED) {
+      // Handle cancelled gestures
+      animateToPosition(0);
+      setCurrentSwipeDirection(null);
+      setShowActionBackground(null);
     }
   };
 
@@ -240,6 +249,10 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
         onGestureEvent={onGestureEvent}
         onHandlerStateChange={onHandlerStateChange}
         activeOffsetX={[-10, 10]}
+        minPointers={1}
+        maxPointers={1}
+        shouldCancelWhenOutside={true}
+        enableTrackpadTwoFingerGesture={false}
       >
         <Animated.View
           style={[

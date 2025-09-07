@@ -71,7 +71,7 @@ const checkImageValidity = async (imagePath: string): Promise<boolean> => {
   }
 };
 
-export function CachedMedia({
+export const CachedMedia = React.memo(function CachedMedia({
   url,
   mediaType,
   style,
@@ -644,7 +644,7 @@ export function CachedMedia({
       {showMediaIndicator && smallButtons && renderSmallTypeIndicator()}
     </View>
   );
-}
+});
 
 const defaultStyles = StyleSheet.create({
   // Base container riusabile per tutti gli stati

@@ -174,14 +174,14 @@ export default function NotificationsList({
     }
   };
 
+  // Stato per tracciare gli elementi visibili
+  const [visibleItems, setVisibleItems] = useState<Set<string>>(new Set());
+
   // Funzione per gestire il cambio degli elementi visibili
   const handleViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: any[] }) => {
-      const newVisibleItems = viewableItems.map((item) => item.item);
-      // console.log(
-      //   "[NotificationsList] Visible items changed:",
-      //   newVisibleItems
-      // );
+      const newVisibleItems = new Set(viewableItems.map((item) => item.item.id));
+      setVisibleItems(newVisibleItems);
     },
     []
   );
@@ -189,6 +189,7 @@ export default function NotificationsList({
   const renderItem = useCallback(
     ({ item }: { item: NotificationFragment }) => {
       const isSelected = selectedItems.has(item.id);
+      const isVisible = visibleItems.has(item.id);
 
       return (
         <SwipeableNotificationItem
@@ -196,11 +197,18 @@ export default function NotificationsList({
           hideBucketInfo={hideBucketInfo}
           isMultiSelectionMode={selectionMode}
           isSelected={isSelected}
+          isVisible={isVisible}
           onToggleSelection={() => toggleItemSelection(item.id)}
         />
       );
     },
-    [selectedItems, selectionMode, hideBucketInfo]
+    [selectedItems, selectionMode, hideBucketInfo, visibleItems]
+  );
+
+  // Memoized key extractor
+  const keyExtractor = useCallback(
+    (item: NotificationFragment) => item.id,
+    []
   );
 
   const renderSelectionBar = () => (
@@ -406,7 +414,7 @@ export default function NotificationsList({
 
       <FlatList
         data={filteredNotifications}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
         renderItem={renderItem}
         onViewableItemsChanged={handleViewableItemsChanged}
         viewabilityConfig={{
@@ -428,13 +436,19 @@ export default function NotificationsList({
         ListEmptyComponent={renderEmptyState}
         // Performance optimizations for virtualization
         removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        updateCellsBatchingPeriod={50}
-        initialNumToRender={10}
-        windowSize={10}
+        maxToRenderPerBatch={5}
+        updateCellsBatchingPeriod={100}
+        initialNumToRender={8}
+        windowSize={21}
         getItemLayout={(data, index) => {
-          // Estimate item height based on compact mode
-          const itemHeight = isCompactMode ? 60 : 80;
+          // More accurate item height estimation
+          const baseHeight = isCompactMode ? 60 : 80;
+          // Add extra height for items with attachments
+          const item = data?.[index];
+          const hasAttachments = (item?.message?.attachments?.length ?? 0) > 0;
+          const hasActions = (item?.message?.actions?.length ?? 0) > 0;
+          const extraHeight = (hasAttachments ? 40 : 0) + (hasActions ? 20 : 0);
+          const itemHeight = baseHeight + extraHeight;
           return { length: itemHeight, offset: itemHeight * index, index };
         }}
       />
