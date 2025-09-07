@@ -56,6 +56,21 @@ interface CachedMediaProps {
   };
 }
 
+// Funzione per verificare se un'immagine è valida
+const checkImageValidity = async (imagePath: string): Promise<boolean> => {
+  try {
+    // Prova a caricare l'immagine per verificare se è valida
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = imagePath;
+    });
+  } catch (error) {
+    return false;
+  }
+};
+
 export function CachedMedia({
   url,
   mediaType,
@@ -89,7 +104,7 @@ export function CachedMedia({
   });
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekTime, setSeekTime] = useState(0);
-  const seekBarRef = useRef<View>(null);
+  const [imageError, setImageError] = useState(false);
   const { item: mediaSource } = useCachedItem(url, mediaType);
   const isVideoType = mediaType === MediaType.Video;
 
@@ -384,6 +399,27 @@ export function CachedMedia({
         case MediaType.Image:
         case MediaType.Icon:
         case MediaType.Gif:
+          if (imageError || mediaSource.isPermanentFailure) {
+            return (
+              <View style={getStateContainerStyle("failed") as any}>
+                <View style={defaultStyles.stateContent}>
+                  <Ionicons
+                    name="warning-outline"
+                    size={isCompact ? 20 : 24}
+                    color={isCompact ? "#fff" : stateColors.failed}
+                    onPress={isCompact ? handleForceDownload : undefined}
+                  />
+                  {!isCompact && (
+                    <Text style={getStateTextStyle("failed")}>
+                      Errore Immagine
+                    </Text>
+                  )}
+                </View>
+                {renderForceDownloadButton(true)}
+              </View>
+            );
+          }
+
           return (
             <Pressable onPress={onPress}>
               <ExpoImage
@@ -402,6 +438,11 @@ export function CachedMedia({
                 blurRadius={imageProps?.blurRadius}
                 priority={imageProps?.priority}
                 cachePolicy={"memory"}
+                onError={() => {
+                  console.warn('[CachedMedia] Image load error:', mediaSource.localPath);
+                  setImageError(true);
+                  mediaCache.markAsPermanentFailure(url, mediaType, 'IMAGE_LOAD_ERROR');
+                }}
               />
             </Pressable>
           );
@@ -542,6 +583,25 @@ export function CachedMedia({
       mediaCache.downloadMedia({ url, mediaType, notificationDate });
     }
   }, [mediaSource, notificationDate]);
+
+  useEffect(() => {
+    const checkImage = async () => {
+      if (
+        mediaSource?.localPath &&
+        (mediaType === MediaType.Image || mediaType === MediaType.Icon || mediaType === MediaType.Gif) &&
+        !imageError
+      ) {
+        const isValid = await checkImageValidity(mediaSource.localPath);
+        if (!isValid) {
+          console.warn('[CachedMedia] Invalid image detected:', mediaSource.localPath);
+          setImageError(true);
+          await mediaCache.markAsPermanentFailure(url, mediaType, 'INVALID_IMAGE');
+        }
+      }
+    };
+
+    checkImage();
+  }, [mediaSource?.localPath, mediaType, url, imageError]);
 
   useEffect(() => {
     if (videoSource && isVideoType && videoPlayer) {

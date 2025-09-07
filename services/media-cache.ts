@@ -459,6 +459,24 @@ class MediaCacheService {
         });
     }
 
+    async markAsPermanentFailure(url: string, mediaType: MediaType, errorCode?: string): Promise<void> {
+        await this.initialize();
+        const key = this.generateCacheKey(url, mediaType);
+        
+        this.metadata[key] = {
+            ...this.metadata[key],
+            url,
+            mediaType,
+            isPermanentFailure: true,
+            isDownloading: false,
+            errorCode: errorCode || 'UNKNOWN_ERROR',
+            timestamp: Date.now(),
+        };
+        
+        await this.saveMetadata();
+        console.log('[MediaCache] Marked as permanent failure:', key, errorCode);
+    }
+
     async clearCache(): Promise<void> {
         await this.initialize();
 

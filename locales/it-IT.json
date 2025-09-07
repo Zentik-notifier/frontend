@@ -1451,6 +1451,7 @@
     "mediaFile": "File Media",
     "tapToRetry": "Tocca per riprovare",
     "videoError": "Errore Video",
+    "imageError": "Errore Immagine",
     "downloadProgress": "Download...",
     "loadingProgress": "Caricamento...",
     "forceDownload": "Download",
