@@ -501,9 +501,9 @@ const styles = StyleSheet.create({
   },
   selectionCountBadge: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    height: 44,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -513,8 +513,10 @@ const styles = StyleSheet.create({
   },
   selectionButton: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 6,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
