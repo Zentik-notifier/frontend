@@ -35,6 +35,7 @@ import {
   StyleSheet,
 } from "react-native";
 import {
+  clearLastUserId,
   clearTokens,
   getAccessToken,
   getLastUserId,
@@ -127,8 +128,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     console.debug("🧹 Clearing tokens and setting logout state...");
     await clearTokens();
     await savePushNotificationsInitialized(false);
+    await clearLastUserId();
     push.clearBadge();
     setUserId(null);
+    setLastUserId(null);
     console.debug("✅ Logout completed");
   };
 

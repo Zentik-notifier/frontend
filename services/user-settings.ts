@@ -4,6 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Localization from 'expo-localization';
 import React from 'react';
 
+// Current version of terms (update this when terms change)
+const CURRENT_TERMS_VERSION = '1.0.0';
+
 
 // Get device timezone with fallback
 const getDeviceTimezone = (): string => {
@@ -86,6 +89,18 @@ export interface UserSettings {
     autoPlay: boolean;
     showFaultyMedias: boolean;
   };
+
+  // Onboarding settings
+  onboarding: {
+    hasCompletedOnboarding: boolean;
+    showOnboarding: boolean;
+  };
+
+  // Terms acceptance settings
+  termsAcceptance: {
+    termsAccepted: boolean;
+    acceptedVersion: string;
+  };
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -121,6 +136,14 @@ const DEFAULT_SETTINGS: UserSettings = {
     autoPlay: true,
     showFaultyMedias: false,
   },
+  onboarding: {
+    hasCompletedOnboarding: false,
+    showOnboarding: false,
+  },
+  termsAcceptance: {
+    termsAccepted: false,
+    acceptedVersion: CURRENT_TERMS_VERSION,
+  },
 };
 
 // Storage keys
@@ -135,6 +158,11 @@ const STORAGE_KEYS = {
   NOTIFICATIONS_LAST_SEEN_ID: '@notifications_last_seen_id',
   // Gallery settings
   GALLERY_SETTINGS: '@zentik/gallery_settings',
+  // Onboarding settings
+  ONBOARDING_COMPLETED: '@zentik/onboarding_completed',
+  // Terms acceptance settings
+  TERMS_ACCEPTED: '@zentik/terms_accepted',
+  TERMS_VERSION: '@zentik/terms_version',
 } as const;
 
 class UserSettingsService {
@@ -205,6 +233,22 @@ class UserSettingsService {
       const notificationsLastSeenId = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_LAST_SEEN_ID);
       if (notificationsLastSeenId && !stored) {
         this.settings.notificationsLastSeenId = notificationsLastSeenId;
+        await this.saveSettings();
+      }
+
+      // Check for legacy onboarding completion
+      const onboardingCompleted = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
+      if (onboardingCompleted && !stored) {
+        this.settings.onboarding.hasCompletedOnboarding = onboardingCompleted === "true";
+        await this.saveSettings();
+      }
+
+      // Check for legacy terms acceptance
+      const termsAccepted = await AsyncStorage.getItem(STORAGE_KEYS.TERMS_ACCEPTED);
+      const termsVersion = await AsyncStorage.getItem(STORAGE_KEYS.TERMS_VERSION);
+      if (termsAccepted && termsVersion && !stored) {
+        this.settings.termsAcceptance.termsAccepted = termsAccepted === "true";
+        this.settings.termsAcceptance.acceptedVersion = termsVersion;
         await this.saveSettings();
       }
 
@@ -587,6 +631,8 @@ class UserSettingsService {
       notificationsLastSeenId: stored.notificationsLastSeenId || DEFAULT_SETTINGS.notificationsLastSeenId,
       notificationFilters,
       gallery: stored.gallery || DEFAULT_SETTINGS.gallery,
+      onboarding: stored.onboarding || DEFAULT_SETTINGS.onboarding,
+      termsAcceptance: stored.termsAcceptance || DEFAULT_SETTINGS.termsAcceptance,
     };
   }
 
@@ -643,6 +689,117 @@ class UserSettingsService {
       throw new Error('Invalid settings format');
     }
   }
+
+  /**
+   * Get onboarding settings
+   */
+  getOnboardingSettings(): UserSettings['onboarding'] {
+    return { ...this.settings.onboarding };
+  }
+
+  /**
+   * Update onboarding settings
+   */
+  async updateOnboardingSettings(updates: Partial<UserSettings['onboarding']>): Promise<void> {
+    this.settings.onboarding = {
+      ...this.settings.onboarding,
+      ...updates,
+    };
+    await this.saveSettings();
+    this.notifyListeners();
+  }
+
+  /**
+   * Complete onboarding
+   */
+  async completeOnboarding(): Promise<void> {
+    await this.updateOnboardingSettings({
+      hasCompletedOnboarding: true,
+      showOnboarding: false,
+    });
+  }
+
+  /**
+   * Start onboarding
+   */
+  async startOnboarding(): Promise<void> {
+    await this.updateOnboardingSettings({
+      showOnboarding: true,
+    });
+  }
+
+  /**
+   * Skip onboarding
+   */
+  async skipOnboarding(): Promise<void> {
+    await this.updateOnboardingSettings({
+      showOnboarding: false,
+    });
+  }
+
+  /**
+   * Reset onboarding
+   */
+  async resetOnboarding(): Promise<void> {
+    await this.updateOnboardingSettings({
+      hasCompletedOnboarding: false,
+      showOnboarding: false,
+    });
+  }
+
+  /**
+   * Get terms acceptance settings
+   */
+  getTermsAcceptanceSettings(): UserSettings['termsAcceptance'] {
+    return { ...this.settings.termsAcceptance };
+  }
+
+  /**
+   * Update terms acceptance settings
+   */
+  async updateTermsAcceptanceSettings(updates: Partial<UserSettings['termsAcceptance']>): Promise<void> {
+    this.settings.termsAcceptance = {
+      ...this.settings.termsAcceptance,
+      ...updates,
+    };
+    await this.saveSettings();
+    this.notifyListeners();
+  }
+
+  /**
+   * Accept terms
+   */
+  async acceptTerms(): Promise<void> {
+    await this.updateTermsAcceptanceSettings({
+      termsAccepted: true,
+      acceptedVersion: CURRENT_TERMS_VERSION,
+    });
+  }
+
+  /**
+   * Clear terms acceptance
+   */
+  async clearTermsAcceptance(): Promise<void> {
+    await this.updateTermsAcceptanceSettings({
+      termsAccepted: false,
+      acceptedVersion: CURRENT_TERMS_VERSION,
+    });
+  }
+
+  /**
+   * Check if user has accepted the current version of terms
+   */
+  hasAcceptedTerms(): boolean {
+    return this.settings.termsAcceptance.termsAccepted && 
+           this.settings.termsAcceptance.acceptedVersion === CURRENT_TERMS_VERSION;
+  }
+
+  /**
+   * Get current terms version
+   */
+  getCurrentTermsVersion(): string {
+    return CURRENT_TERMS_VERSION;
+  }
 }
 
 // Export singleton instance
@@ -689,5 +846,19 @@ export function useUserSettings() {
     // Gallery settings
     getGallerySettings: userSettings.getGallerySettings.bind(userSettings),
     updateGallerySettings: userSettings.updateGallerySettings.bind(userSettings),
+    // Onboarding settings
+    getOnboardingSettings: userSettings.getOnboardingSettings.bind(userSettings),
+    updateOnboardingSettings: userSettings.updateOnboardingSettings.bind(userSettings),
+    completeOnboarding: userSettings.completeOnboarding.bind(userSettings),
+    startOnboarding: userSettings.startOnboarding.bind(userSettings),
+    skipOnboarding: userSettings.skipOnboarding.bind(userSettings),
+    resetOnboarding: userSettings.resetOnboarding.bind(userSettings),
+    // Terms acceptance settings
+    getTermsAcceptanceSettings: userSettings.getTermsAcceptanceSettings.bind(userSettings),
+    updateTermsAcceptanceSettings: userSettings.updateTermsAcceptanceSettings.bind(userSettings),
+    acceptTerms: userSettings.acceptTerms.bind(userSettings),
+    clearTermsAcceptance: userSettings.clearTermsAcceptance.bind(userSettings),
+    hasAcceptedTerms: userSettings.hasAcceptedTerms.bind(userSettings),
+    getCurrentTermsVersion: userSettings.getCurrentTermsVersion.bind(userSettings),
   };
 }

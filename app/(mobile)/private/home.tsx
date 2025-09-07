@@ -3,7 +3,7 @@ import GallerySection from "@/components/GallerySection";
 import MinimalFooter, { HomeSection } from "@/components/MinimalFooter";
 import NotificationsSection from "@/components/NotificationsSection";
 import { ThemedView } from "@/components/ThemedView";
-import { useOnboarding } from "@/hooks/useOnboarding";
+import { useUserSettings } from "@/services/user-settings";
 import { useAppContext } from "@/services/app-context";
 import React, {
   useEffect,
@@ -18,7 +18,8 @@ export default function OptimizedHomeScreen() {
     showOnboarding,
   } = useAppContext();
   const [currentSection, setCurrentSection] = useState<HomeSection>("all");
-  const { hasCompletedOnboarding } = useOnboarding();
+  const { getOnboardingSettings } = useUserSettings();
+  const { hasCompletedOnboarding } = getOnboardingSettings();
 
   useEffect(() => {
     refetchNotifications();

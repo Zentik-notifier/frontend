@@ -3,7 +3,7 @@ import { GraphQLProvider } from "@/components/GraphQLProvider";
 import { I18nProvider } from "@/components/I18nProvider";
 import { NavigationOptimizationProvider } from "@/components/NavigationOptimizationProvider";
 import { TermsAcceptanceScreen } from "@/components/TermsAcceptanceScreen";
-import { useTermsAcceptance } from "@/hooks/useTermsAcceptance";
+import { useUserSettings } from "@/services/user-settings";
 import { ThemeProvider, useTheme } from "@/hooks/useTheme";
 import { RequireAuth } from "@/services/require-auth";
 import {
@@ -164,14 +164,18 @@ function DeepLinkHandler() {
 }
 
 function TermsGuard({ children }: { children: React.ReactNode }) {
-  const { termsAccepted, loading, refreshTermsStatus } = useTermsAcceptance();
+  const { hasAcceptedTerms, acceptTerms } = useUserSettings();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     ApiConfigService.initialize();
+    // Simulate loading state for compatibility
+    const timer = setTimeout(() => setLoading(false), 100);
+    return () => clearTimeout(timer);
   }, []);
 
-  const handleTermsAccepted = () => {
-    refreshTermsStatus();
+  const handleTermsAccepted = async () => {
+    await acceptTerms();
   };
 
   const handleTermsDeclined = () => {
@@ -185,7 +189,7 @@ function TermsGuard({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (!loading && !termsAccepted) {
+  if (!loading && !hasAcceptedTerms()) {
     return (
       <SafeAreaView style={styles.container}>
         <TermsAcceptanceScreen
@@ -201,7 +205,7 @@ function TermsGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (termsAccepted) {
+  if (hasAcceptedTerms()) {
     return <>{children}</>;
   }
 

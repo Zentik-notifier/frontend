@@ -10,7 +10,7 @@ import {
   useGetBucketsQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useOnboarding } from "@/hooks/useOnboarding";
+import { useUserSettings } from "@/services/user-settings";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useColorScheme } from "@/hooks/useTheme";
 import * as Clipboard from "expo-clipboard";
@@ -51,7 +51,7 @@ export default function OnboardingModal({
   const { t } = useI18n();
   const colorScheme = useColorScheme();
   const { registerDevice } = usePushNotifications();
-  const { completeOnboarding } = useOnboarding();
+  const { completeOnboarding } = useUserSettings();
   const [currentStep, setCurrentStep] = useState(0);
   const [bucketName, setBucketName] = useState("My First Bucket");
   const [tokenName, setTokenName] = useState("Test Token");

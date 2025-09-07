@@ -10,7 +10,6 @@ export { useNotificationFilters } from './useNotificationFilters';
 export { useNotificationUtils } from './useNotificationUtils';
 export { usePersistentState } from './usePersistentState';
 export { useScreenFocus } from './useScreenFocus';
-export { useTermsAcceptance } from './useTermsAcceptance';
 export { useColorScheme, useTheme } from './useTheme';
 export { useThemeColor } from './useThemeColor';
 
