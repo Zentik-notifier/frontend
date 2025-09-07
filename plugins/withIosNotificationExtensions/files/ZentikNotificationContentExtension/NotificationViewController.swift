@@ -72,6 +72,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     private var notificationBodyText: String = ""
     private var audioInfoView: UIView?
     
+    // Current notification data for tap actions
+    private var currentNotificationUserInfo: [AnyHashable: Any]?
+    
     // Outlets (if you use Storyboard)
     @IBOutlet weak var bodyLabel: UILabel?
     @IBOutlet weak var titleLabel: UILabel?
@@ -114,6 +117,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         notificationTitleText = notification.request.content.title
         notificationSubtitleText = notification.request.content.subtitle
         notificationBodyText = notification.request.content.body
+        
+        // Store current notification data for tap actions
+        currentNotificationUserInfo = notification.request.content.userInfo
         
         // Store attachments and data
         attachments = notification.request.content.attachments
@@ -172,11 +178,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
 
         let iconView = UIImageView()
         iconView.contentMode = .scaleAspectFit
-        iconView.layer.cornerRadius = 18
+        iconView.layer.cornerRadius = 20
         iconView.clipsToBounds = true
         iconView.backgroundColor = .secondarySystemBackground
-        iconView.widthAnchor.constraint(equalToConstant: 36).isActive = true
-        iconView.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        iconView.widthAnchor.constraint(equalToConstant: 40).isActive = true
+        iconView.heightAnchor.constraint(equalToConstant: 40).isActive = true
         headerIconImageView = iconView
 
         // Load bucket icon if available
@@ -184,8 +190,14 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
            let iconUrl = iconData["url"] as? String {
             loadIconFromSharedCache(iconUrl: iconUrl, iconImageView: iconView)
         } else {
-            iconView.image = UIImage(systemName: "photo")
-            iconView.tintColor = .tertiaryLabel
+            // Fallback to app icon
+            if let appIcon = UIImage(named: "AppIcon") {
+                iconView.image = appIcon
+            } else {
+                // Final fallback to system icon
+                iconView.image = UIImage(systemName: "photo")
+                iconView.tintColor = .tertiaryLabel
+            }
         }
 
         let labelsStack = UIStackView()
@@ -231,6 +243,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             headerStack.trailingAnchor.constraint(equalTo: header.trailingAnchor),
             headerStack.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -8)
         ])
+        
+        // Add tap gesture recognizer to header
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(headerTapped))
+        header.addGestureRecognizer(tapGesture)
+        header.isUserInteractionEnabled = true
 
         // Media container
         let container = UIView()
@@ -338,6 +355,15 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
            let iconUrl = iconData["url"] as? String {
             // Prova cache condivisa, poi download diretto
             loadIconFromSharedCache(iconUrl: iconUrl, iconImageView: imageView)
+        } else {
+            // Fallback to app icon
+            if let appIcon = UIImage(named: "AppIcon") {
+                imageView.image = appIcon
+            } else {
+                // Final fallback to system icon
+                imageView.image = UIImage(systemName: "photo")
+                imageView.tintColor = .tertiaryLabel
+            }
         }
     }
 
@@ -2271,6 +2297,22 @@ extension NotificationViewController {
         }
     }
     
+    @objc private func headerTapped() {
+        print("📱 [ContentExtension] 👆 Header tapped - triggering default tap action")
+        
+        // Get current notification data
+        guard let userInfo = currentNotificationUserInfo,
+              let notificationId = extractNotificationId(from: userInfo) else {
+            print("📱 [ContentExtension] ❌ No notification data available for header tap")
+            return
+        }
+        
+        // Call handleDefaultTapAction with a dummy completion
+        handleDefaultTapAction(userInfo: userInfo, notificationId: notificationId) { success in
+            print("📱 [ContentExtension] ✅ Header tap action completed with success: \(success)")
+        }
+    }
+    
     private func extractTapAction(from userInfo: [AnyHashable: Any]) -> [String: Any]? {
         if let tapAction = userInfo["tapAction"] as? [String: Any] {
             return tapAction
@@ -3366,14 +3408,23 @@ extension NotificationViewController {
         print("📱 [ContentExtension] 📥 Downloading icon directly: \(iconUrl)")
         
         URLSession.shared.dataTask(with: url) { data, response, error in
-            guard let data = data, let image = UIImage(data: data) else {
-                print("📱 [ContentExtension] ❌ Failed to load bucket icon: \(error?.localizedDescription ?? "Unknown error")")
-                return
-            }
-            
             DispatchQueue.main.async {
-                iconImageView.image = image
-                print("📱 [ContentExtension] ✅ Bucket icon loaded via direct download")
+                if let data = data, let image = UIImage(data: data) {
+                    iconImageView.image = image
+                    print("📱 [ContentExtension] ✅ Bucket icon loaded via direct download")
+                } else {
+                    print("📱 [ContentExtension] ❌ Failed to load bucket icon: \(error?.localizedDescription ?? "Unknown error")")
+                    // Fallback to app icon
+                    if let appIcon = UIImage(named: "AppIcon") {
+                        iconImageView.image = appIcon
+                        print("📱 [ContentExtension] ✅ Using app icon as fallback")
+                    } else {
+                        // Final fallback to system icon
+                        iconImageView.image = UIImage(systemName: "photo")
+                        iconImageView.tintColor = .tertiaryLabel
+                        print("📱 [ContentExtension] ✅ Using system icon as final fallback")
+                    }
+                }
             }
         }.resume()
     }
