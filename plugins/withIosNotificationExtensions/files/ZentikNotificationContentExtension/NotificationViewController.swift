@@ -307,8 +307,23 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         print("📱 [ContentExtension] Attachments count: \(attachments.count)")
         
         // Use attachmentData (all media) instead of attachments (only NSE downloaded media)
-        guard !attachmentData.isEmpty else {
-            print("📱 [ContentExtension] ❌ No attachment data available")
+        if attachmentData.isEmpty {
+            print("📱 [ContentExtension] ⚠️ No attachment data available - showing header only")
+            // Show only header when no attachments are available
+            headerTitleLabel?.text = notificationTitleText
+            headerSubtitleLabel?.text = notificationSubtitleText
+            headerSubtitleLabel?.isHidden = notificationSubtitleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            headerBodyLabel?.text = notificationBodyText
+            refreshHeaderIcon()
+            
+            // Hide media container and footer
+            mediaContainerView?.isHidden = true
+            mediaHeightConstraint?.constant = 0
+            if let footer = footerContainerView {
+                footer.removeFromSuperview()
+                footerContainerView = nil
+            }
+            preferredContentSize = CGSize(width: view.bounds.width, height: headerViewHeight())
             return
         }
         
@@ -336,7 +351,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             footerTopToContainerConstraint?.constant = 0 // elimina il bordo/spacing quando non c'è footer
         }
         
-        // Se ci sono solo ICON e AUDIO, non espandere con contenuto gigante: mostra placeholder compatto
+        // Se ci sono solo ICON e AUDIO, o nessun media disponibile, non espandere con contenuto gigante: mostra placeholder compatto
         let hasNonIcon = attachmentData.contains { item in
             let t = (item["mediaType"] as? String ?? "").uppercased()
             return t != "ICON" && t != "AUDIO"
@@ -348,7 +363,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             selectedMediaIndex = firstNonIconIndex
             displayMediaFromSharedCache(at: firstNonIconIndex)
         } else {
-            // Solo ICON: nessun viewer, solo header (testi e icona), rimuovi footer e azzera viewer
+            // Solo ICON/AUDIO o nessun media: nessun viewer, solo header (testi e icona), rimuovi footer e azzera viewer
             mediaContainerView?.isHidden = true
             mediaHeightConstraint?.constant = 0
             if let footer = footerContainerView {
@@ -356,6 +371,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 footerContainerView = nil
             }
             preferredContentSize = CGSize(width: view.bounds.width, height: headerViewHeight())
+            print("📱 [ContentExtension] Showing header-only mode (no media available or only ICON/AUDIO)")
             return
         }
         
