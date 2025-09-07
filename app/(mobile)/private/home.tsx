@@ -20,19 +20,18 @@ export default function OptimizedHomeScreen() {
   const [currentSection, setCurrentSection] = useState<HomeSection>("all");
   const { hasCompletedOnboarding } = useOnboarding();
 
-  // useEffect(() => {
-  //   refetchNotifications();
-  // }, [refetchNotifications]);
+  useEffect(() => {
+    refetchNotifications();
+  }, [refetchNotifications]);
 
-  // useEffect(() => {
-  //   if (hasCompletedOnboarding === false) {
-  //     // Piccolo delay per permettere al layout di caricarsi
-  //     const timer = setTimeout(() => {
-  //       showOnboarding();
-  //     }, 1000);
-  //     return () => clearTimeout(timer);
-  //   }
-  // }, [hasCompletedOnboarding, showOnboarding]);
+  useEffect(() => {
+    if (hasCompletedOnboarding === false) {
+      const timer = setTimeout(() => {
+        showOnboarding();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [hasCompletedOnboarding, showOnboarding]);
 
   const renderCurrentSection = useMemo(() => {
     switch (currentSection) {
