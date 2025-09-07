@@ -644,7 +644,6 @@ const defaultStyles = StyleSheet.create({
   // Audio container specifico (non riusabile per altri stati)
   audioContainer: {
     backgroundColor: "#ffffff",
-    borderRadius: 12,
     padding: 20,
     minHeight: 120,
     justifyContent: "center",
