@@ -341,55 +341,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         }
     }
 
-    private func setupIconFooterWithTexts() {
-        // Footer container
-        let footer = UIStackView()
-        footer.axis = .vertical
-        footer.alignment = .fill
-        footer.spacing = 8
-        footer.distribution = .fill
-        view.addSubview(footer)
-        
-        // Title
-        let title = UILabel()
-        title.text = notificationTitleText
-        title.font = .systemFont(ofSize: 16, weight: .semibold)
-        title.textColor = .label
-        title.numberOfLines = 2
-        
-        // Subtitle (if any)
-        let subtitle = UILabel()
-        subtitle.text = notificationSubtitleText
-        subtitle.font = .systemFont(ofSize: 13, weight: .regular)
-        subtitle.textColor = .secondaryLabel
-        subtitle.numberOfLines = 2
-        subtitle.isHidden = notificationSubtitleText.isEmpty
-        
-        // Body
-        let body = UILabel()
-        body.text = notificationBodyText
-        body.font = .systemFont(ofSize: 13)
-        body.textColor = .secondaryLabel
-        body.numberOfLines = 3
-        
-        footer.addArrangedSubview(title)
-        footer.addArrangedSubview(subtitle)
-        footer.addArrangedSubview(body)
-        
-        // Selector con icona (se esiste)
-        setupMediaSelectorFromData()
-        if let selector = mediaSelectorView {
-            footer.addArrangedSubview(selector)
-        }
-        
-        footer.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            footer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            footer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            footer.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -8),
-            footer.topAnchor.constraint(equalTo: view.topAnchor, constant: 8)
-        ])
-    }
+    
 
     // MARK: - Dynamic height adjustments
     private func adjustPreferredHeight(forContentSize size: CGSize) {

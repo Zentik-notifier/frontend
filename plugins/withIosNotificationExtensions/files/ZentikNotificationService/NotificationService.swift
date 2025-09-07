@@ -581,54 +581,13 @@ class NotificationService: UNNotificationServiceExtension {
         return false
     }
     
-    private func shouldUseContentExtensionForMedia(content: UNMutableNotificationContent) -> Bool {
-        guard let userInfo = content.userInfo as? [String: Any],
-              let attachmentData = userInfo["attachmentData"] as? [[String: Any]] else {
-            return false
-        }
-        
-        print("📱 [NotificationService] Total media: \(attachmentData.count)")
-        
-        // Debug: Print all media types
-        for (index, attachment) in attachmentData.enumerated() {
-            if let mediaType = attachment["mediaType"] as? String {
-                print("📱 [NotificationService] Media \(index): \(mediaType)")
-            }
-        }
-        
-        // Use Content Extension if there's any media beyond only ICON
-        let nonIconExists = attachmentData.contains { item in
-            let t = (item["mediaType"] as? String ?? "").uppercased()
-            return t != "ICON"
-        }
-        return nonIconExists
-    }
+    
     
     
 
     
     
-    private func saveToSharedCache(localURL: URL, mediaAttachment: MediaAttachment) {
-        // Save the icon to shared cache for potential future use by the app
-        let cacheDirectory = getSharedMediaCacheDirectory()
-        let fileName = generateSafeFileName(
-            url: mediaAttachment.url,
-            mediaType: mediaAttachment.mediaType,
-            originalFileName: mediaAttachment.name
-        )
-        let destinationURL = cacheDirectory.appendingPathComponent(fileName)
-        
-        do {
-            // Remove existing file if it exists
-            if FileManager.default.fileExists(atPath: destinationURL.path) {
-                try FileManager.default.removeItem(at: destinationURL)
-            }
-            try FileManager.default.copyItem(at: localURL, to: destinationURL)
-            print("📱 [NotificationService] ✅ ICON saved to shared cache: \(fileName)")
-        } catch {
-            print("📱 [NotificationService] ❌ Failed to save ICON to shared cache: \(error.localizedDescription)")
-        }
-    }
+    
     
     private func downloadMediaAttachments(content: UNMutableNotificationContent, completion: @escaping () -> Void) {
         guard let userInfo = content.userInfo as? [String: Any] else {
@@ -1485,49 +1444,7 @@ class NotificationService: UNNotificationServiceExtension {
     
     // MARK: - Media Pre-Caching (Legacy - kept for compatibility)
     
-    private func preCacheAllMediaAttachments(_ mediaAttachments: [MediaAttachment]) {
-        print("📱 [NotificationService] 🚀 Starting download of ALL \(mediaAttachments.count) media attachments to shared cache")
-        
-        let sharedCacheDirectory = getSharedMediaCacheDirectory()
-        
-        // Create cache directory structure if it doesn't exist
-        do {
-            try FileManager.default.createDirectory(at: sharedCacheDirectory, withIntermediateDirectories: true, attributes: nil)
-            
-            // Create subdirectories for each media type
-            let mediaTypes = ["IMAGE", "VIDEO", "GIF", "AUDIO", "ICON"]
-            for mediaType in mediaTypes {
-                let typeDir = sharedCacheDirectory.appendingPathComponent(mediaType)
-                try FileManager.default.createDirectory(at: typeDir, withIntermediateDirectories: true, attributes: nil)
-            }
-        } catch {
-            print("📱 [NotificationService] ❌ Failed to create cache directory structure: \(error)")
-            return
-        }
-        
-        // Initialize shared metadata with downloading status
-        updateSharedMetadata(for: mediaAttachments)
-        
-        // Use DispatchGroup to wait for all downloads to complete
-        let downloadGroup = DispatchGroup()
-        
-        // Download all media attachments in parallel with synchronization
-        for mediaAttachment in mediaAttachments {
-            downloadGroup.enter()
-            downloadMediaToSharedCache(mediaAttachment, in: sharedCacheDirectory) {
-                downloadGroup.leave()
-            }
-        }
-        
-        // Wait for all downloads to complete (with timeout to avoid blocking forever)
-        let result = downloadGroup.wait(timeout: .now() + 25) // 25 seconds timeout
-        
-        if result == .timedOut {
-            print("📱 [NotificationService] ⚠️ Some downloads timed out, but continuing with available media")
-        } else {
-            print("📱 [NotificationService] ✅ All media downloads completed successfully")
-        }
-    }
+    
     
     private func downloadMediaToSharedCache(_ mediaAttachment: MediaAttachment, in cacheDirectory: URL, completion: @escaping () -> Void) {
         guard let url = URL(string: mediaAttachment.url) else {
