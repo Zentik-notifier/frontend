@@ -25,7 +25,7 @@ export default function OptimizedHomeScreen() {
   }, [refetchNotifications]);
 
   useEffect(() => {
-    if (hasCompletedOnboarding === false) {
+    if (!hasCompletedOnboarding) {
       const timer = setTimeout(() => {
         showOnboarding();
       }, 1000);

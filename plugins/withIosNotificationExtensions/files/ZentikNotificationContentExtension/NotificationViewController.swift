@@ -24,12 +24,22 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     private var timeObserverPlayer: AVPlayer? // Track which player created the observer
     private var isObservingPlayerStatus: Bool = false
     private var isObservingPlayerItemStatus: Bool = false
+    private weak var observedPlayerForStatus: AVPlayer?
+    private weak var observedPlayerItemForStatus: AVPlayerItem?
     
     // UI Components
     private var mediaContainerView: UIView?
     private var imageView: UIImageView?
     private var webView: WKWebView?
     private var audioVisualizationView: UIView?
+    private var headerView: UIView?
+    private var footerContainerView: UIView?
+    private var headerTitleLabel: UILabel?
+    private var headerSubtitleLabel: UILabel?
+    private var headerBodyLabel: UILabel?
+    private var headerIconImageView: UIImageView?
+    private var mediaHeightConstraint: NSLayoutConstraint?
+    private var footerTopToContainerConstraint: NSLayoutConstraint?
 
     private var loadingIndicator: UIActivityIndicatorView?
     
@@ -54,6 +64,12 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     private var currentDownloadTask: URLSessionDownloadTask?
     private var mediaLoadingIndicator: UIActivityIndicatorView?
     private var errorView: UIView?
+    private var downloadCTAButton: UIButton?
+
+    // Stored notification texts
+    private var notificationTitleText: String = ""
+    private var notificationSubtitleText: String = ""
+    private var notificationBodyText: String = ""
     private var audioInfoView: UIView?
     
     // Outlets (if you use Storyboard)
@@ -93,6 +109,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Clean up any previous media and observers before processing new notification
         cleanupCurrentMedia()
+        
+        // Store notification texts
+        notificationTitleText = notification.request.content.title
+        notificationSubtitleText = notification.request.content.subtitle
+        notificationBodyText = notification.request.content.body
         
         // Store attachments and data
         attachments = notification.request.content.attachments
@@ -138,20 +159,107 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     // MARK: - Setup Methods
     
     private func setupUI() {
-        // Create media container
+        // Header (icon + texts)
+        let header = UIView()
+        view.addSubview(header)
+        headerView = header
+        header.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            header.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
+            header.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            header.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12)
+        ])
+
+        let iconView = UIImageView()
+        iconView.contentMode = .scaleAspectFit
+        iconView.layer.cornerRadius = 18
+        iconView.clipsToBounds = true
+        iconView.backgroundColor = .secondarySystemBackground
+        iconView.widthAnchor.constraint(equalToConstant: 36).isActive = true
+        iconView.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        headerIconImageView = iconView
+
+        // Load bucket icon if available
+        if let iconData = attachmentData.first(where: { ($0["mediaType"] as? String ?? "").uppercased() == "ICON" }),
+           let iconUrl = iconData["url"] as? String {
+            loadIconFromSharedCache(iconUrl: iconUrl, iconImageView: iconView)
+        } else {
+            iconView.image = UIImage(systemName: "photo")
+            iconView.tintColor = .tertiaryLabel
+        }
+
+        let labelsStack = UIStackView()
+        labelsStack.axis = .vertical
+        labelsStack.alignment = .fill
+        labelsStack.spacing = 2
+        
+        let title = UILabel()
+        title.font = .systemFont(ofSize: 16, weight: .semibold)
+        title.textColor = .label
+        title.numberOfLines = 2
+        title.text = notificationTitleText.isEmpty ? "" : notificationTitleText
+        headerTitleLabel = title
+        
+        let subtitle = UILabel()
+        subtitle.font = .systemFont(ofSize: 12)
+        subtitle.textColor = .secondaryLabel
+        subtitle.numberOfLines = 2
+        subtitle.text = notificationSubtitleText
+        subtitle.isHidden = notificationSubtitleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        headerSubtitleLabel = subtitle
+        
+        let body = UILabel()
+        body.font = .systemFont(ofSize: 12)
+        body.textColor = .secondaryLabel
+        body.numberOfLines = 3
+        body.text = notificationBodyText
+        headerBodyLabel = body
+        
+        labelsStack.addArrangedSubview(title)
+        labelsStack.addArrangedSubview(subtitle)
+        labelsStack.addArrangedSubview(body)
+        
+        let headerStack = UIStackView(arrangedSubviews: [iconView, labelsStack])
+        headerStack.axis = .horizontal
+        headerStack.alignment = .center
+        headerStack.spacing = 10
+        header.addSubview(headerStack)
+        headerStack.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            headerStack.topAnchor.constraint(equalTo: header.topAnchor, constant: 8),
+            headerStack.leadingAnchor.constraint(equalTo: header.leadingAnchor),
+            headerStack.trailingAnchor.constraint(equalTo: header.trailingAnchor),
+            headerStack.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -8)
+        ])
+
+        // Media container
         let container = UIView()
         container.backgroundColor = .black
         container.clipsToBounds = true
         view.addSubview(container)
         mediaContainerView = container
-        
-        // Setup constraints for container
         container.translatesAutoresizingMaskIntoConstraints = false
+        let heightConstraint = container.heightAnchor.constraint(equalToConstant: 200)
+        heightConstraint.priority = .defaultHigh
+        mediaHeightConstraint = heightConstraint
         NSLayoutConstraint.activate([
-            container.topAnchor.constraint(equalTo: view.topAnchor),
+            container.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 8),
             container.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             container.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            container.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            heightConstraint
+        ])
+
+        // Footer container (selector)
+        let footer = UIView()
+        view.addSubview(footer)
+        footerContainerView = footer
+        footer.translatesAutoresizingMaskIntoConstraints = false
+        footerTopToContainerConstraint = footer.topAnchor.constraint(equalTo: container.bottomAnchor, constant: 8)
+        NSLayoutConstraint.activate([
+            footerTopToContainerConstraint!,
+            footer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            footer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            footer.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         
         // Hide default labels
@@ -176,18 +284,175 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Continue with normal expanded mode setup
         
-        // In expanded mode: show selector with ALL media if more than 1
-        if attachmentData.count > 1 {
+        // Aggiorna header (testi + icona) dopo didReceive
+        headerTitleLabel?.text = notificationTitleText
+        headerSubtitleLabel?.text = notificationSubtitleText
+        headerSubtitleLabel?.isHidden = notificationSubtitleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        headerBodyLabel?.text = notificationBodyText
+        refreshHeaderIcon()
+
+        // Footer selector mostrato solo se esistono almeno 2 media non-ICON
+        let nonIconItemsCount = attachmentData.filter { (item) in
+            let t = (item["mediaType"] as? String ?? "").uppercased()
+            return t != "ICON"
+        }.count
+        if nonIconItemsCount > 1 {
             setupMediaSelectorFromData()
+            footerTopToContainerConstraint?.constant = 8
+        } else {
+            mediaSelectorView?.removeFromSuperview()
+            footerTopToContainerConstraint?.constant = 0 // elimina il bordo/spacing quando non c'è footer
         }
         
-        // Display first non-ICON media from attachmentData
-        let firstNonIconIndex = findFirstNonIconMediaIndex()
-        selectedMediaIndex = firstNonIconIndex
-        displayMediaFromSharedCache(at: firstNonIconIndex)
+        // Se ci sono solo ICON, non espandere con contenuto gigante: mostra placeholder compatto
+        let hasNonIcon = attachmentData.contains { item in
+            let t = (item["mediaType"] as? String ?? "").uppercased()
+            return t != "ICON"
+        }
+
+        if hasNonIcon {
+            // Display first non-ICON media from attachmentData
+            let firstNonIconIndex = findFirstNonIconMediaIndex()
+            selectedMediaIndex = firstNonIconIndex
+            displayMediaFromSharedCache(at: firstNonIconIndex)
+        } else {
+            // Solo ICON: nessun viewer, solo header (testi e icona), rimuovi footer e azzera viewer
+            mediaContainerView?.isHidden = true
+            mediaHeightConstraint?.constant = 0
+            if let footer = footerContainerView {
+                footer.removeFromSuperview()
+                footerContainerView = nil
+            }
+            preferredContentSize = CGSize(width: view.bounds.width, height: headerViewHeight())
+            return
+        }
         
-        // Set expanded size
-        preferredContentSize = CGSize(width: view.bounds.width, height: 400)
+        // Set expanded size (iniziale), verrà aggiustata in base al media
+        preferredContentSize = CGSize(width: view.bounds.width, height: headerViewHeight() + 240 + footerHeight())
+    }
+
+    private func refreshHeaderIcon() {
+        guard let imageView = headerIconImageView else { return }
+        // Cerca ICON negli attachmentData
+        if let iconData = attachmentData.first(where: { ($0["mediaType"] as? String ?? "").uppercased() == "ICON" }),
+           let iconUrl = iconData["url"] as? String {
+            // Prova cache condivisa, poi download diretto
+            loadIconFromSharedCache(iconUrl: iconUrl, iconImageView: imageView)
+        }
+    }
+
+    private func setupIconFooterWithTexts() {
+        // Footer container
+        let footer = UIStackView()
+        footer.axis = .vertical
+        footer.alignment = .fill
+        footer.spacing = 8
+        footer.distribution = .fill
+        view.addSubview(footer)
+        
+        // Title
+        let title = UILabel()
+        title.text = notificationTitleText
+        title.font = .systemFont(ofSize: 16, weight: .semibold)
+        title.textColor = .label
+        title.numberOfLines = 2
+        
+        // Subtitle (if any)
+        let subtitle = UILabel()
+        subtitle.text = notificationSubtitleText
+        subtitle.font = .systemFont(ofSize: 13, weight: .regular)
+        subtitle.textColor = .secondaryLabel
+        subtitle.numberOfLines = 2
+        subtitle.isHidden = notificationSubtitleText.isEmpty
+        
+        // Body
+        let body = UILabel()
+        body.text = notificationBodyText
+        body.font = .systemFont(ofSize: 13)
+        body.textColor = .secondaryLabel
+        body.numberOfLines = 3
+        
+        footer.addArrangedSubview(title)
+        footer.addArrangedSubview(subtitle)
+        footer.addArrangedSubview(body)
+        
+        // Selector con icona (se esiste)
+        setupMediaSelectorFromData()
+        if let selector = mediaSelectorView {
+            footer.addArrangedSubview(selector)
+        }
+        
+        footer.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            footer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            footer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            footer.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -8),
+            footer.topAnchor.constraint(equalTo: view.topAnchor, constant: 8)
+        ])
+    }
+
+    // MARK: - Dynamic height adjustments
+    private func adjustPreferredHeight(forContentSize size: CGSize) {
+        guard size.width > 0 && size.height > 0 else { return }
+        let maxWidth = view.bounds.width
+        let aspect = size.height / size.width
+        let targetHeight = max(120, min(700, maxWidth * aspect))
+        preferredContentSize = CGSize(width: maxWidth, height: targetHeight + headerViewHeight() + footerHeight())
+        mediaHeightConstraint?.constant = targetHeight
+        view.layoutIfNeeded()
+        print("📱 [ContentExtension] 🔧 Adjusted preferred/media height: viewer=\(targetHeight)")
+    }
+
+    private func headerViewHeight() -> CGFloat {
+        guard let header = headerView else { return 0 }
+        header.layoutIfNeeded()
+        return max(56, header.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).height + 8)
+    }
+
+    private func footerHeight() -> CGFloat {
+        return (mediaSelectorView?.superview != nil) ? 88 : 0
+    }
+
+    private func adjustPreferredHeightForVideo(url: URL) {
+        let asset = AVAsset(url: url)
+        if let track = asset.tracks(withMediaType: .video).first {
+            let size = track.naturalSize.applying(track.preferredTransform)
+            let width = abs(size.width)
+            let height = abs(size.height)
+            if width > 0 && height > 0 {
+                adjustPreferredHeight(forContentSize: CGSize(width: width, height: height))
+            }
+        }
+    }
+
+    private func showIconOnlyPlaceholder() {
+        guard let container = mediaContainerView else { return }
+        cleanupCurrentMedia()
+
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 8
+
+        let label = UILabel()
+        label.text = "Icona del bucket"
+        label.font = .systemFont(ofSize: 16, weight: .medium)
+        label.textColor = .secondaryLabel
+
+        let sub = UILabel()
+        sub.text = "Espandi per azioni, nessun media da mostrare"
+        sub.font = .systemFont(ofSize: 13)
+        sub.textColor = .tertiaryLabel
+
+        stack.addArrangedSubview(label)
+        stack.addArrangedSubview(sub)
+
+        container.addSubview(stack)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: container.centerYAnchor)
+        ])
     }
     
     
@@ -274,12 +539,15 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         mediaThumbnails.forEach { $0.removeFromSuperview() }
         mediaThumbnails.removeAll()
         
-        // Create container view for icon + selector
-        let selectorContainer = UIView()
-        selectorContainer.backgroundColor = UIColor.systemGray6
-        selectorContainer.layer.borderWidth = 1
-        selectorContainer.layer.borderColor = UIColor.systemGray4.cgColor
-        view.addSubview(selectorContainer)
+        // Create container view for selector (no icon inside footer per richiesta)
+        let selectorContainer = footerContainerView ?? UIView()
+        if selectorContainer.superview == nil {
+            selectorContainer.backgroundColor = UIColor.systemGray6
+            selectorContainer.layer.borderWidth = 1
+            selectorContainer.layer.borderColor = UIColor.systemGray4.cgColor
+            view.addSubview(selectorContainer)
+            footerContainerView = selectorContainer
+        }
         
         // Setup constraints for container
         selectorContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -290,41 +558,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             selectorContainer.heightAnchor.constraint(equalToConstant: 80)
         ])
         
-        // Create bucket icon (if available)
-        var iconWidth: CGFloat = 0
-        if let iconData = attachmentData.first(where: { attachment in
-            let mediaType = attachment["mediaType"] as? String ?? ""
-            return mediaType.uppercased() == "ICON"
-        }),
-        let iconUrl = iconData["url"] as? String,
-        let url = URL(string: iconUrl) {
-            
-            print("📱 [ContentExtension] Adding bucket icon to selector: \(iconUrl)")
-            
-            let iconImageView = UIImageView()
-            iconImageView.contentMode = .scaleAspectFit
-            iconImageView.backgroundColor = UIColor.systemBackground
-            iconImageView.layer.cornerRadius = 25
-            iconImageView.clipsToBounds = true
-            iconImageView.layer.borderWidth = 2
-            iconImageView.layer.borderColor = UIColor.systemBlue.cgColor
-            
-            selectorContainer.addSubview(iconImageView)
-            
-            // Setup icon constraints
-            iconImageView.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                iconImageView.leadingAnchor.constraint(equalTo: selectorContainer.leadingAnchor, constant: 10),
-                iconImageView.centerYAnchor.constraint(equalTo: selectorContainer.centerYAnchor),
-                iconImageView.widthAnchor.constraint(equalToConstant: 50),
-                iconImageView.heightAnchor.constraint(equalToConstant: 50)
-            ])
-            
-            iconWidth = 70 // 50 + 10 leading + 10 spacing
-            
-            // Try to load icon from shared cache first, fallback to direct download
-            loadIconFromSharedCache(iconUrl: iconUrl, iconImageView: iconImageView)
-        }
+        // No icon in the footer selector
+        let iconWidth: CGFloat = 0
         
         // Create selector scroll view
         let scrollView = UIScrollView()
@@ -354,7 +589,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             // Re-setup container constraints with proper bottom constraint
             container.translatesAutoresizingMaskIntoConstraints = false
             NSLayoutConstraint.activate([
-                container.topAnchor.constraint(equalTo: view.topAnchor),
+                container.topAnchor.constraint(equalTo: headerView?.bottomAnchor ?? view.topAnchor, constant: 8),
                 container.leadingAnchor.constraint(equalTo: view.leadingAnchor),
                 container.trailingAnchor.constraint(equalTo: view.trailingAnchor),
                 container.bottomAnchor.constraint(equalTo: selectorContainer.topAnchor)
@@ -616,14 +851,28 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Show loading indicator
         showMediaLoadingIndicator()
         
-        // Create temporary file URL for downloaded media
-        let tempDirectory = FileManager.default.temporaryDirectory
-        let fileName = "content_extension_\(abs(url.absoluteString.hash)).\(getFileExtension(for: mediaType, originalURL: url))"
-        let tempFileURL = tempDirectory.appendingPathComponent(fileName)
+        // Prepare shared cache destination (always save in shared directory)
+        let sharedCacheDirectory = getSharedMediaCacheDirectory()
+        let mediaTypeString: String = {
+            switch mediaType {
+            case .image: return "IMAGE"
+            case .gif: return "GIF"
+            case .video: return "VIDEO"
+            case .audio: return "AUDIO"
+            }
+        }()
+        let safeFileName = generateSafeFileName(url: url.absoluteString, mediaType: mediaTypeString, originalFileName: nil)
+        let typeDirectory = sharedCacheDirectory.appendingPathComponent(mediaTypeString)
+        let sharedFileURL = typeDirectory.appendingPathComponent(safeFileName)
+        do {
+            try FileManager.default.createDirectory(at: typeDirectory, withIntermediateDirectories: true, attributes: nil)
+        } catch {
+            print("📱 [ContentExtension] ⚠️ Failed to create type directory: \(error)")
+        }
         
         print("📱 [ContentExtension] Original URL: \(url.absoluteString)")
         print("📱 [ContentExtension] Original extension: \(url.pathExtension)")
-        print("📱 [ContentExtension] Target filename: \(fileName)")
+        print("📱 [ContentExtension] Target shared filename: \(safeFileName)")
         
         // Download media
         let task = URLSession.shared.downloadTask(with: url) { [weak self] tempURL, response, error in
@@ -649,22 +898,31 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             }
             
             do {
-                // Move downloaded file to temp location
-                if FileManager.default.fileExists(atPath: tempFileURL.path) {
-                    try FileManager.default.removeItem(at: tempFileURL)
+                // Persist file in shared cache
+                let data = try Data(contentsOf: tempURL)
+                if FileManager.default.fileExists(atPath: sharedFileURL.path) {
+                    try? FileManager.default.removeItem(at: sharedFileURL)
                 }
-                try FileManager.default.moveItem(at: tempURL, to: tempFileURL)
-                
+                try data.write(to: sharedFileURL, options: [.atomic])
+                // Ensure accessibility and no-backup
+                do { try FileManager.default.setAttributes([.protectionKey: FileProtectionType.none], ofItemAtPath: sharedFileURL.path) } catch { }
+                do {
+                    var rv = URLResourceValues()
+                    rv.isExcludedFromBackup = true
+                    var mutableUrl = sharedFileURL
+                    try mutableUrl.setResourceValues(rv)
+                } catch { }
+
                 DispatchQueue.main.async {
-                    print("📱 [ContentExtension] ✅ Media downloaded successfully: \(mediaType)")
-                    // Display the downloaded media
+                    print("📱 [ContentExtension] ✅ Media downloaded to shared cache: \(sharedFileURL.lastPathComponent)")
+                    // Display from shared cache path
                     switch mediaType {
                     case .image, .gif:
-                        self.displayImage(from: tempFileURL)
+                        self.displayImage(from: sharedFileURL)
                     case .video:
-                        self.displayVideo(from: tempFileURL)
+                        self.displayVideo(from: sharedFileURL)
                     case .audio:
-                        self.displayAudio(from: tempFileURL)
+                        self.displayAudio(from: sharedFileURL)
                     }
                 }
             } catch {
@@ -982,6 +1240,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         let imgView = UIImageView()
         imgView.contentMode = .scaleAspectFit
         imgView.backgroundColor = .black
+        imgView.clipsToBounds = true
         
         // Start accessing security-scoped resource
         let accessGranted = url.startAccessingSecurityScopedResource()
@@ -1056,9 +1315,13 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 // Load HTML with data URL
                 wv.loadHTMLString(htmlContent, baseURL: nil)
                 print("📱 [ContentExtension] ✅ GIF loaded in centered WKWebView with data URL")
+                // Adjust height to image intrinsic aspect
+                adjustPreferredHeight(forContentSize: image.size)
                 return
             } else {
                 imgView.image = image
+                // Adjust height to image intrinsic aspect
+                adjustPreferredHeight(forContentSize: image.size)
             }
         } else {
             print("📱 [ContentExtension] ❌ Failed to load image data")
@@ -1138,6 +1401,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         setupAutoplay()
         
         print("📱 [ContentExtension] ✅ Video player setup completed")
+
+        // Adjust height using video natural size
+        adjustPreferredHeightForVideo(url: url)
     }
     
     private func displayAudio(from url: URL) {
@@ -1504,11 +1770,12 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         print("📱 [ContentExtension] Setting up autoplay")
         
         // Remove existing status observer if any (safety check)
-        if isObservingPlayerStatus {
+        if isObservingPlayerStatus, let observed = observedPlayerForStatus {
             print("📱 [ContentExtension] Removing existing AVPlayer status observer before adding new one")
             do {
-                currentPlayer.removeObserver(self, forKeyPath: "status")
+                observed.removeObserver(self, forKeyPath: "status")
                 isObservingPlayerStatus = false
+                observedPlayerForStatus = nil
                 print("📱 [ContentExtension] ✅ Removed existing AVPlayer status observer")
             } catch {
                 print("📱 [ContentExtension] ⚠️ Failed to remove existing AVPlayer observer: \(error)")
@@ -1516,11 +1783,12 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         }
         
         // Remove existing PlayerItem observer if any
-        if isObservingPlayerItemStatus, let playerItem = currentPlayer.currentItem {
+        if isObservingPlayerItemStatus, let itemObserved = observedPlayerItemForStatus {
             print("📱 [ContentExtension] Removing existing AVPlayerItem status observer before adding new one")
             do {
-                playerItem.removeObserver(self, forKeyPath: "status")
+                itemObserved.removeObserver(self, forKeyPath: "status")
                 isObservingPlayerItemStatus = false
+                observedPlayerItemForStatus = nil
                 print("📱 [ContentExtension] ✅ Removed existing AVPlayerItem status observer")
             } catch {
                 print("📱 [ContentExtension] ⚠️ Failed to remove existing AVPlayerItem observer: \(error)")
@@ -1530,6 +1798,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Add status observer
         currentPlayer.addObserver(self, forKeyPath: "status", options: [.new], context: nil)
         isObservingPlayerStatus = true
+        observedPlayerForStatus = currentPlayer
         print("📱 [ContentExtension] Added status observer to current player")
         
         // Remove existing notification observer
@@ -1554,10 +1823,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         print("📱 [ContentExtension] Setting up audio autoplay")
         
         // Remove existing status observer if any (safety check)
-        if isObservingPlayerStatus {
+        if isObservingPlayerStatus, let observed = observedPlayerForStatus {
             print("📱 [ContentExtension] Removing existing status observer before adding new one")
-            currentPlayer.removeObserver(self, forKeyPath: "status")
+            observed.removeObserver(self, forKeyPath: "status")
             isObservingPlayerStatus = false
+            observedPlayerForStatus = nil
         }
         
         // Add status observer for audio
@@ -1568,17 +1838,15 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Add specific observers for audio debugging
         if let playerItem = currentPlayer.currentItem {
             // Remove existing observer first
-            if isObservingPlayerItemStatus {
+            if isObservingPlayerItemStatus, let itemObserved = observedPlayerItemForStatus {
                 print("📱 [ContentExtension] Removing existing PlayerItem status observer before adding new one")
-                do {
-                    playerItem.removeObserver(self, forKeyPath: "status")
-                } catch {
-                    print("📱 [ContentExtension] ⚠️ Failed to remove existing PlayerItem observer: \(error)")
-                }
+                itemObserved.removeObserver(self, forKeyPath: "status")
+                observedPlayerItemForStatus = nil
             }
             
             playerItem.addObserver(self, forKeyPath: "status", options: [.new], context: nil)
             isObservingPlayerItemStatus = true
+            observedPlayerItemForStatus = playerItem
             print("📱 [ContentExtension] Added status observer to audio player item")
             
             // Log audio asset information
@@ -1758,45 +2026,31 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         }
         
         // Clean up any remaining player observers if player exists
-        if let currentPlayer = player {
+        if let currentPlayer = player, let observed = observedPlayerForStatus, observed === currentPlayer {
             // Try to remove any remaining observers from current player
             do {
-                currentPlayer.removeObserver(self, forKeyPath: "status")
+                observed.removeObserver(self, forKeyPath: "status")
                 print("📱 [ContentExtension] ✅ Removed status observer from current player")
             } catch {
                 print("📱 [ContentExtension] ⚠️ Failed to remove status observer: \(error)")
             }
             
             // Try to remove any remaining observers from current player item
-            if let currentItem = currentPlayer.currentItem {
-                do {
-                    currentItem.removeObserver(self, forKeyPath: "status")
-                    print("📱 [ContentExtension] ✅ Removed item status observer")
-                } catch {
-                    print("📱 [ContentExtension] ⚠️ Failed to remove item status observer: \(error)")
-                }
+            if let currentItem = currentPlayer.currentItem, let itemObserved = observedPlayerItemForStatus, itemObserved === currentItem {
+                currentItem.removeObserver(self, forKeyPath: "status")
+                print("📱 [ContentExtension] ✅ Removed item status observer")
             }
         }
         
-        // Additional cleanup: try to remove observers from any player that might exist
-        // This handles edge cases where observer states are inconsistent
-        if let currentPlayer = player {
-            // Force remove any time observers that might be attached to this player
-            if let token = timeObserverToken {
-                do {
-                    currentPlayer.removeTimeObserver(token)
-                    print("📱 [ContentExtension] ✅ Force removed time observer from current player")
-                } catch {
-                    print("📱 [ContentExtension] ⚠️ Force cleanup failed for time observer on current player: \(error)")
-                }
-            }
-        }
+        // NOTE: non rimuovere mai il time observer da un player diverso da quello che lo ha creato
         
         // Reset observer states
         timeObserverToken = nil
         timeObserverPlayer = nil
         isObservingPlayerStatus = false
         isObservingPlayerItemStatus = false
+        observedPlayerForStatus = nil
+        observedPlayerItemForStatus = nil
         
         // Remove notification observers
         NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
@@ -2834,33 +3088,72 @@ extension NotificationViewController {
                 }
             }
         } else {
-            // Media not in cache, check states
-            let isDownloading = isMediaDownloading(url: urlString, mediaType: mediaTypeString)
-            let errorCheck = hasMediaDownloadError(url: urlString, mediaType: mediaTypeString)
-            
-            print("📱 [ContentExtension] Media states - Downloading: \(isDownloading), HasError: \(errorCheck.hasError)")
-            
-            if isDownloading {
-                print("📱 [ContentExtension] 📥 Media is currently downloading, showing loader...")
+            // Media non in cache: controlla se esiste in shared cache appena scaricato manualmente
+            if let cachedPath = getCachedMediaPath(url: urlString, mediaType: mediaTypeString) {
+                print("📱 [ContentExtension] ✅ Found media in shared cache after recheck: \(cachedPath)")
+                let cachedURL = URL(fileURLWithPath: cachedPath)
+                switch mediaType {
+                case .image, .gif:
+                    self.displayImage(from: cachedURL)
+                case .video:
+                    self.displayVideo(from: cachedURL)
+                case .audio:
+                    self.displayAudio(from: cachedURL)
+                }
+            } else if isMediaDownloading(url: urlString, mediaType: mediaTypeString) {
+                print("📱 [ContentExtension] 📥 Media is currently downloading (recheck), showing loader...")
                 showMediaLoadingIndicator()
-                
-                // Poll for completion
                 pollForMediaCompletion(url: urlString, mediaType: mediaTypeString, originalMediaType: mediaType)
-            } else if errorCheck.hasError {
-                print("📱 [ContentExtension] ❌ Media download failed: \(errorCheck.errorMessage ?? "Unknown error")")
-                showMediaError(
-                    errorCheck.errorMessage ?? "Download failed",
-                    allowRetry: true,
-                    retryAction: { [weak self] in
-                        self?.retryCurrentMediaDownload()
-                    }
-                )
             } else {
-                print("📱 [ContentExtension] ⬇️ Media not cached and no error, downloading...")
-                // Fallback to direct download
-                guard let url = URL(string: urlString) else { return }
-                downloadAndDisplayMedia(from: url, mediaType: mediaType)
+                // Offri un pulsante per avviare il download manualmente
+                presentDownloadCTA(urlString: urlString, mediaType: mediaType, metaMediaType: mediaTypeString)
             }
+        }
+    }
+
+    private func presentDownloadCTA(urlString: String, mediaType: MediaType, metaMediaType: String) {
+        guard let container = mediaContainerView else { return }
+        cleanupCurrentMedia()
+        hideMediaLoadingIndicator()
+
+        let button = UIButton(type: .system)
+        button.setTitle("⬇️ Download media", for: .normal)
+        button.setTitleColor(.white, for: .normal)
+        button.backgroundColor = .systemBlue
+        button.layer.cornerRadius = 10
+        button.contentEdgeInsets = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+        button.addTarget(self, action: #selector(startManualDownloadTapped), for: .touchUpInside)
+        button.accessibilityHint = "download:\(metaMediaType.uppercased())|\(urlString)"
+
+        container.addSubview(button)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            button.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            button.heightAnchor.constraint(equalToConstant: 44)
+        ])
+
+        downloadCTAButton = button
+    }
+
+    @objc private func startManualDownloadTapped(_ sender: UIButton) {
+        guard let hint = sender.accessibilityHint else { return }
+        let parts = hint.components(separatedBy: "|")
+        guard parts.count == 2 else { return }
+        let typePart = parts[0].replacingOccurrences(of: "download:", with: "")
+        let urlPart = parts[1]
+
+        let mediaType = getMediaTypeFromString(typePart)
+        guard let url = URL(string: urlPart) else { return }
+
+        // Mostra loader e avvia download
+        showMediaLoadingIndicator()
+        downloadCTAButton?.removeFromSuperview()
+        downloadCTAButton = nil
+        downloadAndDisplayMedia(from: url, mediaType: mediaType)
+        // Aggiorna stato selezionato per re-render corretti
+        if let idx = attachmentData.firstIndex(where: { ($0["url"] as? String) == urlPart }) {
+            selectedMediaIndex = idx
         }
     }
     

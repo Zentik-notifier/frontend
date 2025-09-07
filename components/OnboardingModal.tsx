@@ -265,7 +265,6 @@ export default function OnboardingModal({
         scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       }, 100);
     } else {
-      // Complete onboarding when reaching the last step
       await completeOnboarding();
       onClose();
     }

@@ -414,7 +414,7 @@ class NotificationService: UNNotificationServiceExtension {
         print("📱 [NotificationService] 🎯 FINAL DECISION: shouldUseContentExtension = \(shouldUseContentExtension)")
         
         if !actions.isEmpty {
-            // Always use the main category for Content Extension
+            // Usa sempre la Content Extension principale
             let categoryId = "myNotificationCategory"
             
             print("📱 [NotificationService] 🎯 Choosing category: \(categoryId) (ContentExtension: \(shouldUseContentExtension))")
@@ -488,8 +488,8 @@ class NotificationService: UNNotificationServiceExtension {
                 completion()
             }
         } else {
-            // No actions at all, use Content Extension for media
-            print("📱 [NotificationService] 🎯 No actions but using Content Extension for media")
+            // Nessuna action: usa sempre la Content Extension principale
+            print("📱 [NotificationService] 🎯 No actions, using Content Extension")
             content.categoryIdentifier = "myNotificationCategory"
             completion()
         }
@@ -596,8 +596,12 @@ class NotificationService: UNNotificationServiceExtension {
             }
         }
         
-        // Use Content Extension if there's any media (including icons)
-        return !attachmentData.isEmpty
+        // Use Content Extension if there's any media beyond only ICON
+        let nonIconExists = attachmentData.contains { item in
+            let t = (item["mediaType"] as? String ?? "").uppercased()
+            return t != "ICON"
+        }
+        return nonIconExists
     }
     
     
@@ -656,7 +660,7 @@ class NotificationService: UNNotificationServiceExtension {
         }
         
         print("📱 [NotificationService] NSE mode: downloading first media by priority")
-        print("📱 [NotificationService] Priority order: IMAGE(1) -> GIF(2) -> ICON(3) -> VIDEO(4) -> AUDIO(5)")
+        print("📱 [NotificationService] Priority order: IMAGE(1) -> GIF(2) -> VIDEO(3) -> AUDIO(4) -> ICON(5)")
         print("📱 [NotificationService] After sorting:")
         for (index, item) in mediaAttachments.enumerated() {
             let priority = getCompactPriority(item.mediaType)
@@ -664,20 +668,28 @@ class NotificationService: UNNotificationServiceExtension {
         }
         print("📱 [NotificationService] Selected media: \(mediaAttachments[0].mediaType) with priority \(getCompactPriority(mediaAttachments[0].mediaType))")
         
-        // Download only the first media by priority
-        downloadMediaAttachment(mediaItem: mediaAttachments[0]) { attachment in
+        // Select only ONE media by priority for attachment (prefer non-ICON)
+        let nonIconItems = mediaAttachments.filter { $0.mediaType.uppercased() != "ICON" }
+        let selectedItem: MediaAttachment = nonIconItems.first ?? mediaAttachments[0]
+        print("📱 [NotificationService] 🎯 Selected for NSE attachment: \(selectedItem.mediaType)")
+
+        // Download only the selected media
+        downloadMediaAttachment(mediaItem: selectedItem) { attachment in
             if let attachment = attachment {
                 content.attachments = [attachment]
-                print("📱 [NotificationService] ✅ Media downloaded for compact view: \(mediaAttachments[0].mediaType)")
-                
-                // Start background download of remaining media (non-blocking)
-                if mediaAttachments.count > 1 {
-                    self.startBackgroundDownloadOfRemainingMedia(mediaAttachments)
+                print("📱 [NotificationService] ✅ Media downloaded for compact view: \(selectedItem.mediaType)")
+
+                // Additionally, download only the ICON to shared cache (if exists and not the selected one)
+                if let iconItem = mediaAttachments.first(where: { $0.mediaType.uppercased() == "ICON" }) , iconItem.url != selectedItem.url {
+                    let cacheDir = self.getSharedMediaCacheDirectory()
+                    self.downloadMediaToSharedCache(iconItem, in: cacheDir) {
+                        print("📱 [NotificationService] 💾 ICON cached for Content Extension")
+                    }
                 }
             } else {
-                print("📱 [NotificationService] ❌ Failed to download first media, will show error")
+                print("📱 [NotificationService] ❌ Failed to download selected media, will show error")
                 // Set error flag in shared metadata for Content Extension to handle
-                self.setDownloadErrorFlag(for: mediaAttachments[0])
+                self.setDownloadErrorFlag(for: selectedItem)
             }
             completion()
         }
@@ -720,8 +732,8 @@ class NotificationService: UNNotificationServiceExtension {
         // GIF should have higher priority than ICON to show animations
         switch mediaType.uppercased() {
         case "IMAGE": return 1
-        case "VIDEO": return 2
-        case "GIF": return 3
+        case "GIF": return 2
+        case "VIDEO": return 3
         case "AUDIO": return 4
         case "ICON": return 5
         default: return 6
@@ -1648,7 +1660,6 @@ class NotificationService: UNNotificationServiceExtension {
                 "size": 0, // Will be updated when download completes
                 "mediaType": mediaAttachment.mediaType.uppercased(),
                 "originalFileName": mediaAttachment.name ?? "",
-                "downloadedAt": now,
                 "isDownloading": true,
                 "downloadProgress": 0,
                 "notificationDate": now
