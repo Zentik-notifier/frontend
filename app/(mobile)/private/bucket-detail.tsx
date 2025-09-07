@@ -42,7 +42,7 @@ export default function BucketDetailScreen() {
     );
   }
 
-  if (error) {
+  if (error && !bucket) {
     return (
       <>
         <Stack.Screen
