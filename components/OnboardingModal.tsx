@@ -10,6 +10,7 @@ import {
   useGetBucketsQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { useOnboarding } from "@/hooks/useOnboarding";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useColorScheme } from "@/hooks/useTheme";
 import * as Clipboard from "expo-clipboard";
@@ -50,6 +51,7 @@ export default function OnboardingModal({
   const { t } = useI18n();
   const colorScheme = useColorScheme();
   const { registerDevice } = usePushNotifications();
+  const { completeOnboarding } = useOnboarding();
   const [currentStep, setCurrentStep] = useState(0);
   const [bucketName, setBucketName] = useState("My First Bucket");
   const [tokenName, setTokenName] = useState("Test Token");
@@ -255,7 +257,7 @@ export default function OnboardingModal({
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
       // Scroll to top when changing step
@@ -263,6 +265,8 @@ export default function OnboardingModal({
         scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       }, 100);
     } else {
+      // Complete onboarding when reaching the last step
+      await completeOnboarding();
       onClose();
     }
   };
@@ -275,6 +279,11 @@ export default function OnboardingModal({
         scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       }, 100);
     }
+  };
+
+  const handleClose = async () => {
+    await completeOnboarding();
+    onClose();
   };
 
   const renderStepContent = () => {
@@ -578,11 +587,11 @@ export default function OnboardingModal({
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <ThemedView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
             <Ionicons
               name="close"
               size={24}
