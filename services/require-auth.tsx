@@ -24,7 +24,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     if (!isPrivate && !isPublic && !isHome) {
       router.replace("/(mobile)/private/home");
     }
-  }, [showPrivateRoutes, segments]);
+  }, [showPrivateRoutes, segments, isInitializing]);
 
   return <>{children}</>;
 }
