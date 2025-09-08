@@ -1,4 +1,12 @@
+import { Colors } from "@/constants/Colors";
+import {
+  GetNotificationsDocument,
+  NotificationFragment,
+  useSetBucketSnoozeMutation,
+} from "@/generated/gql-operations-generated";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
+import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -12,49 +20,60 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
-import { Colors } from "../constants/Colors";
-import {
-  GetNotificationsDocument,
-  useSetBucketSnoozeMutation,
-} from "../generated/gql-operations-generated";
-import { useDateFormat } from "../hooks/useDateFormat";
-import { useI18n } from "../hooks/useI18n";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { Button } from "./ui/Button";
-
-interface BucketSnoozeHeaderProps {
-  bucketId: string;
-}
+import { Icon } from "./ui";
 
 interface QuickSnoozeOption {
   label: string;
   value: number; // minutes
 }
 
-export const BucketSnoozeHeader: React.FC<BucketSnoozeHeaderProps> = ({
+interface NotificationSnoozeButtonProps {
+  bucketId: string;
+  variant: "swipeable" | "detail";
+  showText?: boolean;
+  fullWidth?: boolean;
+  onPress?: () => void;
+}
+
+const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   bucketId,
+  variant,
+  showText = false,
+  fullWidth = false,
+  onPress,
 }) => {
+  const colorScheme = useColorScheme();
   const { t } = useI18n();
   const { formatDate } = useDateFormat();
-  const colorScheme = useColorScheme();
 
   const { bucket, refetch } = useGetBucketData(bucketId);
+
   const snoozeUntil = bucket?.userBucket?.snoozeUntil
     ? new Date(bucket.userBucket.snoozeUntil)
     : null;
   const isSnoozed = snoozeUntil ? new Date() < snoozeUntil : false;
 
-  // Mutazioni
+  // Per SwipeableItem, mostra solo se è snoozed
+  // Per Detail, mostra sempre
+  const shouldShow = variant === "detail" || isSnoozed;
+
+  // Stati per il modal
+  const [showModal, setShowModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [quickLoading, setQuickLoading] = useState<number | null>(null);
+  const [removingSnooze, setRemovingSnooze] = useState(false);
+
+  // Mutazione per impostare lo snooze
   const [setBucketSnooze, { loading: settingSnooze }] =
     useSetBucketSnoozeMutation({
       refetchQueries: [GetNotificationsDocument],
       awaitRefetchQueries: true,
     });
-
-  const [showModal, setShowModal] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const quickSnoozeOptions: QuickSnoozeOption[] = useMemo(
     () => [
@@ -69,9 +88,18 @@ export const BucketSnoozeHeader: React.FC<BucketSnoozeHeaderProps> = ({
     [t]
   );
 
-  const handleQuickSnooze = (minutes: number) => {
-    const newSnoozeDate = new Date(Date.now() + minutes * 60 * 1000);
-    handleSetSnooze(newSnoozeDate);
+  if (!shouldShow || !bucketId) {
+    return null;
+  }
+
+  const handleQuickSnooze = async (minutes: number) => {
+    try {
+      setQuickLoading(minutes);
+      const newSnoozeDate = new Date(Date.now() + minutes * 60 * 1000);
+      await handleSetSnooze(newSnoozeDate);
+    } finally {
+      setQuickLoading(null);
+    }
   };
 
   const openModal = () => {
@@ -110,7 +138,6 @@ export const BucketSnoozeHeader: React.FC<BucketSnoozeHeaderProps> = ({
     if (!bucketId) return;
     const snoozeUntilISO = date.toISOString();
     try {
-      // Usa sempre setBucketSnooze: crea la relazione se assente, aggiorna altrimenti
       await setBucketSnooze({
         variables: { bucketId, snoozeUntil: snoozeUntilISO },
       });
@@ -124,11 +151,23 @@ export const BucketSnoozeHeader: React.FC<BucketSnoozeHeaderProps> = ({
   const handleRemoveSnooze = async () => {
     if (!bucketId) return;
     try {
+      setRemovingSnooze(true);
       await setBucketSnooze({ variables: { bucketId, snoozeUntil: null } });
       setShowModal(false);
       refetch();
     } catch (error) {
       Alert.alert("Error", t("notificationDetail.snooze.errorRemoving"));
+    } finally {
+      setRemovingSnooze(false);
+    }
+  };
+
+  const handlePress = () => {
+    if (onPress) {
+      onPress();
+    } else {
+      // Apri sempre il modal, anche se è già snoozed
+      openModal();
     }
   };
 
@@ -141,7 +180,7 @@ export const BucketSnoozeHeader: React.FC<BucketSnoozeHeaderProps> = ({
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
     if (days > 0) {
-      return `${days}d ${hours % 24}h`;
+      return `${days}g ${hours % 24}h`;
     } else if (hours > 0) {
       return `${hours}h ${minutes % 60}m`;
     } else {
@@ -149,67 +188,48 @@ export const BucketSnoozeHeader: React.FC<BucketSnoozeHeaderProps> = ({
     }
   };
 
-  const renderSnoozeButton = () => {
-    if (isSnoozed && snoozeUntil) {
-      const remaining = getRemainingTime();
-      return (
-        <TouchableOpacity
-          style={[
-            styles.snoozeButton,
-            styles.snoozedButton,
-            {
-              borderColor: Colors[colorScheme].border,
-              backgroundColor: Colors[colorScheme].backgroundSecondary,
-            },
-          ]}
-          onPress={() => setShowModal(true)}
-        >
-          <Ionicons
-            name="time-outline"
-            size={16}
-            color={Colors[colorScheme].tint}
-          />
-          <ThemedText
-            style={[
-              styles.snoozeButtonText,
-              { color: Colors[colorScheme].tint },
-            ]}
-          >
-            {" "}
-            {t("notificationDetail.snooze.snoozedFor")} {remaining}{" "}
-          </ThemedText>
-        </TouchableOpacity>
-      );
-    }
-    return (
-      <TouchableOpacity
-        style={[
-          styles.snoozeButton,
-          {
-            borderColor: Colors[colorScheme].border,
-            backgroundColor: Colors[colorScheme].backgroundSecondary,
-          },
-        ]}
-        onPress={openModal}
-      >
-        <Ionicons
-          name="time-outline"
-          size={16}
-          color={Colors[colorScheme].text}
-        />
-        <ThemedText
-          style={[styles.snoozeButtonText, { color: Colors[colorScheme].text }]}
-        >
-          {" "}
-          {t("notificationDetail.snooze.setSnooze")}{" "}
-        </ThemedText>
-      </TouchableOpacity>
-    );
-  };
+  const buttonText = isSnoozed
+    ? variant === "swipeable"
+      ? getRemainingTime()
+      : `${t("notificationDetail.snooze.snoozedFor")} ${getRemainingTime()}`
+    : t("notificationDetail.snooze.setSnooze");
 
   return (
     <>
-      {renderSnoozeButton()}
+      <TouchableOpacity
+        style={[
+          variant === "swipeable"
+            ? styles.swipeableButton
+            : styles.detailButton,
+          fullWidth ? { width: "100%" } : null,
+          {
+            backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
+            borderColor: Colors[colorScheme ?? "light"].border,
+          },
+        ]}
+        onPress={handlePress}
+        disabled={settingSnooze}
+      >
+        <Icon
+          name="snooze"
+          size="xs"
+          color={Colors[colorScheme ?? "light"].text}
+        />
+        {showText && (
+          <ThemedText
+            style={[
+              variant === "swipeable"
+                ? styles.swipeableText
+                : styles.detailText,
+              { color: Colors[colorScheme ?? "light"].text },
+            ]}
+          >
+            {buttonText}
+          </ThemedText>
+        )}
+      </TouchableOpacity>
+
+      {/* Modal completo per lo snooze */}
       <Modal
         visible={showModal}
         animationType="slide"
@@ -248,15 +268,25 @@ export const BucketSnoozeHeader: React.FC<BucketSnoozeHeaderProps> = ({
                 <TouchableOpacity
                   style={[
                     styles.clearAllButton,
-                    { backgroundColor: Colors[colorScheme].error },
+                    {
+                      backgroundColor: Colors[colorScheme].error,
+                      opacity: removingSnooze ? 0.8 : 1,
+                    },
                   ]}
                   onPress={handleRemoveSnooze}
                   activeOpacity={0.7}
+                  disabled={removingSnooze}
                 >
-                  <Ionicons name="refresh" size={16} color="white" />
-                  <ThemedText style={styles.clearAllText}>
-                    {t("notificationDetail.snooze.removeSnooze")}
-                  </ThemedText>
+                  {removingSnooze ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="refresh" size={16} color="white" />
+                      <ThemedText style={styles.clearAllText}>
+                        {t("notificationDetail.snooze.removeSnooze")}
+                      </ThemedText>
+                    </>
+                  )}
                 </TouchableOpacity>
               )}
               <TouchableOpacity
@@ -345,17 +375,29 @@ export const BucketSnoozeHeader: React.FC<BucketSnoozeHeaderProps> = ({
                       {
                         borderColor: Colors[colorScheme].border,
                         backgroundColor: Colors[colorScheme].backgroundCard,
+                        opacity:
+                          settingSnooze ||
+                          (quickLoading !== null && quickLoading !== value)
+                            ? 0.6
+                            : 1,
                       },
                     ]}
                     onPress={() => handleQuickSnooze(value)}
                     activeOpacity={0.7}
-                    disabled={settingSnooze}
+                    disabled={settingSnooze || quickLoading !== null}
                   >
-                    <Ionicons
-                      name="time-outline"
-                      size={18}
-                      color={Colors[colorScheme].textSecondary}
-                    />
+                    {quickLoading === value ? (
+                      <ActivityIndicator
+                        color={Colors[colorScheme].textSecondary}
+                        size="small"
+                      />
+                    ) : (
+                      <Ionicons
+                        name="time-outline"
+                        size={18}
+                        color={Colors[colorScheme].textSecondary}
+                      />
+                    )}
                     <ThemedText
                       style={[
                         styles.sortButtonText,
@@ -432,6 +474,7 @@ export const BucketSnoozeHeader: React.FC<BucketSnoozeHeaderProps> = ({
                 onPress={() => handleSetSnooze(selectedDate)}
                 style={styles.customButton}
                 disabled={settingSnooze}
+                loading={settingSnooze}
               />
             </ThemedView>
           </ScrollView>
@@ -442,21 +485,31 @@ export const BucketSnoozeHeader: React.FC<BucketSnoozeHeaderProps> = ({
 };
 
 const styles = StyleSheet.create({
-  snoozeButton: {
+  swipeableButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    backgroundColor: "transparent",
-    marginLeft: 8,
+    gap: 2,
+    justifyContent: "center",
   },
-  snoozedButton: {
-    backgroundColor: "rgba(255, 107, 107, 0.1)",
+  detailButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
   },
-  snoozeButtonText: {
+  swipeableText: {
     fontSize: 12,
+    fontWeight: "600",
+  },
+  detailText: {
+    fontSize: 14,
     fontWeight: "600",
     marginLeft: 4,
   },
@@ -554,3 +607,5 @@ const styles = StyleSheet.create({
     minWidth: "100%",
   },
 });
+
+export default NotificationSnoozeButton;

@@ -33,11 +33,15 @@ export const filteredActions = (notification: NotificationFragment) => {
 interface NotificationActionsButtonProps {
   actions: NotificationActionFragment[];
   notification: NotificationFragment;
-  showInline?: boolean;
+  variant: "swipeable" | "detail";
+  showTextLabel?: boolean;
+  fullWidth?: boolean;
 }
 
 const NotificationActionsButton: React.FC<NotificationActionsButtonProps> = ({
-  showInline = false,
+  variant,
+  showTextLabel = false,
+  fullWidth = false,
   actions,
   notification,
 }) => {
@@ -59,148 +63,54 @@ const NotificationActionsButton: React.FC<NotificationActionsButtonProps> = ({
 
   const actionCount = actions.length;
 
-  if (showInline) {
-    if (actionCount === 0) return null;
+  if (actionCount === 0) return null;
 
-    return (
-      <>
-        <TouchableOpacity
-          style={[
-            styles.compactActionButton,
-            { backgroundColor: "transparent" },
-          ]}
-          onPress={() => setModalVisible(true)}
-        >
-          <Icon name="action" size="xs" color="secondary" />
-          <ThemedText style={styles.compactActionText}>
-            {actionCount}
-          </ThemedText>
-        </TouchableOpacity>
+  // Determina il testo del pulsante
+  const buttonText = showTextLabel 
+    ? (actionCount === 1
+        ? t("notificationActions.actionCount", { count: actionCount })
+        : t("notificationActions.actionCountPlural", { count: actionCount }))
+    : actionCount.toString();
 
-        <Modal
-          visible={modalVisible}
-          animationType="slide"
-          presentationStyle="pageSheet"
-          onRequestClose={() => setModalVisible(false)}
-        >
-          <ThemedView style={styles.modalContainer}>
-            <View
-              style={[
-                styles.modalHeader,
-                { borderBottomColor: Colors[colorScheme ?? "light"].border },
-              ]}
-            >
-              <ThemedText style={styles.modalTitle}>
-                {t("notificationActions.availableActions")}
-              </ThemedText>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setModalVisible(false)}
-              >
-                <Icon name="cancel" size="md" color="secondary" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalContent}>
-              {/* Other Actions Section */}
-              {actions.length > 0 && (
-                <View style={styles.section}>
-                  {actions.map((action, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.actionItem,
-                        {
-                          backgroundColor:
-                            Colors[colorScheme ?? "light"].backgroundCard,
-                          borderColor: Colors[colorScheme ?? "light"].border,
-                        },
-                      ]}
-                      onPress={() => handleExecuteAction(action)}
-                    >
-                      <View style={styles.actionInfo}>
-                        <View
-                          style={[
-                            styles.actionIconContainer,
-                            {
-                              backgroundColor: action.destructive
-                                ? Colors[colorScheme ?? "light"].error
-                                : Colors[colorScheme ?? "light"]
-                                    .backgroundSecondary,
-                            },
-                          ]}
-                        >
-                          <Icon
-                            name={getActionTypeIcon(action.type)}
-                            size="sm"
-                            color={action.destructive ? "white" : "secondary"}
-                          />
-                        </View>
-                        <View style={styles.actionDetails}>
-                          <ThemedText
-                            style={[
-                              styles.actionTitle,
-                              action.destructive && {
-                                color: Colors[colorScheme ?? "light"].error,
-                              },
-                            ]}
-                          >
-                            {action.title || action.value}
-                          </ThemedText>
-                          <ThemedText style={styles.actionMeta}>
-                            {getActionTypeFriendlyName(action.type)} •{" "}
-                            {action.value}
-                            {action.destructive &&
-                              ` • ${t("notificationActions.destructive")}`}
-                          </ThemedText>
-                        </View>
-                      </View>
-                      <Icon name="chevron" size="sm" color="secondary" />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-
-              {/* Empty State */}
-              {!actions.length && (
-                <View style={styles.emptyState}>
-                  <Icon name="warning" size="lg" color="secondary" />
-                  <ThemedText style={styles.emptyStateText}>
-                    {t("notificationActions.noActionsAvailable")}
-                  </ThemedText>
-                </View>
-              )}
-            </View>
-          </ThemedView>
-        </Modal>
-      </>
-    );
-  }
-
-  const buttonText =
-    actionCount === 1
-      ? t("notificationActions.actionCount", { count: actionCount })
-      : t("notificationActions.actionCountPlural", { count: actionCount });
+  // Stili specifici per variante
+  const buttonStyle = variant === "swipeable" 
+    ? [
+        styles.snoozeLikeButton,
+        fullWidth ? { width: "100%" as const } : null,
+        {
+          backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
+          borderColor: Colors[colorScheme ?? "light"].border,
+        },
+      ]
+    : [
+        styles.detailButton,
+        {
+          backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
+          borderColor: Colors[colorScheme ?? "light"].border,
+        },
+      ];
 
   return (
     <>
       <TouchableOpacity
-        style={[
-          styles.actionButton,
-          {
-            backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
-            borderColor: Colors[colorScheme ?? "light"].border,
-          },
-        ]}
+        style={buttonStyle}
         onPress={() => setModalVisible(true)}
       >
         <Icon
           name="action"
-          size="sm"
-          color={Colors[colorScheme ?? "light"].tint}
+          size="xs"
+          color={Colors[colorScheme ?? "light"].text}
         />
-        <ThemedText style={styles.actionButtonText}>{buttonText}</ThemedText>
-        <Icon name="chevron" size="xs" color="secondary" />
+        {(showTextLabel || variant === "swipeable") && (
+          <ThemedText
+            style={[
+              variant === "swipeable" ? styles.snoozeLikeText : styles.detailText,
+              { color: Colors[colorScheme ?? "light"].text },
+            ]}
+          >
+            {buttonText}
+          </ThemedText>
+        )}
       </TouchableOpacity>
 
       <Modal
@@ -257,11 +167,7 @@ const NotificationActionsButton: React.FC<NotificationActionsButtonProps> = ({
                         ]}
                       >
                         <Icon
-                          name={
-                            getActionTypeIcon(
-                              action.type
-                            ) as keyof typeof AppIcons
-                          }
+                          name={getActionTypeIcon(action.type)}
                           size="sm"
                           color={action.destructive ? "white" : "secondary"}
                         />
@@ -322,6 +228,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
   },
+  snoozeLikeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 2,
+    width: "100%",
+    justifyContent: "center",
+  },
+  snoozeLikeText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  detailButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+  },
+  detailText: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginLeft: 4,
+  },
   inlineActionsContainer: {
     flexDirection: "row",
     gap: 6,
@@ -347,6 +282,15 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     gap: 2,
     backgroundColor: "transparent",
+  },
+  compactActionPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    gap: 4,
+    borderWidth: 1,
   },
   compactActionText: {
     fontSize: 10,

@@ -19,6 +19,7 @@ import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { AppLoader } from "./ui/AppLoader";
 import Icon from "./ui/Icon";
+import NotificationSnoozeButton from "./NotificationSnoozeButton";
 
 interface BucketStats {
   id: string;
@@ -29,6 +30,7 @@ interface BucketStats {
   totalMessages: number;
   unreadCount: number;
   lastNotificationAt: string | null;
+  isSnoozed?: boolean;
 }
 
 const BucketsSection: React.FC = () => {
@@ -78,6 +80,7 @@ const BucketsSection: React.FC = () => {
           totalMessages,
           unreadCount,
           lastNotificationAt: lastNotification?.createdAt || null,
+          isSnoozed: bucket.isSnoozed ?? false,
         };
       })
       .sort((a, b) => {
@@ -215,6 +218,27 @@ const BucketsSection: React.FC = () => {
                   )}
                 </View>
 
+                <NotificationSnoozeButton
+                  bucketId={bucket.id}
+                  variant="swipeable"
+                  showText
+                />
+
+                {/* {bucket.isSnoozed && (
+                  <View
+                    style={[
+                      styles.snoozePill,
+                      {
+                        backgroundColor:
+                          Colors[colorScheme].backgroundSecondary,
+                        borderColor: Colors[colorScheme].border,
+                      },
+                    ]}
+                  >
+                    <Icon name="snooze" size="xs" color="secondary" />
+                  </View>
+                )} */}
+
                 {/* Badge per notifiche non lette */}
                 {bucket.unreadCount > 0 && (
                   <View
@@ -322,6 +346,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 8,
+  },
+  snoozePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    gap: 4,
+    borderWidth: 1,
+    marginRight: 6,
   },
   unreadText: {
     fontSize: 12,

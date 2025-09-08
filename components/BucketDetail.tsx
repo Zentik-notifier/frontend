@@ -7,6 +7,7 @@ import { useAppContext } from "@/services/app-context";
 import { useUserSettings, userSettings } from "@/services/user-settings";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as Clipboard from "expo-clipboard";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,6 +15,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
 import BucketIcon from "./BucketIcon";
 import MessageBuilder from "./MessageBuilder";
@@ -21,6 +23,7 @@ import NotificationsList from "./NotificationsList";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import Icon from "./ui/Icon";
+import NotificationSnoozeButton from "./NotificationSnoozeButton";
 
 interface BucketDetailProps {
   bucketId: string;
@@ -87,6 +90,15 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
     }
   };
 
+  const handleCopyBucketId = async () => {
+    try {
+      await Clipboard.setStringAsync(bucketId);
+      Alert.alert(t("common.copied"), bucketId);
+    } catch (e) {
+      Alert.alert(t("common.error"), t("common.error"));
+    }
+  };
+
   const renderBucketHeader = () => (
     <View
       style={[
@@ -132,74 +144,98 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
         </View>
       </View>
 
-      {/* Action Buttons */}
-      <View style={styles.actionButtons}>
-        {/* Mark All as Read Button */}
-        <TouchableOpacity
-          style={[
-            styles.markAllButton,
-            {
-              backgroundColor:
-                unreadNotifications.length > 0
-                  ? "#0a7ea4"
-                  : Colors[colorScheme].backgroundSecondary,
-            },
-          ]}
-          onPress={handleMarkAllAsRead}
-          disabled={unreadNotifications.length === 0 || markAllAsReadLoading}
-          activeOpacity={0.7}
-        >
-          <View style={styles.markAllButtonContent}>
-            {markAllAsReadLoading ? (
-              <ActivityIndicator
-                size="small"
-                color={
+      {/* Action Block (Top row: mark/edit/copy; Bottom row: snooze) */}
+      <View style={styles.actionBlock}>
+        <View style={styles.actionTopRow}>
+          {/* Mark All as Read Button */}
+          <TouchableOpacity
+            style={[
+              styles.markAllButton,
+              {
+                backgroundColor:
                   unreadNotifications.length > 0
-                    ? "#fff"
-                    : Colors[colorScheme].tabIconDefault
-                }
-              />
-            ) : (
-              <>
-                <Ionicons
-                  name="checkmark-done"
-                  size={16}
+                    ? "#0a7ea4"
+                    : Colors[colorScheme].backgroundSecondary,
+              },
+            ]}
+            onPress={handleMarkAllAsRead}
+            disabled={unreadNotifications.length === 0 || markAllAsReadLoading}
+            activeOpacity={0.7}
+          >
+            <View style={styles.markAllButtonContent}>
+              {markAllAsReadLoading ? (
+                <ActivityIndicator
+                  size="small"
                   color={
                     unreadNotifications.length > 0
                       ? "#fff"
                       : Colors[colorScheme].tabIconDefault
                   }
                 />
-                {unreadNotifications.length > 0 && (
-                  <ThemedText style={styles.markAllButtonText}>
-                    {unreadNotifications.length}
-                  </ThemedText>
-                )}
-              </>
-            )}
-          </View>
-        </TouchableOpacity>
+              ) : (
+                <>
+                  <Ionicons
+                    name="checkmark-done"
+                    size={16}
+                    color={
+                      unreadNotifications.length > 0
+                        ? "#fff"
+                        : Colors[colorScheme].tabIconDefault
+                    }
+                  />
+                  {unreadNotifications.length > 0 && (
+                    <ThemedText style={styles.markAllButtonText}>
+                      {unreadNotifications.length}
+                    </ThemedText>
+                  )}
+                </>
+              )}
+            </View>
+          </TouchableOpacity>
 
-        {/* Edit Button */}
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            {
-              backgroundColor: Colors[colorScheme].backgroundSecondary,
-            },
-          ]}
-          onPress={() =>
-            router.push(
-              `/(mobile)/private/edit-bucket?bucketId=${bucketId}` as any
-            )
-          }
-        >
-          <Ionicons
-            name="pencil"
-            size={16}
-            color={Colors[colorScheme].tabIconDefault}
-          />
-        </TouchableOpacity>
+          {/* Edit Button */}
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              {
+                backgroundColor: Colors[colorScheme].backgroundSecondary,
+              },
+            ]}
+            onPress={() =>
+              router.push(
+                `/(mobile)/private/edit-bucket?bucketId=${bucketId}` as any
+              )
+            }
+          >
+            <Ionicons
+              name="pencil"
+              size={16}
+              color={Colors[colorScheme].tabIconDefault}
+            />
+          </TouchableOpacity>
+
+          {/* Copy Bucket ID Button */}
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              {
+                backgroundColor: Colors[colorScheme].backgroundSecondary,
+              },
+            ]}
+            onPress={handleCopyBucketId}
+          >
+            <Ionicons
+              name="copy"
+              size={16}
+              color={Colors[colorScheme].tabIconDefault}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Snooze Button - bottom row */}
+        <View style={styles.actionBottomRow}>
+          <NotificationSnoozeButton bucketId={bucketId} variant="detail" showText />
+        </View>
       </View>
     </View>
   );
@@ -243,17 +279,6 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
     </View>
   );
 
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <ThemedText style={styles.emptyTitle}>
-        {t("home.emptyState.noNotifications")}
-      </ThemedText>
-      <ThemedText style={styles.emptySubtitle}>
-        {t("home.emptyState.allCaughtUp")}
-      </ThemedText>
-    </View>
-  );
-
   if (!bucket) {
     return null;
   }
@@ -261,7 +286,9 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   return (
     <ThemedView style={styles.container}>
       {/* Sticky Header with Bucket Info */}
-      <View style={styles.stickyHeader}>{renderBucketHeader()}</View>
+      <View style={styles.stickyHeader}>
+        {renderBucketHeader()}
+      </View>
 
       {/* Notifications List */}
       <NotificationsList
@@ -456,9 +483,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
     opacity: 0.7,
   },
-  actionButtons: {
+  actionBlock: {
+    flexDirection: "column",
+    gap: 8,
+  },
+  actionTopRow: {
     flexDirection: "row",
     gap: 8,
+    justifyContent: "flex-end",
+  },
+  actionBottomRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
   },
   markAllButton: {
     padding: 8,

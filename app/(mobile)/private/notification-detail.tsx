@@ -1,12 +1,12 @@
 import { SmartTextRenderer } from "@/components";
 import AttachmentGallery from "@/components/AttachmentGallery";
 import BucketIcon from "@/components/BucketIcon";
-import { BucketSnoozeHeader } from "@/components/BucketSnoozeHeader";
 import FullScreenMediaViewer from "@/components/FullScreenMediaViewer";
 
 import NotificationActionsButton, {
   filteredActions,
 } from "@/components/NotificationActionsButton";
+import NotificationSnoozeButton from "@/components/NotificationSnoozeButton";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Colors } from "@/constants/Colors";
@@ -245,6 +245,7 @@ export default function NotificationDetailScreen() {
   const attachments = (message?.attachments ?? []).filter(
     (attachment) => attachment.mediaType !== MediaType.Icon
   );
+  const actions = filteredActions(notification);
 
   return (
     <>
@@ -274,13 +275,17 @@ export default function NotificationDetailScreen() {
           <View style={styles.content}>
             {/* Bucket Info */}
             <View style={styles.bucketSection}>
-              <View style={styles.bucketInfo}>
-                <BucketIcon
-                  bucketId={message?.bucket?.id}
-                  size="xxl"
-                  noRouting
-                />
-                <ThemedText style={styles.bucketName}>{bucketName}</ThemedText>
+              <View style={styles.leftColumn}>
+                <View style={styles.bucketInfo}>
+                  <BucketIcon
+                    bucketId={message?.bucket?.id}
+                    size="xxl"
+                    noRouting
+                  />
+                  <ThemedText style={styles.bucketName}>
+                    {bucketName}
+                  </ThemedText>
+                </View>
               </View>
               <View style={styles.statusSection}>
                 <View style={styles.priorityRow}>
@@ -364,10 +369,29 @@ export default function NotificationDetailScreen() {
                     {formatDate(notification.readAt, true)}
                   </ThemedText>
                 )}
-                <BucketSnoozeHeader bucketId={message?.bucket?.id} />
+                {/* Actions / Snooze row placed below to avoid conflict with dates */}
               </View>
             </View>
 
+            {/* Header actions row: actions -- spacer -- snooze */}
+            {(actions.length > 0 || message?.bucket?.id) && (
+              <View style={styles.headerActionsRow}>
+                {actions.length > 0 && (
+                  <NotificationActionsButton
+                    notification={notification}
+                    actions={actions}
+                    variant="detail"
+                    showTextLabel
+                  />
+                )}
+                <View style={styles.filler} />
+                <NotificationSnoozeButton
+                bucketId={message?.bucket?.id}
+                  variant="detail"
+                  showText
+                />
+              </View>
+            )}
             {/* Title */}
             <SmartTextRenderer content={message?.title} style={styles.title} />
 
@@ -399,11 +423,7 @@ export default function NotificationDetailScreen() {
               />
             )}
 
-            {/* Actions Button */}
-            <NotificationActionsButton
-              notification={notification}
-              actions={filteredActions(notification)}
-            />
+            {/* Actions moved under icon in the header */}
           </View>
         </ScrollView>
 
@@ -475,9 +495,33 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 16,
   },
+  leftColumn: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  actionsSnoozeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    width: "100%",
+  },
+  filler: {
+    flex: 1,
+  },
   bucketInfo: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  inlineActionsUnderIcon: {
+    width: 220,
+  },
+  headerActionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 2,
+    marginBottom: 8,
   },
   statusSection: {
     alignItems: "flex-end",
@@ -549,5 +593,16 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
     borderRadius: 6,
+  },
+  snoozeActionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  inlineActionsWrapper: {
+    flex: 1,
+    maxWidth: 220,
+    marginLeft: 12,
   },
 });
