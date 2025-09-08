@@ -168,7 +168,6 @@ export default function GallerySection() {
       newSelection.add(itemId);
     }
     setSelectedItems(newSelection);
-    setSelectionMode(newSelection.size > 0);
   };
 
   // Filter functions
@@ -898,6 +897,7 @@ export default function GallerySection() {
                   url={mediaItem.url}
                   mediaType={mediaItem.mediaType}
                   useThumbnail
+                  ignoreClicks={selectionMode}
                   style={styles.gridMediaThumbnail}
                   originalFileName={mediaItem.originalFileName}
                   videoProps={{

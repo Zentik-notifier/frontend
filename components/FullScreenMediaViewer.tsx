@@ -34,6 +34,7 @@ interface FullScreenMediaViewerProps {
   originalFileName?: string;
   description?: string;
   notificationDate?: number;
+  useThumbnail?: boolean;
   onClose: () => void;
   onDeleted?: () => void;
   // Navigation props

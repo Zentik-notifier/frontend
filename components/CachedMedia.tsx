@@ -39,6 +39,7 @@ interface CachedMediaProps {
   noAutoDownload?: boolean;
   showMediaIndicator?: boolean;
   useThumbnail?: boolean;
+  ignoreClicks?: boolean;
 
   imageProps?: {
     transition?: number;
@@ -75,6 +76,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   noAutoDownload,
   showMediaIndicator,
   useThumbnail,
+  ignoreClicks,
   imageProps,
   videoProps,
   audioProps,
@@ -96,11 +98,8 @@ export const CachedMedia = React.memo(function CachedMedia({
   });
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekTime, setSeekTime] = useState(0);
-  const [imageError, setImageError] = useState(false);
   const { item: mediaSource } = useCachedItem(url, mediaType);
   const isVideoType = mediaType === MediaType.Video;
-
-  const isGeneratingThumb = !!mediaSource?.generatingThumbnail;
 
   const localSource = mediaSource?.localPath;
   const videoSource = localSource && isVideoType ? localSource : null;
@@ -137,6 +136,17 @@ export const CachedMedia = React.memo(function CachedMedia({
       notificationDate,
     });
   }, [url, mediaType, notificationDate]);
+
+  const handleFrameClick = useCallback(async () => {
+    onPress?.();
+  }, [onPress]);
+
+  const handleFrameClickFromStatus = useCallback(async () => {
+  }, []);
+
+  const handleDeleteCachedMedia = useCallback(async () => {
+    await mediaCache.deleteCachedMedia(url, mediaType);
+  }, [url, mediaType]);
 
   const handleGenerateThumbnail = useCallback(async () => {
     if (!supportsThumbnail) return;
@@ -252,10 +262,10 @@ export const CachedMedia = React.memo(function CachedMedia({
   };
 
   const renderForceDownloadButton = (withDelete?: boolean) => {
-    return !isCompact ? (
+    return (
       <View style={defaultStyles.buttonContainer}>
         <Pressable
-          onPress={handleForceDownload}
+          onPress={ignoreClicks ? undefined : handleForceDownload}
           style={
             smallButtons
               ? defaultStyles.smallDownloadButton
@@ -272,7 +282,7 @@ export const CachedMedia = React.memo(function CachedMedia({
         </Pressable>
         {withDelete && (
           <Pressable
-            onPress={() => mediaCache.deleteCachedMedia(url, mediaType)}
+            onPress={ignoreClicks ? undefined : handleDeleteCachedMedia}
             style={
               smallButtons
                 ? defaultStyles.smallDeleteButton
@@ -289,7 +299,7 @@ export const CachedMedia = React.memo(function CachedMedia({
           </Pressable>
         )}
       </View>
-    ) : null;
+    );
   };
 
   const getStateTextStyle = (stateType: keyof typeof stateColors) => {
@@ -297,12 +307,32 @@ export const CachedMedia = React.memo(function CachedMedia({
   };
 
   const renderMedia = () => {
-    // Thumbnail-first rendering when requested
+    // Loading states
+    if (
+      mediaSource?.generatingThumbnail ||
+      mediaSource?.isDownloading ||
+      isVideoLoading
+    ) {
+      const stateType = mediaSource?.isDownloading ? "downloading" : "loading";
+      return (
+        <View style={getStateContainerStyle(stateType) as any}>
+          <ActivityIndicator size="small" color={stateColors[stateType]} />
+          {!isCompact && (
+            <Text style={getStateTextStyle(stateType)}>
+              {mediaSource?.isDownloading
+                ? t("cachedMedia.downloadProgress")
+                : t("cachedMedia.loadingProgress")}
+            </Text>
+          )}
+        </View>
+      );
+    }
+
     if (useThumbnail && supportsThumbnail) {
       const thumbPath = mediaSource?.localThumbPath;
       if (thumbPath) {
         return (
-          <Pressable onPress={onPress}>
+          <Pressable onPress={handleFrameClick}>
             <ExpoImage
               source={{ uri: thumbPath }}
               style={
@@ -321,113 +351,74 @@ export const CachedMedia = React.memo(function CachedMedia({
         );
       }
 
-      // Missing thumbnail state: render non-pressable container so parent Pressable can handle selection
       return (
-        <View style={getStateContainerStyle("loading") as any}>
-          {isGeneratingThumb ? (
-            <ActivityIndicator
-              size="small"
-              color={isCompact ? "#fff" : stateColors.loading}
-            />
-          ) : (
-            <Ionicons
-              name="image-outline"
-              size={isCompact ? 20 : 24}
-              color={isCompact ? "#fff" : stateColors.loading}
-            />
-          )}
-          {!isCompact && (
-            <Text style={getStateTextStyle("loading")}>
-              Tap to generate thumbnail
-            </Text>
-          )}
-        </View>
-      );
-    }
-
-    // Loading states
-    if (mediaSource?.isDownloading || isVideoLoading) {
-      const stateType = mediaSource?.isDownloading ? "downloading" : "loading";
-      return (
-        <View style={getStateContainerStyle(stateType) as any}>
-          <ActivityIndicator
-            size="small"
-            color={stateColors[stateType]}
-            // color={isCompact ? "#fff" : stateColors[stateType]}
-          />
-          {!isCompact && (
-            <Text style={getStateTextStyle(stateType)}>
-              {mediaSource?.isDownloading
-                ? t("cachedMedia.downloadProgress")
-                : t("cachedMedia.loadingProgress")}
-            </Text>
-          )}
-        </View>
+        <Pressable onPress={handleFrameClickFromStatus}>
+          <View style={getStateContainerStyle("videoError") as any}>
+            <View style={defaultStyles.stateContent}>
+              <Ionicons
+                name="image-outline"
+                size={isCompact ? 20 : 24}
+                color={isCompact ? "#fff" : stateColors.loading}
+                onPress={handleGenerateThumbnail}
+              />
+            </View>
+            {renderForceDownloadButton(true)}
+          </View>
+        </Pressable>
       );
     }
 
     // Video error state
     if (isVideoError) {
       return (
-        <View style={getStateContainerStyle("videoError") as any}>
-          <View style={defaultStyles.stateContent}>
-            <Ionicons
-              name="warning-outline"
-              size={isCompact ? 20 : 24}
-              color={stateColors.videoError}
-              // color={isCompact ? "#fff" : stateColors.videoError}
-              onPress={isCompact ? handleForceDownload : undefined}
-            />
+        <Pressable onPress={handleFrameClickFromStatus}>
+          <View style={getStateContainerStyle("videoError") as any}>
+            <View style={defaultStyles.stateContent}>
+              <Ionicons
+                name="warning-outline"
+                size={isCompact ? 20 : 24}
+                color={stateColors.videoError}
+              />
+            </View>
+            {renderForceDownloadButton(true)}
           </View>
-          {renderForceDownloadButton(true)}
-        </View>
+        </Pressable>
       );
     }
 
-    // No media source
-    if (!mediaSource) {
-      if (isCompact) {
-        return (
-          <View style={getStateContainerStyle("loading")}>
-            <MediaTypeIcon mediaType={mediaType} size={20} />
-          </View>
-        );
-      }
-      return null;
-    }
-
     // Permanent failure - click to retry
-    if (mediaSource.isPermanentFailure) {
+    if (mediaSource?.isPermanentFailure) {
       return (
-        <View style={getStateContainerStyle("failed") as any}>
-          <View style={defaultStyles.stateContent}>
-            <Ionicons
-              name="warning-outline"
-              size={isCompact ? 20 : 24}
-              color={stateColors.failed}
-              onPress={isCompact ? handleForceDownload : undefined}
-            />
+        <Pressable onPress={handleFrameClickFromStatus}>
+          <View style={getStateContainerStyle("failed") as any}>
+            <View style={defaultStyles.stateContent}>
+              <Ionicons
+                name="warning-outline"
+                size={isCompact ? 20 : 24}
+                color={stateColors.failed}
+              />
+            </View>
+            {renderForceDownloadButton(true)}
           </View>
-          {renderForceDownloadButton(true)}
-        </View>
+        </Pressable>
       );
     }
 
     // User deleted - click to redownload
-    if (mediaSource.isUserDeleted || !mediaSource.localPath) {
+    if (mediaSource?.isUserDeleted || !mediaSource?.localPath) {
       return (
-        <View style={getStateContainerStyle("deleted") as any}>
-          <View style={defaultStyles.stateContent}>
-            <Ionicons
-              name="download-outline"
-              size={isCompact ? 20 : 24}
-              color={stateColors.deleted}
-              // color={isCompact ? "#fff" : stateColors.deleted}
-              onPress={isCompact ? handleForceDownload : undefined}
-            />
+        <Pressable onPress={handleFrameClickFromStatus}>
+          <View style={getStateContainerStyle("deleted") as any}>
+            <View style={defaultStyles.stateContent}>
+              <Ionicons
+                name="download-outline"
+                size={isCompact ? 20 : 24}
+                color={stateColors.deleted}
+              />
+            </View>
+            {renderForceDownloadButton(!mediaSource?.isUserDeleted)}
           </View>
-          {renderForceDownloadButton(!mediaSource.isUserDeleted)}
-        </View>
+        </Pressable>
       );
     }
 
@@ -437,25 +428,8 @@ export const CachedMedia = React.memo(function CachedMedia({
         case MediaType.Image:
         case MediaType.Icon:
         case MediaType.Gif:
-          if (imageError || mediaSource.isPermanentFailure) {
-            return (
-              <View style={getStateContainerStyle("failed") as any}>
-                <View style={defaultStyles.stateContent}>
-                  <Ionicons
-                    name="warning-outline"
-                    size={isCompact ? 20 : 24}
-                    color={stateColors.failed}
-                    // color={isCompact ? "#fff" : stateColors.failed}
-                    onPress={isCompact ? handleForceDownload : undefined}
-                  />
-                </View>
-                {renderForceDownloadButton(true)}
-              </View>
-            );
-          }
-
           return (
-            <Pressable onPress={onPress}>
+            <Pressable onPress={handleFrameClick}>
               <ExpoImage
                 source={{ uri: mediaSource.localPath }}
                 style={
@@ -472,12 +446,11 @@ export const CachedMedia = React.memo(function CachedMedia({
                 blurRadius={imageProps?.blurRadius}
                 priority={imageProps?.priority}
                 cachePolicy={imageProps?.cachePolicy || "memory"}
-                onError={() => {
-                  setImageError(true);
+                onError={(event) => {
                   mediaCache.markAsPermanentFailure(
                     url,
                     mediaType,
-                    "IMAGE_LOAD_ERROR"
+                    event.error
                   );
                 }}
               />
@@ -485,36 +458,26 @@ export const CachedMedia = React.memo(function CachedMedia({
           );
 
         case MediaType.Video:
-          const videoContent = (
-            <VideoView
-              style={
-                isCompact ? [defaultStyles.stateContainerCompact, style] : style
-              }
-              player={videoPlayer}
-              allowsFullscreen={!isCompact}
-              allowsPictureInPicture={!isCompact}
-              showsTimecodes={!isCompact}
-            />
-          );
-
-          if (isCompact) {
-            return (
-              <Pressable onPress={onPress}>
-                <View>{videoContent}</View>
-              </Pressable>
-            );
-          }
-
           return (
-            <Pressable onPress={onPress}>
-              <View style={{ position: "relative" }}>{videoContent}</View>
+            <Pressable onPress={handleFrameClick}>
+              <VideoView
+                style={
+                  isCompact
+                    ? [defaultStyles.stateContainerCompact, style]
+                    : [style, { position: "relative" }]
+                }
+                player={videoPlayer}
+                allowsFullscreen={!isCompact}
+                allowsPictureInPicture={!isCompact}
+                showsTimecodes={!isCompact}
+              />
             </Pressable>
           );
 
         case MediaType.Audio:
           if (isCompact) {
             return (
-              <Pressable onPress={onPress}>
+              <Pressable onPress={handleFrameClick}>
                 <View style={[defaultStyles.stateContainerCompact, style]}>
                   <Pressable
                     onPress={() => {
@@ -558,7 +521,7 @@ export const CachedMedia = React.memo(function CachedMedia({
                 )}
 
                 <Pressable
-                  onPress={onPress}
+                  onPress={handleFrameClick}
                   style={defaultStyles.audioInfoPressable}
                 >
                   <View style={defaultStyles.audioInfo}>
@@ -589,30 +552,8 @@ export const CachedMedia = React.memo(function CachedMedia({
               {renderSeekBar()}
             </View>
           );
-
-        default:
-          return (
-            <Pressable onPress={onPress}>
-              <View style={getStateContainerStyle("loading") as any}>
-                {isCompact ? (
-                  <MediaTypeIcon mediaType={mediaType} size={20} />
-                ) : (
-                  <Text style={defaultStyles.genericText}>📄</Text>
-                )}
-              </View>
-            </Pressable>
-          );
       }
     }
-
-    // Default fallback
-    return (
-      <Pressable onPress={onPress}>
-        <View style={getStateContainerStyle("loading") as any}>
-          <MediaTypeIcon mediaType={mediaType} size={isCompact ? 20 : 24} />
-        </View>
-      </Pressable>
-    );
   };
 
   useEffect(() => {

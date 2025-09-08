@@ -1452,7 +1452,8 @@
     "downloadProgress": "Download...",
     "loadingProgress": "Loading...",
     "forceDownload": "Download",
-    "delete": "Delete"
+    "delete": "Delete",
+    "tapToGenerateThumbnail": "Tap to generate thumbnail"
   },
   "gallery": {
     "groupedByDate": "Grouped by date",

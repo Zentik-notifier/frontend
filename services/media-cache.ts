@@ -203,6 +203,7 @@ class MediaCacheService {
                     isDownloading: false,
                     timestamp: new Date().getTime(),
                     isPermanentFailure: true,
+                    errorCode: downloadResult.status.toString(),
                 };
             }
 

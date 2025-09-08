@@ -1456,7 +1456,8 @@
     "downloadProgress": "Download...",
     "loadingProgress": "Caricamento...",
     "forceDownload": "Download",
-    "delete": "Elimina"
+    "delete": "Elimina",
+    "tapToGenerateThumbnail": "Tocca per generare anteprima"
   },
   "gallery": {
     "groupedByDate": "Raggruppati per data",

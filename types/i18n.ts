@@ -1446,6 +1446,7 @@ export interface TranslationKey {
     loadingProgress: string;
     forceDownload: string;
     delete: string;
+    tapToGenerateThumbnail: string;
   };
   gallery: {
     groupedByDate: string;
