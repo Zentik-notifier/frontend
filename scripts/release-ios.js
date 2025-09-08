@@ -173,7 +173,7 @@ updatedContent = updatedContent.replace(
     `buildNumber: "${newBuildNumber}"`
 );
 updatedContent = updatedContent.replace(
-    /versionCode: \d+/,
+    /versionCode: \d+/, 
     `versionCode: ${newVersionCode}`
 );
 
@@ -219,6 +219,18 @@ async function runReleaseProcess() {
         ]);
         
         printSuccess('EAS build and App Store submission completed successfully!');
+
+        // Git commit of app.config.ts changes
+        try {
+            printInfo('Committing app.config.ts changes to git...');
+            await runCommand('git', ['add', 'app.config.ts']);
+            await runCommand('git', ['commit', '-m', `"chore(ios): bump version to ${newVersion} (build ${newBuildNumber})"`]);
+            await runCommand('git', ['push']);
+            printSuccess('app.config.ts committed and pushed');
+        } catch (gitError) {
+            printWarning(`Git commit/push failed or skipped: ${gitError.message}`);
+        }
+        
         printSuccess('🎉 Full release process completed!');
         printInfo(`Version ${newVersion} has been built and submitted to the App Store`);
 
@@ -237,6 +249,7 @@ async function runReleaseProcess() {
         printInfo(`  ✅ Build Number: ${currentBuildNumber} → ${newBuildNumber}`);
         printInfo(`  ✅ Version Code: ${currentVersionCode} → ${newVersionCode}`);
         printInfo(`  ✅ EAS build and App Store submission completed in one step`);
+        printInfo(`  ✅ app.config.ts committed to repository (if possible)`);
 
     } catch (error) {
         printError(`Release process failed: ${error.message}`);
