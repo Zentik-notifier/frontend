@@ -577,6 +577,12 @@ class NotificationService: UNNotificationServiceExtension {
             print("📱 [NotificationService] Found attachments as direct array")
             return true
         }
+        // Fallback: retry path without encryption may carry attachments under alternative keys
+        if let attachments = userInfo["attachments"] as? [[String: Any]], !attachments.isEmpty {
+            print("📱 [NotificationService] Found attachments under 'attachments' key (fallback)")
+            return true
+        }
+        // Single attachment fallback removed: 'attachments' is always an array
         
         return false
     }
@@ -682,6 +688,24 @@ class NotificationService: UNNotificationServiceExtension {
                 }
             }
         }
+        
+        // Fallback: look for 'attachments' array with same structure
+        if mediaAttachments.isEmpty, let attachments = userInfo["attachments"] as? [[String: Any]] {
+            print("📱 [NotificationService] Extracting attachments from fallback 'attachments' array")
+            for (index, attachment) in attachments.enumerated() {
+                if let mediaType = attachment["mediaType"] as? String,
+                   let url = attachment["url"] as? String {
+                    let name = attachment["name"] as? String
+                    let originalFileName = attachment["originalFileName"] as? String
+                    let fileName = originalFileName ?? name
+                    let priority = getCompactPriority(mediaType)
+                    mediaAttachments.append(MediaAttachment(mediaType: mediaType, url: url, name: fileName))
+                    print("📱 [NotificationService] 📎 (fallback) Found attachment [\(index)]: \(mediaType) (priority: \(priority)) - \(fileName ?? "no name")")
+                }
+            }
+        }
+        
+        // Single 'attachment' dictionary fallback removed
         
         return mediaAttachments
     }

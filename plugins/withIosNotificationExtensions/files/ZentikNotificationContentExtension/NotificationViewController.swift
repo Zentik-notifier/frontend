@@ -40,6 +40,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     private var headerIconImageView: UIImageView?
     private var mediaHeightConstraint: NSLayoutConstraint?
     private var footerTopToContainerConstraint: NSLayoutConstraint?
+    private var headerBottomConstraint: NSLayoutConstraint?
 
     private var loadingIndicator: UIActivityIndicatorView?
     
@@ -140,6 +141,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Setup expanded mode
         setupExpandedMode()
+        // Adjust header lines after receiving content
+        adjustHeaderLineCounts()
     }
     
     func didReceive(_ response: UNNotificationResponse, completionHandler completion: @escaping (UNNotificationContentExtensionResponseOption) -> Void) {
@@ -219,12 +222,16 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         labelsStack.axis = .vertical
         labelsStack.alignment = .fill
         labelsStack.spacing = 2
+        labelsStack.setContentCompressionResistancePriority(.required, for: .vertical)
+        labelsStack.setContentHuggingPriority(.required, for: .vertical)
         
         let title = UILabel()
         title.font = .systemFont(ofSize: 16, weight: .semibold)
         title.textColor = .label
         title.numberOfLines = 2
         title.text = notificationTitleText.isEmpty ? "" : notificationTitleText
+        title.setContentCompressionResistancePriority(.required, for: .vertical)
+        title.setContentHuggingPriority(.required, for: .vertical)
         headerTitleLabel = title
         
         let subtitle = UILabel()
@@ -233,13 +240,17 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         subtitle.numberOfLines = 2
         subtitle.text = notificationSubtitleText
         subtitle.isHidden = notificationSubtitleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        subtitle.setContentCompressionResistancePriority(.required, for: .vertical)
+        subtitle.setContentHuggingPriority(.required, for: .vertical)
         headerSubtitleLabel = subtitle
         
         let body = UILabel()
         body.font = .systemFont(ofSize: 12)
         body.textColor = .secondaryLabel
         body.numberOfLines = 3
-        body.text = notificationBodyText
+        body.text = normalizeLineSeparators(notificationBodyText)
+        body.setContentCompressionResistancePriority(.required, for: .vertical)
+        body.setContentHuggingPriority(.required, for: .vertical)
         headerBodyLabel = body
         
         labelsStack.addArrangedSubview(title)
@@ -298,6 +309,95 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             bodyLabel?.isHidden = true
             titleLabel?.isHidden = true
     }
+
+    // Normalizza separatori di riga Unicode e ritorni a capo misti in "\n"
+    private func normalizeLineSeparators(_ text: String) -> String {
+        var s = text
+        // U+2028 (LINE SEPARATOR), U+2029 (PARAGRAPH SEPARATOR)
+        s = s.replacingOccurrences(of: "\u{2028}", with: "\n")
+        s = s.replacingOccurrences(of: "\u{2029}", with: "\n")
+        // Normalizza CRLF e CR a LF
+        s = s.replacingOccurrences(of: "\r\n", with: "\n")
+        s = s.replacingOccurrences(of: "\r", with: "\n")
+        return s
+    }
+
+    // MARK: - Dynamic Header Lines (max total 10)
+    private func adjustHeaderLineCounts() {
+        guard let titleLabel = headerTitleLabel,
+              let subtitleLabel = headerSubtitleLabel,
+              let bodyLabel = headerBodyLabel else { return }
+
+        // Normalizza i separatori di riga (ad es. U+2028, U+2029) per un wrapping coerente
+        let normalizedTitle = normalizeLineSeparators(notificationTitleText)
+        let normalizedSubtitle = normalizeLineSeparators(notificationSubtitleText)
+        let normalizedBody = normalizeLineSeparators(notificationBodyText)
+
+        let totalWidth = view.bounds.width
+        let horizontalInsets: CGFloat = 12 + 12
+        let headerStackInsets: CGFloat = 8 + 8
+        let iconWidth: CGFloat = (headerIconImageView?.isHidden ?? false) ? 0 : 50
+        let spacing: CGFloat = (headerIconImageView?.isHidden ?? false) ? 0 : 10
+        let availableWidth = max(100, totalWidth - horizontalInsets - headerStackInsets - iconWidth - spacing)
+        // Ensure UILabels know their wrapping width for correct intrinsic height calculation
+        titleLabel.preferredMaxLayoutWidth = availableWidth
+        subtitleLabel.preferredMaxLayoutWidth = availableWidth
+        bodyLabel.preferredMaxLayoutWidth = availableWidth
+        // Improve truncation appearance
+        bodyLabel.allowsDefaultTighteningForTruncation = true
+        print("📱 [ContentExtension] Header width calc -> total: \(totalWidth), available: \(availableWidth), iconHidden: \(headerIconImageView?.isHidden ?? false)")
+
+        func requiredLines(for text: String, font: UIFont, width: CGFloat) -> Int {
+            if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return 0 }
+            // Usa NSTextStorage + NSLayoutManager + NSTextContainer per un conteggio linee accurato, inclusi separatori Unicode
+            let textStorage = NSTextStorage(string: text)
+            let textContainer = NSTextContainer(size: CGSize(width: width, height: .greatestFiniteMagnitude))
+            textContainer.lineFragmentPadding = 0
+            let layoutManager = NSLayoutManager()
+            layoutManager.addTextContainer(textContainer)
+            textStorage.addLayoutManager(layoutManager)
+            textStorage.addAttribute(.font, value: font, range: NSRange(location: 0, length: textStorage.length))
+            var lineCount = 0
+            var index = 0
+            while index < layoutManager.numberOfGlyphs {
+                var lineRange = NSRange(location: 0, length: 0)
+                layoutManager.lineFragmentRect(forGlyphAt: index, effectiveRange: &lineRange)
+                lineCount += 1
+                index = NSMaxRange(lineRange)
+            }
+            return lineCount
+        }
+
+        let totalCap = 15
+
+        let needTitle = requiredLines(for: normalizedTitle, font: titleLabel.font, width: availableWidth)
+        let needSubtitle = requiredLines(for: normalizedSubtitle, font: subtitleLabel.font, width: availableWidth)
+        let needBody = requiredLines(for: normalizedBody, font: bodyLabel.font, width: availableWidth)
+        print("📱 [ContentExtension] Needed lines -> title: \(needTitle), subtitle: \(needSubtitle), body: \(needBody)")
+
+        // Title max 2, Subtitle max 1, rest to body up to total 10
+        var useTitle = min(needTitle, 2)
+        var useSubtitle = min(needSubtitle, 1)
+        var bodyCap = max(0, totalCap - (useTitle + useSubtitle))
+        var useBody = min(needBody, bodyCap)
+        print("📱 [ContentExtension] Initial alloc -> title: \(useTitle)/2, subtitle: \(useSubtitle)/1, bodyCap: \(bodyCap), body: \(useBody)")
+
+        titleLabel.numberOfLines = max(1, useTitle)
+        subtitleLabel.isHidden = notificationSubtitleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        subtitleLabel.numberOfLines = subtitleLabel.isHidden ? 0 : max(0, useSubtitle)
+        // If text is longer than allocated lines, add a visual buffer by allowing one extra truncation line when under total cap
+        if needBody > useBody {
+            let extra = min(1, max(0, totalCap - (useTitle + useSubtitle + useBody)))
+            useBody += extra
+        }
+        bodyLabel.numberOfLines = max(0, useBody)
+        print("📱 [ContentExtension] Applied lines -> title: \(titleLabel.numberOfLines), subtitle: \(subtitleLabel.numberOfLines), body: \(bodyLabel.numberOfLines) (cap: \(totalCap))")
+        titleLabel.lineBreakMode = .byTruncatingTail
+        subtitleLabel.lineBreakMode = .byTruncatingTail
+        bodyLabel.lineBreakMode = .byTruncatingTail
+
+        // Avoid forcing layout here to prevent potential layout loops
+    }
     
 
     
@@ -313,17 +413,24 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             headerTitleLabel?.text = notificationTitleText
             headerSubtitleLabel?.text = notificationSubtitleText
             headerSubtitleLabel?.isHidden = notificationSubtitleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            headerBodyLabel?.text = notificationBodyText
+            headerBodyLabel?.text = normalizeLineSeparators(notificationBodyText)
             refreshHeaderIcon()
             
-            // Hide media container and footer
-            mediaContainerView?.isHidden = true
-            mediaHeightConstraint?.constant = 0
+            // Keep a tiny spacer container visible to help the host respect dynamic height
+            mediaContainerView?.isHidden = false
+            mediaContainerView?.backgroundColor = .clear
+            mediaHeightConstraint?.constant = 1
             if let footer = footerContainerView {
                 footer.removeFromSuperview()
                 footerContainerView = nil
             }
-            preferredContentSize = CGSize(width: view.bounds.width, height: headerViewHeight())
+            // Recalculate header lines and preferred size in header-only mode
+            adjustHeaderLineCounts()
+            let expected = computeHeaderExpectedHeight()
+            // Host can ignore smaller increases; enforce via a min bump for header-only
+            let minHeaderOnlyHeight: CGFloat = expected
+            preferredContentSize = CGSize(width: view.bounds.width, height: minHeaderOnlyHeight)
+            print("📱 [ContentExtension] Preferred size (header-only): \(preferredContentSize)")
             return
         }
         
@@ -335,7 +442,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         headerTitleLabel?.text = notificationTitleText
         headerSubtitleLabel?.text = notificationSubtitleText
         headerSubtitleLabel?.isHidden = notificationSubtitleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        headerBodyLabel?.text = notificationBodyText
+        headerBodyLabel?.text = normalizeLineSeparators(notificationBodyText)
         refreshHeaderIcon()
 
         // Footer selector mostrato solo se esistono almeno 2 media non-ICON e non-AUDIO
@@ -363,15 +470,22 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             selectedMediaIndex = firstNonIconIndex
             displayMediaFromSharedCache(at: firstNonIconIndex)
         } else {
-            // Solo ICON/AUDIO o nessun media: nessun viewer, solo header (testi e icona), rimuovi footer e azzera viewer
-            mediaContainerView?.isHidden = true
-            mediaHeightConstraint?.constant = 0
+            // Solo ICON/AUDIO: mostra solo header. Mantieni un contenitore media minimo per far rispettare l'altezza dinamica dall'host
+            mediaContainerView?.isHidden = false
+            mediaContainerView?.backgroundColor = .clear
+            mediaHeightConstraint?.constant = 1
             if let footer = footerContainerView {
                 footer.removeFromSuperview()
                 footerContainerView = nil
             }
-            preferredContentSize = CGSize(width: view.bounds.width, height: headerViewHeight())
-            print("📱 [ContentExtension] Showing header-only mode (no media available or only ICON/AUDIO)")
+            // Ricalcola le linee dell'header e usa l'altezza misurata per maggiore accuratezza
+            adjustHeaderLineCounts()
+            let measured = headerViewHeight()
+            let expected = computeHeaderExpectedHeight()
+            // Usa il massimo tra misurato e atteso, favorendo l'espansione quando serve
+            let target = max(measured, expected)
+            preferredContentSize = CGSize(width: view.bounds.width, height: target)
+            print("📱 [ContentExtension] Showing header-only mode (only ICON/AUDIO). Preferred size: \(preferredContentSize)")
             return
         }
         
@@ -406,9 +520,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 imageView.image = appIcon
                 imageView.isHidden = false
             } else {
-                // Hide icon completely if no app icon is available
-                imageView.isHidden = true
-                print("📱 [ContentExtension] ⚠️ No icon available, hiding icon view")
+                // Nessuna icona disponibile: manteniamo comunque lo spazio dell'icona per non alterare la larghezza disponibile
+                // Impostiamo un placeholder trasparente 50x50 per mantenere la metrica coerente con il caso con icona
+                imageView.image = UIImage()
+                imageView.isHidden = false
+                print("📱 [ContentExtension] ⚠️ No icon available, keeping placeholder to preserve layout width")
             }
         }
     }
@@ -429,8 +545,65 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
 
     private func headerViewHeight() -> CGFloat {
         guard let header = headerView else { return 0 }
+        header.setNeedsLayout()
         header.layoutIfNeeded()
-        return max(56, header.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).height + 8)
+        // Constrain width to available content width (leading/trailing 12)
+        let availableWidth = max(100, view.bounds.width - 24)
+        let targetSize = CGSize(width: availableWidth, height: UIView.layoutFittingCompressedSize.height)
+        let height = header.systemLayoutSizeFitting(
+            targetSize,
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        ).height
+        // Fallback expected height from line counts if AutoLayout underestimates
+        var expectedLabelsHeight: CGFloat = 0
+        if let t = headerTitleLabel { expectedLabelsHeight += t.font.lineHeight * CGFloat(max(1, t.numberOfLines)) }
+        if let s = headerSubtitleLabel, !(s.isHidden) { expectedLabelsHeight += s.font.lineHeight * CGFloat(max(0, s.numberOfLines)) + 2 }
+        if let b = headerBodyLabel { expectedLabelsHeight += b.font.lineHeight * CGFloat(max(0, b.numberOfLines)) }
+        // Stack paddings: headerStack top/bottom 8, header outer top 8 + bottom 8
+        let verticalPaddings: CGFloat = 8 + 8 + 8 + 8
+        let labelsTotal = expectedLabelsHeight + verticalPaddings
+        let iconBlock: CGFloat = 50 + (8 + 8 + 8 + 8) // icon 50 + same paddings
+        let expected = max(labelsTotal, iconBlock)
+        let final = max(56, max(height + 8, expected))
+        print("📱 [ContentExtension] headerViewHeight -> availableWidth: \(availableWidth), measured: \(height), expected: \(expected), final: \(final)")
+        return final
+    }
+
+    private func computeHeaderExpectedHeight() -> CGFloat {
+        let availableWidth = max(100, view.bounds.width - 24)
+        let normalizedTitle = normalizeLineSeparators(notificationTitleText)
+        let normalizedSubtitle = normalizeLineSeparators(notificationSubtitleText)
+        let normalizedBody = normalizeLineSeparators(notificationBodyText)
+        func neededLines(_ text: String, font: UIFont, cap: Int) -> (lines: Int, height: CGFloat) {
+            if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return (0, 0) }
+            let rect = (text as NSString).boundingRect(
+                with: CGSize(width: availableWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: [.font: font],
+                context: nil
+            )
+            let lh = font.lineHeight
+            let maxH = lh * CGFloat(cap)
+            let usedH = min(rect.height, maxH)
+            let usedLines = Int(ceil(usedH / max(lh, 1)))
+            return (usedLines, usedH)
+        }
+        let titleFont = headerTitleLabel?.font ?? .systemFont(ofSize: 16, weight: .semibold)
+        let subtitleFont = headerSubtitleLabel?.font ?? .systemFont(ofSize: 12)
+        let bodyFont = headerBodyLabel?.font ?? .systemFont(ofSize: 12)
+        let totalCap = 15
+        let titleRes = neededLines(normalizedTitle, font: titleFont, cap: 2)
+        let subtitleCap = normalizedSubtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0 : 1
+        let subtitleRes = neededLines(normalizedSubtitle, font: subtitleFont, cap: subtitleCap)
+        let bodyCap = max(0, totalCap - (titleRes.lines + subtitleRes.lines))
+        let bodyRes = neededLines(normalizedBody, font: bodyFont, cap: bodyCap)
+        let labelsHeight = titleRes.height + subtitleRes.height + bodyRes.height
+        let verticalPaddings: CGFloat = 8 + 8 + 8 + 8
+        let iconBlock: CGFloat = (headerIconImageView?.isHidden ?? false) ? 0 : (50 + verticalPaddings)
+        let expected = max(labelsHeight + verticalPaddings, iconBlock, 56)
+        print("📱 [ContentExtension] computeHeaderExpectedHeight -> labels: \(labelsHeight), expected: \(expected)")
+        return expected
     }
 
     private func footerHeight() -> CGFloat {
