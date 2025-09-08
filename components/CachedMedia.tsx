@@ -321,33 +321,27 @@ export const CachedMedia = React.memo(function CachedMedia({
         );
       }
 
-      // Missing thumbnail state: allow user to generate
+      // Missing thumbnail state: render non-pressable container so parent Pressable can handle selection
       return (
-        <Pressable
-          onPress={isGeneratingThumb ? undefined : handleGenerateThumbnail}
-        >
-          <View style={getStateContainerStyle("loading") as any}>
-            {isGeneratingThumb ? (
-              <ActivityIndicator
-                size="small"
-                color={isCompact ? "#fff" : stateColors.loading}
-              />
-            ) : (
-              <Ionicons
-                name="image-outline"
-                size={isCompact ? 20 : 24}
-                color={isCompact ? "#fff" : stateColors.loading}
-              />
-            )}
-            {!isCompact && (
-              <Text style={getStateTextStyle("loading")}>
-                {isGeneratingThumb
-                  ? t("cachedMedia.loadingProgress")
-                  : "Tap to generate thumbnail"}
-              </Text>
-            )}
-          </View>
-        </Pressable>
+        <View style={getStateContainerStyle("loading") as any}>
+          {isGeneratingThumb ? (
+            <ActivityIndicator
+              size="small"
+              color={isCompact ? "#fff" : stateColors.loading}
+            />
+          ) : (
+            <Ionicons
+              name="image-outline"
+              size={isCompact ? 20 : 24}
+              color={isCompact ? "#fff" : stateColors.loading}
+            />
+          )}
+          {!isCompact && (
+            <Text style={getStateTextStyle("loading")}>
+              Tap to generate thumbnail
+            </Text>
+          )}
+        </View>
       );
     }
 
@@ -358,7 +352,8 @@ export const CachedMedia = React.memo(function CachedMedia({
         <View style={getStateContainerStyle(stateType) as any}>
           <ActivityIndicator
             size="small"
-            color={isCompact ? "#fff" : stateColors[stateType]}
+            color={stateColors[stateType]}
+            // color={isCompact ? "#fff" : stateColors[stateType]}
           />
           {!isCompact && (
             <Text style={getStateTextStyle(stateType)}>
@@ -379,7 +374,8 @@ export const CachedMedia = React.memo(function CachedMedia({
             <Ionicons
               name="warning-outline"
               size={isCompact ? 20 : 24}
-              color={isCompact ? "#fff" : stateColors.videoError}
+              color={stateColors.videoError}
+              // color={isCompact ? "#fff" : stateColors.videoError}
               onPress={isCompact ? handleForceDownload : undefined}
             />
           </View>
@@ -408,7 +404,7 @@ export const CachedMedia = React.memo(function CachedMedia({
             <Ionicons
               name="warning-outline"
               size={isCompact ? 20 : 24}
-              color={isCompact ? "#fff" : stateColors.failed}
+              color={stateColors.failed}
               onPress={isCompact ? handleForceDownload : undefined}
             />
           </View>
@@ -425,7 +421,8 @@ export const CachedMedia = React.memo(function CachedMedia({
             <Ionicons
               name="download-outline"
               size={isCompact ? 20 : 24}
-              color={isCompact ? "#fff" : stateColors.deleted}
+              color={stateColors.deleted}
+              // color={isCompact ? "#fff" : stateColors.deleted}
               onPress={isCompact ? handleForceDownload : undefined}
             />
           </View>
@@ -447,7 +444,8 @@ export const CachedMedia = React.memo(function CachedMedia({
                   <Ionicons
                     name="warning-outline"
                     size={isCompact ? 20 : 24}
-                    color={isCompact ? "#fff" : stateColors.failed}
+                    color={stateColors.failed}
+                    // color={isCompact ? "#fff" : stateColors.failed}
                     onPress={isCompact ? handleForceDownload : undefined}
                   />
                 </View>

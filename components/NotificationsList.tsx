@@ -18,7 +18,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
-  VirtualizedList,
 } from "react-native";
 import NotificationFilters from "./NotificationFilters";
 import SwipeableNotificationItem from "./SwipeableNotificationItem";

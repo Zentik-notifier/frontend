@@ -207,6 +207,7 @@ class MediaCacheService {
             }
 
             await this.saveMetadata();
+            await this.saveUserDeleted();
         } catch (error) {
             console.error('[MediaCache] Download failed:', error);
 
@@ -648,10 +649,27 @@ class MediaCacheService {
         }
 
         try {
+            // Delete media file
             if (cachedItem.localPath) {
-                await FS.deleteAsync(cachedItem.localPath, { idempotent: true });
+                try {
+                    await FS.deleteAsync(cachedItem.localPath, { idempotent: true });
+                } catch (error) {
+                    console.warn('[MediaCache] Failed to delete file:', error);
+                }
             }
 
+            // Delete thumbnail file if present
+            const thumbPath = cachedItem.localThumbPath || this.getThumbnailPath(url, mediaType);
+            try {
+                const info = await FS.getInfoAsync(thumbPath);
+                if (info.exists) {
+                    await FS.deleteAsync(thumbPath, { idempotent: true });
+                }
+            } catch (err) {
+                console.warn('[MediaCache] Failed to delete thumbnail:', err);
+            }
+
+            // Remove from metadata
             delete this.metadata[key];
 
             await this.markUserDeleted(url, mediaType);
