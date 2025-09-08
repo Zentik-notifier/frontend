@@ -296,6 +296,7 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                             fullWidth
                           />
                         )}
+                        
                         <NotificationSnoozeButton
                           bucketId={notification.message?.bucket?.id}
                           variant="swipeable"
