@@ -10,6 +10,7 @@ import * as VideoThumbnails from 'expo-video-thumbnails';
 export interface CacheItem {
     url: string;
     localPath: string;
+    localThumbPath?: string;
     timestamp: number;
     size: number;
     mediaType: MediaType;
@@ -401,6 +402,7 @@ class MediaCacheService {
                     sharedMetadata[key] = {
                         url: item.url,
                         localPath: item.localPath,
+                        localThumbPath: item.localThumbPath,
                         timestamp: item.timestamp,
                         size: item.size,
                         mediaType: item.mediaType,
@@ -414,6 +416,8 @@ class MediaCacheService {
                 this.metadata$.next(this.metadata);
                 await FS.writeAsStringAsync(metadataFilePath, JSON.stringify(sharedMetadata, null, 2));
                 console.log('[MediaCache] Save cache item:', Object.keys(sharedMetadata).length, 'items');
+            } else {
+                this.metadata$.next(this.metadata);
             }
         } catch (error) {
             console.error('[MediaCache] Failed to save shared metadata:', error);
@@ -451,7 +455,16 @@ class MediaCacheService {
         if (cachedItem && [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) {
             const thumbPath = this.getThumbnailPath(url, mediaType);
             const info = await FS.getInfoAsync(thumbPath);
-            if (!info.exists) {
+            if (info.exists) {
+                if (!this.metadata[key]?.localThumbPath) {
+                    this.metadata[key] = {
+                        ...this.metadata[key],
+                        localThumbPath: thumbPath,
+                        timestamp: Date.now(),
+                    };
+                    await this.saveMetadata();
+                }
+            } else {
                 await this.addToQueue({ url, mediaType, op: 'thumbnail' });
             }
         }
@@ -695,9 +708,6 @@ class MediaCacheService {
             let tempUri: string | null = null;
 
             if (mediaType === MediaType.Image || mediaType === MediaType.Gif) {
-                // Dynamic require to avoid type errors if package not installed
-                // eslint-disable-next-line @typescript-eslint/no-var-requires
-                const ImageManipulator = require('expo-image-manipulator');
                 const result = await ImageManipulator.manipulateAsync(
                     cached.localPath,
                     [{ resize: { width: maxSize } }],
@@ -705,21 +715,25 @@ class MediaCacheService {
                 );
                 tempUri = result.uri;
             } else if (mediaType === MediaType.Video) {
-                // eslint-disable-next-line @typescript-eslint/no-var-requires
-                const VideoThumbnails = require('expo-video-thumbnails');
                 const { uri } = await VideoThumbnails.getThumbnailAsync(cached.localPath, {
                     time: 1000,
                     quality: 0.6,
                 });
                 tempUri = uri;
             } else {
-                // For audio/icon, no thumbnail generation for now
                 return null;
             }
 
             if (!tempUri) return null;
 
             await FS.copyAsync({ from: tempUri, to: thumbPath });
+            const key = this.generateCacheKey(url, mediaType);
+            this.metadata[key] = {
+                ...this.metadata[key],
+                localThumbPath: thumbPath,
+                timestamp: Date.now(),
+            };
+            await this.saveMetadata();
             console.log('[MediaCache] Thumbnail saved at:', thumbPath);
             return thumbPath;
         } catch (error) {

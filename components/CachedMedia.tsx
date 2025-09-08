@@ -3,7 +3,12 @@ import { mediaCache } from "@/services/media-cache";
 import { Ionicons } from "@expo/vector-icons";
 import { useEvent } from "expo";
 import { useAudioPlayer } from "expo-audio";
-import { Image as ExpoImage, ImageContentFit, ImageProps, ImageStyle } from "expo-image";
+import {
+  Image as ExpoImage,
+  ImageContentFit,
+  ImageProps,
+  ImageStyle,
+} from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import {
@@ -40,7 +45,7 @@ interface CachedMediaProps {
     placeholder?: any;
     blurRadius?: number;
     priority?: "low" | "normal" | "high";
-    cachePolicy?: ImageProps['cachePolicy'];
+    cachePolicy?: ImageProps["cachePolicy"];
     contentFit?: ImageContentFit;
   };
 
@@ -95,25 +100,8 @@ export const CachedMedia = React.memo(function CachedMedia({
   const { item: mediaSource } = useCachedItem(url, mediaType);
   const isVideoType = mediaType === MediaType.Video;
 
-  const [thumbUri, setThumbUri] = useState<string | null>(null);
-
   const localSource = mediaSource?.localPath;
   const videoSource = localSource && isVideoType ? localSource : null;
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!useThumbnail) return;
-      if (![MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) return;
-      // Ensure cache metadata exists and enqueue thumbnail if needed
-      await mediaCache.getCachedItem(url, mediaType);
-      const uri = await mediaCache.getOrCreateThumbnail(url, mediaType);
-      if (mounted) setThumbUri(uri);
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [useThumbnail, url, mediaType, mediaSource?.localPath]);
 
   const videoPlayer = useVideoPlayer(videoSource || "", (player) => {
     if (videoSource) {
@@ -356,21 +344,34 @@ export const CachedMedia = React.memo(function CachedMedia({
     // User deleted / failure handled below when not using thumbnail
 
     // Media content rendering
-    if (useThumbnail && [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) {
+    if (
+      useThumbnail &&
+      [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)
+    ) {
       // Render thumbnail image
       return (
         <Pressable onPress={onPress}>
-          {thumbUri ? (
+          {mediaSource?.localThumbPath ? (
             <ExpoImage
-              source={{ uri: thumbUri }}
-              style={isCompact ? ([defaultStyles.stateContainerCompact, style] as StyleProp<ImageStyle>) : (style as StyleProp<ImageStyle>)}
+              source={{ uri: mediaSource.localThumbPath }}
+              style={
+                isCompact
+                  ? ([
+                      defaultStyles.stateContainerCompact,
+                      style,
+                    ] as StyleProp<ImageStyle>)
+                  : (style as StyleProp<ImageStyle>)
+              }
               contentFit={imageProps?.contentFit ?? contentFit}
               transition={imageProps?.transition ?? 150}
-              cachePolicy={imageProps?.cachePolicy || 'none'}
+              cachePolicy={imageProps?.cachePolicy || "none"}
             />
           ) : (
             <View style={getStateContainerStyle("loading") as any}>
-              <ActivityIndicator size="small" color={isCompact ? "#fff" : stateColors.loading} />
+              <ActivityIndicator
+                size="small"
+                color={isCompact ? "#fff" : stateColors.loading}
+              />
             </View>
           )}
         </Pressable>
@@ -450,7 +451,7 @@ export const CachedMedia = React.memo(function CachedMedia({
                 placeholder={imageProps?.placeholder}
                 blurRadius={imageProps?.blurRadius}
                 priority={imageProps?.priority}
-                cachePolicy={imageProps?.cachePolicy || 'memory'}
+                cachePolicy={imageProps?.cachePolicy || "memory"}
                 onError={() => {
                   console.warn(
                     "[CachedMedia] Image load error:",
