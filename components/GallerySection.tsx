@@ -62,7 +62,6 @@ export default function GallerySection() {
   );
   const [showStats, setShowStats] = useState(false);
   const [showMediaTypeSelector, setShowMediaTypeSelector] = useState(false);
-  const [visibleItems, setVisibleItems] = useState<Set<string>>(new Set());
 
   const cachedMedia: CachedMediaItem[] = useMemo(() => {
     return mediaWithDates.map((item, index) => ({
@@ -894,18 +893,8 @@ export default function GallerySection() {
     );
   };
 
-  // Funzione per gestire il cambio degli elementi visibili
-  const handleViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: any[] }) => {
-      const newVisibleItems = new Set(viewableItems.map((item) => item.item.id));
-      setVisibleItems(newVisibleItems);
-    },
-    []
-  );
-
   const renderMediaItem = ({ item }: { item: CachedMediaItem }) => {
     const isSelected = selectedItems.has(item.id);
-    const isVisible = visibleItems.has(item.id);
     const checkSize = itemWidth * 0.5;
 
     return (
@@ -927,10 +916,10 @@ export default function GallerySection() {
             originalFileName={item.originalFileName}
             videoProps={{
               isMuted: true,
-              autoPlay: userSettings.settings.gallery.autoPlay && isVisible,
+              autoPlay: userSettings.settings.gallery.autoPlay,
             }}
             audioProps={{ showControls: true }}
-            noAutoDownload={!isVisible}
+            noAutoDownload
             showMediaIndicator
             smallButtons
             onPress={() => {
