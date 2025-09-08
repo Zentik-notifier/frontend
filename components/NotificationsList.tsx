@@ -18,7 +18,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
-  VirtualizedList
+  VirtualizedList,
 } from "react-native";
 import NotificationFilters from "./NotificationFilters";
 import SwipeableNotificationItem from "./SwipeableNotificationItem";
@@ -58,9 +58,12 @@ export default function NotificationsList({
   } = useAppContext();
 
   // Hook per operazioni di massa
-  const { massDelete: massDeleteNotifications, loading: deleteLoading } = useMassDeleteNotifications();
-  const { massMarkAsRead, loading: markAsReadLoading } = useMassMarkNotificationsAsRead();
-  const { massMarkAsUnread, loading: markAsUnreadLoading } = useMassMarkNotificationsAsUnread();
+  const { massDelete: massDeleteNotifications, loading: deleteLoading } =
+    useMassDeleteNotifications();
+  const { massMarkAsRead, loading: markAsReadLoading } =
+    useMassMarkNotificationsAsRead();
+  const { massMarkAsUnread, loading: markAsUnreadLoading } =
+    useMassMarkNotificationsAsUnread();
 
   // Stati per multi-selezione
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -174,22 +177,9 @@ export default function NotificationsList({
     }
   };
 
-  // Stato per tracciare gli elementi visibili
-  const [visibleItems, setVisibleItems] = useState<Set<string>>(new Set());
-
-  // Funzione per gestire il cambio degli elementi visibili
-  const handleViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: any[] }) => {
-      const newVisibleItems = new Set(viewableItems.map((item) => item.item.id));
-      setVisibleItems(newVisibleItems);
-    },
-    []
-  );
-
   const renderItem = useCallback(
     ({ item }: { item: NotificationFragment }) => {
       const isSelected = selectedItems.has(item.id);
-      const isVisible = visibleItems.has(item.id);
 
       return (
         <SwipeableNotificationItem
@@ -197,19 +187,15 @@ export default function NotificationsList({
           hideBucketInfo={hideBucketInfo}
           isMultiSelectionMode={selectionMode}
           isSelected={isSelected}
-          isVisible={isVisible}
           onToggleSelection={() => toggleItemSelection(item.id)}
         />
       );
     },
-    [selectedItems, selectionMode, hideBucketInfo, visibleItems]
+    [selectedItems, selectionMode, hideBucketInfo]
   );
 
   // Memoized key extractor
-  const keyExtractor = useCallback(
-    (item: NotificationFragment) => item.id,
-    []
-  );
+  const keyExtractor = useCallback((item: NotificationFragment) => item.id, []);
 
   const renderSelectionBar = () => (
     <View
@@ -299,13 +285,12 @@ export default function NotificationsList({
             },
           ]}
           onPress={handleToggleReadStatus}
-          disabled={selectedItems.size === 0 || markAsReadLoading || markAsUnreadLoading}
+          disabled={
+            selectedItems.size === 0 || markAsReadLoading || markAsUnreadLoading
+          }
         >
           {markAsReadLoading || markAsUnreadLoading ? (
-            <ActivityIndicator 
-              size="small" 
-              color={Colors[colorScheme].text} 
-            />
+            <ActivityIndicator size="small" color={Colors[colorScheme].text} />
           ) : (
             (() => {
               const selectedNotifications = filteredNotifications.filter((n) =>
@@ -360,10 +345,7 @@ export default function NotificationsList({
           disabled={selectedItems.size === 0 || deleteLoading}
         >
           {deleteLoading ? (
-            <ActivityIndicator 
-              size="small" 
-              color={Colors[colorScheme].text} 
-            />
+            <ActivityIndicator size="small" color={Colors[colorScheme].text} />
           ) : (
             <Ionicons
               name="trash-outline"
@@ -418,11 +400,7 @@ export default function NotificationsList({
         renderItem={renderItem}
         getItemCount={(data) => data.length}
         getItem={(data, index) => data[index]}
-        onViewableItemsChanged={handleViewableItemsChanged}
-        viewabilityConfig={{
-          itemVisiblePercentThreshold: 50,
-          minimumViewTime: 100,
-        }}
+        initialNumToRender={10}
         refreshControl={
           showRefreshControl ? (
             <RefreshControl
@@ -436,30 +414,6 @@ export default function NotificationsList({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.listContent, contentContainerStyle]}
         ListEmptyComponent={renderEmptyState}
-        // Performance optimizations for virtualization
-        // removeClippedSubviews={true}
-        // maxToRenderPerBatch={5}
-        // updateCellsBatchingPeriod={100}
-        // initialNumToRender={8}
-        // windowSize={21}
-        // VirtualizedList specific optimizations
-        // disableVirtualization={false}
-        // onEndReachedThreshold={0.5}
-        // maintainVisibleContentPosition={{
-        //   minIndexForVisible: 0,
-        //   autoscrollToTopThreshold: 10,
-        // }}
-        // getItemLayout={(data, index) => {
-        //   // More accurate item height estimation
-        //   const baseHeight = isCompactMode ? 60 : 80;
-        //   // Add extra height for items with attachments
-        //   const item = data?.[index];
-        //   const hasAttachments = (item?.message?.attachments?.length ?? 0) > 0;
-        //   const hasActions = (item?.message?.actions?.length ?? 0) > 0;
-        //   const extraHeight = (hasAttachments ? 40 : 0) + (hasActions ? 20 : 0);
-        //   const itemHeight = baseHeight + extraHeight;
-        //   return { length: itemHeight, offset: itemHeight * index, index };
-        // }}
       />
     </ThemedView>
   );

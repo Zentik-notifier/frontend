@@ -40,7 +40,6 @@ interface SwipeableNotificationItemProps {
   hideBucketInfo?: boolean; // Renamed: hides bucket name, icon and left border
   isMultiSelectionMode?: boolean;
   isSelected?: boolean;
-  isVisible?: boolean;
   onToggleSelection?: () => void;
   onLongPress?: () => void;
 }
@@ -50,7 +49,6 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> = Reac
   hideBucketInfo = false, // Default to showing bucket info
   isMultiSelectionMode = false,
   isSelected = false,
-  isVisible = true,
   onToggleSelection,
   onLongPress,
 }) => {
@@ -347,7 +345,7 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> = Reac
           </ThemedView>
 
           {/* RIGA 2: Preview del media selezionato (solo in modalità estesa) */}
-          {visibleAttachment?.url && isVisible && (
+          {visibleAttachment?.url && (
             <ThemedView
               style={[
                 styles.mediaPreviewRow,
@@ -362,7 +360,6 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> = Reac
                   url={visibleAttachment.url || ""}
                   style={styles.expandedImage}
                   originalFileName={visibleAttachment.name || undefined}
-                  noAutoDownload={!isVisible} // Only download when visible
                   videoProps={{
                     autoPlay: false, // Disable autoplay for better performance
                     isMuted: true,
