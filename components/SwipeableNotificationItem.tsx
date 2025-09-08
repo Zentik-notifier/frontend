@@ -337,6 +337,15 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                     </ThemedText>
                   </View>
 
+                  {/* Subtitle - mostra sempre se presente */}
+                  {notification.message?.subtitle && (
+                    <SmartTextRenderer
+                      content={notification.message.subtitle}
+                      maxLines={1}
+                      style={styles.subtitle}
+                    />
+                  )}
+
                   {/* Messaggio/Body - mostra più linee, anche con gallery */}
                   {notification.message?.body && (
                     <SmartTextRenderer
@@ -345,16 +354,6 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                       style={styles.body}
                     />
                   )}
-
-                  {/* Subtitle (solo se non c'è body) */}
-                  {notification.message?.subtitle &&
-                    !notification.message.body && (
-                      <SmartTextRenderer
-                        content={notification.message.subtitle}
-                        maxLines={1}
-                        style={styles.subtitle}
-                      />
-                    )}
                 </ThemedView>
 
                 {/* Read indicator (only when not in multi-selection mode) */}
@@ -615,9 +614,11 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontStyle: "italic",
+    opacity: 0.7,
     marginBottom: 2,
+    marginTop: 1,
   },
   image: {
     width: "100%",
