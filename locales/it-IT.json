@@ -1429,7 +1429,8 @@
       "allTypes": "Tutti i tipi",
       "selectMediaTypes": "Seleziona tipi di media",
       "selectAll": "Seleziona tutto",
-      "deselectAll": "Deseleziona tutto"
+      "deselectAll": "Deseleziona tutto",
+      "selectedTypesCount": "{{selected}} di {{total}} tipi"
     },
     "multiSelection": {
       "toggleButton": "Seleziona",

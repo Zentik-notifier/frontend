@@ -1426,6 +1426,7 @@ export interface TranslationKey {
       selectMediaTypes: string;
       selectAll: string;
       deselectAll: string;
+      selectedTypesCount: string;
     };
   };
   cachedMedia: {

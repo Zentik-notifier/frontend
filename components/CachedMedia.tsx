@@ -3,7 +3,7 @@ import { mediaCache } from "@/services/media-cache";
 import { Ionicons } from "@expo/vector-icons";
 import { useEvent } from "expo";
 import { useAudioPlayer } from "expo-audio";
-import { Image as ExpoImage, ImageContentFit, ImageStyle } from "expo-image";
+import { Image as ExpoImage, ImageContentFit, ImageProps, ImageStyle } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import {
@@ -14,7 +14,6 @@ import {
   View,
   ViewStyle,
   PanResponder,
-  Dimensions,
 } from "react-native";
 import { Pressable } from "react-native-gesture-handler";
 import { MediaType } from "../generated/gql-operations-generated";
@@ -40,6 +39,7 @@ interface CachedMediaProps {
     placeholder?: any;
     blurRadius?: number;
     priority?: "low" | "normal" | "high";
+    cachePolicy?: ImageProps['cachePolicy'];
     contentFit?: ImageContentFit;
   };
 
@@ -422,11 +422,18 @@ export const CachedMedia = React.memo(function CachedMedia({
                 placeholder={imageProps?.placeholder}
                 blurRadius={imageProps?.blurRadius}
                 priority={imageProps?.priority}
-                cachePolicy={"memory"}
+                cachePolicy={imageProps?.cachePolicy || 'memory'}
                 onError={() => {
-                  console.warn('[CachedMedia] Image load error:', mediaSource.localPath);
+                  console.warn(
+                    "[CachedMedia] Image load error:",
+                    mediaSource.localPath
+                  );
                   setImageError(true);
-                  mediaCache.markAsPermanentFailure(url, mediaType, 'IMAGE_LOAD_ERROR');
+                  mediaCache.markAsPermanentFailure(
+                    url,
+                    mediaType,
+                    "IMAGE_LOAD_ERROR"
+                  );
                 }}
               />
             </Pressable>

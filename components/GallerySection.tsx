@@ -3,7 +3,6 @@ import { MediaType } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useMediaWithNotificationDates } from "@/hooks/useMediaWithNotificationDates";
 import { useNotificationUtils } from "@/hooks/useNotificationUtils";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
@@ -11,7 +10,7 @@ import { mediaCache } from "@/services/media-cache";
 import { saveMediaToGallery } from "@/services/media-gallery";
 import { formatFileSize } from "@/utils";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -53,133 +52,108 @@ export default function GallerySection() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [fullscreenIndex, setFullscreenIndex] = useState<number>(-1);
-  const { cacheStats, updateStats } = useGetCacheStats();
-  const { mediaWithDates, groupedMedia } = useMediaWithNotificationDates();
+  const { cacheStats, cachedItems, updateStats } = useGetCacheStats();
   const { formatDateKey } = useDateFormat();
-  // Filter states
   const [selectedMediaTypes, setSelectedMediaTypes] = useState<Set<MediaType>>(
     new Set([MediaType.Image, MediaType.Video, MediaType.Gif, MediaType.Audio])
   );
   const [showStats, setShowStats] = useState(false);
   const [showMediaTypeSelector, setShowMediaTypeSelector] = useState(false);
 
-  const cachedMedia: CachedMediaItem[] = useMemo(() => {
-    return mediaWithDates.map((item, index) => ({
-      ...item,
-      id: `${item.mediaType}_${item.url}_${index}`,
-    }));
-  }, [mediaWithDates]);
-
-  // Fixed 3 columns layout
+  // Numero fisso di colonne per la griglia
   const numColumns = 3;
 
-  // Calculate item width for 3 columns without spacing
+  const { filteredMedia, rows } = useMemo(() => {
+    const allWithIds: CachedMediaItem[] = cachedItems.map((item, index) => ({
+      ...item,
+      id: `${item.mediaType}_${item.url}_${index}`,
+      notificationDate: item.notificationDate || item.downloadedAt,
+    }));
+
+    const filteredMedia: CachedMediaItem[] = allWithIds.filter((item) => {
+      if (!selectedMediaTypes.has(item.mediaType)) return false;
+      if (!userSettings.settings.gallery.showFaultyMedias) {
+        const cachedItem = mediaCache.getCachedItemSync(
+          item.url,
+          item.mediaType
+        );
+        if (cachedItem?.isUserDeleted || cachedItem?.isPermanentFailure)
+          return false;
+      }
+      return true;
+    });
+
+    // Calcola i riferimenti temporali
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    const startOfWeek = new Date(startOfToday);
+    const day = startOfWeek.getDay(); // 0=Dom, 1=Lun, ...
+    const diffToMonday = (day + 6) % 7;
+    startOfWeek.setDate(startOfWeek.getDate() - diffToMonday);
+
+    const today: CachedMediaItem[] = [];
+    const yesterday: CachedMediaItem[] = [];
+    const thisWeek: CachedMediaItem[] = [];
+    const older: CachedMediaItem[] = [];
+
+    for (const media of filteredMedia) {
+      const ts = media.notificationDate || media.downloadedAt || Date.now();
+      if (ts >= startOfToday.getTime()) {
+        today.push(media);
+      } else if (
+        ts >= startOfYesterday.getTime() &&
+        ts < startOfToday.getTime()
+      ) {
+        yesterday.push(media);
+      } else if (ts >= startOfWeek.getTime()) {
+        thisWeek.push(media);
+      } else {
+        older.push(media);
+      }
+    }
+
+    const sortDesc = (a: CachedMediaItem, b: CachedMediaItem) =>
+      (b.notificationDate ?? 0) - (a.notificationDate ?? 0);
+    today.sort(sortDesc);
+    yesterday.sort(sortDesc);
+    thisWeek.sort(sortDesc);
+    older.sort(sortDesc);
+
+    const rows: Array<{ type: "header" | "row"; data: any; id: string }> = [];
+    const build = (label: string, items: CachedMediaItem[], key: string) => {
+      if (!items.length) return;
+      rows.push({ type: "header", data: label, id: `header-${key}` });
+      for (let i = 0; i < items.length; i += numColumns) {
+        const rowItems = items.slice(i, i + numColumns);
+        rows.push({
+          type: "row",
+          data: rowItems,
+          id: `row-${key}-${Math.floor(i / numColumns)}`,
+        });
+      }
+    };
+
+    build(t("gallery.today"), today, "today");
+    build(t("gallery.yesterday"), yesterday, "yesterday");
+    build(t("gallery.thisWeek"), thisWeek, "thisWeek");
+    build(t("gallery.older"), older, "older");
+
+    return { allWithIds, filteredMedia, rows };
+  }, [
+    cachedItems,
+    selectedMediaTypes,
+    userSettings.settings.gallery.showFaultyMedias,
+  ]);
+
   const itemWidth = useMemo(() => {
     const screenWidth = Dimensions.get("window").width;
     const horizontalPadding = 32; // 16px padding on each side
     const availableWidth = screenWidth - horizontalPadding;
     return availableWidth / numColumns;
   }, []);
-
-  // Filter cached media based on selected types and settings
-  const filteredMedia = useMemo(() => {
-    return cachedMedia.filter((item) => {
-      // Filter by selected media types
-      if (!selectedMediaTypes.has(item.mediaType)) {
-        return false;
-      }
-
-      // Filter by showFaultyMedias setting
-      if (!userSettings.settings.gallery.showFaultyMedias) {
-        const cachedItem = mediaCache.getCachedItemSync(
-          item.url,
-          item.mediaType
-        );
-        if (cachedItem?.isUserDeleted || cachedItem?.isPermanentFailure) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [
-    cachedMedia,
-    selectedMediaTypes,
-    userSettings.settings.gallery.showFaultyMedias,
-  ]);
-
-  // Filter grouped media by selected types and settings
-  const filteredGroupedMedia = useMemo(() => {
-    const filtered = new Map<string, CachedMediaItem[]>();
-
-    for (const [dateKey, mediaList] of groupedMedia) {
-      const filteredList = mediaList.filter((item) => {
-        // Filter by selected media types
-        if (!selectedMediaTypes.has(item.mediaType)) {
-          return false;
-        }
-
-        // Filter by showFaultyMedias setting
-        if (!userSettings.settings.gallery.showFaultyMedias) {
-          const cachedItem = mediaCache.getCachedItemSync(
-            item.url,
-            item.mediaType
-          );
-          if (cachedItem?.isUserDeleted || cachedItem?.isPermanentFailure) {
-            return false;
-          }
-        }
-
-        return true;
-      });
-
-      if (filteredList.length > 0) {
-        filtered.set(dateKey, filteredList);
-      }
-    }
-
-    return filtered;
-  }, [
-    groupedMedia,
-    selectedMediaTypes,
-    userSettings.settings.gallery.showFaultyMedias,
-  ]);
-
-  // Get sorted date keys for filtered media
-  const filteredSortedDateKeys = useMemo(() => {
-    return Array.from(filteredGroupedMedia.keys()).sort((a, b) =>
-      b.localeCompare(a)
-    );
-  }, [filteredGroupedMedia]);
-
-  // Create a flattened list organized in rows of 3 items for proper grid layout
-  const virtualizedData = useMemo(() => {
-    const items: Array<{ type: "header" | "row"; data: any; id: string }> = [];
-
-    for (const dateKey of filteredSortedDateKeys) {
-      const mediaList = filteredGroupedMedia.get(dateKey);
-      if (!mediaList || mediaList.length === 0) continue;
-
-      // Add date header
-      items.push({
-        type: "header",
-        data: dateKey,
-        id: `header-${dateKey}`,
-      });
-
-      // Group media items into rows of 3
-      for (let i = 0; i < mediaList.length; i += numColumns) {
-        const rowItems = mediaList.slice(i, i + numColumns);
-        items.push({
-          type: "row",
-          data: rowItems,
-          id: `row-${dateKey}-${Math.floor(i / numColumns)}`,
-        });
-      }
-    }
-
-    return items;
-  }, [filteredSortedDateKeys, filteredGroupedMedia, numColumns]);
 
   const toggleItemSelection = (itemId: string) => {
     const newSelection = new Set(selectedItems);
@@ -227,7 +201,10 @@ export default function GallerySection() {
         .join(", ");
     }
 
-    return `${selectedCount} di ${allCount} tipi`;
+    return t("medias.filters.selectedTypesCount", {
+      selected: selectedCount,
+      total: allCount,
+    });
   };
 
   const renderFiltersBar = () => {
@@ -328,15 +305,15 @@ export default function GallerySection() {
               const count = selectedItems.size;
               if (count === 0) return;
               Alert.alert(
-                "Elimina Media Selezionati",
-                `Sei sicuro di voler eliminare ${count} media selezionati dalla cache?`,
+                t("medias.deleteItem.title"),
+                t("medias.deleteItem.message"),
                 [
-                  { text: "Annulla", style: "cancel" },
+                  { text: t("common.cancel"), style: "cancel" },
                   {
-                    text: "Elimina",
+                    text: t("common.delete"),
                     style: "destructive",
                     onPress: async () => {
-                      const items = cachedMedia.filter((m) =>
+                      const items = filteredMedia.filter((m) =>
                         selectedItems.has(m.id)
                       );
                       for (const it of items) {
@@ -446,8 +423,8 @@ export default function GallerySection() {
             ]}
           >
             {selectedItems.size === filteredMedia.length
-              ? t("notifications.deselectAll")
-              : t("notifications.selectAll")}
+              ? t("medias.filters.deselectAll")
+              : t("medias.filters.selectAll")}
           </ThemedText>
         </TouchableOpacity>
       </View>
@@ -918,6 +895,7 @@ export default function GallerySection() {
               isMuted: true,
               autoPlay: userSettings.settings.gallery.autoPlay,
             }}
+            imageProps={{ cachePolicy: "none" }}
             audioProps={{ showControls: true }}
             noAutoDownload
             showMediaIndicator
@@ -955,9 +933,7 @@ export default function GallerySection() {
     if (item.type === "header") {
       return (
         <View style={styles.dateSection}>
-          <ThemedText style={styles.dateSectionTitle}>
-            {formatDateKey(item.data)}
-          </ThemedText>
+          <ThemedText style={styles.dateSectionTitle}>{item.data}</ThemedText>
         </View>
       );
     } else {
@@ -1015,8 +991,7 @@ export default function GallerySection() {
       {renderMediaTypeSelector()}
 
       <VirtualizedList
-        key={`gallery-virtualized-${numColumns}`}
-        data={virtualizedData}
+        data={rows}
         keyExtractor={(item) => item.id}
         renderItem={renderVirtualizedItem}
         getItemCount={(data) => data.length}
@@ -1024,7 +999,7 @@ export default function GallerySection() {
         initialNumToRender={5}
         contentContainerStyle={[
           styles.galleryContainer,
-          virtualizedData.length === 0 && styles.emptyListContainer,
+          filteredMedia.length === 0 && styles.emptyListContainer,
         ]}
         refreshControl={
           <RefreshControl
@@ -1038,21 +1013,6 @@ export default function GallerySection() {
         ListHeaderComponent={showStats ? renderStatsCard : null}
         ListHeaderComponentStyle={{ width: "100%" }}
         ListEmptyComponent={renderEmptyState}
-        // onViewableItemsChanged={handleViewableItemsChanged}
-        // viewabilityConfig={{
-        //   itemVisiblePercentThreshold: 50,
-        //   minimumViewTime: 100,
-        // }}
-        // removeClippedSubviews={true}
-        // maxToRenderPerBatch={5} // Render 5 rows at a time for better performance
-        // updateCellsBatchingPeriod={100}
-        // windowSize={15}
-        // disableVirtualization={false}
-        // onEndReachedThreshold={0.5}
-        // maintainVisibleContentPosition={{
-        //   minIndexForVisible: 0,
-        //   autoscrollToTopThreshold: 10,
-        // }}
       />
 
       {/* Unified Fullscreen Viewer */}
@@ -1222,10 +1182,11 @@ const styles = StyleSheet.create({
   selectionCountBadge: {
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    height: 44,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
   selectionCountText: {
     fontSize: 14,
@@ -1233,9 +1194,11 @@ const styles = StyleSheet.create({
   },
   selectionButton: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 12,
+    height: 44,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   selectionButtonText: {
     fontSize: 14,
@@ -1252,7 +1215,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
   },
   statsToggle: {
     width: 44,
@@ -1261,6 +1224,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: 8,
   },
   multiSelectionToggle: {
     width: 44,
@@ -1303,6 +1267,7 @@ const styles = StyleSheet.create({
     gap: 8,
     flex: 1,
     marginRight: 8,
+    height: 44,
   },
   multiSelectorText: {
     fontSize: 14,
@@ -1344,11 +1309,12 @@ const styles = StyleSheet.create({
   },
   selectorActionButton: {
     flex: 1,
-    paddingVertical: 8,
+    height: 44,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: "center",
+    justifyContent: "center",
   },
   selectorActionText: {
     fontSize: 14,
@@ -1485,12 +1451,12 @@ const styles = StyleSheet.create({
   },
   // Date section styles
   dateSection: {
-    marginBottom: 24,
+    marginBottom: 10,
+    marginTop: 10,
   },
   dateSectionTitle: {
     fontSize: 16,
     fontWeight: "500",
-    marginBottom: 12,
     paddingHorizontal: 16,
   },
   dateSectionGrid: {

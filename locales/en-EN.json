@@ -1425,7 +1425,8 @@
       "allTypes": "All types",
       "selectMediaTypes": "Select media types",
       "selectAll": "Select all",
-      "deselectAll": "Deselect all"
+      "deselectAll": "Deselect all",
+      "selectedTypesCount": "{{selected}} of {{total}} types"
     },
     "multiSelection": {
       "toggleButton": "Select",
