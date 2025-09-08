@@ -986,6 +986,7 @@ export default function GallerySection() {
           styles.galleryContainer,
           filteredMedia.length === 0 && styles.emptyListContainer,
         ]}
+        windowSize={3}
         refreshControl={
           <RefreshControl
             refreshing={false}

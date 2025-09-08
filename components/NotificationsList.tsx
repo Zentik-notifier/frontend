@@ -51,11 +51,7 @@ export default function NotificationsList({
 }: NotificationsListProps) {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-  const {
-    notifications: notificationsFromContext,
-    refetchNotifications,
-    notificationsLoading,
-  } = useAppContext();
+  const { refetchNotifications } = useAppContext();
 
   // Hook per operazioni di massa
   const { massDelete: massDeleteNotifications, loading: deleteLoading } =
@@ -94,7 +90,6 @@ export default function NotificationsList({
     return filtered;
   }, [notifications, notificationFilters, hideBucketSelector, isCompactMode]);
 
-  // Funzione per toggle selezione item
   const toggleItemSelection = (itemId: string) => {
     const newSelection = new Set(selectedItems);
     if (newSelection.has(itemId)) {
@@ -103,7 +98,6 @@ export default function NotificationsList({
       newSelection.add(itemId);
     }
     setSelectedItems(newSelection);
-    setSelectionMode(newSelection.size > 0);
   };
 
   // Funzione per eliminare notifiche selezionate
@@ -395,7 +389,8 @@ export default function NotificationsList({
       {customHeader}
 
       <FlatList
-        data={filteredNotifications}
+        data={notifications}
+        windowSize={3}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         refreshControl={

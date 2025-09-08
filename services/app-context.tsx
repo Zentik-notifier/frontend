@@ -329,7 +329,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (nextAppState === "active" && userId) {
         console.log("📱 App became active - refreshing notifications");
         try {
-          await refetchNotifications();
+          // await refetchNotifications();
         } catch (error) {
           console.warn(
             "⚠️ Failed to refresh notifications on foreground:",
@@ -363,53 +363,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // GraphQL Subscriptions
-  const notificationCreatedSubscription = useNotificationCreatedSubscription({
-    skip: !userId,
-    onData: async ({ data }) => {
-      if (data?.data?.notificationCreated) {
-        await refetchNotifications();
-      }
-    },
-    onError: (error) => {
-      console.error("❌ Notification created subscription error:", error);
-    },
-  });
+  // const notificationCreatedSubscription = useNotificationCreatedSubscription({
+  //   skip: !userId,
+  //   onData: async ({ data }) => {
+  //     if (data?.data?.notificationCreated) {
+  //       await refetchNotifications();
+  //     }
+  //   },
+  //   onError: (error) => {
+  //     console.error("❌ Notification created subscription error:", error);
+  //   },
+  // });
 
-  const bucketUpdatedSubscription = useBucketUpdatedSubscription({
-    skip: !userId,
-    onData: async ({ data }) => {
-      if (data?.data?.bucketUpdated) {
-        await handleBucketSubscriptionEvent("updated", data.data.bucketUpdated);
-      }
-    },
-    onError: (error) => {
-      console.error("❌ Bucket updated subscription error:", error);
-    },
-  });
+  // const bucketUpdatedSubscription = useBucketUpdatedSubscription({
+  //   skip: !userId,
+  //   onData: async ({ data }) => {
+  //     if (data?.data?.bucketUpdated) {
+  //       await handleBucketSubscriptionEvent("updated", data.data.bucketUpdated);
+  //     }
+  //   },
+  //   onError: (error) => {
+  //     console.error("❌ Bucket updated subscription error:", error);
+  //   },
+  // });
 
-  const bucketCreatedSubscription = useBucketCreatedSubscription({
-    skip: !userId,
-    onData: async ({ data }) => {
-      if (data?.data?.bucketCreated) {
-        await handleBucketSubscriptionEvent("created", data.data.bucketCreated);
-      }
-    },
-    onError: (error) => {
-      console.error("❌ Bucket created subscription error:", error);
-    },
-  });
+  // const bucketCreatedSubscription = useBucketCreatedSubscription({
+  //   skip: !userId,
+  //   onData: async ({ data }) => {
+  //     if (data?.data?.bucketCreated) {
+  //       await handleBucketSubscriptionEvent("created", data.data.bucketCreated);
+  //     }
+  //   },
+  //   onError: (error) => {
+  //     console.error("❌ Bucket created subscription error:", error);
+  //   },
+  // });
 
-  const bucketDeletedSubscription = useBucketDeletedSubscription({
-    skip: !userId,
-    onData: async ({ data }) => {
-      if (data?.data?.bucketDeleted) {
-        await handleBucketSubscriptionEvent("deleted", data.data.bucketDeleted);
-      }
-    },
-    onError: (error) => {
-      console.error("❌ Bucket deleted subscription error:", error);
-    },
-  });
+  // const bucketDeletedSubscription = useBucketDeletedSubscription({
+  //   skip: !userId,
+  //   onData: async ({ data }) => {
+  //     if (data?.data?.bucketDeleted) {
+  //       await handleBucketSubscriptionEvent("deleted", data.data.bucketDeleted);
+  //     }
+  //   },
+  //   onError: (error) => {
+  //     console.error("❌ Bucket deleted subscription error:", error);
+  //   },
+  // });
 
   return (
     <AppContext.Provider

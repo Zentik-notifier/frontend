@@ -49,9 +49,9 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
   React.memo(
     ({
       notification,
-      hideBucketInfo = false, // Default to showing bucket info
-      isMultiSelectionMode = false,
-      isSelected = false,
+      hideBucketInfo,
+      isMultiSelectionMode,
+      isSelected,
       onToggleSelection,
       onLongPress,
     }) => {
@@ -86,11 +86,11 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
           ),
         [notification]
       );
+
       const [selectedPreviewIndex, setSelectedPreviewIndex] =
         useState<number>(0);
 
       useEffect(() => {
-        // Reset selection when notification changes
         setSelectedPreviewIndex(0);
       }, [notification.id]);
 
@@ -156,8 +156,6 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
             onPress: handleMarkAsRead,
           };
 
-      const bucketColor = notification.message?.bucket?.color || "#6c757d"; // Gray color for General
-      const bucketIcon = notification.message?.bucket?.icon || "";
       const bucketName =
         notification.message?.bucket?.name || t("common.general");
 
@@ -296,7 +294,7 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                             fullWidth
                           />
                         )}
-                        
+
                         <NotificationSnoozeButton
                           bucketId={notification.message?.bucket?.id}
                           variant="swipeable"
