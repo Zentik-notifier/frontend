@@ -8,10 +8,6 @@ export const useCachedItem = (url: string, mediaType: MediaType) => {
   const [item, setItem] = useState<CacheItem | undefined>();
 
   useEffect(() => {
-    mediaCache.getCachedItem(url, mediaType).then((item) => {
-      setItem(item);
-    });
-
     const sub: Subscription = mediaCache.metadata$.subscribe(async (all) => {
       const newItem = all[key];
       if (newItem) {

@@ -307,12 +307,15 @@ export const CachedMedia = React.memo(function CachedMedia({
               source={{ uri: thumbPath }}
               style={
                 isCompact
-                  ? ([defaultStyles.stateContainerCompact, style] as StyleProp<ImageStyle>)
+                  ? ([
+                      defaultStyles.stateContainerCompact,
+                      style,
+                    ] as StyleProp<ImageStyle>)
                   : (style as StyleProp<ImageStyle>)
               }
               contentFit={imageProps?.contentFit ?? contentFit}
               transition={imageProps?.transition ?? 150}
-              cachePolicy={imageProps?.cachePolicy || 'none'}
+              cachePolicy={imageProps?.cachePolicy || "none"}
             />
           </Pressable>
         );
@@ -320,16 +323,27 @@ export const CachedMedia = React.memo(function CachedMedia({
 
       // Missing thumbnail state: allow user to generate
       return (
-        <Pressable onPress={isGeneratingThumb ? undefined : handleGenerateThumbnail}>
+        <Pressable
+          onPress={isGeneratingThumb ? undefined : handleGenerateThumbnail}
+        >
           <View style={getStateContainerStyle("loading") as any}>
             {isGeneratingThumb ? (
-              <ActivityIndicator size="small" color={isCompact ? "#fff" : stateColors.loading} />
+              <ActivityIndicator
+                size="small"
+                color={isCompact ? "#fff" : stateColors.loading}
+              />
             ) : (
-              <Ionicons name="image-outline" size={isCompact ? 20 : 24} color={isCompact ? "#fff" : stateColors.loading} />
+              <Ionicons
+                name="image-outline"
+                size={isCompact ? 20 : 24}
+                color={isCompact ? "#fff" : stateColors.loading}
+              />
             )}
             {!isCompact && (
               <Text style={getStateTextStyle("loading")}>
-                {isGeneratingThumb ? t("cachedMedia.loadingProgress") : "Tap to generate thumbnail"}
+                {isGeneratingThumb
+                  ? t("cachedMedia.loadingProgress")
+                  : "Tap to generate thumbnail"}
               </Text>
             )}
           </View>
@@ -459,7 +473,7 @@ export const CachedMedia = React.memo(function CachedMedia({
                 placeholder={imageProps?.placeholder}
                 blurRadius={imageProps?.blurRadius}
                 priority={imageProps?.priority}
-                cachePolicy={imageProps?.cachePolicy || 'memory'}
+                cachePolicy={imageProps?.cachePolicy || "memory"}
                 onError={() => {
                   setImageError(true);
                   mediaCache.markAsPermanentFailure(
@@ -604,10 +618,15 @@ export const CachedMedia = React.memo(function CachedMedia({
   };
 
   useEffect(() => {
-    if (!noAutoDownload && autoDownloadEnabled && !mediaSource?.localPath) {
+    if (
+      !noAutoDownload &&
+      autoDownloadEnabled &&
+      !mediaSource?.localPath &&
+      !useThumbnail
+    ) {
       mediaCache.downloadMedia({ url, mediaType, notificationDate });
     }
-  }, [mediaSource, notificationDate]);
+  }, [mediaSource, notificationDate, useThumbnail]);
 
   useEffect(() => {
     if (videoSource && isVideoType && videoPlayer) {

@@ -194,9 +194,8 @@ class MediaCacheService {
                     downloadedAt: Date.now(),
                     timestamp: new Date().getTime(),
                 };
-                // enqueue thumbnail generation if applicable
                 if ([MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) {
-                    // await this.addToQueue({ url, mediaType, op: 'thumbnail' });
+                    await this.addToQueue({ url, mediaType, op: 'thumbnail' });
                 }
             } else {
                 this.metadata[key] = {
@@ -251,8 +250,8 @@ class MediaCacheService {
         try {
             this.cacheDir = await getSharedMediaCacheDirectoryAsync();
             await this.ensureDirectories();
-            await this.loadMetadata();
             await this.loadUserDeleted();
+            await this.loadMetadata();
             this.initialized = true;
         } catch (error) {
             console.error('[MediaCache] Initialization failed:', error);
@@ -361,11 +360,16 @@ class MediaCacheService {
                 this.metadata = {};
             }
 
-            this.metadata$.next(this.metadata);
+            this.emitMetadata();
         } catch (error) {
             console.error('[MediaCache] Failed to load metadata:', error);
             this.metadata = {};
         }
+    }
+
+    private emitMetadata(): void {
+        const actualMetadata = this.getMetadata();
+        this.metadata$.next(actualMetadata);
     }
 
     private async loadUserDeleted(): Promise<void> {
@@ -433,11 +437,11 @@ class MediaCacheService {
                     };
                 }
 
-                this.metadata$.next(this.metadata);
+                this.emitMetadata();
                 await FS.writeAsStringAsync(metadataFilePath, JSON.stringify(sharedMetadata, null, 2));
                 console.log('[MediaCache] Save cache item:', Object.keys(sharedMetadata).length, 'items');
             } else {
-                this.metadata$.next(this.metadata);
+                this.emitMetadata();
             }
         } catch (error) {
             console.error('[MediaCache] Failed to save shared metadata:', error);
@@ -564,21 +568,25 @@ class MediaCacheService {
         if (Platform.OS === 'web') return;
 
         try {
-            for (const item of Object.values(this.metadata)) {
+            const deletedItems: string[] = [];
+            for (const [key, item] of Object.entries(this.metadata)) {
                 try {
                     if (item.localPath) {
                         await FS.deleteAsync(item.localPath, { idempotent: true });
                     }
+                    this.userDeletedSet.add(key);
+                    deletedItems.push(item.url);;
                 } catch (error) {
                     console.warn('[MediaCache] Failed to delete file:', error);
                 }
             }
 
             this.metadata = {};
-            this.metadata$.next(this.metadata);
+            this.emitMetadata();
 
             const metadataFilePath = await getMetadataDirectory();
             await FS.deleteAsync(metadataFilePath, { idempotent: true });
+            await this.saveUserDeleted();
         } catch (error) {
             console.error('[MediaCache] Failed to clear cache:', error);
         }
@@ -821,7 +829,6 @@ class MediaCacheService {
         if (Platform.OS === 'web') return;
 
         try {
-            // Elimina tutti i file dalla cache directory
             const dirInfo = await FS.getInfoAsync(this.cacheDir);
             if (dirInfo.exists) {
                 await FS.deleteAsync(this.cacheDir);
@@ -829,18 +836,14 @@ class MediaCacheService {
                 await this.ensureDirectories();
             }
 
-            // Pulisci completamente tutti i metadati
             this.metadata = {};
-            this.metadata$.next(this.metadata);
+            this.emitMetadata();
 
-            // Pulisci completamente le flags di eliminazione utente
             this.userDeletedSet.clear();
             await AsyncStorage.removeItem(this.USER_DELETED_KEY);
 
-            // Pulisci le chiavi di download in corso
             this.downloadingKeys.clear();
 
-            // Pulisci file shared metadata per NSE
             const metadataFilePath = await getMetadataDirectory();
             await FS.deleteAsync(metadataFilePath, { idempotent: true });
 
