@@ -100,8 +100,15 @@ export const CachedMedia = React.memo(function CachedMedia({
   const { item: mediaSource } = useCachedItem(url, mediaType);
   const isVideoType = mediaType === MediaType.Video;
 
+  const isGeneratingThumb = mediaSource?.generatingThumbnail === true;
+
   const localSource = mediaSource?.localPath;
   const videoSource = localSource && isVideoType ? localSource : null;
+
+  const supportsThumbnail =
+    mediaType === MediaType.Image ||
+    mediaType === MediaType.Gif ||
+    mediaType === MediaType.Video;
 
   const videoPlayer = useVideoPlayer(videoSource || "", (player) => {
     if (videoSource) {
@@ -130,6 +137,11 @@ export const CachedMedia = React.memo(function CachedMedia({
       notificationDate,
     });
   }, [url, mediaType, notificationDate]);
+
+  const handleGenerateThumbnail = useCallback(async () => {
+    if (!supportsThumbnail) return;
+    await mediaCache.enqueueThumbnail(url, mediaType);
+  }, [url, mediaType, supportsThumbnail]);
 
   const handleSeek = useCallback(
     (seekTime: number) => {
@@ -284,16 +296,49 @@ export const CachedMedia = React.memo(function CachedMedia({
     return [defaultStyles.stateText, { color: stateColors[stateType] }];
   };
 
-  const getStateSecondaryTextStyle = (stateType: keyof typeof stateColors) => {
-    return [
-      defaultStyles.stateSecondaryText,
-      { color: stateColors[stateType] },
-    ];
-  };
-
   const renderMedia = () => {
+    // Thumbnail-first rendering when requested
+    if (useThumbnail && supportsThumbnail) {
+      const thumbPath = mediaSource?.localThumbPath;
+      if (thumbPath) {
+        return (
+          <Pressable onPress={onPress}>
+            <ExpoImage
+              source={{ uri: thumbPath }}
+              style={
+                isCompact
+                  ? ([defaultStyles.stateContainerCompact, style] as StyleProp<ImageStyle>)
+                  : (style as StyleProp<ImageStyle>)
+              }
+              contentFit={imageProps?.contentFit ?? contentFit}
+              transition={imageProps?.transition ?? 150}
+              cachePolicy={imageProps?.cachePolicy || 'none'}
+            />
+          </Pressable>
+        );
+      }
+
+      // Missing thumbnail state: allow user to generate
+      return (
+        <Pressable onPress={isGeneratingThumb ? undefined : handleGenerateThumbnail}>
+          <View style={getStateContainerStyle("loading") as any}>
+            {isGeneratingThumb ? (
+              <ActivityIndicator size="small" color={isCompact ? "#fff" : stateColors.loading} />
+            ) : (
+              <Ionicons name="image-outline" size={isCompact ? 20 : 24} color={isCompact ? "#fff" : stateColors.loading} />
+            )}
+            {!isCompact && (
+              <Text style={getStateTextStyle("loading")}>
+                {isGeneratingThumb ? t("cachedMedia.loadingProgress") : "Tap to generate thumbnail"}
+              </Text>
+            )}
+          </View>
+        </Pressable>
+      );
+    }
+
     // Loading states
-    if (mediaSource?.isDownloading || (isVideoLoading && !useThumbnail)) {
+    if (mediaSource?.isDownloading || isVideoLoading) {
       const stateType = mediaSource?.isDownloading ? "downloading" : "loading";
       return (
         <View style={getStateContainerStyle(stateType) as any}>
@@ -313,7 +358,7 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
 
     // Video error state
-    if (!useThumbnail && isVideoError) {
+    if (isVideoError) {
       return (
         <View style={getStateContainerStyle("videoError") as any}>
           <View style={defaultStyles.stateContent}>
@@ -330,7 +375,7 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
 
     // No media source
-    if (!mediaSource && !useThumbnail) {
+    if (!mediaSource) {
       if (isCompact) {
         return (
           <View style={getStateContainerStyle("loading")}>
@@ -341,46 +386,8 @@ export const CachedMedia = React.memo(function CachedMedia({
       return null;
     }
 
-    // User deleted / failure handled below when not using thumbnail
-
-    // Media content rendering
-    if (
-      useThumbnail &&
-      [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)
-    ) {
-      // Render thumbnail image
-      return (
-        <Pressable onPress={onPress}>
-          {mediaSource?.localThumbPath ? (
-            <ExpoImage
-              source={{ uri: mediaSource.localThumbPath }}
-              style={
-                isCompact
-                  ? ([
-                      defaultStyles.stateContainerCompact,
-                      style,
-                    ] as StyleProp<ImageStyle>)
-                  : (style as StyleProp<ImageStyle>)
-              }
-              contentFit={imageProps?.contentFit ?? contentFit}
-              transition={imageProps?.transition ?? 150}
-              cachePolicy={imageProps?.cachePolicy || "none"}
-            />
-          ) : (
-            <View style={getStateContainerStyle("loading") as any}>
-              <ActivityIndicator
-                size="small"
-                color={isCompact ? "#fff" : stateColors.loading}
-              />
-            </View>
-          )}
-        </Pressable>
-      );
-    }
-
-    // Below: full media rendering as before when not using thumbnails
     // Permanent failure - click to retry
-    if (mediaSource?.isPermanentFailure) {
+    if (mediaSource.isPermanentFailure) {
       return (
         <View style={getStateContainerStyle("failed") as any}>
           <View style={defaultStyles.stateContent}>
@@ -397,7 +404,7 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
 
     // User deleted - click to redownload
-    if (mediaSource?.isUserDeleted || !mediaSource?.localPath) {
+    if (mediaSource.isUserDeleted || !mediaSource.localPath) {
       return (
         <View style={getStateContainerStyle("deleted") as any}>
           <View style={defaultStyles.stateContent}>
@@ -408,12 +415,13 @@ export const CachedMedia = React.memo(function CachedMedia({
               onPress={isCompact ? handleForceDownload : undefined}
             />
           </View>
-          {renderForceDownloadButton(!mediaSource?.isUserDeleted)}
+          {renderForceDownloadButton(!mediaSource.isUserDeleted)}
         </View>
       );
     }
 
-    if (mediaSource?.localPath) {
+    // Media content rendering (full media when not using thumbnails)
+    if (mediaSource.localPath) {
       switch (mediaType) {
         case MediaType.Image:
         case MediaType.Icon:
@@ -451,12 +459,8 @@ export const CachedMedia = React.memo(function CachedMedia({
                 placeholder={imageProps?.placeholder}
                 blurRadius={imageProps?.blurRadius}
                 priority={imageProps?.priority}
-                cachePolicy={imageProps?.cachePolicy || "memory"}
+                cachePolicy={imageProps?.cachePolicy || 'memory'}
                 onError={() => {
-                  console.warn(
-                    "[CachedMedia] Image load error:",
-                    mediaSource.localPath
-                  );
                   setImageError(true);
                   mediaCache.markAsPermanentFailure(
                     url,

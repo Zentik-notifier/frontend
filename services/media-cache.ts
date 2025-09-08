@@ -11,6 +11,7 @@ export interface CacheItem {
     url: string;
     localPath: string;
     localThumbPath?: string;
+    generatingThumbnail?: boolean;
     timestamp: number;
     size: number;
     mediaType: MediaType;
@@ -103,6 +104,15 @@ class MediaCacheService {
             };
             await this.saveMetadata();
         }
+        if (item.op === 'thumbnail') {
+            const cacheKey = this.generateCacheKey(item.url, item.mediaType);
+            this.metadata[cacheKey] = {
+                ...this.metadata[cacheKey],
+                generatingThumbnail: true,
+                timestamp: Date.now(),
+            };
+            await this.saveMetadata();
+        }
 
         this.updateQueueState();
         this.processQueue();
@@ -186,7 +196,7 @@ class MediaCacheService {
                 };
                 // enqueue thumbnail generation if applicable
                 if ([MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) {
-                    await this.addToQueue({ url, mediaType, op: 'thumbnail' });
+                    // await this.addToQueue({ url, mediaType, op: 'thumbnail' });
                 }
             } else {
                 this.metadata[key] = {
@@ -211,12 +221,21 @@ class MediaCacheService {
 
     private async performThumbnail(item: DownloadQueueItem) {
         const { url, mediaType } = item;
+        const cacheKey = this.generateCacheKey(url, mediaType);
         try {
-            console.log('[MediaCache] Generating thumbnail for:', mediaType, url);
-            await this.getOrCreateThumbnail(url, mediaType);
-            console.log('[MediaCache] Thumbnail generated for:', mediaType, url, '->', 'Success');
+            console.log('[MediaCache] Thumbnail generation START:', mediaType, url);
+            const result = await this.getOrCreateThumbnail(url, mediaType);
+            // getOrCreateThumbnail already sets localThumbPath if generated
+            console.log('[MediaCache] Thumbnail generation END:', mediaType, url, '->', result);
         } catch (e) {
             console.warn('[MediaCache] Thumbnail generation failed for', url, e);
+        } finally {
+            this.metadata[cacheKey] = {
+                ...this.metadata[cacheKey],
+                generatingThumbnail: false,
+                timestamp: Date.now(),
+            };
+            await this.saveMetadata();
         }
     }
 
@@ -403,6 +422,7 @@ class MediaCacheService {
                         url: item.url,
                         localPath: item.localPath,
                         localThumbPath: item.localThumbPath,
+                        generatingThumbnail: item.generatingThumbnail,
                         timestamp: item.timestamp,
                         size: item.size,
                         mediaType: item.mediaType,
@@ -410,7 +430,7 @@ class MediaCacheService {
                         downloadedAt: item.downloadedAt,
                         notificationDate: item.notificationDate,
                         isDownloading: item.isDownloading ?? false,
-                    };
+                    } as CacheItem;
                 }
 
                 this.metadata$.next(this.metadata);
@@ -445,6 +465,7 @@ class MediaCacheService {
                     mediaType,
                     downloadedAt: Date.now(),
                     isDownloading: false,
+                    generatingThumbnail: false,
                 };
 
                 this.metadata[key] = cachedItem;
@@ -452,20 +473,20 @@ class MediaCacheService {
             }
         }
 
+        // Thumbnail metadata update only (no auto enqueue)
         if (cachedItem && [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) {
             const thumbPath = this.getThumbnailPath(url, mediaType);
             const info = await FS.getInfoAsync(thumbPath);
             if (info.exists) {
-                if (!this.metadata[key]?.localThumbPath) {
+                if (!this.metadata[key]?.localThumbPath || this.metadata[key]?.localThumbPath !== thumbPath) {
                     this.metadata[key] = {
                         ...this.metadata[key],
                         localThumbPath: thumbPath,
+                        generatingThumbnail: false,
                         timestamp: Date.now(),
                     };
                     await this.saveMetadata();
                 }
-            } else {
-                await this.addToQueue({ url, mediaType, op: 'thumbnail' });
             }
         }
 
@@ -827,6 +848,12 @@ class MediaCacheService {
         } catch (error) {
             console.error('[MediaCache] Failed to clear cache completely:', error);
         }
+    }
+
+    public async enqueueThumbnail(url: string, mediaType: MediaType): Promise<void> {
+        await this.initialize();
+        if (![MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) return;
+        await this.addToQueue({ url, mediaType, op: 'thumbnail' });
     }
 }
 
