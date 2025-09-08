@@ -16,11 +16,11 @@ import {
   Modal,
   Pressable,
   RefreshControl,
+  SectionList,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  VirtualizedList,
 } from "react-native";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
@@ -58,36 +58,37 @@ export default function GallerySection() {
   const [showMediaTypeSelector, setShowMediaTypeSelector] = useState(false);
 
   // Numero fisso di colonne per la griglia
-  const numColumns = 4;
+  const numColumns = 3;
 
-  const { filteredMedia, rows } = useMemo(() => {
-    const allWithIds: CachedMediaItem[] = cachedItems.map((item, index) => ({
+  const itemWidth = useMemo(() => {
+    const screenWidth = Dimensions.get("window").width;
+    const horizontalPadding = 32; // 16px padding on each side
+    const availableWidth = screenWidth - horizontalPadding;
+    return availableWidth / numColumns;
+  }, []);
+
+  const { filteredMedia, sections, flatOrder } = useMemo(() => {
+    const allWithIds = cachedItems.map((item, index) => ({
       ...item,
       id: `${item.mediaType}_${item.url}_${index}`,
       notificationDate: item.notificationDate || item.downloadedAt,
     }));
 
-    const filteredMedia: CachedMediaItem[] = allWithIds.filter((item) => {
+    const filteredMedia = allWithIds.filter((item) => {
       if (!selectedMediaTypes.has(item.mediaType)) return false;
       if (!userSettings.settings.gallery.showFaultyMedias) {
-        const cachedItem = mediaCache.getCachedItemSync(
-          item.url,
-          item.mediaType
-        );
-        if (cachedItem?.isUserDeleted || cachedItem?.isPermanentFailure)
-          return false;
+        if (item?.isUserDeleted || item?.isPermanentFailure) return false;
       }
       return true;
     });
 
-    // Calcola i riferimenti temporali
     const now = new Date();
     const startOfToday = new Date(now);
     startOfToday.setHours(0, 0, 0, 0);
     const startOfYesterday = new Date(startOfToday);
     startOfYesterday.setDate(startOfYesterday.getDate() - 1);
     const startOfWeek = new Date(startOfToday);
-    const day = startOfWeek.getDay(); // 0=Dom, 1=Lun, ...
+    const day = startOfWeek.getDay();
     const diffToMonday = (day + 6) % 7;
     startOfWeek.setDate(startOfWeek.getDate() - diffToMonday);
 
@@ -119,38 +120,45 @@ export default function GallerySection() {
     thisWeek.sort(sortDesc);
     older.sort(sortDesc);
 
-    const rows: Array<{ type: "header" | "row"; data: any; id: string }> = [];
-    const build = (label: string, items: CachedMediaItem[], key: string) => {
-      if (!items.length) return;
-      rows.push({ type: "header", data: label, id: `header-${key}` });
+    const buildRows = (items: CachedMediaItem[]) => {
+      const rows: CachedMediaItem[][] = [];
       for (let i = 0; i < items.length; i += numColumns) {
-        const rowItems = items.slice(i, i + numColumns);
-        rows.push({
-          type: "row",
-          data: rowItems,
-          id: `row-${key}-${Math.floor(i / numColumns)}`,
-        });
+        rows.push(items.slice(i, i + numColumns));
       }
+      return rows;
     };
 
-    build(t("gallery.today"), today, "today");
-    build(t("gallery.yesterday"), yesterday, "yesterday");
-    build(t("gallery.thisWeek"), thisWeek, "thisWeek");
-    build(t("gallery.older"), older, "older");
+    const sections = [
+      { title: t("gallery.today"), data: buildRows(today), key: "today" },
+      {
+        title: t("gallery.yesterday"),
+        data: buildRows(yesterday),
+        key: "yesterday",
+      },
+      {
+        title: t("gallery.thisWeek"),
+        data: buildRows(thisWeek),
+        key: "thisWeek",
+      },
+      { title: t("gallery.older"), data: buildRows(older), key: "older" },
+    ].filter((s) => s.data.length > 0);
 
-    return { allWithIds, filteredMedia, rows };
+    // Flat order for fullscreen index mapping
+    const flatOrder: CachedMediaItem[] = [
+      ...today,
+      ...yesterday,
+      ...thisWeek,
+      ...older,
+    ];
+
+    return { filteredMedia, sections, flatOrder };
   }, [
     cachedItems,
     selectedMediaTypes,
     userSettings.settings.gallery.showFaultyMedias,
+    numColumns,
+    t,
   ]);
-
-  const itemWidth = useMemo(() => {
-    const screenWidth = Dimensions.get("window").width;
-    const horizontalPadding = 32; // 16px padding on each side
-    const availableWidth = screenWidth - horizontalPadding;
-    return availableWidth / numColumns;
-  }, []);
 
   const toggleItemSelection = (itemId: string) => {
     const newSelection = new Set(selectedItems);
@@ -867,98 +875,82 @@ export default function GallerySection() {
     );
   };
 
-  const renderMediaItem = ({ item }: { item: CachedMediaItem }) => {
-    const isSelected = selectedItems.has(item.id);
-    const checkSize = itemWidth * 0.5;
-
+  const renderMediaRow = ({ item }: { item: CachedMediaItem[] }) => {
     return (
-      <Pressable
-        style={[
-          styles.gridItem,
-          { width: itemWidth, height: itemWidth }, // Square items
-          isSelected && [
-            styles.gridItemSelected,
-            { borderColor: Colors[colorScheme].tint },
-          ],
-        ]}
-      >
-        <View style={{ flex: 1 }}>
-          <CachedMedia
-            url={item.url}
-            mediaType={item.mediaType}
-            useThumbnail
-            style={styles.gridMediaThumbnail}
-            originalFileName={item.originalFileName}
-            videoProps={{
-              isMuted: true,
-              autoPlay: userSettings.settings.gallery.autoPlay,
-            }}
-            imageProps={{ cachePolicy: "none" }}
-            audioProps={{ showControls: true }}
-            noAutoDownload
-            showMediaIndicator
-            smallButtons
-            onPress={() => {
-              if (selectionMode) {
-                toggleItemSelection(item.id);
-              } else {
-                const itemIndex = filteredMedia.findIndex(
-                  (m) => m.id === item.id
-                );
-                setFullscreenIndex(itemIndex);
-              }
-            }}
-          />
-          {isSelected && (
-            <>
-              <View style={styles.selectedOverlay} pointerEvents="none" />
-              <View style={styles.selectedCenter} pointerEvents="none">
-                <Ionicons name="checkmark" size={checkSize} color="#ffffff" />
+      <View style={styles.gridRow}>
+        {item.map((mediaItem) => {
+          const isSelected = selectedItems.has(mediaItem.id);
+          const checkSize = itemWidth * 0.5;
+          return (
+            <Pressable
+              key={mediaItem.id}
+              style={[
+                styles.gridItem,
+                { width: itemWidth, height: itemWidth },
+                isSelected && [
+                  styles.gridItemSelected,
+                  { borderColor: Colors[colorScheme].tint },
+                ],
+              ]}
+            >
+              <View style={{ flex: 1 }}>
+                <CachedMedia
+                  url={mediaItem.url}
+                  mediaType={mediaItem.mediaType}
+                  useThumbnail
+                  style={styles.gridMediaThumbnail}
+                  originalFileName={mediaItem.originalFileName}
+                  videoProps={{
+                    isMuted: true,
+                    autoPlay: userSettings.settings.gallery.autoPlay,
+                  }}
+                  imageProps={{ cachePolicy: "none" }}
+                  audioProps={{ showControls: true }}
+                  noAutoDownload
+                  showMediaIndicator
+                  smallButtons
+                  onPress={() => {
+                    if (selectionMode) {
+                      toggleItemSelection(mediaItem.id);
+                    } else {
+                      const index = flatOrder.findIndex(
+                        (m) => m.id === mediaItem.id
+                      );
+                      setFullscreenIndex(index);
+                    }
+                  }}
+                />
+                {isSelected && (
+                  <>
+                    <View style={styles.selectedOverlay} pointerEvents="none" />
+                    <View style={styles.selectedCenter} pointerEvents="none">
+                      <Ionicons
+                        name="checkmark"
+                        size={checkSize}
+                        color="#ffffff"
+                      />
+                    </View>
+                  </>
+                )}
               </View>
-            </>
-          )}
-        </View>
-      </Pressable>
+            </Pressable>
+          );
+        })}
+        {Array.from({ length: numColumns - item.length }).map((_, index) => (
+          <View
+            key={`empty-${index}`}
+            style={[styles.gridItemContainer, { width: itemWidth }]}
+          />
+        ))}
+      </View>
     );
   };
 
-  // Render function for virtualized list items
-  const renderVirtualizedItem = ({
-    item,
-  }: {
-    item: { type: "header" | "row"; data: any; id: string };
-  }) => {
-    if (item.type === "header") {
-      return (
-        <View style={styles.dateSection}>
-          <ThemedText style={styles.dateSectionTitle}>{item.data}</ThemedText>
-        </View>
-      );
-    } else {
-      // Render a row of media items
-      return (
-        <View style={styles.gridRow}>
-          {item.data.map((mediaItem: CachedMediaItem, index: number) => (
-            <View
-              key={mediaItem.id}
-              style={[styles.gridItemContainer, { width: itemWidth }]}
-            >
-              {renderMediaItem({ item: mediaItem })}
-            </View>
-          ))}
-          {/* Fill remaining spaces in the row if needed */}
-          {Array.from({ length: numColumns - item.data.length }).map(
-            (_, index) => (
-              <View
-                key={`empty-${index}`}
-                style={[styles.gridItemContainer, { width: itemWidth }]}
-              />
-            )
-          )}
-        </View>
-      );
-    }
-  };
+  const renderSectionHeader = ({ section }: any) => (
+    <View style={styles.dateSection}>
+      <ThemedText style={styles.dateSectionTitle}>{section.title}</ThemedText>
+    </View>
+  );
 
   const renderEmptyState = () => {
     return (
@@ -980,21 +972,16 @@ export default function GallerySection() {
 
   return (
     <>
-      {/* Selection Actions Bar */}
       {selectionMode && renderSelectionBar()}
-      {/* Filters Bar (disabled during multi-select) */}
       {!selectionMode && renderFiltersBar()}
 
-      {/* Media Type Selector Modal */}
       {renderMediaTypeSelector()}
 
-      <VirtualizedList
-        data={rows}
-        keyExtractor={(item) => item.id}
-        renderItem={renderVirtualizedItem}
-        getItemCount={(data) => data.length}
-        getItem={(data, index) => data[index]}
-        initialNumToRender={5}
+      <SectionList
+        sections={sections}
+        keyExtractor={(row, index) => `${row[0]?.id || "row"}-${index}`}
+        renderItem={renderMediaRow}
+        renderSectionHeader={renderSectionHeader}
         contentContainerStyle={[
           styles.galleryContainer,
           filteredMedia.length === 0 && styles.emptyListContainer,
@@ -1009,39 +996,35 @@ export default function GallerySection() {
         }
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={showStats ? renderStatsCard : null}
-        ListHeaderComponentStyle={{ width: "100%" }}
         ListEmptyComponent={renderEmptyState}
+        stickySectionHeadersEnabled={false}
       />
 
-      {/* Unified Fullscreen Viewer */}
-      {fullscreenIndex >= 0 && filteredMedia[fullscreenIndex] && (
+      {fullscreenIndex >= 0 && flatOrder[fullscreenIndex] && (
         <FullScreenMediaViewer
           visible={true}
-          url={filteredMedia[fullscreenIndex].url}
-          mediaType={filteredMedia[fullscreenIndex].mediaType}
-          originalFileName={filteredMedia[fullscreenIndex].originalFileName}
-          notificationDate={filteredMedia[fullscreenIndex].notificationDate}
+          url={flatOrder[fullscreenIndex].url}
+          mediaType={flatOrder[fullscreenIndex].mediaType}
+          originalFileName={flatOrder[fullscreenIndex].originalFileName}
+          notificationDate={flatOrder[fullscreenIndex].notificationDate}
           onClose={() => setFullscreenIndex(-1)}
           onDeleted={() => {
-            if (filteredMedia.length === 1) {
+            if (flatOrder.length === 1) {
               setFullscreenIndex(-1);
-            } else if (fullscreenIndex >= filteredMedia.length - 1) {
+            } else if (fullscreenIndex >= flatOrder.length - 1) {
               setFullscreenIndex(fullscreenIndex - 1);
             }
           }}
-          enableSwipeNavigation={filteredMedia.length > 1}
-          onSwipeLeft={() => {
-            console.log("fullscreenIndex", fullscreenIndex);
-            setFullscreenIndex((fullscreenIndex + 1) % filteredMedia.length);
-          }}
-          onSwipeRight={() => {
+          enableSwipeNavigation={flatOrder.length > 1}
+          onSwipeLeft={() =>
+            setFullscreenIndex((fullscreenIndex + 1) % flatOrder.length)
+          }
+          onSwipeRight={() =>
             setFullscreenIndex(
-              fullscreenIndex === 0
-                ? filteredMedia.length - 1
-                : fullscreenIndex - 1
-            );
-          }}
-          currentPosition={`${fullscreenIndex + 1} / ${filteredMedia.length}`}
+              fullscreenIndex === 0 ? flatOrder.length - 1 : fullscreenIndex - 1
+            )
+          }
+          currentPosition={`${fullscreenIndex + 1} / ${flatOrder.length}`}
         />
       )}
     </>
@@ -1072,69 +1055,20 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     textAlign: "center",
   },
-  // Gallery specific styles
-  statsCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    alignSelf: "stretch",
-    width: "100%",
+  dateSection: {
+    marginBottom: 10,
+    marginTop: 10,
   },
-  statsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginLeft: 8,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 16,
-  },
-  statItem: {
-    alignItems: "center",
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  statLabel: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  typeBreakdown: {
-    borderTopWidth: 1,
-    paddingTop: 16,
-  },
-  typeBreakdownTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 12,
-  },
-  typeList: {
-    gap: 8,
-  },
-  typeItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  typeLabel: {
-    flex: 1,
-    fontSize: 14,
-  },
-  typeCount: {
-    fontSize: 14,
+  dateSectionTitle: {
+    fontSize: 16,
     fontWeight: "500",
+    paddingHorizontal: 16,
   },
+  gridRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+  },
+  gridItemContainer: {},
   gridItem: {
     overflow: "hidden",
   },
@@ -1157,50 +1091,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: "center",
     justifyContent: "center",
-  },
-  selectionBar: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  leftControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    flex: 1,
-  },
-  rightControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  selectionCountBadge: {
-    borderWidth: 1,
-    borderRadius: 12,
-    height: 44,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  selectionCountText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  selectionButton: {
-    borderWidth: 1,
-    borderRadius: 12,
-    height: 44,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  selectionButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
   },
   gridMediaThumbnail: {
     width: "100%",
@@ -1448,25 +1338,107 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   // Date section styles
-  dateSection: {
-    marginBottom: 10,
-    marginTop: 10,
+  typeBreakdown: {
+    borderTopWidth: 1,
+    paddingTop: 16,
   },
-  dateSectionTitle: {
-    fontSize: 16,
+  typeBreakdownTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  typeList: {
+    gap: 8,
+  },
+  typeItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  typeLabel: {
+    flex: 1,
+    fontSize: 14,
+  },
+  typeCount: {
+    fontSize: 14,
     fontWeight: "500",
+  },
+  selectionBar: {
+    flexDirection: "row",
+    gap: 8,
     paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  dateSectionGrid: {
+  leftControls: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "flex-start",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
   },
-  gridRow: {
+  rightControls: {
     flexDirection: "row",
-    justifyContent: "flex-start",
+    alignItems: "center",
+    gap: 8,
   },
-  gridItemContainer: {
-    // No spacing between items
+  selectionCountBadge: {
+    borderWidth: 1,
+    borderRadius: 12,
+    height: 44,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selectionCountText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  selectionButton: {
+    borderWidth: 1,
+    borderRadius: 12,
+    height: 44,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selectionButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  // Stats card styles (re-added)
+  statsCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  statsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 16,
+  },
+  statItem: {
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+  statLabel: {
+    fontSize: 12,
+    marginTop: 4,
   },
 });

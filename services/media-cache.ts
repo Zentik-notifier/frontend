@@ -430,7 +430,7 @@ class MediaCacheService {
                         downloadedAt: item.downloadedAt,
                         notificationDate: item.notificationDate,
                         isDownloading: item.isDownloading ?? false,
-                    } as CacheItem;
+                    };
                 }
 
                 this.metadata$.next(this.metadata);

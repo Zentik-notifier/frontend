@@ -100,7 +100,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   const { item: mediaSource } = useCachedItem(url, mediaType);
   const isVideoType = mediaType === MediaType.Video;
 
-  const isGeneratingThumb = mediaSource?.generatingThumbnail === true;
+  const isGeneratingThumb = !!mediaSource?.generatingThumbnail;
 
   const localSource = mediaSource?.localPath;
   const videoSource = localSource && isVideoType ? localSource : null;

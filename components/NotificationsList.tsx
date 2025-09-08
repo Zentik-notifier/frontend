@@ -24,6 +24,7 @@ import NotificationFilters from "./NotificationFilters";
 import SwipeableNotificationItem from "./SwipeableNotificationItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
+import { FlatList } from "react-native-gesture-handler";
 
 interface NotificationsListProps {
   notifications: NotificationFragment[];
@@ -394,13 +395,10 @@ export default function NotificationsList({
 
       {customHeader}
 
-      <VirtualizedList
+      <FlatList
         data={filteredNotifications}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        getItemCount={(data) => data.length}
-        getItem={(data, index) => data[index]}
-        initialNumToRender={10}
         refreshControl={
           showRefreshControl ? (
             <RefreshControl
