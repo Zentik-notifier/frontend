@@ -4,6 +4,8 @@ import { Platform } from 'react-native';
 import { BehaviorSubject } from "rxjs";
 import { MediaType } from '../generated/gql-operations-generated';
 import { getMetadataDirectory, getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 
 export interface CacheItem {
     url: string;
@@ -38,12 +40,15 @@ export interface CacheMetadata {
     [key: string]: CacheItem;
 }
 
+type QueueOperation = 'download' | 'thumbnail';
+
 export interface DownloadQueueItem {
     key: string;
     url: string;
     mediaType: MediaType;
     notificationDate?: number;
     timestamp: number;
+    op: QueueOperation;
 }
 
 export interface DownloadQueueState {
@@ -79,22 +84,27 @@ class MediaCacheService {
         });
     }
 
-    private async addToQueue(item: DownloadQueueItem) {
-        const key = this.generateCacheKey(item.url, item.mediaType);
-        if (this.isInQueue(item.url, item.mediaType)) {
-            console.log('[MediaCache] Skipping download, alraedy in queue:', key);
-        } else {
-            console.log('[MediaCache] Adding to download queue:', key);
-            this.downloadQueue.push({ ...item, timestamp: Date.now() });
-            this.metadata[key] = {
-                ...this.metadata[key],
+    private buildQueueKey(url: string, mediaType: MediaType, op: QueueOperation): string {
+        return `${this.generateCacheKey(url, mediaType)}::${op}`;
+    }
+
+    private async addToQueue(item: Omit<DownloadQueueItem, 'timestamp' | 'key'>) {
+        const key = this.buildQueueKey(item.url, item.mediaType, item.op);
+        if (this.isInQueue(item.url, item.mediaType, item.op)) {
+            return;
+        }
+        this.downloadQueue.push({ ...item, key, timestamp: Date.now() });
+        if (item.op === 'download') {
+            const cacheKey = this.generateCacheKey(item.url, item.mediaType);
+            this.metadata[cacheKey] = {
+                ...this.metadata[cacheKey],
                 isDownloading: true,
             };
             await this.saveMetadata();
-
-            this.updateQueueState();
-            this.processQueue();
         }
+
+        this.updateQueueState();
+        this.processQueue();
     }
 
     private async processQueue(): Promise<void> {
@@ -110,9 +120,13 @@ class MediaCacheService {
             this.updateQueueState();
 
             try {
-                await this.performDownload(item);
+                if (item.op === 'download') {
+                    await this.performDownload(item);
+                } else if (item.op === 'thumbnail') {
+                    await this.performThumbnail(item);
+                }
             } catch (error) {
-                console.error('[MediaCache] Queue download failed:', error);
+                console.error('[MediaCache] Queue task failed:', item.op, error);
             }
         }
 
@@ -143,7 +157,6 @@ class MediaCacheService {
             await this.saveMetadata();
 
             const downloadResult = await FS.downloadAsync(url, localPath);
-            console.log('[MediaCache] Download result:', url, downloadResult, localPath);
 
             let success = false;
             let fileSize = 0;
@@ -151,7 +164,6 @@ class MediaCacheService {
                 const fileInfo = await FS.getInfoAsync(localPath);
 
                 if (!fileInfo.exists) {
-                    console.error('[MediaCache] File was not created despite successful download');
                     success = false;
                 } else {
                     fileSize = fileInfo.size || 0;
@@ -171,6 +183,10 @@ class MediaCacheService {
                     downloadedAt: Date.now(),
                     timestamp: new Date().getTime(),
                 };
+                // enqueue thumbnail generation if applicable
+                if ([MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) {
+                    await this.addToQueue({ url, mediaType, op: 'thumbnail' });
+                }
             } else {
                 this.metadata[key] = {
                     ...this.metadata[key],
@@ -189,6 +205,17 @@ class MediaCacheService {
             return false;
         } finally {
             this.downloadingKeys.delete(key);
+        }
+    }
+
+    private async performThumbnail(item: DownloadQueueItem) {
+        const { url, mediaType } = item;
+        try {
+            console.log('[MediaCache] Generating thumbnail for:', mediaType, url);
+            await this.getOrCreateThumbnail(url, mediaType);
+            console.log('[MediaCache] Thumbnail generated for:', mediaType, url, '->', 'Success');
+        } catch (e) {
+            console.warn('[MediaCache] Thumbnail generation failed for', url, e);
         }
     }
 
@@ -221,6 +248,13 @@ class MediaCacheService {
             const info = await FS.getInfoAsync(dirPath);
             if (!info.exists) {
                 await FS.makeDirectoryAsync(dirPath, { intermediates: true });
+            }
+
+            // Ensure thumbnails subdirectory INSIDE each media type folder
+            const thumbPath = `${dirPath}thumbnails/`;
+            const thumbInfo = await FS.getInfoAsync(thumbPath);
+            if (!thumbInfo.exists) {
+                await FS.makeDirectoryAsync(thumbPath, { intermediates: true });
             }
         }
     }
@@ -267,6 +301,14 @@ class MediaCacheService {
         const safeFileName = `${String(mediaType).toLowerCase()}_${longHash}`;
         const extension = this.getFileExtension(url, mediaType);
         return `${this.cacheDir}${mediaType}/${safeFileName}.${extension}`;
+    }
+
+    private getThumbnailPath(url: string, mediaType: MediaType): string {
+        if (Platform.OS === 'web') return url;
+        const longHash = this.generateLongHash(url);
+        const fileName = `${String(mediaType).toLowerCase()}_${longHash}.jpg`;
+        // Save thumbnails inside the media type folder under a thumbnails subfolder
+        return `${this.cacheDir}${mediaType}/thumbnails/${fileName}`;
     }
 
     private async loadMetadata(): Promise<void> {
@@ -386,13 +428,11 @@ class MediaCacheService {
         const key = this.generateCacheKey(url, mediaType);
         let cachedItem = this.metadata[key];
 
-        // Se non esiste nel metadata, controlla se il file esiste fisicamente nello storage
         if (!cachedItem && Platform.OS !== 'web') {
             const localPath = this.getLocalPath(url, mediaType);
             const fileInfo = await FS.getInfoAsync(localPath);
 
             if (fileInfo.exists && fileInfo.size) {
-                // Crea automaticamente una entry nel metadata per il file esistente
                 cachedItem = {
                     url,
                     localPath,
@@ -405,6 +445,14 @@ class MediaCacheService {
 
                 this.metadata[key] = cachedItem;
                 await this.saveMetadata();
+            }
+        }
+
+        if (cachedItem && [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) {
+            const thumbPath = this.getThumbnailPath(url, mediaType);
+            const info = await FS.getInfoAsync(thumbPath);
+            if (!info.exists) {
+                await this.addToQueue({ url, mediaType, op: 'thumbnail' });
             }
         }
 
@@ -452,17 +500,16 @@ class MediaCacheService {
         // Add to download queue
         this.addToQueue({
             url,
-            key,
             mediaType,
+            op: 'download',
             notificationDate,
-            timestamp: Date.now()
         });
     }
 
     async markAsPermanentFailure(url: string, mediaType: MediaType, errorCode?: string): Promise<void> {
         await this.initialize();
         const key = this.generateCacheKey(url, mediaType);
-        
+
         this.metadata[key] = {
             ...this.metadata[key],
             url,
@@ -472,7 +519,7 @@ class MediaCacheService {
             errorCode: errorCode || 'UNKNOWN_ERROR',
             timestamp: Date.now(),
         };
-        
+
         await this.saveMetadata();
         console.log('[MediaCache] Marked as permanent failure:', key, errorCode);
     }
@@ -595,9 +642,9 @@ class MediaCacheService {
     }
 
     removeFromQueue(url: string, mediaType: MediaType): boolean {
-        const key = this.generateCacheKey(url, mediaType);
+        const keyBase = this.generateCacheKey(url, mediaType);
         const index = this.downloadQueue.findIndex(
-            item => this.generateCacheKey(item.url, item.mediaType) === key
+            item => item.key.startsWith(`${keyBase}::`)
         );
 
         if (index !== -1) {
@@ -609,11 +656,9 @@ class MediaCacheService {
         return false;
     }
 
-    isInQueue(url: string, mediaType: MediaType): boolean {
-        const key = this.generateCacheKey(url, mediaType);
-        return this.downloadQueue.some(
-            item => this.generateCacheKey(item.url, item.mediaType) === key
-        );
+    isInQueue(url: string, mediaType: MediaType, op: QueueOperation = 'download'): boolean {
+        const key = this.buildQueueKey(url, mediaType, op);
+        return this.downloadQueue.some(item => item.key === key);
     }
 
     private getFileExtension(url: string, mediaType: MediaType): string {
@@ -628,6 +673,59 @@ class MediaCacheService {
                 return 'mp3';
         }
         return 'dat';
+    }
+
+    async getOrCreateThumbnail(url: string, mediaType: MediaType, maxSize: number = 256): Promise<string | null> {
+        await this.initialize();
+        if (Platform.OS === 'web') return null;
+
+        try {
+            const cached = await this.getCachedItem(url, mediaType);
+            if (!cached?.localPath) return null;
+
+            const thumbPath = this.getThumbnailPath(url, mediaType);
+            const info = await FS.getInfoAsync(thumbPath);
+            if (info.exists) {
+                return thumbPath;
+            }
+
+            // Ensure directories exist
+            await this.ensureDirectories();
+
+            let tempUri: string | null = null;
+
+            if (mediaType === MediaType.Image || mediaType === MediaType.Gif) {
+                // Dynamic require to avoid type errors if package not installed
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const ImageManipulator = require('expo-image-manipulator');
+                const result = await ImageManipulator.manipulateAsync(
+                    cached.localPath,
+                    [{ resize: { width: maxSize } }],
+                    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+                );
+                tempUri = result.uri;
+            } else if (mediaType === MediaType.Video) {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const VideoThumbnails = require('expo-video-thumbnails');
+                const { uri } = await VideoThumbnails.getThumbnailAsync(cached.localPath, {
+                    time: 1000,
+                    quality: 0.6,
+                });
+                tempUri = uri;
+            } else {
+                // For audio/icon, no thumbnail generation for now
+                return null;
+            }
+
+            if (!tempUri) return null;
+
+            await FS.copyAsync({ from: tempUri, to: thumbPath });
+            console.log('[MediaCache] Thumbnail saved at:', thumbPath);
+            return thumbPath;
+        } catch (error) {
+            console.error('[MediaCache] Failed to create thumbnail:', error);
+            return null;
+        }
     }
 
     /**

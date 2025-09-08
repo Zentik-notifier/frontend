@@ -1,6 +1,5 @@
 import { Colors } from "@/constants/Colors";
 import { MediaType } from "@/generated/gql-operations-generated";
-import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useNotificationUtils } from "@/hooks/useNotificationUtils";
@@ -46,14 +45,12 @@ interface CachedMediaItem {
 export default function GallerySection() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-  const { getMediaTypeIcon, getMediaTypeFriendlyName, getMediaTypeColor } =
-    useNotificationUtils();
+  const { getMediaTypeFriendlyName } = useNotificationUtils();
   const { userSettings } = useAppContext();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [fullscreenIndex, setFullscreenIndex] = useState<number>(-1);
   const { cacheStats, cachedItems, updateStats } = useGetCacheStats();
-  const { formatDateKey } = useDateFormat();
   const [selectedMediaTypes, setSelectedMediaTypes] = useState<Set<MediaType>>(
     new Set([MediaType.Image, MediaType.Video, MediaType.Gif, MediaType.Audio])
   );
@@ -61,7 +58,7 @@ export default function GallerySection() {
   const [showMediaTypeSelector, setShowMediaTypeSelector] = useState(false);
 
   // Numero fisso di colonne per la griglia
-  const numColumns = 3;
+  const numColumns = 4;
 
   const { filteredMedia, rows } = useMemo(() => {
     const allWithIds: CachedMediaItem[] = cachedItems.map((item, index) => ({
@@ -889,6 +886,7 @@ export default function GallerySection() {
           <CachedMedia
             url={item.url}
             mediaType={item.mediaType}
+            useThumbnail
             style={styles.gridMediaThumbnail}
             originalFileName={item.originalFileName}
             videoProps={{

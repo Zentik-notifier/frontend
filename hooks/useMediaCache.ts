@@ -5,22 +5,16 @@ import { CacheItem, CacheStats, DownloadQueueState, mediaCache } from '../servic
 
 export const useCachedItem = (url: string, mediaType: MediaType) => {
   const [key] = useState(mediaCache.generateCacheKey(url, mediaType));
-  // const [item, setItem] = useState<CacheItem | null>(null);
-  const [item, setItem] = useState(
-    mediaCache.getMetadata()[key] ?? {
-      url,
-      mediaType,
-    }
-  );
+  const [item, setItem] = useState<CacheItem | undefined>();
 
   useEffect(() => {
+    mediaCache.getCachedItem(url, mediaType).then((item) => {
+      setItem(item);
+    });
+
     const sub: Subscription = mediaCache.metadata$.subscribe(async (all) => {
       const newItem = all[key];
       if (newItem) {
-        //   if (newItem.mediaType === MediaType.Video) {
-        //     const newPath = await mediaCache.copyMediaToTempIfNeeded(url, mediaType);
-        //     newItem.localPath = newPath ?? newItem.localPath;;
-        //   }
         setItem(newItem);
       }
     });

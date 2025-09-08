@@ -33,6 +33,7 @@ interface CachedMediaProps {
   smallButtons?: boolean;
   noAutoDownload?: boolean;
   showMediaIndicator?: boolean;
+  useThumbnail?: boolean;
 
   imageProps?: {
     transition?: number;
@@ -68,6 +69,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   smallButtons,
   noAutoDownload,
   showMediaIndicator,
+  useThumbnail,
   imageProps,
   videoProps,
   audioProps,
@@ -93,8 +95,25 @@ export const CachedMedia = React.memo(function CachedMedia({
   const { item: mediaSource } = useCachedItem(url, mediaType);
   const isVideoType = mediaType === MediaType.Video;
 
+  const [thumbUri, setThumbUri] = useState<string | null>(null);
+
   const localSource = mediaSource?.localPath;
   const videoSource = localSource && isVideoType ? localSource : null;
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!useThumbnail) return;
+      if (![MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) return;
+      // Ensure cache metadata exists and enqueue thumbnail if needed
+      await mediaCache.getCachedItem(url, mediaType);
+      const uri = await mediaCache.getOrCreateThumbnail(url, mediaType);
+      if (mounted) setThumbUri(uri);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [useThumbnail, url, mediaType, mediaSource?.localPath]);
 
   const videoPlayer = useVideoPlayer(videoSource || "", (player) => {
     if (videoSource) {
@@ -286,7 +305,7 @@ export const CachedMedia = React.memo(function CachedMedia({
 
   const renderMedia = () => {
     // Loading states
-    if (mediaSource?.isDownloading || isVideoLoading) {
+    if (mediaSource?.isDownloading || (isVideoLoading && !useThumbnail)) {
       const stateType = mediaSource?.isDownloading ? "downloading" : "loading";
       return (
         <View style={getStateContainerStyle(stateType) as any}>
@@ -306,7 +325,7 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
 
     // Video error state
-    if (isVideoError) {
+    if (!useThumbnail && isVideoError) {
       return (
         <View style={getStateContainerStyle("videoError") as any}>
           <View style={defaultStyles.stateContent}>
@@ -316,11 +335,6 @@ export const CachedMedia = React.memo(function CachedMedia({
               color={isCompact ? "#fff" : stateColors.videoError}
               onPress={isCompact ? handleForceDownload : undefined}
             />
-            {/* {!isCompact && (
-              <Text style={getStateTextStyle("videoError")}>
-                {t("cachedMedia.videoError")}
-              </Text>
-            )} */}
           </View>
           {renderForceDownloadButton(true)}
         </View>
@@ -328,7 +342,7 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
 
     // No media source
-    if (!mediaSource) {
+    if (!mediaSource && !useThumbnail) {
       if (isCompact) {
         return (
           <View style={getStateContainerStyle("loading")}>
@@ -339,16 +353,36 @@ export const CachedMedia = React.memo(function CachedMedia({
       return null;
     }
 
+    // User deleted / failure handled below when not using thumbnail
+
+    // Media content rendering
+    if (useThumbnail && [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) {
+      // Render thumbnail image
+      return (
+        <Pressable onPress={onPress}>
+          {thumbUri ? (
+            <ExpoImage
+              source={{ uri: thumbUri }}
+              style={isCompact ? ([defaultStyles.stateContainerCompact, style] as StyleProp<ImageStyle>) : (style as StyleProp<ImageStyle>)}
+              contentFit={imageProps?.contentFit ?? contentFit}
+              transition={imageProps?.transition ?? 150}
+              cachePolicy={imageProps?.cachePolicy || 'none'}
+            />
+          ) : (
+            <View style={getStateContainerStyle("loading") as any}>
+              <ActivityIndicator size="small" color={isCompact ? "#fff" : stateColors.loading} />
+            </View>
+          )}
+        </Pressable>
+      );
+    }
+
+    // Below: full media rendering as before when not using thumbnails
     // Permanent failure - click to retry
-    if (mediaSource.isPermanentFailure) {
+    if (mediaSource?.isPermanentFailure) {
       return (
         <View style={getStateContainerStyle("failed") as any}>
           <View style={defaultStyles.stateContent}>
-            {/* {!isCompact && mediaSource.errorCode && (
-               <Text style={getStateSecondaryTextStyle("failed")}>
-                 {mediaSource.errorCode}
-               </Text>
-             )} */}
             <Ionicons
               name="warning-outline"
               size={isCompact ? 20 : 24}
@@ -362,7 +396,7 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
 
     // User deleted - click to redownload
-    if (mediaSource.isUserDeleted || !mediaSource.localPath) {
+    if (mediaSource?.isUserDeleted || !mediaSource?.localPath) {
       return (
         <View style={getStateContainerStyle("deleted") as any}>
           <View style={defaultStyles.stateContent}>
@@ -373,13 +407,12 @@ export const CachedMedia = React.memo(function CachedMedia({
               onPress={isCompact ? handleForceDownload : undefined}
             />
           </View>
-          {renderForceDownloadButton(!mediaSource.isUserDeleted)}
+          {renderForceDownloadButton(!mediaSource?.isUserDeleted)}
         </View>
       );
     }
 
-    // Media content rendering
-    if (mediaSource.localPath) {
+    if (mediaSource?.localPath) {
       switch (mediaType) {
         case MediaType.Image:
         case MediaType.Icon:
@@ -394,11 +427,6 @@ export const CachedMedia = React.memo(function CachedMedia({
                     color={isCompact ? "#fff" : stateColors.failed}
                     onPress={isCompact ? handleForceDownload : undefined}
                   />
-                  {!isCompact && (
-                    <Text style={getStateTextStyle("failed")}>
-                      Errore Immagine
-                    </Text>
-                  )}
                 </View>
                 {renderForceDownloadButton(true)}
               </View>
