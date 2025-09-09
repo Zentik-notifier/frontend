@@ -48,7 +48,7 @@ export default function BucketIcon({
     }
   };
 
-  const content = (
+  return (
     <View
       style={[
         styles.container,
@@ -99,6 +99,7 @@ export default function BucketIcon({
               },
             ]}
             isCompact
+            onPress={handlePress}
           />
         ) : icon &&
           typeof icon === "string" &&
@@ -128,16 +129,6 @@ export default function BucketIcon({
       </View>
     </View>
   );
-
-  if (!noRouting) {
-    return (
-      <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
-        {content}
-      </TouchableOpacity>
-    );
-  }
-
-  return content;
 }
 
 const styles = StyleSheet.create({

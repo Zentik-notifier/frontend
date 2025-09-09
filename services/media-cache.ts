@@ -1,15 +1,16 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FS from 'expo-file-system';
-import { Platform } from 'react-native';
 import { BehaviorSubject } from "rxjs";
 import { MediaType } from '../generated/gql-operations-generated';
-import { getMetadataDirectory, getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
+import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import { openSharedCacheDb } from './media-cache-db';
+import { MediaCacheRepository } from './media-cache-repository';
 
 export interface CacheItem {
+    key: string;
     url: string;
-    localPath: string;
+    localPath?: string;
     localThumbPath?: string;
     generatingThumbnail?: boolean;
     timestamp: number;
@@ -62,8 +63,8 @@ class MediaCacheService {
     private cacheDir: string = '';
     private metadata: CacheMetadata = {};
     private downloadingKeys: Set<string> = new Set();
-    private userDeletedSet: Set<string> = new Set();
-    private readonly USER_DELETED_KEY = '@media_cache_user_deleted';
+    private dbInitialized = false;
+    private repo?: MediaCacheRepository;
     private initialized = false;
     public metadata$ = new BehaviorSubject<CacheMetadata>(this.metadata);
 
@@ -98,20 +99,11 @@ class MediaCacheService {
         this.downloadQueue.push({ ...item, key, timestamp: Date.now() });
         if (item.op === 'download') {
             const cacheKey = this.generateCacheKey(item.url, item.mediaType);
-            this.metadata[cacheKey] = {
-                ...this.metadata[cacheKey],
-                isDownloading: true,
-            };
-            await this.saveMetadata();
+            await this.updateItem(cacheKey, { isDownloading: true });
         }
         if (item.op === 'thumbnail') {
             const cacheKey = this.generateCacheKey(item.url, item.mediaType);
-            this.metadata[cacheKey] = {
-                ...this.metadata[cacheKey],
-                generatingThumbnail: true,
-                timestamp: Date.now(),
-            };
-            await this.saveMetadata();
+            await this.updateItem(cacheKey, { generatingThumbnail: true, timestamp: Date.now() });
         }
 
         this.updateQueueState();
@@ -149,23 +141,18 @@ class MediaCacheService {
         const { url, mediaType, notificationDate } = item;
         const key = this.generateCacheKey(url, mediaType);
 
-        this.userDeletedSet.delete(key);
-        this.downloadingKeys.add(key);
-
         try {
             const localPath = this.getLocalPath(url, mediaType);
 
-            this.metadata[key] = {
-                ...this.metadata[key],
+            await this.updateItem(key, {
                 isDownloading: true,
                 isPermanentFailure: false,
                 isUserDeleted: false,
                 url,
                 mediaType,
-                timestamp: new Date().getTime(),
+                timestamp: Date.now(),
                 notificationDate: notificationDate ?? this.metadata[key]?.notificationDate,
-            };
-            await this.saveMetadata();
+            });
 
             const downloadResult = await FS.downloadAsync(url, localPath);
 
@@ -185,38 +172,33 @@ class MediaCacheService {
             }
 
             if (success) {
-                this.metadata[key] = {
-                    ...this.metadata[key],
+                await this.updateItem(key, {
                     size: fileSize,
                     isDownloading: false,
                     localPath: downloadResult.uri,
                     errorCode: undefined,
                     downloadedAt: Date.now(),
-                    timestamp: new Date().getTime(),
-                };
+                    timestamp: Date.now(),
+                });
                 if ([MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) {
                     await this.addToQueue({ url, mediaType, op: 'thumbnail' });
                 }
             } else {
-                this.metadata[key] = {
-                    ...this.metadata[key],
+                await this.updateItem(key, {
                     isDownloading: false,
-                    timestamp: new Date().getTime(),
+                    timestamp: Date.now(),
                     isPermanentFailure: true,
                     errorCode: downloadResult.status.toString(),
-                };
+                });
             }
 
-            await this.saveMetadata();
-            await this.saveUserDeleted();
+            // no-op: userDeleted persisted in DB via saveMetadata
         } catch (error) {
             console.error('[MediaCache] Download failed:', error);
 
             delete this.metadata[key];
-            await this.saveMetadata();
+            // nothing to persist for deleted temp state
             return false;
-        } finally {
-            this.downloadingKeys.delete(key);
         }
     }
 
@@ -231,28 +213,21 @@ class MediaCacheService {
         } catch (e) {
             console.warn('[MediaCache] Thumbnail generation failed for', url, e);
         } finally {
-            this.metadata[cacheKey] = {
-                ...this.metadata[cacheKey],
-                generatingThumbnail: false,
-                timestamp: Date.now(),
-            };
-            await this.saveMetadata();
+            await this.updateItem(cacheKey, { generatingThumbnail: false, timestamp: Date.now() });
         }
     }
 
     private async initialize(): Promise<void> {
         if (this.initialized) return;
 
-        if (Platform.OS === 'web') {
-            this.cacheDir = '';
-            this.initialized = true;
-            return;
-        }
-
         try {
             this.cacheDir = await getSharedMediaCacheDirectoryAsync();
             await this.ensureDirectories();
-            await this.loadUserDeleted();
+            if (!this.dbInitialized) {
+                const db = await openSharedCacheDb();
+                this.repo = new MediaCacheRepository(db);
+                this.dbInitialized = true;
+            }
             await this.loadMetadata();
             this.initialized = true;
         } catch (error) {
@@ -261,8 +236,6 @@ class MediaCacheService {
     }
 
     private async ensureDirectories(): Promise<void> {
-        if (Platform.OS === 'web') return;
-
         const typeDirs = ['IMAGE', 'VIDEO', 'GIF', 'AUDIO', 'ICON'];
         for (const type of typeDirs) {
             const dirPath = `${this.cacheDir}${type}/`;
@@ -316,8 +289,6 @@ class MediaCacheService {
     }
 
     private getLocalPath(url: string, mediaType: MediaType): string {
-        if (Platform.OS === 'web') return url;
-
         const longHash = this.generateLongHash(url);
         const safeFileName = `${String(mediaType).toLowerCase()}_${longHash}`;
         const extension = this.getFileExtension(url, mediaType);
@@ -325,7 +296,6 @@ class MediaCacheService {
     }
 
     private getThumbnailPath(url: string, mediaType: MediaType): string {
-        if (Platform.OS === 'web') return url;
         const longHash = this.generateLongHash(url);
         const fileName = `${String(mediaType).toLowerCase()}_${longHash}.jpg`;
         // Save thumbnails inside the media type folder under a thumbnails subfolder
@@ -334,80 +304,29 @@ class MediaCacheService {
 
     private async loadMetadata(): Promise<void> {
         try {
-            if (Platform.OS === 'ios') {
-                // Read from shared metadata file created by NSE
-                const metadataFilePath = await getMetadataDirectory();
-                const fileInfo = await FS.getInfoAsync(metadataFilePath);
-
-                if (fileInfo.exists) {
-                    const metadataContent = await FS.readAsStringAsync(metadataFilePath);
-                    const sharedMetadata: CacheMetadata = JSON.parse(metadataContent);
-
-                    this.metadata = {};
-                    for (const [key, item] of Object.entries(sharedMetadata)) {
-                        if (item.downloadedAt) {
-                            this.metadata[key] = {
-                                ...item,
-                                isDownloading: false,
-                                isPermanentFailure: false,
-                            };
-                        }
-                    }
-                    console.log('[MediaCache] Loaded metadata:', Object.keys(this.metadata).length, 'items');
-                } else {
-                    console.log('[MediaCache] No metadata file found, starting fresh');
-                    this.metadata = {};
-                }
-            } else {
-                this.metadata = {};
+            if (!this.repo) throw new Error('Repository not initialized');
+            const items = await this.repo.listCacheItems();
+            console.log("[MediaCache] Loaded metadata from DB:", items);
+            this.metadata = {};
+            for (const item of items) {
+                const key = this.generateCacheKey(item.url, item.mediaType);
+                this.metadata[key] = {
+                    ...item,
+                    isDownloading: false,
+                    generatingThumbnail: item.generatingThumbnail ?? false,
+                    isPermanentFailure: item.isPermanentFailure ?? false,
+                };
             }
-
+            console.log('[MediaCache] Loaded metadata from DB:', Object.keys(this.metadata).length, 'items');
             this.emitMetadata();
         } catch (error) {
-            console.error('[MediaCache] Failed to load metadata:', error);
+            console.error('[MediaCache] Failed to load metadata (DB):', error);
             this.metadata = {};
         }
     }
 
     private emitMetadata(): void {
-        const actualMetadata = this.getMetadata();
-        this.metadata$.next(actualMetadata);
-    }
-
-    private async loadUserDeleted(): Promise<void> {
-        try {
-            const raw = await AsyncStorage.getItem(this.USER_DELETED_KEY);
-            if (raw) {
-                const arr: string[] = JSON.parse(raw);
-                this.userDeletedSet = new Set(arr);
-            }
-        } catch {
-            this.userDeletedSet = new Set();
-        }
-    }
-
-    private async saveUserDeleted(): Promise<void> {
-        try {
-            await AsyncStorage.setItem(this.USER_DELETED_KEY, JSON.stringify(Array.from(this.userDeletedSet)));
-        } catch (error) {
-            console.error('[MediaCache] Failed to save user deleted:', error);
-        }
-    }
-
-    private async markUserDeleted(url: string, mediaType: MediaType): Promise<void> {
-        const key = this.generateCacheKey(url, mediaType);
-        this.userDeletedSet.add(key);
-        this.metadata[key] = {
-            ...this.metadata[key],
-            isUserDeleted: true,
-            timestamp: new Date().getTime(),
-        };
-        await this.saveMetadata();
-        await this.saveUserDeleted();
-    }
-
-    private isUserDeleted(url: string, mediaType: MediaType): boolean {
-        return this.userDeletedSet.has(this.generateCacheKey(url, mediaType));
+        this.metadata$.next(this.getMetadata());
     }
 
     private isPermanentFailure(url: string, mediaType: MediaType): boolean {
@@ -416,38 +335,28 @@ class MediaCacheService {
         return cachedItem?.isPermanentFailure ?? false;
     }
 
-    private async saveMetadata(): Promise<void> {
+    private async saveSingleItem(key: string) {
         try {
-            if (Platform.OS === 'ios') {
-                const metadataFilePath = await getMetadataDirectory();
-
-                const sharedMetadata: CacheMetadata = {};
-                const cachedItems = Object.entries(this.metadata);
-                for (const [key, item] of cachedItems) {
-                    sharedMetadata[key] = {
-                        url: item.url,
-                        localPath: item.localPath,
-                        localThumbPath: item.localThumbPath,
-                        generatingThumbnail: item.generatingThumbnail,
-                        timestamp: item.timestamp,
-                        size: item.size,
-                        mediaType: item.mediaType,
-                        originalFileName: item.originalFileName,
-                        downloadedAt: item.downloadedAt,
-                        notificationDate: item.notificationDate,
-                        isDownloading: item.isDownloading ?? false,
-                    };
-                }
-
-                this.emitMetadata();
-                await FS.writeAsStringAsync(metadataFilePath, JSON.stringify(sharedMetadata, null, 2));
-                console.log('[MediaCache] Save cache item:', Object.keys(sharedMetadata).length, 'items');
-            } else {
-                this.emitMetadata();
+            if (!this.repo) throw new Error('Repository not initialized');
+            const item = this.metadata[key];
+            if (item) {
+                const updatedItem = await this.repo.upsertCacheItem({ ...item, key });
+                await this.repo.getCacheItem(key)
             }
         } catch (error) {
-            console.error('[MediaCache] Failed to save shared metadata:', error);
+            console.error('[MediaCache] Failed to persist single item to DB:', error);
+        } finally {
+            this.emitMetadata();
         }
+    }
+
+    public async updateItem(key: string, patch: Partial<CacheItem>): Promise<void> {
+        await this.initialize();
+        const current: CacheItem | undefined = this.metadata[key];
+        if (!current) return;
+        const next: CacheItem = { ...current, ...patch } as CacheItem;
+        this.metadata[key] = next;
+        await this.saveSingleItem(key);
     }
 
     getCachedItemSync(url: string, mediaType: MediaType): CacheItem | undefined {
@@ -458,13 +367,14 @@ class MediaCacheService {
         const key = this.generateCacheKey(url, mediaType);
         let cachedItem = this.metadata[key];
 
-        if (!cachedItem && Platform.OS !== 'web') {
+        if (!cachedItem) {
             const localPath = this.getLocalPath(url, mediaType);
             const fileInfo = await FS.getInfoAsync(localPath);
 
             if (fileInfo.exists && fileInfo.size) {
                 cachedItem = {
                     url,
+                    key,
                     localPath,
                     timestamp: Date.now(),
                     size: fileInfo.size,
@@ -475,7 +385,7 @@ class MediaCacheService {
                 };
 
                 this.metadata[key] = cachedItem;
-                await this.saveMetadata();
+                await this.saveSingleItem(key);
             }
         }
 
@@ -485,13 +395,7 @@ class MediaCacheService {
             const info = await FS.getInfoAsync(thumbPath);
             if (info.exists) {
                 if (!this.metadata[key]?.localThumbPath || this.metadata[key]?.localThumbPath !== thumbPath) {
-                    this.metadata[key] = {
-                        ...this.metadata[key],
-                        localThumbPath: thumbPath,
-                        generatingThumbnail: false,
-                        timestamp: Date.now(),
-                    };
-                    await this.saveMetadata();
+                    await this.updateItem(key, { localThumbPath: thumbPath, generatingThumbnail: false, timestamp: Date.now() });
                 }
             }
         }
@@ -515,8 +419,6 @@ class MediaCacheService {
         await this.initialize();
         const key = this.generateCacheKey(url, mediaType);
 
-        if (Platform.OS === 'web') return;
-
         // Check if already cached
         const cachedItem = await this.getCachedItem(url, mediaType);
         if (cachedItem && !force) {
@@ -529,7 +431,7 @@ class MediaCacheService {
         }
 
         // Check if user deleted or permanent failure
-        if (this.isUserDeleted(url, mediaType) && !force) {
+        if (this.metadata[key]?.isUserDeleted && !force) {
             return;
         }
 
@@ -560,35 +462,38 @@ class MediaCacheService {
             timestamp: Date.now(),
         };
 
-        await this.saveMetadata();
+        await this.saveSingleItem(key);
         console.log('[MediaCache] Marked as permanent failure:', key, errorCode);
     }
 
     async clearCache(): Promise<void> {
         await this.initialize();
 
-        if (Platform.OS === 'web') return;
-
         try {
-            const deletedItems: string[] = [];
             for (const [key, item] of Object.entries(this.metadata)) {
                 try {
                     if (item.localPath) {
                         await FS.deleteAsync(item.localPath, { idempotent: true });
                     }
-                    this.userDeletedSet.add(key);
-                    deletedItems.push(item.url);;
+                    this.metadata[key] = {
+                        ...item,
+                        isUserDeleted: true,
+                        localPath: '',
+                        localThumbPath: undefined,
+                        size: 0,
+                        timestamp: Date.now(),
+                    };
                 } catch (error) {
                     console.warn('[MediaCache] Failed to delete file:', error);
                 }
             }
 
+            // Persist every modified item in a single transaction
+            if (this.repo) {
+                await this.repo.upsertMany(Object.values(this.metadata));
+            }
             this.metadata = {};
             this.emitMetadata();
-
-            const metadataFilePath = await getMetadataDirectory();
-            await FS.deleteAsync(metadataFilePath, { idempotent: true });
-            await this.saveUserDeleted();
         } catch (error) {
             console.error('[MediaCache] Failed to clear cache:', error);
         }
@@ -624,22 +529,11 @@ class MediaCacheService {
     }
 
     getMetadata() {
-        const metadata = JSON.parse(JSON.stringify(this.metadata));
-
-        for (const key of Array.from(this.userDeletedSet)) {
-            metadata[key] = {
-                ...metadata[key],
-                isUserDeleted: true,
-            };
-        }
-
-        return metadata;
+        return JSON.parse(JSON.stringify(this.metadata));
     }
 
     async deleteCachedMedia(url: string, mediaType: MediaType): Promise<boolean> {
         await this.initialize();
-
-        if (Platform.OS === 'web') return true;
 
         const key = this.generateCacheKey(url, mediaType);
         const cachedItem = this.metadata[key];
@@ -670,14 +564,18 @@ class MediaCacheService {
                 console.warn('[MediaCache] Failed to delete thumbnail:', err);
             }
 
-            // Remove from metadata
-            delete this.metadata[key];
+            this.metadata[key] = {
+                ...cachedItem,
+                isUserDeleted: true,
+                localPath: undefined,
+                localThumbPath: undefined,
+                isPermanentFailure: false,
+                isDownloading: false,
+                size: 0,
+                timestamp: Date.now(),
+            };
+            await this.saveSingleItem(key);
 
-            await this.markUserDeleted(url, mediaType);
-
-            await this.saveMetadata();
-
-            console.log('[MediaCache] Media deleted manually:', url);
             return true;
         } catch (error) {
             console.error('[MediaCache] Failed to delete media:', error);
@@ -738,7 +636,6 @@ class MediaCacheService {
 
     async getOrCreateThumbnail(url: string, mediaType: MediaType, maxSize: number = 256): Promise<string | null> {
         await this.initialize();
-        if (Platform.OS === 'web') return null;
 
         try {
             const cached = await this.getCachedItem(url, mediaType);
@@ -776,12 +673,7 @@ class MediaCacheService {
 
             await FS.copyAsync({ from: tempUri, to: thumbPath });
             const key = this.generateCacheKey(url, mediaType);
-            this.metadata[key] = {
-                ...this.metadata[key],
-                localThumbPath: thumbPath,
-                timestamp: Date.now(),
-            };
-            await this.saveMetadata();
+            await this.updateItem(key, { localThumbPath: thumbPath, timestamp: Date.now() });
             console.log('[MediaCache] Thumbnail saved at:', thumbPath);
             return thumbPath;
         } catch (error) {
@@ -790,62 +682,8 @@ class MediaCacheService {
         }
     }
 
-    /**
-     * Copy a cached media file into a temporary directory, if not already present.
-     * Returns the temporary file path, the original URL on web, or null if the file is not available locally.
-     */
-    async copyMediaToTempIfNeeded(url: string, mediaType: MediaType): Promise<string | null> {
-        await this.initialize();
-
-        if (Platform.OS === 'web') {
-            return url;
-        }
-
-        try {
-            const key = this.generateCacheKey(url, mediaType);
-            const cachedItem = this.metadata[key];
-            const sourcePath = cachedItem?.localPath;
-
-            if (!sourcePath) {
-                return null;
-            }
-
-            const sourceInfo = await FS.getInfoAsync(sourcePath);
-            if (!sourceInfo.exists) {
-                return null;
-            }
-
-            const baseTempDir = `${FS.cacheDirectory}zentik-temp/`;
-            const tempDir = `${baseTempDir}${mediaType}/`;
-            const baseExists = await FS.getInfoAsync(baseTempDir);
-            if (!baseExists.exists) {
-                await FS.makeDirectoryAsync(baseTempDir, { intermediates: true });
-            }
-            const typeExists = await FS.getInfoAsync(tempDir);
-            if (!typeExists.exists) {
-                await FS.makeDirectoryAsync(tempDir, { intermediates: true });
-            }
-
-            const fileName = cachedItem.localPath.split('/').pop();
-            const destPath = `${tempDir}${fileName}.mp4`;
-
-            const destInfo = await FS.getInfoAsync(destPath);
-            if (destInfo.exists) {
-                return destPath;
-            }
-
-            await FS.copyAsync({ from: sourcePath, to: destPath });
-            return destPath;
-        } catch (error) {
-            console.error('[MediaCache] Failed to copy media to temp:', error);
-            return null;
-        }
-    }
-
     async clearCacheComplete(): Promise<void> {
         await this.initialize();
-
-        if (Platform.OS === 'web') return;
 
         try {
             const dirInfo = await FS.getInfoAsync(this.cacheDir);
@@ -855,16 +693,13 @@ class MediaCacheService {
                 await this.ensureDirectories();
             }
 
+            if (this.repo) {
+                await this.repo.clearAll();
+            }
             this.metadata = {};
             this.emitMetadata();
 
-            this.userDeletedSet.clear();
-            await AsyncStorage.removeItem(this.USER_DELETED_KEY);
-
             this.downloadingKeys.clear();
-
-            const metadataFilePath = await getMetadataDirectory();
-            await FS.deleteAsync(metadataFilePath, { idempotent: true });
 
             console.log('[MediaCache] Cache cleared completely');
         } catch (error) {

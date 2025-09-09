@@ -19,12 +19,14 @@ import {
   View,
   ViewStyle,
   PanResponder,
+  GestureResponderEvent,
 } from "react-native";
 import { Pressable } from "react-native-gesture-handler";
 import { MediaType } from "../generated/gql-operations-generated";
 import { useI18n } from "../hooks/useI18n";
 import { useCachedItem } from "../hooks/useMediaCache";
 import { MediaTypeIcon } from "./MediaTypeIcon";
+import { PressableEvent } from "react-native-gesture-handler/lib/typescript/components/Pressable/PressableProps";
 
 interface CachedMediaProps {
   url: string;
@@ -70,7 +72,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   originalFileName,
   notificationDate,
   contentFit = "cover",
-  onPress,
+  onPress: onPressParent,
   isCompact,
   smallButtons,
   noAutoDownload,
@@ -100,7 +102,6 @@ export const CachedMedia = React.memo(function CachedMedia({
   const [seekTime, setSeekTime] = useState(0);
   const { item: mediaSource } = useCachedItem(url, mediaType);
   const isVideoType = mediaType === MediaType.Video;
-
   const localSource = mediaSource?.localPath;
   const videoSource = localSource && isVideoType ? localSource : null;
 
@@ -137,12 +138,12 @@ export const CachedMedia = React.memo(function CachedMedia({
     });
   }, [url, mediaType, notificationDate]);
 
-  const handleFrameClick = useCallback(async () => {
-    onPress?.();
-  }, [onPress]);
-
-  const handleFrameClickFromStatus = useCallback(async () => {
-  }, []);
+  const handleFrameClick = useCallback(
+    async (event: PressableEvent) => {
+      onPressParent?.();
+    },
+    [onPressParent]
+  );
 
   const handleDeleteCachedMedia = useCallback(async () => {
     await mediaCache.deleteCachedMedia(url, mediaType);
@@ -328,6 +329,23 @@ export const CachedMedia = React.memo(function CachedMedia({
       );
     }
 
+    // User deleted - click to redownload
+    if (mediaSource?.isUserDeleted || !mediaSource?.localPath) {
+      return (
+        <View style={getStateContainerStyle("deleted") as any}>
+          <View style={defaultStyles.stateContent}>
+            <Ionicons
+              name="download-outline"
+              size={isCompact ? 20 : 24}
+              color={stateColors.deleted}
+              onPress={isCompact ? handleForceDownload : undefined}
+            />
+          </View>
+          {!isCompact && renderForceDownloadButton(!mediaSource?.isUserDeleted)}
+        </View>
+      );
+    }
+
     if (useThumbnail && supportsThumbnail) {
       const thumbPath = mediaSource?.localThumbPath;
       if (thumbPath) {
@@ -352,73 +370,34 @@ export const CachedMedia = React.memo(function CachedMedia({
       }
 
       return (
-        <Pressable onPress={handleFrameClickFromStatus}>
-          <View style={getStateContainerStyle("videoError") as any}>
-            <View style={defaultStyles.stateContent}>
-              <Ionicons
-                name="image-outline"
-                size={isCompact ? 20 : 24}
-                color={isCompact ? "#fff" : stateColors.loading}
-                onPress={handleGenerateThumbnail}
-              />
-            </View>
-            {renderForceDownloadButton(true)}
+        <View style={getStateContainerStyle("videoError") as any}>
+          <View style={defaultStyles.stateContent}>
+            <Ionicons
+              name="image-outline"
+              size={isCompact ? 20 : 24}
+              color={stateColors.loading}
+              onPress={isCompact ? handleGenerateThumbnail : undefined}
+            />
           </View>
-        </Pressable>
-      );
-    }
-
-    // Video error state
-    if (isVideoError) {
-      return (
-        <Pressable onPress={handleFrameClickFromStatus}>
-          <View style={getStateContainerStyle("videoError") as any}>
-            <View style={defaultStyles.stateContent}>
-              <Ionicons
-                name="warning-outline"
-                size={isCompact ? 20 : 24}
-                color={stateColors.videoError}
-              />
-            </View>
-            {renderForceDownloadButton(true)}
-          </View>
-        </Pressable>
+          {!isCompact ? renderForceDownloadButton(true) : null}
+        </View>
       );
     }
 
     // Permanent failure - click to retry
-    if (mediaSource?.isPermanentFailure) {
+    if (mediaSource?.isPermanentFailure || isVideoError) {
       return (
-        <Pressable onPress={handleFrameClickFromStatus}>
-          <View style={getStateContainerStyle("failed") as any}>
-            <View style={defaultStyles.stateContent}>
-              <Ionicons
-                name="warning-outline"
-                size={isCompact ? 20 : 24}
-                color={stateColors.failed}
-              />
-            </View>
-            {renderForceDownloadButton(true)}
+        <View style={getStateContainerStyle("failed") as any}>
+          <View style={defaultStyles.stateContent}>
+            <Ionicons
+              name="warning-outline"
+              size={isCompact ? 20 : 24}
+              color={stateColors.failed}
+              onPress={isCompact ? handleForceDownload : undefined}
+            />
           </View>
-        </Pressable>
-      );
-    }
-
-    // User deleted - click to redownload
-    if (mediaSource?.isUserDeleted || !mediaSource?.localPath) {
-      return (
-        <Pressable onPress={handleFrameClickFromStatus}>
-          <View style={getStateContainerStyle("deleted") as any}>
-            <View style={defaultStyles.stateContent}>
-              <Ionicons
-                name="download-outline"
-                size={isCompact ? 20 : 24}
-                color={stateColors.deleted}
-              />
-            </View>
-            {renderForceDownloadButton(!mediaSource?.isUserDeleted)}
-          </View>
-        </Pressable>
+          {!isCompact ? renderForceDownloadButton(true) : null}
+        </View>
       );
     }
 

@@ -42,7 +42,6 @@ interface SwipeableNotificationItemProps {
   isMultiSelectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelection?: () => void;
-  onLongPress?: () => void;
 }
 
 const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
@@ -53,7 +52,6 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
       isMultiSelectionMode,
       isSelected,
       onToggleSelection,
-      onLongPress,
     }) => {
       const colorScheme = useColorScheme();
       const router = useRouter();
@@ -203,11 +201,9 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
           marginBottom={2} // Pass the custom margin
           marginHorizontal={16} // Pass the horizontal margin
         >
-          <TouchableWithoutFeedback
-            onPress={handlePress}
-            onLongPress={onLongPress}
-          >
+          <TouchableWithoutFeedback onPress={handlePress}>
             <ThemedView
+              onStartShouldSetResponder={() => true}
               style={[
                 styles.itemCard,
                 {
@@ -279,7 +275,10 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                 ) : (
                   !hideBucketInfo && (
                     <View style={styles.leftColumn}>
-                      <View style={styles.bucketIconContainer}>
+                      <View
+                        style={styles.bucketIconContainer}
+                        onStartShouldSetResponder={() => true}
+                      >
                         <BucketIcon
                           bucketId={notification.message?.bucket?.id}
                           size="lg"

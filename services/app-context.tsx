@@ -329,7 +329,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (nextAppState === "active" && userId) {
         console.log("📱 App became active - refreshing notifications");
         try {
-          // await refetchNotifications();
+          await refetchNotifications();
         } catch (error) {
           console.warn(
             "⚠️ Failed to refresh notifications on foreground:",

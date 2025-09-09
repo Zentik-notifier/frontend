@@ -16,23 +16,14 @@ function normalizeSharedUri(uri: string): string {
  */
 let cachedSharedDirectory: string | null = null;
 
-export function getSharedMediaCacheDirectory(): string {
-  if (Platform.OS === 'web') {
-    return '';
-  }
-
-  if (Platform.OS === 'ios') {
-    if (cachedSharedDirectory) {
-      return cachedSharedDirectory;
-    }
-    return `${FS.documentDirectory}shared_media_cache/`;
-  }
-  return `${FS.documentDirectory}media_cache/`;
-}
-
 export async function getSharedMediaCacheDirectoryAsync(): Promise<string> {
   if (Platform.OS === 'web') {
-    return '';
+    const dir = `${FS.documentDirectory}media_cache/`;
+    const info = await FS.getInfoAsync(dir);
+    if (!info.exists) {
+      await FS.makeDirectoryAsync(dir, { intermediates: true });
+    }
+    return dir;
   }
 
   if (Platform.OS === 'ios') {
@@ -63,11 +54,4 @@ export async function getSharedMediaCacheDirectoryAsync(): Promise<string> {
     return fallbackPath;
   }
   return `${FS.documentDirectory}media_cache/`;
-}
-
-export const getMetadataDirectory = async (): Promise<string> => {
-  const sharedCacheDir = await getSharedMediaCacheDirectoryAsync();
-  const metadataFilePath = `${sharedCacheDir}metadata.json`;
-
-  return metadataFilePath;
 }
