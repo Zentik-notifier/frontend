@@ -10,23 +10,22 @@ import {
   ImageStyle,
 } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
-import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  PanResponder,
   StyleProp,
   StyleSheet,
   Text,
   View,
   ViewStyle,
-  PanResponder,
-  GestureResponderEvent,
 } from "react-native";
 import { Pressable } from "react-native-gesture-handler";
+import { PressableEvent } from "react-native-gesture-handler/lib/typescript/components/Pressable/PressableProps";
 import { MediaType } from "../generated/gql-operations-generated";
 import { useI18n } from "../hooks/useI18n";
 import { useCachedItem } from "../hooks/useMediaCache";
 import { MediaTypeIcon } from "./MediaTypeIcon";
-import { PressableEvent } from "react-native-gesture-handler/lib/typescript/components/Pressable/PressableProps";
 
 interface CachedMediaProps {
   url: string;

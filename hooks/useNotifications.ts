@@ -117,11 +117,15 @@ export function useDeleteNotification() {
 		// First, get the notification data to extract attachments before deletion
 		let notificationData: NotificationFragment | null = null;
 		try {
-			const notificationRef = apollo.cache.readFragment({
-				id: `Notification:${id}`,
-				fragment: NotificationFragmentDoc,
-			});
-			notificationData = notificationRef as NotificationFragment;
+			// Try to get notification from the notifications query cache
+			const queryData = apollo.cache.readQuery({
+				query: GetNotificationsDocument,
+			}) as { notifications: NotificationFragment[] } | null;
+
+			if (queryData?.notifications) {
+				notificationData = queryData.notifications.find((n: any) => n.id === id) || null;
+				console.log(`🗑️ Found notification in cache:`, notificationData);
+			}
 		} catch (error) {
 			console.warn(`⚠️ Could not read notification data for ${id}:`, error);
 		}
@@ -144,7 +148,7 @@ export function useDeleteNotification() {
 					try {
 						// Only delete media attachments (not icons) and ensure URL exists
 						if (attachment.mediaType && attachment.mediaType !== MediaType.Icon && attachment.url) {
-							await mediaCache.deleteCachedMedia(attachment.url, attachment.mediaType);
+							await mediaCache.deleteCachedMedia(attachment.url, attachment.mediaType, true);
 							console.log(`🗑️ Deleted attachment from cache: ${attachment.url}`);
 						}
 					} catch (error) {
@@ -348,26 +352,33 @@ export function useMassDeleteNotifications() {
 
 		// First, collect all attachments from notifications before deletion
 		const allAttachments: Array<{ url: string; mediaType: MediaType }> = [];
-		for (const id of notificationIds) {
-			try {
-				const notificationRef = apollo.cache.readFragment({
-					id: `Notification:${id}`,
-					fragment: NotificationFragmentDoc,
-				});
-				const notificationData = notificationRef as NotificationFragment;
 
-				if (notificationData?.message?.attachments) {
-					for (const attachment of notificationData.message.attachments) {
-						if (attachment.mediaType && attachment.mediaType !== MediaType.Icon && attachment.url) {
-							allAttachments.push({
-								url: attachment.url,
-								mediaType: attachment.mediaType
-							});
-						}
+		// Try to get all notifications from the query cache first
+		let cachedNotifications: NotificationFragment[] = [];
+		try {
+			const queryData = apollo.cache.readQuery({
+				query: GetNotificationsDocument,
+			}) as { notifications: NotificationFragment[] } | null;
+			cachedNotifications = queryData?.notifications || [];
+			console.log(`🗑️ Found ${cachedNotifications.length} notifications in cache`);
+		} catch (error) {
+			console.warn(`⚠️ Could not read notifications query:`, error);
+		}
+
+		for (const id of notificationIds) {
+			let notificationData: NotificationFragment | null = null;
+
+			notificationData = cachedNotifications.find((n: any) => n.id === id) || null;
+
+			if (notificationData?.message?.attachments) {
+				for (const attachment of notificationData.message.attachments) {
+					if (attachment.mediaType && attachment.mediaType !== MediaType.Icon && attachment.url) {
+						allAttachments.push({
+							url: attachment.url,
+							mediaType: attachment.mediaType
+						});
 					}
 				}
-			} catch (error) {
-				console.warn(`⚠️ Could not read notification data for ${id}:`, error);
 			}
 		}
 
@@ -386,7 +397,7 @@ export function useMassDeleteNotifications() {
 
 				for (const attachment of allAttachments) {
 					try {
-						await mediaCache.deleteCachedMedia(attachment.url, attachment.mediaType);
+						await mediaCache.deleteCachedMedia(attachment.url, attachment.mediaType, true);
 						console.log(`🗑️ Deleted attachment from cache: ${attachment.url}`);
 					} catch (error) {
 						console.warn(`⚠️ Failed to delete attachment ${attachment.url} from cache:`, error);

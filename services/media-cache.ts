@@ -17,7 +17,7 @@ export interface CacheItem {
     size: number;
     mediaType: MediaType;
     originalFileName?: string;
-    downloadedAt: number;
+    downloadedAt?: number;
     notificationDate?: number;
     isDownloading?: boolean;
     isPermanentFailure?: boolean;
@@ -62,7 +62,6 @@ export interface DownloadQueueState {
 class MediaCacheService {
     private cacheDir: string = '';
     private metadata: CacheMetadata = {};
-    private downloadingKeys: Set<string> = new Set();
     private dbInitialized = false;
     private repo?: MediaCacheRepository;
     private initialized = false;
@@ -96,6 +95,7 @@ class MediaCacheService {
         if (this.isInQueue(item.url, item.mediaType, item.op)) {
             return;
         }
+        console.log('[MediaCache] Adding item to download queue:', item.op, item.url);
         this.downloadQueue.push({ ...item, key, timestamp: Date.now() });
         if (item.op === 'download') {
             const cacheKey = this.generateCacheKey(item.url, item.mediaType);
@@ -180,9 +180,7 @@ class MediaCacheService {
                     downloadedAt: Date.now(),
                     timestamp: Date.now(),
                 });
-                if ([MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) {
-                    await this.addToQueue({ url, mediaType, op: 'thumbnail' });
-                }
+                await this.enqueueThumbnail(url, mediaType);
             } else {
                 await this.updateItem(key, {
                     isDownloading: false,
@@ -206,10 +204,7 @@ class MediaCacheService {
         const { url, mediaType } = item;
         const cacheKey = this.generateCacheKey(url, mediaType);
         try {
-            console.log('[MediaCache] Thumbnail generation START:', mediaType, url);
             const result = await this.getOrCreateThumbnail(url, mediaType);
-            // getOrCreateThumbnail already sets localThumbPath if generated
-            console.log('[MediaCache] Thumbnail generation END:', mediaType, url, '->', result);
         } catch (e) {
             console.warn('[MediaCache] Thumbnail generation failed for', url, e);
         } finally {
@@ -327,12 +322,6 @@ class MediaCacheService {
         this.metadata$.next(this.getMetadata());
     }
 
-    private isPermanentFailure(url: string, mediaType: MediaType): boolean {
-        const key = this.generateCacheKey(url, mediaType);
-        const cachedItem = this.metadata[key];
-        return cachedItem?.isPermanentFailure ?? false;
-    }
-
     private async saveSingleItem(key: string) {
         try {
             if (!this.repo) throw new Error('Repository not initialized');
@@ -414,29 +403,37 @@ class MediaCacheService {
     ): Promise<void> {
         const { url, mediaType, force, notificationDate } = props;
         await this.initialize();
-        const key = this.generateCacheKey(url, mediaType);
 
-        // Check if already cached
         const cachedItem = await this.getCachedItem(url, mediaType);
         if (cachedItem && !force) {
             return;
         }
 
-        // Check if already downloading
-        if (this.downloadingKeys.has(key)) {
+        if (!cachedItem) {
+            const key = this.generateCacheKey(url, mediaType);
+            this.metadata[key] = {
+                key,
+                size: 0,
+                downloadedAt: undefined,
+                url,
+                mediaType,
+                isDownloading: true,
+                timestamp: Date.now(),
+            };
+            await this.saveSingleItem(this.generateCacheKey(url, mediaType));
+        }
+
+        if (
+            (
+                cachedItem?.isUserDeleted ||
+                cachedItem?.isPermanentFailure ||
+                cachedItem?.isDownloading
+            )
+            && !force
+        ) {
             return;
         }
 
-        // Check if user deleted or permanent failure
-        if (this.metadata[key]?.isUserDeleted && !force) {
-            return;
-        }
-
-        if (this.isPermanentFailure(url, mediaType) && !force) {
-            return;
-        }
-
-        // Add to download queue
         this.addToQueue({
             url,
             mediaType,
@@ -501,7 +498,7 @@ class MediaCacheService {
     }
 
     getCacheStats() {
-        const items = Object.values(this.metadata);
+        const items = Object.values(this.metadata).filter(item => !item.isUserDeleted);
         const totalSize = items.reduce((sum, item) => sum + (item.size || 0), 0);
 
         const itemsByType: Record<MediaType, number> = {
@@ -521,6 +518,7 @@ class MediaCacheService {
             totalSize,
             itemsByType,
         };
+        console.log(items, stats);
 
         return { items, stats };
     }
@@ -529,7 +527,7 @@ class MediaCacheService {
         return JSON.parse(JSON.stringify(this.metadata));
     }
 
-    async deleteCachedMedia(url: string, mediaType: MediaType): Promise<boolean> {
+    async deleteCachedMedia(url: string, mediaType: MediaType, permanent?: boolean): Promise<boolean> {
         await this.initialize();
 
         const key = this.generateCacheKey(url, mediaType);
@@ -561,22 +559,29 @@ class MediaCacheService {
                 console.warn('[MediaCache] Failed to delete thumbnail:', err);
             }
 
-            this.metadata[key] = {
-                ...cachedItem,
-                isUserDeleted: true,
-                localPath: undefined,
-                localThumbPath: undefined,
-                isPermanentFailure: false,
-                isDownloading: false,
-                size: 0,
-                timestamp: Date.now(),
-            };
-            await this.saveSingleItem(key);
+            if (permanent) {
+                delete this.metadata[key];
+                await this.repo?.deleteCacheItem(key);
+            } else {
+                this.metadata[key] = {
+                    ...cachedItem,
+                    isUserDeleted: true,
+                    localPath: undefined,
+                    localThumbPath: undefined,
+                    isPermanentFailure: false,
+                    isDownloading: false,
+                    size: 0,
+                    timestamp: Date.now(),
+                };
+                await this.saveSingleItem(key);
+            }
 
             return true;
         } catch (error) {
             console.error('[MediaCache] Failed to delete media:', error);
             return false;
+        } finally {
+            this.emitMetadata();
         }
     }
 
@@ -695,8 +700,6 @@ class MediaCacheService {
             }
             this.metadata = {};
             this.emitMetadata();
-
-            this.downloadingKeys.clear();
 
             console.log('[MediaCache] Cache cleared completely');
         } catch (error) {
