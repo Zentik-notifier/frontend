@@ -124,7 +124,6 @@ export function useDeleteNotification() {
 
 			if (queryData?.notifications) {
 				notificationData = queryData.notifications.find((n: any) => n.id === id) || null;
-				console.log(`🗑️ Found notification in cache:`, notificationData);
 			}
 		} catch (error) {
 			console.warn(`⚠️ Could not read notification data for ${id}:`, error);
@@ -360,7 +359,6 @@ export function useMassDeleteNotifications() {
 				query: GetNotificationsDocument,
 			}) as { notifications: NotificationFragment[] } | null;
 			cachedNotifications = queryData?.notifications || [];
-			console.log(`🗑️ Found ${cachedNotifications.length} notifications in cache`);
 		} catch (error) {
 			console.warn(`⚠️ Could not read notifications query:`, error);
 		}
