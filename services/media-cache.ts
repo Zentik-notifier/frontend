@@ -307,7 +307,7 @@ class MediaCacheService {
                 this.metadata[key] = {
                     ...item,
                     isDownloading: false,
-                    generatingThumbnail: item.generatingThumbnail ?? false,
+                    generatingThumbnail: false,
                     isPermanentFailure: item.isPermanentFailure ?? false,
                 };
             }
