@@ -12,6 +12,11 @@ import AVKit
 import AVFoundation
 import WebKit
 import Security
+import SQLite3
+import MobileCoreServices
+import SafariServices
+// SQLite helper for Swift bindings
+private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
 class NotificationViewController: UIViewController, UNNotificationContentExtension {
     
@@ -292,19 +297,10 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             heightConstraint
         ])
 
-        // Footer container (selector)
-        let footer = UIView()
-        view.addSubview(footer)
-        footerContainerView = footer
-        footer.translatesAutoresizingMaskIntoConstraints = false
-        footerTopToContainerConstraint = footer.topAnchor.constraint(equalTo: container.bottomAnchor, constant: 8)
-        NSLayoutConstraint.activate([
-            footerTopToContainerConstraint!,
-            footer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            footer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            footer.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-        
+        // Footer selector will be created lazily only when needed
+        footerContainerView = nil
+        footerTopToContainerConstraint = nil
+
         // Hide default labels
             bodyLabel?.isHidden = true
             titleLabel?.isHidden = true
@@ -452,10 +448,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         }.count
         if nonIconItemsCount > 1 {
             setupMediaSelectorFromData()
-            footerTopToContainerConstraint?.constant = 8
         } else {
-            mediaSelectorView?.removeFromSuperview()
-            footerTopToContainerConstraint?.constant = 0 // elimina il bordo/spacing quando non c'è footer
+            hideFooterCompletely()
         }
         
         // Se ci sono solo ICON e AUDIO, o nessun media disponibile, non espandere con contenuto gigante: mostra placeholder compatto
@@ -465,6 +459,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         }
 
         if hasNonIcon {
+            // Se esiste un solo media non-ICON, comportati come nel caso icon/audio-only per il footer
+            let count = nonIconMediaCount()
+            if count <= 1 { hideFooterCompletely() }
             // Display first non-ICON media from attachmentData
             let firstNonIconIndex = findFirstNonIconMediaIndex()
             selectedMediaIndex = firstNonIconIndex
@@ -491,6 +488,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Set expanded size (iniziale), verrà aggiustata in base al media
         preferredContentSize = CGSize(width: view.bounds.width, height: headerViewHeight() + 240 + footerHeight())
+        if nonIconMediaCount() <= 1 { hideFooterCompletely() }
     }
 
     private func refreshHeaderIcon() {
@@ -607,7 +605,28 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     }
 
     private func footerHeight() -> CGFloat {
+        // Hide footer entirely if there is 0 or 1 non-ICON/AUDIO media
+        if nonIconMediaCount() <= 1 { return 0 }
         return (mediaSelectorView?.superview != nil) ? 88 : 0
+    }
+
+    private func nonIconMediaCount() -> Int {
+        return attachmentData.filter { (item) in
+            let t = (item["mediaType"] as? String ?? "").uppercased()
+            return t != "ICON" && t != "AUDIO"
+        }.count
+    }
+
+    private func hideFooterCompletely() {
+        mediaSelectorView?.removeFromSuperview()
+        if let footer = footerContainerView {
+            // Deactivate explicit height constraints
+            for c in footer.constraints where c.firstAttribute == .height { c.isActive = false }
+            footer.removeFromSuperview()
+            footerContainerView = nil
+        }
+        footerTopToContainerConstraint?.constant = 0
+        view.layoutIfNeeded()
     }
 
     private func adjustPreferredHeightForVideo(url: URL) {
@@ -743,15 +762,13 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         mediaThumbnails.forEach { $0.removeFromSuperview() }
         mediaThumbnails.removeAll()
         
-        // Create container view for selector (no icon inside footer per richiesta)
-        let selectorContainer = footerContainerView ?? UIView()
-        if selectorContainer.superview == nil {
-            selectorContainer.backgroundColor = UIColor.systemGray6
-            selectorContainer.layer.borderWidth = 1
-            selectorContainer.layer.borderColor = UIColor.systemGray4.cgColor
-            view.addSubview(selectorContainer)
-            footerContainerView = selectorContainer
-        }
+        // Create container view for selector (no icon inside footer per richiesta) lazily
+        let selectorContainer = UIView()
+        selectorContainer.backgroundColor = UIColor.systemGray6
+        selectorContainer.layer.borderWidth = 1
+        selectorContainer.layer.borderColor = UIColor.systemGray4.cgColor
+        view.addSubview(selectorContainer)
+        footerContainerView = selectorContainer
         
         // Setup constraints for container
         selectorContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -1121,6 +1138,17 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     try mutableUrl.setResourceValues(rv)
                 } catch { }
 
+                // Update DB with upsert
+                let nowMs = Int(Date().timeIntervalSince1970 * 1000)
+                self.upsertCacheItem(url: url.absoluteString, mediaType: mediaTypeString, fields: [
+                    "local_path": sharedFileURL.path,
+                    "timestamp": nowMs,
+                    "size": data.count,
+                    "media_type": mediaTypeString,
+                    "is_downloading": 0,
+                    "downloaded_at": nowMs
+                ])
+
                 DispatchQueue.main.async {
                     print("📱 [ContentExtension] ✅ Media downloaded to shared cache: \(sharedFileURL.lastPathComponent)")
                     // Display from shared cache path
@@ -1336,33 +1364,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     }
     
     private func clearMediaErrorFlag(url: String, mediaType: String) {
-        let sharedCacheDirectory = getSharedMediaCacheDirectory()
-        let metadataFile = sharedCacheDirectory.appendingPathComponent("metadata.json")
-        
-        guard FileManager.default.fileExists(atPath: metadataFile.path) else {
-            return
-        }
-        
-        do {
-            let data = try Data(contentsOf: metadataFile)
-            var metadata = try JSONSerialization.jsonObject(with: data) as? [String: [String: Any]] ?? [:]
-            
-            let cacheKey = "\(mediaType.uppercased())_\(url)"
-            if var item = metadata[cacheKey] as? [String: Any] {
-                item["hasError"] = false
-                item["errorMessage"] = nil
-                item["isDownloading"] = true
-                item["downloadProgress"] = 0
-                metadata[cacheKey] = item
-                
-                let updatedData = try JSONSerialization.data(withJSONObject: metadata, options: .prettyPrinted)
-                try updatedData.write(to: metadataFile)
-                
-                print("📱 [ContentExtension] ✅ Cleared error flag for: \(cacheKey)")
-            }
-        } catch {
-            print("📱 [ContentExtension] ❌ Failed to clear error flag: \(error)")
-        }
+        upsertCacheItem(url: url, mediaType: mediaType, fields: [
+            "is_permanent_failure": 0,
+            "is_downloading": 1,
+            "timestamp": Int(Date().timeIntervalSince1970 * 1000)
+        ])
     }
     
     private func shouldAttemptAudioPlayback() -> Bool {
@@ -2408,6 +2414,112 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         cleanupCurrentMedia()
     }
+
+    private func getDbPath() -> String {
+        let dir = getSharedMediaCacheDirectory()
+        return dir.appendingPathComponent("cache.db").path
+    }
+
+    private func upsertCacheItem(url: String, mediaType: String, fields: [String: Any]) {
+        let dbPath = getDbPath()
+        guard FileManager.default.fileExists(atPath: dbPath) else { return }
+        var db: OpaquePointer?
+        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE, nil) != SQLITE_OK { return }
+        defer { sqlite3_close(db) }
+        let key = "\(mediaType.uppercased())_\(url)"
+        var allFields = fields
+        allFields["key"] = key
+        allFields["url"] = url
+        allFields["media_type"] = mediaType.uppercased()
+        let columns = ["key","url","local_path","local_thumb_path","generating_thumbnail","timestamp","size","media_type","original_file_name","downloaded_at","notification_date","is_downloading","is_permanent_failure","is_user_deleted","error_code"]
+        let placeholders = Array(repeating: "?", count: columns.count).joined(separator: ",")
+        let sql = "INSERT INTO cache_item (\(columns.joined(separator: ","))) VALUES (\(placeholders)) ON CONFLICT(key) DO UPDATE SET url=excluded.url, local_path=excluded.local_path, local_thumb_path=excluded.local_thumb_path, generating_thumbnail=excluded.generating_thumbnail, timestamp=excluded.timestamp, size=excluded.size, media_type=excluded.media_type, original_file_name=excluded.original_file_name, downloaded_at=excluded.downloaded_at, notification_date=excluded.notification_date, is_downloading=excluded.is_downloading, is_permanent_failure=excluded.is_permanent_failure, is_user_deleted=excluded.is_user_deleted, error_code=excluded.error_code;"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
+            print("📱 [ContentExtension] ❌ Failed to prepare UPSERT: \(String(cString: sqlite3_errmsg(db)))")
+            return
+        }
+        defer { sqlite3_finalize(stmt) }
+        func bind(_ idx: Int32, _ value: Any?) {
+            if value == nil { sqlite3_bind_null(stmt, idx); return }
+            switch value {
+            case let v as String:
+                sqlite3_bind_text(stmt, idx, (v as NSString).utf8String, -1, SQLITE_TRANSIENT)
+            case let v as Int:
+                sqlite3_bind_int64(stmt, idx, Int64(v))
+            case let v as Int64:
+                sqlite3_bind_int64(stmt, idx, v)
+            case let v as Bool:
+                sqlite3_bind_int(stmt, idx, v ? 1 : 0)
+            default:
+                sqlite3_bind_null(stmt, idx)
+            }
+        }
+        let values: [Any?] = [
+            allFields["key"],
+            allFields["url"],
+            allFields["local_path"],
+            allFields["local_thumb_path"],
+            allFields["generating_thumbnail"],
+            allFields["timestamp"],
+            allFields["size"],
+            allFields["media_type"],
+            allFields["original_file_name"],
+            allFields["downloaded_at"],
+            allFields["notification_date"],
+            allFields["is_downloading"],
+            allFields["is_permanent_failure"],
+            allFields["is_user_deleted"],
+            allFields["error_code"],
+        ]
+        for (i, v) in values.enumerated() { bind(Int32(i+1), v) }
+        if sqlite3_step(stmt) != SQLITE_DONE {
+            print("📱 [ContentExtension] ❌ UPSERT failed: \(String(cString: sqlite3_errmsg(db)))")
+        }
+    }
+
+    private func isMediaDownloading(url: String, mediaType: String) -> Bool {
+        // Leggi stato da SQLite
+        let dbPath = getDbPath()
+        guard FileManager.default.fileExists(atPath: dbPath) else { return false }
+        var db: OpaquePointer?
+        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) != SQLITE_OK { return false }
+        defer { sqlite3_close(db) }
+        let key = "\(mediaType.uppercased())_\(url)"
+        let sql = "SELECT is_downloading FROM cache_item WHERE key = ? LIMIT 1"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK { return false }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        if sqlite3_step(stmt) == SQLITE_ROW {
+            let val = sqlite3_column_int(stmt, 0)
+            return val == 1
+        }
+        return false
+    }
+
+    private func hasMediaDownloadError(url: String, mediaType: String) -> (hasError: Bool, errorMessage: String?) {
+        let dbPath = getDbPath()
+        guard FileManager.default.fileExists(atPath: dbPath) else { return (false, nil) }
+        var db: OpaquePointer?
+        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) != SQLITE_OK { return (false, nil) }
+        defer { sqlite3_close(db) }
+        let key = "\(mediaType.uppercased())_\(url)"
+        let sql = "SELECT is_permanent_failure, error_code FROM cache_item WHERE key = ? LIMIT 1"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK { return (false, nil) }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        if sqlite3_step(stmt) == SQLITE_ROW {
+            let val = sqlite3_column_int(stmt, 0)
+            var code: String? = nil
+            if let cStr = sqlite3_column_text(stmt, 1) { code = String(cString: cStr) }
+            return (val == 1, code)
+        }
+        return (false, nil)
+    }
+
+    
 }
 
 // MARK: - Media Type Enum
@@ -3329,8 +3441,35 @@ extension NotificationViewController {
                 showMediaLoadingIndicator()
                 pollForMediaCompletion(url: urlString, mediaType: mediaTypeString, originalMediaType: mediaType)
             } else {
-                // Offri un pulsante per avviare il download manualmente
-                presentDownloadCTA(urlString: urlString, mediaType: mediaType, metaMediaType: mediaTypeString)
+                // Se esiste un errore registrato su DB, mostra schermata di errore con eventuale codice
+                let errorCheck = hasMediaDownloadError(url: urlString, mediaType: mediaTypeString)
+                if errorCheck.hasError {
+                    let msg = errorCheck.errorMessage != nil ? "Download failed (\(errorCheck.errorMessage!))" : "Download failed"
+                    print("📱 [ContentExtension] ❌ Showing error view: \(msg)")
+                    // Remove footer if only one non-ICON media
+                    let nonIconCount = self.attachmentData.filter { ($0["mediaType"] as? String ?? "").uppercased() != "ICON" && ($0["mediaType"] as? String ?? "").uppercased() != "AUDIO" }.count
+                    if nonIconCount <= 1 {
+                        self.mediaSelectorView?.removeFromSuperview()
+                        if let footer = self.footerContainerView { footer.removeFromSuperview(); self.footerContainerView = nil }
+                        self.footerTopToContainerConstraint?.constant = 0
+                    }
+                    showMediaError(msg, allowRetry: true, retryAction: { [weak self] in
+                        self?.retryCurrentMediaDownload()
+                    })
+                } else {
+                    // Nessun download in corso e nessun file: mostra schermata d'errore al posto del retry
+                    let generic = "Media not available"
+                    print("📱 [ContentExtension] ❌ Showing generic error view: \(generic)")
+                    let nonIconCount = self.attachmentData.filter { ($0["mediaType"] as? String ?? "").uppercased() != "ICON" && ($0["mediaType"] as? String ?? "").uppercased() != "AUDIO" }.count
+                    if nonIconCount <= 1 {
+                        self.mediaSelectorView?.removeFromSuperview()
+                        if let footer = self.footerContainerView { footer.removeFromSuperview(); self.footerContainerView = nil }
+                        self.footerTopToContainerConstraint?.constant = 0
+                    }
+                    showMediaError(generic, allowRetry: true, retryAction: { [weak self] in
+                        self?.retryCurrentMediaDownload()
+                    })
+                }
             }
         }
     }
@@ -3414,63 +3553,6 @@ extension NotificationViewController {
         }
         
         return nil
-    }
-    
-    private func isMediaDownloading(url: String, mediaType: String) -> Bool {
-        let sharedCacheDirectory = getSharedMediaCacheDirectory()
-        let metadataFile = sharedCacheDirectory.appendingPathComponent("metadata.json")
-        
-        print("📱 [ContentExtension] 🔍 Checking metadata file: \(metadataFile.path)")
-        
-        guard FileManager.default.fileExists(atPath: metadataFile.path) else {
-            print("📱 [ContentExtension] ❌ Metadata file does not exist")
-            return false
-        }
-        
-        do {
-            let data = try Data(contentsOf: metadataFile)
-            guard let metadata = try JSONSerialization.jsonObject(with: data) as? [String: [String: Any]] else {
-                print("📱 [ContentExtension] ❌ Failed to parse metadata JSON")
-                return false
-            }
-            
-            let cacheKey = "\(mediaType.uppercased())_\(url)"
-            let isDownloading = metadata[cacheKey]?["isDownloading"] as? Bool ?? false
-            
-            print("📱 [ContentExtension] 📊 Metadata keys: \(Array(metadata.keys))")
-            print("📱 [ContentExtension] 🔍 Looking for cache key: \(cacheKey)")
-            print("📱 [ContentExtension] 📥 Is downloading: \(isDownloading)")
-            
-            return isDownloading
-        } catch {
-            print("📱 [ContentExtension] ❌ Failed to read shared metadata: \(error)")
-            return false
-        }
-    }
-    
-    private func hasMediaDownloadError(url: String, mediaType: String) -> (hasError: Bool, errorMessage: String?) {
-        let sharedCacheDirectory = getSharedMediaCacheDirectory()
-        let metadataFile = sharedCacheDirectory.appendingPathComponent("metadata.json")
-        
-        guard FileManager.default.fileExists(atPath: metadataFile.path) else {
-            return (false, nil)
-        }
-        
-        do {
-            let data = try Data(contentsOf: metadataFile)
-            let metadata = try JSONSerialization.jsonObject(with: data) as? [String: [String: Any]] ?? [:]
-            
-            let cacheKey = "\(mediaType.uppercased())_\(url)"
-            let hasError = metadata[cacheKey]?["hasError"] as? Bool ?? false
-            let errorMessage = metadata[cacheKey]?["errorMessage"] as? String
-            
-            print("📱 [ContentExtension] 🔍 Media error check for \(cacheKey): hasError=\(hasError), message=\(errorMessage ?? "none")")
-            
-            return (hasError, errorMessage)
-        } catch {
-            print("📱 [ContentExtension] ❌ Failed to read shared metadata for error check: \(error)")
-            return (false, nil)
-        }
     }
     
     private func pollForMediaCompletion(url: String, mediaType: String, originalMediaType: MediaType) {

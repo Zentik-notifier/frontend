@@ -29,7 +29,7 @@ export class MediaCacheRepository {
         error_code=excluded.error_code
       `,
       [
-        `${String(item.mediaType).toUpperCase()}_${item.url}`,
+        item.key,
         item.url,
         item.localPath ?? null,
         item.localThumbPath ?? null,
@@ -94,7 +94,7 @@ export class MediaCacheRepository {
             error_code=excluded.error_code
           `,
           [
-            `${String(item.mediaType).toUpperCase()}_${item.url}`,
+            item.key,
             item.url,
             item.localPath ?? null,
             item.localThumbPath ?? null,

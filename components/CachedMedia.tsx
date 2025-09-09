@@ -37,7 +37,6 @@ interface CachedMediaProps {
   contentFit?: ImageContentFit;
   onPress?: () => void;
   isCompact?: boolean;
-  smallButtons?: boolean;
   noAutoDownload?: boolean;
   showMediaIndicator?: boolean;
   useThumbnail?: boolean;
@@ -74,7 +73,6 @@ export const CachedMedia = React.memo(function CachedMedia({
   contentFit = "cover",
   onPress: onPressParent,
   isCompact,
-  smallButtons,
   noAutoDownload,
   showMediaIndicator,
   useThumbnail,
@@ -218,8 +216,6 @@ export const CachedMedia = React.memo(function CachedMedia({
   };
 
   const renderSmallTypeIndicator = () => {
-    if (!smallButtons) return null;
-
     return (
       <View style={[defaultStyles.smallTypeIndicator]}>
         <MediaTypeIcon mediaType={mediaType} size={12} secondary />
@@ -267,36 +263,20 @@ export const CachedMedia = React.memo(function CachedMedia({
       <View style={defaultStyles.buttonContainer}>
         <Pressable
           onPress={ignoreClicks ? undefined : handleForceDownload}
-          style={
-            smallButtons
-              ? defaultStyles.smallDownloadButton
-              : defaultStyles.forceDownloadButton
-          }
+          style={defaultStyles.forceDownloadButton}
         >
-          {smallButtons ? (
-            <Ionicons name="download" size={16} color="white" />
-          ) : (
-            <Text style={defaultStyles.forceDownloadButtonText}>
-              {t("cachedMedia.forceDownload")}
-            </Text>
-          )}
+          <Text style={defaultStyles.forceDownloadButtonText}>
+            {t("cachedMedia.forceDownload")}
+          </Text>
         </Pressable>
         {withDelete && (
           <Pressable
             onPress={ignoreClicks ? undefined : handleDeleteCachedMedia}
-            style={
-              smallButtons
-                ? defaultStyles.smallDeleteButton
-                : defaultStyles.deleteButton
-            }
+            style={defaultStyles.deleteButton}
           >
-            {smallButtons ? (
-              <Ionicons name="trash" size={16} color="white" />
-            ) : (
-              <Text style={defaultStyles.deleteButtonText}>
-                {t("cachedMedia.delete")}
-              </Text>
-            )}
+            <Text style={defaultStyles.deleteButtonText}>
+              {t("cachedMedia.delete")}
+            </Text>
           </Pressable>
         )}
       </View>
@@ -507,7 +487,7 @@ export const CachedMedia = React.memo(function CachedMedia({
                     <Text style={defaultStyles.audioTitle}>
                       {originalFileName || "Audio"}
                     </Text>
-                    {!smallButtons && (
+                    {!isCompact && (
                       <Text style={defaultStyles.audioDuration}>
                         {audioState.isLoaded && audioState.duration > 0
                           ? `${Math.floor(
@@ -583,8 +563,8 @@ export const CachedMedia = React.memo(function CachedMedia({
   return (
     <View style={style}>
       {renderMedia()}
-      {showMediaIndicator && !smallButtons && renderTypeIndicator()}
-      {showMediaIndicator && smallButtons && renderSmallTypeIndicator()}
+      {showMediaIndicator &&
+        (isCompact ? renderSmallTypeIndicator() : renderTypeIndicator())}
     </View>
   );
 });
@@ -610,8 +590,9 @@ const defaultStyles = StyleSheet.create({
     alignItems: "center",
     minHeight: 40,
     minWidth: 40,
-    backgroundColor: "#ffffff",
-    borderWidth: 0,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    backgroundColor: "#f8f8f8",
   },
 
   // Contenuto centralizzato per gli stati

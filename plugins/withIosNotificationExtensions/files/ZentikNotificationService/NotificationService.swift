@@ -3,6 +3,9 @@ import UIKit
 import Security
 import CryptoKit
 import UniformTypeIdentifiers
+import SQLite3
+// SQLite helper for Swift bindings
+private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
 class NotificationService: UNNotificationServiceExtension {
 
@@ -809,12 +812,17 @@ class NotificationService: UNNotificationServiceExtension {
             let typeDirectory = cacheDirectory.appendingPathComponent(mediaItem.mediaType.uppercased())
             let typeCandidate = typeDirectory.appendingPathComponent(filename)
 
-            let sharedMeta = self.getSharedMetadata()
-            let cacheKey = "\(mediaItem.mediaType.uppercased())_\(mediaItem.url)"
-            if sharedMeta[cacheKey] != nil {
-                let candidateUrl = FileManager.default.fileExists(atPath: typeCandidate.path) ? typeCandidate : (FileManager.default.fileExists(atPath: rootCandidate.path) ? rootCandidate : nil)
+            if let localPath = self.getLocalPathFromDb(url: mediaItem.url, mediaType: mediaItem.mediaType) {
+                // localPath may already include file://, so normalize
+                let dbUrl: URL
+                if localPath.hasPrefix("file://") {
+                    dbUrl = URL(string: localPath) ?? URL(fileURLWithPath: (localPath as NSString).expandingTildeInPath)
+                } else {
+                    dbUrl = URL(fileURLWithPath: localPath)
+                }
+                let candidateUrl = FileManager.default.fileExists(atPath: dbUrl.path) ? dbUrl : (FileManager.default.fileExists(atPath: typeCandidate.path) ? typeCandidate : (FileManager.default.fileExists(atPath: rootCandidate.path) ? rootCandidate : nil))
                 if let candidateUrl {
-                    print("📱 [NotificationService] ⚡️ Using cached media from shared metadata: \(cacheKey)")
+                    print("📱 [NotificationService] ⚡️ Using cached media from SQLite: \(candidateUrl.path)")
                     do {
                         // Create attachment from a temp copy to avoid any system move/lock on the shared file
                         let tmpAttachmentUrl = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
@@ -828,7 +836,7 @@ class NotificationService: UNNotificationServiceExtension {
                             url: tmpAttachmentUrl,
                             options: attachmentOptions as? [String : Any]
                         )
-                        // Mark as completed in shared metadata since we're using cached file
+                        // Mark as completed in DB since we're using cached file
                         self.markMediaAsCompleted(mediaItem, success: true, isNewDownload: false)
                         completion(attachment)
                         return
@@ -1412,7 +1420,7 @@ class NotificationService: UNNotificationServiceExtension {
         
         if result == .timedOut {
             print("📱 [NotificationService] ⚠️ Some background downloads timed out")
-            // Mark timed out downloads as failed in shared metadata
+            // Mark timed out downloads as failed in DB
             self.markTimedOutDownloadsAsFailed(mediaAttachments)
         } else {
             print("📱 [NotificationService] ✅ All background media downloads completed successfully")
@@ -1420,49 +1428,28 @@ class NotificationService: UNNotificationServiceExtension {
     }
     
     private func setDownloadErrorFlag(for mediaAttachment: MediaAttachment) {
-        let sharedMetaPath = getSharedMetadataFilePath()
-        var sharedMeta = getSharedMetadata()
-        
-        let cacheKey = "\(mediaAttachment.mediaType.uppercased())_\(mediaAttachment.url)"
-        sharedMeta[cacheKey] = [
-            "url": mediaAttachment.url,
-            "mediaType": mediaAttachment.mediaType,
-            "timestamp": Date().timeIntervalSince1970 * 1000,
-            "downloadProgress": 0,
-            "isDownloading": false,
-            "hasError": true,
-            "errorMessage": "Download failed in NotificationService"
-        ]
-        
-        do {
-            let jsonData = try JSONSerialization.data(withJSONObject: sharedMeta, options: .prettyPrinted)
-            try jsonData.write(to: sharedMetaPath)
-            print("📱 [NotificationService] ✅ Set download error flag for: \(cacheKey)")
-        } catch {
-            print("📱 [NotificationService] ❌ Failed to set download error flag: \(error)")
-        }
+        upsertCacheItem(
+            url: mediaAttachment.url,
+            mediaType: mediaAttachment.mediaType,
+            fields: [
+                "is_downloading": 0,
+                "is_permanent_failure": 1,
+                "timestamp": Int(Date().timeIntervalSince1970 * 1000)
+            ]
+        )
     }
     
     private func markTimedOutDownloadsAsFailed(_ mediaAttachments: [MediaAttachment]) {
-        let sharedMetaPath = getSharedMetadataFilePath()
-        var sharedMeta = getSharedMetadata()
-        
         for mediaAttachment in mediaAttachments {
-            let cacheKey = "\(mediaAttachment.mediaType.uppercased())_\(mediaAttachment.url)"
-            if var item = sharedMeta[cacheKey] as? [String: Any] {
-                item["hasError"] = true
-                item["errorMessage"] = "Download timed out"
-                item["isDownloading"] = false
-                sharedMeta[cacheKey] = item
-            }
-        }
-        
-        do {
-            let jsonData = try JSONSerialization.data(withJSONObject: sharedMeta, options: .prettyPrinted)
-            try jsonData.write(to: sharedMetaPath)
-            print("📱 [NotificationService] ✅ Marked timed out downloads as failed")
-        } catch {
-            print("📱 [NotificationService] ❌ Failed to mark timed out downloads as failed: \(error)")
+            upsertCacheItem(
+                url: mediaAttachment.url,
+                mediaType: mediaAttachment.mediaType,
+                fields: [
+                    "is_downloading": 0,
+                    "is_permanent_failure": 1,
+                    "timestamp": Int(Date().timeIntervalSince1970 * 1000)
+                ]
+            )
         }
     }
     
@@ -1556,156 +1543,158 @@ class NotificationService: UNNotificationServiceExtension {
     }
     
     private func updateSharedMetadata(for mediaAttachments: [MediaAttachment]) {
-        // Update shared metadata using a JSON file in the shared container
-        // This will be read by the Content Extension to show loading states
-        let sharedCacheDirectory = getSharedMediaCacheDirectory()
-        let metadataFile = sharedCacheDirectory.appendingPathComponent("metadata.json")
-        
-        var sharedMetadata: [String: [String: Any]] = [:]
-        
-        // Load existing metadata from file
-        if FileManager.default.fileExists(atPath: metadataFile.path) {
-            do {
-                let data = try Data(contentsOf: metadataFile)
-                if let existing = try JSONSerialization.jsonObject(with: data) as? [String: [String: Any]] {
-                    sharedMetadata = existing
-                }
-            } catch {
-                print("📱 [NotificationService] ⚠️ Failed to load existing metadata: \(error)")
-            }
-        }
-        
-        let now = Date().timeIntervalSince1970 * 1000
-        
-        // Add metadata for each media attachment
+        let nowMs = Int(Date().timeIntervalSince1970 * 1000)
         for mediaAttachment in mediaAttachments {
-            let cacheKey = "\(mediaAttachment.mediaType.uppercased())_\(mediaAttachment.url)"
             let filename = generateSafeFileName(
                 url: mediaAttachment.url,
                 mediaType: mediaAttachment.mediaType,
                 originalFileName: mediaAttachment.name
             )
-            let typeDirectory = sharedCacheDirectory.appendingPathComponent(mediaAttachment.mediaType.uppercased())
+            let typeDirectory = getSharedMediaCacheDirectory().appendingPathComponent(mediaAttachment.mediaType.uppercased())
             let localPath = typeDirectory.appendingPathComponent(filename).path
-            
-            // Ensure path starts with file:// for consistency with React Native
-            var formattedPath = localPath
-            if !formattedPath.hasPrefix("file://") {
-                formattedPath = "file://\(formattedPath)"
-            }
-            
-            sharedMetadata[cacheKey] = [
-                "url": mediaAttachment.url,
-                "localPath": formattedPath,
-                "timestamp": now,
-                "size": 0, // Will be updated when download completes
-                "mediaType": mediaAttachment.mediaType.uppercased(),
-                "originalFileName": mediaAttachment.name ?? "",
-                "isDownloading": true,
-                "downloadProgress": 0,
-                "notificationDate": now
-            ]
-        }
-        
-        // Save updated metadata to file
-        do {
-            let data = try JSONSerialization.data(withJSONObject: sharedMetadata, options: .prettyPrinted)
-            try data.write(to: metadataFile)
-            print("📱 [NotificationService] ✅ Updated shared metadata file for \(mediaAttachments.count) media items")
-            print("📱 [NotificationService] 📄 Metadata file path: \(metadataFile.path)")
-            print("📱 [NotificationService] 📊 Metadata keys: \(Array(sharedMetadata.keys))")
-        } catch {
-            print("📱 [NotificationService] ❌ Failed to save shared metadata file: \(error)")
+            upsertCacheItem(
+                url: mediaAttachment.url,
+                mediaType: mediaAttachment.mediaType,
+                fields: [
+                    "local_path": localPath,
+                    "timestamp": nowMs,
+                    "size": 0,
+                    "media_type": mediaAttachment.mediaType.uppercased(),
+                    "original_file_name": mediaAttachment.name ?? "",
+                    "is_downloading": 1,
+                    "downloaded_at": nowMs,
+                    "notification_date": nowMs
+                ]
+            )
         }
     }
     
     private func markMediaAsCompleted(_ mediaAttachment: MediaAttachment, success: Bool, isNewDownload: Bool = true) {
         let sharedCacheDirectory = getSharedMediaCacheDirectory()
-        let metadataFile = sharedCacheDirectory.appendingPathComponent("metadata.json")
-        
-        var sharedMetadata: [String: [String: Any]] = [:]
-        
-        // Load existing metadata
-        if FileManager.default.fileExists(atPath: metadataFile.path) {
-            do {
-                let data = try Data(contentsOf: metadataFile)
-                if let existing = try JSONSerialization.jsonObject(with: data) as? [String: [String: Any]] {
-                    sharedMetadata = existing
-                }
-            } catch {
-                print("📱 [NotificationService] ⚠️ Failed to load existing metadata for completion: \(error)")
-            }
-        }
-        
-        let cacheKey = "\(mediaAttachment.mediaType.uppercased())_\(mediaAttachment.url)"
-        // Resolve cached file path to update size/localPath
         let filename = generateSafeFileName(url: mediaAttachment.url, mediaType: mediaAttachment.mediaType, originalFileName: mediaAttachment.name)
         let typeDirectory = sharedCacheDirectory.appendingPathComponent(mediaAttachment.mediaType.uppercased())
         let typeCandidate = typeDirectory.appendingPathComponent(filename)
         let rootCandidate = sharedCacheDirectory.appendingPathComponent(filename)
         let fileUrl: URL? = FileManager.default.fileExists(atPath: typeCandidate.path) ? typeCandidate : (FileManager.default.fileExists(atPath: rootCandidate.path) ? rootCandidate : nil)
         var fileSize: Int64 = 0
+        var localPath: String? = nil
         if let fileUrl {
             if let attrs = try? FileManager.default.attributesOfItem(atPath: fileUrl.path), let sizeNum = attrs[.size] as? NSNumber {
                 fileSize = sizeNum.int64Value
             }
+            localPath = fileUrl.path
         }
-
-        var mediaMetadata = sharedMetadata[cacheKey] ?? [:]
-        mediaMetadata["isDownloading"] = false
-        mediaMetadata["downloadProgress"] = success ? 100 : 0
-        mediaMetadata["hasError"] = !success
-        if success && isNewDownload { 
-            mediaMetadata["downloadedAt"] = Date().timeIntervalSince1970 * 1000
-            mediaMetadata["errorMessage"] = nil
-        } else if !success {
-            mediaMetadata["errorMessage"] = "Download failed"
-        }
-        if let fileUrl { 
-            // Ensure path starts with file:// for consistency with React Native
-            var pathString = fileUrl.path
-            if !pathString.hasPrefix("file://") {
-                pathString = "file://\(pathString)"
-            }
-            mediaMetadata["localPath"] = pathString
-        }
-        if fileSize > 0 { mediaMetadata["size"] = fileSize }
-        // Ensure timestamp exists
-        if mediaMetadata["timestamp"] == nil { mediaMetadata["timestamp"] = Date().timeIntervalSince1970 * 1000 }
-        sharedMetadata[cacheKey] = mediaMetadata
-
-        // Save updated metadata
-        do {
-            let data = try JSONSerialization.data(withJSONObject: sharedMetadata, options: .prettyPrinted)
-            try data.write(to: metadataFile)
-            print("📱 [NotificationService] ✅ Marked media as completed: \(cacheKey) (success: \(success)) size: \(fileSize)")
-        } catch {
-            print("📱 [NotificationService] ❌ Failed to update completion metadata: \(error)")
-        }
+        var fields: [String: Any] = [
+            "is_downloading": 0,
+            "timestamp": Int(Date().timeIntervalSince1970 * 1000),
+            "has_error": success ? 0 : 1
+        ]
+        if let localPath { fields["local_path"] = localPath }
+        if fileSize > 0 { fields["size"] = Int(fileSize) }
+        if success && isNewDownload { fields["downloaded_at"] = Int(Date().timeIntervalSince1970 * 1000) }
+        upsertCacheItem(url: mediaAttachment.url, mediaType: mediaAttachment.mediaType, fields: fields)
     }
 
-    // Load shared metadata from JSON file in the shared container
-    private func getSharedMetadata() -> [String: [String: Any]] {
-        let sharedCacheDirectory = getSharedMediaCacheDirectory()
-        let metadataFile = sharedCacheDirectory.appendingPathComponent("metadata.json")
-        guard FileManager.default.fileExists(atPath: metadataFile.path) else {
-            return [:]
+    // MARK: - SQLite helpers
+    private func getDbPath() -> String {
+        let dir = getSharedMediaCacheDirectory()
+        return dir.appendingPathComponent("cache.db").path
+    }
+
+    private func upsertCacheItem(url: String, mediaType: String, fields: [String: Any]) {
+        let dbPath = getDbPath()
+        guard FileManager.default.fileExists(atPath: dbPath) else {
+            print("📱 [NotificationService] ⚠️ DB not found, skipping upsert")
+            return
         }
-        do {
-            let data = try Data(contentsOf: metadataFile)
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: [String: Any]] {
-                return json
+        var db: OpaquePointer?
+        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE, nil) != SQLITE_OK {
+            print("📱 [NotificationService] ❌ Failed to open existing DB (rw) at \(dbPath)")
+            return
+        }
+        defer { sqlite3_close(db) }
+        let key = "\(mediaType.uppercased())_\(url)"
+        // Build UPSERT using named columns
+        var allFields = fields
+        allFields["key"] = key
+        allFields["url"] = url
+        allFields["media_type"] = mediaType.uppercased()
+        // Apply defaults for NOT NULL columns to satisfy RN schema
+        let nowMs = Int(Date().timeIntervalSince1970 * 1000)
+        if allFields["generating_thumbnail"] == nil { allFields["generating_thumbnail"] = 0 }
+        if allFields["timestamp"] == nil { allFields["timestamp"] = nowMs }
+        if allFields["size"] == nil { allFields["size"] = 0 }
+        if allFields["downloaded_at"] == nil { allFields["downloaded_at"] = nowMs }
+        if allFields["is_downloading"] == nil { allFields["is_downloading"] = 0 }
+        if allFields["is_permanent_failure"] == nil { allFields["is_permanent_failure"] = 0 }
+        if allFields["is_user_deleted"] == nil { allFields["is_user_deleted"] = 0 }
+        let columns = ["key","url","local_path","local_thumb_path","generating_thumbnail","timestamp","size","media_type","original_file_name","downloaded_at","notification_date","is_downloading","is_permanent_failure","is_user_deleted","error_code"]
+        let placeholders = Array(repeating: "?", count: columns.count).joined(separator: ",")
+        let sql = "INSERT INTO cache_item (\(columns.joined(separator: ","))) VALUES (\(placeholders)) ON CONFLICT(key) DO UPDATE SET url=excluded.url, local_path=excluded.local_path, local_thumb_path=excluded.local_thumb_path, generating_thumbnail=excluded.generating_thumbnail, timestamp=excluded.timestamp, size=excluded.size, media_type=excluded.media_type, original_file_name=excluded.original_file_name, downloaded_at=excluded.downloaded_at, notification_date=excluded.notification_date, is_downloading=excluded.is_downloading, is_permanent_failure=excluded.is_permanent_failure, is_user_deleted=excluded.is_user_deleted, error_code=excluded.error_code;"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
+            print("📱 [NotificationService] ❌ Failed to prepare UPSERT: \(String(cString: sqlite3_errmsg(db)))")
+            return
+        }
+        defer { sqlite3_finalize(stmt) }
+        func bind(_ idx: Int32, _ value: Any?) {
+            if value == nil { sqlite3_bind_null(stmt, idx); return }
+            switch value {
+            case let v as String: sqlite3_bind_text(stmt, idx, (v as NSString).utf8String, -1, SQLITE_TRANSIENT)
+            case let v as Int: sqlite3_bind_int64(stmt, idx, Int64(v))
+            case let v as Int64: sqlite3_bind_int64(stmt, idx, v)
+            case let v as Bool: sqlite3_bind_int(stmt, idx, v ? 1 : 0)
+            default: sqlite3_bind_null(stmt, idx)
             }
-        } catch {
-            print("📱 [NotificationService] ⚠️ Failed to load shared metadata: \(error)")
         }
-        return [:]
+        let values: [Any?] = [
+            allFields["key"],
+            allFields["url"],
+            allFields["local_path"],
+            allFields["local_thumb_path"],
+            allFields["generating_thumbnail"],
+            allFields["timestamp"],
+            allFields["size"],
+            allFields["media_type"],
+            allFields["original_file_name"],
+            allFields["downloaded_at"],
+            allFields["notification_date"],
+            allFields["is_downloading"],
+            allFields["is_permanent_failure"],
+            allFields["is_user_deleted"],
+            allFields["error_code"],
+        ]
+        for (i, v) in values.enumerated() { bind(Int32(i+1), v) }
+        if sqlite3_step(stmt) != SQLITE_DONE {
+            print("📱 [NotificationService] ❌ UPSERT failed: \(String(cString: sqlite3_errmsg(db)))")
+        }
     }
     
-    private func getSharedMetadataFilePath() -> URL {
-        let sharedCacheDirectory = getSharedMediaCacheDirectory()
-        return sharedCacheDirectory.appendingPathComponent("metadata.json")
+    private func getLocalPathFromDb(url: String, mediaType: String) -> String? {
+        let dbPath = getDbPath()
+        guard FileManager.default.fileExists(atPath: dbPath) else { return nil }
+        var db: OpaquePointer?
+        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) != SQLITE_OK { return nil }
+        defer { sqlite3_close(db) }
+        let key = "\(mediaType.uppercased())_\(url)"
+        let sql = "SELECT local_path FROM cache_item WHERE key = ? LIMIT 1"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
+            return nil
+        }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        if sqlite3_step(stmt) == SQLITE_ROW {
+            if let cString = sqlite3_column_text(stmt, 0) {
+                return String(cString: cString)
+            }
+        }
+        return nil
     }
+
+    
+
+    
     
     private func getSharedMediaCacheDirectory() -> URL {
         // Use App Groups shared container for cross-process access

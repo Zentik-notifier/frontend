@@ -49,6 +49,31 @@ class SharedContainer: NSObject {
     print("📱 [SharedContainer] ✅ Shared cache directory: \(path)")
     resolve(path)
   }
+
+  @objc
+  func getSharedCacheDbPath(_ resolve: @escaping RCTPromiseResolveBlock, withRejecter reject: @escaping RCTPromiseRejectBlock) {
+    guard let bundleIdentifier = Bundle.main.bundleIdentifier else {
+      reject("BUNDLE_ID_ERROR", "Failed to get bundle identifier", nil)
+      return
+    }
+
+    let appGroupIdentifier = "group.\(bundleIdentifier)"
+    guard let sharedContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) else {
+      reject("SHARED_CONTAINER_ERROR", "Failed to get shared container URL", nil)
+      return
+    }
+
+    let sharedCacheDirectory = sharedContainerURL.appendingPathComponent("shared_media_cache")
+    do {
+      try FileManager.default.createDirectory(at: sharedCacheDirectory, withIntermediateDirectories: true, attributes: nil)
+    } catch {
+      reject("DIRECTORY_ERROR", "Failed to create shared cache directory", error)
+      return
+    }
+
+    let dbPath = sharedCacheDirectory.appendingPathComponent("cache.db").path
+    resolve(dbPath)
+  }
   
   @objc
   func getSharedUserDefaults(_ resolve: @escaping RCTPromiseResolveBlock, withRejecter reject: @escaping RCTPromiseRejectBlock) {

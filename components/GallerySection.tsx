@@ -5,7 +5,7 @@ import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useNotificationUtils } from "@/hooks/useNotificationUtils";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
-import { mediaCache } from "@/services/media-cache";
+import { CacheItem, mediaCache } from "@/services/media-cache";
 import { saveMediaToGallery } from "@/services/media-gallery";
 import { formatFileSize } from "@/utils";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,18 +29,6 @@ import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 
 const availableMediaTypes = Object.values(MediaType);
-
-interface CachedMediaItem {
-  id: string;
-  url: string;
-  localPath: string;
-  mediaType: MediaType;
-  size: number;
-  timestamp: number;
-  originalFileName?: string;
-  downloadedAt: number;
-  notificationDate?: number;
-}
 
 export default function GallerySection() {
   const colorScheme = useColorScheme();
@@ -70,7 +58,6 @@ export default function GallerySection() {
   const { filteredMedia, sections, flatOrder } = useMemo(() => {
     const allWithIds = cachedItems.map((item, index) => ({
       ...item,
-      id: `${item.mediaType}_${item.url}_${index}`,
       notificationDate: item.notificationDate || item.downloadedAt,
     }));
 
@@ -92,10 +79,10 @@ export default function GallerySection() {
     const diffToMonday = (day + 6) % 7;
     startOfWeek.setDate(startOfWeek.getDate() - diffToMonday);
 
-    const today: CachedMediaItem[] = [];
-    const yesterday: CachedMediaItem[] = [];
-    const thisWeek: CachedMediaItem[] = [];
-    const older: CachedMediaItem[] = [];
+    const today: CacheItem[] = [];
+    const yesterday: CacheItem[] = [];
+    const thisWeek: CacheItem[] = [];
+    const older: CacheItem[] = [];
 
     for (const media of filteredMedia) {
       const ts = media.notificationDate || media.downloadedAt || Date.now();
@@ -113,15 +100,15 @@ export default function GallerySection() {
       }
     }
 
-    const sortDesc = (a: CachedMediaItem, b: CachedMediaItem) =>
+    const sortDesc = (a: CacheItem, b: CacheItem) =>
       (b.notificationDate ?? 0) - (a.notificationDate ?? 0);
     today.sort(sortDesc);
     yesterday.sort(sortDesc);
     thisWeek.sort(sortDesc);
     older.sort(sortDesc);
 
-    const buildRows = (items: CachedMediaItem[]) => {
-      const rows: CachedMediaItem[][] = [];
+    const buildRows = (items: CacheItem[]) => {
+      const rows: CacheItem[][] = [];
       for (let i = 0; i < items.length; i += numColumns) {
         rows.push(items.slice(i, i + numColumns));
       }
@@ -144,7 +131,7 @@ export default function GallerySection() {
     ].filter((s) => s.data.length > 0);
 
     // Flat order for fullscreen index mapping
-    const flatOrder: CachedMediaItem[] = [
+    const flatOrder: CacheItem[] = [
       ...today,
       ...yesterday,
       ...thisWeek,
@@ -318,7 +305,7 @@ export default function GallerySection() {
                     style: "destructive",
                     onPress: async () => {
                       const items = filteredMedia.filter((m) =>
-                        selectedItems.has(m.id)
+                        selectedItems.has(m.key)
                       );
                       for (const it of items) {
                         await mediaCache.deleteCachedMedia(
@@ -404,7 +391,7 @@ export default function GallerySection() {
           onPress={
             selectedItems.size === filteredMedia.length
               ? () => setSelectedItems(new Set())
-              : () => setSelectedItems(new Set(filteredMedia.map((m) => m.id)))
+              : () => setSelectedItems(new Set(filteredMedia.map((m) => m.key)))
           }
         >
           <ThemedText
@@ -450,7 +437,7 @@ export default function GallerySection() {
             },
           ]}
           onPress={async () => {
-            const items = filteredMedia.filter((m) => selectedItems.has(m.id));
+            const items = filteredMedia.filter((m) => selectedItems.has(m.key));
             for (const item of items) {
               try {
                 await saveMediaToGallery(
@@ -506,7 +493,7 @@ export default function GallerySection() {
                   style: "destructive",
                   onPress: async () => {
                     const items = filteredMedia.filter((m) =>
-                      selectedItems.has(m.id)
+                      selectedItems.has(m.key)
                     );
                     for (const item of items) {
                       await mediaCache.deleteCachedMedia(
@@ -874,15 +861,15 @@ export default function GallerySection() {
     );
   };
 
-  const renderMediaRow = ({ item }: { item: CachedMediaItem[] }) => {
+  const renderMediaRow = ({ item }: { item: CacheItem[] }) => {
     return (
       <View style={styles.gridRow}>
         {item.map((mediaItem) => {
-          const isSelected = selectedItems.has(mediaItem.id);
+          const isSelected = selectedItems.has(mediaItem.key);
           const checkSize = itemWidth * 0.5;
           return (
             <Pressable
-              key={mediaItem.id}
+              key={mediaItem.key}
               style={[
                 styles.gridItem,
                 { width: itemWidth, height: itemWidth },
@@ -908,13 +895,13 @@ export default function GallerySection() {
                   audioProps={{ showControls: true }}
                   noAutoDownload
                   showMediaIndicator
-                  smallButtons
+                  isCompact
                   onPress={() => {
                     if (selectionMode) {
-                      toggleItemSelection(mediaItem.id);
+                      toggleItemSelection(mediaItem.key);
                     } else {
                       const index = flatOrder.findIndex(
-                        (m) => m.id === mediaItem.id
+                        (m) => m.key === mediaItem.key
                       );
                       setFullscreenIndex(index);
                     }
@@ -979,7 +966,7 @@ export default function GallerySection() {
 
       <SectionList
         sections={sections}
-        keyExtractor={(row, index) => `${row[0]?.id || "row"}-${index}`}
+        keyExtractor={(row, index) => `${row[0]?.key || "row"}-${index}`}
         renderItem={renderMediaRow}
         renderSectionHeader={renderSectionHeader}
         contentContainerStyle={[

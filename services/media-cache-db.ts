@@ -3,9 +3,9 @@ import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
 
 export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
   const sharedDir = await getSharedMediaCacheDirectoryAsync();
-  const dbPath = `${sharedDir}cache.db` as unknown as string;
-
-  const db = await openDatabaseAsync(dbPath);
+  // expo-sqlite expects databaseName and an optional directory path (not URI)
+  const directory = sharedDir.startsWith('file://') ? sharedDir.replace('file://', '') : sharedDir;
+  const db = await openDatabaseAsync('cache.db', undefined, directory);
 
   await db.execAsync(`
     PRAGMA journal_mode=WAL;
@@ -45,22 +45,7 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
     CREATE INDEX IF NOT EXISTS idx_cache_item_media_type ON cache_item(media_type);
   `);
 
-  // Ensure 'key' column exists and is unique for existing installations
-  try {
-    const cols2: Array<{ name: string }> = await db.getAllAsync(`PRAGMA table_info('cache_item')` as any);
-    const hasKey = cols2.some((c) => c.name === 'key');
-    if (!hasKey) {
-      await db.execAsync('BEGIN');
-      await db.execAsync(`ALTER TABLE cache_item ADD COLUMN key TEXT;`);
-      await db.execAsync(`UPDATE cache_item SET key = UPPER(media_type) || '_' || url WHERE key IS NULL OR key = '' ;`);
-      await db.execAsync(`CREATE UNIQUE INDEX IF NOT EXISTS idx_cache_item_key ON cache_item(key);`);
-      await db.execAsync('COMMIT');
-    } else {
-      await db.execAsync(`CREATE UNIQUE INDEX IF NOT EXISTS idx_cache_item_key ON cache_item(key);`);
-    }
-  } catch (e) {
-    console.warn('[media-cache-db] Key migration failed:', e);
-  }
+  await db.execAsync(`CREATE UNIQUE INDEX IF NOT EXISTS idx_cache_item_key ON cache_item(key);`);
 
   return db;
 }

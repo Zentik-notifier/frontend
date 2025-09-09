@@ -306,7 +306,6 @@ class MediaCacheService {
         try {
             if (!this.repo) throw new Error('Repository not initialized');
             const items = await this.repo.listCacheItems();
-            console.log("[MediaCache] Loaded metadata from DB:", items);
             this.metadata = {};
             for (const item of items) {
                 const key = this.generateCacheKey(item.url, item.mediaType);
@@ -317,7 +316,6 @@ class MediaCacheService {
                     isPermanentFailure: item.isPermanentFailure ?? false,
                 };
             }
-            console.log('[MediaCache] Loaded metadata from DB:', Object.keys(this.metadata).length, 'items');
             this.emitMetadata();
         } catch (error) {
             console.error('[MediaCache] Failed to load metadata (DB):', error);
@@ -340,8 +338,7 @@ class MediaCacheService {
             if (!this.repo) throw new Error('Repository not initialized');
             const item = this.metadata[key];
             if (item) {
-                const updatedItem = await this.repo.upsertCacheItem({ ...item, key });
-                await this.repo.getCacheItem(key)
+                await this.repo.upsertCacheItem({ ...item, key });
             }
         } catch (error) {
             console.error('[MediaCache] Failed to persist single item to DB:', error);
