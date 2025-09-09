@@ -389,7 +389,7 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
               </ThemedView>
 
               {/* RIGA 2: Preview del media selezionato (solo in modalità estesa) */}
-              {attachments.length > 0 && (
+              {!!visibleAttachment && (
                 <ThemedView
                   style={[
                     styles.mediaPreviewRow,
