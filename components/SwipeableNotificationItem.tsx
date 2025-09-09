@@ -13,6 +13,7 @@ import {
 } from "@/hooks/useNotifications";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
+import { mediaCache } from "@/services/media-cache";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -59,7 +60,12 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
       const { formatRelativeTime } = useDateFormat();
       const {
         userSettings: {
-          settings: { isCompactMode },
+          settings: {
+            isCompactMode,
+            mediaCache: {
+              downloadSettings: { autoDownloadEnabled },
+            },
+          },
         },
       } = useAppContext();
 
@@ -91,6 +97,22 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
       useEffect(() => {
         setSelectedPreviewIndex(0);
       }, [notification.id]);
+
+      // Auto-download all attachments when component mounts or auto-download is enabled
+      useEffect(() => {
+        if (!autoDownloadEnabled) return;
+
+        for (const attachment of attachments) {
+          attachment.url &&
+            mediaCache.downloadMedia({
+              url: attachment.url,
+              mediaType: attachment.mediaType,
+              notificationDate: notification.receivedAt
+                ? new Date(notification.receivedAt).getTime()
+                : undefined,
+            });
+        }
+      }, [attachments, autoDownloadEnabled, notification]);
 
       const handlePress = () => {
         if (swipeActive) {
@@ -367,40 +389,64 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
               </ThemedView>
 
               {/* RIGA 2: Preview del media selezionato (solo in modalità estesa) */}
-              {visibleAttachment?.url && (
+              {attachments.length > 0 && (
                 <ThemedView
                   style={[
                     styles.mediaPreviewRow,
                     { backgroundColor: "transparent" },
                   ]}
                 >
-                  <TouchableOpacity activeOpacity={0.8}>
-                    <CachedMedia
-                      notificationDate={new Date(
-                        notification.createdAt
-                      ).getTime()}
-                      key={`${visibleAttachment.url}-${selectedPreviewIndex}`}
-                      mediaType={visibleAttachment.mediaType}
-                      url={visibleAttachment.url || ""}
-                      style={styles.expandedImage}
-                      originalFileName={visibleAttachment.name || undefined}
-                      videoProps={{
-                        autoPlay: false, // Disable autoplay for better performance
-                        isMuted: true,
-                        isLooping: true,
-                      }}
-                      audioProps={{
-                        shouldPlay: false,
-                        showControls: true,
-                      }}
-                      onPress={() =>
-                        handleVisualPress(
-                          visibleAttachment.url!,
-                          visibleAttachment.mediaType
-                        )
-                      }
-                    />
-                  </TouchableOpacity>
+                  {/* Render all CachedMedia components but only show the selected one */}
+                  {attachments.map((attachment, index) => {
+                    const isSelected = index === selectedPreviewIndex;
+
+                    return (
+                      <TouchableOpacity
+                        key={`${attachment.url}-${index}`}
+                        activeOpacity={0.8}
+                        style={[
+                          isSelected
+                            ? styles.expandedImage
+                            : {
+                                width: 0,
+                                height: 0,
+                                opacity: 0,
+                                position: "absolute",
+                              },
+                        ]}
+                      >
+                        <CachedMedia
+                          notificationDate={new Date(
+                            notification.createdAt
+                          ).getTime()}
+                          mediaType={attachment.mediaType}
+                          url={attachment.url || ""}
+                          style={
+                            isSelected
+                              ? styles.expandedImage
+                              : { width: 0, height: 0 }
+                          }
+                          originalFileName={attachment.name || undefined}
+                          noAutoDownload={true} // Disable auto-download here since we handle it globally
+                          videoProps={{
+                            autoPlay: false, // Disable autoplay for better performance
+                            isMuted: true,
+                            isLooping: true,
+                          }}
+                          audioProps={{
+                            shouldPlay: false,
+                            showControls: true,
+                          }}
+                          onPress={() =>
+                            handleVisualPress(
+                              attachment.url!,
+                              attachment.mediaType
+                            )
+                          }
+                        />
+                      </TouchableOpacity>
+                    );
+                  })}
                 </ThemedView>
               )}
 

@@ -518,12 +518,11 @@ export const CachedMedia = React.memo(function CachedMedia({
     if (
       !noAutoDownload &&
       autoDownloadEnabled &&
-      !mediaSource?.localPath &&
-      !useThumbnail
+      !mediaSource?.localPath
     ) {
       mediaCache.downloadMedia({ url, mediaType, notificationDate });
     }
-  }, [mediaSource, notificationDate, useThumbnail]);
+  }, [mediaSource, notificationDate]);
 
   useEffect(() => {
     if (videoSource && isVideoType && videoPlayer) {
