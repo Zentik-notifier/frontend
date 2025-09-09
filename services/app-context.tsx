@@ -45,6 +45,7 @@ import {
   saveTokens,
 } from "./auth-storage";
 import { useUserSettings } from "./user-settings";
+import { StorageMigrationService } from "./storage-migration";
 import OnboardingModal from "../components/OnboardingModal";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
@@ -301,19 +302,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const funct = async () => {
-      const accessToken = await getAccessToken();
-      const refreshToken = await getRefreshToken();
-      const lastUserId = await getLastUserId();
-      setLastUserId(lastUserId);
-      if (accessToken && refreshToken) {
-        await completeAuth(accessToken, refreshToken);
-      } else {
+      try {
+        await StorageMigrationService.migrateFromAsyncStorage();
+
+        // Continue with normal initialization
+        const accessToken = await getAccessToken();
+        const refreshToken = await getRefreshToken();
+        const lastUserId = await getLastUserId();
+        setLastUserId(lastUserId);
+        if (accessToken && refreshToken) {
+          await completeAuth(accessToken, refreshToken);
+        } else {
+          setIsInitializing(false);
+        }
+      } catch (error) {
+        console.error('❌ App initialization failed:', error);
         setIsInitializing(false);
       }
     };
 
     funct().catch((e) => {
-      console.error(e);
+      console.error('❌ App initialization error:', e);
       setIsInitializing(false);
     });
   }, []);

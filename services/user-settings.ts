@@ -1,6 +1,6 @@
 import { NotificationFragment } from '@/generated/gql-operations-generated';
 import { Locale } from '@/types/i18n';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from 'expo-sqlite/kv-store';
 import * as Localization from 'expo-localization';
 import React from 'react';
 

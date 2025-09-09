@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from 'expo-sqlite/kv-store';
 import { saveApiEndpoint } from './auth-storage';
 
 const CUSTOM_API_URL_KEY = 'custom_api_url';

@@ -6,11 +6,11 @@ import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { getMainDefinition } from '@apollo/client/utilities';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AsyncStorageWrapper, CachePersistor } from 'apollo3-cache-persist';
 import { createClient } from 'graphql-ws';
 import { ApiConfigService } from '../services/api-config';
 import { loadErrorMessages, loadDevMessages } from "@apollo/client/dev";
+import AsyncStorage from 'expo-sqlite/kv-store';
 
 if (__DEV__) {
   // Adds messages only in a dev environment
@@ -227,12 +227,25 @@ export let apolloClient: ApolloClient<any> | null = null;
 export let persistor: CachePersistor<NormalizedCacheObject> | null = null;
 
 export const initApolloClient = async () => {
-  // Ensure ApiConfigService is initialized before creating Apollo Client
   await ApiConfigService.initialize();
 
   persistor = new CachePersistor({
     cache,
-    storage: new AsyncStorageWrapper(AsyncStorage),
+    storage: new AsyncStorageWrapper({
+      getItem: async (key) => {
+        return await AsyncStorage.getItem(key);
+      },
+      setItem: async (key, value) => {
+        if (value) {
+          return await AsyncStorage.setItem(key, value);
+        } else {
+          return await AsyncStorage.removeItem(key);
+        }
+      },
+      removeItem: async (key) => {
+        return await AsyncStorage.removeItem(key);
+      },
+    }),
     maxSize: 0,
   });
   await persistor.restore();
@@ -261,7 +274,7 @@ export const initApolloClient = async () => {
 export const resetApolloCache = async () => {
   if (!apolloClient) return;
   if (persistor) {
-    try { await persistor.pause(); } catch { }
+    try { persistor.pause(); } catch { }
   }
   try {
     const snapshot = apolloClient.cache.extract();
@@ -274,7 +287,7 @@ export const resetApolloCache = async () => {
   try { await apolloClient.clearStore(); } catch { }
   if (persistor) {
     try { await persistor.purge(); } catch { }
-    try { await persistor.resume(); } catch { }
+    try { persistor.resume(); } catch { }
   }
 };
 
@@ -295,7 +308,7 @@ export const reinitializeApolloClient = async () => {
 
     // Stop the cache persistor
     if (persistor) {
-      await persistor.pause();
+      persistor.pause();
     }
 
     // Clear the current cache
@@ -309,7 +322,7 @@ export const reinitializeApolloClient = async () => {
 
     // Resume the cache persistor
     if (persistor) {
-      await persistor.resume();
+      persistor.resume();
     }
 
     console.log('✅ Apollo Client successfully reinitialized');
