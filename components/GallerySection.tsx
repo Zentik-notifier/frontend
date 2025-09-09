@@ -44,8 +44,6 @@ export default function GallerySection() {
   );
   const [showStats, setShowStats] = useState(false);
   const [showMediaTypeSelector, setShowMediaTypeSelector] = useState(false);
-
-  // Numero fisso di colonne per la griglia
   const numColumns = 3;
 
   const itemWidth = useMemo(() => {
@@ -883,13 +881,13 @@ export default function GallerySection() {
                 <CachedMedia
                   url={mediaItem.url}
                   mediaType={mediaItem.mediaType}
-                  useThumbnail
+                  useThumbnail={!userSettings.settings.gallery.autoPlay}
                   ignoreClicks={selectionMode}
                   style={styles.gridMediaThumbnail}
                   originalFileName={mediaItem.originalFileName}
                   videoProps={{
                     isMuted: true,
-                    autoPlay: userSettings.settings.gallery.autoPlay,
+                    autoPlay: true,
                   }}
                   imageProps={{ cachePolicy: "none" }}
                   audioProps={{ showControls: true }}

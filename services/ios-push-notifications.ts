@@ -45,8 +45,6 @@ class IOSNativePushNotificationService {
         if (this.isInitialized) {
             // Check for pending intents even if already initialized
             await this.processPendingIntents();
-            // Sync badge count from keychain
-            this.syncBadgeCountFromKeychain();
             return this.getDeviceInfo();
         }
 
@@ -83,9 +81,6 @@ class IOSNativePushNotificationService {
             setTimeout(async () => {
                 await this.processPendingIntents();
             }, 500);
-
-            // Sync badge count from keychain
-            this.syncBadgeCountFromKeychain();
 
             return this.getDeviceInfo();
         } catch (error) {
@@ -320,23 +315,6 @@ class IOSNativePushNotificationService {
         } catch (error) {
             console.error('❌ iOS: Error processing pending intents:', error);
             return false;
-        }
-    }
-
-    /**
-     * Sync badge count from keychain to system badge
-     */
-    private async syncBadgeCountFromKeychain() {
-        try {
-            const storedCount = await getStoredBadgeCount();
-            const currentSystemCount = await Notifications.getBadgeCountAsync();
-
-            if (storedCount !== currentSystemCount) {
-                console.log(`📱 iOS: Syncing badge count from keychain (${storedCount}) to system (was ${currentSystemCount})`);
-                await Notifications.setBadgeCountAsync(storedCount);
-            }
-        } catch (error) {
-            console.error('❌ iOS: Error syncing badge count from keychain:', error);
         }
     }
 }

@@ -156,14 +156,12 @@ const STORAGE_KEYS = {
   MEDIA_CACHE_DOWNLOAD_SETTINGS: '@zentik/media_cache_download_settings',
   // Notification settings
   NOTIFICATIONS_LAST_SEEN_ID: '@notifications_last_seen_id',
-  // Gallery settings
-  GALLERY_SETTINGS: '@zentik/gallery_settings',
   // Onboarding settings
   ONBOARDING_COMPLETED: '@zentik/onboarding_completed',
   // Terms acceptance settings
   TERMS_ACCEPTED: '@zentik/terms_accepted',
   TERMS_VERSION: '@zentik/terms_version',
-} as const;
+};
 
 class UserSettingsService {
   private settings: UserSettings = DEFAULT_SETTINGS;
@@ -790,8 +788,8 @@ class UserSettingsService {
    * Check if user has accepted the current version of terms
    */
   hasAcceptedTerms(): boolean {
-    return this.settings.termsAcceptance.termsAccepted && 
-           this.settings.termsAcceptance.acceptedVersion === CURRENT_TERMS_VERSION;
+    return this.settings.termsAcceptance.termsAccepted &&
+      this.settings.termsAcceptance.acceptedVersion === CURRENT_TERMS_VERSION;
   }
 
   /**
