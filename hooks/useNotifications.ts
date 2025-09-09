@@ -1,4 +1,5 @@
-import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetNotificationLazyQuery, useGetNotificationsLazyQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation } from '@/generated/gql-operations-generated';
+import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetNotificationLazyQuery, useGetNotificationsLazyQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation, MediaType } from '@/generated/gql-operations-generated';
+import { mediaCache } from '@/services/media-cache';
 // import { useAppContext } from '@/services/app-context';
 import { Reference, useApolloClient } from '@apollo/client';
 import { useCallback, useEffect, useState } from 'react';
@@ -113,6 +114,18 @@ export function useDeleteNotification() {
 	const deleteNotification = useCallback(async (id: string) => {
 		console.log(`🗑️ Starting deletion of notification: ${id}`);
 
+		// First, get the notification data to extract attachments before deletion
+		let notificationData: NotificationFragment | null = null;
+		try {
+			const notificationRef = apollo.cache.readFragment({
+				id: `Notification:${id}`,
+				fragment: NotificationFragmentDoc,
+			});
+			notificationData = notificationRef as NotificationFragment;
+		} catch (error) {
+			console.warn(`⚠️ Could not read notification data for ${id}:`, error);
+		}
+
 		try {
 			await deleteNotificationMutation({
 				variables: { id }
@@ -123,6 +136,23 @@ export function useDeleteNotification() {
 		}
 
 		try {
+			// Delete all attachments from local cache if notification data is available
+			if (notificationData?.message?.attachments) {
+				console.log(`🗑️ Deleting ${notificationData.message.attachments.length} attachments from local cache`);
+
+				for (const attachment of notificationData.message.attachments) {
+					try {
+						// Only delete media attachments (not icons) and ensure URL exists
+						if (attachment.mediaType && attachment.mediaType !== MediaType.Icon && attachment.url) {
+							await mediaCache.deleteCachedMedia(attachment.url, attachment.mediaType);
+							console.log(`🗑️ Deleted attachment from cache: ${attachment.url}`);
+						}
+					} catch (error) {
+						console.warn(`⚠️ Failed to delete attachment ${attachment.url} from cache:`, error);
+					}
+				}
+			}
+
 			// First, remove from Query.notifications list
 			apollo.cache.modify({
 				fields: {
@@ -316,6 +346,31 @@ export function useMassDeleteNotifications() {
 		setLoading(true);
 		console.log(`🗑️ Starting mass deletion of ${notificationIds.length} notifications`);
 
+		// First, collect all attachments from notifications before deletion
+		const allAttachments: Array<{ url: string; mediaType: MediaType }> = [];
+		for (const id of notificationIds) {
+			try {
+				const notificationRef = apollo.cache.readFragment({
+					id: `Notification:${id}`,
+					fragment: NotificationFragmentDoc,
+				});
+				const notificationData = notificationRef as NotificationFragment;
+
+				if (notificationData?.message?.attachments) {
+					for (const attachment of notificationData.message.attachments) {
+						if (attachment.mediaType && attachment.mediaType !== MediaType.Icon && attachment.url) {
+							allAttachments.push({
+								url: attachment.url,
+								mediaType: attachment.mediaType
+							});
+						}
+					}
+				}
+			} catch (error) {
+				console.warn(`⚠️ Could not read notification data for ${id}:`, error);
+			}
+		}
+
 		try {
 			// Execute mass delete mutation on backend
 			const result = await massDeleteNotificationsMutation({
@@ -324,6 +379,20 @@ export function useMassDeleteNotifications() {
 			});
 
 			console.log(`✅ Server mass deletion completed: ${result.data?.massDeleteNotifications.deletedCount} notifications deleted`);
+
+			// Delete all attachments from local cache
+			if (allAttachments.length > 0) {
+				console.log(`🗑️ Deleting ${allAttachments.length} attachments from local cache`);
+
+				for (const attachment of allAttachments) {
+					try {
+						await mediaCache.deleteCachedMedia(attachment.url, attachment.mediaType);
+						console.log(`🗑️ Deleted attachment from cache: ${attachment.url}`);
+					} catch (error) {
+						console.warn(`⚠️ Failed to delete attachment ${attachment.url} from cache:`, error);
+					}
+				}
+			}
 
 			// Update cache in batch
 			apollo.cache.modify({

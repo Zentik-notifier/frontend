@@ -2,6 +2,7 @@ import { ApolloClient, ApolloProvider } from "@apollo/client";
 import React, { useEffect } from "react";
 import { initApolloClient } from "../config/apollo-client";
 import { ApiConfigService } from "../services/api-config";
+import { StorageMigrationService } from "@/services/storage-migration";
 
 interface GraphQLProviderProps {
   children: React.ReactNode;
@@ -18,6 +19,7 @@ export const GraphQLProvider: React.FC<GraphQLProviderProps> = ({
 
   useEffect(() => {
     (async () => {
+      await StorageMigrationService.migrateFromAsyncStorage();
       // Ensure API URL is loaded before creating Apollo client
       await ApiConfigService.initialize();
       const apolloClient = await initApolloClient();

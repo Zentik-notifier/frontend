@@ -1,6 +1,5 @@
 import { useBadgeSync } from "@/hooks";
 import { useDownloadQueue } from "@/hooks/useMediaCache";
-import { useMarkAllNotificationsAsRead } from "@/hooks/useNotifications";
 import { useAppContext } from "@/services/app-context";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
