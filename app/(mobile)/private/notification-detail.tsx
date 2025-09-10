@@ -47,7 +47,8 @@ export default function NotificationDetailScreen() {
   const { formatDate } = useDateFormat();
   const [fullScreenImageVisible, setFullScreenImageVisible] = useState(false);
   const [fullScreenIndex, setFullScreenIndex] = useState(0);
-  const { getDeliveryTypeFriendlyName } = useNotificationUtils();
+  const { getDeliveryTypeFriendlyName, getDeliveryTypeColor } =
+    useNotificationUtils();
   const markAsRead = useMarkNotificationRead();
   const deleteNotification = useDeleteNotification();
 
@@ -231,17 +232,6 @@ export default function NotificationDetailScreen() {
     );
   };
 
-  const getDeliveryTypeColor = (deliveryType: NotificationDeliveryType) => {
-    switch (deliveryType) {
-      case NotificationDeliveryType.Critical:
-        return "#dc3545";
-      case NotificationDeliveryType.Silent:
-        return "#6c757d";
-      default:
-        return Colors[colorScheme ?? "light"].tint;
-    }
-  };
-
   const attachments = (message?.attachments ?? []).filter(
     (attachment) => attachment.mediaType !== MediaType.Icon
   );
@@ -334,27 +324,27 @@ export default function NotificationDetailScreen() {
                     >
                       <Ionicons name="trash" size={16} color="white" />
                     </TouchableOpacity>
-                  </View>
 
-                  {message?.deliveryType !==
-                    NotificationDeliveryType.Normal && (
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        {
-                          backgroundColor: getDeliveryTypeColor(
+                    {message?.deliveryType !==
+                      NotificationDeliveryType.Normal && (
+                      <View
+                        style={[
+                          styles.actionButton,
+                          {
+                            backgroundColor: getDeliveryTypeColor(
+                              message?.deliveryType as NotificationDeliveryType
+                            ),
+                          },
+                        ]}
+                      >
+                        <Text style={styles.statusText}>
+                          {getDeliveryTypeFriendlyName(
                             message?.deliveryType as NotificationDeliveryType
-                          ),
-                        },
-                      ]}
-                    >
-                      <Text style={styles.statusText}>
-                        {getDeliveryTypeFriendlyName(
-                          message?.deliveryType as NotificationDeliveryType
-                        )}
-                      </Text>
-                    </View>
-                  )}
+                          )}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
 
                 {notification.sentAt && (
@@ -386,7 +376,7 @@ export default function NotificationDetailScreen() {
                 )}
                 <View style={styles.filler} />
                 <NotificationSnoozeButton
-                bucketId={message?.bucket?.id}
+                  bucketId={message?.bucket?.id}
                   variant="detail"
                   showText
                 />
@@ -540,14 +530,20 @@ const styles = StyleSheet.create({
     marginLeft: 12, // Add spacing between icon and bucket name
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    // No vertical padding for fixed height pill
+    paddingVertical: 0,
+    borderRadius: 10,
+    height: 24,
+    alignSelf: "flex-start",
   },
   statusText: {
     fontSize: 10,
-    fontWeight: "600",
-    color: "#fff",
+    fontWeight: "500",
+    color: "white",
   },
   title: {
     fontSize: 24,
@@ -593,6 +589,8 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
     borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   snoozeActionsRow: {
     flexDirection: "row",

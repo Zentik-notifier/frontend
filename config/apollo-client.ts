@@ -89,7 +89,6 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
 
 // Create cache with dynamic URL resolution
 const createCacheDynamic = () => new InMemoryCache({
-  canonizeResults: false,
   typePolicies: {
     Message: {
       keyFields: ['id'],

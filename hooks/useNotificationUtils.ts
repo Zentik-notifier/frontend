@@ -21,6 +21,18 @@ export const useNotificationUtils = () => {
     }
   };
 
+  const getDeliveryTypeColor = (deliveryType: NotificationDeliveryType) => {
+    switch (deliveryType) {
+      case NotificationDeliveryType.Critical:
+        return "#dc3545";
+      case NotificationDeliveryType.Silent:
+        return "#6c757d";
+      default:
+        return undefined;
+    }
+  };
+
+
   const getActionTypeIcon = (actionType: NotificationActionType): keyof typeof AppIcons => {
     switch (actionType) {
       case NotificationActionType.Navigate:
@@ -105,6 +117,7 @@ export const useNotificationUtils = () => {
 
   return {
     getDeliveryTypeIcon,
+    getDeliveryTypeColor,
     getActionTypeIcon,
     getMediaTypeIcon,
     getActionTypeFriendlyName,
