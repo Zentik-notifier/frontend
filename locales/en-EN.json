@@ -457,6 +457,7 @@
     },
     "selectAll": "Select All",
     "deselectAll": "Deselect All",
+    "endOfList": "End of list",
     "titleRequired": "Title is required",
     "content": {
       "title": "Title",

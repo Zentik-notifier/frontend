@@ -369,6 +369,19 @@ export default function NotificationsList({
     </ThemedView>
   );
 
+  const renderListFooter = () => (
+    <View style={styles.listFooter}>
+      <ThemedText
+        style={[
+          styles.listFooterText,
+          { color: Colors[colorScheme].textSecondary },
+        ]}
+      >
+        {t("notifications.endOfList")}
+      </ThemedText>
+    </View>
+  );
+
   return (
     <ThemedView style={[styles.container, listStyle]}>
       {/* Barra di selezione (visibile solo in modalità selezione) */}
@@ -389,7 +402,7 @@ export default function NotificationsList({
       {customHeader}
 
       <FlatList
-        data={notifications}
+        data={filteredNotifications}
         windowSize={3}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
@@ -406,6 +419,9 @@ export default function NotificationsList({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.listContent, contentContainerStyle]}
         ListEmptyComponent={renderEmptyState}
+        ListFooterComponent={
+          filteredNotifications.length > 0 ? renderListFooter : null
+        }
       />
     </ThemedView>
   );
@@ -473,5 +489,15 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: "center",
     justifyContent: "center",
+  },
+  listFooter: {
+    alignItems: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+  },
+  listFooterText: {
+    fontSize: 14,
+    opacity: 0.6,
+    fontStyle: "italic",
   },
 });

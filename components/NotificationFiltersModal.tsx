@@ -304,11 +304,11 @@ export default function NotificationFiltersModal({
                   label: t("filters.oldestFirst"),
                   icon: "arrow-up",
                 },
-                {
-                  value: "priority",
-                  label: t("filters.priority"),
-                  icon: "star",
-                },
+                // {
+                //   value: "priority",
+                //   label: t("filters.priority"),
+                //   icon: "star",
+                // },
               ].map(({ value, label, icon }) => (
                 <TouchableOpacity
                   key={value}

@@ -457,6 +457,7 @@
     },
     "selectAll": "Seleziona Tutto",
     "deselectAll": "Deseleziona Tutto",
+    "endOfList": "Fine della lista",
     "titleRequired": "Il titolo è obbligatorio",
     "content": {
       "title": "Titolo",
