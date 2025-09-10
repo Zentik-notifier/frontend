@@ -73,10 +73,8 @@ export default function NotificationsList({
   } = useAppContext();
 
   // Filter and sort notifications based on user settings
-  const filteredNotifications = useMemo(() => {
-    if (!notifications) return [];
-
-    let filtered = notifications.filter((notification) => {
+  const { filteredNotifications, maxId } = useMemo(() => {
+    let filtered = (notifications ?? []).filter((notification) => {
       return userSettings.shouldFilterNotification(
         notification,
         hideBucketInfo
@@ -87,7 +85,9 @@ export default function NotificationsList({
     const comparator = userSettings.getNotificationSortComparator();
     filtered = filtered.sort(comparator);
 
-    return filtered;
+    const maxId = filtered[filtered.length - 1].id;
+
+    return { filteredNotifications: filtered, maxId };
   }, [notifications, notificationFilters, hideBucketInfo, isCompactMode]);
 
   const onViewableItemsChanged = useCallback(
@@ -98,15 +98,13 @@ export default function NotificationsList({
     }) => {
       if (viewableItems.length === 0) return;
 
-      const maxId = filteredNotifications[filteredNotifications.length - 1].id;
-
-      if (!filteredNotifications.some((n) => n.id === maxId)) {
+      if (viewableItems.some((n) => n.item.id === maxId)) {
         setLoading(true);
       } else {
         setLoading(false);
       }
     },
-    [filteredNotifications]
+    [filteredNotifications, maxId]
   );
 
   const toggleItemSelection = (itemId: string) => {
