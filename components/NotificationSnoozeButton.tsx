@@ -34,7 +34,7 @@ interface QuickSnoozeOption {
 
 interface NotificationSnoozeButtonProps {
   bucketId: string;
-  variant: "swipeable" | "detail";
+  variant: "swipeable" | "detail" | "inline";
   showText?: boolean;
   fullWidth?: boolean;
   onPress?: () => void;
@@ -58,17 +58,13 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
     : null;
   const isSnoozed = snoozeUntil ? new Date() < snoozeUntil : false;
 
-  // Per SwipeableItem, mostra solo se è snoozed
-  // Per Detail, mostra sempre
   const shouldShow = variant === "detail" || isSnoozed;
 
-  // Stati per il modal
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [quickLoading, setQuickLoading] = useState<number | null>(null);
   const [removingSnooze, setRemovingSnooze] = useState(false);
 
-  // Mutazione per impostare lo snooze
   const [setBucketSnooze, { loading: settingSnooze }] =
     useSetBucketSnoozeMutation({
       refetchQueries: [GetNotificationsDocument],
@@ -166,7 +162,6 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
     if (onPress) {
       onPress();
     } else {
-      // Apri sempre il modal, anche se è già snoozed
       openModal();
     }
   };
@@ -197,29 +192,38 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   return (
     <>
       <TouchableOpacity
-        style={[
-          variant === "swipeable"
-            ? styles.swipeableButton
-            : styles.detailButton,
-          fullWidth ? { width: "100%" } : null,
-          {
-            backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
-            borderColor: Colors[colorScheme ?? "light"].border,
-          },
-        ]}
+        style={
+          variant === "inline"
+            ? [
+                styles.inlinePill,
+                {
+                  backgroundColor:
+                    Colors[colorScheme ?? "light"].backgroundSecondary,
+                },
+              ]
+            : [
+                variant === "swipeable"
+                  ? styles.swipeableButton
+                  : styles.detailButton,
+                fullWidth ? { width: "100%" } : null,
+                {
+                  backgroundColor:
+                    Colors[colorScheme ?? "light"].backgroundSecondary,
+                  borderColor: Colors[colorScheme ?? "light"].border,
+                },
+              ]
+        }
         onPress={handlePress}
         disabled={settingSnooze}
       >
-        <Icon
-          name="snooze"
-          size="xs"
-          color={Colors[colorScheme ?? "light"].text}
-        />
+        <Icon name="snooze" size="xs" color="secondary" />
         {showText && (
           <ThemedText
             style={[
               variant === "swipeable"
                 ? styles.swipeableText
+                : variant === "inline"
+                ? styles.inlineText
                 : styles.detailText,
               { color: Colors[colorScheme ?? "light"].text },
             ]}
@@ -512,6 +516,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     marginLeft: 4,
+  },
+  inlinePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    gap: 4,
+    height: 24,
+  },
+  inlineText: {
+    fontSize: 10,
+    fontWeight: "500",
+    marginLeft: 3,
   },
   modalContainer: {
     flex: 1,

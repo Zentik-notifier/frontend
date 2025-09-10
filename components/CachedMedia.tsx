@@ -102,10 +102,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   const localSource = mediaSource?.localPath;
   const videoSource = localSource && isVideoType ? localSource : null;
 
-  const supportsThumbnail =
-    mediaType === MediaType.Image ||
-    mediaType === MediaType.Gif ||
-    mediaType === MediaType.Video;
+  const supportsThumbnail = mediaCache.isThumbnailSupported(mediaType);
 
   const videoPlayer = useVideoPlayer(videoSource || "", (player) => {
     if (videoSource) {
@@ -148,7 +145,7 @@ export const CachedMedia = React.memo(function CachedMedia({
 
   const handleGenerateThumbnail = useCallback(async () => {
     if (!supportsThumbnail) return;
-    await mediaCache.enqueueThumbnail(url, mediaType);
+    await mediaCache.generateThumbnail({ url, mediaType });
   }, [url, mediaType, supportsThumbnail]);
 
   const handleSeek = useCallback(
@@ -160,6 +157,52 @@ export const CachedMedia = React.memo(function CachedMedia({
     },
     [audioPlayer, audioState.duration]
   );
+
+  useEffect(() => {
+    if (!noAutoDownload && autoDownloadEnabled && !mediaSource?.localPath) {
+      mediaCache.downloadMedia({ url, mediaType, notificationDate });
+    }
+  }, [mediaSource, notificationDate]);
+
+  useEffect(() => {
+    if (useThumbnail && supportsThumbnail && !mediaSource?.localThumbPath) {
+      mediaCache.generateThumbnail({ url, mediaType });
+    }
+  }, [mediaSource, notificationDate]);
+
+  useEffect(() => {
+    if (videoSource && isVideoType && videoPlayer) {
+      videoPlayer
+        .replaceAsync(videoSource)
+        .then(() => {
+          if (videoProps?.autoPlay ?? true) {
+            videoPlayer.play();
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to update video player source:", error);
+        });
+    }
+  }, [videoSource, isVideoType, videoPlayer, videoProps?.autoPlay]);
+
+  useEffect(() => {
+    if (mediaType !== MediaType.Audio || !audioPlayer) return;
+
+    audioPlayer.loop = audioProps?.isLooping ?? false;
+
+    const updateAudioState = () => {
+      setAudioState({
+        isLoaded: !!audioPlayer.isLoaded,
+        duration: audioPlayer.duration || 0,
+        currentTime: audioPlayer.currentTime || 0,
+      });
+    };
+
+    updateAudioState();
+    const interval = setInterval(updateAudioState, 500);
+
+    return () => clearInterval(interval);
+  }, [mediaSource?.localPath, audioPlayer, audioProps, mediaType]);
 
   const renderSeekBar = () => {
     if (!audioState.isLoaded || audioState.duration <= 0) return null;
@@ -513,50 +556,6 @@ export const CachedMedia = React.memo(function CachedMedia({
       }
     }
   };
-
-  useEffect(() => {
-    if (
-      !noAutoDownload &&
-      autoDownloadEnabled &&
-      !mediaSource?.localPath
-    ) {
-      mediaCache.downloadMedia({ url, mediaType, notificationDate });
-    }
-  }, [mediaSource, notificationDate]);
-
-  useEffect(() => {
-    if (videoSource && isVideoType && videoPlayer) {
-      videoPlayer
-        .replaceAsync(videoSource)
-        .then(() => {
-          if (videoProps?.autoPlay ?? true) {
-            videoPlayer.play();
-          }
-        })
-        .catch((error) => {
-          console.error("Failed to update video player source:", error);
-        });
-    }
-  }, [videoSource, isVideoType, videoPlayer, videoProps?.autoPlay]);
-
-  useEffect(() => {
-    if (mediaType !== MediaType.Audio || !audioPlayer) return;
-
-    audioPlayer.loop = audioProps?.isLooping ?? false;
-
-    const updateAudioState = () => {
-      setAudioState({
-        isLoaded: !!audioPlayer.isLoaded,
-        duration: audioPlayer.duration || 0,
-        currentTime: audioPlayer.currentTime || 0,
-      });
-    };
-
-    updateAudioState();
-    const interval = setInterval(updateAudioState, 500);
-
-    return () => clearInterval(interval);
-  }, [mediaSource?.localPath, audioPlayer, audioProps, mediaType]);
 
   return (
     <View style={style}>

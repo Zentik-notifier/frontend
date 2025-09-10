@@ -33,7 +33,7 @@ export const filteredActions = (notification: NotificationFragment) => {
 interface NotificationActionsButtonProps {
   actions: NotificationActionFragment[];
   notification: NotificationFragment;
-  variant: "swipeable" | "detail";
+  variant: "swipeable" | "detail" | "inline";
   showTextLabel?: boolean;
   fullWidth?: boolean;
 }
@@ -73,22 +73,34 @@ const NotificationActionsButton: React.FC<NotificationActionsButtonProps> = ({
     : actionCount.toString();
 
   // Stili specifici per variante
-  const buttonStyle = variant === "swipeable" 
-    ? [
-        styles.snoozeLikeButton,
-        fullWidth ? { width: "100%" as const } : null,
-        {
-          backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
-          borderColor: Colors[colorScheme ?? "light"].border,
-        },
-      ]
-    : [
-        styles.detailButton,
-        {
-          backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
-          borderColor: Colors[colorScheme ?? "light"].border,
-        },
-      ];
+  const buttonStyle =
+    variant === "inline"
+      ? [
+          styles.inlinePill,
+          {
+            backgroundColor:
+              Colors[colorScheme ?? "light"].backgroundSecondary,
+            borderColor: Colors[colorScheme ?? "light"].border,
+          },
+        ]
+      : variant === "swipeable"
+      ? [
+          styles.snoozeLikeButton,
+          fullWidth ? ({ width: "100%" } as const) : null,
+          {
+            backgroundColor:
+              Colors[colorScheme ?? "light"].backgroundSecondary,
+            borderColor: Colors[colorScheme ?? "light"].border,
+          },
+        ]
+      : [
+          styles.detailButton,
+          {
+            backgroundColor:
+              Colors[colorScheme ?? "light"].backgroundSecondary,
+            borderColor: Colors[colorScheme ?? "light"].border,
+          },
+        ];
 
   return (
     <>
@@ -99,12 +111,16 @@ const NotificationActionsButton: React.FC<NotificationActionsButtonProps> = ({
         <Icon
           name="action"
           size="xs"
-          color={Colors[colorScheme ?? "light"].text}
+          color={variant === "inline" ? "secondary" : Colors[colorScheme ?? "light"].text}
         />
         {(showTextLabel || variant === "swipeable") && (
           <ThemedText
             style={[
-              variant === "swipeable" ? styles.snoozeLikeText : styles.detailText,
+              variant === "swipeable"
+                ? styles.snoozeLikeText
+                : variant === "inline"
+                ? styles.inlineText
+                : styles.detailText,
               { color: Colors[colorScheme ?? "light"].text },
             ]}
           >
@@ -373,6 +389,20 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     textAlign: "center",
     marginTop: 16,
+  },
+  inlinePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    gap: 4,
+    height: 24,
+  },
+  inlineText: {
+    fontSize: 10,
+    fontWeight: "500",
+    marginLeft: 3,
   },
 });
 

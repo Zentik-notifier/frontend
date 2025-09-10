@@ -20,6 +20,7 @@ export interface CacheItem {
     downloadedAt?: number;
     notificationDate?: number;
     isDownloading?: boolean;
+    inDownload?: boolean;
     isPermanentFailure?: boolean;
     isUserDeleted?: boolean;
     errorCode?: string;
@@ -48,6 +49,7 @@ type QueueOperation = 'download' | 'thumbnail';
 export interface DownloadQueueItem {
     key: string;
     url: string;
+    force?: boolean;
     mediaType: MediaType;
     notificationDate?: number;
     timestamp: number;
@@ -97,12 +99,10 @@ class MediaCacheService {
         }
         console.log('[MediaCache] Adding item to download queue:', item.op, item.url);
         this.downloadQueue.push({ ...item, key, timestamp: Date.now() });
+        const cacheKey = this.generateCacheKey(item.url, item.mediaType);
         if (item.op === 'download') {
-            const cacheKey = this.generateCacheKey(item.url, item.mediaType);
-            await this.updateItem(cacheKey, { isDownloading: true });
-        }
-        if (item.op === 'thumbnail') {
-            const cacheKey = this.generateCacheKey(item.url, item.mediaType);
+            await this.updateItem(cacheKey, { isDownloading: true, timestamp: Date.now() });
+        } else if (item.op === 'thumbnail') {
             await this.updateItem(cacheKey, { generatingThumbnail: true, timestamp: Date.now() });
         }
 
@@ -138,16 +138,17 @@ class MediaCacheService {
     }
 
     private async performDownload(item: DownloadQueueItem) {
-        const { url, mediaType, notificationDate } = item;
+        const { url, mediaType, notificationDate, force } = item;
         const key = this.generateCacheKey(url, mediaType);
 
         try {
             const localPath = this.getLocalPath(url, mediaType);
 
             await this.updateItem(key, {
-                isDownloading: true,
+                inDownload: true,
                 isPermanentFailure: false,
                 isUserDeleted: false,
+                generatingThumbnail: false,
                 url,
                 mediaType,
                 timestamp: Date.now(),
@@ -172,17 +173,21 @@ class MediaCacheService {
             }
 
             if (success) {
+                console.log('[MediaCache] Media saved at:', downloadResult.uri, url);
                 await this.updateItem(key, {
                     size: fileSize,
+                    inDownload: false,
                     isDownloading: false,
                     localPath: downloadResult.uri,
                     errorCode: undefined,
                     downloadedAt: Date.now(),
                     timestamp: Date.now(),
                 });
-                await this.enqueueThumbnail(url, mediaType);
+
+                await this.generateThumbnail({ url, mediaType, force });
             } else {
                 await this.updateItem(key, {
+                    inDownload: false,
                     isDownloading: false,
                     timestamp: Date.now(),
                     isPermanentFailure: true,
@@ -204,7 +209,7 @@ class MediaCacheService {
         const { url, mediaType } = item;
         const cacheKey = this.generateCacheKey(url, mediaType);
         try {
-            const result = await this.getOrCreateThumbnail(url, mediaType);
+            await this.getOrCreateThumbnail(url, mediaType);
         } catch (e) {
             console.warn('[MediaCache] Thumbnail generation failed for', url, e);
         } finally {
@@ -302,14 +307,30 @@ class MediaCacheService {
             if (!this.repo) throw new Error('Repository not initialized');
             const items = await this.repo.listCacheItems();
             this.metadata = {};
+            const pendingDownloads: CacheItem[] = [];
+            const pendingThumbnails: CacheItem[] = [];
             for (const item of items) {
                 const key = this.generateCacheKey(item.url, item.mediaType);
+                if (item.isDownloading) {
+                    pendingDownloads.push(item);
+                    pendingThumbnails.push(item);
+                }
+                if (item.generatingThumbnail) {
+                    pendingThumbnails.push(item);
+                }
                 this.metadata[key] = {
                     ...item,
                     isDownloading: false,
                     generatingThumbnail: false,
                     isPermanentFailure: item.isPermanentFailure ?? false,
                 };
+            }
+
+            for (const item of pendingDownloads) {
+                await this.downloadMedia({ url: item.url, mediaType: item.mediaType, notificationDate: item.notificationDate });
+            }
+            for (const item of pendingThumbnails) {
+                await this.generateThumbnail({ url: item.url, mediaType: item.mediaType });
             }
             this.emitMetadata();
         } catch (error) {
@@ -376,11 +397,11 @@ class MediaCacheService {
         }
 
         // Thumbnail metadata update only (no auto enqueue)
-        if (cachedItem && [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) {
+        if (cachedItem && this.isThumbnailSupported(mediaType) && !cachedItem.localThumbPath) {
             const thumbPath = this.getThumbnailPath(url, mediaType);
             const info = await FS.getInfoAsync(thumbPath);
             if (info.exists) {
-                if (!this.metadata[key]?.localThumbPath || this.metadata[key]?.localThumbPath !== thumbPath) {
+                if (cachedItem.localThumbPath !== thumbPath) {
                     await this.updateItem(key, { localThumbPath: thumbPath, generatingThumbnail: false, timestamp: Date.now() });
                 }
             }
@@ -391,6 +412,35 @@ class MediaCacheService {
 
     async reloadMetadata(): Promise<void> {
         await this.loadMetadata();
+    }
+
+    async checkMediaExists(props: { url: string, mediaType: MediaType, notificationDate: number }) {
+        const { url, mediaType, notificationDate } = props;
+        const key = this.generateCacheKey(url, mediaType);
+        const cachedItem = this.metadata[key];
+
+        let shouldDownload = false;
+        let shouldGenerateThumbnail = false;
+
+        if (cachedItem && cachedItem.localPath && cachedItem.localThumbPath) {
+            return;
+        }
+
+        if (cachedItem && !cachedItem.localPath) {
+            shouldDownload = true;
+        }
+
+        if (cachedItem && cachedItem.localPath && !cachedItem.localThumbPath) {
+            shouldGenerateThumbnail = true;
+        }
+
+        if (shouldDownload) {
+            await this.downloadMedia({ url, mediaType, notificationDate });
+        }
+
+        if (shouldGenerateThumbnail) {
+            await this.generateThumbnail({ url, mediaType });
+        }
     }
 
     async downloadMedia(
@@ -405,6 +455,7 @@ class MediaCacheService {
         await this.initialize();
 
         const cachedItem = await this.getCachedItem(url, mediaType);
+
         if (cachedItem && !force) {
             return;
         }
@@ -414,7 +465,7 @@ class MediaCacheService {
             this.metadata[key] = {
                 key,
                 size: 0,
-                downloadedAt: undefined,
+                downloadedAt: 0,
                 url,
                 mediaType,
                 isDownloading: true,
@@ -439,6 +490,7 @@ class MediaCacheService {
             mediaType,
             op: 'download',
             notificationDate,
+            force
         });
     }
 
@@ -469,11 +521,16 @@ class MediaCacheService {
                     if (item.localPath) {
                         await FS.deleteAsync(item.localPath, { idempotent: true });
                     }
+
                     this.metadata[key] = {
                         ...item,
                         isUserDeleted: true,
-                        localPath: '',
+                        localPath: undefined,
                         localThumbPath: undefined,
+                        isDownloading: false,
+                        generatingThumbnail: false,
+                        isPermanentFailure: false,
+                        errorCode: undefined,
                         size: 0,
                         timestamp: Date.now(),
                     };
@@ -518,7 +575,6 @@ class MediaCacheService {
             totalSize,
             itemsByType,
         };
-        console.log(items, stats);
 
         return { items, stats };
     }
@@ -589,7 +645,7 @@ class MediaCacheService {
         const { url, mediaType, notificationDate } = props;
         await this.initialize();
 
-        return this.downloadMedia({ url, mediaType, force: true, notificationDate });
+        await this.downloadMedia({ url, mediaType, force: true, notificationDate });
     }
 
     // Queue management methods
@@ -676,7 +732,7 @@ class MediaCacheService {
             await FS.copyAsync({ from: tempUri, to: thumbPath });
             const key = this.generateCacheKey(url, mediaType);
             await this.updateItem(key, { localThumbPath: thumbPath, timestamp: Date.now() });
-            console.log('[MediaCache] Thumbnail saved at:', thumbPath);
+            console.log('[MediaCache] Thumbnail saved at:', thumbPath, url);
             return thumbPath;
         } catch (error) {
             console.error('[MediaCache] Failed to create thumbnail:', error);
@@ -707,9 +763,25 @@ class MediaCacheService {
         }
     }
 
-    public async enqueueThumbnail(url: string, mediaType: MediaType): Promise<void> {
+    isThumbnailSupported(mediaType: MediaType): boolean {
+        return [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType);
+    }
+
+    public async generateThumbnail(props: { url: string, mediaType: MediaType, force?: boolean }): Promise<void> {
         await this.initialize();
-        if (![MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType)) return;
+        const { url, mediaType, force } = props;
+
+        if (!this.isThumbnailSupported(mediaType)) {
+            return;
+        };
+
+        const key = this.generateCacheKey(url, mediaType);
+        const cachedItem = this.metadata[key];
+
+        if (cachedItem && cachedItem.localThumbPath && !force) {
+            return;
+        }
+
         await this.addToQueue({ url, mediaType, op: 'thumbnail' });
     }
 }

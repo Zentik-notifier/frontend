@@ -104,12 +104,10 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
 
         for (const attachment of attachments) {
           attachment.url &&
-            mediaCache.downloadMedia({
+            mediaCache.checkMediaExists({
               url: attachment.url,
               mediaType: attachment.mediaType,
-              notificationDate: notification.receivedAt
-                ? new Date(notification.receivedAt).getTime()
-                : undefined,
+              notificationDate: new Date(notification.createdAt).getTime(),
             });
         }
       }, [attachments, autoDownloadEnabled, notification]);
@@ -306,23 +304,25 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                           size="lg"
                         />
                       </View>
-                      <View style={styles.underIconRow}>
-                        {actions.length > 0 && (
-                          <NotificationActionsButton
-                            notification={notification}
-                            actions={actions}
+                      {!isCompactMode && (
+                        <View style={styles.underIconRow}>
+                          {actions.length > 0 && (
+                            <NotificationActionsButton
+                              notification={notification}
+                              actions={actions}
+                              variant="swipeable"
+                              fullWidth
+                            />
+                          )}
+
+                          <NotificationSnoozeButton
+                            bucketId={notification.message?.bucket?.id}
                             variant="swipeable"
+                            showText={false}
                             fullWidth
                           />
-                        )}
-
-                        <NotificationSnoozeButton
-                          bucketId={notification.message?.bucket?.id}
-                          variant="swipeable"
-                          showText={false}
-                          fullWidth
-                        />
-                      </View>
+                        </View>
+                      )}
                     </View>
                   )
                 )}
@@ -464,25 +464,40 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                   >
                     {attachments.length > 0 &&
                       (isCompactMode ? (
-                        // Modalità compatta: mostra conteggio raggruppato
-                        <ThemedView
-                          style={[
-                            styles.mediaIndicator,
-                            {
-                              backgroundColor:
-                                Colors[colorScheme].backgroundSecondary,
-                            },
-                          ]}
-                        >
-                          <Icon name="image" size="xs" color="secondary" />
-                          <ThemedText style={styles.mediaText}>
-                            {t("attachmentGallery.attachments", {
-                              count: attachments.length,
-                            })}
-                          </ThemedText>
-                        </ThemedView>
+                        <View style={styles.inlinePillsRow}>
+                          <ThemedView
+                            style={[
+                              styles.mediaIndicator,
+                              {
+                                backgroundColor:
+                                  Colors[colorScheme].backgroundSecondary,
+                              },
+                            ]}
+                          >
+                            <Icon name="image" size="xs" color="secondary" />
+                            <ThemedText style={styles.mediaText}>
+                              {t("attachmentGallery.attachments", {
+                                count: attachments.length,
+                              })}
+                            </ThemedText>
+                          </ThemedView>
+
+                          {actions.length > 0 && (
+                            <NotificationActionsButton
+                              notification={notification}
+                              actions={actions}
+                              showTextLabel
+                              variant="inline"
+                            />
+                          )}
+
+                          <NotificationSnoozeButton
+                            bucketId={notification.message?.bucket?.id}
+                            variant="inline"
+                            showText
+                          />
+                        </View>
                       ) : (
-                        // Modalità estesa: mostra singoli indicatori selezionabili
                         attachments.map((attachment, index) => {
                           const isSelected = index === selectedPreviewIndex;
 
@@ -696,6 +711,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     minHeight: 24,
+  },
+  inlinePillsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   mediaPreviewRow: {
     paddingHorizontal: 12,
