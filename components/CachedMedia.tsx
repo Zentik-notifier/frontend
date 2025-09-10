@@ -351,6 +351,23 @@ export const CachedMedia = React.memo(function CachedMedia({
       );
     }
 
+    // Permanent failure - click to retry
+    if (mediaSource?.isPermanentFailure || isVideoError) {
+      return (
+        <View style={getStateContainerStyle("failed") as any}>
+          <View style={defaultStyles.stateContent}>
+            <Ionicons
+              name="warning-outline"
+              size={isCompact ? 20 : 24}
+              color={stateColors.failed}
+              onPress={isCompact ? handleForceDownload : undefined}
+            />
+          </View>
+          {!isCompact ? renderForceDownloadButton(true) : null}
+        </View>
+      );
+    }
+
     // User deleted - click to redownload
     if (mediaSource?.isUserDeleted || !mediaSource?.localPath) {
       return (
@@ -399,23 +416,6 @@ export const CachedMedia = React.memo(function CachedMedia({
               size={isCompact ? 20 : 24}
               color={stateColors.loading}
               onPress={isCompact ? handleGenerateThumbnail : undefined}
-            />
-          </View>
-          {!isCompact ? renderForceDownloadButton(true) : null}
-        </View>
-      );
-    }
-
-    // Permanent failure - click to retry
-    if (mediaSource?.isPermanentFailure || isVideoError) {
-      return (
-        <View style={getStateContainerStyle("failed") as any}>
-          <View style={defaultStyles.stateContent}>
-            <Ionicons
-              name="warning-outline"
-              size={isCompact ? 20 : 24}
-              color={stateColors.failed}
-              onPress={isCompact ? handleForceDownload : undefined}
             />
           </View>
           {!isCompact ? renderForceDownloadButton(true) : null}
