@@ -2983,11 +2983,49 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             print("📱 [ContentExtension] 🔍 DB Row - error_code: \(errorCode), local_path: \(localPath)")
             print("📱 [ContentExtension] 🔍 DB Row - timestamp: \(timestamp)")
             
-            return isDownloading == 1
+            // Check if download is stuck (older than 60 seconds)
+            if isDownloading == 1 {
+                let currentTimestamp = Int64(Date().timeIntervalSince1970 * 1000)
+                let downloadAge = currentTimestamp - timestamp
+                let maxDownloadTime: Int64 = 60 * 1000 // 60 seconds in milliseconds
+                
+                print("📱 [ContentExtension] 🔍 Timeout check - Current: \(currentTimestamp), DB: \(timestamp), Age: \(downloadAge/1000)s, Max: \(maxDownloadTime/1000)s")
+                
+                if downloadAge > maxDownloadTime {
+                    print("📱 [ContentExtension] ⚠️ Download stuck for \(downloadAge/1000)s, marking as failed")
+                    // Mark as failed in database and clear downloading flag
+                    clearStuckDownload(key: key, url: url, mediaType: mediaType)
+                    return false
+                }
+                return true
+            }
+            
+            return false
         } else {
             print("📱 [ContentExtension] 🔍 No database row found for key: \(key)")
         }
         return false
+    }
+
+    private func clearStuckDownload(key: String, url: String, mediaType: String) {
+        let dbPath = getDbPath()
+        guard FileManager.default.fileExists(atPath: dbPath) else { return }
+        var db: OpaquePointer?
+        if sqlite3_open(dbPath, &db) != SQLITE_OK { return }
+        defer { sqlite3_close(db) }
+        
+        // Mark as permanent failure with timeout error
+        let sql = "UPDATE cache_item SET is_downloading = 0, is_permanent_failure = 1, error_code = 'Download timeout (stuck)' WHERE key = ?"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK { return }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        
+        if sqlite3_step(stmt) == SQLITE_DONE {
+            print("📱 [ContentExtension] ✅ Cleared stuck download for: \(key)")
+        } else {
+            print("📱 [ContentExtension] ❌ Failed to clear stuck download for: \(key)")
+        }
     }
 
     private func hasMediaDownloadError(url: String, mediaType: String) -> (hasError: Bool, errorMessage: String?) {
@@ -3917,34 +3955,16 @@ extension NotificationViewController {
             }
         } else {
             print("📱 [ContentExtension] ❌ Media not found in file system cache")
-            // Also check database for additional debugging
-            let key = "\(mediaTypeString.uppercased())_\(urlString)"
-            print("📱 [ContentExtension] 🔍 Looking for cache key in DB: \(key)")
             
-            if isMediaDownloading(url: urlString, mediaType: mediaTypeString) {
-                print("📱 [ContentExtension] 📥 Media is currently downloading, showing loader...")
-                showMediaLoadingIndicator()
-                pollForMediaCompletion(url: urlString, mediaType: mediaTypeString, originalMediaType: mediaType, attempt: 1)
-            } else {
-                // Se esiste un errore registrato su DB, mostra schermata di errore con eventuale codice
-                let errorCheck = hasMediaDownloadError(url: urlString, mediaType: mediaTypeString)
-                if errorCheck.hasError {
-                    let msg = errorCheck.errorMessage != nil ? "Download failed (\(errorCheck.errorMessage!))" : "Download failed"
-                    print("📱 [ContentExtension] ❌ Showing error view: \(msg)")
-                    // Remove footer if only one non-ICON media
-                    self.hideFooterIfSingleMedia()
-                    
-                    showMediaError(msg, allowRetry: true, retryAction: { [weak self] in
-                        self?.retryCurrentMediaDownload()
-                    })
-                } else {
-                    // Nessun download in corso e nessun file: mostra CTA di download
-                    print("📱 [ContentExtension] 📥 Media not cached, showing download CTA")
-                    self.hideFooterIfSingleMedia()
-                    
-                    presentDownloadCTA(urlString: urlString, mediaType: mediaType, metaMediaType: mediaTypeString)
-                }
+            // NCE should download media directly, not wait for NSE or show CTA
+            print("📱 [ContentExtension] � Starting direct download by NCE")
+            guard let originalURL = URL(string: urlString) else {
+                print("📱 [ContentExtension] Invalid URL: \(urlString)")
+                return
             }
+            
+            // Download and display media directly
+            downloadAndDisplayMedia(from: originalURL, mediaType: mediaType)
         }
     }
 
