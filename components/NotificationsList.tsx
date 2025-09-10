@@ -85,7 +85,7 @@ export default function NotificationsList({
     const comparator = userSettings.getNotificationSortComparator();
     filtered = filtered.sort(comparator);
 
-    const maxId = filtered[filtered.length - 1].id;
+    const maxId = filtered[filtered.length - 1]?.id;
 
     return { filteredNotifications: filtered, maxId };
   }, [notifications, notificationFilters, hideBucketInfo, isCompactMode]);
