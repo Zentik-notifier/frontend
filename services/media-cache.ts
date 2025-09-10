@@ -66,7 +66,7 @@ class MediaCacheService {
     private metadata: CacheMetadata = {};
     private dbInitialized = false;
     private repo?: MediaCacheRepository;
-    private initialized = false;
+    private initializing = false;
     public metadata$ = new BehaviorSubject<CacheMetadata>(this.metadata);
 
     // Download queue management
@@ -218,18 +218,16 @@ class MediaCacheService {
     }
 
     private async initialize(): Promise<void> {
-        if (this.initialized) return;
+        if (this.initializing) return;
 
         try {
+            this.initializing = true;
+            console.log('[MediaCache] Initializating DB');
             this.cacheDir = await getSharedMediaCacheDirectoryAsync();
             await this.ensureDirectories();
-            if (!this.dbInitialized) {
-                const db = await openSharedCacheDb();
-                this.repo = new MediaCacheRepository(db);
-                this.dbInitialized = true;
-            }
+            const db = await openSharedCacheDb();
+            this.repo = new MediaCacheRepository(db);
             await this.loadMetadata();
-            this.initialized = true;
         } catch (error) {
             console.error('[MediaCache] Initialization failed:', error);
         }

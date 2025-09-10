@@ -53,7 +53,6 @@ class IOSNativePushNotificationService {
         try {
             // Initialize API config to ensure endpoint is saved to keychain for NSE access
             await ApiConfigService.initialize();
-            console.log('📱 iOS: API config initialized for NSE access');
 
             const { status: existingStatus } = await Notifications.getPermissionsAsync();
             let finalStatus = existingStatus;

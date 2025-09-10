@@ -45,14 +45,6 @@ export default function GalleryFiltersModal({
     onMediaTypesChange(newSelectedTypes);
   };
 
-  const selectAllMediaTypes = () => {
-    onMediaTypesChange(new Set(availableMediaTypes));
-  };
-
-  const deselectAllMediaTypes = () => {
-    onMediaTypesChange(new Set());
-  };
-
   return (
     <Modal
       visible={visible}
@@ -80,7 +72,7 @@ export default function GalleryFiltersModal({
               color={Colors[colorScheme].tint}
             />
             <ThemedText style={styles.headerTitle}>
-              Filtri Galleria
+              {t("filters.title")}
             </ThemedText>
           </View>
           <View style={styles.headerRight}>
@@ -102,175 +94,125 @@ export default function GalleryFiltersModal({
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {/* Media Types Section */}
-            <View style={styles.section}>
-              <ThemedText
-                style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}
-              >
-                Tipi di Media
-              </ThemedText>
-              
-              {/* Select/Deselect All Actions */}
-              <View
+          {/* Media Types Section */}
+          <View style={styles.section}>
+            <ThemedText
+              style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}
+            >
+              {t("medias.filters.selectMediaTypes")}
+            </ThemedText>
+
+            {/* Media Type Options */}
+            {availableMediaTypes.map((mediaType) => (
+              <TouchableOpacity
+                key={mediaType}
                 style={[
-                  styles.sectionActions,
+                  styles.optionItem,
                   { borderBottomColor: Colors[colorScheme].borderLight },
                 ]}
+                onPress={() => toggleMediaType(mediaType)}
               >
-                <TouchableOpacity
+                <View style={styles.optionLeft}>
+                  <MediaTypeIcon
+                    mediaType={mediaType}
+                    size={18}
+                    showLabel
+                    textStyle={{ fontSize: 14 }}
+                  />
+                </View>
+
+                <View
                   style={[
-                    styles.actionButton,
-                    { borderColor: Colors[colorScheme].tint },
+                    styles.checkbox,
+                    { borderColor: Colors[colorScheme].border },
+                    selectedMediaTypes.has(mediaType) && [
+                      styles.checkboxSelected,
+                      {
+                        backgroundColor: Colors[colorScheme].tint,
+                        borderColor: Colors[colorScheme].tint,
+                      },
+                    ],
                   ]}
-                  onPress={selectAllMediaTypes}
                 >
-                  <ThemedText
-                    style={[
-                      styles.actionButtonText,
-                      { color: Colors[colorScheme].tint },
-                    ]}
-                  >
-                    {t("medias.filters.selectAll")}
-                  </ThemedText>
-                </TouchableOpacity>
+                  {selectedMediaTypes.has(mediaType) && (
+                    <Ionicons name="checkmark" size={14} color="white" />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-                <TouchableOpacity
-                  style={[
-                    styles.actionButton,
-                    { borderColor: Colors[colorScheme].tint },
-                  ]}
-                  onPress={deselectAllMediaTypes}
-                >
-                  <ThemedText
-                    style={[
-                      styles.actionButtonText,
-                      { color: Colors[colorScheme].tint },
-                    ]}
-                  >
-                    {t("medias.filters.deselectAll")}
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-
-              {/* Media Type Options */}
-              {availableMediaTypes.map((mediaType) => (
-                <TouchableOpacity
-                  key={mediaType}
-                  style={[
-                    styles.optionItem,
-                    { borderBottomColor: Colors[colorScheme].borderLight },
-                  ]}
-                  onPress={() => toggleMediaType(mediaType)}
-                >
-                  <View style={styles.optionLeft}>
-                    <MediaTypeIcon
-                      mediaType={mediaType}
-                      size={24}
-                      showLabel
-                      textStyle={{ fontSize: 16 }}
-                    />
-                  </View>
-
-                  <View
-                    style={[
-                      styles.checkbox,
-                      { borderColor: Colors[colorScheme].border },
-                      selectedMediaTypes.has(mediaType) && [
-                        styles.checkboxSelected,
-                        {
-                          backgroundColor: Colors[colorScheme].tint,
-                          borderColor: Colors[colorScheme].tint,
-                        },
-                      ],
-                    ]}
-                  >
-                    {selectedMediaTypes.has(mediaType) && (
-                      <Ionicons name="checkmark" size={16} color="white" />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Gallery Settings Section */}
-            <View style={styles.section}>
-              <ThemedText
-                style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}
-              >
-                {t("gallerySettings.title")}
+          {/* Gallery Settings Section */}
+          {/* Auto Play Setting */}
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => {
+              userSettings.updateGallerySettings({
+                autoPlay: !userSettings.settings.gallery.autoPlay,
+              });
+            }}
+          >
+            <View style={styles.settingContent}>
+              <ThemedText style={styles.settingLabel}>
+                {t("gallerySettings.autoPlay")}
               </ThemedText>
-
-              {/* Auto Play Setting */}
-              <TouchableOpacity
-                style={styles.settingItem}
-                onPress={() => {
-                  userSettings.updateGallerySettings({
-                    autoPlay: !userSettings.settings.gallery.autoPlay,
-                  });
-                }}
-              >
-                <View style={styles.settingContent}>
-                  <ThemedText style={styles.settingLabel}>
-                    {t("gallerySettings.autoPlay")}
-                  </ThemedText>
-                  <ThemedText style={styles.settingDescription}>
-                    {t("gallerySettings.autoPlayDescription")}
-                  </ThemedText>
-                </View>
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: userSettings.settings.gallery.autoPlay
-                        ? Colors[colorScheme].tint
-                        : Colors[colorScheme].backgroundSecondary,
-                      borderColor: Colors[colorScheme].border,
-                    },
-                  ]}
-                >
-                  {userSettings.settings.gallery.autoPlay && (
-                    <Ionicons name="checkmark" size={16} color="white" />
-                  )}
-                </View>
-              </TouchableOpacity>
-
-              {/* Show Faulty Medias Setting */}
-              <TouchableOpacity
-                style={styles.settingItem}
-                onPress={() => {
-                  userSettings.updateGallerySettings({
-                    showFaultyMedias:
-                      !userSettings.settings.gallery.showFaultyMedias,
-                  });
-                }}
-              >
-                <View style={styles.settingContent}>
-                  <ThemedText style={styles.settingLabel}>
-                    {t("gallerySettings.showFaultyMedias")}
-                  </ThemedText>
-                  <ThemedText style={styles.settingDescription}>
-                    {t("gallerySettings.showFaultyMediasDescription")}
-                  </ThemedText>
-                </View>
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: userSettings.settings.gallery
-                        .showFaultyMedias
-                        ? Colors[colorScheme].tint
-                        : Colors[colorScheme].backgroundSecondary,
-                      borderColor: Colors[colorScheme].border,
-                    },
-                  ]}
-                >
-                  {userSettings.settings.gallery.showFaultyMedias && (
-                    <Ionicons name="checkmark" size={16} color="white" />
-                  )}
-                </View>
-              </TouchableOpacity>
+              <ThemedText style={styles.settingDescription}>
+                {t("gallerySettings.autoPlayDescription")}
+              </ThemedText>
             </View>
-          </ScrollView>
+            <View
+              style={[
+                styles.checkbox,
+                {
+                  backgroundColor: userSettings.settings.gallery.autoPlay
+                    ? Colors[colorScheme].tint
+                    : Colors[colorScheme].backgroundSecondary,
+                  borderColor: Colors[colorScheme].border,
+                },
+              ]}
+            >
+              {userSettings.settings.gallery.autoPlay && (
+                <Ionicons name="checkmark" size={14} color="white" />
+              )}
+            </View>
+          </TouchableOpacity>
+
+          {/* Show Faulty Medias Setting */}
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => {
+              userSettings.updateGallerySettings({
+                showFaultyMedias:
+                  !userSettings.settings.gallery.showFaultyMedias,
+              });
+            }}
+          >
+            <View style={styles.settingContent}>
+              <ThemedText style={styles.settingLabel}>
+                {t("gallerySettings.showFaultyMedias")}
+              </ThemedText>
+              <ThemedText style={styles.settingDescription}>
+                {t("gallerySettings.showFaultyMediasDescription")}
+              </ThemedText>
+            </View>
+            <View
+              style={[
+                styles.checkbox,
+                {
+                  backgroundColor: userSettings.settings.gallery
+                    .showFaultyMedias
+                    ? Colors[colorScheme].tint
+                    : Colors[colorScheme].backgroundSecondary,
+                  borderColor: Colors[colorScheme].border,
+                },
+              ]}
+            >
+              {userSettings.settings.gallery.showFaultyMedias && (
+                <Ionicons name="checkmark" size={14} color="white" />
+              )}
+            </View>
+          </TouchableOpacity>
+        </ScrollView>
       </SafeAreaView>
     </Modal>
   );
@@ -321,37 +263,17 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 12,
   },
-  sectionActions: {
-    flexDirection: "row",
-    paddingBottom: 16,
-    marginBottom: 16,
-    gap: 12,
-    borderBottomWidth: 1,
-  },
-  actionButton: {
-    flex: 1,
-    height: 44,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
   optionItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
   },
   optionLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
     flex: 1,
   },
   settingItem: {
@@ -377,8 +299,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   checkbox: {
-    width: 24,
-    height: 24,
+    width: 20,
+    height: 20,
     borderRadius: 6,
     borderWidth: 2,
     alignItems: "center",
