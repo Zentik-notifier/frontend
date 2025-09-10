@@ -10,7 +10,7 @@ import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { userSettings } from "@/services/user-settings";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  ViewToken,
 } from "react-native";
 import NotificationFilters from "./NotificationFilters";
 import SwipeableNotificationItem from "./SwipeableNotificationItem";
@@ -62,6 +63,7 @@ export default function NotificationsList({
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const {
     userSettings: {
@@ -87,6 +89,25 @@ export default function NotificationsList({
 
     return filtered;
   }, [notifications, notificationFilters, hideBucketInfo, isCompactMode]);
+
+  const onViewableItemsChanged = useCallback(
+    ({
+      viewableItems,
+    }: {
+      viewableItems: ViewToken<NotificationFragment>[];
+    }) => {
+      if (viewableItems.length === 0) return;
+
+      const maxId = filteredNotifications[filteredNotifications.length - 1].id;
+
+      if (!filteredNotifications.some((n) => n.id === maxId)) {
+        setLoading(true);
+      } else {
+        setLoading(false);
+      }
+    },
+    [filteredNotifications]
+  );
 
   const toggleItemSelection = (itemId: string) => {
     const newSelection = new Set(selectedItems);
@@ -408,7 +429,6 @@ export default function NotificationsList({
       {/* Barra di selezione (visibile solo in modalità selezione) */}
       {selectionMode && renderSelectionBar()}
 
-      {/* Filtri (nascosti durante multi-select) */}
       {!selectionMode && (
         <NotificationFilters
           onToggleCompactMode={handleToggleCompactMode}
@@ -427,6 +447,7 @@ export default function NotificationsList({
         windowSize={3}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
+        onViewableItemsChanged={onViewableItemsChanged}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -438,7 +459,7 @@ export default function NotificationsList({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.listContent, contentContainerStyle]}
         ListEmptyComponent={renderEmptyState}
-        ListFooterComponent={renderListFooter}
+        ListFooterComponent={loading ? renderLoadingFooter : renderListFooter}
       />
     </ThemedView>
   );
