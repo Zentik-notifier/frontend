@@ -427,7 +427,6 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                               : { width: 0, height: 0 }
                           }
                           originalFileName={attachment.name || undefined}
-                          noAutoDownload={true} // Disable auto-download here since we handle it globally
                           videoProps={{
                             autoPlay: false, // Disable autoplay for better performance
                             isMuted: true,
