@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { DateFormatOptions, dateFormatService } from '../services/date-format';
+import { dateFormatService } from '../services/date-format';
 import { useI18n } from './useI18n';
 
 /**
@@ -7,8 +7,8 @@ import { useI18n } from './useI18n';
  */
 export function useDateFormat() {
   const { t } = useI18n();
-  const formatDate = useCallback((date: Date | string, options?: DateFormatOptions) => {
-    return dateFormatService.formatDate(date, options);
+  const formatDate = useCallback((date: Date | string, includeTime?: boolean) => {
+    return dateFormatService.formatDate(date, includeTime);
   }, []);
 
   const formatRelativeTime = useCallback((date: Date | string) => {
@@ -17,14 +17,6 @@ export function useDateFormat() {
 
   const formatTime = useCallback((date: Date | string) => {
     return dateFormatService.formatTime(date);
-  }, []);
-
-  const getUserTimezone = useCallback(() => {
-    return dateFormatService.getUserTimezone();
-  }, []);
-
-  const toUserTimezone = useCallback((date: Date | string) => {
-    return dateFormatService.toUserTimezone(date);
   }, []);
 
   const formatDateKey = useCallback((dateKey: string): string => {
@@ -50,8 +42,6 @@ export function useDateFormat() {
     formatDate,
     formatRelativeTime,
     formatTime,
-    getUserTimezone,
-    toUserTimezone,
     formatDateKey,
   };
 }
