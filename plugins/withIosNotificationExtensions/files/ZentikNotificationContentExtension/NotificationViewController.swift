@@ -66,10 +66,16 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     private var attachmentData: [[String: Any]] = []
     private var isExpandedMode: Bool = false
     
+    // Footer state management
+    private var isFooterHiddenForError: Bool = false
+    
     // Download management
     private var currentDownloadTask: URLSessionDownloadTask?
     private var mediaLoadingIndicator: UIActivityIndicatorView?
     private var errorView: UIView?
+    
+    // Cleanup state management
+    private var isCleaningUp: Bool = false
     private var downloadCTAButton: UIButton?
 
     // Stored notification texts
@@ -115,6 +121,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         print("📱 [ContentExtension] Body: \(notification.request.content.body)")
         print("📱 [ContentExtension] Category: \(notification.request.content.categoryIdentifier)")
         print("📱 [ContentExtension] Attachments count: \(notification.request.content.attachments.count)")
+        
+        // Reset footer state for new notification
+        isFooterHiddenForError = false
         
         // Clean up any previous media and observers before processing new notification
         cleanupCurrentMedia()
@@ -441,12 +450,12 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         headerBodyLabel?.text = normalizeLineSeparators(notificationBodyText)
         refreshHeaderIcon()
 
-        // Footer selector mostrato solo se esistono almeno 2 media non-ICON e non-AUDIO
+        // Footer selector mostrato solo se esistono almeno 2 media non-ICON e non-AUDIO e non è stato nascosto per errore
         let nonIconItemsCount = attachmentData.filter { (item) in
             let t = (item["mediaType"] as? String ?? "").uppercased()
             return t != "ICON" && t != "AUDIO"
         }.count
-        if nonIconItemsCount > 1 {
+        if nonIconItemsCount > 1 && !isFooterHiddenForError {
             setupMediaSelectorFromData()
         } else {
             hideFooterCompletely()
@@ -627,6 +636,15 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         }
         footerTopToContainerConstraint?.constant = 0
         view.layoutIfNeeded()
+    }
+    
+    private func hideFooterIfSingleMedia() {
+        let nonIconCount = attachmentData.filter { ($0["mediaType"] as? String ?? "").uppercased() != "ICON" && ($0["mediaType"] as? String ?? "").uppercased() != "AUDIO" }.count
+        if nonIconCount <= 1 {
+            isFooterHiddenForError = true
+            hideFooterCompletely()
+            print("📱 [ContentExtension] 🗑️ Removed footer due to single media condition")
+        }
     }
 
     private func adjustPreferredHeightForVideo(url: URL) {
@@ -1086,7 +1104,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             case .audio: return "AUDIO"
             }
         }()
-        let safeFileName = generateSafeFileName(url: url.absoluteString, mediaType: mediaTypeString, originalFileName: nil)
+        let safeFileName = generateSafeFileName(url: url.absoluteString, mediaType: mediaTypeString, originalFileName: nil as String?)
         let typeDirectory = sharedCacheDirectory.appendingPathComponent(mediaTypeString)
         let sharedFileURL = typeDirectory.appendingPathComponent(safeFileName)
         do {
@@ -1108,11 +1126,55 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 self.hideMediaLoadingIndicator()
             }
             
-            guard let tempURL = tempURL, error == nil else {
-                print("📱 [ContentExtension] Download failed: \(error?.localizedDescription ?? "Unknown error")")
+            // Check for network errors first
+            if let error = error {
+                print("📱 [ContentExtension] Download failed with error: \(error.localizedDescription)")
+                let errorMessage = "Download failed: \(error.localizedDescription)"
                 DispatchQueue.main.async {
+                    self.hideFooterIfSingleMedia()
                     self.showMediaError(
-                        "Download failed",
+                        errorMessage,
+                        allowRetry: true,
+                        retryAction: { [weak self] in
+                            self?.retryCurrentMediaDownload()
+                        }
+                    )
+                }
+                return
+            }
+            
+            // Check HTTP status codes
+            if let httpResponse = response as? HTTPURLResponse {
+                let statusCode = httpResponse.statusCode
+                print("📱 [ContentExtension] HTTP Status Code: \(statusCode)")
+                
+                if statusCode < 200 || statusCode >= 300 {
+                    let statusMessage = HTTPURLResponse.localizedString(forStatusCode: statusCode)
+                    let errorMessage = "HTTP Error \(statusCode): \(statusMessage)"
+                    print("📱 [ContentExtension] HTTP error: \(errorMessage)")
+                    
+                    DispatchQueue.main.async {
+                        self.hideFooterIfSingleMedia()
+                        self.showMediaError(
+                            errorMessage,
+                            allowRetry: true,
+                            retryAction: { [weak self] in
+                                self?.retryCurrentMediaDownload()
+                            }
+                        )
+                    }
+                    return
+                }
+            }
+            
+            // Check if we have a valid downloaded file
+            guard let tempURL = tempURL else {
+                let errorMessage = "No file downloaded"
+                print("📱 [ContentExtension] Download error: \(errorMessage)")
+                DispatchQueue.main.async {
+                    self.hideFooterIfSingleMedia()
+                    self.showMediaError(
+                        errorMessage,
                         allowRetry: true,
                         retryAction: { [weak self] in
                             self?.retryCurrentMediaDownload()
@@ -1123,8 +1185,65 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             }
             
             do {
-                // Persist file in shared cache
+                // Validate downloaded file before persisting
                 let data = try Data(contentsOf: tempURL)
+                let fileSize = data.count
+                
+                print("📱 [ContentExtension] Downloaded file size: \(fileSize) bytes")
+                
+                // Validate file size based on media type
+                var minSize: Int
+                switch mediaTypeString.uppercased() {
+                case "VIDEO":
+                    minSize = 10240 // 10KB minimum for video
+                case "IMAGE", "GIF":
+                    minSize = 1024  // 1KB minimum for images
+                case "AUDIO":
+                    minSize = 5120  // 5KB minimum for audio
+                default:
+                    minSize = 512   // 512 bytes minimum for other types
+                }
+                
+                if fileSize < minSize {
+                    let errorMessage = "Downloaded file too small (\(fileSize) bytes), likely corrupted or error response"
+                    print("📱 [ContentExtension] ❌ \(errorMessage)")
+                    DispatchQueue.main.async {
+                        self.hideFooterIfSingleMedia()
+                        self.showMediaError(
+                            errorMessage,
+                            allowRetry: true,
+                            retryAction: { [weak self] in
+                                self?.retryCurrentMediaDownload()
+                            }
+                        )
+                    }
+                    return
+                }
+                
+                // Check if file might be an error page (HTML content)
+                if fileSize < 100000 { // Only check small files
+                    let dataString = String(data: data.prefix(512), encoding: .utf8) ?? ""
+                    if dataString.lowercased().contains("<html") || dataString.lowercased().contains("<!doctype") {
+                        let errorMessage = "Downloaded file appears to be an error page, not media content"
+                        print("📱 [ContentExtension] ❌ \(errorMessage)")
+                        print("📱 [ContentExtension] 📄 File content preview: \(dataString.prefix(200))")
+                        DispatchQueue.main.async {
+                            self.hideFooterIfSingleMedia()
+                            self.showMediaError(
+                                "Server returned error page instead of media",
+                                allowRetry: true,
+                                retryAction: { [weak self] in
+                                    self?.retryCurrentMediaDownload()
+                                }
+                            )
+                        }
+                        return
+                    }
+                }
+                
+                print("📱 [ContentExtension] ✅ File validation passed, persisting to shared cache")
+                
+                // Persist file in shared cache
                 if FileManager.default.fileExists(atPath: sharedFileURL.path) {
                     try? FileManager.default.removeItem(at: sharedFileURL)
                 }
@@ -1140,13 +1259,15 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
 
                 // Update DB with upsert
                 let nowMs = Int(Date().timeIntervalSince1970 * 1000)
+                
                 self.upsertCacheItem(url: url.absoluteString, mediaType: mediaTypeString, fields: [
                     "local_path": sharedFileURL.path,
                     "timestamp": nowMs,
                     "size": data.count,
                     "media_type": mediaTypeString,
+                    "generating_thumbnail": 0,
                     "is_downloading": 0,
-                    "downloaded_at": nowMs
+                    "downloaded_at": nowMs  // Always set to now when download completes successfully
                 ])
 
                 DispatchQueue.main.async {
@@ -1164,6 +1285,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             } catch {
                 print("📱 [ContentExtension] File operation failed: \(error)")
                 DispatchQueue.main.async {
+                    // Remove footer if only one non-ICON media
+                    self.hideFooterIfSingleMedia()
+                    
                     self.showMediaError(
                         "File operation failed",
                         allowRetry: true,
@@ -1319,6 +1443,10 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         NSLayoutConstraint.activate(constraints)
         
+        // Adjust preferred height for error view (fixed height for consistent error display)
+        let errorHeight: CGFloat = 200
+        adjustPreferredHeight(forContentSize: CGSize(width: view.bounds.width, height: errorHeight))
+        
         print("📱 [ContentExtension] ❌ Showing media error: \(message) (retry: \(allowRetry))")
     }
     
@@ -1367,7 +1495,10 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         upsertCacheItem(url: url, mediaType: mediaType, fields: [
             "is_permanent_failure": 0,
             "is_downloading": 1,
-            "timestamp": Int(Date().timeIntervalSince1970 * 1000)
+            "generating_thumbnail": 0,
+            "size": 0,
+            "timestamp": Int(Date().timeIntervalSince1970 * 1000),
+            "downloaded_at": 0  // Reset to 0 for retry, will be set properly on successful download
         ])
     }
     
@@ -1539,18 +1670,32 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             }
         } else {
             print("📱 [ContentExtension] ❌ Failed to load image data")
-            // Show placeholder
-            imgView.backgroundColor = .darkGray
-            let label = UILabel()
-            label.text = "Image not available"
-            label.textColor = .white
-            label.textAlignment = .center
-            imgView.addSubview(label)
-            label.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                label.centerXAnchor.constraint(equalTo: imgView.centerXAnchor),
-                label.centerYAnchor.constraint(equalTo: imgView.centerYAnchor)
-            ])
+            
+            // Hide footer and show error with retry button for single media
+            hideFooterIfSingleMedia()
+            
+            // Check if there's an error recorded in database for this URL
+            if attachmentData.indices.contains(selectedMediaIndex),
+               let urlString = attachmentData[selectedMediaIndex]["url"] as? String,
+               let mediaTypeString = attachmentData[selectedMediaIndex]["mediaType"] as? String {
+                
+                let errorCheck = hasMediaDownloadError(url: urlString, mediaType: mediaTypeString)
+                let errorMessage = errorCheck.hasError && errorCheck.errorMessage != nil ? 
+                    "Download failed (\(errorCheck.errorMessage!))" : "Failed to load image"
+                
+                print("📱 [ContentExtension] ❌ Image error - URL: \(urlString), Error: \(errorMessage)")
+                
+                // Show error message with retry button
+                showMediaError(errorMessage, allowRetry: true, retryAction: { [weak self] in
+                    self?.retryCurrentMediaDownload()
+                })
+            } else {
+                // Fallback error message
+                showMediaError("Failed to load image", allowRetry: true, retryAction: { [weak self] in
+                    self?.retryCurrentMediaDownload()
+                })
+            }
+            return
         }
         
         container.addSubview(imgView)
@@ -1576,9 +1721,62 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             return
         }
         
+        // Validate file before attempting playback
+        do {
+            let resourceValues = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+            let fileSize = resourceValues.fileSize ?? 0
+            let isRegularFile = resourceValues.isRegularFile ?? false
+            
+            print("📱 [ContentExtension] 📏 Video file validation - Size: \(fileSize) bytes, isRegularFile: \(isRegularFile)")
+            
+            if !isRegularFile {
+                print("📱 [ContentExtension] ❌ File is not a regular file")
+                showMediaError("Video file is not accessible", allowRetry: true, retryAction: { [weak self] in
+                    self?.retryCurrentMediaDownload()
+                })
+                return
+            }
+            
+            if fileSize < 1024 { // Less than 1KB is likely corrupted
+                print("📱 [ContentExtension] ❌ Video file too small (\(fileSize) bytes), likely corrupted")
+                
+                // Check if there's a specific error recorded in database
+                if let urlString = attachmentData[selectedMediaIndex]["url"] as? String,
+                   let mediaTypeString = attachmentData[selectedMediaIndex]["mediaType"] as? String {
+                    
+                    let errorCheck = hasMediaDownloadError(url: urlString, mediaType: mediaTypeString)
+                    
+                    if errorCheck.hasError && errorCheck.errorMessage != nil {
+                        print("📱 [ContentExtension] 🔍 Found specific error in database: \(errorCheck.errorMessage!)")
+                        showMediaError("Download failed: \(errorCheck.errorMessage!)", allowRetry: true, retryAction: { [weak self] in
+                            self?.retryCurrentMediaDownload()
+                        })
+                        return
+                    }
+                }
+                
+                // Fallback to generic corrupted message
+                showMediaError("Video file is corrupted or empty (\(fileSize) bytes)", allowRetry: true, retryAction: { [weak self] in
+                    self?.retryCurrentMediaDownload()
+                })
+                return
+            }
+            
+            print("📱 [ContentExtension] ✅ Video file validation passed")
+        } catch {
+            print("📱 [ContentExtension] ❌ Failed to validate video file: \(error)")
+            showMediaError("Cannot access video file: \(error.localizedDescription)", allowRetry: true, retryAction: { [weak self] in
+                self?.retryCurrentMediaDownload()
+            })
+            return
+        }
+        
         // Start accessing security-scoped resource
         let accessGranted = url.startAccessingSecurityScopedResource()
         print("📱 [ContentExtension] Security-scoped resource access: \(accessGranted)")
+        
+        // Clean up any existing player and observers before creating new one
+        cleanupAllObservers()
         
         // Create player
         player = AVPlayer(url: url)
@@ -1590,6 +1788,12 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         layer.frame = container.bounds
         container.layer.addSublayer(layer)
         playerLayer = layer
+        
+        // Ensure layer frame is updated after layout
+        DispatchQueue.main.async {
+            layer.frame = container.bounds
+            print("📱 [ContentExtension] 🎬 Updated player layer frame: \(layer.frame)")
+        }
         
         // Add loading indicator
         let indicator = UIActivityIndicatorView(style: .medium)
@@ -1635,6 +1839,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Verify file exists and is readable
         guard FileManager.default.fileExists(atPath: url.path) else {
             print("📱 [ContentExtension] ❌ Audio file does not exist at path: \(url.path)")
+            hideFooterIfSingleMedia()
             showMediaError("Audio file not found")
             return
         }
@@ -1721,6 +1926,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         let playerItem = AVPlayerItem(asset: asset)
         print("📱 [ContentExtension] Created AVPlayerItem, status: \(playerItem.status.rawValue)")
+        
+        // Clean up any existing player and observers before creating new one
+        cleanupAllObservers()
         
         player = AVPlayer(playerItem: playerItem)
         
@@ -1922,7 +2130,17 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Remove existing observer from the SAME player instance that created it
         if let token = timeObserverToken, let observerPlayer = timeObserverPlayer {
             print("📱 [ContentExtension] Removing existing time observer from correct player")
-            observerPlayer.removeTimeObserver(token)
+            // Only remove if it's the same player instance
+            if observerPlayer === currentPlayer {
+                do {
+                    observerPlayer.removeTimeObserver(token)
+                    print("📱 [ContentExtension] ✅ Successfully removed time observer")
+                } catch {
+                    print("📱 [ContentExtension] ⚠️ Failed to remove time observer: \(error)")
+                }
+            } else {
+                print("📱 [ContentExtension] ⚠️ Different player instance, not removing observer")
+            }
             timeObserverToken = nil
             timeObserverPlayer = nil
         }
@@ -1950,7 +2168,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Save reference to the player that created the observer
         timeObserverPlayer = currentPlayer
         
-        print("📱 [ContentExtension] ✅ Time observer setup completed")
+        print("📱 [ContentExtension] ✅ Time observer setup completed for player instance")
     }
 
     @objc private func togglePlayPause() {
@@ -1988,12 +2206,12 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             print("📱 [ContentExtension] Removing existing AVPlayer status observer before adding new one")
             do {
                 observed.removeObserver(self, forKeyPath: "status")
-                isObservingPlayerStatus = false
-                observedPlayerForStatus = nil
                 print("📱 [ContentExtension] ✅ Removed existing AVPlayer status observer")
             } catch {
                 print("📱 [ContentExtension] ⚠️ Failed to remove existing AVPlayer observer: \(error)")
             }
+            isObservingPlayerStatus = false
+            observedPlayerForStatus = nil
         }
         
         // Remove existing PlayerItem observer if any
@@ -2001,12 +2219,12 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             print("📱 [ContentExtension] Removing existing AVPlayerItem status observer before adding new one")
             do {
                 itemObserved.removeObserver(self, forKeyPath: "status")
-                isObservingPlayerItemStatus = false
-                observedPlayerItemForStatus = nil
                 print("📱 [ContentExtension] ✅ Removed existing AVPlayerItem status observer")
             } catch {
                 print("📱 [ContentExtension] ⚠️ Failed to remove existing AVPlayerItem observer: \(error)")
             }
+            isObservingPlayerItemStatus = false
+            observedPlayerItemForStatus = nil
         }
         
         // Add status observer
@@ -2166,9 +2384,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                             print("📱 [ContentExtension] Audio playback failed (\(fileExtension)), showing limitation message")
                             showAudioLimitationMessage()
                         } else {
+                            self.hideFooterIfSingleMedia()
                             showMediaError("Player failed: \(player.error?.localizedDescription ?? "Unknown error")")
                         }
                     } else {
+                        self.hideFooterIfSingleMedia()
                         showMediaError("Player failed: \(player.error?.localizedDescription ?? "Unknown error")")
                     }
                 }
@@ -2204,9 +2424,11 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                             print("📱 [ContentExtension] Audio PlayerItem failed (\(fileExtension)), showing limitation message")
                             showAudioLimitationMessage()
                         } else {
+                            self.hideFooterIfSingleMedia()
                             showMediaError("Media failed: \(playerItem.error?.localizedDescription ?? "Unknown error")")
                         }
                     } else {
+                        self.hideFooterIfSingleMedia()
                         showMediaError("Media failed: \(playerItem.error?.localizedDescription ?? "Unknown error")")
                     }
                 }
@@ -2225,42 +2447,59 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     private func cleanupAllObservers() {
         print("📱 [ContentExtension] Force cleaning up all observers")
         
-        // Clean up time observer - handle all possible states
+        // Clean up time observer - handle all possible states with safer approach
         if let token = timeObserverToken {
             if let observerPlayer = timeObserverPlayer {
-                do {
-                    observerPlayer.removeTimeObserver(token)
-                    print("📱 [ContentExtension] ✅ Force removed time observer from correct player")
-                } catch {
-                    print("📱 [ContentExtension] ⚠️ Force cleanup failed for time observer: \(error)")
+                // Only remove observer if the player is still the same instance
+                if observerPlayer === player {
+                    do {
+                        observerPlayer.removeTimeObserver(token)
+                        print("📱 [ContentExtension] ✅ Force removed time observer from correct player")
+                    } catch {
+                        print("📱 [ContentExtension] ⚠️ Force cleanup failed for time observer: \(error)")
+                    }
+                } else {
+                    print("📱 [ContentExtension] ⚠️ Time observer was from different player instance, skipping removal")
                 }
             } else {
                 print("📱 [ContentExtension] ⚠️ Time observer token exists but no player reference")
             }
+            // Always reset the token and player reference
+            timeObserverToken = nil
+            timeObserverPlayer = nil
         }
         
         // Clean up any remaining player observers if player exists
-        if let currentPlayer = player, let observed = observedPlayerForStatus, observed === currentPlayer {
-            // Try to remove any remaining observers from current player
-            do {
-                observed.removeObserver(self, forKeyPath: "status")
-                print("📱 [ContentExtension] ✅ Removed status observer from current player")
-            } catch {
-                print("📱 [ContentExtension] ⚠️ Failed to remove status observer: \(error)")
+        if let currentPlayer = player, let observed = observedPlayerForStatus {
+            // Only remove if it's the same instance
+            if observed === currentPlayer {
+                do {
+                    observed.removeObserver(self, forKeyPath: "status")
+                    print("📱 [ContentExtension] ✅ Removed status observer from current player")
+                } catch {
+                    print("📱 [ContentExtension] ⚠️ Failed to remove status observer: \(error)")
+                }
+            } else {
+                print("📱 [ContentExtension] ⚠️ Status observer was from different player instance, skipping removal")
             }
             
             // Try to remove any remaining observers from current player item
-            if let currentItem = currentPlayer.currentItem, let itemObserved = observedPlayerItemForStatus, itemObserved === currentItem {
-                currentItem.removeObserver(self, forKeyPath: "status")
-                print("📱 [ContentExtension] ✅ Removed item status observer")
+            if let currentItem = currentPlayer.currentItem, let itemObserved = observedPlayerItemForStatus {
+                // Only remove if it's the same instance
+                if itemObserved === currentItem {
+                    do {
+                        currentItem.removeObserver(self, forKeyPath: "status")
+                        print("📱 [ContentExtension] ✅ Removed item status observer")
+                    } catch {
+                        print("📱 [ContentExtension] ⚠️ Failed to remove item status observer: \(error)")
+                    }
+                } else {
+                    print("📱 [ContentExtension] ⚠️ Item status observer was from different item instance, skipping removal")
+                }
             }
         }
         
-        // NOTE: non rimuovere mai il time observer da un player diverso da quello che lo ha creato
-        
-        // Reset observer states
-        timeObserverToken = nil
-        timeObserverPlayer = nil
+        // Always reset observer flags regardless of success/failure
         isObservingPlayerStatus = false
         isObservingPlayerItemStatus = false
         observedPlayerForStatus = nil
@@ -2272,14 +2511,41 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         print("📱 [ContentExtension] ✅ Force cleanup completed")
     }
     
-        private func cleanupCurrentMedia() {
+    private func cleanupCurrentMedia() {
+        // Prevent multiple cleanup calls
+        guard !isCleaningUp else {
+            print("📱 [ContentExtension] ⚠️ Cleanup already in progress, skipping")
+            return
+        }
+        
+        isCleaningUp = true
         print("📱 [ContentExtension] Cleaning up current media")
 
         // Stop player
         player?.pause()
         
         // Force cleanup of all observers regardless of player state
-        cleanupAllObservers()
+        // But only if not already cleaned up (prevent double cleanup)
+        if timeObserverToken != nil || isObservingPlayerStatus || isObservingPlayerItemStatus {
+            cleanupAllObservers()
+        } else {
+            print("📱 [ContentExtension] ⚠️ Observers already cleaned up, skipping")
+        }
+        
+        // Cleanup UI components
+        cleanupUIComponents()
+        
+        // Nullify player AFTER removing all observers
+        player = nil
+        
+        // Reset cleanup flag
+        isCleaningUp = false
+        
+        print("📱 [ContentExtension] ✅ Media cleanup completed")
+    }
+    
+    private func cleanupUIComponents() {
+        print("📱 [ContentExtension] Cleaning up UI components")
         
         // Remove UI
         playerLayer?.removeFromSuperlayer()
@@ -2315,12 +2581,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         audioInfoView?.removeFromSuperview()
         audioInfoView = nil
         
-
-        
-        // Nullify player AFTER removing all observers
-        player = nil
-        
-        print("📱 [ContentExtension] ✅ Media cleanup completed")
+        print("📱 [ContentExtension] ✅ UI components cleanup completed")
     }
     
     // MARK: - Helpers
@@ -2390,34 +2651,163 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     deinit {
         print("📱 [ContentExtension] Deinitializing")
         
-        // Safe cleanup with try-catch for observers
+        // Safe cleanup with try-catch for observers and instance checking
         if let token = timeObserverToken, let observerPlayer = timeObserverPlayer {
-            do {
-                observerPlayer.removeTimeObserver(token)
-                print("📱 [ContentExtension] Removed time observer in deinit")
-            } catch {
-                print("📱 [ContentExtension] Error removing time observer in deinit: \(error)")
+            // Only remove if it's still the same player instance
+            if observerPlayer === player {
+                do {
+                    observerPlayer.removeTimeObserver(token)
+                    print("📱 [ContentExtension] Removed time observer in deinit")
+                } catch {
+                    print("📱 [ContentExtension] Error removing time observer in deinit: \(error)")
+                }
+            } else {
+                print("📱 [ContentExtension] Different player instance in deinit, skipping time observer removal")
             }
         }
         
-        if isObservingPlayerStatus, let currentPlayer = player {
-            do {
-                currentPlayer.removeObserver(self, forKeyPath: "status")
-                print("📱 [ContentExtension] Removed status observer in deinit")
-            } catch {
-                print("📱 [ContentExtension] Error removing status observer in deinit: \(error)")
+        if isObservingPlayerStatus, let currentPlayer = player, let observed = observedPlayerForStatus {
+            // Only remove if it's still the same player instance
+            if observed === currentPlayer {
+                do {
+                    currentPlayer.removeObserver(self, forKeyPath: "status")
+                    print("📱 [ContentExtension] Removed status observer in deinit")
+                } catch {
+                    print("📱 [ContentExtension] Error removing status observer in deinit: \(error)")
+                }
+            } else {
+                print("📱 [ContentExtension] Different player instance in deinit, skipping status observer removal")
+            }
+        }
+        
+        if isObservingPlayerItemStatus, let currentPlayer = player, let currentItem = currentPlayer.currentItem, let itemObserved = observedPlayerItemForStatus {
+            // Only remove if it's still the same item instance
+            if itemObserved === currentItem {
+                do {
+                    currentItem.removeObserver(self, forKeyPath: "status")
+                    print("📱 [ContentExtension] Removed item status observer in deinit")
+                } catch {
+                    print("📱 [ContentExtension] Error removing item status observer in deinit: \(error)")
+                }
+            } else {
+                print("📱 [ContentExtension] Different item instance in deinit, skipping item observer removal")
             }
         }
         
         NotificationCenter.default.removeObserver(self)
         print("📱 [ContentExtension] Removed all notification observers")
         
-        cleanupCurrentMedia()
+        // Reset observer flags after cleanup to prevent double cleanup in future calls
+        timeObserverToken = nil
+        timeObserverPlayer = nil
+        isObservingPlayerStatus = false
+        isObservingPlayerItemStatus = false
+        observedPlayerForStatus = nil
+        observedPlayerItemForStatus = nil
+        
+        // Only cleanup UI components, don't call cleanupCurrentMedia which would try observer cleanup again
+        player?.pause()
+        cleanupUIComponents()
+        player = nil
+        
+        print("📱 [ContentExtension] ✅ Deinit completed")
+    }
+    
+    private func showErrorMessage(_ message: String, withRetry: Bool = false, retryAction: (() -> Void)? = nil) {
+        print("📱 [ContentExtension] 🚫 Showing error: \(message), withRetry: \(withRetry)")
+        
+        guard let container = mediaContainerView else {
+            print("📱 [ContentExtension] ❌ No media container available for error message")
+            return
+        }
+        
+        // Remove any existing error view
+        errorView?.removeFromSuperview()
+        
+        // Create error container
+        let errorContainer = UIView()
+        errorContainer.backgroundColor = UIColor.systemRed.withAlphaComponent(0.1)
+        errorContainer.layer.cornerRadius = 8
+        errorContainer.layer.borderWidth = 1
+        errorContainer.layer.borderColor = UIColor.systemRed.cgColor
+        
+        // Create error label
+        let errorLabel = UILabel()
+        errorLabel.text = message
+        errorLabel.textColor = .systemRed
+        errorLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        errorLabel.textAlignment = .center
+        errorLabel.numberOfLines = 0
+        
+        // Add to container
+        errorContainer.addSubview(errorLabel)
+        container.addSubview(errorContainer)
+        
+        // Setup constraints for error container
+        errorContainer.translatesAutoresizingMaskIntoConstraints = false
+        errorLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        var constraints: [NSLayoutConstraint] = [
+            // Error container constraints
+            errorContainer.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            errorContainer.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            errorContainer.leadingAnchor.constraint(greaterThanOrEqualTo: container.leadingAnchor, constant: 20),
+            errorContainer.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -20),
+        ]
+        
+        // Add retry button if requested
+        if withRetry, let retryAction = retryAction {
+            let retryButton = UIButton(type: .system)
+            retryButton.setTitle("🔄 Retry", for: .normal)
+            retryButton.setTitleColor(.systemBlue, for: .normal)
+            retryButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+            retryButton.backgroundColor = .systemBackground
+            retryButton.layer.cornerRadius = 8
+            retryButton.layer.borderWidth = 1
+            retryButton.layer.borderColor = UIColor.systemBlue.cgColor
+            retryButton.contentEdgeInsets = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
+            errorContainer.addSubview(retryButton)
+            
+            retryButton.translatesAutoresizingMaskIntoConstraints = false
+            
+            // Add retry button action
+            retryButton.addAction(UIAction { _ in
+                print("📱 [ContentExtension] 🔄 Retry button tapped for video")
+                retryAction()
+            }, for: .touchUpInside)
+            
+            // Update constraints to include retry button
+            constraints.append(contentsOf: [
+                // Error label constraints (with retry button)
+                errorLabel.topAnchor.constraint(equalTo: errorContainer.topAnchor, constant: 12),
+                errorLabel.leadingAnchor.constraint(equalTo: errorContainer.leadingAnchor, constant: 16),
+                errorLabel.trailingAnchor.constraint(equalTo: errorContainer.trailingAnchor, constant: -16),
+                
+                // Retry button constraints
+                retryButton.centerXAnchor.constraint(equalTo: errorContainer.centerXAnchor),
+                retryButton.topAnchor.constraint(equalTo: errorLabel.bottomAnchor, constant: 16),
+                retryButton.bottomAnchor.constraint(equalTo: errorContainer.bottomAnchor, constant: -12),
+                retryButton.heightAnchor.constraint(equalToConstant: 36)
+            ])
+        } else {
+            // Error label constraints (without retry button)
+            constraints.append(contentsOf: [
+                errorLabel.topAnchor.constraint(equalTo: errorContainer.topAnchor, constant: 12),
+                errorLabel.bottomAnchor.constraint(equalTo: errorContainer.bottomAnchor, constant: -12),
+                errorLabel.leadingAnchor.constraint(equalTo: errorContainer.leadingAnchor, constant: 16),
+                errorLabel.trailingAnchor.constraint(equalTo: errorContainer.trailingAnchor, constant: -16)
+            ])
+        }
+        
+        NSLayoutConstraint.activate(constraints)
+        errorView = errorContainer
     }
 
     private func getDbPath() -> String {
         let dir = getSharedMediaCacheDirectory()
-        return dir.appendingPathComponent("cache.db").path
+        let dbPath = dir.appendingPathComponent("cache.db").path
+        print("📱 [ContentExtension] 📊 Database path: \(dbPath)")
+        return dbPath
     }
 
     private func upsertCacheItem(url: String, mediaType: String, fields: [String: Any]) {
@@ -2431,9 +2821,45 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         allFields["key"] = key
         allFields["url"] = url
         allFields["media_type"] = mediaType.uppercased()
+        
+        // Handle downloaded_at logic:
+        // - If not provided and entry doesn't exist → 0 (new entry, not downloaded yet)
+        // - If not provided and entry exists → keep existing value
+        // - If provided explicitly → use provided value
+        if allFields["downloaded_at"] == nil {
+            if !mediaExistsInCache(url: url, mediaType: mediaType) {
+                allFields["downloaded_at"] = 0  // New entry, not downloaded yet
+            }
+            // If entry exists and downloaded_at not provided, don't set it (keep existing)
+        }
+        
         let columns = ["key","url","local_path","local_thumb_path","generating_thumbnail","timestamp","size","media_type","original_file_name","downloaded_at","notification_date","is_downloading","is_permanent_failure","is_user_deleted","error_code"]
         let placeholders = Array(repeating: "?", count: columns.count).joined(separator: ",")
-        let sql = "INSERT INTO cache_item (\(columns.joined(separator: ","))) VALUES (\(placeholders)) ON CONFLICT(key) DO UPDATE SET url=excluded.url, local_path=excluded.local_path, local_thumb_path=excluded.local_thumb_path, generating_thumbnail=excluded.generating_thumbnail, timestamp=excluded.timestamp, size=excluded.size, media_type=excluded.media_type, original_file_name=excluded.original_file_name, downloaded_at=excluded.downloaded_at, notification_date=excluded.notification_date, is_downloading=excluded.is_downloading, is_permanent_failure=excluded.is_permanent_failure, is_user_deleted=excluded.is_user_deleted, error_code=excluded.error_code;"
+        
+        // Handle downloaded_at in SQL: only update if provided, otherwise keep existing
+        let downloadedAtClause = allFields["downloaded_at"] != nil ? 
+            "downloaded_at=excluded.downloaded_at" : 
+            "downloaded_at=COALESCE(cache_item.downloaded_at, 0)"
+        
+        let sql = """
+        INSERT INTO cache_item (\(columns.joined(separator: ","))) VALUES (\(placeholders)) 
+        ON CONFLICT(key) DO UPDATE SET 
+        url=excluded.url, 
+        local_path=excluded.local_path, 
+        local_thumb_path=excluded.local_thumb_path, 
+        generating_thumbnail=excluded.generating_thumbnail, 
+        timestamp=excluded.timestamp, 
+        size=excluded.size, 
+        media_type=excluded.media_type, 
+        original_file_name=excluded.original_file_name, 
+        \(downloadedAtClause), 
+        notification_date=excluded.notification_date, 
+        is_downloading=excluded.is_downloading, 
+        is_permanent_failure=excluded.is_permanent_failure, 
+        is_user_deleted=excluded.is_user_deleted, 
+        error_code=excluded.error_code;
+        """
+        
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
             print("📱 [ContentExtension] ❌ Failed to prepare UPSERT: \(String(cString: sqlite3_errmsg(db)))")
@@ -2475,7 +2901,24 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         for (i, v) in values.enumerated() { bind(Int32(i+1), v) }
         if sqlite3_step(stmt) != SQLITE_DONE {
             print("📱 [ContentExtension] ❌ UPSERT failed: \(String(cString: sqlite3_errmsg(db)))")
+        } else {
+            print("📱 [ContentExtension] ✅ UPSERT successful for key: \(key)")
         }
+    }
+
+    private func mediaExistsInCache(url: String, mediaType: String) -> Bool {
+        let dbPath = getDbPath()
+        guard FileManager.default.fileExists(atPath: dbPath) else { return false }
+        var db: OpaquePointer?
+        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) != SQLITE_OK { return false }
+        defer { sqlite3_close(db) }
+        let key = "\(mediaType.uppercased())_\(url)"
+        let sql = "SELECT 1 FROM cache_item WHERE key = ? LIMIT 1"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK { return false }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        return sqlite3_step(stmt) == SQLITE_ROW
     }
 
     private func isMediaDownloading(url: String, mediaType: String) -> Bool {
@@ -3424,20 +3867,13 @@ extension NotificationViewController {
                 }
             }
         } else {
-            // Media non in cache: controlla se esiste in shared cache appena scaricato manualmente
-            if let cachedPath = getCachedMediaPath(url: urlString, mediaType: mediaTypeString) {
-                print("📱 [ContentExtension] ✅ Found media in shared cache after recheck: \(cachedPath)")
-                let cachedURL = URL(fileURLWithPath: cachedPath)
-                switch mediaType {
-                case .image, .gif:
-                    self.displayImage(from: cachedURL)
-                case .video:
-                    self.displayVideo(from: cachedURL)
-                case .audio:
-                    self.displayAudio(from: cachedURL)
-                }
-            } else if isMediaDownloading(url: urlString, mediaType: mediaTypeString) {
-                print("📱 [ContentExtension] 📥 Media is currently downloading (recheck), showing loader...")
+            print("📱 [ContentExtension] ❌ Media not found in file system cache")
+            // Also check database for additional debugging
+            let key = "\(mediaTypeString.uppercased())_\(urlString)"
+            print("📱 [ContentExtension] 🔍 Looking for cache key in DB: \(key)")
+            
+            if isMediaDownloading(url: urlString, mediaType: mediaTypeString) {
+                print("📱 [ContentExtension] 📥 Media is currently downloading, showing loader...")
                 showMediaLoadingIndicator()
                 pollForMediaCompletion(url: urlString, mediaType: mediaTypeString, originalMediaType: mediaType)
             } else {
@@ -3447,28 +3883,17 @@ extension NotificationViewController {
                     let msg = errorCheck.errorMessage != nil ? "Download failed (\(errorCheck.errorMessage!))" : "Download failed"
                     print("📱 [ContentExtension] ❌ Showing error view: \(msg)")
                     // Remove footer if only one non-ICON media
-                    let nonIconCount = self.attachmentData.filter { ($0["mediaType"] as? String ?? "").uppercased() != "ICON" && ($0["mediaType"] as? String ?? "").uppercased() != "AUDIO" }.count
-                    if nonIconCount <= 1 {
-                        self.mediaSelectorView?.removeFromSuperview()
-                        if let footer = self.footerContainerView { footer.removeFromSuperview(); self.footerContainerView = nil }
-                        self.footerTopToContainerConstraint?.constant = 0
-                    }
+                    self.hideFooterIfSingleMedia()
+                    
                     showMediaError(msg, allowRetry: true, retryAction: { [weak self] in
                         self?.retryCurrentMediaDownload()
                     })
                 } else {
-                    // Nessun download in corso e nessun file: mostra schermata d'errore al posto del retry
-                    let generic = "Media not available"
-                    print("📱 [ContentExtension] ❌ Showing generic error view: \(generic)")
-                    let nonIconCount = self.attachmentData.filter { ($0["mediaType"] as? String ?? "").uppercased() != "ICON" && ($0["mediaType"] as? String ?? "").uppercased() != "AUDIO" }.count
-                    if nonIconCount <= 1 {
-                        self.mediaSelectorView?.removeFromSuperview()
-                        if let footer = self.footerContainerView { footer.removeFromSuperview(); self.footerContainerView = nil }
-                        self.footerTopToContainerConstraint?.constant = 0
-                    }
-                    showMediaError(generic, allowRetry: true, retryAction: { [weak self] in
-                        self?.retryCurrentMediaDownload()
-                    })
+                    // Nessun download in corso e nessun file: mostra CTA di download
+                    print("📱 [ContentExtension] 📥 Media not cached, showing download CTA")
+                    self.hideFooterIfSingleMedia()
+                    
+                    presentDownloadCTA(urlString: urlString, mediaType: mediaType, metaMediaType: mediaTypeString)
                 }
             }
         }
@@ -3480,7 +3905,7 @@ extension NotificationViewController {
         hideMediaLoadingIndicator()
 
         let button = UIButton(type: .system)
-        button.setTitle("⬇️ Download media", for: .normal)
+        button.setTitle("Tap to download", for: .normal)
         button.setTitleColor(.white, for: .normal)
         button.backgroundColor = .systemBlue
         button.layer.cornerRadius = 10
@@ -3509,6 +3934,9 @@ extension NotificationViewController {
         let mediaType = getMediaTypeFromString(typePart)
         guard let url = URL(string: urlPart) else { return }
 
+        // Clear any previous error state for this media
+        clearMediaErrorFlag(url: urlPart, mediaType: typePart)
+        
         // Mostra loader e avvia download
         showMediaLoadingIndicator()
         downloadCTAButton?.removeFromSuperview()
@@ -3518,6 +3946,8 @@ extension NotificationViewController {
         if let idx = attachmentData.firstIndex(where: { ($0["url"] as? String) == urlPart }) {
             selectedMediaIndex = idx
         }
+        
+        print("📱 [ContentExtension] 🔄 Manual download started for: \(typePart) - \(urlPart)")
     }
     
     private func getSharedMediaCacheDirectory() -> URL {
@@ -3525,18 +3955,46 @@ extension NotificationViewController {
         let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationContentExtension", with: "") ?? "{{MAIN_BUNDLE_ID}}"
         let appGroupIdentifier = "group.\(bundleIdentifier)"
         
+        print("📱 [ContentExtension] 🔍 App Group identifier: \(appGroupIdentifier)")
+        
         if let sharedContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) {
-            return sharedContainerURL.appendingPathComponent("shared_media_cache")
+            let cacheDirectory = sharedContainerURL.appendingPathComponent("shared_media_cache")
+            
+            // Ensure the cache directory exists
+            if !FileManager.default.fileExists(atPath: cacheDirectory.path) {
+                do {
+                    try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true, attributes: nil)
+                    print("📱 [ContentExtension] ✅ Created shared media cache directory: \(cacheDirectory.path)")
+                } catch {
+                    print("📱 [ContentExtension] ❌ Failed to create shared cache directory: \(error)")
+                }
+            }
+            
+            print("📱 [ContentExtension] 📁 Using shared cache directory: \(cacheDirectory.path)")
+            return cacheDirectory
         } else {
+            print("📱 [ContentExtension] ⚠️ App Groups not available, using fallback directory")
             // Fallback to Documents directory if App Groups not available
             let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            return documentsPath.appendingPathComponent("shared_media_cache")
+            let cacheDirectory = documentsPath.appendingPathComponent("shared_media_cache")
+            
+            // Ensure the fallback cache directory exists
+            if !FileManager.default.fileExists(atPath: cacheDirectory.path) {
+                do {
+                    try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true, attributes: nil)
+                    print("📱 [ContentExtension] ✅ Created fallback cache directory: \(cacheDirectory.path)")
+                } catch {
+                    print("📱 [ContentExtension] ❌ Failed to create fallback cache directory: \(error)")
+                }
+            }
+            
+            return cacheDirectory
         }
     }
     
     private func getCachedMediaPath(url: String, mediaType: String) -> String? {
         let cacheKey = "\(mediaType.uppercased())_\(url)"
-        let filename = generateSafeFileName(url: url, mediaType: mediaType, originalFileName: nil)
+        let filename = generateSafeFileName(url: url, mediaType: mediaType, originalFileName: nil as String?)
         let sharedCacheDirectory = getSharedMediaCacheDirectory()
         let typeDirectory = sharedCacheDirectory.appendingPathComponent(mediaType.uppercased())
         let filePath = typeDirectory.appendingPathComponent(filename).path
@@ -3544,12 +4002,84 @@ extension NotificationViewController {
         print("📱 [ContentExtension] 🔍 Checking cached file: \(filePath)")
         print("📱 [ContentExtension] 📁 Cache directory: \(sharedCacheDirectory.path)")
         print("📱 [ContentExtension] 📄 Generated filename: \(filename)")
+        print("📱 [ContentExtension] 🔗 URL hash: \(generateLongHash(url: url))")
+        
+        // Check if directory exists
+        if !FileManager.default.fileExists(atPath: typeDirectory.path) {
+            print("📱 [ContentExtension] 📁 Type directory doesn't exist: \(typeDirectory.path)")
+            // Try to create it
+            do {
+                try FileManager.default.createDirectory(at: typeDirectory, withIntermediateDirectories: true, attributes: nil)
+                print("📱 [ContentExtension] ✅ Created type directory: \(typeDirectory.path)")
+            } catch {
+                print("📱 [ContentExtension] ❌ Failed to create type directory: \(error)")
+            }
+        }
+        
+        // List all files in type directory for debugging
+        do {
+            let files = try FileManager.default.contentsOfDirectory(atPath: typeDirectory.path)
+            print("📱 [ContentExtension] 📋 Files in \(mediaType.uppercased()) directory: \(files)")
+        } catch {
+            print("📱 [ContentExtension] ❌ Could not list files in type directory: \(error)")
+        }
         
         if FileManager.default.fileExists(atPath: filePath) {
             print("📱 [ContentExtension] ✅ Found cached file: \(filePath)")
+            
+            // Verify file size
+            do {
+                let attributes = try FileManager.default.attributesOfItem(atPath: filePath)
+                if let fileSize = attributes[.size] as? Int64 {
+                    print("📱 [ContentExtension] 📏 File size: \(fileSize) bytes")
+                    if fileSize > 0 {
+                        return filePath
+                    } else {
+                        print("📱 [ContentExtension] ⚠️ File exists but is empty, removing it")
+                        try? FileManager.default.removeItem(atPath: filePath)
+                        return nil
+                    }
+                }
+            } catch {
+                print("📱 [ContentExtension] ⚠️ Could not read file attributes: \(error)")
+            }
+            
             return filePath
         } else {
             print("📱 [ContentExtension] ❌ Cached file not found: \(filePath)")
+            
+            // For ICON media type, also try with .jpg extension (in case it was resized and converted)
+            if mediaType.uppercased() == "ICON" {
+                let baseFilename = (typeDirectory.appendingPathComponent(filename).lastPathComponent as NSString).deletingPathExtension
+                let jpegPath = typeDirectory.appendingPathComponent("\(baseFilename).jpg").path
+                
+                print("📱 [ContentExtension] 🔍 Trying JPEG version for icon: \(jpegPath)")
+                
+                if FileManager.default.fileExists(atPath: jpegPath) {
+                    print("📱 [ContentExtension] ✅ Found JPEG icon: \(jpegPath)")
+                    
+                    // Verify JPEG file size
+                    do {
+                        let attributes = try FileManager.default.attributesOfItem(atPath: jpegPath)
+                        if let fileSize = attributes[.size] as? Int64 {
+                            print("📱 [ContentExtension] 📏 JPEG file size: \(fileSize) bytes")
+                            if fileSize > 0 {
+                                return jpegPath
+                            } else {
+                                print("📱 [ContentExtension] ⚠️ JPEG file exists but is empty, removing it")
+                                try? FileManager.default.removeItem(atPath: jpegPath)
+                                return nil
+                            }
+                        }
+                    } catch {
+                        print("📱 [ContentExtension] ⚠️ Could not read JPEG file attributes: \(error)")
+                    }
+                    
+                    return jpegPath
+                } else {
+                    print("📱 [ContentExtension] ❌ JPEG icon also not found: \(jpegPath)")
+                }
+            }
         }
         
         return nil
@@ -3598,6 +4128,10 @@ extension NotificationViewController {
                 } else if errorCheck.hasError {
                     print("📱 [ContentExtension] ❌ Download failed with error: \(errorCheck.errorMessage ?? "Unknown error")")
                     self.hideMediaLoadingIndicator()
+                    
+                    // Remove footer if only one non-ICON media (same logic as displayMediaFromSharedCache)
+                    self.hideFooterIfSingleMedia()
+                    
                     self.showMediaError(
                         errorCheck.errorMessage ?? "Download failed",
                         allowRetry: true,
@@ -3630,15 +4164,16 @@ extension NotificationViewController {
     
     /**
      * Generate a robust hash for URL-based filename generation
-     * Uses the same algorithm as the mobile app
+     * Uses the same algorithm as the mobile app (React Native media-cache)
      */
     private func generateLongHash(url: String) -> String {
-        // Use a simple but effective hash algorithm matching React Native
+        // Replicate exact React Native algorithm: hash = (hash * 31 + char) >>> 0
         var hash: UInt32 = 0
         for char in url.utf8 {
-            hash = hash &* 31 &+ UInt32(char) // Safe multiplication and addition
+            // Use safe arithmetic operations to avoid overflow (matching JS >>> 0)
+            hash = (hash &* 31 &+ UInt32(char)) // Swift &* and &+ provide overflow protection
         }
-        // Convert to hex string and pad to 8 characters
+        // Convert to hex string and pad to 8 characters (matching JS toString(16).padStart(8, '0'))
         return String(format: "%08x", hash)
     }
     
@@ -3689,7 +4224,7 @@ extension NotificationViewController {
         // First, try to get the icon from shared cache
         let sharedCacheDir = getSharedMediaCacheDirectory()
         
-        let filename = generateSafeFileName(url: iconUrl, mediaType: "ICON", originalFileName: nil)
+        let filename = generateSafeFileName(url: iconUrl, mediaType: "ICON", originalFileName: nil as String?)
         let cachedIconPath = sharedCacheDir.appendingPathComponent("ICON").appendingPathComponent(filename)
         
         // Check if icon exists in shared cache
@@ -3700,7 +4235,7 @@ extension NotificationViewController {
                let image = UIImage(data: data) {
                 DispatchQueue.main.async {
                     iconImageView.image = image
-                    print("📱 [ContentExtension] ✅ Bucket icon loaded from shared cache")
+                    print("📱 [ContentExtension] ✅ Bucket icon loaded from shared cache (possibly resized)")
                 }
                 return
             } else {
@@ -3708,6 +4243,27 @@ extension NotificationViewController {
             }
         } else {
             print("📱 [ContentExtension] 📁 Icon not found in shared cache: \(cachedIconPath.path)")
+            
+            // Try with .jpg extension in case it was converted during resize
+            let baseFilename = (cachedIconPath.lastPathComponent as NSString).deletingPathExtension
+            let jpegIconPath = cachedIconPath.deletingLastPathComponent().appendingPathComponent("\(baseFilename).jpg")
+            
+            if FileManager.default.fileExists(atPath: jpegIconPath.path) {
+                print("📱 [ContentExtension] ✅ Found JPEG icon in shared cache: \(jpegIconPath.path)")
+                
+                if let data = try? Data(contentsOf: jpegIconPath),
+                   let image = UIImage(data: data) {
+                    DispatchQueue.main.async {
+                        iconImageView.image = image
+                        print("📱 [ContentExtension] ✅ Bucket icon loaded from shared cache (JPEG format)")
+                    }
+                    return
+                } else {
+                    print("📱 [ContentExtension] ⚠️ Failed to load JPEG icon data from shared cache")
+                }
+            } else {
+                print("📱 [ContentExtension] 📁 JPEG icon also not found: \(jpegIconPath.path)")
+            }
         }
         
         // Fallback to direct download

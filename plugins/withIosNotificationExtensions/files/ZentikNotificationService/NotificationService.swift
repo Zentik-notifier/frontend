@@ -782,11 +782,13 @@ class NotificationService: UNNotificationServiceExtension {
                 attachmentOptions = [UNNotificationAttachmentOptionsTypeHintKey as NSObject: UTType.jpeg.identifier as AnyObject]
             }
         case "ICON":
-            fileExtension = "png"
-            identifier = "zentik-icon"
-            if #available(iOS 14.0, *) {
-                attachmentOptions = [UNNotificationAttachmentOptionsTypeHintKey as NSObject: UTType.png.identifier as AnyObject]
-            }
+            // For Apple Watch compatibility, avoid creating any attachment for icons
+            // This prevents the space reservation issue on Apple Watch
+            print("📱 [NotificationService] 🍎 Skipping icon attachment for Apple Watch compatibility")
+            
+            // Just complete without creating an attachment
+            completion(nil)
+            return
         default:
             print("📱 [NotificationService] Unsupported media type: \(mediaItem.mediaType)")
             
@@ -822,26 +824,46 @@ class NotificationService: UNNotificationServiceExtension {
                 }
                 let candidateUrl = FileManager.default.fileExists(atPath: dbUrl.path) ? dbUrl : (FileManager.default.fileExists(atPath: typeCandidate.path) ? typeCandidate : (FileManager.default.fileExists(atPath: rootCandidate.path) ? rootCandidate : nil))
                 if let candidateUrl {
-                    print("📱 [NotificationService] ⚡️ Using cached media from SQLite: \(candidateUrl.path)")
-                    do {
-                        // Create attachment from a temp copy to avoid any system move/lock on the shared file
-                        let tmpAttachmentUrl = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-                        if FileManager.default.fileExists(atPath: tmpAttachmentUrl.path) {
-                            try? FileManager.default.removeItem(at: tmpAttachmentUrl)
+                    print("📱 [NotificationService] ⚡️ Found cached media from SQLite: \(candidateUrl.path)")
+                    
+                    // For icons, check if they have the correct resized dimensions
+                    if mediaItem.mediaType.uppercased() == "ICON" {
+                        if isIconProperlyResized(at: candidateUrl.path) {
+                            print("📱 [NotificationService] ✅ Using cached icon with correct size: \(candidateUrl.path)")
+                        } else {
+                            print("📱 [NotificationService] 🔄 Cached icon has wrong size, will re-download and resize: \(candidateUrl.path)")
+                            // Remove the incorrectly sized cached file and proceed to download
+                            try? FileManager.default.removeItem(at: candidateUrl)
+                            // Continue to download section (don't return early)
                         }
-                        let sharedData = try Data(contentsOf: candidateUrl, options: [.mappedIfSafe])
-                        try sharedData.write(to: tmpAttachmentUrl, options: [.atomic])
-                        let attachment = try UNNotificationAttachment(
-                            identifier: identifier,
-                            url: tmpAttachmentUrl,
-                            options: attachmentOptions as? [String : Any]
-                        )
-                        // Mark as completed in DB since we're using cached file
-                        self.markMediaAsCompleted(mediaItem, success: true, isNewDownload: false)
-                        completion(attachment)
-                        return
-                    } catch {
-                        print("📱 [NotificationService] ⚠️ Failed to create attachment from cached file, will redownload: \(error)")
+                    } else {
+                        print("📱 [NotificationService] ✅ Using cached media: \(candidateUrl.path)")
+                    }
+                    
+                    // Only use cached file if it's not an icon or if it's a properly sized icon
+                    let shouldUseCached = mediaItem.mediaType.uppercased() != "ICON" || isIconProperlyResized(at: candidateUrl.path)
+                    
+                    if shouldUseCached {
+                        do {
+                            // Create attachment from a temp copy to avoid any system move/lock on the shared file
+                            let tmpAttachmentUrl = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+                            if FileManager.default.fileExists(atPath: tmpAttachmentUrl.path) {
+                                try? FileManager.default.removeItem(at: tmpAttachmentUrl)
+                            }
+                            let sharedData = try Data(contentsOf: candidateUrl, options: [.mappedIfSafe])
+                            try sharedData.write(to: tmpAttachmentUrl, options: [.atomic])
+                            let attachment = try UNNotificationAttachment(
+                                identifier: identifier,
+                                url: tmpAttachmentUrl,
+                                options: attachmentOptions as? [String : Any]
+                            )
+                            // Mark as completed in DB since we're using cached file
+                            self.markMediaAsCompleted(mediaItem, success: true, isNewDownload: false)
+                            completion(attachment)
+                            return
+                        } catch {
+                            print("📱 [NotificationService] ⚠️ Failed to create attachment from cached file, will redownload: \(error)")
+                        }
                     }
                 }
             }
@@ -855,6 +877,9 @@ class NotificationService: UNNotificationServiceExtension {
             if let error = error {
                 let errorDescription = error.localizedDescription
                 print("📱 [NotificationService] Download network error: \(errorDescription)")
+                
+                // Mark media as failed in database so NCE can detect the error
+                self.markMediaAsCompleted(mediaItem, success: false, isNewDownload: true, errorCode: "Network Error: \(errorDescription)")
                 
                 // Generate error image for download failure
                 if let errorAttachment = self.createErrorAttachment(message: errorDescription) {
@@ -891,6 +916,9 @@ class NotificationService: UNNotificationServiceExtension {
                     
                     print("📱 [NotificationService] HTTP error: \(errorMessage)")
                     
+                    // Mark media as failed in database so NCE can detect the error
+                    self.markMediaAsCompleted(mediaItem, success: false, isNewDownload: true, errorCode: errorMessage)
+                    
                     // Generate error image for HTTP error
                     if let errorAttachment = self.createErrorAttachment(message: errorMessage) {
                         completion(errorAttachment)
@@ -905,6 +933,9 @@ class NotificationService: UNNotificationServiceExtension {
             guard let downloadedUrl = downloadedUrl else {
                 let errorMessage = "No file downloaded"
                 print("📱 [NotificationService] Download error: \(errorMessage)")
+                
+                // Mark media as failed in database so NCE can detect the error
+                self.markMediaAsCompleted(mediaItem, success: false, isNewDownload: true, errorCode: errorMessage)
                 
                 // Generate error image for missing file
                 if let errorAttachment = self.createErrorAttachment(message: errorMessage) {
@@ -1124,15 +1155,16 @@ class NotificationService: UNNotificationServiceExtension {
     
     /**
      * Generate a robust hash for URL-based filename generation
-     * Uses the same algorithm as the mobile app
+     * Uses the same algorithm as the mobile app (React Native media-cache)
      */
     private func generateLongHash(url: String) -> String {
-        // Use a simple but effective hash algorithm matching React Native
+        // Replicate exact React Native algorithm: hash = (hash * 31 + char) >>> 0
         var hash: UInt32 = 0
         for char in url.utf8 {
-            hash = hash &* 31 &+ UInt32(char) // Safe multiplication and addition
+            // Use safe arithmetic operations to avoid overflow (matching JS >>> 0)
+            hash = (hash &* 31 &+ UInt32(char)) // Swift &* and &+ provide overflow protection
         }
-        // Convert to hex string and pad to 8 characters
+        // Convert to hex string and pad to 8 characters (matching JS toString(16).padStart(8, '0'))
         return String(format: "%08x", hash)
     }
     
@@ -1478,10 +1510,24 @@ class NotificationService: UNNotificationServiceExtension {
         
         // Check if already cached
         if FileManager.default.fileExists(atPath: cacheFile.path) {
-            print("📱 [NotificationService] ✅ Media already cached: \(mediaAttachment.mediaType) - \(filename)")
-            markMediaAsCompleted(mediaAttachment, success: true, isNewDownload: false)
-            completion()
-            return
+            // For icons, also check if they have the correct resized dimensions
+            if mediaAttachment.mediaType.uppercased() == "ICON" {
+                if isIconProperlyResized(at: cacheFile.path) {
+                    print("📱 [NotificationService] ✅ Icon already cached with correct size: \(filename)")
+                    markMediaAsCompleted(mediaAttachment, success: true, isNewDownload: false)
+                    completion()
+                    return
+                } else {
+                    print("📱 [NotificationService] 🔄 Icon cached but wrong size, re-downloading: \(filename)")
+                    // Remove the incorrectly sized cached file
+                    try? FileManager.default.removeItem(at: cacheFile)
+                }
+            } else {
+                print("📱 [NotificationService] ✅ Media already cached: \(mediaAttachment.mediaType) - \(filename)")
+                markMediaAsCompleted(mediaAttachment, success: true, isNewDownload: false)
+                completion()
+                return
+            }
         }
         
         print("📱 [NotificationService] ⬇️ Downloading to shared cache: \(mediaAttachment.mediaType) - \(filename)")
@@ -1502,29 +1548,89 @@ class NotificationService: UNNotificationServiceExtension {
                 return
             }
             
+            // Process data based on media type before saving
+            var dataToSave = data
+            var finalCacheFile = cacheFile
+            
+            if mediaAttachment.mediaType.uppercased() == "ICON" {
+                print("📱 [NotificationService] 🔧 ICON detected, starting resize process...")
+                print("📱 [NotificationService] 🔍 Original icon data size: \(data.count) bytes")
+                
+                // Check data format before resize
+                if data.count >= 4 {
+                    let header = data.prefix(4)
+                    let headerBytes = header.map { $0 }
+                    print("📱 [NotificationService] 🔍 Icon data header: \(headerBytes.map { String(format: "%02X", $0) }.joined(separator: " "))")
+                    
+                    if headerBytes[0] == 0xFF && headerBytes[1] == 0xD8 {
+                        print("📱 [NotificationService] 🔍 Icon appears to be JPEG format")
+                    } else if headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4E && headerBytes[3] == 0x47 {
+                        print("📱 [NotificationService] 🔍 Icon appears to be PNG format")
+                    } else {
+                        print("📱 [NotificationService] ⚠️ Icon format not recognized")
+                    }
+                }
+                
+                // Try to create UIImage first to verify the data
+                if let testImage = UIImage(data: data) {
+                    let size = testImage.size
+                    print("📱 [NotificationService] ✅ Original icon successfully decoded: \(size.width)x\(size.height)")
+                    
+                    // Now try resize
+                    if let resizedData = self?.resizeIconImage(data: data) {
+                        dataToSave = resizedData
+                        print("📱 [NotificationService] 🖼️ Icon resized from \(data.count) bytes to \(resizedData.count) bytes")
+                        
+                        // Verify the resized image dimensions
+                        if let resizedImage = UIImage(data: resizedData) {
+                            let size = resizedImage.size
+                            print("📱 [NotificationService] ✅ Resized icon dimensions: \(size.width)x\(size.height)")
+                        }
+                        
+                        // Check if the resized data is JPEG and update filename accordingly
+                        if self?.isJPEGData(resizedData) == true {
+                            let baseFilename = (cacheFile.lastPathComponent as NSString).deletingPathExtension
+                            finalCacheFile = cacheFile.deletingLastPathComponent().appendingPathComponent("\(baseFilename).jpg")
+                            print("📱 [NotificationService] 📝 Updated filename for JPEG icon: \(finalCacheFile.lastPathComponent)")
+                        }
+                    } else {
+                        print("📱 [NotificationService] ❌ Failed to resize icon despite valid original, using original data")
+                    }
+                } else {
+                    print("📱 [NotificationService] ❌ Failed to decode original icon data, using as-is")
+                    // Let's also check what the original image looks like
+                    if let originalImage = UIImage(data: data) {
+                        let size = originalImage.size
+                        print("📱 [NotificationService] 📊 Original icon dimensions: \(size.width)x\(size.height)")
+                    } else {
+                        print("📱 [NotificationService] ❌ Cannot create UIImage from original data")
+                    }
+                }
+            }
+            
             // Save to shared cache
             do {
-                try data.write(to: cacheFile)
+                try dataToSave.write(to: finalCacheFile)
                 // Ensure the file is readable by the main app (adjust protection and backup flags)
                 do {
-                    try FileManager.default.setAttributes([.protectionKey: FileProtectionType.none], ofItemAtPath: cacheFile.path)
+                    try FileManager.default.setAttributes([.protectionKey: FileProtectionType.none], ofItemAtPath: finalCacheFile.path)
                 } catch {
                     print("📱 [NotificationService] ⚠️ Failed to set file protection to none: \(error)")
                 }
                 do {
                     var rv = URLResourceValues()
                     rv.isExcludedFromBackup = true
-                    var mutableUrl = cacheFile
+                    var mutableUrl = finalCacheFile
                     try mutableUrl.setResourceValues(rv)
                 } catch {
                     print("📱 [NotificationService] ⚠️ Failed to set isExcludedFromBackup: \(error)")
                 }
                 // Verify the file was saved in the shared container
-                let savedExists = FileManager.default.fileExists(atPath: cacheFile.path)
+                let savedExists = FileManager.default.fileExists(atPath: finalCacheFile.path)
                 var savedSize: Int64 = -1
                 if savedExists {
                     do {
-                        let attrs = try FileManager.default.attributesOfItem(atPath: cacheFile.path)
+                        let attrs = try FileManager.default.attributesOfItem(atPath: finalCacheFile.path)
                         if let size = attrs[.size] as? NSNumber {
                             savedSize = size.int64Value
                         }
@@ -1532,8 +1638,8 @@ class NotificationService: UNNotificationServiceExtension {
                         print("📱 [NotificationService] ⚠️ Failed to read saved file attributes: \(error)")
                     }
                 }
-                print("📱 [NotificationService] 🔎 Saved file verification: exists=\(savedExists) path=\(cacheFile.path) size=\(savedSize)")
-                print("📱 [NotificationService] ✅ Downloaded to shared cache: \(mediaAttachment.mediaType) (\(data.count) bytes) - \(filename)")
+                print("📱 [NotificationService] 🔎 Saved file verification: exists=\(savedExists) path=\(finalCacheFile.path) size=\(savedSize)")
+                print("📱 [NotificationService] ✅ Downloaded to shared cache: \(mediaAttachment.mediaType) (\(dataToSave.count) bytes) - \(finalCacheFile.lastPathComponent)")
                 self?.markMediaAsCompleted(mediaAttachment, success: true, isNewDownload: true)
             } catch {
                 print("📱 [NotificationService] ❌ Failed to save to shared cache: \(error)")
@@ -1569,7 +1675,7 @@ class NotificationService: UNNotificationServiceExtension {
         }
     }
     
-    private func markMediaAsCompleted(_ mediaAttachment: MediaAttachment, success: Bool, isNewDownload: Bool = true) {
+    private func markMediaAsCompleted(_ mediaAttachment: MediaAttachment, success: Bool, isNewDownload: Bool = true, errorCode: String? = nil) {
         let sharedCacheDirectory = getSharedMediaCacheDirectory()
         let filename = generateSafeFileName(url: mediaAttachment.url, mediaType: mediaAttachment.mediaType, originalFileName: mediaAttachment.name)
         let typeDirectory = sharedCacheDirectory.appendingPathComponent(mediaAttachment.mediaType.uppercased())
@@ -1587,11 +1693,15 @@ class NotificationService: UNNotificationServiceExtension {
         var fields: [String: Any] = [
             "is_downloading": 0,
             "timestamp": Int(Date().timeIntervalSince1970 * 1000),
-            "has_error": success ? 0 : 1
+            "has_error": success ? 0 : 1,
+            "is_permanent_failure": success ? 0 : 1  // Mark as permanent failure when unsuccessful
         ]
         if let localPath { fields["local_path"] = localPath }
         if fileSize > 0 { fields["size"] = Int(fileSize) }
         if success && isNewDownload { fields["downloaded_at"] = Int(Date().timeIntervalSince1970 * 1000) }
+        if let errorCode { fields["error_code"] = errorCode }
+        
+        print("📱 [NotificationService] 📊 Marking media as completed: success=\(success), errorCode=\(errorCode ?? "nil")")
         upsertCacheItem(url: mediaAttachment.url, mediaType: mediaAttachment.mediaType, fields: fields)
     }
 
@@ -1667,6 +1777,8 @@ class NotificationService: UNNotificationServiceExtension {
         for (i, v) in values.enumerated() { bind(Int32(i+1), v) }
         if sqlite3_step(stmt) != SQLITE_DONE {
             print("📱 [NotificationService] ❌ UPSERT failed: \(String(cString: sqlite3_errmsg(db)))")
+        } else {
+            print("📱 [NotificationService] ✅ UPSERT successful for key: \(key)")
         }
     }
     
@@ -1694,6 +1806,207 @@ class NotificationService: UNNotificationServiceExtension {
 
     
 
+    // MARK: - Image Processing
+    
+    /**
+     * Checks if a cached icon has the correct resized dimensions for Apple Watch compatibility
+     * Returns true if the icon is properly resized, false if it needs to be re-downloaded
+     */
+    private func isIconProperlyResized(at filePath: String) -> Bool {
+        guard FileManager.default.fileExists(atPath: filePath) else {
+            return false
+        }
+        
+        guard let imageData = try? Data(contentsOf: URL(fileURLWithPath: filePath)),
+              let image = UIImage(data: imageData) else {
+            print("📱 [NotificationService] ❌ Failed to load cached icon for size check: \(filePath)")
+            return false
+        }
+        
+        let currentSize = image.size
+        let targetSize = CGSize(width: 16, height: 16) // Same as in resizeIconImage
+        
+        // Check if image is within acceptable size range (allowing some tolerance for compression artifacts)
+        // Icon should be small enough for Apple Watch (max 45x45 with tolerance)
+        let maxAcceptableSize: CGFloat = 45.0
+        let isWithinTargetSize = currentSize.width <= maxAcceptableSize && 
+                                currentSize.height <= maxAcceptableSize
+        
+        print("📱 [NotificationService] 🔍 Icon size check: current=\(currentSize.width)x\(currentSize.height), target=\(targetSize.width)x\(targetSize.height), maxAcceptable=\(maxAcceptableSize)x\(maxAcceptableSize), isValid=\(isWithinTargetSize)")
+        
+        return isWithinTargetSize
+    }
+    
+    private func resizeIconImage(data: Data) -> Data? {
+        print("📱 [NotificationService] 🖼️ Starting icon resize, input data size: \(data.count) bytes")
+        
+        // Check if we have valid data
+        guard data.count > 0 else {
+            print("📱 [NotificationService] ❌ Icon resize failed: Empty data")
+            return nil
+        }
+        
+        // Try to create UIImage from data
+        guard let originalImage = UIImage(data: data) else {
+            print("📱 [NotificationService] ❌ Icon resize failed: Cannot create UIImage from data")
+            print("📱 [NotificationService] 📊 Data analysis: first 20 bytes: \(data.prefix(20).map { String(format: "%02X", $0) }.joined(separator: " "))")
+            
+            // Check if it looks like a common image format
+            if data.count >= 4 {
+                let header = data.prefix(4)
+                let headerBytes = header.map { $0 }
+                
+                if headerBytes[0] == 0xFF && headerBytes[1] == 0xD8 {
+                    print("📱 [NotificationService] 🔍 Data appears to be JPEG format")
+                } else if headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4E && headerBytes[3] == 0x47 {
+                    print("📱 [NotificationService] 🔍 Data appears to be PNG format")
+                } else if headerBytes[0] == 0x47 && headerBytes[1] == 0x49 && headerBytes[2] == 0x46 {
+                    print("📱 [NotificationService] 🔍 Data appears to be GIF format")
+                } else {
+                    print("📱 [NotificationService] ⚠️ Data format not recognized, header: \(headerBytes.map { String(format: "%02X", $0) }.joined(separator: " "))")
+                }
+            }
+            return nil
+        }
+        
+        // Target size for icons: extremely small for Apple Watch compatibility
+        // 16x16 points should display properly on Apple Watch without being too large
+        // This is significantly smaller than typical notification icons but prevents oversized display
+        let targetSize = CGSize(width: 16, height: 16)
+        let originalSize = originalImage.size
+        
+        print("📱 [NotificationService] 🖼️ Original icon size: \(originalSize.width)x\(originalSize.height)")
+        print("📱 [NotificationService] 🖼️ Target icon size: \(targetSize.width)x\(targetSize.height) (Apple Watch optimized)")
+        
+        // Check for invalid dimensions
+        guard originalSize.width > 0 && originalSize.height > 0 else {
+            print("📱 [NotificationService] ❌ Icon resize failed: Invalid original dimensions")
+            return nil
+        }
+        
+        // Always resize icons to ensure consistent small size across all devices
+        // This prevents large icons on Apple Watch
+        
+        // Calculate scale factor to maintain aspect ratio
+        let widthRatio = targetSize.width / originalSize.width
+        let heightRatio = targetSize.height / originalSize.height
+        let scaleFactor = min(widthRatio, heightRatio)
+        
+        let scaledSize = CGSize(
+            width: originalSize.width * scaleFactor,
+            height: originalSize.height * scaleFactor
+        )
+        
+        print("📱 [NotificationService] 🔄 Scaling icon to: \(scaledSize.width)x\(scaledSize.height) (scale: \(scaleFactor))")
+        
+        // Validate scaled size
+        guard scaledSize.width > 0 && scaledSize.height > 0 else {
+            print("📱 [NotificationService] ❌ Icon resize failed: Invalid scaled dimensions")
+            return nil
+        }
+        
+        // Create graphics context and resize image
+        print("📱 [NotificationService] 🎨 Creating graphics context...")
+        UIGraphicsBeginImageContextWithOptions(scaledSize, false, 0.0)
+        defer { 
+            UIGraphicsEndImageContext() 
+            print("📱 [NotificationService] 🎨 Graphics context ended")
+        }
+        
+        // Check if context was created successfully
+        guard UIGraphicsGetCurrentContext() != nil else {
+            print("📱 [NotificationService] ❌ Icon resize failed: Cannot create graphics context")
+            return nil
+        }
+        
+        print("📱 [NotificationService] 🖌️ Drawing image in context...")
+        originalImage.draw(in: CGRect(origin: .zero, size: scaledSize))
+        
+        guard let resizedImage = UIGraphicsGetImageFromCurrentImageContext() else {
+            print("📱 [NotificationService] ❌ Icon resize failed: Cannot get image from context")
+            return nil
+        }
+        
+        print("📱 [NotificationService] ✅ Image resized successfully, converting to data...")
+        
+        // Convert back to data with higher compression for smaller file size
+        // Use JPEG with 0.7 quality for better compression while maintaining acceptable quality
+        print("📱 [NotificationService] 📸 Attempting JPEG compression...")
+        if let jpegData = resizedImage.jpegData(compressionQuality: 0.7) {
+            print("📱 [NotificationService] ✅ Icon resized and compressed successfully (Apple Watch optimized)")
+            print("📱 [NotificationService] 📊 Size reduction: \(data.count) bytes → \(jpegData.count) bytes (\(String(format: "%.1f", Double(jpegData.count) / Double(data.count) * 100))%)")
+            return jpegData
+        } else {
+            print("📱 [NotificationService] ⚠️ JPEG compression failed, trying PNG...")
+        }
+        
+        // Fallback to PNG if JPEG fails
+        print("📱 [NotificationService] 🖼️ Attempting PNG conversion...")
+        if let pngData = resizedImage.pngData() {
+            print("📱 [NotificationService] ✅ Icon resized as PNG (JPEG failed)")
+            print("📱 [NotificationService] 📊 Size change: \(data.count) bytes → \(pngData.count) bytes")
+            return pngData
+        } else {
+            print("📱 [NotificationService] ❌ PNG conversion also failed")
+        }
+        
+        print("📱 [NotificationService] ❌ Icon resize completely failed: Cannot convert resized image to data")
+        return nil
+    }
+    
+    private func isJPEGData(_ data: Data) -> Bool {
+        // Check for JPEG magic bytes: FF D8 FF
+        guard data.count >= 3 else { return false }
+        let jpegSignature: [UInt8] = [0xFF, 0xD8, 0xFF]
+        let dataBytes = data.prefix(3)
+        return dataBytes.elementsEqual(jpegSignature)
+    }
+    
+    private func createMinimalIconAttachment() -> UNNotificationAttachment? {
+        print("📱 [NotificationService] 🔨 Creating minimal transparent icon for Apple Watch")
+        
+        // Create a 1x1 transparent image
+        let size = CGSize(width: 1, height: 1)
+        UIGraphicsBeginImageContextWithOptions(size, false, 0.0)
+        defer { UIGraphicsEndImageContext() }
+        
+        guard UIGraphicsGetCurrentContext() != nil else {
+            print("📱 [NotificationService] ❌ Failed to create graphics context for minimal icon")
+            return nil
+        }
+        
+        // Draw a transparent pixel
+        UIColor.clear.setFill()
+        UIRectFill(CGRect(origin: .zero, size: size))
+        
+        guard let image = UIGraphicsGetImageFromCurrentImageContext(),
+              let imageData = image.pngData() else {
+            print("📱 [NotificationService] ❌ Failed to create minimal icon image data")
+            return nil
+        }
+        
+        // Save to temporary file
+        let tempDir = FileManager.default.temporaryDirectory
+        let fileName = "minimal_icon_\(Int(Date().timeIntervalSince1970 * 1000)).png"
+        let tempUrl = tempDir.appendingPathComponent(fileName)
+        
+        do {
+            try imageData.write(to: tempUrl)
+            
+            let attachment = try UNNotificationAttachment(
+                identifier: "zentik-minimal-icon",
+                url: tempUrl,
+                options: nil
+            )
+            
+            print("📱 [NotificationService] ✅ Created minimal transparent icon attachment: \(fileName)")
+            return attachment
+            
+        } catch {
+            print("📱 [NotificationService] ❌ Failed to create minimal icon attachment: \(error)")
+            return nil
+        }
+    }
     
     
     private func getSharedMediaCacheDirectory() -> URL {
