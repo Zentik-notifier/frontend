@@ -10,7 +10,6 @@ import { useGetUserWebhooksQuery } from "../generated/gql-operations-generated";
 import SwipeableWebhookItem from "./SwipeableWebhookItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
-import { AppLoader } from "./ui/AppLoader";
 import Icon from "./ui/Icon";
 
 interface WebhooksSettingsProps {

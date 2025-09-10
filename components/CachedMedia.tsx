@@ -369,7 +369,24 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
 
     // User deleted - click to redownload
-    if (mediaSource?.isUserDeleted || !mediaSource?.localPath) {
+    if (mediaSource?.isUserDeleted) {
+      return (
+        <View style={getStateContainerStyle("deleted") as any}>
+          <View style={defaultStyles.stateContent}>
+            <Ionicons
+              name="refresh-outline"
+              size={isCompact ? 20 : 24}
+              color={stateColors.deleted}
+              onPress={isCompact ? handleForceDownload : undefined}
+            />
+          </View>
+          {!isCompact && renderForceDownloadButton(false)}
+        </View>
+      );
+    }
+
+    // No local path
+    if (!mediaSource?.localPath) {
       return (
         <View style={getStateContainerStyle("deleted") as any}>
           <View style={defaultStyles.stateContent}>
@@ -380,7 +397,7 @@ export const CachedMedia = React.memo(function CachedMedia({
               onPress={isCompact ? handleForceDownload : undefined}
             />
           </View>
-          {!isCompact && renderForceDownloadButton(!mediaSource?.isUserDeleted)}
+          {!isCompact && renderForceDownloadButton(true)}
         </View>
       );
     }

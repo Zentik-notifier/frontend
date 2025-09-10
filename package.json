@@ -4,8 +4,8 @@
   "version": "0.0.43",
   "scripts": {
     "start": "expo start",
-    "export:web": "expo export --platform web --output-dir dist",
-    "lint": "expo lint",
+    "export:web": "npx expo export --platform web --output-dir dist",
+    "lint": "npx expo lint",
     "codegen": "graphql-codegen",
     "release:ios:patch": "node scripts/release-ios.js patch",
     "release:ios:minor": "node scripts/release-ios.js minor",

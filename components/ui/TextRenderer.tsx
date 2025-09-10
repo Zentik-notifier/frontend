@@ -149,7 +149,6 @@ export const TextRenderer: React.FC<TextRendererProps> = ({
     }
 
     // Parse HTML-like content and detect contacts
-    const htmlRegex = /<(\/?)(\w+)(?:\s+[^>]*)?>/g;
     const linkRegex = /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1[^>]*>(.*?)<\/a>/gi;
     const result: TextSegment[] = [];
 
