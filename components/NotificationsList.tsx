@@ -27,10 +27,8 @@ import { FlatList } from "react-native-gesture-handler";
 
 interface NotificationsListProps {
   notifications: NotificationFragment[];
-  hideBucketSelector?: boolean;
   hideBucketInfo?: boolean;
-  showRefreshControl?: boolean;
-  onRefresh?: () => Promise<void>;
+  isLoadingMore?: boolean;
   emptyStateMessage?: string;
   emptyStateSubtitle?: string;
   customHeader?: React.ReactNode;
@@ -40,9 +38,8 @@ interface NotificationsListProps {
 
 export default function NotificationsList({
   notifications,
-  hideBucketSelector = false,
   hideBucketInfo = false,
-  showRefreshControl = true,
+  isLoadingMore = false,
   emptyStateMessage,
   emptyStateSubtitle,
   customHeader,
@@ -64,6 +61,7 @@ export default function NotificationsList({
   // Stati per multi-selezione
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const {
     userSettings: {
@@ -79,7 +77,7 @@ export default function NotificationsList({
     let filtered = notifications.filter((notification) => {
       return userSettings.shouldFilterNotification(
         notification,
-        hideBucketSelector
+        hideBucketInfo
       );
     });
 
@@ -88,7 +86,7 @@ export default function NotificationsList({
     filtered = filtered.sort(comparator);
 
     return filtered;
-  }, [notifications, notificationFilters, hideBucketSelector, isCompactMode]);
+  }, [notifications, notificationFilters, hideBucketInfo, isCompactMode]);
 
   const toggleItemSelection = (itemId: string) => {
     const newSelection = new Set(selectedItems);
@@ -168,6 +166,15 @@ export default function NotificationsList({
     setSelectionMode(!selectionMode);
     if (selectionMode) {
       handleCloseSelectionMode();
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetchNotifications();
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -382,6 +389,20 @@ export default function NotificationsList({
     </View>
   );
 
+  const renderLoadingFooter = () => (
+    <View style={styles.loadingFooter}>
+      <ActivityIndicator size="small" color={Colors[colorScheme].tint} />
+      <ThemedText
+        style={[
+          styles.loadingText,
+          { color: Colors[colorScheme].textSecondary },
+        ]}
+      >
+        {t("common.loading")}
+      </ThemedText>
+    </View>
+  );
+
   return (
     <ThemedView style={[styles.container, listStyle]}>
       {/* Barra di selezione (visibile solo in modalità selezione) */}
@@ -392,7 +413,7 @@ export default function NotificationsList({
         <NotificationFilters
           onToggleCompactMode={handleToggleCompactMode}
           isCompactMode={isCompactMode}
-          hideBucketSelector={hideBucketSelector}
+          hideBucketSelector={hideBucketInfo}
           onToggleMultiSelection={handleToggleMultiSelection}
           selectedCount={selectedItems.size}
           isMultiSelectionMode={selectionMode}
@@ -407,21 +428,17 @@ export default function NotificationsList({
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         refreshControl={
-          showRefreshControl ? (
-            <RefreshControl
-              refreshing={false}
-              onRefresh={refetchNotifications}
-              colors={[Colors[colorScheme ?? "light"].tint]}
-              tintColor={Colors[colorScheme ?? "light"].tint}
-            />
-          ) : undefined
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={[Colors[colorScheme ?? "light"].tint]}
+            tintColor={Colors[colorScheme ?? "light"].tint}
+          />
         }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.listContent, contentContainerStyle]}
         ListEmptyComponent={renderEmptyState}
-        ListFooterComponent={
-          filteredNotifications.length > 0 ? renderListFooter : null
-        }
+        ListFooterComponent={renderListFooter}
       />
     </ThemedView>
   );
@@ -499,5 +516,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.6,
     fontStyle: "italic",
+  },
+  loadingFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 14,
+    opacity: 0.7,
   },
 });

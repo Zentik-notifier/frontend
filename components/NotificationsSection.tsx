@@ -20,12 +20,5 @@ export default function NotificationsSection({
 
   const notifications = notificationsParent ?? notificationsFromContext;
 
-  return (
-    <NotificationsList
-      notifications={notifications}
-      hideBucketSelector={false}
-      hideBucketInfo={false}
-      showRefreshControl
-    />
-  );
+  return <NotificationsList notifications={notifications} />;
 }

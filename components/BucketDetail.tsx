@@ -108,7 +108,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
       ]}
     >
       <View style={styles.bucketInfo}>
-        <BucketIcon bucketId={bucketId} size="xl" noRouting/>
+        <BucketIcon bucketId={bucketId} size="xl" noRouting />
 
         <View style={styles.bucketDetails}>
           <ThemedText
@@ -234,7 +234,11 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
 
         {/* Snooze Button - bottom row */}
         <View style={styles.actionBottomRow}>
-          <NotificationSnoozeButton bucketId={bucketId} variant="detail" showText />
+          <NotificationSnoozeButton
+            bucketId={bucketId}
+            variant="detail"
+            showText
+          />
         </View>
       </View>
     </View>
@@ -286,17 +290,12 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   return (
     <ThemedView style={styles.container}>
       {/* Sticky Header with Bucket Info */}
-      <View style={styles.stickyHeader}>
-        {renderBucketHeader()}
-      </View>
+      <View style={styles.stickyHeader}>{renderBucketHeader()}</View>
 
       {/* Notifications List */}
       <NotificationsList
         notifications={filteredNotifications}
-        hideBucketSelector={true}
-        hideBucketInfo={true}
-        showRefreshControl={true}
-        onRefresh={refetchNotifications}
+        hideBucketInfo
         customHeader={
           <View
             style={[
