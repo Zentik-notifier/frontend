@@ -329,9 +329,13 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
 
     // MARK: - Dynamic Header Lines (max total 10)
     private func adjustHeaderLineCounts() {
+        print("📱 [ContentExtension] 🔧 adjustHeaderLineCounts() called")
         guard let titleLabel = headerTitleLabel,
               let subtitleLabel = headerSubtitleLabel,
-              let bodyLabel = headerBodyLabel else { return }
+              let bodyLabel = headerBodyLabel else { 
+            print("📱 [ContentExtension] ❌ adjustHeaderLineCounts() - labels not available")
+            return 
+        }
 
         // Normalizza i separatori di riga (ad es. U+2028, U+2029) per un wrapping coerente
         let normalizedTitle = normalizeLineSeparators(notificationTitleText)
@@ -1149,8 +1153,25 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 print("📱 [ContentExtension] HTTP Status Code: \(statusCode)")
                 
                 if statusCode < 200 || statusCode >= 300 {
-                    let statusMessage = HTTPURLResponse.localizedString(forStatusCode: statusCode)
-                    let errorMessage = "HTTP Error \(statusCode): \(statusMessage)"
+                    // Use same error message format as NotificationService for consistency
+                    let statusMessage: String
+                    switch statusCode {
+                    case 400:
+                        statusMessage = "Bad Request (400)"
+                    case 401:
+                        statusMessage = "Unauthorized (401)"
+                    case 403:
+                        statusMessage = "Forbidden (403)"
+                    case 404:
+                        statusMessage = "Not Found (404)"
+                    case 500:
+                        statusMessage = "Internal Server Error (500)"
+                    case 503:
+                        statusMessage = "Service Unavailable (503)"
+                    default:
+                        statusMessage = "HTTP Error (\(statusCode))"
+                    }
+                    let errorMessage = "Download failed: \(statusMessage)"
                     print("📱 [ContentExtension] HTTP error: \(errorMessage)")
                     
                     DispatchQueue.main.async {
@@ -1169,7 +1190,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             
             // Check if we have a valid downloaded file
             guard let tempURL = tempURL else {
-                let errorMessage = "No file downloaded"
+                let errorMessage = "Download failed: No data received"
                 print("📱 [ContentExtension] Download error: \(errorMessage)")
                 DispatchQueue.main.async {
                     self.hideFooterIfSingleMedia()
@@ -1205,7 +1226,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 }
                 
                 if fileSize < minSize {
-                    let errorMessage = "Downloaded file too small (\(fileSize) bytes), likely corrupted or error response"
+                    let errorMessage = "Download failed: File too small (\(fileSize) bytes)"
                     print("📱 [ContentExtension] ❌ \(errorMessage)")
                     DispatchQueue.main.async {
                         self.hideFooterIfSingleMedia()
@@ -1230,7 +1251,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                         DispatchQueue.main.async {
                             self.hideFooterIfSingleMedia()
                             self.showMediaError(
-                                "Server returned error page instead of media",
+                                "Download failed: Server returned error page",
                                 allowRetry: true,
                                 retryAction: { [weak self] in
                                     self?.retryCurrentMediaDownload()
@@ -1289,7 +1310,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     self.hideFooterIfSingleMedia()
                     
                     self.showMediaError(
-                        "File operation failed",
+                        "Download failed: File operation error",
                         allowRetry: true,
                         retryAction: { [weak self] in
                             self?.retryCurrentMediaDownload()
@@ -1443,6 +1464,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         NSLayoutConstraint.activate(constraints)
         
+        // Ensure header is properly configured when showing error
+        adjustHeaderLineCounts()
+        
         // Adjust preferred height for error view (fixed height for consistent error display)
         let errorHeight: CGFloat = 200
         adjustPreferredHeight(forContentSize: CGSize(width: view.bounds.width, height: errorHeight))
@@ -1484,6 +1508,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Hide any existing error view
         hideMediaError()
         
+        // Ensure header is properly configured for retry
+        adjustHeaderLineCounts()
+        
         // Show loading indicator
         showMediaLoadingIndicator()
         
@@ -1497,6 +1524,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             "is_downloading": 1,
             "generating_thumbnail": 0,
             "size": 0,
+            "is_user_deleted": 0,
             "timestamp": Int(Date().timeIntervalSince1970 * 1000),
             "downloaded_at": 0  // Reset to 0 for retry, will be set properly on successful download
         ])
@@ -1681,7 +1709,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 
                 let errorCheck = hasMediaDownloadError(url: urlString, mediaType: mediaTypeString)
                 let errorMessage = errorCheck.hasError && errorCheck.errorMessage != nil ? 
-                    "Download failed (\(errorCheck.errorMessage!))" : "Failed to load image"
+                    "Download failed: \(errorCheck.errorMessage!)" : "Download failed: Unable to load image"
                 
                 print("📱 [ContentExtension] ❌ Image error - URL: \(urlString), Error: \(errorMessage)")
                 
@@ -1691,7 +1719,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 })
             } else {
                 // Fallback error message
-                showMediaError("Failed to load image", allowRetry: true, retryAction: { [weak self] in
+                showMediaError("Download failed: Unable to load image", allowRetry: true, retryAction: { [weak self] in
                     self?.retryCurrentMediaDownload()
                 })
             }
@@ -2924,19 +2952,40 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     private func isMediaDownloading(url: String, mediaType: String) -> Bool {
         // Leggi stato da SQLite
         let dbPath = getDbPath()
-        guard FileManager.default.fileExists(atPath: dbPath) else { return false }
+        guard FileManager.default.fileExists(atPath: dbPath) else { 
+            print("📱 [ContentExtension] 🔍 Database file does not exist: \(dbPath)")
+            return false 
+        }
         var db: OpaquePointer?
-        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) != SQLITE_OK { return false }
+        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) != SQLITE_OK { 
+            print("📱 [ContentExtension] 🔍 Failed to open database for reading")
+            return false 
+        }
         defer { sqlite3_close(db) }
         let key = "\(mediaType.uppercased())_\(url)"
-        let sql = "SELECT is_downloading FROM cache_item WHERE key = ? LIMIT 1"
+        let sql = "SELECT is_downloading, is_permanent_failure, error_code, local_path, timestamp FROM cache_item WHERE key = ? LIMIT 1"
         var stmt: OpaquePointer?
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK { return false }
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK { 
+            print("📱 [ContentExtension] 🔍 Failed to prepare SQL statement")
+            return false 
+        }
         defer { sqlite3_finalize(stmt) }
         sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
         if sqlite3_step(stmt) == SQLITE_ROW {
-            let val = sqlite3_column_int(stmt, 0)
-            return val == 1
+            let isDownloading = sqlite3_column_int(stmt, 0)
+            let isPermanentFailure = sqlite3_column_int(stmt, 1)
+            let errorCode = sqlite3_column_text(stmt, 2) != nil ? String(cString: sqlite3_column_text(stmt, 2)) : "nil"
+            let localPath = sqlite3_column_text(stmt, 3) != nil ? String(cString: sqlite3_column_text(stmt, 3)) : "nil"
+            let timestamp = sqlite3_column_int64(stmt, 4)
+            
+            print("📱 [ContentExtension] 🔍 DB Row - Key: \(key)")
+            print("📱 [ContentExtension] 🔍 DB Row - is_downloading: \(isDownloading), is_permanent_failure: \(isPermanentFailure)")
+            print("📱 [ContentExtension] 🔍 DB Row - error_code: \(errorCode), local_path: \(localPath)")
+            print("📱 [ContentExtension] 🔍 DB Row - timestamp: \(timestamp)")
+            
+            return isDownloading == 1
+        } else {
+            print("📱 [ContentExtension] 🔍 No database row found for key: \(key)")
         }
         return false
     }
@@ -3875,7 +3924,7 @@ extension NotificationViewController {
             if isMediaDownloading(url: urlString, mediaType: mediaTypeString) {
                 print("📱 [ContentExtension] 📥 Media is currently downloading, showing loader...")
                 showMediaLoadingIndicator()
-                pollForMediaCompletion(url: urlString, mediaType: mediaTypeString, originalMediaType: mediaType)
+                pollForMediaCompletion(url: urlString, mediaType: mediaTypeString, originalMediaType: mediaType, attempt: 1)
             } else {
                 // Se esiste un errore registrato su DB, mostra schermata di errore con eventuale codice
                 let errorCheck = hasMediaDownloadError(url: urlString, mediaType: mediaTypeString)
@@ -4085,9 +4134,26 @@ extension NotificationViewController {
         return nil
     }
     
-    private func pollForMediaCompletion(url: String, mediaType: String, originalMediaType: MediaType) {
+    private func pollForMediaCompletion(url: String, mediaType: String, originalMediaType: MediaType, attempt: Int = 1) {
+        // Timeout after 30 attempts (15 seconds)
+        if attempt > 30 {
+            print("📱 [ContentExtension] ⚠️ Polling timeout reached after \(attempt) attempts")
+            self.hideMediaLoadingIndicator()
+            self.hideFooterIfSingleMedia()
+            self.showMediaError(
+                "Download failed: Timeout",
+                allowRetry: true,
+                retryAction: { [weak self] in
+                    self?.retryCurrentMediaDownload()
+                }
+            )
+            return
+        }
+        
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             guard let self = self else { return }
+            
+            print("📱 [ContentExtension] 🔍 Polling attempt \(attempt)/30 for media: \(url)")
             
             // Check if media is still the currently selected one
             guard self.attachmentData.indices.contains(self.selectedMediaIndex) else {
@@ -4124,7 +4190,7 @@ extension NotificationViewController {
                 
                 if isDownloading {
                     // Still downloading, continue polling
-                    self.pollForMediaCompletion(url: url, mediaType: mediaType, originalMediaType: originalMediaType)
+                    self.pollForMediaCompletion(url: url, mediaType: mediaType, originalMediaType: originalMediaType, attempt: attempt + 1)
                 } else if errorCheck.hasError {
                     print("📱 [ContentExtension] ❌ Download failed with error: \(errorCheck.errorMessage ?? "Unknown error")")
                     self.hideMediaLoadingIndicator()
