@@ -39,7 +39,7 @@ import { Icon, SmartTextRenderer } from "./ui";
 
 interface SwipeableNotificationItemProps {
   notification: NotificationFragment;
-  hideBucketInfo?: boolean; // Renamed: hides bucket name, icon and left border
+  hideBucketInfo?: boolean;
   isMultiSelectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelection?: () => void;
@@ -293,38 +293,36 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                     </ThemedView>
                   </TouchableOpacity>
                 ) : (
-                  !hideBucketInfo && (
-                    <View style={styles.leftColumn}>
-                      <View
-                        style={styles.bucketIconContainer}
-                        onStartShouldSetResponder={() => true}
-                      >
-                        <BucketIcon
-                          bucketId={notification.message?.bucket?.id}
-                          size="lg"
-                        />
-                      </View>
-                      {!isCompactMode && (
-                        <View style={styles.underIconRow}>
-                          {actions.length > 0 && (
-                            <NotificationActionsButton
-                              notification={notification}
-                              actions={actions}
-                              variant="swipeable"
-                              fullWidth
-                            />
-                          )}
-
-                          <NotificationSnoozeButton
-                            bucketId={notification.message?.bucket?.id}
+                  <View style={styles.leftColumn}>
+                    <View
+                      style={styles.bucketIconContainer}
+                      onStartShouldSetResponder={() => true}
+                    >
+                      <BucketIcon
+                        bucketId={notification.message?.bucket?.id}
+                        size={"lg"}
+                      />
+                    </View>
+                    {!isCompactMode && (
+                      <View style={styles.underIconRow}>
+                        {actions.length > 0 && (
+                          <NotificationActionsButton
+                            notification={notification}
+                            actions={actions}
                             variant="swipeable"
-                            showText={false}
                             fullWidth
                           />
-                        </View>
-                      )}
-                    </View>
-                  )
+                        )}
+
+                        <NotificationSnoozeButton
+                          bucketId={notification.message?.bucket?.id}
+                          variant="swipeable"
+                          showText={false}
+                          fullWidth
+                        />
+                      </View>
+                    )}
+                  </View>
                 )}
 
                 {/* Colonna 2: Contenuto testuale */}
