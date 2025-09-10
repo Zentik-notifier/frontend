@@ -385,7 +385,7 @@ export const CachedMedia = React.memo(function CachedMedia({
       );
     }
 
-    // No local path
+    // LocalPath not present ??
     if (!mediaSource?.localPath) {
       return (
         <View style={getStateContainerStyle("deleted") as any}>
@@ -397,7 +397,7 @@ export const CachedMedia = React.memo(function CachedMedia({
               onPress={isCompact ? handleForceDownload : undefined}
             />
           </View>
-          {!isCompact && renderForceDownloadButton(true)}
+          {!isCompact && renderForceDownloadButton(!!mediaSource)}
         </View>
       );
     }
