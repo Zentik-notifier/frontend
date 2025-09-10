@@ -490,7 +490,7 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                               variant="inline"
                             />
                           )}
-
+                          <View style={styles.filler} />
                           <NotificationSnoozeButton
                             bucketId={notification.message?.bucket?.id}
                             variant="inline"
@@ -737,6 +737,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 4,
     width: "100%",
+  },
+  filler: {
+    flex: 1,
   },
   actionsContainer: {
     flexDirection: "row",
