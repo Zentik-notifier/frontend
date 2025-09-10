@@ -139,6 +139,12 @@ export type CreateOAuthProviderDto = {
   userInfoUrl?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type CreatePayloadMapperDto = {
+  jsEvalFn: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  userId?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type CreateUserBucketDto = {
   bucketId: Scalars['String']['input'];
   snoozeUntil?: InputMaybe<Scalars['String']['input']>;
@@ -327,6 +333,7 @@ export type Mutation = {
   /** Create a new message and send notifications to bucket users (returns the created message). */
   createMessage: Message;
   createOAuthProvider: OAuthProvider;
+  createPayloadMapper: PayloadMapper;
   createSystemToken: SystemAccessTokenDto;
   createUserBucket: UserBucket;
   createWebhook: UserWebhook;
@@ -334,6 +341,7 @@ export type Mutation = {
   deleteBucket: Scalars['Boolean']['output'];
   deleteNotification: Scalars['Boolean']['output'];
   deleteOAuthProvider: Scalars['Boolean']['output'];
+  deletePayloadMapper: Scalars['Boolean']['output'];
   deleteWebhook: Scalars['Boolean']['output'];
   deviceReportNotificationReceived: Notification;
   grantEntityPermission: EntityPermission;
@@ -370,6 +378,7 @@ export type Mutation = {
   updateBucketSnoozes: UserBucket;
   updateDeviceToken: UserDevice;
   updateOAuthProvider: OAuthProvider;
+  updatePayloadMapper: PayloadMapper;
   updateProfile: User;
   updateReceivedNotifications: UpdateReceivedResult;
   updateUserBucket: UserBucket;
@@ -410,6 +419,11 @@ export type MutationCreateOAuthProviderArgs = {
 };
 
 
+export type MutationCreatePayloadMapperArgs = {
+  input: CreatePayloadMapperDto;
+};
+
+
 export type MutationCreateSystemTokenArgs = {
   description?: InputMaybe<Scalars['String']['input']>;
   expiresAt?: InputMaybe<Scalars['String']['input']>;
@@ -439,6 +453,11 @@ export type MutationDeleteNotificationArgs = {
 
 
 export type MutationDeleteOAuthProviderArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type MutationDeletePayloadMapperArgs = {
   id: Scalars['String']['input'];
 };
 
@@ -608,6 +627,12 @@ export type MutationUpdateOAuthProviderArgs = {
 };
 
 
+export type MutationUpdatePayloadMapperArgs = {
+  id: Scalars['String']['input'];
+  input: UpdatePayloadMapperDto;
+};
+
+
 export type MutationUpdateProfileArgs = {
   input: UpdateProfileInput;
 };
@@ -760,6 +785,35 @@ export type PasswordResetResponseDto = {
   success: Scalars['Boolean']['output'];
 };
 
+export type PayloadMapper = {
+  __typename?: 'PayloadMapper';
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  jsEvalFn: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  user: Maybe<User>;
+  userId: Maybe<Scalars['ID']['output']>;
+};
+
+/** Built-in payload mapper types */
+export enum PayloadMapperBuiltInType {
+  ZentikAuthentik = 'ZentikAuthentik',
+  ZentikServarr = 'ZentikServarr'
+}
+
+export type PayloadMapperWithBuiltin = {
+  __typename?: 'PayloadMapperWithBuiltin';
+  builtInName: Maybe<PayloadMapperBuiltInType>;
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  jsEvalFn: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  user: Maybe<User>;
+  userId: Maybe<Scalars['ID']['output']>;
+};
+
 /** Permission enum for bucket access */
 export enum Permission {
   Admin = 'ADMIN',
@@ -800,6 +854,8 @@ export type Query = {
   notificationServices: Array<NotificationServiceInfo>;
   notifications: Array<Notification>;
   oauthProvider: OAuthProvider;
+  payloadMapper: PayloadMapper;
+  payloadMappers: Array<PayloadMapperWithBuiltin>;
   publicAppConfig: PublicAppConfig;
   snoozedBucketIds: Array<Scalars['String']['output']>;
   userBucket: UserBucket;
@@ -863,6 +919,11 @@ export type QueryNotificationArgs = {
 
 
 export type QueryOauthProviderArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type QueryPayloadMapperArgs = {
   id: Scalars['String']['input'];
 };
 
@@ -1040,6 +1101,11 @@ export type UpdateOAuthProviderDto = {
   tokenUrl?: InputMaybe<Scalars['String']['input']>;
   type?: InputMaybe<OAuthProviderType>;
   userInfoUrl?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdatePayloadMapperDto = {
+  jsEvalFn?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateProfileInput = {

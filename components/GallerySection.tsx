@@ -24,6 +24,7 @@ import {
 } from "react-native";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
+import GalleryFilters from "./GalleryFilters";
 import { MediaTypeIcon } from "./MediaTypeIcon";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
@@ -43,7 +44,6 @@ export default function GallerySection() {
     new Set([MediaType.Image, MediaType.Video, MediaType.Gif, MediaType.Audio])
   );
   const [showStats, setShowStats] = useState(false);
-  const [showMediaTypeSelector, setShowMediaTypeSelector] = useState(false);
   const numColumns = 3;
 
   const itemWidth = useMemo(() => {
@@ -155,194 +155,16 @@ export default function GallerySection() {
     setSelectedItems(newSelection);
   };
 
-  // Filter functions
-  const toggleMediaType = (mediaType: MediaType) => {
-    const newSelectedTypes = new Set(selectedMediaTypes);
-    if (newSelectedTypes.has(mediaType)) {
-      newSelectedTypes.delete(mediaType);
+
+  const handleToggleMultiSelection = () => {
+    if (selectionMode) {
+      setSelectionMode(false);
+      setSelectedItems(new Set());
     } else {
-      newSelectedTypes.add(mediaType);
+      setSelectionMode(true);
     }
-    setSelectedMediaTypes(newSelectedTypes);
   };
 
-  const selectAllMediaTypes = () => {
-    setSelectedMediaTypes(new Set(availableMediaTypes));
-  };
-
-  const deselectAllMediaTypes = () => {
-    setSelectedMediaTypes(new Set());
-  };
-
-  const getSelectedTypesText = () => {
-    const allCount = availableMediaTypes.length;
-    const selectedCount = selectedMediaTypes.size;
-
-    if (selectedCount === 0) return t("medias.filters.noType");
-    if (selectedCount === allCount) return t("medias.filters.allTypes");
-
-    const selectedTypes = availableMediaTypes.filter((type) =>
-      selectedMediaTypes.has(type)
-    );
-    if (selectedCount <= 2) {
-      return selectedTypes
-        .map((type) => getMediaTypeFriendlyName(type))
-        .join(", ");
-    }
-
-    return t("medias.filters.selectedTypesCount", {
-      selected: selectedCount,
-      total: allCount,
-    });
-  };
-
-  const renderFiltersBar = () => {
-    return (
-      <View
-        style={[
-          styles.filtersBar,
-          {
-            backgroundColor: Colors[colorScheme].background,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.multiSelectorButton,
-            {
-              borderColor: Colors[colorScheme].tint,
-              backgroundColor: Colors[colorScheme].background,
-            },
-          ]}
-          onPress={() => setShowMediaTypeSelector(true)}
-        >
-          <Ionicons
-            name="filter-outline"
-            size={16}
-            color={Colors[colorScheme].tint}
-          />
-          <Text
-            style={[
-              styles.multiSelectorText,
-              { color: Colors[colorScheme].tint },
-            ]}
-          >
-            {getSelectedTypesText()}
-          </Text>
-          <Ionicons
-            name="chevron-down"
-            size={16}
-            color={Colors[colorScheme].tint}
-          />
-        </TouchableOpacity>
-
-        {/* Multi-Selection Button */}
-        <TouchableOpacity
-          style={[
-            styles.multiSelectionToggle,
-            {
-              borderColor: Colors[colorScheme].border,
-              backgroundColor: selectionMode
-                ? Colors[colorScheme].tint
-                : Colors[colorScheme].background,
-            },
-          ]}
-          onPress={() => {
-            if (selectionMode) {
-              setSelectionMode(false);
-              setSelectedItems(new Set());
-            } else {
-              setSelectionMode(true);
-            }
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={selectionMode ? "close" : "checkmark-circle-outline"}
-            size={16}
-            color={selectionMode ? "white" : Colors[colorScheme].textSecondary}
-          />
-          {selectionMode && selectedItems.size > 0 && (
-            <View
-              style={[
-                styles.gallerySelectionBadge,
-                { backgroundColor: "white" },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.gallerySelectionBadgeText,
-                  { color: Colors[colorScheme].tint },
-                ]}
-              >
-                {selectedItems.size}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        {/* Delete Selected Button (only visible in selection mode with selections) */}
-        {selectionMode && selectedItems.size > 0 && (
-          <TouchableOpacity
-            style={[
-              styles.deleteSelectedButton,
-              {
-                backgroundColor: "#ff4444",
-              },
-            ]}
-            onPress={async () => {
-              const count = selectedItems.size;
-              if (count === 0) return;
-              Alert.alert(
-                t("medias.deleteItem.title"),
-                t("medias.deleteItem.message"),
-                [
-                  { text: t("common.cancel"), style: "cancel" },
-                  {
-                    text: t("common.delete"),
-                    style: "destructive",
-                    onPress: async () => {
-                      const items = filteredMedia.filter((m) =>
-                        selectedItems.has(m.key)
-                      );
-                      for (const it of items) {
-                        await mediaCache.deleteCachedMedia(
-                          it.url,
-                          it.mediaType
-                        );
-                      }
-                      setSelectedItems(new Set());
-                      setSelectionMode(false);
-                    },
-                  },
-                ]
-              );
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="trash" size={16} color="white" />
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={[
-            styles.statsToggle,
-            {
-              borderColor: Colors[colorScheme].border,
-              backgroundColor: Colors[colorScheme].background,
-            },
-          ]}
-          onPress={() => setShowStats(!showStats)}
-        >
-          <Ionicons
-            name={showStats ? "eye-outline" : "eye-off-outline"}
-            size={20}
-            color={Colors[colorScheme].tint}
-          />
-        </TouchableOpacity>
-      </View>
-    );
-  };
 
   const renderSelectionBar = () => (
     <View
@@ -522,130 +344,6 @@ export default function GallerySection() {
     </View>
   );
 
-  const renderMediaTypeSelector = () => {
-    return (
-      <Modal
-        visible={showMediaTypeSelector}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowMediaTypeSelector(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setShowMediaTypeSelector(false)}
-        >
-          <View
-            style={[
-              styles.selectorModal,
-              { backgroundColor: Colors[colorScheme].background },
-            ]}
-          >
-            <View
-              style={[
-                styles.selectorHeader,
-                { borderBottomColor: Colors[colorScheme].borderLight },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.selectorTitle,
-                  { color: Colors[colorScheme].text },
-                ]}
-              >
-                {t("medias.filters.selectMediaTypes")}
-              </Text>
-              <TouchableOpacity onPress={() => setShowMediaTypeSelector(false)}>
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color={Colors[colorScheme].textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View
-              style={[
-                styles.selectorActions,
-                { borderBottomColor: Colors[colorScheme].borderLight },
-              ]}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.selectorActionButton,
-                  { borderColor: Colors[colorScheme].tint },
-                ]}
-                onPress={selectAllMediaTypes}
-              >
-                <Text
-                  style={[
-                    styles.selectorActionText,
-                    { color: Colors[colorScheme].tint },
-                  ]}
-                >
-                  {t("medias.filters.selectAll")}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.selectorActionButton,
-                  { borderColor: Colors[colorScheme].tint },
-                ]}
-                onPress={deselectAllMediaTypes}
-              >
-                <Text
-                  style={[
-                    styles.selectorActionText,
-                    { color: Colors[colorScheme].tint },
-                  ]}
-                >
-                  {t("medias.filters.deselectAll")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {availableMediaTypes.map((mediaType) => (
-              <TouchableOpacity
-                key={mediaType}
-                style={[
-                  styles.selectorItem,
-                  { borderBottomColor: Colors[colorScheme].borderLight },
-                ]}
-                onPress={() => toggleMediaType(mediaType)}
-              >
-                <View style={styles.selectorItemLeft}>
-                  <MediaTypeIcon
-                    mediaType={mediaType}
-                    size={24}
-                    showLabel
-                    textStyle={{ fontSize: 16 }}
-                  />
-                </View>
-
-                <View
-                  style={[
-                    styles.checkbox,
-                    { borderColor: Colors[colorScheme].border },
-                    selectedMediaTypes.has(mediaType) && [
-                      styles.checkboxSelected,
-                      {
-                        backgroundColor: Colors[colorScheme].tint,
-                        borderColor: Colors[colorScheme].tint,
-                      },
-                    ],
-                  ]}
-                >
-                  {selectedMediaTypes.has(mediaType) && (
-                    <Ionicons name="checkmark" size={16} color="white" />
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
-    );
-  };
 
   const renderStatsCard = () => {
     if (!cacheStats) return null;
@@ -958,9 +656,16 @@ export default function GallerySection() {
   return (
     <>
       {selectionMode && renderSelectionBar()}
-      {!selectionMode && renderFiltersBar()}
-
-      {renderMediaTypeSelector()}
+      {!selectionMode && (
+        <GalleryFilters
+          selectedMediaTypes={selectedMediaTypes}
+          onMediaTypesChange={setSelectedMediaTypes}
+          onToggleMultiSelection={handleToggleMultiSelection}
+          selectedCount={selectedItems.size}
+          isMultiSelectionMode={selectionMode}
+          cacheStats={cacheStats}
+        />
+      )}
 
       <SectionList
         sections={sections}
@@ -1082,136 +787,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  // Filters styles
-  filtersBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    width: "100%",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  statsToggle: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 8,
-  },
-  multiSelectionToggle: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  gallerySelectionBadge: {
-    position: "absolute",
-    top: -6,
-    right: -6,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  gallerySelectionBadgeText: {
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  deleteSelectedButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // Multi-selector styles
-  multiSelectorButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-    flex: 1,
-    marginRight: 8,
-    height: 44,
-  },
-  multiSelectorText: {
-    fontSize: 14,
-    fontWeight: "500",
-    flex: 1,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  selectorModal: {
-    borderRadius: 16,
-    width: "100%",
-    maxWidth: 400,
-    maxHeight: "80%",
-  },
-  selectorHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-  },
-  selectorTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  selectorActions: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
-    borderBottomWidth: 1,
-  },
-  selectorActionButton: {
-    flex: 1,
-    height: 44,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  selectorActionText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  selectorItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-  },
-  selectorItemLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    flex: 1,
-  },
-  selectorItemText: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
   checkbox: {
     width: 24,
     height: 24,
@@ -1219,9 +794,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
-  },
-  checkboxSelected: {
-    // Stile gestito dinamicamente
   },
   // Stats content layout
   statsContent: {

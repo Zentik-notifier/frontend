@@ -1421,6 +1421,8 @@
       "message": "Media files will appear here as they are downloaded and cached for offline viewing."
     },
     "filters": {
+      "title": "Filters",
+      "mediaTypes": "Media Types",
       "noType": "No type",
       "allTypes": "All types",
       "selectMediaTypes": "Select media types",

@@ -1425,6 +1425,8 @@
       "message": "I file multimediali appariranno qui quando verranno scaricati e memorizzati in cache per la visualizzazione offline."
     },
     "filters": {
+      "title": "Filtri",
+      "mediaTypes": "Tipi di Media",
       "noType": "Nessun tipo",
       "allTypes": "Tutti i tipi",
       "selectMediaTypes": "Seleziona tipi di media",
