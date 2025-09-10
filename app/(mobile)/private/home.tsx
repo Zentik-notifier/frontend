@@ -1,6 +1,6 @@
 import BucketsSection from "@/components/BucketsSection";
 import GallerySection from "@/components/GallerySection";
-import MinimalFooter, { HomeSection } from "@/components/MinimalFooter";
+import HomeHeader, { HomeSection } from "@/components/HomeHeader";
 import NotificationsSection from "@/components/NotificationsSection";
 import { ThemedView } from "@/components/ThemedView";
 import { useUserSettings } from "@/services/user-settings";
@@ -50,7 +50,7 @@ export default function OptimizedHomeScreen() {
   return (
     <ThemedView style={styles.container}>
       {/* Minimal Toolbar - moved above content, below header */}
-      <MinimalFooter
+      <HomeHeader
         currentRoute="/"
         currentSection={currentSection}
         onSectionChange={setCurrentSection}

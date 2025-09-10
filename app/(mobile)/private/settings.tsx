@@ -105,7 +105,7 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.titleContainer}>
-          <Icon name="settings" size="lg" color="#F59E0B" />
+          <Icon name="wrench" size="lg" color="#8B5CF6" />
           <ThemedText style={styles.title}>{t("common.settings")}</ThemedText>
         </View>
 

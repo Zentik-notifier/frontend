@@ -45,6 +45,7 @@ export const AppIcons = {
   share: { set: 'Ionicons', name: 'share-outline' } as const,
   view: { set: 'Ionicons', name: 'eye-outline' } as const,
   'view-off': { set: 'Ionicons', name: 'eye-off-outline' } as const,
+  wrench: { set: 'Ionicons', name: 'construct-outline' } as const,
   
   // Push notifications
   push: { set: 'MaterialCommunityIcons', name: 'rocket-launch' } as const,

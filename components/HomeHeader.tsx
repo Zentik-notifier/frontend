@@ -1,9 +1,7 @@
 import { Colors } from "@/constants/Colors";
 import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import {
-  useGetCacheStats
-} from "@/hooks/useMediaCache";
+import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +12,8 @@ import { ThemedText } from "./ThemedText";
 
 export type HomeSection = "all" | "buckets" | "gallery";
 
+const showTexts = false;
+
 interface FooterItem {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
@@ -21,14 +21,14 @@ interface FooterItem {
   section?: HomeSection;
   badge?: number;
 }
-
-interface MinimalFooterProps {
+ 
+interface HomeHeaderProps {
   currentRoute?: string;
   currentSection?: HomeSection;
   onSectionChange?: (section: HomeSection) => void;
 }
 
-const MinimalFooter: React.FC<MinimalFooterProps> = ({
+const HomeHeader: React.FC<HomeHeaderProps> = ({
   currentRoute = "/",
   currentSection = "all",
   onSectionChange,
@@ -138,30 +138,31 @@ const MinimalFooter: React.FC<MinimalFooterProps> = ({
               >
                 {item.label}
               </ThemedText>
-              {(() => {
-                // Show count for 'all', 'buckets' and 'gallery' on home
-                const isAll = item.section === "all";
-                const isBuckets = item.section === "buckets";
-                const isGallery = item.section === "gallery";
-                const showCount =
-                  isHomePage && (isAll || isBuckets || isGallery);
-                const countValue = isBuckets
-                  ? bucketsCount
-                  : isGallery
-                  ? galleryCount
-                  : notifCount;
-                return (
-                  <ThemedText
-                    style={[
-                      styles.footerCount,
-                      { color: Colors[colorScheme].textSecondary },
-                      !showCount && styles.footerCountPlaceholder,
-                    ]}
-                  >
-                    ({countValue})
-                  </ThemedText>
-                );
-              })()}
+              {showTexts &&
+                (() => {
+                  // Show count for 'all', 'buckets' and 'gallery' on home
+                  const isAll = item.section === "all";
+                  const isBuckets = item.section === "buckets";
+                  const isGallery = item.section === "gallery";
+                  const showCount =
+                    isHomePage && (isAll || isBuckets || isGallery);
+                  const countValue = isBuckets
+                    ? bucketsCount
+                    : isGallery
+                    ? galleryCount
+                    : notifCount;
+                  return (
+                    <ThemedText
+                      style={[
+                        styles.footerCount,
+                        { color: Colors[colorScheme].textSecondary },
+                        !showCount && styles.footerCountPlaceholder,
+                      ]}
+                    >
+                      ({countValue})
+                    </ThemedText>
+                  );
+                })()}
             </View>
           </TouchableOpacity>
         );
@@ -175,7 +176,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingTop: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     shadowColor: "#000",
@@ -196,7 +197,6 @@ const styles = StyleSheet.create({
   labelBlock: {
     alignItems: "center",
     justifyContent: "flex-start",
-    height: 28,
   },
   footerLabel: {
     fontSize: 12,
@@ -213,4 +213,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MinimalFooter;
+export default HomeHeader;
