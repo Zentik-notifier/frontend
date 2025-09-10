@@ -2,26 +2,19 @@
   "appSettings": {
     "title": "Impostazioni App",
     "description": "Configura le preferenze dell'applicazione e le impostazioni della lingua",
-    "resetAllSettings": "Reimposta Tutte le Impostazioni",
-    "resetConfirm": "Sei sicuro di voler reimpostare tutte le impostazioni ai valori predefiniti? Questa azione non può essere annullata.",
     "autoSaveDescription": "Le impostazioni vengono salvate automaticamente e sincronizzate al riavvio dell'app.",
     "revokeTerms": "Revoca Accettazione Termini",
     "revokeTermsDescription": "Cancella la tua accettazione dei termini e sarai di nuovo richiesto di accettarli",
     "revokeTermsConfirm": "Sei sicuro di voler revocare la tua accettazione dei termini? Dovrai accettare di nuovo i termini per continuare a usare l'app.",
     "revokeTermsSuccess": "Accettazione termini revocata con successo",
     "apiUrl": {
-      "title": "Configurazione API",
-      "description": "Configura l'endpoint del server API per installazioni self-hosted",
       "serverUrl": "URL Server API",
       "serverUrlDescription": "Inserisci l'URL del tuo server API personalizzato. Lascia vuoto per utilizzare il server predefinito.",
       "placeholder": "https://tuo-server.com:3000",
-      "save": "Salva",
       "reset": "Reset",
       "success": "URL Aggiornato",
       "successMessage": "L'URL del server è stato aggiornato con successo. Le connessioni GraphQL ora utilizzano il nuovo URL.",
-      "saveError": "Impossibile salvare l'URL del server. Riprova.",
-      "restartRequired": "Riavvio Richiesto",
-      "restartMessage": "L'URL del server è stato modificato. Per applicare le modifiche, riavvia l'applicazione."
+      "saveError": "Impossibile salvare l'URL del server. Riprova."
     },
     "retentionPolicies": {
       "title": "Regole di conservazione media",
@@ -29,15 +22,7 @@
       "maxCacheSize": "Dimensione massima media",
       "maxCacheSizeDescription": "Spazio massimo di archiviazione per i media (in MB). Lascia vuoto per nessun limite.",
       "maxCacheAge": "Età massima media",
-      "maxCacheAgeDescription": "Per quanto tempo conservare i media (in giorni). Lascia vuoto per nessun limite.",
-      "currentCacheSize": "Dimensione media attuale: {{size}}",
-      "cacheItems": "{{count}} file media",
-      "cacheItemsPlural": "{{count}} file media",
-      "clearCache": "Svuota Media",
-      "clearCacheDescription": "Rimuovi tutti i file media salvati localmente",
-      "clearCacheConfirm": "Sei sicuro di voler svuotare tutti i file media? Questo libererà spazio di archiviazione ma i media dovranno essere scaricati nuovamente.",
-      "cacheClearedSuccess": "Media svuotati con successo",
-      "cacheClearError": "Impossibile svuotare i media"
+      "maxCacheAgeDescription": "Per quanto tempo conservare i media (in giorni). Lascia vuoto per nessun limite."
     },
     "timezone": {
       "title": "Fuso Orario",
@@ -81,18 +66,15 @@
         "exportDescription": "Esporta le notifiche in cache con tutte le relazioni risolte in un file JSON completo",
         "exportMetadataDescription": "Esporta il file metadata.json usato dalla media-cache",
         "importDescription": "Importa notifiche da un file JSON",
-        "exportSuccess": "Notifiche esportate con successo",
         "importSuccess": "Notifiche importate con successo",
         "exportError": "Impossibile esportare le notifiche",
         "importError": "Impossibile importare le notifiche",
         "noNotificationsToExport": "Nessuna notifica trovata nella cache da esportare",
-        "confirmImport": "Importare {{count}} notifiche?",
         "confirmImportMessage": "Questo aggiungerà {{count}} notifiche alla tua cache. Le notifiche esistenti saranno preservate.",
         "invalidFileFormat": "Formato file non valido. Seleziona un file di esportazione notifiche valido.",
         "exportComplete": "Esportazione Completata",
         "exportCompleteMessage": "File salvato in: {{path}}",
         "exportMetadataError": "Impossibile esportare il metadata.json",
-        "exportMetadataSuccess": "metadata.json esportato con successo",
         "failedProcess": "Impossibile processare il file importato",
         "failedRead": "Impossibile leggere il file selezionato",
         "failedApply": "Impossibile applicare i dati importati alla cache",
@@ -104,8 +86,7 @@
         },
         "errors": {
           "apolloCacheUnavailable": "Cache Apollo client non disponibile",
-          "notificationsArrayNotFound": "Formato file non valido: array notifiche non trovato",
-          "versionNotFound": "Formato file non valido: versione non trovata"
+          "notificationsArrayNotFound": "Formato file non valido: array notifiche non trovato"
         }
       }
     },
@@ -120,8 +101,6 @@
       "platformDescription": "Versione del sistema operativo",
       "app": "Versione UI",
       "appDescription": "Versione dell'applicazione mobile",
-      "unavailable": "non disponibile",
-      "timeout": "timeout",
       "unknown": "sconosciuta",
       "refresh": "Aggiorna informazioni versione",
       "otaUpdate": "Aggiornamento OTA",
@@ -170,45 +149,17 @@
     }
   },
   "compose": {
-    "addText": "Testo",
-    "addImage": "Immagine",
-    "addAction": "Azione",
-    "send": "Invia",
-    "title": "Titolo",
-    "body": "Messaggio",
-    "subtitle": "Sottotitolo",
-    "messagePlaceholder": "Scrivi un messaggio...",
     "messageBuilder": {
-      "title": "Message Builder",
-      "toggleButton": "Opzioni Messaggio",
-      "actions": "Azioni",
-      "snooze": "Rimanda",
       "flags": "Flag",
       "priority": "Priorità",
-      "urgent": "Urgente",
       "important": "Importante",
       "normal": "Normale",
-      "low": "Bassa",
-      "addAction": "Aggiungi Azione",
-      "actionPlaceholder": "Inserisci testo azione...",
-      "snoozeOptions": {
-        "title": "Opzioni Rimanda",
-        "none": "Nessuna rimanda",
-        "5min": "5 minuti",
-        "15min": "15 minuti",
-        "1hour": "1 ora",
-        "3hours": "3 ore",
-        "1day": "1 giorno",
-        "custom": "Tempo personalizzato"
-      },
-      "requiresAction": "Richiede Azione",
-      "followUp": "Follow Up"
+      "low": "Bassa"
     }
   },
   "userProfile": {
     "title": "Profilo Utente",
     "description": "Gestisci le tue informazioni personali e impostazioni account",
-    "loading": "Caricamento profilo...",
     "errorLoadingData": "Errore nel caricamento dei dati",
     "noDataAvailable": "Nessun dato disponibile",
     "username": "Nome utente",
@@ -242,18 +193,13 @@
       "connectedAs": "Connesso come {{providerId}}",
       "connected": "Connesso",
       "connect": "Connetti",
-      "availableProviders": "Provider Disponibili",
-      "connectionSuccess": "Connessione Riuscita",
-      "connectionSuccessMessage": "Connesso con successo a {{provider}}",
       "connectionError": "Connessione fallita. Riprova."
     },
     "continue": "Continua",
     "deleteAccountConfirm": "Elimina Definitivamente",
     "accountDeletedTitle": "Account Eliminato",
     "accountDeletedMessage": "Il tuo account è stato eliminato con successo.",
-    "loginProvider": "Provider di Login",
     "currentSessionProvider": "Provider Sessione Corrente",
-    "oauthUser": "Utente OAuth",
     "localUser": "Utente Locale"
   },
   "buckets": {
@@ -266,24 +212,15 @@
     "bucketNotFound": "Bucket non trovato",
     "bucketNotFoundDescription": "Il bucket richiesto non esiste o non hai i permessi per accedervi.",
     "composeMessage": "Nuovo Messaggio",
-    "bucketDeletedSuccess": "Bucket eliminato con successo",
-    "deleteBucketError": "Impossibile eliminare il bucket. Riprova di nuovo.",
     "item": {
       "delete": "Elimina",
-      "deleteBucketTitle": "Elimina Bucket",
-      "deleteBucketMessage": "Sei sicuro di voler eliminare il bucket \"{{bucketName}}\"? Questa azione non può essere annullata.",
-      "deleteBucketConfirm": "Elimina",
       "created": "Creato",
       "bucketIdCopied": "ID Bucket copiato negli appunti",
-      "devicesCount": "{{count}} dispositivo",
-      "devicesCountPlural": "{{count}} dispositivi",
-      "allDevices": "Tutti i dispositivi",
       "sharedWith": "Condiviso con {{count}} utente",
       "sharedWithPlural": "Condiviso con {{count}} utenti",
       "notShared": "Non condiviso",
       "sharedWithMe": "Condiviso con me",
       "messages": "messaggi",
-      "unread": "non letti",
       "noActivity": "Nessuna attività",
       "daysAgo": "{{count}} giorni fa",
       "hoursAgo": "{{count}} ore fa",
@@ -297,10 +234,6 @@
       "bucketNotFound": "Bucket non trovato",
       "loadingBucket": "Caricamento bucket...",
       "deleteBucket": "Elimina Bucket",
-      "deleteBucketConfirm": "Sei sicuro di voler eliminare \"{{bucketName}}\"? Questa azione non può essere annullata e rimuoverà tutte le notifiche in questo bucket.",
-      "deleting": "Eliminazione...",
-      "error": "Errore",
-      "failedToDelete": "Impossibile eliminare il bucket",
       "editDescription": "Aggiorna le impostazioni del bucket e l'organizzazione.",
       "createDescription": "Crea un nuovo bucket per organizzare le tue notifiche.",
       "namePlaceholder": "Inserisci nome bucket",
@@ -315,7 +248,6 @@
       "updateButton": "Aggiorna Bucket",
       "bucketId": "ID Bucket",
       "bucketIdCopied": "ID Bucket copiato negli appunti",
-      "createSuccessTitle": "Successo",
       "createErrorTitle": "Errore",
       "updateErrorTitle": "Errore",
       "createErrorMessage": "Impossibile creare il bucket",
@@ -340,7 +272,6 @@
         "readwrite": "Lettura/Scrittura"
       },
       "share": "Condividi",
-      "edit": "Modifica",
       "editTitle": "Modifica Permessi",
       "update": "Aggiorna",
       "loading": "Caricamento utenti condivisi...",
@@ -354,8 +285,6 @@
       "confirmRevokeMessage": "Sei sicuro di voler revocare l'accesso per {{user}}?",
       "revoke": "Revoca",
       "unknownUser": "Utente Sconosciuto",
-      "you": "te",
-      "grantedBy": "Concesso da {username}",
       "expiresAt": "Scade il {{date}}"
     },
     "delete": {
@@ -365,8 +294,6 @@
       "deleteBucketWithPermission": "Elimina Bucket (con permesso)",
       "revokeSharing": "Revoca Il Mio Accesso",
       "confirm": "Conferma",
-      "confirmTitle": "Conferma Eliminazione",
-      "confirmMessage": "Sei sicuro di voler eliminare il bucket \"{{bucketName}}\"? Questa azione non può essere annullata e rimuoverà tutte le notifiche in questo bucket.",
       "confirmDeleteTitle": "Conferma Eliminazione Bucket",
       "confirmDeleteMessage": "Stai per eliminare il bucket \"{{bucketName}}\". Questa azione non può essere annullata e rimuoverà tutte le notifiche in questo bucket.",
       "confirmRevokeTitle": "Conferma Revoca Accesso",
@@ -382,13 +309,8 @@
     "unregistering": "Deregistrazione...",
     "noDevicesTitle": "Nessun dispositivo registrato",
     "noDevicesSubtext": "Registra questo dispositivo per iniziare a ricevere notifiche push",
-    "registerSuccessTitle": "Registrazione Dispositivo",
-    "registerSuccessMessage": "Dispositivo registrato con successo!",
     "registerErrorMessage": "Impossibile registrare il dispositivo",
-    "unregisterSuccessTitle": "Deregistrazione Dispositivo",
-    "unregisterSuccessMessage": "Dispositivo deregistrato con successo!",
     "unregisterErrorMessage": "Impossibile deregistrare il dispositivo",
-    "removeSuccessMessage": "Dispositivo rimosso con successo",
     "removeErrorMessage": "Impossibile rimuovere il dispositivo",
     "item": {
       "delete": "Elimina",
@@ -398,8 +320,6 @@
       "thisDevice": "Questo Dispositivo",
       "registered": "Registrato",
       "model": "Modello",
-      "os": "OS",
-      "deviceId": "ID Dispositivo",
       "active": "Attivo",
       "inactive": "Inattivo",
       "lastUsed": "Ultimo utilizzo",
@@ -430,9 +350,7 @@
       "deleteTokenMessage": "Sei sicuro di voler eliminare questo token di accesso di sistema? Questa azione non può essere annullata.",
       "deleteTokenConfirm": "Elimina",
       "expired": "Scaduto",
-      "token": "Token",
       "created": "Creato",
-      "maxCalls": "Chiamate massime",
       "calls": "Chiamate",
       "expires": "Scade",
       "requester": "Richiedente",
@@ -451,7 +369,6 @@
       "requesterHint": "Seleziona l'utente che richiede questo token",
       "selectUser": "Seleziona Utente",
       "noUsers": "Nessun utente trovato",
-      "tokenDescriptionLabel": "Descrizione",
       "descriptionPlaceholder": "Descrizione opzionale dello scopo del token",
       "creating": "Creazione...",
       "createButton": "Crea Token di Sistema",
@@ -477,7 +394,6 @@
       "deleteTokenMessage": "Sei sicuro di voler eliminare questo token di accesso? Questa azione non può essere annullata.",
       "deleteTokenConfirm": "Elimina",
       "expired": "Scaduto",
-      "token": "Token",
       "created": "Creato",
       "lastUsed": "Ultimo utilizzo",
       "neverUsed": "Mai utilizzato",
@@ -492,7 +408,7 @@
       "expirationPlaceholder": "Lascia vuoto per nessuna scadenza",
       "expirationHint": "Lascia vuoto per token che non scadono mai",
       "creating": "Creazione...",
-        "createButton": "Crea Token",
+      "createButton": "Crea Token",
       "nameRequired": "Inserisci un nome per il token",
       "createError": "Impossibile creare il token di accesso",
       "tokenCreatedTitle": "Token Creato!",
@@ -518,11 +434,9 @@
       "expired": "Scaduta",
       "unknownDevice": "Dispositivo Sconosciuto",
       "ipAddress": "Indirizzo IP",
-      "loginProvider": "Provider di Login",
       "created": "Creato",
       "lastActivity": "Ultima attività",
-      "expires": "Scade",
-      "unknownProvider": "Provider sconosciuto"
+      "expires": "Scade"
     }
   },
   "notifications": {
@@ -543,8 +457,6 @@
     },
     "selectAll": "Seleziona Tutto",
     "deselectAll": "Deseleziona Tutto",
-    "markAsRead": "Segna come Letto",
-    "markAsUnread": "Segna come Non Letto",
     "titleRequired": "Il titolo è obbligatorio",
     "content": {
       "title": "Titolo",
@@ -569,7 +481,6 @@
     },
     "attachments": {
       "title": "Allegati Multimediali",
-      "addExamples": "Aggiungi Esempi",
       "addMedia": "Aggiungi Media",
       "mediaType": "Tipo Media",
       "mediaUrl": "URL Media *",
@@ -577,8 +488,7 @@
       "mediaName": "Nome (Opzionale)",
       "mediaNamePlaceholder": "Descrizione media",
       "selectMediaType": "Seleziona tipo media",
-      "hint": "💡 Aggiungi allegati immagine, GIF, video o audio per creare notifiche ricche",
-      "noAttachments": "Nessun allegato aggiunto ancora"
+      "hint": "💡 Aggiungi allegati immagine, GIF, video o audio per creare notifiche ricche"
     },
     "settings": {
       "deliveryType": "Tipo di Consegna",
@@ -592,12 +502,7 @@
     "targeting": {
       "bucket": "Bucket",
       "selectBucket": "Seleziona bucket",
-      "targetDevices": "Dispositivi Target (Opzionale)",
-      "selectDevices": "Seleziona dispositivi target (opzionali)",
-      "allDevices": "Tutti i dispositivi",
-      "noDevicesFound": "Nessun dispositivo trovato. Registra un dispositivo per mirare a dispositivi specifici.",
       "loadingBuckets": "Caricamento bucket...",
-      "loadingDevices": "Caricamento dispositivi...",
       "bucketRequired": "È richiesto almeno un bucket per inviare notifiche",
       "groupId": "ID Gruppo",
       "groupIdPlaceholder": "ID per raggruppamento notifiche (opzionale)",
@@ -630,9 +535,7 @@
       "title": "Azione Tap",
       "description": "Questa azione verrà eseguita quando l'utente tocca la notifica dalla schermata di blocco o dal centro notifiche.",
       "addTapAction": "Aggiungi Azione Tap",
-      "editTapAction": "Modifica Azione Tap",
-      "saveTapAction": "Salva Azione Tap",
-      "tapActionType": "Tipo Azione Tap"
+      "saveTapAction": "Salva Azione Tap"
     },
     "examples": {
       "testTitle": "🎉 Notifica di Test",
@@ -642,18 +545,9 @@
       "sampleGif": "GIF di Esempio",
       "sampleVideo": "Video di Esempio",
       "sampleAudio": "Audio di Esempio",
-      "visitWebsite": "Visita Sito Web",
-      "dismiss": "Chiudi",
-      "snooze30min": "Posponi 30min",
-      "viewDetails": "Visualizza Dettagli",
-      "triggerWebhook": "Attiva Webhook",
-      "google": "Google",
-      "snooze1h": "Posponi 1h"
+      "visitWebsite": "Visita Sito Web"
     },
     "form": {
-      "add": "Aggiungi",
-      "edit": "Modifica",
-      "remove": "Rimuovi",
       "cancel": "Annulla"
     },
     "preview": {
@@ -666,50 +560,22 @@
       "message": "Nessun webhook disponibile. Crea prima un webhook per usare il tipo {{type}}."
     },
     "webhookAction": {
-      "method": "Metodo HTTP",
-      "url": "URL Webhook",
-      "methodPlaceholder": "Seleziona metodo HTTP",
-      "urlPlaceholder": "https://api.example.com/webhook",
       "methodRequired": "Il metodo HTTP è richiesto",
-      "urlRequired": "L'URL del webhook è richiesto",
-      "urlInvalid": "Inserisci un URL valido"
+      "urlRequired": "L'URL del webhook è richiesto"
     }
   },
   "home": {
     "emptyState": {
-      "noNotifications": "Nessuna notifica trovata",
-      "allCaughtUp": "Sei aggiornato!",
-      "tryAdjustingFilters": "Prova a modificare i filtri"
-    },
-    "errorState": {
-      "title": "Qualcosa è andato storto",
-      "subtitle": "Impossibile caricare le notifiche"
+      "noNotifications": "Nessuna notifica trovata"
     },
     "search": {
       "placeholder": "Cerca notifiche..."
-    },
-    "timeAgo": {
-      "minutesAgo": "{{count}}m fa",
-      "hoursAgo": "{{count}}h fa",
-      "daysAgo": "{{count}}g fa"
-    },
-    "multiSelection": {
-      "toggleButton": "Seleziona",
-      "exitButton": "Annulla",
-      "deleteSelected": "Elimina Selezionate",
-      "selectedCount": "{{count}} selezionate",
-      "deleteConfirm": "Elimina Notifiche Selezionate",
-      "deleteConfirmMessage": "Sei sicuro di voler eliminare {{count}} notifiche selezionate? Questa azione non può essere annullata.",
-      "deleteSuccess": "{{count}} notifiche eliminate con successo",
-      "deleteError": "Impossibile eliminare le notifiche selezionate"
     }
   },
   "filters": {
     "title": "Filtri",
     "clearAll": "Cancella Tutto",
     "bucket": "Bucket",
-    "allBuckets": "Tutti i Bucket",
-    "searchBuckets": "Cerca bucket...",
     "quickFilters": "Filtri Rapidi",
     "hideRead": "Nascondi Lette",
     "hideReadDescription": "Nascondi le notifiche che sono state lette",
@@ -737,12 +603,10 @@
       "error": "Impossibile eliminare la notifica"
     },
     "markAsRead": {
-      "label": "Letta",
-      "error": "Impossibile segnare come letta"
+      "label": "Letta"
     },
     "markAsUnread": {
-      "label": "Non letta",
-      "error": "Impossibile segnare come non letta"
+      "label": "Non letta"
     }
   },
   "mediaTypes": {
@@ -764,78 +628,9 @@
     "success": "Successo",
     "error": "Errore",
     "ok": "OK",
-    "onboarding": {
-      "title": "Guida Introduttiva",
-      "description": "Rivedi la guida per iniziare con Zentik",
-      "welcome": {
-        "title": "Benvenuto in Zentik!",
-        "description": "Ti guideremo attraverso i primi passi per iniziare a utilizzare Zentik per gestire le tue notifiche."
-      },
-      "bucket": {
-        "title": "Crea il tuo primo bucket",
-        "description": "I bucket ti permettono di organizzare le tue notifiche per categoria. Creiamo insieme il tuo primo bucket.",
-        "nameLabel": "Nome del bucket:",
-        "namePlaceholder": "Es: Lavoro",
-        "createButton": "Crea Bucket",
-        "creating": "Creazione..."
-      },
-      "token": {
-        "title": "Genera un access token",
-        "description": "Gli access token ti permettono di inviare notifiche tramite l'API REST. Generiamo un token per te.",
-        "nameLabel": "Nome del token:",
-        "namePlaceholder": "Es: Token di produzione",
-        "createButton": "Genera Token"
-      },
-      "notification": {
-        "title": "Invia la tua prima notifica",
-        "description": "Ora invieremo una notifica di test per verificare che tutto funzioni correttamente.",
-        "titleLabel": "Titolo notifica:",
-        "titlePlaceholder": "Titolo della notifica",
-        "bodyLabel": "Corpo notifica:",
-        "bodyPlaceholder": "Corpo della notifica",
-        "sendButton": "Invia Notifica",
-        "sending": "Invio..."
-      },
-      "api": {
-        "title": "Usa l'API REST",
-        "description": "Ecco come puoi inviare notifiche tramite l'API REST usando il token generato.",
-        "documentationInfo": "Informazioni dettagliate su come inviare notifiche a questo link:",
-        "documentationLink": "https://notifier-docs.zentik.app/docs/notifications"
-      },
-      "navigation": {
-        "back": "Indietro",
-        "next": "Avanti",
-        "complete": "Completa",
-        "step": "Passo {{current}} di {{total}}"
-      },
-      "preview": {
-        "title": "Payload JSON",
-        "description": "Questo è il payload JSON che sarà inviato al server",
-        "copy": "Copia JSON",
-        "copied": "JSON copiato negli appunti!"
-      },
-      "messages": {
-        "bucketCreated": "Bucket creato con successo!",
-        "bucketCreateError": "Impossibile creare il bucket. Riprova.",
-        "tokenCreated": "Token creato!",
-        "tokenCreateError": "Impossibile creare il token. Riprova.",
-        "notificationSent": "Notifica inviata con successo!",
-        "notificationSendError": "Impossibile inviare la notifica. Riprova.",
-        "apiExample": "Esempio API REST",
-        "bucketNameRequired": "Inserisci un nome per il bucket",
-        "tokenNameRequired": "Inserisci un nome per il token",
-        "notificationFieldsRequired": "Inserisci titolo e corpo della notifica",
-        "createBucketFirst": "Prima crea un bucket",
-        "tokenCopied": "Il tuo access token è stato creato e copiato negli appunti:",
-        "useInHeader": "Usalo nell'header Authorization: Bearer",
-        "apiExampleCopied": "Ecco un esempio di come inviare una notifica tramite l'API REST:",
-        "exampleCopied": "L'esempio è stato copiato negli appunti."
-      }
-    },
     "close": "Chiudi",
     "loading": "Caricamento...",
     "exporting": "Esportazione...",
-    "download": "Scarica",
     "copied": "Copiato!",
     "copiedToClipboard": "Copiato negli appunti",
     "saved": "Salvato",
@@ -859,12 +654,9 @@
     "backendUnreachable": "API offline",
     "colorPalette": "Palette Colori",
     "customColor": "Colore Personalizzato",
-    "chooseCustomColor": "Scegli Colore Personalizzato",
     "hexColorCode": "Codice Colore Esadecimale",
-    "invalidColor": "Colore Non Valido",
-    "invalidColorMessage": "Inserisci un codice colore esadecimale valido (es. #0a7ea4)",
     "apply": "Applica",
-    "chooseColor": "Scegli Colore"
+    "saving": "Salvataggio..."
   },
   "notificationDetail": {
     "loading": "Caricamento notifica...",
@@ -874,7 +666,6 @@
     "read": "Letta:",
     "snooze": {
       "title": "Posticipa Bucket",
-      "description": "Silenzia le notifiche da questo bucket per un tempo specificato",
       "setSnooze": "Imposta Posticipo",
       "removeSnooze": "Rimuovi Posticipo",
       "snoozedUntil": "Posticipato fino a",
@@ -882,18 +673,13 @@
       "remaining": "rimanente",
       "quickOptions": "Opzioni Rapide",
       "customDateTime": "Data e Ora Personalizzate",
-      "selectDateTime": "Seleziona Data e Ora",
-      "cancel": "Annulla",
       "confirm": "Conferma",
       "errorSetting": "Impossibile impostare il posticipo",
       "errorRemoving": "Impossibile rimuovere il posticipo",
       "quickTimes": {
         "15min": "15 minuti",
-        "30min": "30 minuti",
         "1hour": "1 ora",
-        "2hours": "2 ore",
         "4hours": "4 ore",
-        "8hours": "8 ore",
         "12hours": "12 ore",
         "1day": "1 giorno",
         "3days": "3 giorni",
@@ -905,11 +691,8 @@
       "NORMAL": "Normale",
       "CRITICAL": "Critica"
     },
-    "copyBody": "Copia Contenuto",
-    "bodyCopied": "Contenuto della notifica copiato negli appunti",
     "notificationCopied": "Notifica copiata negli appunti",
     "shareNotification": "Condividi Notifica",
-    "deleteNotification": "Elimina Notifica",
     "deleteConfirmTitle": "Elimina Notifica",
     "deleteConfirmMessage": "Sei sicuro di voler eliminare questa notifica? Questa azione non può essere annullata.",
     "deleteConfirmButton": "Elimina",
@@ -957,7 +740,6 @@
   },
   "notificationActions": {
     "availableActions": "Azioni Disponibili",
-    "defaultTapAction": "Azione Tap Predefinita",
     "noActionsAvailable": "Nessuna azione disponibile per questa notifica",
     "actionCount": "{{count}} Azione",
     "actionCountPlural": "{{count}} Azioni",
@@ -973,15 +755,9 @@
     "destructive": "Distruttiva"
   },
   "attachmentGallery": {
-    "attachments": "Allegati ({{count}})",
-    "failedToLoad": "Impossibile caricare {{type}}",
-    "audio": "Audio",
-    "file": "File",
-    "playing": "In riproduzione...",
-    "tapToPlay": "Tocca per riprodurre"
+    "attachments": "Allegati ({{count}})"
   },
   "login": {
-    "title": "Accedi",
     "welcomeBack": "Bentornato!",
     "emailOrUsername": "Email o Nome Utente",
     "emailOrUsernamePlaceholder": "Inserisci la tua email o nome utente",
@@ -994,10 +770,7 @@
     "signUp": "Registrati",
     "orContinueWith": "Oppure continua con",
     "providers": {
-      "github": "GitHub",
-      "google": "Google",
-      "cancelled": "Accesso annullato",
-      "dismissed": "Accesso interrotto"
+      "cancelled": "Accesso annullato"
     },
     "validation": {
       "emailOrUsernameRequired": "Email o nome utente richiesto",
@@ -1009,9 +782,7 @@
       "connectionError": "Errore di connessione. Riprova più tardi.",
       "invalidCredentials": "Email o password non validi. Riprova.",
       "networkError": "Errore di rete. Controlla la tua connessione e riprova.",
-      "unexpectedError": "Si è verificato un errore imprevisto durante l'accesso.",
-      "emailNotConfirmed": "Email non confermata",
-      "confirmEmailFirst": "Devi confermare la tua email prima di accedere. Controlla la tua casella email per il link di conferma."
+      "unexpectedError": "Si è verificato un errore imprevisto durante l'accesso."
     }
   },
   "register": {
@@ -1031,8 +802,6 @@
     "haveAccount": "Hai già un account? ",
     "login": "Accedi",
     "validation": {
-      "firstNameRequired": "Nome richiesto",
-      "lastNameRequired": "Cognome richiesto",
       "emailRequired": "Email richiesta",
       "emailInvalid": "Inserisci un'email valida",
       "passwordRequired": "Password richiesta",
@@ -1048,9 +817,7 @@
       "description": "Ti abbiamo inviato un codice di conferma di 6 caratteri alla tua email. Inserisci il codice per attivare il tuo account.",
       "resendEmail": "Rinvia Email",
       "resending": "Invio in corso...",
-      "emailSent": "Email inviata",
       "emailSentMessage": "Ti abbiamo inviato un nuovo codice di conferma.",
-      "backToLogin": "Torna al Login",
       "checkEmail": "Controlla la tua email",
       "notReceived": "Non hai ricevuto l'email?",
       "spamFolder": "Controlla anche la cartella spam"
@@ -1086,17 +853,14 @@
   "setPassword": {
     "title": "Imposta Password",
     "description": "Imposta una password per il tuo account. Questo ti permetterà di accedere anche senza il provider OAuth.",
-    "newPassword": "Nuova Password",
     "newPasswordPlaceholder": "Inserisci nuova password (min 8 caratteri)",
-    "confirmPassword": "Conferma Nuova Password",
     "confirmPasswordPlaceholder": "Conferma la nuova password",
     "setButton": "Imposta Password",
     "setting": "Impostando...",
     "validation": {
       "newPasswordRequired": "Inserisci una nuova password",
       "newPasswordMinLength": "La password deve essere di almeno 8 caratteri",
-      "passwordsDoNotMatch": "Le password non corrispondono",
-      "confirmPasswordRequired": "Conferma la tua password"
+      "passwordsDoNotMatch": "Le password non corrispondono"
     },
     "success": {
       "title": "Successo",
@@ -1118,18 +882,12 @@
       "backToLogin": "Torna al Login",
       "emailRequired": "Inserisci il tuo indirizzo email",
       "invalidEmail": "Inserisci un indirizzo email valido",
-      "resetEmailSent": "Codice di Reset Inviato",
-      "resetFailed": "Impossibile inviare il codice di reset. Riprova.",
-      "step2Title": "Inserisci Codice di Reset",
-      "step2Description": "Controlla la tua email e inserisci il codice di 6 caratteri che ti abbiamo inviato.",
       "codeLabel": "Codice di Reset",
       "codePlaceholder": "Inserisci codice di 6 caratteri",
       "codeRequired": "Inserisci il codice di reset",
       "invalidCode": "Inserisci un codice valido di 6 caratteri",
       "verifyCode": "Verifica Codice",
       "verifying": "Verifica...",
-      "step3Title": "Imposta Nuova Password",
-      "step3Description": "Inserisci la tua nuova password e confermala.",
       "newPasswordLabel": "Nuova Password",
       "newPasswordPlaceholder": "Inserisci nuova password",
       "confirmPasswordLabel": "Conferma Password",
@@ -1150,12 +908,7 @@
       "description": "Ti abbiamo inviato un codice di conferma di 6 caratteri alla tua email. Inserisci il codice per attivare il tuo account.",
       "resendEmail": "Rinvia Email",
       "resending": "Invio in corso...",
-      "emailSent": "Email inviata",
-      "emailSentMessage": "Ti abbiamo inviato un nuovo codice di conferma.",
       "backToLogin": "Torna al Login",
-      "checkEmail": "Controlla la tua email",
-      "notReceived": "Non hai ricevuto l'email?",
-      "spamFolder": "Controlla anche la cartella spam",
       "success": "Email Confermata",
       "successMessage": "La tua email è stata confermata con successo! Ora puoi accedere al tuo account.",
       "error": "Errore Conferma",
@@ -1173,7 +926,6 @@
     "description": "Gestisci gli endpoint webhook per integrazioni esterne",
     "noWebhooksTitle": "Nessun Webhook",
     "noWebhooksSubtext": "Crea il tuo primo webhook per integrare con servizi esterni",
-    "createFirst": "Crea Primo Webhook",
     "create": "Crea Webhook",
     "edit": "Modifica Webhook",
     "delete": "Elimina Webhook",
@@ -1199,20 +951,12 @@
       "jsonHelpMessage": "Inserisci un oggetto JSON valido. Esempio:",
       "jsonExample": "{\n  \"key\": \"value\",\n  \"number\": 123,\n  \"array\": [1, 2, 3]\n}",
       "jsonValidationError": "Il corpo JSON non è valido. Controlla la sintassi.",
-      "jsonInvalid": "Formato JSON non valido",
       "jsonParsingError": "Errore nel parsing del JSON. Controlla la sintassi.",
       "webhookSuccess": "Webhook \"{{name}}\" eseguito con successo",
       "webhookError": "Errore Webhook",
       "webhookExecutionFailed": "Impossibile eseguire il webhook. Riprova di nuovo.",
       "webhookNotFound": "Webhook non trovato",
       "noWebhookId": "Nessun ID webhook fornito nel valore dell'azione",
-      "username": "Username (Opzionale)",
-      "usernamePlaceholder": "Username per auth basic",
-      "password": "Password (Opzionale)",
-      "passwordPlaceholder": "Password per auth basic",
-      "token": "Token (Opzionale)",
-      "tokenPlaceholder": "Bearer token o chiave API",
-      "cancel": "Annulla",
       "save": "Salva",
       "saving": "Salvataggio...",
       "create": "Crea",
@@ -1242,7 +986,6 @@
   },
   "administration": {
     "title": "Amministrazione",
-    "description": "Gestisci utenti, impostazioni di sistema e configurazione dell'applicazione",
     "userManagement": "Gestione Utenti",
     "userManagementDescription": "Gestisci utenti, ruoli e permessi",
     "loadingUsers": "Caricamento utenti...",
@@ -1266,7 +1009,6 @@
     "systemTokensDescription": "Gestisci i token API di sistema",
     "oauthProviders": "Provider OAuth",
     "oauthProvidersDescription": "Configura i provider di autenticazione OAuth",
-    "loadingOAuthProviders": "Caricamento provider OAuth...",
     "errorLoadingOAuthProviders": "Errore nel Caricamento dei Provider",
     "errorLoadingOAuthProvidersDescription": "Impossibile caricare i provider OAuth. Riprova di nuovo.",
     "noOAuthProviders": "Nessun Provider OAuth",
@@ -1277,21 +1019,14 @@
       "createTitle": "Crea Provider OAuth",
       "editTitle": "Modifica Provider OAuth",
       "save": "Salva",
-      "github": "GitHub",
-      "google": "Google",
-      "custom": "Personalizzato",
       "basicInformation": "Informazioni Base",
-      "name": "Nome",
       "nameRequired": "Nome *",
       "namePlaceholder": "es. Il Mio Provider Personalizzato",
-      "providerId": "ID Provider",
       "providerIdRequired": "ID Provider *",
       "providerIdPlaceholder": "es. il-mio-provider-personalizzato",
       "oauthConfiguration": "Configurazione OAuth",
-      "clientId": "Client ID",
       "clientIdRequired": "Client ID *",
       "clientIdPlaceholder": "OAuth Client ID",
-      "clientSecret": "Client Secret",
       "clientSecretRequired": "Client Secret *",
       "clientSecretPlaceholder": "OAuth Client Secret",
       "scopes": "Scopes",
@@ -1319,7 +1054,6 @@
       },
       "success": {
         "title": "Successo",
-        "created": "Provider OAuth creato con successo",
         "updated": "Provider OAuth aggiornato con successo",
         "deleted": "Provider OAuth eliminato con successo",
         "ok": "OK"
@@ -1338,8 +1072,6 @@
     },
     "serverStatus": "Stato del Server",
     "logs": "Log di Sistema",
-    "comingSoon": "Prossimamente",
-    "comingSoonMessage": "la funzionalità sarà disponibile in un aggiornamento futuro.",
     "roles": {
       "user": "Utente",
       "moderator": "Moderatore",
@@ -1351,11 +1083,6 @@
     }
   },
   "legal": {
-    "title": "Legale e Privacy",
-    "description": "Visualizza termini di servizio, informativa sulla privacy e altri documenti legali",
-    "termsOfService": "Termini di Servizio",
-    "privacyPolicy": "Informativa sulla Privacy",
-    "cookiePolicy": "Politica sui Cookie",
     "loading": "Caricamento documento...",
     "errorLoading": "Errore nel caricamento del documento",
     "errorLoadingDescription": "Impossibile caricare il documento legale. Riprova.",
@@ -1369,24 +1096,14 @@
     "exitApp": "Esci dall'App",
     "acceptanceRequired": "Accettazione Termini Richiesta",
     "acceptanceDescription": "Prima di continuare, rivedi e accetta i nostri termini e politiche.",
-    "acceptanceMessage": "Per continuare ad utilizzare Zentik, devi leggere e accettare i nostri Termini di Servizio e l'Informativa sulla Privacy.",
     "acceptanceFooterText": "Accettando, accetti di essere vincolato da questi termini e politiche.",
-    "readAndAccept": "Ho letto e accetto {{document}}",
-    "mustAcceptAll": "Devi accettare tutti i termini per continuare ad utilizzare l'app",
-    "acceptAll": "Accetta Tutti i Termini",
-    "accepted": "Accettato",
-    "notAccepted": "Non Accettato",
-    "viewDocument": "Visualizza Documento",
     "allDocuments": "Documenti Legali",
-    "lastUpdated": "Ultimo aggiornamento: {{date}}",
     "version": "Versione {{version}}"
   },
   "navigation": {
     "notifications": "Notifiche",
     "settings": "Impostazioni",
-    "analytics": "Analisi",
     "help": "Aiuto",
-    "medias": "Cache Media",
     "sections": {
       "all": "Tutte le Notifiche",
       "buckets": "Buckets",
@@ -1394,75 +1111,36 @@
     }
   },
   "medias": {
-    "title": "Cache Media",
     "stats": {
       "title": "Statistiche Cache",
       "totalItems": "Elementi Totali",
       "totalSize": "Dimensione Totale",
       "byType": "Per Tipo"
     },
-    "clearCache": {
-      "title": "Svuota Cache",
-      "message": "Sei sicuro di voler cancellare tutti i media in cache? Questo libererà spazio di archiviazione ma i media dovranno essere scaricati nuovamente.",
-      "confirm": "Svuota Tutto",
-      "success": {
-        "title": "Cache Svuotata",
-        "message": "Tutti i media in cache sono stati cancellati con successo."
-      },
-      "error": {
-        "title": "Errore",
-        "message": "Impossibile svuotare la cache. Riprova."
-      }
-    },
     "deleteItem": {
       "title": "Elimina Media",
-      "message": "Vuoi eliminare questo media dalla cache? Potrai riscaricarlo manualmente in seguito se ancora disponibile.",
-      "confirm": "Elimina",
-      "cancel": "Annulla"
+      "message": "Vuoi eliminare questo media dalla cache? Potrai riscaricarlo manualmente in seguito se ancora disponibile."
     },
     "empty": {
       "title": "Nessun Media in Cache",
       "message": "I file multimediali appariranno qui quando verranno scaricati e memorizzati in cache per la visualizzazione offline."
     },
     "filters": {
-      "title": "Filtri",
-      "mediaTypes": "Tipi di Media",
       "noType": "Nessun tipo",
       "allTypes": "Tutti i tipi",
       "selectMediaTypes": "Seleziona tipi di media",
       "selectAll": "Seleziona tutto",
       "deselectAll": "Deseleziona tutto",
       "selectedTypesCount": "{{selected}} di {{total}} tipi"
-    },
-    "multiSelection": {
-      "toggleButton": "Seleziona",
-      "exitButton": "Annulla",
-      "deleteSelected": "Elimina Selezionati",
-      "selectedCount": "{{count}} selezionati"
     }
   },
   "cachedMedia": {
-    "download": "Scarica",
-    "retrying": "Riprovando... ({{retryCount}}/{{maxRetries}})",
-    "downloading": "Scaricando {{mediaType}}...",
-    "downloadFailed": "Download fallito",
-    "failedToLoad": "Impossibile caricare {{mediaType}}",
-    "audioFile": "File Audio",
-    "readyToPlay": "Pronto per la riproduzione",
-    "loading": "Caricamento...",
-    "loadingVideo": "Caricamento video...",
-    "mediaFile": "File Media",
-    "tapToRetry": "Tocca per riprovare",
-    "videoError": "Errore Video",
-    "imageError": "Errore Immagine",
     "downloadProgress": "Download...",
     "loadingProgress": "Caricamento...",
     "forceDownload": "Download",
-    "delete": "Elimina",
-    "tapToGenerateThumbnail": "Tocca per generare anteprima"
+    "delete": "Elimina"
   },
   "gallery": {
-    "groupedByDate": "Raggruppati per data",
     "today": "Oggi",
     "yesterday": "Ieri",
     "thisWeek": "Questa settimana",
@@ -1475,6 +1153,67 @@
     "autoPlay": "Riproduzione Automatica",
     "autoPlayDescription": "Riproduci automaticamente video e audio quando visualizzati",
     "showFaultyMedias": "Mostra Media Difettosi",
-        "showFaultyMediasDescription": "Mostra media che hanno avuto errori di download o sono stati eliminati"
+    "showFaultyMediasDescription": "Mostra media che hanno avuto errori di download o sono stati eliminati"
+  },
+  "onboarding": {
+    "title": "Guida Introduttiva",
+    "welcome": {
+      "title": "Benvenuto in Zentik!",
+      "description": "Ti guideremo attraverso i primi passi per iniziare a utilizzare Zentik per gestire le tue notifiche."
+    },
+    "bucket": {
+      "title": "Crea il tuo primo bucket",
+      "description": "I bucket ti permettono di organizzare le tue notifiche per categoria. Creiamo insieme il tuo primo bucket.",
+      "nameLabel": "Nome del bucket:",
+      "namePlaceholder": "Es: Lavoro",
+      "createButton": "Crea Bucket",
+      "creating": "Creazione..."
+    },
+    "token": {
+      "title": "Genera un access token",
+      "description": "Gli access token ti permettono di inviare notifiche tramite l'API REST. Generiamo un token per te.",
+      "nameLabel": "Nome del token:",
+      "namePlaceholder": "Es: Token di produzione",
+      "createButton": "Genera Token",
+      "creating": "Creazione..."
+    },
+    "notification": {
+      "title": "Invia la tua prima notifica",
+      "description": "Ora invieremo una notifica di test per verificare che tutto funzioni correttamente.",
+      "titleLabel": "Titolo notifica:",
+      "titlePlaceholder": "Titolo della notifica",
+      "bodyLabel": "Corpo notifica:",
+      "bodyPlaceholder": "Corpo della notifica",
+      "sendButton": "Invia Notifica",
+      "sending": "Invio..."
+    },
+    "api": {
+      "title": "Usa l'API REST",
+      "description": "Ecco come puoi inviare notifiche tramite l'API REST usando il token generato.",
+      "documentationInfo": "Informazioni dettagliate su come inviare notifiche a questo link:",
+      "documentationLink": "https://notifier-docs.zentik.app/docs/notifications"
+    },
+    "navigation": {
+      "back": "Indietro",
+      "next": "Avanti",
+      "complete": "Completa",
+      "step": "Passo {{current}} di {{total}}"
+    },
+    "preview": {
+      "copy": "Copia JSON",
+      "copied": "JSON copiato negli appunti!"
+    },
+    "messages": {
+      "bucketCreateError": "Impossibile creare il bucket. Riprova.",
+      "tokenCreated": "Token creato!",
+      "tokenCreateError": "Impossibile creare il token. Riprova.",
+      "notificationSendError": "Impossibile inviare la notifica. Riprova.",
+      "bucketNameRequired": "Inserisci un nome per il bucket",
+      "tokenNameRequired": "Inserisci un nome per il token",
+      "notificationFieldsRequired": "Inserisci titolo e corpo della notifica",
+      "createBucketFirst": "Prima crea un bucket",
+      "tokenCopied": "Il tuo access token è stato creato e copiato negli appunti:",
+      "useInHeader": "Usalo nell'header Authorization: Bearer"
+    }
   }
 }

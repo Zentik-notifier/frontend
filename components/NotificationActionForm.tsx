@@ -43,7 +43,7 @@ interface NotificationActionFormProps {
 export default function NotificationActionForm({
   actionType,
   actionValue,
-  actionTitle,
+  actionTitle = '',
   actionIconName,
   actionDestructive,
   webhookMethod,

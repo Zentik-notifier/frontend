@@ -8,12 +8,7 @@ import { useNotificationUtils } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import React, { useEffect, useState } from "react";
-import {
-  Alert,
-  StyleSheet,
-  TouchableOpacity,
-  View
-} from "react-native";
+import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import NotificationActionForm from "./NotificationActionForm";
 import { ThemedText } from "./ThemedText";
 import { Icon, IconButton, InlinePickerOption } from "./ui";
@@ -38,14 +33,20 @@ export default function NotificationTapActionSelector({
   const { getActionTypeFriendlyName } = useNotificationUtils();
 
   const [showTapActionForm, setShowTapActionForm] = useState(false);
-  const [editingAction, setEditingAction] = useState<NotificationActionDto | null>(null);
-  const [webhookMethod, setWebhookMethod] = useState<HttpMethod | undefined>(undefined);
+  const [editingAction, setEditingAction] =
+    useState<NotificationActionDto | null>(null);
+  const [webhookMethod, setWebhookMethod] = useState<HttpMethod | undefined>(
+    undefined
+  );
   const [webhookUrl, setWebhookUrl] = useState("");
 
   useEffect(() => {
     if (tapAction && showTapActionForm) {
       setEditingAction(tapAction);
-      if (tapAction.type === NotificationActionType.BackgroundCall && tapAction.value.includes(":")) {
+      if (
+        tapAction.type === NotificationActionType.BackgroundCall &&
+        tapAction.value.includes(":")
+      ) {
         const [method, url] = tapAction.value.split(":");
         setWebhookMethod(method as HttpMethod);
         setWebhookUrl(url);
@@ -84,7 +85,7 @@ export default function NotificationTapActionSelector({
       }
       onTapActionChange(editingAction);
     }
-    
+
     setShowTapActionForm(false);
     setEditingAction(null);
     setWebhookMethod(undefined);
@@ -117,7 +118,10 @@ export default function NotificationTapActionSelector({
   const handleEditTapAction = () => {
     if (tapAction) {
       setEditingAction(tapAction);
-      if (tapAction.type === NotificationActionType.BackgroundCall && tapAction.value.includes(":")) {
+      if (
+        tapAction.type === NotificationActionType.BackgroundCall &&
+        tapAction.value.includes(":")
+      ) {
         const [method, url] = tapAction.value.split(":");
         setWebhookMethod(method as HttpMethod);
         setWebhookUrl(url);
@@ -148,7 +152,8 @@ export default function NotificationTapActionSelector({
           style={[
             styles.actionItem,
             {
-              backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
+              backgroundColor:
+                Colors[colorScheme ?? "light"].backgroundSecondary,
               borderColor: Colors[colorScheme ?? "light"].border,
             },
           ]}
@@ -174,8 +179,7 @@ export default function NotificationTapActionSelector({
                   { color: Colors[colorScheme ?? "light"].textSecondary },
                 ]}
               >
-                {getActionTypeFriendlyName(tapAction.type)} •{" "}
-                {tapAction.value}{" "}
+                {getActionTypeFriendlyName(tapAction.type)} • {tapAction.value}{" "}
                 {tapAction.destructive ? "• Destructive" : ""}
               </ThemedText>
             </View>
@@ -210,21 +214,23 @@ export default function NotificationTapActionSelector({
 
       {showTapActionForm && editingAction && (
         <NotificationActionForm
+          actionTitle={editingAction.title || ""}
           actionType={editingAction.type}
           actionValue={editingAction.value}
-          actionTitle={editingAction.title}
-          actionIconName={editingAction.icon.replace("sfsymbols:", "")}
-          actionDestructive={editingAction.destructive}
+          actionIconName={editingAction.icon?.replace("sfsymbols:", "") || ""}
+          actionDestructive={editingAction.destructive || false}
           webhookMethod={webhookMethod}
           webhookUrl={webhookUrl}
           onActionTypeChange={(type) => {
             // Only reset value when absolutely necessary
             let newValue = editingAction.value;
-            
+
             if (type === NotificationActionType.BackgroundCall) {
               // When switching to BackgroundCall, clear the value as it will be set by webhook fields
               newValue = "";
-            } else if (editingAction.type === NotificationActionType.BackgroundCall) {
+            } else if (
+              editingAction.type === NotificationActionType.BackgroundCall
+            ) {
               // When switching from BackgroundCall, clear the value as it was a webhook URL
               newValue = "";
             } else if (editingAction.value === "default") {
@@ -232,13 +238,13 @@ export default function NotificationTapActionSelector({
               newValue = "default";
             }
             // For all other cases, keep the existing value unchanged
-            
+
             const updatedAction = { ...editingAction, type, value: newValue };
             setEditingAction(updatedAction);
-            
+
             // Immediately update the parent component
             onTapActionChange(updatedAction);
-            
+
             if (type !== NotificationActionType.BackgroundCall) {
               setWebhookMethod(undefined);
               setWebhookUrl("");
@@ -270,8 +276,15 @@ export default function NotificationTapActionSelector({
           onWebhookMethodChange={(method) => {
             setWebhookMethod(method);
             // Update the action value for BackgroundCall actions
-            if (editingAction?.type === NotificationActionType.BackgroundCall && method && webhookUrl) {
-              const updatedAction = { ...editingAction, value: `${method}:${webhookUrl}` };
+            if (
+              editingAction?.type === NotificationActionType.BackgroundCall &&
+              method &&
+              webhookUrl
+            ) {
+              const updatedAction = {
+                ...editingAction,
+                value: `${method}:${webhookUrl}`,
+              };
               setEditingAction(updatedAction);
               onTapActionChange(updatedAction);
             }
@@ -279,8 +292,15 @@ export default function NotificationTapActionSelector({
           onWebhookUrlChange={(url) => {
             setWebhookUrl(url);
             // Update the action value for BackgroundCall actions
-            if (editingAction?.type === NotificationActionType.BackgroundCall && webhookMethod && url) {
-              const updatedAction = { ...editingAction, value: `${webhookMethod}:${url}` };
+            if (
+              editingAction?.type === NotificationActionType.BackgroundCall &&
+              webhookMethod &&
+              url
+            ) {
+              const updatedAction = {
+                ...editingAction,
+                value: `${webhookMethod}:${url}`,
+              };
               setEditingAction(updatedAction);
               onTapActionChange(updatedAction);
             }
@@ -363,5 +383,4 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
-
 });

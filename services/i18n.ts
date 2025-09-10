@@ -5,8 +5,8 @@ import enTranslations from '@/locales/en-EN.json';
 import itTranslations from '@/locales/it-IT.json';
 
 const translations: Record<Locale, Translation> = {
-  'en-EN': enTranslations as Translation,
-  'it-IT': itTranslations as Translation,
+  'en-EN': enTranslations,
+  'it-IT': itTranslations,
 };
 
 const DEFAULT_LOCALE: Locale = 'en-EN';
@@ -47,7 +47,7 @@ class I18nService {
    */
   t<T extends string>(key: T, params?: Record<string, string | number>): GetTranslationValue<T> {
     const translation = this.getNestedValue(translations[this.currentLocale], key);
-    
+
     if (typeof translation !== 'string') {
       console.warn(`Translation not found for key: ${key}`);
       return key as unknown as GetTranslationValue<T>;
@@ -84,7 +84,7 @@ class I18nService {
    */
   subscribe(listener: (locale: Locale) => void): () => void {
     this.listeners.add(listener);
-    
+
     return () => {
       this.listeners.delete(listener);
     };

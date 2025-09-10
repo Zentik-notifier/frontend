@@ -86,36 +86,36 @@ export default function OnboardingModal({
   const steps: OnboardingStep[] = [
     {
       id: "welcome",
-      title: t("common.onboarding.welcome.title"),
-      description: t("common.onboarding.welcome.description"),
+      title: t("onboarding.welcome.title"),
+      description: t("onboarding.welcome.description"),
       icon: "app",
       completed: true,
     },
     {
       id: "bucket",
-      title: t("common.onboarding.bucket.title"),
-      description: t("common.onboarding.bucket.description"),
+      title: t("onboarding.bucket.title"),
+      description: t("onboarding.bucket.description"),
       icon: "folder",
       completed: false,
     },
     {
       id: "token",
-      title: t("common.onboarding.token.title"),
-      description: t("common.onboarding.token.description"),
+      title: t("onboarding.token.title"),
+      description: t("onboarding.token.description"),
       icon: "key",
       completed: false,
     },
     {
       id: "notification",
-      title: t("common.onboarding.notification.title"),
-      description: t("common.onboarding.notification.description"),
+      title: t("onboarding.notification.title"),
+      description: t("onboarding.notification.description"),
       icon: "notifications",
       completed: false,
     },
     {
       id: "api",
-      title: t("common.onboarding.api.title"),
-      description: t("common.onboarding.api.description"),
+      title: t("onboarding.api.title"),
+      description: t("onboarding.api.description"),
       icon: "code",
       completed: false,
     },
@@ -125,7 +125,7 @@ export default function OnboardingModal({
     if (!bucketName.trim()) {
       Alert.alert(
         t("common.error"),
-        t("common.onboarding.messages.bucketNameRequired")
+        t("onboarding.messages.bucketNameRequired")
       );
       return;
     }
@@ -147,7 +147,7 @@ export default function OnboardingModal({
       console.error("Error creating bucket:", error);
       Alert.alert(
         t("common.error"),
-        t("common.onboarding.messages.bucketCreateError")
+        t("onboarding.messages.bucketCreateError")
       );
     }
   };
@@ -156,7 +156,7 @@ export default function OnboardingModal({
     if (!tokenName.trim()) {
       Alert.alert(
         t("common.error"),
-        t("common.onboarding.messages.tokenNameRequired")
+        t("onboarding.messages.tokenNameRequired")
       );
       return;
     }
@@ -178,19 +178,16 @@ export default function OnboardingModal({
         await Clipboard.setStringAsync(token);
 
         Alert.alert(
-          t("common.onboarding.messages.tokenCreated"),
-          `${t("common.onboarding.messages.tokenCopied")}\n\n${token}\n\n${t(
-            "common.onboarding.messages.useInHeader"
+          t("onboarding.messages.tokenCreated"),
+          `${t("onboarding.messages.tokenCopied")}\n\n${token}\n\n${t(
+            "onboarding.messages.useInHeader"
           )} ${token}`,
           [{ text: t("common.ok"), onPress: () => setCurrentStep(3) }]
         );
       }
     } catch (error) {
       console.error("Error creating token:", error);
-      Alert.alert(
-        t("common.error"),
-        t("common.onboarding.messages.tokenCreateError")
-      );
+      Alert.alert(t("common.error"), t("onboarding.messages.tokenCreateError"));
     }
   };
 
@@ -198,7 +195,7 @@ export default function OnboardingModal({
     if (!notificationTitle.trim() || !notificationBody.trim()) {
       Alert.alert(
         t("common.error"),
-        t("common.onboarding.messages.notificationFieldsRequired")
+        t("onboarding.messages.notificationFieldsRequired")
       );
       return;
     }
@@ -207,7 +204,7 @@ export default function OnboardingModal({
     if (buckets.length === 0) {
       Alert.alert(
         t("common.error"),
-        t("common.onboarding.messages.createBucketFirst")
+        t("onboarding.messages.createBucketFirst")
       );
       return;
     }
@@ -232,7 +229,7 @@ export default function OnboardingModal({
       console.error("Error sending notification:", error);
       Alert.alert(
         t("common.error"),
-        t("common.onboarding.messages.notificationSendError")
+        t("onboarding.messages.notificationSendError")
       );
     }
   };
@@ -251,7 +248,7 @@ export default function OnboardingModal({
     try {
       const jsonString = JSON.stringify(buildMessagePayload(), null, 2);
       await Clipboard.setStringAsync(jsonString);
-      Alert.alert(t("common.success"), t("common.onboarding.preview.copied"));
+      Alert.alert(t("common.success"), t("onboarding.preview.copied"));
     } catch (error) {
       Alert.alert(t("common.error"), "Failed to copy JSON to clipboard");
     }
@@ -299,7 +296,7 @@ export default function OnboardingModal({
               style={styles.stepIcon}
             />
             <ThemedText style={styles.stepDescription}>
-              {t("common.onboarding.welcome.description")}
+              {t("onboarding.welcome.description")}
             </ThemedText>
           </View>
         );
@@ -314,11 +311,11 @@ export default function OnboardingModal({
               style={styles.stepIcon}
             />
             <ThemedText style={styles.stepDescription}>
-              {t("common.onboarding.bucket.description")}
+              {t("onboarding.bucket.description")}
             </ThemedText>
             <View style={styles.inputContainer}>
               <ThemedText style={styles.inputLabel}>
-                {t("common.onboarding.bucket.nameLabel")}
+                {t("onboarding.bucket.nameLabel")}
               </ThemedText>
               <TextInput
                 style={[
@@ -332,7 +329,7 @@ export default function OnboardingModal({
                 ]}
                 value={bucketName}
                 onChangeText={setBucketName}
-                placeholder={t("common.onboarding.bucket.namePlaceholder")}
+                placeholder={t("onboarding.bucket.namePlaceholder")}
                 placeholderTextColor={
                   Colors[colorScheme ?? "light"].textSecondary
                 }
@@ -349,8 +346,8 @@ export default function OnboardingModal({
             >
               <ThemedText style={styles.actionButtonText}>
                 {creatingBucket
-                  ? t("common.onboarding.bucket.creating")
-                  : t("common.onboarding.bucket.createButton")}
+                  ? t("onboarding.bucket.creating")
+                  : t("onboarding.bucket.createButton")}
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -366,11 +363,11 @@ export default function OnboardingModal({
               style={styles.stepIcon}
             />
             <ThemedText style={styles.stepDescription}>
-              {t("common.onboarding.token.description")}
+              {t("onboarding.token.description")}
             </ThemedText>
             <View style={styles.inputContainer}>
               <ThemedText style={styles.inputLabel}>
-                {t("common.onboarding.token.nameLabel")}
+                {t("onboarding.token.nameLabel")}
               </ThemedText>
               <TextInput
                 style={[
@@ -384,7 +381,7 @@ export default function OnboardingModal({
                 ]}
                 value={tokenName}
                 onChangeText={setTokenName}
-                placeholder={t("common.onboarding.token.namePlaceholder")}
+                placeholder={t("onboarding.token.namePlaceholder")}
                 placeholderTextColor={
                   Colors[colorScheme ?? "light"].textSecondary
                 }
@@ -401,8 +398,8 @@ export default function OnboardingModal({
             >
               <ThemedText style={styles.actionButtonText}>
                 {creatingToken
-                  ? t("common.onboarding.token.creating")
-                  : t("common.onboarding.token.createButton")}
+                  ? t("onboarding.token.creating")
+                  : t("onboarding.token.createButton")}
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -418,11 +415,11 @@ export default function OnboardingModal({
               style={styles.stepIcon}
             />
             <ThemedText style={styles.stepDescription}>
-              {t("common.onboarding.notification.description")}
+              {t("onboarding.notification.description")}
             </ThemedText>
             <View style={styles.inputContainer}>
               <ThemedText style={styles.inputLabel}>
-                {t("common.onboarding.notification.titleLabel")}
+                {t("onboarding.notification.titleLabel")}
               </ThemedText>
               <TextInput
                 style={[
@@ -436,9 +433,7 @@ export default function OnboardingModal({
                 ]}
                 value={notificationTitle}
                 onChangeText={setNotificationTitle}
-                placeholder={t(
-                  "common.onboarding.notification.titlePlaceholder"
-                )}
+                placeholder={t("onboarding.notification.titlePlaceholder")}
                 placeholderTextColor={
                   Colors[colorScheme ?? "light"].textSecondary
                 }
@@ -446,7 +441,7 @@ export default function OnboardingModal({
             </View>
             <View style={styles.inputContainer}>
               <ThemedText style={styles.inputLabel}>
-                {t("common.onboarding.notification.bodyLabel")}
+                {t("onboarding.notification.bodyLabel")}
               </ThemedText>
               <TextInput
                 style={[
@@ -461,9 +456,7 @@ export default function OnboardingModal({
                 ]}
                 value={notificationBody}
                 onChangeText={setNotificationBody}
-                placeholder={t(
-                  "common.onboarding.notification.bodyPlaceholder"
-                )}
+                placeholder={t("onboarding.notification.bodyPlaceholder")}
                 placeholderTextColor={
                   Colors[colorScheme ?? "light"].textSecondary
                 }
@@ -482,8 +475,8 @@ export default function OnboardingModal({
             >
               <ThemedText style={styles.actionButtonText}>
                 {sendingMessage
-                  ? t("common.onboarding.notification.sending")
-                  : t("common.onboarding.notification.sendButton")}
+                  ? t("onboarding.notification.sending")
+                  : t("onboarding.notification.sendButton")}
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -499,19 +492,19 @@ export default function OnboardingModal({
               style={styles.stepIcon}
             />
             <ThemedText style={styles.stepDescription}>
-              {t("common.onboarding.api.description")}
+              {t("onboarding.api.description")}
             </ThemedText>
-            
+
             <View style={styles.documentationContainer}>
               <ThemedText style={styles.documentationText}>
-                {t("common.onboarding.api.documentationInfo")}{" "}
+                {t("onboarding.api.documentationInfo")}{" "}
                 <ThemedText
                   style={styles.documentationLinkText}
                   onPress={() => {
-                    Linking.openURL(t("common.onboarding.api.documentationLink"));
+                    Linking.openURL(t("onboarding.api.documentationLink"));
                   }}
                 >
-                  {t("common.onboarding.api.documentationLink")}
+                  {t("onboarding.api.documentationLink")}
                 </ThemedText>
               </ThemedText>
             </View>
@@ -569,7 +562,7 @@ export default function OnboardingModal({
                   color={Colors[colorScheme ?? "light"].tint}
                 />
                 <ThemedText style={styles.copyButtonText}>
-                  {t("common.onboarding.preview.copy")}
+                  {t("onboarding.preview.copy")}
                 </ThemedText>
               </TouchableOpacity>
             </ThemedView>
@@ -598,7 +591,7 @@ export default function OnboardingModal({
             />
           </TouchableOpacity>
           <ThemedText style={styles.headerTitle}>
-            {t("common.onboarding.title")}
+            {t("onboarding.title")}
           </ThemedText>
           <View style={styles.placeholder} />
         </View>
@@ -621,7 +614,7 @@ export default function OnboardingModal({
             ))}
           </View>
           <ThemedText style={styles.progressText}>
-            {t("common.onboarding.navigation.step", {
+            {t("onboarding.navigation.step", {
               current: currentStep + 1,
               total: steps.length,
             })}
@@ -651,7 +644,7 @@ export default function OnboardingModal({
               onPress={handlePrevious}
             >
               <ThemedText style={styles.previousButtonText}>
-                {t("common.onboarding.navigation.back")}
+                {t("onboarding.navigation.back")}
               </ThemedText>
             </TouchableOpacity>
           )}
@@ -666,8 +659,8 @@ export default function OnboardingModal({
           >
             <ThemedText style={styles.nextButtonText}>
               {currentStep === steps.length - 1
-                ? t("common.onboarding.navigation.complete")
-                : t("common.onboarding.navigation.next")}
+                ? t("onboarding.navigation.complete")
+                : t("onboarding.navigation.next")}
             </ThemedText>
           </TouchableOpacity>
         </View>

@@ -2,26 +2,19 @@
   "appSettings": {
     "title": "App Settings",
     "description": "Configure application preferences and language settings",
-    "resetAllSettings": "Reset All Settings",
-    "resetConfirm": "Are you sure you want to reset all app settings to defaults? This action cannot be undone.",
     "autoSaveDescription": "Settings are automatically saved and synced across app restarts.",
     "revokeTerms": "Revoke Terms Acceptance",
     "revokeTermsDescription": "Clear your terms acceptance and be prompted to accept them again",
     "revokeTermsConfirm": "Are you sure you want to revoke your terms acceptance? You will need to accept the terms again to continue using the app.",
     "revokeTermsSuccess": "Terms acceptance revoked successfully",
     "apiUrl": {
-      "title": "API Configuration",
-      "description": "Configure the server API endpoint for self-hosted installations",
       "serverUrl": "API Server URL",
       "serverUrlDescription": "Enter your custom API server URL. Leave empty to use the default server.",
       "placeholder": "https://your-server.com:3000",
-      "save": "Save",
       "reset": "Reset",
       "success": "URL Updated",
       "successMessage": "The server URL has been updated successfully. GraphQL connections are now using the new URL.",
-      "saveError": "Failed to save the server URL. Please try again.",
-      "restartRequired": "Restart Required",
-      "restartMessage": "The server URL has been modified. To apply the changes, restart the application."
+      "saveError": "Failed to save the server URL. Please try again."
     },
     "retentionPolicies": {
       "title": "Media retention rules",
@@ -29,15 +22,7 @@
       "maxCacheSize": "Max media size",
       "maxCacheSizeDescription": "Maximum storage space for media files (in MB). Leave empty for no limit.",
       "maxCacheAge": "Max media age",
-      "maxCacheAgeDescription": "How long to keep media files (in days). Leave empty for no limit.",
-      "currentCacheSize": "Current media size: {{size}}",
-      "cacheItems": "{{count}} media file",
-      "cacheItemsPlural": "{{count}} media files",
-      "clearCache": "Clear Media",
-      "clearCacheDescription": "Remove all locally stored media files",
-      "clearCacheConfirm": "Are you sure you want to clear all media files? This will free up storage space but media will need to be downloaded again.",
-      "cacheClearedSuccess": "Media cleared successfully",
-      "cacheClearError": "Failed to clear media"
+      "maxCacheAgeDescription": "How long to keep media files (in days). Leave empty for no limit."
     },
     "timezone": {
       "title": "Timezone",
@@ -81,18 +66,15 @@
         "exportDescription": "Export cached notifications with all relations resolved to a complete JSON file",
         "exportMetadataDescription": "Export the metadata.json file used by media-cache",
         "importDescription": "Import notifications from a JSON file",
-        "exportSuccess": "Notifications exported successfully",
         "importSuccess": "Notifications imported successfully",
         "exportError": "Failed to export notifications",
         "importError": "Failed to import notifications",
         "noNotificationsToExport": "No notifications found in cache to export",
-        "confirmImport": "Import {{count}} notifications?",
         "confirmImportMessage": "This will add {{count}} notifications to your cache. Existing notifications will be preserved.",
         "invalidFileFormat": "Invalid file format. Please select a valid notifications export file.",
         "exportComplete": "Export Complete",
         "exportCompleteMessage": "File saved to: {{path}}",
         "exportMetadataError": "Failed to export metadata.json",
-        "exportMetadataSuccess": "metadata.json exported successfully",
         "failedProcess": "Failed to process the imported file",
         "failedRead": "Failed to read the selected file",
         "failedApply": "Failed to apply imported data to cache",
@@ -104,8 +86,7 @@
         },
         "errors": {
           "apolloCacheUnavailable": "Apollo client cache not available",
-          "notificationsArrayNotFound": "Invalid file format: notifications array not found",
-          "versionNotFound": "Invalid file format: version not found"
+          "notificationsArrayNotFound": "Invalid file format: notifications array not found"
         }
       }
     },
@@ -120,8 +101,6 @@
       "platformDescription": "Version of the operating system",
       "app": "UI version",
       "appDescription": "Version of the mobile application",
-      "unavailable": "unavailable",
-      "timeout": "timeout",
       "unknown": "unknown",
       "refresh": "Refresh version information",
       "otaUpdate": "OTA Update",
@@ -170,45 +149,17 @@
     }
   },
   "compose": {
-    "addText": "Text",
-    "addImage": "Image",
-    "addAction": "Action",
-    "send": "Send",
-    "title": "Title",
-    "body": "Message",
-    "subtitle": "Subtitle",
-    "messagePlaceholder": "Write a message...",
     "messageBuilder": {
-      "title": "Message Builder",
-      "toggleButton": "Message Options",
-      "actions": "Actions",
-      "snooze": "Snooze",
       "flags": "Flags",
       "priority": "Priority",
-      "urgent": "Urgent",
       "important": "Important",
       "normal": "Normal",
-      "low": "Low",
-      "addAction": "Add Action",
-      "actionPlaceholder": "Enter action text...",
-      "snoozeOptions": {
-        "title": "Snooze Options",
-        "none": "No snooze",
-        "5min": "5 minutes",
-        "15min": "15 minutes",
-        "1hour": "1 hour",
-        "3hours": "3 hours",
-        "1day": "1 day",
-        "custom": "Custom time"
-      },
-      "requiresAction": "Requires Action",
-      "followUp": "Follow Up"
+      "low": "Low"
     }
   },
   "userProfile": {
     "title": "User Profile",
     "description": "Manage your personal information and account settings",
-    "loading": "Loading profile...",
     "errorLoadingData": "Error loading data",
     "noDataAvailable": "No data available",
     "username": "Username",
@@ -242,18 +193,13 @@
       "connectedAs": "Connected as {{providerId}}",
       "connected": "Connected",
       "connect": "Connect",
-      "availableProviders": "Available Providers",
-      "connectionSuccess": "Connection Successful",
-      "connectionSuccessMessage": "Successfully connected to {{provider}}",
       "connectionError": "Failed to connect. Please try again."
     },
     "continue": "Continue",
     "deleteAccountConfirm": "Delete Permanently",
     "accountDeletedTitle": "Account Deleted",
     "accountDeletedMessage": "Your account has been successfully deleted.",
-    "loginProvider": "Login Provider",
     "currentSessionProvider": "Current Session Provider",
-    "oauthUser": "OAuth User",
     "localUser": "Local User"
   },
   "buckets": {
@@ -266,24 +212,15 @@
     "bucketNotFound": "Bucket not found",
     "bucketNotFoundDescription": "The requested bucket does not exist or you don't have permission to access it.",
     "composeMessage": "New Message",
-    "bucketDeletedSuccess": "Bucket deleted successfully",
-    "deleteBucketError": "Could not delete the bucket. Please try again.",
     "item": {
       "delete": "Delete",
-      "deleteBucketTitle": "Delete Bucket",
-      "deleteBucketMessage": "Are you sure you want to delete the bucket \"{{bucketName}}\"? This action cannot be undone.",
-      "deleteBucketConfirm": "Delete",
       "created": "Created",
       "bucketIdCopied": "Bucket ID copied to clipboard",
-      "devicesCount": "{{count}} device",
-      "devicesCountPlural": "{{count}} devices",
-      "allDevices": "All devices",
       "sharedWith": "Shared with {{count}} user",
       "sharedWithPlural": "Shared with {{count}} users",
       "notShared": "Not shared",
       "sharedWithMe": "Shared with me",
       "messages": "messages",
-      "unread": "unread",
       "noActivity": "No activity",
       "daysAgo": "{{count}} days ago",
       "hoursAgo": "{{count}} hours ago",
@@ -297,10 +234,6 @@
       "bucketNotFound": "Bucket not found",
       "loadingBucket": "Loading bucket...",
       "deleteBucket": "Delete Bucket",
-      "deleteBucketConfirm": "Are you sure you want to delete \"{{bucketName}}\"? This action cannot be undone and will remove all notifications in this bucket.",
-      "deleting": "Deleting...",
-      "error": "Error",
-      "failedToDelete": "Failed to delete bucket",
       "editDescription": "Update your bucket settings and organization.",
       "createDescription": "Create a new bucket to organize your notifications.",
       "namePlaceholder": "Enter bucket name",
@@ -315,7 +248,6 @@
       "updateButton": "Update Bucket",
       "bucketId": "Bucket ID",
       "bucketIdCopied": "Bucket ID copied to clipboard",
-      "createSuccessTitle": "Success",
       "createErrorTitle": "Error",
       "updateErrorTitle": "Error",
       "createErrorMessage": "Failed to create bucket",
@@ -340,7 +272,6 @@
         "readwrite": "Read/Write"
       },
       "share": "Share",
-      "edit": "Edit",
       "editTitle": "Edit Permissions",
       "update": "Update",
       "loading": "Loading shared users...",
@@ -354,8 +285,6 @@
       "confirmRevokeMessage": "Are you sure you want to revoke access for {{user}}?",
       "revoke": "Revoke",
       "unknownUser": "Unknown User",
-      "you": "you",
-      "grantedBy": "Granted by {username}",
       "expiresAt": "Expires on {{date}}"
     },
     "delete": {
@@ -365,8 +294,6 @@
       "deleteBucketWithPermission": "Delete Bucket (with permission)",
       "revokeSharing": "Revoke My Access",
       "confirm": "Confirm",
-      "confirmTitle": "Confirm Deletion",
-      "confirmMessage": "Are you sure you want to delete the bucket \"{{bucketName}}\"? This action cannot be undone and will remove all notifications in this bucket.",
       "confirmDeleteTitle": "Confirm Bucket Deletion",
       "confirmDeleteMessage": "You are about to delete the bucket \"{{bucketName}}\". This action cannot be undone and will remove all notifications in this bucket.",
       "confirmRevokeTitle": "Confirm Access Revocation",
@@ -382,13 +309,8 @@
     "unregistering": "Unregistering...",
     "noDevicesTitle": "No devices registered",
     "noDevicesSubtext": "Register this device to start receiving push notifications",
-    "registerSuccessTitle": "Device Registration",
-    "registerSuccessMessage": "Device registered successfully!",
     "registerErrorMessage": "Failed to register device",
-    "unregisterSuccessTitle": "Device Unregistration",
-    "unregisterSuccessMessage": "Device unregistered successfully!",
     "unregisterErrorMessage": "Failed to unregister device",
-    "removeSuccessMessage": "Device removed successfully",
     "removeErrorMessage": "Failed to remove device",
     "item": {
       "delete": "Delete",
@@ -398,8 +320,6 @@
       "thisDevice": "This Device",
       "registered": "Registered",
       "model": "Model",
-      "os": "OS",
-      "deviceId": "Device ID",
       "active": "Active",
       "inactive": "Inactive",
       "lastUsed": "Last used",
@@ -430,9 +350,7 @@
       "deleteTokenMessage": "Are you sure you want to delete this system access token? This action cannot be undone.",
       "deleteTokenConfirm": "Delete",
       "expired": "Expired",
-      "token": "Token",
       "created": "Created",
-      "maxCalls": "Max calls",
       "calls": "Calls",
       "expires": "Expires",
       "requester": "Requester",
@@ -476,7 +394,6 @@
       "deleteTokenMessage": "Are you sure you want to delete this access token? This action cannot be undone.",
       "deleteTokenConfirm": "Delete",
       "expired": "Expired",
-      "token": "Token",
       "created": "Created",
       "lastUsed": "Last used",
       "neverUsed": "Never used",
@@ -491,7 +408,7 @@
       "expirationPlaceholder": "Leave empty for no expiration",
       "expirationHint": "Leave empty for tokens that never expire",
       "creating": "Creating...",
-        "createButton": "Create Token",
+      "createButton": "Create Token",
       "nameRequired": "Please enter a token name",
       "createError": "Failed to create access token",
       "tokenCreatedTitle": "Token Created!",
@@ -517,11 +434,9 @@
       "expired": "Expired",
       "unknownDevice": "Unknown Device",
       "ipAddress": "IP Address",
-      "loginProvider": "Login Provider",
       "created": "Created",
       "lastActivity": "Last activity",
-      "expires": "Expires",
-      "unknownProvider": "Unknown provider"
+      "expires": "Expires"
     }
   },
   "notifications": {
@@ -542,8 +457,6 @@
     },
     "selectAll": "Select All",
     "deselectAll": "Deselect All",
-    "markAsRead": "Mark as Read",
-    "markAsUnread": "Mark as Unread",
     "titleRequired": "Title is required",
     "content": {
       "title": "Title",
@@ -568,7 +481,6 @@
     },
     "attachments": {
       "title": "Media Attachments",
-      "addExamples": "Add Examples",
       "addMedia": "Add Media",
       "mediaType": "Media Type",
       "mediaUrl": "Media URL *",
@@ -576,8 +488,7 @@
       "mediaName": "Name (Optional)",
       "mediaNamePlaceholder": "Media description",
       "selectMediaType": "Select media type",
-      "hint": "💡 Add image, GIF, video or audio attachments to create rich notifications",
-      "noAttachments": "No attachments added yet"
+      "hint": "💡 Add image, GIF, video or audio attachments to create rich notifications"
     },
     "settings": {
       "deliveryType": "Delivery Type",
@@ -591,12 +502,7 @@
     "targeting": {
       "bucket": "Bucket",
       "selectBucket": "Select bucket",
-      "targetDevices": "Target Devices (Optional)",
-      "selectDevices": "Select target devices (optional)",
-      "allDevices": "All devices",
-      "noDevicesFound": "No devices found. Register a device to target specific devices.",
       "loadingBuckets": "Loading buckets...",
-      "loadingDevices": "Loading devices...",
       "bucketRequired": "At least one bucket is required to send notifications",
       "groupId": "Group ID",
       "groupIdPlaceholder": "ID for notification grouping (optional)",
@@ -629,9 +535,7 @@
       "title": "Tap Action",
       "description": "This action will be executed when the user taps on the notification from the lock screen or notification center.",
       "addTapAction": "Add Tap Action",
-      "editTapAction": "Edit Tap Action",
-      "saveTapAction": "Save Tap Action",
-      "tapActionType": "Tap Action Type"
+      "saveTapAction": "Save Tap Action"
     },
     "examples": {
       "testTitle": "🎉 Test Notification",
@@ -641,18 +545,9 @@
       "sampleGif": "Sample GIF",
       "sampleVideo": "Sample Video",
       "sampleAudio": "Sample Audio",
-      "visitWebsite": "Visit Website",
-      "dismiss": "Dismiss",
-      "snooze30min": "Snooze 30min",
-      "viewDetails": "View Details",
-      "triggerWebhook": "Trigger Webhook",
-      "google": "Google",
-      "snooze1h": "Snooze 1h"
+      "visitWebsite": "Visit Website"
     },
     "form": {
-      "add": "Add",
-      "edit": "Edit",
-      "remove": "Remove",
       "cancel": "Cancel"
     },
     "preview": {
@@ -665,42 +560,16 @@
       "message": "No webhooks available. Create a webhook first to use {{type}} type."
     },
     "webhookAction": {
-      "method": "HTTP Method",
-      "url": "Webhook URL",
-      "methodPlaceholder": "Select HTTP method",
-      "urlPlaceholder": "https://api.example.com/webhook",
       "methodRequired": "HTTP method is required",
-      "urlRequired": "Webhook URL is required",
-      "urlInvalid": "Please enter a valid URL"
+      "urlRequired": "Webhook URL is required"
     }
   },
   "home": {
     "emptyState": {
-      "noNotifications": "No notifications found",
-      "allCaughtUp": "You're all caught up!",
-      "tryAdjustingFilters": "Try adjusting your filters"
-    },
-    "errorState": {
-      "title": "Something went wrong",
-      "subtitle": "Unable to load notifications"
+      "noNotifications": "No notifications found"
     },
     "search": {
       "placeholder": "Search notifications..."
-    },
-    "timeAgo": {
-      "minutesAgo": "{{count}}m ago",
-      "hoursAgo": "{{count}}h ago",
-      "daysAgo": "{{count}}d ago"
-    },
-    "multiSelection": {
-      "toggleButton": "Select",
-      "exitButton": "Cancel",
-      "deleteSelected": "Delete Selected",
-      "selectedCount": "{{count}} selected",
-      "deleteConfirm": "Delete Selected Notifications",
-      "deleteConfirmMessage": "Are you sure you want to delete {{count}} selected notifications? This action cannot be undone.",
-      "deleteSuccess": "{{count}} notifications deleted successfully",
-      "deleteError": "Failed to delete selected notifications"
     }
   },
   "filters": {
@@ -734,12 +603,10 @@
       "error": "Failed to delete notification"
     },
     "markAsRead": {
-      "label": "Read",
-      "error": "Failed to mark as read"
+      "label": "Read"
     },
     "markAsUnread": {
-      "label": "Unread",
-      "error": "Failed to mark as unread"
+      "label": "Unread"
     }
   },
   "mediaTypes": {
@@ -752,8 +619,8 @@
   },
   "common": {
     "cancel": "Cancel",
-    "importing": "Importing...",
     "save": "Save",
+    "importing": "Importing...",
     "delete": "Delete",
     "noConnection": "No connection",
     "updateAvailable": "Update available",
@@ -761,78 +628,9 @@
     "success": "Success",
     "error": "Error",
     "ok": "OK",
-    "onboarding": {
-      "title": "Getting Started Guide",
-      "description": "Review the guide to get started with Zentik",
-      "welcome": {
-        "title": "Welcome to Zentik!",
-        "description": "We'll guide you through the first steps to start using Zentik to manage your notifications."
-      },
-      "bucket": {
-        "title": "Create your first bucket",
-        "description": "Buckets allow you to organize your notifications by category. Let's create your first bucket together.",
-        "nameLabel": "Bucket name:",
-        "namePlaceholder": "E.g: Work",
-        "createButton": "Create Bucket",
-        "creating": "Creating..."
-      },
-      "token": {
-        "title": "Generate an access token",
-        "description": "Access tokens allow you to send notifications via the REST API. Let's generate a token for you.",
-        "nameLabel": "Token name:",
-        "namePlaceholder": "E.g: Production token",
-        "createButton": "Generate Token"
-      },
-      "notification": {
-        "title": "Send your first notification",
-        "description": "Now we'll send a test notification to verify that everything works correctly.",
-        "titleLabel": "Notification title:",
-        "titlePlaceholder": "Notification title",
-        "bodyLabel": "Notification body:",
-        "bodyPlaceholder": "Notification body",
-        "sendButton": "Send Notification",
-        "sending": "Sending..."
-      },
-      "api": {
-        "title": "Use the REST API",
-        "description": "Here's how you can send notifications via the REST API using the generated token.",
-        "documentationInfo": "Detailed information on how to send notifications at this link:",
-        "documentationLink": "https://notifier-docs.zentik.app/docs/notifications"
-      },
-      "navigation": {
-        "back": "Back",
-        "next": "Next",
-        "complete": "Complete",
-        "step": "Step {{current}} of {{total}}"
-      },
-      "preview": {
-        "title": "JSON Payload",
-        "description": "This is the JSON payload that will be sent to the server",
-        "copy": "Copy JSON",
-        "copied": "JSON copied to clipboard!"
-      },
-      "messages": {
-        "bucketCreated": "Bucket created successfully!",
-        "bucketCreateError": "Unable to create bucket. Please try again.",
-        "tokenCreated": "Token created!",
-        "tokenCreateError": "Unable to create token. Please try again.",
-        "notificationSent": "Notification sent successfully!",
-        "notificationSendError": "Unable to send notification. Please try again.",
-        "apiExample": "REST API Example",
-        "bucketNameRequired": "Enter a name for the bucket",
-        "tokenNameRequired": "Enter a name for the token",
-        "notificationFieldsRequired": "Enter notification title and body",
-        "createBucketFirst": "Create a bucket first",
-        "tokenCopied": "Your access token has been created and copied to clipboard:",
-        "useInHeader": "Use it in the Authorization header: Bearer",
-        "apiExampleCopied": "Here's an example of how to send a notification via REST API:",
-        "exampleCopied": "The example has been copied to clipboard."
-      }
-    },
     "close": "Close",
     "loading": "Loading...",
     "exporting": "Exporting...",
-    "download": "Download",
     "copied": "Copied!",
     "copiedToClipboard": "Copied to clipboard",
     "saved": "Saved",
@@ -856,12 +654,9 @@
     "backendUnreachable": "API offline",
     "colorPalette": "Color Palette",
     "customColor": "Custom Color",
-    "chooseCustomColor": "Choose Custom Color",
     "hexColorCode": "Hex Color Code",
-    "invalidColor": "Invalid Color",
-    "invalidColorMessage": "Please enter a valid hex color code (e.g., #0a7ea4)",
     "apply": "Apply",
-    "chooseColor": "Choose Color"
+    "saving": "Saving..."
   },
   "notificationDetail": {
     "loading": "Loading notification...",
@@ -871,7 +666,6 @@
     "read": "Read:",
     "snooze": {
       "title": "Snooze Bucket",
-      "description": "Silence notifications from this bucket for a specified time",
       "setSnooze": "Set Snooze",
       "removeSnooze": "Remove Snooze",
       "snoozedUntil": "Snoozed until",
@@ -879,18 +673,13 @@
       "remaining": "remaining",
       "quickOptions": "Quick Options",
       "customDateTime": "Custom Date & Time",
-      "selectDateTime": "Select Date & Time",
-      "cancel": "Cancel",
       "confirm": "Confirm",
       "errorSetting": "Failed to set snooze",
       "errorRemoving": "Failed to remove snooze",
       "quickTimes": {
         "15min": "15 minutes",
-        "30min": "30 minutes",
         "1hour": "1 hour",
-        "2hours": "2 hours",
         "4hours": "4 hours",
-        "8hours": "8 hours",
         "12hours": "12 hours",
         "1day": "1 day",
         "3days": "3 days",
@@ -902,11 +691,8 @@
       "NORMAL": "Normal",
       "CRITICAL": "Critical"
     },
-    "copyBody": "Copy Content",
-    "bodyCopied": "Notification content copied to clipboard",
     "notificationCopied": "Notification copied to clipboard",
     "shareNotification": "Share Notification",
-    "deleteNotification": "Delete Notification",
     "deleteConfirmTitle": "Delete Notification",
     "deleteConfirmMessage": "Are you sure you want to delete this notification? This action cannot be undone.",
     "deleteConfirmButton": "Delete",
@@ -954,7 +740,6 @@
   },
   "notificationActions": {
     "availableActions": "Available Actions",
-    "defaultTapAction": "Default Tap Action",
     "noActionsAvailable": "No actions available for this notification",
     "actionCount": "{{count}} Action",
     "actionCountPlural": "{{count}} Actions",
@@ -970,15 +755,9 @@
     "destructive": "Destructive"
   },
   "attachmentGallery": {
-    "attachments": "Attachments ({{count}})",
-    "failedToLoad": "Failed to load {{type}}",
-    "audio": "Audio",
-    "file": "File",
-    "playing": "Playing...",
-    "tapToPlay": "Tap to play"
+    "attachments": "Attachments ({{count}})"
   },
   "login": {
-    "title": "Login",
     "welcomeBack": "Welcome back!",
     "emailOrUsername": "Email or Username",
     "emailOrUsernamePlaceholder": "Enter your email or username",
@@ -991,10 +770,7 @@
     "signUp": "Sign Up",
     "orContinueWith": "Or continue with",
     "providers": {
-      "github": "GitHub",
-      "google": "Google",
-      "cancelled": "Login cancelled",
-      "dismissed": "Login dismissed"
+      "cancelled": "Login cancelled"
     },
     "validation": {
       "emailOrUsernameRequired": "Email or username is required",
@@ -1006,9 +782,7 @@
       "connectionError": "Connection error. Please try again later.",
       "invalidCredentials": "Invalid email or password. Please try again.",
       "networkError": "Network error. Please check your connection and try again.",
-      "unexpectedError": "An unexpected error occurred during login.",
-      "emailNotConfirmed": "Email not confirmed",
-      "confirmEmailFirst": "You need to confirm your email before logging in. Check your inbox for the confirmation link."
+      "unexpectedError": "An unexpected error occurred during login."
     }
   },
   "register": {
@@ -1028,8 +802,6 @@
     "haveAccount": "Already have an account? ",
     "login": "Login",
     "validation": {
-      "firstNameRequired": "First name is required",
-      "lastNameRequired": "Last name is required",
       "emailRequired": "Email is required",
       "emailInvalid": "Please enter a valid email",
       "passwordRequired": "Password is required",
@@ -1045,9 +817,7 @@
       "description": "We've sent you a 6-character confirmation code to your email. Enter the code to activate your account.",
       "resendEmail": "Resend Email",
       "resending": "Sending...",
-      "emailSent": "Email sent",
       "emailSentMessage": "We've sent you a new confirmation code.",
-      "backToLogin": "Back to Login",
       "checkEmail": "Check your email",
       "notReceived": "Didn't receive the email?",
       "spamFolder": "Check your spam folder too"
@@ -1083,9 +853,7 @@
   "setPassword": {
     "title": "Set Password",
     "description": "Set a password for your account. This will allow you to log in even without the OAuth provider.",
-    "newPassword": "New Password",
     "newPasswordPlaceholder": "Enter new password (min 8 characters)",
-    "confirmPassword": "Confirm New Password",
     "confirmPasswordPlaceholder": "Confirm the new password",
     "setButton": "Set Password",
     "setting": "Setting...",
@@ -1114,18 +882,12 @@
       "backToLogin": "Back to Login",
       "emailRequired": "Please enter your email address",
       "invalidEmail": "Please enter a valid email address",
-      "resetEmailSent": "Reset Code Sent",
-      "resetFailed": "Failed to send reset code. Please try again.",
-      "step2Title": "Enter Reset Code",
-      "step2Description": "Check your email and enter the 6-character code we sent you.",
       "codeLabel": "Reset Code",
       "codePlaceholder": "Enter 6-character code",
       "codeRequired": "Please enter the reset code",
       "invalidCode": "Please enter a valid 6-character code",
       "verifyCode": "Verify Code",
       "verifying": "Verifying...",
-      "step3Title": "Set New Password",
-      "step3Description": "Enter your new password and confirm it.",
       "newPasswordLabel": "New Password",
       "newPasswordPlaceholder": "Enter new password",
       "confirmPasswordLabel": "Confirm Password",
@@ -1146,12 +908,7 @@
       "description": "We've sent you a 6-character confirmation code to your email. Enter the code to activate your account.",
       "resendEmail": "Resend Email",
       "resending": "Sending...",
-      "emailSent": "Email sent",
-      "emailSentMessage": "We've sent you a new confirmation code.",
       "backToLogin": "Back to Login",
-      "checkEmail": "Check your email",
-      "notReceived": "Didn't receive the email?",
-      "spamFolder": "Check your spam folder too",
       "success": "Email Confirmed",
       "successMessage": "Your email has been confirmed successfully! You can now login to your account.",
       "error": "Confirmation Error",
@@ -1169,7 +926,6 @@
     "description": "Manage webhook endpoints for external integrations",
     "noWebhooksTitle": "No Webhooks",
     "noWebhooksSubtext": "Create your first webhook to integrate with external services",
-    "createFirst": "Create First Webhook",
     "create": "Create Webhook",
     "edit": "Edit Webhook",
     "delete": "Delete Webhook",
@@ -1195,20 +951,12 @@
       "jsonHelpMessage": "Enter a valid JSON object. Example:",
       "jsonExample": "{\n  \"key\": \"value\",\n  \"number\": 123,\n  \"array\": [1, 2, 3]\n}",
       "jsonValidationError": "The JSON body is not valid. Check the syntax.",
-      "jsonInvalid": "Invalid JSON format",
       "jsonParsingError": "Error parsing JSON. Check the syntax.",
       "webhookSuccess": "Webhook \"{{name}}\" executed successfully",
       "webhookError": "Webhook Error",
       "webhookExecutionFailed": "Failed to execute webhook. Please try again.",
       "webhookNotFound": "Webhook not found",
       "noWebhookId": "No webhook ID provided in action value",
-      "username": "Username (Optional)",
-      "usernamePlaceholder": "Basic auth username",
-      "password": "Password (Optional)",
-      "passwordPlaceholder": "Basic auth password",
-      "token": "Token (Optional)",
-      "tokenPlaceholder": "Bearer token or API key",
-      "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving...",
       "create": "Create",
@@ -1238,7 +986,6 @@
   },
   "administration": {
     "title": "Administration",
-    "description": "Manage users, system settings and application configuration",
     "userManagement": "User Management",
     "userManagementDescription": "Manage users, roles and permissions",
     "loadingUsers": "Loading users...",
@@ -1262,7 +1009,6 @@
     "systemTokensDescription": "Manage system API tokens",
     "oauthProviders": "OAuth Providers",
     "oauthProvidersDescription": "Configure OAuth authentication providers",
-    "loadingOAuthProviders": "Loading OAuth providers...",
     "errorLoadingOAuthProviders": "Error Loading Providers",
     "errorLoadingOAuthProvidersDescription": "Failed to load OAuth providers. Please try again.",
     "noOAuthProviders": "No OAuth Providers",
@@ -1273,21 +1019,14 @@
       "createTitle": "Create OAuth Provider",
       "editTitle": "Edit OAuth Provider",
       "save": "Save",
-      "github": "GitHub",
-      "google": "Google",
-      "custom": "Custom",
       "basicInformation": "Basic Information",
-      "name": "Name",
       "nameRequired": "Name *",
       "namePlaceholder": "e.g., My Custom Provider",
-      "providerId": "Provider ID",
       "providerIdRequired": "Provider ID *",
       "providerIdPlaceholder": "e.g., my-custom-provider",
       "oauthConfiguration": "OAuth Configuration",
-      "clientId": "Client ID",
       "clientIdRequired": "Client ID *",
       "clientIdPlaceholder": "OAuth Client ID",
-      "clientSecret": "Client Secret",
       "clientSecretRequired": "Client Secret *",
       "clientSecretPlaceholder": "OAuth Client Secret",
       "scopes": "Scopes",
@@ -1315,7 +1054,6 @@
       },
       "success": {
         "title": "Success",
-        "created": "OAuth provider created successfully",
         "updated": "OAuth provider updated successfully",
         "deleted": "OAuth provider deleted successfully",
         "ok": "OK"
@@ -1334,8 +1072,6 @@
     },
     "serverStatus": "Server Status",
     "logs": "System Logs",
-    "comingSoon": "Coming Soon",
-    "comingSoonMessage": "functionality will be available in a future update.",
     "roles": {
       "user": "User",
       "moderator": "Moderator",
@@ -1347,11 +1083,6 @@
     }
   },
   "legal": {
-    "title": "Legal & Privacy",
-    "description": "View terms of service, privacy policy and other legal documents",
-    "termsOfService": "Terms of Service",
-    "privacyPolicy": "Privacy Policy",
-    "cookiePolicy": "Cookie Policy",
     "loading": "Loading document...",
     "errorLoading": "Error loading document",
     "errorLoadingDescription": "Could not load the legal document. Please try again.",
@@ -1365,24 +1096,14 @@
     "exitApp": "Exit App",
     "acceptanceRequired": "Terms Acceptance Required",
     "acceptanceDescription": "Before continuing, please review and accept our terms and policies.",
-    "acceptanceMessage": "To continue using Zentik, you must read and accept our Terms of Service and Privacy Policy.",
     "acceptanceFooterText": "By accepting, you agree to be bound by these terms and policies.",
-    "readAndAccept": "I have read and accept the {{document}}",
-    "mustAcceptAll": "You must accept all terms to continue using the app",
-    "acceptAll": "Accept All Terms",
-    "accepted": "Accepted",
-    "notAccepted": "Not Accepted",
-    "viewDocument": "View Document",
     "allDocuments": "Legal Documents",
-    "lastUpdated": "Last updated: {{date}}",
     "version": "Version {{version}}"
   },
   "navigation": {
     "notifications": "Notifications",
     "settings": "Settings",
-    "analytics": "Analytics",
     "help": "Help",
-    "medias": "Media Cache",
     "sections": {
       "all": "All Notifications",
       "buckets": "Buckets",
@@ -1390,75 +1111,36 @@
     }
   },
   "medias": {
-    "title": "Media Cache",
     "stats": {
       "title": "Cache Statistics",
       "totalItems": "Total Items",
       "totalSize": "Total Size",
       "byType": "By Type"
     },
-    "clearCache": {
-      "title": "Clear Cache",
-      "message": "Are you sure you want to clear all cached media? This will free up storage space but media will need to be downloaded again.",
-      "confirm": "Clear All",
-      "success": {
-        "title": "Cache Cleared",
-        "message": "All cached media has been successfully cleared."
-      },
-      "error": {
-        "title": "Error",
-        "message": "Failed to clear cache. Please try again."
-      }
-    },
     "deleteItem": {
       "title": "Delete Media",
-      "message": "Do you want to delete this media from cache? You can download it again manually later if still available.",
-      "confirm": "Delete",
-      "cancel": "Cancel"
+      "message": "Do you want to delete this media from cache? You can download it again manually later if still available."
     },
     "empty": {
       "title": "No Cached Media",
       "message": "Media files will appear here as they are downloaded and cached for offline viewing."
     },
     "filters": {
-      "title": "Filters",
-      "mediaTypes": "Media Types",
       "noType": "No type",
       "allTypes": "All types",
       "selectMediaTypes": "Select media types",
       "selectAll": "Select all",
       "deselectAll": "Deselect all",
       "selectedTypesCount": "{{selected}} of {{total}} types"
-    },
-    "multiSelection": {
-      "toggleButton": "Select",
-      "exitButton": "Cancel",
-      "deleteSelected": "Delete Selected",
-      "selectedCount": "{{count}} selected"
     }
   },
   "cachedMedia": {
-    "download": "Download",
-    "retrying": "Retrying... ({{retryCount}}/{{maxRetries}})",
-    "downloading": "Downloading {{mediaType}}...",
-    "downloadFailed": "Download failed",
-    "failedToLoad": "Failed to load {{mediaType}}",
-    "audioFile": "Audio File",
-    "readyToPlay": "Ready to play",
-    "loading": "Loading...",
-    "loadingVideo": "Loading video...",
-    "mediaFile": "Media File",
-    "tapToRetry": "Tap to retry",
-    "videoError": "Video Error",
-    "imageError": "Image Error",
     "downloadProgress": "Download...",
     "loadingProgress": "Loading...",
     "forceDownload": "Download",
-    "delete": "Delete",
-    "tapToGenerateThumbnail": "Tap to generate thumbnail"
+    "delete": "Delete"
   },
   "gallery": {
-    "groupedByDate": "Grouped by date",
     "today": "Today",
     "yesterday": "Yesterday",
     "thisWeek": "This week",
@@ -1471,6 +1153,67 @@
     "autoPlay": "Auto Play",
     "autoPlayDescription": "Automatically play videos and audio when viewed",
     "showFaultyMedias": "Show Faulty Media",
-        "showFaultyMediasDescription": "Show media that had download errors or were deleted"
+    "showFaultyMediasDescription": "Show media that had download errors or were deleted"
+  },
+  "onboarding": {
+    "title": "Getting Started Guide",
+    "welcome": {
+      "title": "Welcome to Zentik!",
+      "description": "We'll guide you through the first steps to start using Zentik to manage your notifications."
+    },
+    "bucket": {
+      "title": "Create your first bucket",
+      "description": "Buckets allow you to organize your notifications by category. Let's create your first bucket together.",
+      "nameLabel": "Bucket name:",
+      "namePlaceholder": "E.g: Work",
+      "createButton": "Create Bucket",
+      "creating": "Creating..."
+    },
+    "token": {
+      "title": "Generate an access token",
+      "description": "Access tokens allow you to send notifications via the REST API. Let's generate a token for you.",
+      "nameLabel": "Token name:",
+      "namePlaceholder": "E.g: Production token",
+      "createButton": "Generate Token",
+      "creating": "Creating..."
+    },
+    "notification": {
+      "title": "Send your first notification",
+      "description": "Now we'll send a test notification to verify that everything works correctly.",
+      "titleLabel": "Notification title:",
+      "titlePlaceholder": "Notification title",
+      "bodyLabel": "Notification body:",
+      "bodyPlaceholder": "Notification body",
+      "sendButton": "Send Notification",
+      "sending": "Sending..."
+    },
+    "api": {
+      "title": "Use the REST API",
+      "description": "Here's how you can send notifications via the REST API using the generated token.",
+      "documentationInfo": "Detailed information on how to send notifications at this link:",
+      "documentationLink": "https://notifier-docs.zentik.app/docs/notifications"
+    },
+    "navigation": {
+      "back": "Back",
+      "next": "Next",
+      "complete": "Complete",
+      "step": "Step {{current}} of {{total}}"
+    },
+    "preview": {
+      "copy": "Copy JSON",
+      "copied": "JSON copied to clipboard!"
+    },
+    "messages": {
+      "bucketCreateError": "Unable to create bucket. Please try again.",
+      "tokenCreated": "Token created!",
+      "tokenCreateError": "Unable to create token. Please try again.",
+      "notificationSendError": "Unable to send notification. Please try again.",
+      "bucketNameRequired": "Enter a name for the bucket",
+      "tokenNameRequired": "Enter a name for the token",
+      "notificationFieldsRequired": "Enter notification title and body",
+      "createBucketFirst": "Create a bucket first",
+      "tokenCopied": "Your access token has been created and copied to clipboard:",
+      "useInHeader": "Use it in the Authorization header: Bearer"
+    }
   }
 }

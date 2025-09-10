@@ -3,7 +3,14 @@ import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { reinitializeApolloClient } from "../config/apollo-client";
 import { ApiConfigService } from "../services/api-config";
 import { clearTermsAcceptance } from "../services/auth-storage";
@@ -18,10 +25,10 @@ import { VersionInfo } from "./VersionInfo";
 export function AppSettings() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-  
+
   // API URL state
-  const [apiUrl, setApiUrl] = useState('');
-  const [originalApiUrl, setOriginalApiUrl] = useState('');
+  const [apiUrl, setApiUrl] = useState("");
+  const [originalApiUrl, setOriginalApiUrl] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -34,7 +41,7 @@ export function AppSettings() {
       setApiUrl(customUrl);
       setOriginalApiUrl(customUrl);
     } catch (error) {
-      console.error('Failed to load API URL:', error);
+      console.error("Failed to load API URL:", error);
     }
   };
 
@@ -43,23 +50,21 @@ export function AppSettings() {
     try {
       await ApiConfigService.setCustomApiUrl(apiUrl);
       setOriginalApiUrl(apiUrl);
-      
+
       // Reinitialize Apollo Client with new URL
       await reinitializeApolloClient();
-      
+
       // Show success alert
       Alert.alert(
-        t('appSettings.apiUrl.success'),
-        t('appSettings.apiUrl.successMessage'),
-        [{ text: t('common.ok') }]
+        t("appSettings.apiUrl.success"),
+        t("appSettings.apiUrl.successMessage"),
+        [{ text: t("common.ok") }]
       );
     } catch (error) {
-      console.error('Failed to save API URL:', error);
-      Alert.alert(
-        t('common.error'),
-        t('appSettings.apiUrl.saveError'),
-        [{ text: t('common.ok') }]
-      );
+      console.error("Failed to save API URL:", error);
+      Alert.alert(t("common.error"), t("appSettings.apiUrl.saveError"), [
+        { text: t("common.ok") },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -73,30 +78,33 @@ export function AppSettings() {
 
   const handleRevokeTerms = () => {
     Alert.alert(
-      t('appSettings.revokeTerms'),
-      t('appSettings.revokeTermsConfirm'),
+      t("appSettings.revokeTerms"),
+      t("appSettings.revokeTermsConfirm"),
       [
-        { text: t('common.cancel'), style: "cancel" },
-        { 
-          text: t('appSettings.revokeTerms'), 
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("appSettings.revokeTerms"),
           style: "destructive",
           onPress: async () => {
             try {
               setLoading(true);
               await clearTermsAcceptance();
               Alert.alert(
-                t('common.success'),
-                t('appSettings.revokeTermsSuccess'),
-                [{ text: t('common.ok') }]
+                t("common.success"),
+                t("appSettings.revokeTermsSuccess"),
+                [{ text: t("common.ok") }]
               );
             } catch (error) {
-              console.error('Failed to revoke terms:', error);
-              Alert.alert(t('common.error'), 'Failed to revoke terms acceptance');
+              console.error("Failed to revoke terms:", error);
+              Alert.alert(
+                t("common.error"),
+                "Failed to revoke terms acceptance"
+              );
             } finally {
               setLoading(false);
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -109,73 +117,105 @@ export function AppSettings() {
     destructive?: boolean
   ) => (
     <TouchableOpacity
-      style={[styles.settingRow, { backgroundColor: Colors[colorScheme].backgroundCard }]}
+      style={[
+        styles.settingRow,
+        { backgroundColor: Colors[colorScheme].backgroundCard },
+      ]}
       onPress={onPress}
       activeOpacity={0.7}
     >
       <View style={styles.settingInfo}>
         {icon && (
-          <Ionicons 
-            name={icon as any} 
-            size={20} 
-            color={destructive ? Colors[colorScheme].error : Colors[colorScheme].tint} 
-            style={styles.settingIcon} 
+          <Ionicons
+            name={icon as any}
+            size={20}
+            color={
+              destructive ? Colors[colorScheme].error : Colors[colorScheme].tint
+            }
+            style={styles.settingIcon}
           />
         )}
         <View style={styles.settingTextContainer}>
-          <ThemedText 
+          <ThemedText
             style={[
-              styles.settingTitle, 
-              { color: destructive ? Colors[colorScheme].error : Colors[colorScheme].text }
+              styles.settingTitle,
+              {
+                color: destructive
+                  ? Colors[colorScheme].error
+                  : Colors[colorScheme].text,
+              },
             ]}
           >
             {title}
           </ThemedText>
-          <ThemedText 
-            style={[styles.settingDescription, { color: Colors[colorScheme].textSecondary }]}
+          <ThemedText
+            style={[
+              styles.settingDescription,
+              { color: Colors[colorScheme].textSecondary },
+            ]}
           >
             {description}
           </ThemedText>
         </View>
       </View>
-      <Ionicons 
-        name="chevron-forward" 
-        size={16} 
-        color={Colors[colorScheme].textSecondary} 
+      <Ionicons
+        name="chevron-forward"
+        size={16}
+        color={Colors[colorScheme].textSecondary}
       />
     </TouchableOpacity>
   );
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}> 
+    <ScrollView
+      style={[
+        styles.container,
+        { backgroundColor: Colors[colorScheme].background },
+      ]}
+    >
       {/* Header Section */}
       <View style={styles.header}>
-        <ThemedText style={styles.title}>{t('appSettings.title')}</ThemedText>
+        <ThemedText style={styles.title}>{t("appSettings.title")}</ThemedText>
       </View>
-      
+
       {/* API URL Section */}
       <View style={styles.apiUrlSection}>
-        <View style={[styles.settingRow, { backgroundColor: Colors[colorScheme].backgroundCard }]}> 
+        <View
+          style={[
+            styles.settingRow,
+            { backgroundColor: Colors[colorScheme].backgroundCard },
+          ]}
+        >
           <View style={styles.settingInfo}>
             <View style={styles.settingTextContainer}>
-              <ThemedText style={[styles.settingTitle, { color: Colors[colorScheme].text }]}> 
-                {t('appSettings.apiUrl.serverUrl')}
+              <ThemedText
+                style={[
+                  styles.settingTitle,
+                  { color: Colors[colorScheme].text },
+                ]}
+              >
+                {t("appSettings.apiUrl.serverUrl")}
               </ThemedText>
-              <ThemedText style={[styles.settingDescription, { color: Colors[colorScheme].textSecondary }]}> 
-                {t('appSettings.apiUrl.serverUrlDescription')}
+              <ThemedText
+                style={[
+                  styles.settingDescription,
+                  { color: Colors[colorScheme].textSecondary },
+                ]}
+              >
+                {t("appSettings.apiUrl.serverUrlDescription")}
               </ThemedText>
               <TextInput
                 style={[
                   styles.settingInput,
-                  { 
+                  {
                     borderColor: Colors[colorScheme].border,
                     backgroundColor: Colors[colorScheme].background,
-                    color: Colors[colorScheme].text
-                  }
+                    color: Colors[colorScheme].text,
+                  },
                 ]}
                 value={apiUrl}
                 onChangeText={setApiUrl}
-                placeholder={t('appSettings.apiUrl.placeholder')}
+                placeholder={t("appSettings.apiUrl.placeholder")}
                 placeholderTextColor={Colors[colorScheme].textSecondary}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -186,25 +226,25 @@ export function AppSettings() {
                   <TouchableOpacity
                     style={[
                       styles.actionButton,
-                      { backgroundColor: Colors[colorScheme].tint }
+                      { backgroundColor: Colors[colorScheme].tint },
                     ]}
                     onPress={saveApiUrl}
                     disabled={loading}
                   >
                     <ThemedText style={styles.actionButtonText}>
-                      {loading ? t('common.saving') : t('appSettings.apiUrl.save')}
+                      {loading ? t("common.saving") : t("common.save")}
                     </ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[
                       styles.actionButton,
-                      { backgroundColor: Colors[colorScheme].textSecondary }
+                      { backgroundColor: Colors[colorScheme].textSecondary },
                     ]}
                     onPress={resetApiUrl}
                     disabled={loading}
                   >
                     <ThemedText style={styles.actionButtonText}>
-                      {t('appSettings.apiUrl.reset')}
+                      {t("appSettings.apiUrl.reset")}
                     </ThemedText>
                   </TouchableOpacity>
                 </View>
@@ -213,16 +253,16 @@ export function AppSettings() {
           </View>
         </View>
       </View>
-      
+
       {/* Language Settings Section */}
       <LanguageSettings style={styles.languageSection} />
-      
+
       {/* Timezone Settings Section */}
       <TimezoneSettings style={styles.timezoneSection} />
-      
+
       {/* Date Format Settings Section */}
       <DateFormatSettings style={styles.dateFormatSection} />
-      
+
       {/* Unified Cache Settings */}
       <UnifiedCacheSettings />
 
@@ -236,8 +276,8 @@ export function AppSettings() {
       <View style={styles.retentionSection}>
         {/* Revoke Terms */}
         {renderActionSetting(
-          t('appSettings.revokeTerms'),
-          t('appSettings.revokeTermsDescription'),
+          t("appSettings.revokeTerms"),
+          t("appSettings.revokeTermsDescription"),
           handleRevokeTerms,
           "document-text",
           true
@@ -245,8 +285,13 @@ export function AppSettings() {
       </View>
 
       <View style={styles.footer}>
-        <ThemedText style={[styles.footerText, { color: Colors[colorScheme].textSecondary }]}> 
-          {t('appSettings.autoSaveDescription')}
+        <ThemedText
+          style={[
+            styles.footerText,
+            { color: Colors[colorScheme].textSecondary },
+          ]}
+        >
+          {t("appSettings.autoSaveDescription")}
         </ThemedText>
       </View>
     </ScrollView>
@@ -258,16 +303,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
     paddingHorizontal: 16,
     paddingTop: 10,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   languageSection: {
     marginBottom: 16,
@@ -297,7 +342,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 4,
   },
   sectionDescription: {
@@ -346,7 +391,7 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   apiUrlActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginTop: 8,
   },
@@ -355,13 +400,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     minWidth: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   actionButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   footer: {
     padding: 24,

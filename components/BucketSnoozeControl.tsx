@@ -1,21 +1,21 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { useBucketSnooze } from '../hooks/useUserBuckets';
-import { ThemedText } from './ThemedText';
-import { ThemedView } from './ThemedView';
-import { Button } from './ui/Button';
+import React, { useState } from "react";
+import { View, StyleSheet, Alert } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { ThemedText } from "./ThemedText";
+import { ThemedView } from "./ThemedView";
+import { Button } from "./ui/Button";
 
 interface BucketSnoozeControlProps {
   bucketId: string;
   bucketName: string;
 }
 
-export const BucketSnoozeControl: React.FC<BucketSnoozeControlProps> = ({ 
-  bucketId, 
-  bucketName 
+export const BucketSnoozeControl: React.FC<BucketSnoozeControlProps> = ({
+  bucketId,
+  bucketName,
 }) => {
-  const { isSnoozed, loading, setSnooze, settingSnooze } = useBucketSnooze(bucketId);
+  const { isSnoozed, loading, setSnooze, settingSnooze } =
+    useBucketSnooze(bucketId);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -23,18 +23,21 @@ export const BucketSnoozeControl: React.FC<BucketSnoozeControlProps> = ({
     try {
       await setSnooze(date.toISOString());
       setShowDatePicker(false);
-      Alert.alert('Success', `Bucket "${bucketName}" snoozed until ${date.toLocaleString()}`);
+      Alert.alert(
+        "Success",
+        `Bucket "${bucketName}" snoozed until ${date.toLocaleString()}`
+      );
     } catch (error) {
-      Alert.alert('Error', 'Failed to set bucket snooze');
+      Alert.alert("Error", "Failed to set bucket snooze");
     }
   };
 
   const handleRemoveSnooze = async () => {
     try {
       await setSnooze(null);
-      Alert.alert('Success', `Snooze removed from bucket "${bucketName}"`);
+      Alert.alert("Success", `Snooze removed from bucket "${bucketName}"`);
     } catch (error) {
-      Alert.alert('Error', 'Failed to remove bucket snooze');
+      Alert.alert("Error", "Failed to remove bucket snooze");
     }
   };
 
@@ -56,12 +59,16 @@ export const BucketSnoozeControl: React.FC<BucketSnoozeControlProps> = ({
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText style={styles.title}>Snooze Control for "{bucketName}"</ThemedText>
-      
+      <ThemedText style={styles.title}>
+        Snooze Control for "{bucketName}"
+      </ThemedText>
+
       <View style={styles.statusContainer}>
         <ThemedText style={styles.statusLabel}>Status:</ThemedText>
-        <ThemedText style={[styles.status, isSnoozed ? styles.snoozed : styles.active]}>
-          {isSnoozed ? 'Snoozed' : 'Active'}
+        <ThemedText
+          style={[styles.status, isSnoozed ? styles.snoozed : styles.active]}
+        >
+          {isSnoozed ? "Snoozed" : "Active"}
         </ThemedText>
       </View>
 
@@ -105,14 +112,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 16,
   },
   statusLabel: {
@@ -121,15 +128,23 @@ const styles = StyleSheet.create({
   },
   status: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   snoozed: {
-    color: '#FF6B6B',
+    color: "#FF6B6B",
   },
   active: {
-    color: '#4ECDC4',
+    color: "#4ECDC4",
   },
   buttonContainer: {
-    alignItems: 'center',
+    alignItems: "center",
   },
 });
+function useBucketSnooze(bucketId: string): {
+  isSnoozed: any;
+  loading: any;
+  setSnooze: any;
+  settingSnooze: any;
+} {
+  throw new Error("Function not implemented.");
+}

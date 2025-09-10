@@ -130,11 +130,7 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
           )}
 
           <ThemedText style={styles.itemDetail}>
-            Created:{" "}
-            {formatDate(webhook.createdAt, {
-              format: "short",
-              includeTime: false,
-            })}
+            Created: {formatDate(webhook.createdAt)}
           </ThemedText>
 
           <IdWithCopyButton
