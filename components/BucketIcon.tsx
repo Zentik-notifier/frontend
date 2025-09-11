@@ -89,6 +89,7 @@ export default function BucketIcon({
       >
         {icon && typeof icon === "string" && icon.startsWith("http") ? (
           <CachedMedia
+            noBorder
             url={icon}
             mediaType={MediaType.Icon}
             style={[

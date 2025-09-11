@@ -40,6 +40,7 @@ interface CachedMediaProps {
   showMediaIndicator?: boolean;
   useThumbnail?: boolean;
   ignoreClicks?: boolean;
+  noBorder?: boolean;
 
   imageProps?: {
     transition?: number;
@@ -79,6 +80,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   imageProps,
   videoProps,
   audioProps,
+  noBorder,
 }: CachedMediaProps) {
   const { t } = useI18n();
   const {
@@ -98,7 +100,8 @@ export const CachedMedia = React.memo(function CachedMedia({
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekTime, setSeekTime] = useState(0);
   const { item: mediaSource } = useCachedItem(url, mediaType);
-  const isVideoType = mediaType === MediaType.Video;
+  const isVideoType = mediaType === MediaType.Video && !useThumbnail;
+  const isAudioType = mediaType === MediaType.Audio && !useThumbnail;
   const localSource = mediaSource?.localPath;
   const videoSource = localSource && isVideoType ? localSource : null;
 
@@ -121,7 +124,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   const isVideoLoading = videoSource && videoStatus === "loading";
 
   const audioPlayer = useAudioPlayer(
-    localSource && mediaType === MediaType.Audio ? localSource : ""
+    localSource && isAudioType ? localSource : ""
   );
 
   const handleForceDownload = useCallback(async () => {
@@ -186,7 +189,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   }, [videoSource, isVideoType, videoPlayer, videoProps?.autoPlay]);
 
   useEffect(() => {
-    if (mediaType !== MediaType.Audio || !audioPlayer) return;
+    if (isAudioType || !audioPlayer) return;
 
     audioPlayer.loop = audioProps?.isLooping ?? false;
 
@@ -286,6 +289,8 @@ export const CachedMedia = React.memo(function CachedMedia({
       ? defaultStyles.stateContainerCompact
       : defaultStyles.stateContainer;
 
+    const dashed = { borderStyle: noBorder ? "solid" : "dashed" };
+
     if (!isCompact) {
       return [
         baseStyle,
@@ -293,11 +298,12 @@ export const CachedMedia = React.memo(function CachedMedia({
           backgroundColor: stateBackgrounds[stateType],
           borderColor: stateColors[stateType],
         },
+        dashed,
         style,
       ];
     }
 
-    return [baseStyle, style];
+    return [baseStyle, dashed, style];
   };
 
   const renderForceDownloadButton = (withDelete?: boolean) => {
@@ -332,7 +338,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   const renderMedia = () => {
     // Loading states
     if (
-      mediaSource?.generatingThumbnail ||
+      (mediaSource?.generatingThumbnail && useThumbnail) ||
       mediaSource?.isDownloading ||
       isVideoLoading
     ) {
@@ -591,7 +597,6 @@ const defaultStyles = StyleSheet.create({
     backgroundColor: "#f8f8f8",
     borderRadius: 6,
     borderWidth: 1,
-    borderStyle: "dashed",
     height: "100%",
     width: "100%",
     paddingHorizontal: 16,
@@ -605,7 +610,6 @@ const defaultStyles = StyleSheet.create({
     minHeight: 40,
     minWidth: 40,
     borderWidth: 1,
-    borderStyle: "dashed",
     backgroundColor: "#f8f8f8",
   },
 

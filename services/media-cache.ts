@@ -1,4 +1,5 @@
 import * as FS from 'expo-file-system';
+import { Directory, File } from 'expo-file-system/next';
 import { BehaviorSubject } from "rxjs";
 import { MediaType } from '../generated/gql-operations-generated';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
@@ -142,7 +143,7 @@ class MediaCacheService {
         const key = this.generateCacheKey(url, mediaType);
 
         try {
-            const localPath = this.getLocalPath(url, mediaType);
+            const { filePath: localPath, directory } = this.getLocalPath(url, mediaType);
 
             await this.updateItem(key, {
                 inDownload: true,
@@ -155,27 +156,14 @@ class MediaCacheService {
                 notificationDate: notificationDate ?? this.metadata[key]?.notificationDate,
             });
 
-            const downloadResult = await FS.downloadAsync(url, localPath);
+            const destination = new Directory(directory);
+            try {
+                const downloadResult = await File.downloadFileAsync(url, destination);
+                console.log('[MediaCache] Download result:', url, downloadResult);
 
-            let success = false;
-            let fileSize = 0;
-            if (downloadResult.status === 200) {
-                const fileInfo = await FS.getInfoAsync(localPath);
-
-                if (!fileInfo.exists) {
-                    success = false;
-                } else {
-                    fileSize = fileInfo.size || 0;
-                    success = true;
-                }
-            } else {
-                success = false;
-            }
-
-            if (success) {
                 console.log('[MediaCache] Media saved at:', downloadResult.uri, url);
                 await this.updateItem(key, {
-                    size: fileSize,
+                    size: downloadResult.size || 0,
                     inDownload: false,
                     isDownloading: false,
                     localPath: downloadResult.uri,
@@ -185,22 +173,22 @@ class MediaCacheService {
                 });
 
                 await this.generateThumbnail({ url, mediaType, force });
-            } else {
+            } catch (error: any) {
+                console.error('[MediaCache] Download failed:', JSON.stringify(error));
+
                 await this.updateItem(key, {
                     inDownload: false,
                     isDownloading: false,
                     timestamp: Date.now(),
                     isPermanentFailure: true,
-                    errorCode: downloadResult.status.toString(),
+                    errorCode: error.toString(),
                 });
             }
 
-            // no-op: userDeleted persisted in DB via saveMetadata
         } catch (error) {
             console.error('[MediaCache] Download failed:', error);
 
             delete this.metadata[key];
-            // nothing to persist for deleted temp state
             return false;
         }
     }
@@ -286,11 +274,16 @@ class MediaCacheService {
         return hash.toString(16).padStart(8, '0');
     }
 
-    private getLocalPath(url: string, mediaType: MediaType): string {
+    private getLocalPath(url: string, mediaType: MediaType) {
         const longHash = this.generateLongHash(url);
         const safeFileName = `${String(mediaType).toLowerCase()}_${longHash}`;
         const extension = this.getFileExtension(url, mediaType);
-        return `${this.cacheDir}${mediaType}/${safeFileName}.${extension}`;
+        const directory = `${this.cacheDir}${mediaType}`;
+        const filePath = `${directory}/${safeFileName}.${extension}`;
+        return {
+            filePath,
+            directory,
+        }
     }
 
     private getThumbnailPath(url: string, mediaType: MediaType): string {
@@ -373,7 +366,7 @@ class MediaCacheService {
         let cachedItem = this.metadata[key];
 
         if (!cachedItem) {
-            const localPath = this.getLocalPath(url, mediaType);
+            const { filePath: localPath } = this.getLocalPath(url, mediaType);
             const fileInfo = await FS.getInfoAsync(localPath);
 
             if (fileInfo.exists && fileInfo.size) {
@@ -733,7 +726,7 @@ class MediaCacheService {
             console.log('[MediaCache] Thumbnail saved at:', thumbPath, url);
             return thumbPath;
         } catch (error) {
-            console.error('[MediaCache] Failed to create thumbnail:', error);
+            console.error('[MediaCache] Failed to create thumbnail:', url, error);
             return null;
         }
     }
@@ -777,6 +770,18 @@ class MediaCacheService {
         const cachedItem = this.metadata[key];
 
         if (cachedItem && cachedItem.localThumbPath && !force) {
+            return;
+        }
+
+        if (
+            (
+                cachedItem?.isUserDeleted ||
+                cachedItem?.isPermanentFailure ||
+                !cachedItem?.localPath ||
+                cachedItem?.isDownloading
+            )
+            && !force
+        ) {
             return;
         }
 

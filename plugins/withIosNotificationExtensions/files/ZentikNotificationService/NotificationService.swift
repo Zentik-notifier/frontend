@@ -1574,26 +1574,9 @@ class NotificationService: UNNotificationServiceExtension {
                     let size = testImage.size
                     print("📱 [NotificationService] ✅ Original icon successfully decoded: \(size.width)x\(size.height)")
                     
-                    // Now try resize
-                    if let resizedData = self?.resizeIconImage(data: data) {
-                        dataToSave = resizedData
-                        print("📱 [NotificationService] 🖼️ Icon resized from \(data.count) bytes to \(resizedData.count) bytes")
-                        
-                        // Verify the resized image dimensions
-                        if let resizedImage = UIImage(data: resizedData) {
-                            let size = resizedImage.size
-                            print("📱 [NotificationService] ✅ Resized icon dimensions: \(size.width)x\(size.height)")
-                        }
-                        
-                        // Check if the resized data is JPEG and update filename accordingly
-                        if self?.isJPEGData(resizedData) == true {
-                            let baseFilename = (cacheFile.lastPathComponent as NSString).deletingPathExtension
-                            finalCacheFile = cacheFile.deletingLastPathComponent().appendingPathComponent("\(baseFilename).jpg")
-                            print("📱 [NotificationService] 📝 Updated filename for JPEG icon: \(finalCacheFile.lastPathComponent)")
-                        }
-                    } else {
-                        print("📱 [NotificationService] ❌ Failed to resize icon despite valid original, using original data")
-                    }
+                    // DISABLED: Icon resize logic - NSE no longer resizes icons, NCE handles them
+                    print("📱 [NotificationService] 🚫 Icon resize disabled - using original data")
+                    dataToSave = data // Use original data without resizing
                 } else {
                     print("📱 [NotificationService] ❌ Failed to decode original icon data, using as-is")
                     // Let's also check what the original image looks like
@@ -1736,6 +1719,21 @@ class NotificationService: UNNotificationServiceExtension {
         if allFields["is_downloading"] == nil { allFields["is_downloading"] = 0 }
         if allFields["is_permanent_failure"] == nil { allFields["is_permanent_failure"] = 0 }
         if allFields["is_user_deleted"] == nil { allFields["is_user_deleted"] = 0 }
+        
+        // Log detailed attributes for debugging
+        print("📱 [NotificationService] 📊 UPSERT attributes for \(mediaType.uppercased()) - \(url):")
+        print("📱 [NotificationService] 📊   key: \(key)")
+        if let localPath = allFields["local_path"] { print("📱 [NotificationService] 📊   local_path: \(localPath)") }
+        if let size = allFields["size"] { print("📱 [NotificationService] 📊   size: \(size) bytes") }
+        if let timestamp = allFields["timestamp"] { print("📱 [NotificationService] 📊   timestamp: \(timestamp)") }
+        if let downloadedAt = allFields["downloaded_at"] { print("📱 [NotificationService] 📊   downloaded_at: \(downloadedAt)") }
+        if let isDownloading = allFields["is_downloading"] { print("📱 [NotificationService] 📊   is_downloading: \(isDownloading)") }
+        if let isPermanentFailure = allFields["is_permanent_failure"] { print("📱 [NotificationService] 📊   is_permanent_failure: \(isPermanentFailure)") }
+        if let hasError = allFields["has_error"] { print("📱 [NotificationService] 📊   has_error: \(hasError)") }
+        if let errorCode = allFields["error_code"] { print("📱 [NotificationService] 📊   error_code: \(errorCode)") }
+        if let isUserDeleted = allFields["is_user_deleted"] { print("📱 [NotificationService] 📊   is_user_deleted: \(isUserDeleted)") }
+        if let generatingThumbnail = allFields["generating_thumbnail"] { print("📱 [NotificationService] 📊   generating_thumbnail: \(generatingThumbnail)") }
+        
         let columns = ["key","url","local_path","local_thumb_path","generating_thumbnail","timestamp","size","media_type","original_file_name","downloaded_at","notification_date","is_downloading","is_permanent_failure","is_user_deleted","error_code"]
         let placeholders = Array(repeating: "?", count: columns.count).joined(separator: ",")
         let sql = "INSERT INTO cache_item (\(columns.joined(separator: ","))) VALUES (\(placeholders)) ON CONFLICT(key) DO UPDATE SET url=excluded.url, local_path=excluded.local_path, local_thumb_path=excluded.local_thumb_path, generating_thumbnail=excluded.generating_thumbnail, timestamp=excluded.timestamp, size=excluded.size, media_type=excluded.media_type, original_file_name=excluded.original_file_name, downloaded_at=excluded.downloaded_at, notification_date=excluded.notification_date, is_downloading=excluded.is_downloading, is_permanent_failure=excluded.is_permanent_failure, is_user_deleted=excluded.is_user_deleted, error_code=excluded.error_code;"
@@ -1811,6 +1809,11 @@ class NotificationService: UNNotificationServiceExtension {
      * Returns true if the icon is properly resized, false if it needs to be re-downloaded
      */
     private func isIconProperlyResized(at filePath: String) -> Bool {
+        // DISABLED: Icon resize logic disabled - NSE no longer resizes icons, NCE handles them
+        print("📱 [NotificationService] 🚫 Icon size check disabled - always returning true")
+        return true // Always return true to skip resize checks
+        
+        /* DISABLED RESIZE CHECK LOGIC:
         guard FileManager.default.fileExists(atPath: filePath) else {
             return false
         }
@@ -1833,6 +1836,7 @@ class NotificationService: UNNotificationServiceExtension {
         print("📱 [NotificationService] 🔍 Icon size check: current=\(currentSize.width)x\(currentSize.height), target=\(targetSize.width)x\(targetSize.height), maxAcceptable=\(maxAcceptableSize)x\(maxAcceptableSize), isValid=\(isWithinTargetSize)")
         
         return isWithinTargetSize
+        */
     }
     
     private func resizeIconImage(data: Data) -> Data? {
