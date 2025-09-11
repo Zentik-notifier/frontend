@@ -1,5 +1,4 @@
-import * as FS from 'expo-file-system';
-import { Paths } from 'expo-file-system/next';
+import { Directory, Paths } from 'expo-file-system/next';
 import { Platform, NativeModules } from 'react-native';
 
 
@@ -18,12 +17,11 @@ let cachedSharedDirectory: string | null = null;
 
 export async function getSharedMediaCacheDirectoryAsync(): Promise<string> {
   if (Platform.OS === 'web') {
-    const dir = `${FS.documentDirectory}media_cache/`;
-    const info = await FS.getInfoAsync(dir);
-    if (!info.exists) {
-      await FS.makeDirectoryAsync(dir, { intermediates: true });
+    const dir = new Directory(Paths.document);
+    if (!dir.exists) {
+      dir.create();
     }
-    return dir;
+    return dir.uri;
   }
 
   if (Platform.OS === 'ios') {
@@ -34,9 +32,9 @@ export async function getSharedMediaCacheDirectoryAsync(): Promise<string> {
         // Ensure file:// prefix and trailing slash
         const withScheme = nativePath.startsWith('file://') ? nativePath : `file://${nativePath}`;
         const normalized = normalizeSharedUri(withScheme.endsWith('/') ? withScheme : withScheme + '/');
-        const info = await FS.getInfoAsync(normalized);
-        if (!info.exists) {
-          await FS.makeDirectoryAsync(normalized, { intermediates: true });
+        const dir = new Directory(normalized);
+        if (!dir.exists) {
+          dir.create();
         }
         cachedSharedDirectory = normalized;
         return normalized;
@@ -54,9 +52,9 @@ export async function getSharedMediaCacheDirectoryAsync(): Promise<string> {
           const baseUri = (firstContainer as any).uri as string;
           const normalizedBase = normalizeSharedUri(baseUri);
           const mediaDir = `${normalizedBase}shared_media_cache/`;
-          const info = await FS.getInfoAsync(mediaDir);
-          if (!info.exists) {
-            await FS.makeDirectoryAsync(mediaDir, { intermediates: true });
+          const dir = new Directory(mediaDir);
+          if (!dir.exists) {
+            dir.create();
           }
           const uri = normalizeSharedUri(mediaDir);
           cachedSharedDirectory = uri;
@@ -67,10 +65,11 @@ export async function getSharedMediaCacheDirectoryAsync(): Promise<string> {
     } catch (error) {
       console.warn('[SharedCache] Expo shared containers not available, using fallback:', error);
     }
-    const fallbackPath = `${FS.documentDirectory}shared_media_cache/`;
+    const fallbackPath = `${Paths.document.uri}shared_media_cache/`;
     console.warn('[SharedCache] Falling back to documents directory for shared cache:', fallbackPath);
     cachedSharedDirectory = fallbackPath;
     return fallbackPath;
   }
-  return `${FS.documentDirectory}media_cache/`;
+
+  return `${Paths.document.uri}media_cache/`;
 }

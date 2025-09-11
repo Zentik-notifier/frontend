@@ -1,4 +1,3 @@
-import * as FS from 'expo-file-system';
 import { Directory, File } from 'expo-file-system/next';
 import { BehaviorSubject } from "rxjs";
 import { MediaType } from '../generated/gql-operations-generated';
@@ -225,16 +224,16 @@ class MediaCacheService {
         const typeDirs = ['IMAGE', 'VIDEO', 'GIF', 'AUDIO', 'ICON'];
         for (const type of typeDirs) {
             const dirPath = `${this.cacheDir}${type}/`;
-            const info = await FS.getInfoAsync(dirPath);
-            if (!info.exists) {
-                await FS.makeDirectoryAsync(dirPath, { intermediates: true });
+            const directory = new Directory(dirPath);
+            if (!directory.exists) {
+                directory.create()
             }
 
             // Ensure thumbnails subdirectory INSIDE each media type folder
             const thumbPath = `${dirPath}thumbnails/`;
-            const thumbInfo = await FS.getInfoAsync(thumbPath);
-            if (!thumbInfo.exists) {
-                await FS.makeDirectoryAsync(thumbPath, { intermediates: true });
+            const thumbDirectory = new Directory(thumbPath);
+            if (!thumbDirectory.exists) {
+                thumbDirectory.create()
             }
         }
     }
@@ -367,15 +366,15 @@ class MediaCacheService {
 
         if (!cachedItem) {
             const { filePath: localPath } = this.getLocalPath(url, mediaType);
-            const fileInfo = await FS.getInfoAsync(localPath);
+            const file = new File(localPath);
 
-            if (fileInfo.exists && fileInfo.size) {
+            if (file.exists && file.size) {
                 cachedItem = {
                     url,
                     key,
                     localPath,
                     timestamp: Date.now(),
-                    size: fileInfo.size,
+                    size: file.size,
                     mediaType,
                     downloadedAt: Date.now(),
                     isDownloading: false,
@@ -390,8 +389,8 @@ class MediaCacheService {
         // Thumbnail metadata update only (no auto enqueue)
         if (cachedItem && this.isThumbnailSupported(mediaType) && !cachedItem.localThumbPath) {
             const thumbPath = this.getThumbnailPath(url, mediaType);
-            const info = await FS.getInfoAsync(thumbPath);
-            if (info.exists) {
+            const thumbFile = new File(thumbPath);
+            if (thumbFile.exists) {
                 if (cachedItem.localThumbPath !== thumbPath) {
                     await this.updateItem(key, { localThumbPath: thumbPath, generatingThumbnail: false, timestamp: Date.now() });
                 }
@@ -510,7 +509,8 @@ class MediaCacheService {
             for (const [key, item] of Object.entries(this.metadata)) {
                 try {
                     if (item.localPath) {
-                        await FS.deleteAsync(item.localPath, { idempotent: true });
+                        const file = new File(item.localPath);
+                        file.delete();
                     }
 
                     this.metadata[key] = {
@@ -589,7 +589,8 @@ class MediaCacheService {
             // Delete media file
             if (cachedItem.localPath) {
                 try {
-                    await FS.deleteAsync(cachedItem.localPath, { idempotent: true });
+                    const file = new File(cachedItem.localPath);
+                    file.delete();
                 } catch (error) {
                     console.warn('[MediaCache] Failed to delete file:', error);
                 }
@@ -598,9 +599,9 @@ class MediaCacheService {
             // Delete thumbnail file if present
             const thumbPath = cachedItem.localThumbPath || this.getThumbnailPath(url, mediaType);
             try {
-                const info = await FS.getInfoAsync(thumbPath);
-                if (info.exists) {
-                    await FS.deleteAsync(thumbPath, { idempotent: true });
+                const file = new File(thumbPath);
+                if (file.exists) {
+                    file.delete();
                 }
             } catch (err) {
                 console.warn('[MediaCache] Failed to delete thumbnail:', err);
@@ -685,14 +686,15 @@ class MediaCacheService {
 
     async getOrCreateThumbnail(url: string, mediaType: MediaType, maxSize: number = 256): Promise<string | null> {
         await this.initialize();
+        const key = this.generateCacheKey(url, mediaType);
 
         try {
             const cached = await this.getCachedItem(url, mediaType);
             if (!cached?.localPath) return null;
 
             const thumbPath = this.getThumbnailPath(url, mediaType);
-            const info = await FS.getInfoAsync(thumbPath);
-            if (info.exists) {
+            const file = new File(thumbPath);
+            if (file.exists) {
                 return thumbPath;
             }
 
@@ -720,13 +722,16 @@ class MediaCacheService {
 
             if (!tempUri) return null;
 
-            await FS.copyAsync({ from: tempUri, to: thumbPath });
-            const key = this.generateCacheKey(url, mediaType);
+            const src = new File(tempUri);
+            const dest = new File(thumbPath);
+            src.copy(dest);
             await this.updateItem(key, { localThumbPath: thumbPath, timestamp: Date.now() });
             console.log('[MediaCache] Thumbnail saved at:', thumbPath, url);
             return thumbPath;
         } catch (error) {
             console.error('[MediaCache] Failed to create thumbnail:', url, error);
+            await this.updateItem(key, { isPermanentFailure: true, timestamp: Date.now() });
+
             return null;
         }
     }
@@ -735,10 +740,10 @@ class MediaCacheService {
         await this.initialize();
 
         try {
-            const dirInfo = await FS.getInfoAsync(this.cacheDir);
-            if (dirInfo.exists) {
-                await FS.deleteAsync(this.cacheDir);
-                await FS.makeDirectoryAsync(this.cacheDir, { intermediates: true });
+            const directory = new Directory(this.cacheDir);
+            if (directory.exists) {
+                directory.delete();
+                directory.create();
                 await this.ensureDirectories();
             }
 
