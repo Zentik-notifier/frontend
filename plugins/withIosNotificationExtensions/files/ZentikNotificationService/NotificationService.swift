@@ -782,13 +782,11 @@ class NotificationService: UNNotificationServiceExtension {
                 attachmentOptions = [UNNotificationAttachmentOptionsTypeHintKey as NSObject: UTType.jpeg.identifier as AnyObject]
             }
         case "ICON":
-            // For Apple Watch compatibility, avoid creating any attachment for icons
-            // This prevents the space reservation issue on Apple Watch
-            print("📱 [NotificationService] 🍎 Skipping icon attachment for Apple Watch compatibility")
-            
-            // Just complete without creating an attachment
-            completion(nil)
-            return
+            fileExtension = "jpg"
+            identifier = "zentik-icon"
+            if #available(iOS 14.0, *) {
+                attachmentOptions = [UNNotificationAttachmentOptionsTypeHintKey as NSObject: UTType.jpeg.identifier as AnyObject]
+            }
         default:
             print("📱 [NotificationService] Unsupported media type: \(mediaItem.mediaType)")
             
