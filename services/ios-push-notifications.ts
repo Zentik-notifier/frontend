@@ -8,7 +8,6 @@ import {
     clearPendingSnoozeIntent,
     getPendingNavigationIntent,
     getPendingSnoozeIntent,
-    getStoredBadgeCount
 } from './auth-storage';
 
 class IOSNativePushNotificationService {

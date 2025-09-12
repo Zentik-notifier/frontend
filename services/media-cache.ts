@@ -144,6 +144,36 @@ class MediaCacheService {
         try {
             const { filePath: localPath, directory } = this.getLocalPath(url, mediaType);
 
+            // If the file already exists locally with a reasonable size, update DB and skip download
+            try {
+                const existing = new File(localPath);
+                const minValidSizeBytes = 512; // treat files smaller than this as invalid/incomplete
+                if (!force && existing.exists && (existing.size || 0) > minValidSizeBytes) {
+                    await this.updateItem(key, {
+                        inDownload: false,
+                        isDownloading: false,
+                        isPermanentFailure: false,
+                        isUserDeleted: false,
+                        generatingThumbnail: false,
+                        url,
+                        mediaType,
+                        localPath,
+                        size: existing.size || 0,
+                        errorCode: undefined,
+                        downloadedAt: Date.now(),
+                        timestamp: Date.now(),
+                        notificationDate: notificationDate ?? this.metadata[key]?.notificationDate,
+                    });
+
+                    // Ensure thumbnail exists or generate it
+                    await this.generateThumbnail({ url, mediaType, force });
+                    return;
+                }
+            } catch (e) {
+                // If any error occurs while checking existing file, proceed with download as fallback
+                console.warn('[MediaCache] Existing file check failed, proceeding to download:', url, e);
+            }
+
             await this.updateItem(key, {
                 inDownload: true,
                 isPermanentFailure: false,

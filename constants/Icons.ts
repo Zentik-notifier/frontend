@@ -9,17 +9,17 @@ import {
 
 // Define icon sets for consistent theming
 export const IconSets = {
-  'SF Symbols': Ionicons, // Use Ionicons as fallback for SF Symbols cross-platform compatibility
+  'SF Symbols': Ionicons,
   Ionicons,
   MaterialIcons,
   MaterialCommunityIcons,
   Feather,
   FontAwesome5,
   AntDesign,
-} as const;
+};
 
 // App icon mappings - centralized icon definitions
-export const AppIcons = {
+export const AppIcons: Record<string, { set: keyof typeof IconSets, name: string }> = {
   // Navigation & UI
   home: { set: 'Ionicons', name: 'home-outline' } as const,
   settings: { set: 'Ionicons', name: 'settings-outline' } as const,
@@ -29,13 +29,14 @@ export const AppIcons = {
   bucket: { set: 'Ionicons', name: 'list-outline' } as const,
   refresh: { set: 'Ionicons', name: 'refresh' } as const,
   app: { set: 'MaterialCommunityIcons', name: 'bell-ring' } as const,
-  
+  shield: { set: 'Ionicons', name: 'shield' } as const,
+
   // Status indicators
   success: { set: 'Ionicons', name: 'checkmark-circle' } as const,
   error: { set: 'Ionicons', name: 'alert-circle' } as const,
   warning: { set: 'Ionicons', name: 'warning' } as const,
   info: { set: 'Ionicons', name: 'information-circle' } as const,
-  
+
   // Actions
   add: { set: 'Ionicons', name: 'add' } as const,
   remove: { set: 'Ionicons', name: 'remove' } as const,
@@ -46,18 +47,18 @@ export const AppIcons = {
   view: { set: 'Ionicons', name: 'eye-outline' } as const,
   'view-off': { set: 'Ionicons', name: 'eye-off-outline' } as const,
   wrench: { set: 'Ionicons', name: 'construct-outline' } as const,
-  
+
   // Push notifications
   push: { set: 'MaterialCommunityIcons', name: 'rocket-launch' } as const,
   rocket: { set: 'Ionicons', name: 'rocket-outline' } as const,
   test: { set: 'MaterialIcons', name: 'science' } as const,
   send: { set: 'Ionicons', name: 'send' } as const,
-  
+
   // Status & Connection
   connected: { set: 'Ionicons', name: 'wifi' } as const,
   disconnected: { set: 'Ionicons', name: 'wifi-off' } as const,
   loading: { set: 'Ionicons', name: 'reload' } as const,
-  
+
   // Content types
   text: { set: 'Ionicons', name: 'document-text-outline' } as const,
   image: { set: 'Ionicons', name: 'image-outline' } as const,
@@ -65,71 +66,71 @@ export const AppIcons = {
   sound: { set: 'Ionicons', name: 'volume-high-outline' } as const,
   gif: { set: 'MaterialCommunityIcons', name: 'file-gif-box' } as const,
   icon: { set: 'MaterialCommunityIcons', name: 'image-frame' } as const,
-  
+
   // Priority levels
   priorityLow: { set: 'MaterialIcons', name: 'low-priority' } as const,
   priorityNormal: { set: 'MaterialIcons', name: 'priority-high' } as const,
   priorityHigh: { set: 'MaterialIcons', name: 'priority-high' } as const,
-  
+
   // Form controls
   dropdown: { set: 'Ionicons', name: 'chevron-down' } as const,
   expand: { set: 'Ionicons', name: 'chevron-up' } as const,
   collapse: { set: 'Ionicons', name: 'chevron-down' } as const,
   chevron: { set: 'Ionicons', name: 'chevron-forward' } as const,
   search: { set: 'Ionicons', name: 'search-outline' } as const,
-  
+
   // Onboarding & Tutorial
   folder: { set: 'Ionicons', name: 'folder-outline' } as const,
   code: { set: 'Ionicons', name: 'code-outline' } as const,
-  
+
   // Device & Platform
   mobile: { set: 'Ionicons', name: 'phone-portrait-outline' } as const,
   device: { set: 'Ionicons', name: 'phone-portrait-outline' } as const,
   ios: { set: 'FontAwesome5', name: 'apple' } as const,
   android: { set: 'FontAwesome5', name: 'android' } as const,
   expo: { set: 'MaterialCommunityIcons', name: 'react' } as const,
-  
+
   // Actions buttons
   reset: { set: 'Ionicons', name: 'refresh-outline' } as const,
   cancel: { set: 'Ionicons', name: 'close' } as const,
   confirm: { set: 'Ionicons', name: 'checkmark' } as const,
-  
+
   // Snooze / Muted indicator
   snooze: { set: 'MaterialCommunityIcons', name: 'bell-sleep-outline' } as const,
-  
+
   // Advanced features
   advanced: { set: 'Ionicons', name: 'construct-outline' } as const,
   basic: { set: 'Ionicons', name: 'layers-outline' } as const,
-  
+
   // Navigation actions
   navigate: { set: 'Ionicons', name: 'compass-outline' } as const,
   hook: { set: 'MaterialCommunityIcons', name: 'hook' } as const,
   action: { set: 'Ionicons', name: 'play-circle-outline' } as const,
-  
+
   // User & Auth
   user: { set: 'Ionicons', name: 'person-outline' } as const,
   logout: { set: 'Ionicons', name: 'log-out-outline' } as const,
   login: { set: 'Ionicons', name: 'log-in-outline' } as const,
   password: { set: 'Ionicons', name: 'key-outline' } as const,
   key: { set: 'Ionicons', name: 'key-outline' } as const,
-  
+
   // OAuth Providers
   github: { set: 'Ionicons', name: 'logo-github' } as const,
   google: { set: 'Ionicons', name: 'logo-google' } as const,
   oauth: { set: 'Ionicons', name: 'globe-outline' } as const,
-  
+
   // Localization & Language
   language: { set: 'Ionicons', name: 'language-outline' } as const,
-  
+
   // Data & Storage
   database: { set: 'MaterialCommunityIcons', name: 'database' } as const,
   backup: { set: 'MaterialCommunityIcons', name: 'backup-restore' } as const,
-  
+
   // Network & API
   api: { set: 'MaterialCommunityIcons', name: 'api' } as const,
   webhook: { set: 'MaterialCommunityIcons', name: 'webhook' } as const,
   notebook: { set: 'MaterialCommunityIcons', name: 'notebook' } as const,
-  
+
 } as const;
 
 // Type for icon configuration
@@ -168,7 +169,7 @@ export const IconColors = {
   black: '#000',
   gray: '#999',
   disabled: '#ccc',
-  
+
   // OAuth Provider colors
   github: '#24292e',
   google: '#4285f4',

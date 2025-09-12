@@ -76,6 +76,8 @@ export function AccessTokensSettings({
     return (
       <SwipeableItem
         key={item.id}
+        marginHorizontal={0}
+        marginBottom={8}
         rightAction={
           !(isOfflineAuth || isBackendUnreachable)
             ? {
@@ -226,7 +228,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.7,
     marginBottom: 24,
-    marginHorizontal: 16,
   },
   emptyState: {
     flex: 1,
@@ -256,8 +257,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
-    marginHorizontal: 16,
-    marginVertical: 8,
   },
   expiredToken: {
     opacity: 0.6,

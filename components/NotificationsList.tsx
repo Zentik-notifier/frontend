@@ -457,7 +457,7 @@ export default function NotificationsList({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.listContent, contentContainerStyle]}
         ListEmptyComponent={renderEmptyState}
-        ListFooterComponent={loading ? renderLoadingFooter : renderListFooter}
+        // ListFooterComponent={loading ? renderLoadingFooter : renderListFooter}
       />
     </ThemedView>
   );

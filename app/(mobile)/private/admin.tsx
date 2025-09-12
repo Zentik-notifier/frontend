@@ -117,7 +117,7 @@ export default function AdministrationScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.titleContainer}>
-          <Icon name="settings" size="lg" color="#DC2626" />
+          <Icon name="shield" size="lg" color="#DC2626" />
           <ThemedText style={styles.title}>
             {t("administration.title")}
           </ThemedText>

@@ -41,6 +41,7 @@ interface SwipeableItemProps {
   marginBottom?: number; // New prop to customize margin
   marginHorizontal?: number; // New prop for horizontal margins
   onSwipeActiveChange?: (active: boolean) => void;
+  borderRadius?: number; // Match item corner radius
 }
 
 const SwipeableItem: React.FC<SwipeableItemProps> = ({
@@ -52,6 +53,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   marginBottom = 12, // Default value
   marginHorizontal = 0, // Default value
   onSwipeActiveChange,
+  borderRadius = 12,
 }) => {
   const translateX = useRef(new Animated.Value(0)).current;
   const panRef = useRef<PanGestureHandler>(null);
@@ -203,9 +205,11 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
       {(currentSwipeDirection === 'right' && leftAction) && (
         <View style={[styles.fullBackground, { 
           backgroundColor: leftAction.backgroundColor,
-          bottom: marginBottom, // Use dynamic margin
+          bottom: 0,
           left: 0, // Keep full width for background
           right: 0,
+          borderRadius,
+          overflow: 'hidden',
         }]}> 
           <View style={styles.actionLeft}>
             <Icon name={leftAction.icon} size="md" color="white" />
@@ -217,9 +221,11 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
       {(currentSwipeDirection === 'left' && rightAction) && (
         <View style={[styles.fullBackground, { 
           backgroundColor: rightAction.backgroundColor,
-          bottom: marginBottom, // Use dynamic margin
+          bottom: 0,
           left: 0, // Keep full width for background
           right: 0,
+          borderRadius,
+          overflow: 'hidden',
         }]}> 
           <View style={styles.actionRight}>
             <Icon name={rightAction.icon} size="md" color="white" />
@@ -232,9 +238,11 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
       {showActionBackground && (
         <View style={[styles.fullBackground, { 
           backgroundColor: showActionBackground.action.backgroundColor,
-          bottom: marginBottom, // Use dynamic margin
+          bottom: 0,
           left: 0, // Keep full width for background
           right: 0,
+          borderRadius,
+          overflow: 'hidden',
         }]}> 
           <View style={showActionBackground.direction === 'left' ? styles.actionLeft : styles.actionRight}>
             <Icon name={showActionBackground.action.icon} size="md" color="white" />
@@ -260,6 +268,8 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
             contentStyle,
             {
               transform: [{ translateX }],
+              borderRadius,
+              overflow: 'hidden',
             },
           ]}
         >
@@ -280,9 +290,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    // bottom: 12, // Now dynamic based on marginBottom prop
-    borderRadius: 12,
-    overflow: 'hidden',
+    bottom: 0,
   },
   actionLeft: {
     position: 'absolute',

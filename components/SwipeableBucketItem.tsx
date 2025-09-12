@@ -62,7 +62,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
   };
 
   return (
-    <SwipeableItem rightAction={deleteAction}>
+    <SwipeableItem rightAction={deleteAction} marginBottom={8} borderRadius={12}>
       <TouchableWithoutFeedback onPress={() => editBucket(bucket.id)}>
         <ThemedView
           style={[
@@ -123,8 +123,6 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
 const styles = StyleSheet.create({
   itemCard: {
     padding: 16,
-    marginBottom: 8,
-    borderRadius: 12,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
