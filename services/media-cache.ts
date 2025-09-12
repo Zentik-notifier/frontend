@@ -427,7 +427,7 @@ class MediaCacheService {
         const cachedItem = await this.getCachedItem(url, mediaType);
         const key = this.generateCacheKey(url, mediaType);
 
-        if (cachedItem && !force) {
+        if (cachedItem && !cachedItem.isUserDeleted && !force) {
             return;
         }
 
