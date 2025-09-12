@@ -483,7 +483,6 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           currentIcon={bucketIcon || undefined}
           onIconChange={handleIconChange}
           onClose={handleCloseIconEditor}
-          bucketId={bucketId || "new"}
         />
       )}
     </ThemedView>

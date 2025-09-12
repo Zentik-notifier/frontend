@@ -1,27 +1,46 @@
 import { ApiConfigService } from './api-config';
+import { getAccessToken } from './auth-storage';
 
 export interface UploadBucketIconResponse {
-  iconUrl: string;
+    icon: string;
+    id: string;
+    name: string;
 }
 
 export const uploadBucketIcon = async (
-  bucketId: string,
-  formData: FormData
-): Promise<UploadBucketIconResponse> => {
-  const apiUrl = await ApiConfigService.getApiUrl();
-  const url = `${apiUrl}/api/v1/buckets/${bucketId}/upload-icon`;
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    body: formData,
-    headers: {
-      // Don't set Content-Type, let fetch set it automatically with boundary
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
-  }
-  
-  return response.json();
+    imageUri: string,
+    filename: string = 'icon.jpg'
+): Promise<string> => {
+    const apiUrl = await ApiConfigService.getApiUrl();
+    const url = `${apiUrl}/api/v1/attachments/upload`;
+
+    const token = await getAccessToken();
+    if (!token) {
+        throw new Error('No authentication token found');
+    }
+
+    const formData = new FormData();
+    formData.append('file', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: filename,
+    } as any);
+    formData.append('filename', `bucket-icon-${Date.now()}`);
+    formData.append('mediaType', 'ICON');
+
+    const uploadResponse = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'Authorization': `Bearer ${token}`,
+        },
+    });
+
+    if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+    }
+
+    const attachment = await uploadResponse.json();
+
+    return `${apiUrl}/api/v1/attachments/${attachment.id}/download/public`;
 };

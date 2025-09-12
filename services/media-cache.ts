@@ -144,10 +144,9 @@ class MediaCacheService {
         try {
             const { filePath: localPath, directory } = this.getLocalPath(url, mediaType);
 
-            // If the file already exists locally with a reasonable size, update DB and skip download
             try {
                 const existing = new File(localPath);
-                const minValidSizeBytes = 512; // treat files smaller than this as invalid/incomplete
+                const minValidSizeBytes = 512; 
                 if (!force && existing.exists && (existing.size || 0) > minValidSizeBytes) {
                     await this.updateItem(key, {
                         inDownload: false,
