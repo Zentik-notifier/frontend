@@ -573,6 +573,23 @@
       "placeholder": "Search notifications..."
     }
   },
+  "iconEditor": {
+    "title": "Edit Icon",
+    "fromUrl": "From URL",
+    "fromFile": "From File",
+    "enterUrl": "Enter image URL",
+    "urlPlaceholder": "https://example.com/image.jpg",
+    "loadImage": "Load Image",
+    "selectFile": "Select image file",
+    "chooseFile": "Choose File",
+    "cropImage": "Crop Image",
+    "cropAndUpload": "Crop & Upload",
+    "urlRequired": "Please enter a valid URL",
+    "invalidUrl": "Invalid URL format",
+    "filePickError": "Failed to pick file",
+    "cropError": "Failed to crop image",
+    "uploadError": "Failed to upload icon"
+  },
   "filters": {
     "title": "Filters & Sorting",
     "clearAll": "Clear All",

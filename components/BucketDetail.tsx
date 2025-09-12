@@ -37,11 +37,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { massMarkAsRead, loading: markAllAsReadLoading } =
     useMassMarkNotificationsAsRead();
 
-  const {
-    notifications,
-    refetchNotifications,
-    userSettings: { settings, setIsCompactMode },
-  } = useAppContext();
+  const { notifications } = useAppContext();
   const {
     settings: { notificationFilters },
   } = useUserSettings();
@@ -103,8 +99,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
     <View
       style={[
         styles.bucketHeader,
-        { backgroundColor: Colors[colorScheme].background }, // Use theme background color
-        // { backgroundColor: Colors[colorScheme].backgroundCard }, // Removed to match notification list background
+        { backgroundColor: Colors[colorScheme].background },
       ]}
     >
       <View style={styles.bucketInfo}>

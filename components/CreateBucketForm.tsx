@@ -6,6 +6,7 @@ import {
   UpdateBucketDto,
   useCreateBucketMutation,
   useUpdateBucketMutation,
+  usePublicAppConfigQuery,
 } from "@/generated/gql-operations-generated";
 import { useGetBucketData } from "@/hooks";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -25,6 +26,7 @@ import {
   View,
 } from "react-native";
 import ColorPicker, { ColorPickerRef } from "./ColorPicker";
+import IconEditor from "./IconEditor";
 import IdWithCopyButton from "./IdWithCopyButton";
 import SnoozeSchedulesManager from "./SnoozeSchedulesManager";
 import { ThemedText } from "./ThemedText";
@@ -50,11 +52,13 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const [bucketName, setBucketName] = useState("");
   const [bucketColor, setBucketColor] = useState(defaultColor);
   const [bucketIcon, setBucketIcon] = useState("");
+  const [isIconEditorVisible, setIsIconEditorVisible] = useState(false);
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const isEditing = !!bucketId;
   const showTitle = !!bucketId;
 
   const { bucket, refetch, canWrite } = useGetBucketData(bucketId);
+  const { data: appConfig } = usePublicAppConfigQuery();
 
   const [createBucketMutation, { loading: creatingBucket }] =
     useCreateBucketMutation({
@@ -173,6 +177,19 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
     }
   };
 
+  const handleEditIcon = () => {
+    setIsIconEditorVisible(true);
+  };
+
+  const handleIconChange = (newIconUrl: string) => {
+    setBucketIcon(newIconUrl);
+    setIsIconEditorVisible(false);
+  };
+
+  const handleCloseIconEditor = () => {
+    setIsIconEditorVisible(false);
+  };
+
   const resetForm = () => {
     if (isEditing) {
       // Reset to original values when editing
@@ -282,25 +299,42 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
         </View>
 
         {/* Icon URL Input */}
-        <TextInput
-          style={[
-            styles.iconInput,
-            {
-              backgroundColor: Colors[colorScheme ?? "light"].background,
-              borderColor: Colors[colorScheme ?? "light"].border,
-              color: Colors[colorScheme ?? "light"].text,
-            },
-            ((isEditing && !canWrite) || offline) && styles.disabledInput,
-          ]}
-          value={bucketIcon}
-          onChangeText={setBucketIcon}
-          placeholder={t("buckets.form.iconPlaceholder")}
-          placeholderTextColor={Colors[colorScheme ?? "light"].tabIconDefault}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          editable={!isEditing || canWrite}
-        />
+        <View style={styles.iconInputContainer}>
+          <TextInput
+            style={[
+              styles.iconInput,
+              {
+                backgroundColor: Colors[colorScheme ?? "light"].background,
+                borderColor: Colors[colorScheme ?? "light"].border,
+                color: Colors[colorScheme ?? "light"].text,
+              },
+              ((isEditing && !canWrite) || offline) && styles.disabledInput,
+            ]}
+            value={bucketIcon}
+            onChangeText={setBucketIcon}
+            placeholder={t("buckets.form.iconPlaceholder")}
+            placeholderTextColor={Colors[colorScheme ?? "light"].tabIconDefault}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            editable={!isEditing || canWrite}
+          />
+          {appConfig?.publicAppConfig?.uploadEnabled && (
+            <TouchableOpacity
+              style={[
+                styles.editIconButton,
+                {
+                  backgroundColor: Colors[colorScheme ?? "light"].tint,
+                },
+                ((isEditing && !canWrite) || offline) && styles.disabledButton,
+              ]}
+              onPress={handleEditIcon}
+              disabled={(isEditing && !canWrite) || offline}
+            >
+              <Ionicons name="camera" size={20} color="white" />
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Icon Preview */}
         <View style={styles.previewSection}>
@@ -442,6 +476,16 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           </View>
         </ThemedView>
       )}
+
+      {/* Icon Editor Modal */}
+      {isIconEditorVisible && (
+        <IconEditor
+          currentIcon={bucketIcon || undefined}
+          onIconChange={handleIconChange}
+          onClose={handleCloseIconEditor}
+          bucketId={bucketId || "new"}
+        />
+      )}
     </ThemedView>
   );
 }
@@ -506,12 +550,28 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  iconInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+    gap: 8,
+  },
   iconInput: {
+    flex: 1,
     borderWidth: 1,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    marginBottom: 15,
+  },
+  editIconButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
   previewSection: {
     marginBottom: 15,

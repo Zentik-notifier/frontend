@@ -573,6 +573,23 @@
       "placeholder": "Cerca notifiche..."
     }
   },
+  "iconEditor": {
+    "title": "Modifica Icona",
+    "fromUrl": "Da URL",
+    "fromFile": "Da File",
+    "enterUrl": "Inserisci URL immagine",
+    "urlPlaceholder": "https://example.com/image.jpg",
+    "loadImage": "Carica Immagine",
+    "selectFile": "Seleziona file immagine",
+    "chooseFile": "Scegli File",
+    "cropImage": "Ritaglia Immagine",
+    "cropAndUpload": "Ritaglia e Carica",
+    "urlRequired": "Inserisci un URL valido",
+    "invalidUrl": "Formato URL non valido",
+    "filePickError": "Errore nella selezione del file",
+    "cropError": "Errore nel ritaglio dell'immagine",
+    "uploadError": "Errore nel caricamento dell'icona"
+  },
   "filters": {
     "title": "Filtri",
     "clearAll": "Cancella Tutto",

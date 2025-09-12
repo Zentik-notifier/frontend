@@ -886,6 +886,7 @@ mutation ConfirmEmail($input: ConfirmEmailDto!) {
 query PublicAppConfig {
   publicAppConfig {
     emailEnabled
+    uploadEnabled
     oauthProviders {
       ...OAuthProviderPublicFragment
     }

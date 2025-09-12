@@ -47,6 +47,8 @@ export const AppIcons: Record<string, { set: keyof typeof IconSets, name: string
   view: { set: 'Ionicons', name: 'eye-outline' } as const,
   'view-off': { set: 'Ionicons', name: 'eye-off-outline' } as const,
   wrench: { set: 'Ionicons', name: 'construct-outline' } as const,
+  camera: { set: 'Ionicons', name: 'camera' } as const,
+  close: { set: 'Ionicons', name: 'close' } as const,
 
   // Push notifications
   push: { set: 'MaterialCommunityIcons', name: 'rocket-launch' } as const,

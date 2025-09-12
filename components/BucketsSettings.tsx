@@ -11,7 +11,6 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 import SwipeableBucketItem from "./SwipeableBucketItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
-import { AppLoader } from "./ui/AppLoader";
 
 interface BucketsSettingsProps {
   refreshing?: boolean;
