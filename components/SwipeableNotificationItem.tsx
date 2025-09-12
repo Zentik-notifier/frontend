@@ -182,16 +182,11 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
         ? attachments[selectedPreviewIndex] || null
         : null;
 
-      const handleVisualPress = (
-        visualUri: string,
-        mediaType: MediaType = MediaType.Image
-      ) => {
-        if (mediaType !== MediaType.Video) {
-          const attachmentIndex = attachments.findIndex(
-            (att) => att.url === visualUri
-          );
-          setFullScreenIndex(attachmentIndex >= 0 ? attachmentIndex : 0);
-        }
+      const handleVisualPress = (visualUri: string) => {
+        const attachmentIndex = attachments.findIndex(
+          (att) => att.url === visualUri
+        );
+        setFullScreenIndex(attachmentIndex >= 0 ? attachmentIndex : 0);
       };
 
       const handleCloseFullScreenImage = () => {
@@ -426,20 +421,16 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                           }
                           originalFileName={attachment.name || undefined}
                           videoProps={{
-                            autoPlay: false, // Disable autoplay for better performance
-                            isMuted: true,
-                            isLooping: true,
+                            autoPlay: false,
+                            isMuted: false,
+                            isLooping: false,
+                            showControls: false,
                           }}
                           audioProps={{
                             shouldPlay: false,
                             showControls: true,
                           }}
-                          onPress={() =>
-                            handleVisualPress(
-                              attachment.url!,
-                              attachment.mediaType
-                            )
-                          }
+                          onPress={() => handleVisualPress(attachment.url!)}
                         />
                       </TouchableOpacity>
                     );

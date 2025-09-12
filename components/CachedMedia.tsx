@@ -56,6 +56,7 @@ interface CachedMediaProps {
     autoPlay?: boolean;
     isLooping?: boolean;
     isMuted?: boolean;
+    showControls?: boolean;
   };
 
   audioProps?: {
@@ -130,7 +131,7 @@ export const CachedMedia = React.memo(function CachedMedia({
 
   useEffect(() => {
     if (isVideoError && videoError) {
-      mediaCache.markAsPermanentFailure(url, mediaType, videoError.message);
+      // mediaCache.markAsPermanentFailure(url, mediaType, videoError.message);
     }
   }, [videoSource, videoError]);
 
@@ -173,7 +174,13 @@ export const CachedMedia = React.memo(function CachedMedia({
   );
 
   useEffect(() => {
-    if (!noAutoDownload && autoDownloadEnabled && !mediaSource?.localPath) {
+    if (
+      !noAutoDownload &&
+      autoDownloadEnabled &&
+      !mediaSource?.localPath &&
+      !mediaSource?.isUserDeleted &&
+      !mediaSource?.isPermanentFailure
+    ) {
       mediaCache.downloadMedia({ url, mediaType, notificationDate });
     }
   }, [mediaSource, notificationDate]);
@@ -369,7 +376,7 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
 
     // Permanent failure - click to retry
-    if (mediaSource?.isPermanentFailure) {
+    if (mediaSource?.isPermanentFailure || isVideoError) {
       return (
         <View style={getStateContainerStyle("failed") as any}>
           <View style={defaultStyles.stateContent}>
@@ -496,6 +503,7 @@ export const CachedMedia = React.memo(function CachedMedia({
           );
 
         case MediaType.Video:
+          const showControls = videoProps?.showControls ?? true;
           return (
             <Pressable onPress={handleFrameClick}>
               <VideoView
@@ -505,9 +513,7 @@ export const CachedMedia = React.memo(function CachedMedia({
                     : [style, { position: "relative" }]
                 }
                 player={videoPlayer}
-                allowsFullscreen={!isCompact}
-                allowsPictureInPicture={!isCompact}
-                showsTimecodes={!isCompact}
+                nativeControls={showControls && !isCompact}
               />
             </Pressable>
           );

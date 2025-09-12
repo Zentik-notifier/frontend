@@ -620,6 +620,7 @@ class MediaCacheService {
                 };
                 await this.saveSingleItem(key);
             }
+            console.log('[MediaCache] Media deleted:', key);
 
             return true;
         } catch (error) {
