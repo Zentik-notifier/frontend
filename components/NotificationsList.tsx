@@ -29,7 +29,6 @@ import { FlatList } from "react-native-gesture-handler";
 interface NotificationsListProps {
   notifications: NotificationFragment[];
   hideBucketInfo?: boolean;
-  isLoadingMore?: boolean;
   emptyStateMessage?: string;
   emptyStateSubtitle?: string;
   customHeader?: React.ReactNode;
@@ -40,7 +39,6 @@ interface NotificationsListProps {
 export default function NotificationsList({
   notifications,
   hideBucketInfo = false,
-  isLoadingMore = false,
   emptyStateMessage,
   emptyStateSubtitle,
   customHeader,

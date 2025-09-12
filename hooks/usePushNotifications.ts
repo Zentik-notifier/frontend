@@ -18,17 +18,19 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
+import * as TaskManager from 'expo-task-manager';
+import * as BackgroundFetch from 'expo-background-task';
 
 const isWeb = Platform.OS === 'web';
 const isAndroid = Platform.OS === 'android';
 const isIOS = Platform.OS === 'ios';
 const isSimulator = !Device.isDevice;
 
+const NOTIFICATION_REFRESH_TASK = 'zentik-notifications-refresh';
+
 export function usePushNotifications() {
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
   const callbacks = useNotificationActions();
-  // const [getUserDevice] = useGetUserDeviceLazyQuery();
-  // const [removeDevice] = useRemoveDeviceByTokenMutation();
 
   useEffect(() => {
     Notifications.setNotificationHandler({
@@ -73,40 +75,6 @@ export function usePushNotifications() {
       }
     }
 
-    // let shouldRegister = false;
-    // let shouldClearCurrentDevice = false;
-
-    // if (deviceToken) {
-    //   try {
-    //     const currentDeviceData = await getUserDevice({ variables: { deviceToken }, fetchPolicy: 'network-only' });
-    //     const currentDevice = currentDeviceData.data?.userDevice;
-    //     if (!currentDevice) {
-    //       shouldClearCurrentDevice = true;
-    //       shouldRegister = true;
-    //     }
-    //   } catch (e) {
-    //     if (e instanceof ApolloError) {
-    //       // GraphQL error code o messaggio
-    //       shouldClearCurrentDevice = !!e.graphQLErrors?.some(err => {
-    //         const code = (err.extensions as any)?.code;
-    //         return code === 'NOT_FOUND' || /not\s*found/i.test(err.message ?? '');
-    //       });
-    //       const ne: any = e.networkError as any;
-    //       if (!shouldClearCurrentDevice && ne) {
-    //         shouldClearCurrentDevice = ne?.statusCode === 404 || ne?.status === 404;
-    //       }
-    //     }
-    //   }
-    // } else {
-    //   shouldRegister = true;
-    // }
-
-
-    // if (shouldClearCurrentDevice) {
-    //   await clearDeviceTokens();
-    //   setDeviceToken(null);
-    // }
-
     const pushNotificationsInitialized =
       await getPushNotificationsInitialized();
 
@@ -115,7 +83,49 @@ export function usePushNotifications() {
       await registerDevice();
       await savePushNotificationsInitialized(true);
     }
+
+    await enableBackgroundFetch();
   };
+
+  const enableBackgroundFetch = async () => {
+    BackgroundFetch.unregisterTaskAsync(NOTIFICATION_REFRESH_TASK);
+    try {
+      const status = await BackgroundFetch.getStatusAsync();
+      if (status === BackgroundFetch.BackgroundTaskStatus.Restricted) {
+        console.warn('⚠️ Background fetch restricted on this device');
+        return;
+      }
+
+      try {
+        await BackgroundFetch.unregisterTaskAsync(NOTIFICATION_REFRESH_TASK);
+      } catch {
+      }
+
+      try {
+        TaskManager.defineTask(NOTIFICATION_REFRESH_TASK, async () => {
+          try {
+            await callbacks.fetchNotifications();
+          } catch (e) {
+            console.warn('⚠️ Background fetch task failed:', e);
+          }
+        });
+      } catch (error) {
+        console.warn('⚠️ Failed to define background task:', error);
+      }
+
+      try {
+        await BackgroundFetch.registerTaskAsync(NOTIFICATION_REFRESH_TASK, {
+          minimumInterval: 60
+        });
+        console.debug('✅ Background fetch task registered successfully');
+      } catch (e) {
+        // already registered or not supported
+        console.debug('ℹ️ Background fetch task already registered or not supported', e);
+      }
+    } catch (error) {
+      console.error('❌ Error enabling background fetch:', error);
+    }
+  }
 
   const registerDevice = async (): Promise<boolean> => {
     console.log('🔄 Registering device...');

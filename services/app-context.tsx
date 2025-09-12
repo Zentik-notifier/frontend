@@ -94,6 +94,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
 
+
   const connectionStatus = useConnectionStatus(!userId);
   const userSettings = useUserSettings();
 

@@ -1,4 +1,4 @@
-import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetNotificationLazyQuery, useGetNotificationsLazyQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation, MediaType } from '@/generated/gql-operations-generated';
+import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetNotificationLazyQuery, useGetNotificationsLazyQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation, MediaType, useGetNotificationQuery, useGetNotificationsQuery } from '@/generated/gql-operations-generated';
 import { mediaCache } from '@/services/media-cache';
 // import { useAppContext } from '@/services/app-context';
 import { Reference, useApolloClient } from '@apollo/client';
@@ -76,14 +76,14 @@ export function useNotificationById(id?: string) {
 
 export function useFetchNotifications() {
 	const apollo = useApolloClient();
-	const [fetchRemote, { data }] = useGetNotificationsLazyQuery({ errorPolicy: 'ignore' });
+	const [fetchRemote] = useGetNotificationsLazyQuery({ errorPolicy: 'ignore' });
 	const updateReceivedNotifications = useUpdateReceivedNotifications();
 	const [notifications, setNotifications] = useState<NotificationFragment[]>([]);
 	const [loading, setLoading] = useState(false);
+	const { data } = useGetNotificationsQuery({ skip: false })
 
-	// Keep local state in sync with cache-observed query result
 	useEffect(() => {
-		if (data?.notifications) setNotifications(data.notifications as NotificationFragment[]);
+		if (data?.notifications) setNotifications(data.notifications);
 	}, [data?.notifications]);
 
 	const fetchNotifications = useCallback(async (): Promise<void> => {
