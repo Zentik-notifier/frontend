@@ -26,6 +26,7 @@ import { MediaType } from "../generated/gql-operations-generated";
 import { useI18n } from "../hooks/useI18n";
 import { useCachedItem } from "../hooks/useMediaCache";
 import { MediaTypeIcon } from "./MediaTypeIcon";
+import { ThemedText } from "./ThemedText";
 
 interface CachedMediaProps {
   url: string;
@@ -117,11 +118,21 @@ export const CachedMedia = React.memo(function CachedMedia({
       }
     }
   });
-  const { status: videoStatus } = useEvent(videoPlayer, "statusChange", {
-    status: videoPlayer.status,
-  });
+  const { status: videoStatus, error: videoError } = useEvent(
+    videoPlayer,
+    "statusChange",
+    {
+      status: videoPlayer.status,
+    }
+  );
   const isVideoError = videoSource && videoStatus === "error";
   const isVideoLoading = videoSource && videoStatus === "loading";
+
+  useEffect(() => {
+    if (isVideoError && videoError) {
+      mediaCache.markAsPermanentFailure(url, mediaType, videoError.message);
+    }
+  }, [videoSource, videoError]);
 
   const audioPlayer = useAudioPlayer(
     localSource && isAudioType ? localSource : ""
@@ -358,10 +369,13 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
 
     // Permanent failure - click to retry
-    if (mediaSource?.isPermanentFailure || isVideoError) {
+    if (mediaSource?.isPermanentFailure) {
       return (
         <View style={getStateContainerStyle("failed") as any}>
           <View style={defaultStyles.stateContent}>
+            <ThemedText style={{ color: stateColors.failed }}>
+              {!isCompact && mediaSource?.errorCode}
+            </ThemedText>
             <Ionicons
               name="warning-outline"
               size={isCompact ? 20 : 24}

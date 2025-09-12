@@ -199,6 +199,8 @@ const createCacheDynamic = () => new InMemoryCache({
 
             // Compose merged array and sort by createdAt desc
             const mergedArray = filteredArray;
+            const max = userSettings.getMaxCachedNotifications?.() ?? 500;
+
             mergedArray.sort((a, b) => {
               const aCreated = readField<string>('createdAt', a);
               const bCreated = readField<string>('createdAt', b);
@@ -207,7 +209,6 @@ const createCacheDynamic = () => new InMemoryCache({
               return bTime - aTime;
             });
 
-            const max = userSettings.getMaxCachedNotifications?.() ?? 500;
             const limited = max > 0 ? mergedArray.slice(0, max) : mergedArray;
 
             // console.log(`📊 [Apollo] Filtered notifications: ${byId.size} -> ${filteredArray.length} (removed ${byId.size - filteredArray.length} dangling), limited to ${limited.length}`);

@@ -129,56 +129,56 @@ export default function SnoozeSchedulesManager({
   const handleSchedulesChange = async (newSchedules: SnoozeScheduleInput[]) => {
     if (!bucket) return;
 
-    // Optimistic cache update for immediate UI feedback
-    try {
-      const bucketCacheId = apolloClient.cache.identify({
-        __typename: "Bucket",
-        id: bucket.id,
-      });
+    // // Optimistic cache update for immediate UI feedback
+    // try {
+    //   const bucketCacheId = apolloClient.cache.identify({
+    //     __typename: "Bucket",
+    //     id: bucket.id,
+    //   });
 
-      apolloClient.cache.modify({
-        id: bucketCacheId,
-        fields: {
-          userBucket(existingRef, { readField }) {
-            if (!existingRef) return existingRef;
-            const userBucketId = readField<string>("id", existingRef);
-            if (!userBucketId) return existingRef;
+    //   apolloClient.cache.modify({
+    //     id: bucketCacheId,
+    //     fields: {
+    //       userBucket(existingRef, { readField }) {
+    //         if (!existingRef) return existingRef;
+    //         const userBucketId = readField<string>("id", existingRef);
+    //         if (!userBucketId) return existingRef;
 
-            // Write only the snoozes field on the existing UserBucket
-            apolloClient.cache.writeFragment({
-              id: apolloClient.cache.identify({
-                __typename: "UserBucket",
-                id: userBucketId,
-              }),
-              fragment: gql`
-                fragment UserBucketSnoozes on UserBucket {
-                  snoozes {
-                    days
-                    timeFrom
-                    timeTill
-                    isEnabled
-                    __typename
-                  }
-                }
-              `,
-              data: {
-                snoozes: newSchedules.map((s) => ({
-                  __typename: "SnoozeSchedule",
-                  days: s.days,
-                  timeFrom: s.timeFrom,
-                  timeTill: s.timeTill,
-                  isEnabled: s.isEnabled,
-                })),
-              },
-            });
+    //         // Write only the snoozes field on the existing UserBucket
+    //         apolloClient.cache.writeFragment({
+    //           id: apolloClient.cache.identify({
+    //             __typename: "UserBucket",
+    //             id: userBucketId,
+    //           }),
+    //           fragment: gql`
+    //             fragment UserBucketSnoozes on UserBucket {
+    //               snoozes {
+    //                 days
+    //                 timeFrom
+    //                 timeTill
+    //                 isEnabled
+    //                 __typename
+    //               }
+    //             }
+    //           `,
+    //           data: {
+    //             snoozes: newSchedules.map((s) => ({
+    //               __typename: "SnoozeSchedule",
+    //               days: s.days,
+    //               timeFrom: s.timeFrom,
+    //               timeTill: s.timeTill,
+    //               isEnabled: s.isEnabled,
+    //             })),
+    //           },
+    //         });
 
-            return existingRef;
-          },
-        },
-      });
-    } catch (e) {
-      // If cache write fails, we still proceed with server update
-    }
+    //         return existingRef;
+    //       },
+    //     },
+    //   });
+    // } catch (e) {
+    //   // If cache write fails, we still proceed with server update
+    // }
 
     try {
       await updateSnoozeSchedules({

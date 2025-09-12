@@ -142,36 +142,7 @@ class MediaCacheService {
         const key = this.generateCacheKey(url, mediaType);
 
         try {
-            const { filePath: localPath, directory } = this.getLocalPath(url, mediaType);
-
-            try {
-                const existing = new File(localPath);
-                const minValidSizeBytes = 512; 
-                if (!force && existing.exists && (existing.size || 0) > minValidSizeBytes) {
-                    await this.updateItem(key, {
-                        inDownload: false,
-                        isDownloading: false,
-                        isPermanentFailure: false,
-                        isUserDeleted: false,
-                        generatingThumbnail: false,
-                        url,
-                        mediaType,
-                        localPath,
-                        size: existing.size || 0,
-                        errorCode: undefined,
-                        downloadedAt: Date.now(),
-                        timestamp: Date.now(),
-                        notificationDate: notificationDate ?? this.metadata[key]?.notificationDate,
-                    });
-
-                    // Ensure thumbnail exists or generate it
-                    await this.generateThumbnail({ url, mediaType, force });
-                    return;
-                }
-            } catch (e) {
-                // If any error occurs while checking existing file, proceed with download as fallback
-                console.warn('[MediaCache] Existing file check failed, proceeding to download:', url, e);
-            }
+            const { filePath } = this.getLocalPath(url, mediaType);
 
             await this.updateItem(key, {
                 inDownload: true,
@@ -184,9 +155,12 @@ class MediaCacheService {
                 notificationDate: notificationDate ?? this.metadata[key]?.notificationDate,
             });
 
-            const destination = new Directory(directory);
             try {
-                const downloadResult = await File.downloadFileAsync(url, destination);
+                const file = new File(filePath);
+                if (file.exists) {
+                    file.delete();
+                }
+                const downloadResult = await File.downloadFileAsync(url, file);
                 console.log('[MediaCache] Download result:', url, downloadResult);
 
                 console.log('[MediaCache] Media saved at:', downloadResult.uri, url);
@@ -271,34 +245,12 @@ class MediaCacheService {
         return `${String(mediaType).toUpperCase()}_${url}`;
     }
 
-    private hashStringUtf8Sum(str: string): number {
-        try {
-            const encoder = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;
-            const bytes: Uint8Array = encoder
-                ? encoder.encode(str)
-                : new Uint8Array(unescape(encodeURIComponent(str)).split('').map((c) => c.charCodeAt(0)));
-            let sum = 0;
-            for (let i = 0; i < bytes.length; i++) {
-                sum = (sum + bytes[i]) % 999999;
-            }
-            return sum;
-        } catch {
-            // Last-resort fallback (may differ for non-ASCII)
-            let sum = 0;
-            for (let i = 0; i < str.length; i++) sum = (sum + str.charCodeAt(i)) % 999999;
-            return sum;
-        }
-    }
-
     private generateLongHash(str: string): string {
-        // Use a simple but effective hash algorithm for React Native
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
             const char = str.charCodeAt(i);
-            // Use safe arithmetic operations to avoid overflow
-            hash = (hash * 31 + char) >>> 0; // Unsigned right shift to ensure 32-bit
+            hash = (hash * 31 + char) >>> 0;
         }
-        // Convert to hex string and pad to 8 characters
         return hash.toString(16).padStart(8, '0');
     }
 
@@ -306,11 +258,13 @@ class MediaCacheService {
         const longHash = this.generateLongHash(url);
         const safeFileName = `${String(mediaType).toLowerCase()}_${longHash}`;
         const extension = this.getFileExtension(url, mediaType);
+        const fileName = `${safeFileName}.${extension}`;
         const directory = `${this.cacheDir}${mediaType}`;
-        const filePath = `${directory}/${safeFileName}.${extension}`;
+        const filePath = `${directory}/${fileName}`;
         return {
             filePath,
             directory,
+            fileName,
         }
     }
 
@@ -376,13 +330,14 @@ class MediaCacheService {
         }
     }
 
-    public async updateItem(key: string, patch: Partial<CacheItem>): Promise<void> {
+    public async updateItem(key: string, patch: Partial<CacheItem>) {
         await this.initialize();
         const current: CacheItem | undefined = this.metadata[key];
         if (!current) return;
-        const next: CacheItem = { ...current, ...patch } as CacheItem;
+        const next: CacheItem = { ...current, ...patch };
         this.metadata[key] = next;
         await this.saveSingleItem(key);
+        return next;
     }
 
     getCachedItemSync(url: string, mediaType: MediaType): CacheItem | undefined {
@@ -391,14 +346,14 @@ class MediaCacheService {
 
     async getCachedItem(url: string, mediaType: MediaType): Promise<CacheItem | undefined> {
         const key = this.generateCacheKey(url, mediaType);
-        let cachedItem = this.metadata[key];
+        let cachedItem: CacheItem | undefined = this.metadata[key];
 
         if (!cachedItem) {
             const { filePath: localPath } = this.getLocalPath(url, mediaType);
             const file = new File(localPath);
 
             if (file.exists && file.size) {
-                cachedItem = {
+                cachedItem = await this.updateItem(key, {
                     url,
                     key,
                     localPath,
@@ -408,14 +363,10 @@ class MediaCacheService {
                     downloadedAt: Date.now(),
                     isDownloading: false,
                     generatingThumbnail: false,
-                };
-
-                this.metadata[key] = cachedItem;
-                await this.saveSingleItem(key);
+                });
             }
         }
 
-        // Thumbnail metadata update only (no auto enqueue)
         if (cachedItem && this.isThumbnailSupported(mediaType) && !cachedItem.localThumbPath) {
             const thumbPath = this.getThumbnailPath(url, mediaType);
             const thumbFile = new File(thumbPath);
@@ -474,35 +425,52 @@ class MediaCacheService {
         await this.initialize();
 
         const cachedItem = await this.getCachedItem(url, mediaType);
+        const key = this.generateCacheKey(url, mediaType);
 
         if (cachedItem && !force) {
             return;
         }
 
-        if (!cachedItem) {
-            const key = this.generateCacheKey(url, mediaType);
-            this.metadata[key] = {
-                key,
-                size: 0,
-                downloadedAt: 0,
-                url,
-                mediaType,
-                isDownloading: true,
-                timestamp: Date.now(),
-            };
-            await this.saveSingleItem(this.generateCacheKey(url, mediaType));
+        try {
+            const { filePath } = this.getLocalPath(url, mediaType);
+            const file = new File(filePath);
+
+            const minValidSizeBytes = 512;
+            if (!force && file.exists && (file.size || 0) > minValidSizeBytes) {
+                await this.updateItem(key, {
+                    inDownload: false,
+                    isDownloading: false,
+                    isPermanentFailure: false,
+                    isUserDeleted: false,
+                    generatingThumbnail: false,
+                    url,
+                    mediaType,
+                    localPath: filePath,
+                    size: file.size || 0,
+                    errorCode: undefined,
+                    downloadedAt: Date.now(),
+                    timestamp: Date.now(),
+                    notificationDate: notificationDate ?? this.metadata[key]?.notificationDate,
+                });
+
+                // Ensure thumbnail exists or generate it
+                await this.generateThumbnail({ url, mediaType, force });
+                return;
+            }
+        } catch (e) {
+            // If any error occurs while checking existing file, proceed with download as fallback
+            console.warn('[MediaCache] Existing file check failed, proceeding to download:', url, e);
         }
 
-        if (
-            (
-                cachedItem?.isUserDeleted ||
-                cachedItem?.isPermanentFailure ||
-                cachedItem?.isDownloading
-            )
-            && !force
-        ) {
-            return;
-        }
+        await this.updateItem(key, {
+            key,
+            size: 0,
+            downloadedAt: 0,
+            url,
+            mediaType,
+            isDownloading: true,
+            timestamp: Date.now(),
+        });
 
         this.addToQueue({
             url,

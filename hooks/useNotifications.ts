@@ -79,29 +79,30 @@ export function useFetchNotifications() {
 	const [fetchRemote] = useGetNotificationsLazyQuery({ errorPolicy: 'ignore' });
 	const updateReceivedNotifications = useUpdateReceivedNotifications();
 	const [notifications, setNotifications] = useState<NotificationFragment[]>([]);
-	const [loading, setLoading] = useState(false);
-	const { data } = useGetNotificationsQuery({ skip: false })
+	// const [loading, setLoading] = useState(false);
+	const { data, loading, refetch } = useGetNotificationsQuery({ skip: false })
+	// const { data } = useGetNotificationsQuery({ skip: false })
 
 	useEffect(() => {
 		if (data?.notifications) setNotifications(data.notifications);
 	}, [data?.notifications]);
 
 	const fetchNotifications = useCallback(async (): Promise<void> => {
-		setLoading(true);
-		try {
-			await fetchRemote({
-				fetchPolicy: 'network-only',
-			});
-			await updateReceivedNotifications();
-			// After merge via typePolicy, read merged list from cache
-			try {
-				const merged: any = apollo.readQuery({ query: GetNotificationsDocument });
-				setNotifications(merged?.notifications ?? []);
-			} catch { }
-		} catch (e) {
-		} finally {
-			setLoading(false);
-		}
+		refetch()
+		// setLoading(true);
+		// try {
+		// 	await fetchRemote({
+		// 		fetchPolicy: 'network-only',
+		// 	});
+		// 	await updateReceivedNotifications();
+		// 	try {
+		// 		const merged: any = apollo.readQuery({ query: GetNotificationsDocument });
+		// 		setNotifications(merged?.notifications ?? []);
+		// 	} catch { }
+		// } catch (e) {
+		// } finally {
+		// 	setLoading(false);
+		// }
 	}, [fetchRemote])
 
 	return { fetchNotifications, notifications, loading };
@@ -300,6 +301,7 @@ export function useMarkAllNotificationsAsRead() {
 
 // Mark as Read (local-first, with server mutation)
 export function useMarkNotificationRead() {
+	const apollo = useApolloClient();
 	const [markReadMutation] = useMarkNotificationAsReadMutation();
 	const applyLocal = useNotificationCacheUpdater();
 
@@ -310,6 +312,15 @@ export function useMarkNotificationRead() {
 			}
 		} catch (e) { }
 		finally {
+			// const entityId = apollo.cache.identify({ __typename: 'Notification', id }) || `Notification:${id}`;
+			// // console.log('entityId', entityId);
+			// const now = new Date().toISOString();
+			// apollo.cache.updateFragment({
+			// 	id: entityId,
+			// 	// id: `Notification:${id}`,
+			// 	fragment: NotificationFragmentDoc,
+			// }, (data) => ({ ...data, readAt: now }) // update function
+			// );
 			const now = new Date().toISOString();
 			await applyLocal(id, { readAt: now });
 		}

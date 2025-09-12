@@ -135,13 +135,6 @@ fragment BucketWithDevicesFragment on Bucket {
   }
 }
 
-fragment BucketWithMessagesFragment on Bucket {
-  ...BucketFragment
-  messages {
-    ...MessageFragment
-  }
-}
-
 fragment BucketFullFragment on Bucket {
   ...BucketFragment
   user {
