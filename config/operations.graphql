@@ -785,22 +785,6 @@ fragment UserBucketFragment on UserBucket {
   }
 }
 
-mutation CreateUserBucket($input: CreateUserBucketDto!) {
-  createUserBucket(createUserBucketInput: $input) {
-    ...UserBucketFragment
-  }
-}
-
-mutation UpdateUserBucket($id: String!, $input: UpdateUserBucketDto!) {
-  updateUserBucket(id: $id, updateUserBucketInput: $input) {
-    ...UserBucketFragment
-  }
-}
-
-mutation RemoveUserBucket($id: String!) {
-  removeUserBucket(id: $id)
-}
-
 mutation SetBucketSnooze($bucketId: String!, $snoozeUntil: String) {
   setBucketSnooze(bucketId: $bucketId, snoozeUntil: $snoozeUntil) {
     ...UserBucketFragment

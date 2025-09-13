@@ -7,7 +7,7 @@ import { useGetBucketData } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { TranslationKeyPath } from "@/utils";
-import { gql, useApolloClient } from "@apollo/client";
+import { useApolloClient } from "@apollo/client";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import React, { useMemo, useState } from "react";
@@ -96,7 +96,6 @@ export default function SnoozeSchedulesManager({
 }: SnoozeSchedulesManagerProps) {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
-  const apolloClient = useApolloClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [currentSchedule, setCurrentSchedule] = useState<SnoozeScheduleInput>({
