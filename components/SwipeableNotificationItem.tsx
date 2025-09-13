@@ -421,9 +421,9 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                           }
                           originalFileName={attachment.name || undefined}
                           videoProps={{
-                            autoPlay: false,
-                            isMuted: false,
-                            isLooping: false,
+                            autoPlay: isSelected,
+                            isMuted: true,
+                            isLooping: true,
                             showControls: false,
                           }}
                           audioProps={{

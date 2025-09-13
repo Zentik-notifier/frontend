@@ -53,7 +53,7 @@ export default function NotificationDetailScreen() {
   const deleteNotification = useDeleteNotification();
 
   const { notification, loading, error } = useNotificationById(id as string);
-  const handleImagePress = (imageUri: string) => {
+  const handleMediaPress = (imageUri: string) => {
     const index = attachments.findIndex(
       (attachment) => attachment.url === imageUri
     );
@@ -406,7 +406,7 @@ export default function NotificationDetailScreen() {
             {attachments.length > 0 && (
               <AttachmentGallery
                 attachments={attachments}
-                onImagePress={handleImagePress}
+                onMediaPress={handleMediaPress}
                 notificationDate={new Date(
                   notification.message.createdAt
                 ).getTime()}

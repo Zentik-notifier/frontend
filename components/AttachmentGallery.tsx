@@ -22,7 +22,7 @@ const { width: screenWidth } = Dimensions.get("window");
 
 interface AttachmentGalleryProps {
   attachments: NotificationAttachmentDto[];
-  onImagePress?: (
+  onMediaPress?: (
     imageUri: string,
     mediaType: MediaType,
     fileName?: string
@@ -33,18 +33,16 @@ interface AttachmentGalleryProps {
 interface AttachmentItemProps {
   attachment: NotificationAttachmentDto;
   onPress?: () => void;
-  autoPlay?: boolean;
   isSingle?: boolean;
-  videoPaused?: boolean;
+  isSelected?: boolean;
   notificationDate: number;
 }
 
 const AttachmentItem: React.FC<AttachmentItemProps> = ({
   attachment,
   onPress,
-  autoPlay = false,
-  isSingle = false,
-  videoPaused = false,
+  isSingle,
+  isSelected,
   notificationDate,
 }) => {
   const containerStyle = [styles.attachmentContainer];
@@ -66,11 +64,13 @@ const AttachmentItem: React.FC<AttachmentItemProps> = ({
           onPress={onPress}
           notificationDate={notificationDate}
           videoProps={{
-            autoPlay: autoPlay && !videoPaused,
+            autoPlay: isSelected,
             isMuted: true,
+            isLooping: true,
+            showControls: false,
           }}
           audioProps={{
-            shouldPlay: autoPlay && !videoPaused,
+            shouldPlay: false,
             isLooping: false,
             showControls: true,
           }}
@@ -97,7 +97,7 @@ const AttachmentItem: React.FC<AttachmentItemProps> = ({
 
 const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   attachments,
-  onImagePress,
+  onMediaPress,
   notificationDate,
 }) => {
   const colorScheme = useColorScheme() ?? "light";
@@ -119,22 +119,11 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   };
 
   const handleAttachmentPress = (attachment: NotificationAttachmentDto) => {
-    switch (attachment.mediaType) {
-      case MediaType.Image:
-      case MediaType.Gif:
-        onImagePress?.(
-          attachment.url!,
-          attachment.mediaType,
-          attachment.name || undefined
-        );
-        break;
-      case MediaType.Video:
-        break;
-      case MediaType.Audio:
-        break;
-      default:
-        console.log("Open file:", attachment.url);
-    }
+    onMediaPress?.(
+      attachment.url!,
+      attachment.mediaType,
+      attachment.name || undefined
+    );
   };
 
   const renderAttachment = ({
@@ -147,13 +136,8 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
     <AttachmentItem
       attachment={item}
       onPress={() => handleAttachmentPress(item)}
-      autoPlay={
-        (item.mediaType === MediaType.Video ||
-          item.mediaType === MediaType.Audio) &&
-        index === currentIndex
-      }
-      isSingle={true} // Always treat as single for full width
-      videoPaused={currentIndex === -1 || index !== currentIndex} // Pause media that are not currently selected or when scrolling
+      isSingle
+      isSelected={currentIndex === index}
       notificationDate={notificationDate}
     />
   );
