@@ -119,6 +119,7 @@ export const CachedMedia = React.memo(function CachedMedia({
       }
     }
   });
+
   const { status: videoStatus, error: videoError } = useEvent(
     videoPlayer,
     "statusChange",

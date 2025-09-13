@@ -64,7 +64,6 @@ export interface DownloadQueueState {
 class MediaCacheService {
     private cacheDir: string = '';
     private metadata: CacheMetadata = {};
-    private dbInitialized = false;
     private repo?: MediaCacheRepository;
     private initializing = false;
     public metadata$ = new BehaviorSubject<CacheMetadata>(this.metadata);
@@ -97,13 +96,13 @@ class MediaCacheService {
         if (this.isInQueue(item.url, item.mediaType, item.op)) {
             return;
         }
-        console.log('[MediaCache] Adding item to download queue:', item.op, item.url);
+        console.log('[MediaCache] Adding item to queue:', item.op, item.url);
         this.downloadQueue.push({ ...item, key, timestamp: Date.now() });
         const cacheKey = this.generateCacheKey(item.url, item.mediaType);
         if (item.op === 'download') {
-            await this.updateItem(cacheKey, { isDownloading: true, timestamp: Date.now() });
+            await this.upsertItem(cacheKey, { isDownloading: true, timestamp: Date.now() });
         } else if (item.op === 'thumbnail') {
-            await this.updateItem(cacheKey, { generatingThumbnail: true, timestamp: Date.now() });
+            await this.upsertItem(cacheKey, { generatingThumbnail: true, timestamp: Date.now() });
         }
 
         this.updateQueueState();
@@ -144,7 +143,7 @@ class MediaCacheService {
         try {
             const { filePath } = this.getLocalPath(url, mediaType);
 
-            await this.updateItem(key, {
+            await this.upsertItem(key, {
                 inDownload: true,
                 isPermanentFailure: false,
                 isUserDeleted: false,
@@ -156,15 +155,18 @@ class MediaCacheService {
             });
 
             try {
-                const file = new File(filePath);
+                let file = new File(filePath);
                 if (file.exists) {
+                    console.log('[MediaCache] File exists:', filePath, file.size);
                     file.delete();
                 }
                 const downloadResult = await File.downloadFileAsync(url, file);
                 console.log('[MediaCache] Download result:', url, downloadResult);
 
                 console.log('[MediaCache] Media saved at:', downloadResult.uri, url);
-                await this.updateItem(key, {
+                await this.upsertItem(key, {
+                    url,
+                    mediaType,
                     size: downloadResult.size || 0,
                     inDownload: false,
                     isDownloading: false,
@@ -178,7 +180,7 @@ class MediaCacheService {
             } catch (error: any) {
                 console.error('[MediaCache] Download failed:', JSON.stringify(error));
 
-                await this.updateItem(key, {
+                await this.upsertItem(key, {
                     inDownload: false,
                     isDownloading: false,
                     timestamp: Date.now(),
@@ -188,7 +190,7 @@ class MediaCacheService {
             }
 
         } catch (error) {
-            console.error('[MediaCache] Download failed:', error);
+            console.error('[MediaCache] Download failed: outer', error);
 
             delete this.metadata[key];
             return false;
@@ -203,7 +205,7 @@ class MediaCacheService {
         } catch (e) {
             console.warn('[MediaCache] Thumbnail generation failed for', url, e);
         } finally {
-            await this.updateItem(cacheKey, { generatingThumbnail: false, timestamp: Date.now() });
+            await this.upsertItem(cacheKey, { generatingThumbnail: false, timestamp: Date.now() });
         }
     }
 
@@ -316,7 +318,13 @@ class MediaCacheService {
         this.metadata$.next(this.getMetadata());
     }
 
-    private async saveSingleItem(key: string) {
+    public async upsertItem(key: string, patch: Partial<CacheItem>) {
+        await this.initialize();
+        const current: CacheItem | undefined = this.metadata[key];
+        const next: CacheItem = { ...current, ...patch };
+        this.metadata[key] = next;
+
+
         try {
             if (!this.repo) throw new Error('Repository not initialized');
             const item = this.metadata[key];
@@ -327,17 +335,8 @@ class MediaCacheService {
             console.error('[MediaCache] Failed to persist single item to DB:', error);
         } finally {
             this.emitMetadata();
+            return next;
         }
-    }
-
-    public async updateItem(key: string, patch: Partial<CacheItem>) {
-        await this.initialize();
-        const current: CacheItem | undefined = this.metadata[key];
-        if (!current) return;
-        const next: CacheItem = { ...current, ...patch };
-        this.metadata[key] = next;
-        await this.saveSingleItem(key);
-        return next;
     }
 
     getCachedItemSync(url: string, mediaType: MediaType): CacheItem | undefined {
@@ -353,7 +352,7 @@ class MediaCacheService {
             const file = new File(localPath);
 
             if (file.exists && file.size) {
-                cachedItem = await this.updateItem(key, {
+                cachedItem = await this.upsertItem(key, {
                     url,
                     key,
                     localPath,
@@ -372,7 +371,7 @@ class MediaCacheService {
             const thumbFile = new File(thumbPath);
             if (thumbFile.exists) {
                 if (cachedItem.localThumbPath !== thumbPath) {
-                    await this.updateItem(key, { localThumbPath: thumbPath, generatingThumbnail: false, timestamp: Date.now() });
+                    await this.upsertItem(key, { localThumbPath: thumbPath, generatingThumbnail: false, timestamp: Date.now() });
                 }
             }
         }
@@ -437,7 +436,7 @@ class MediaCacheService {
 
             const minValidSizeBytes = 512;
             if (!force && file.exists && (file.size || 0) > minValidSizeBytes) {
-                await this.updateItem(key, {
+                await this.upsertItem(key, {
                     inDownload: false,
                     isDownloading: false,
                     isPermanentFailure: false,
@@ -462,7 +461,7 @@ class MediaCacheService {
             console.warn('[MediaCache] Existing file check failed, proceeding to download:', url, e);
         }
 
-        await this.updateItem(key, {
+        await this.upsertItem(key, {
             key,
             size: 0,
             downloadedAt: 0,
@@ -485,17 +484,14 @@ class MediaCacheService {
         await this.initialize();
         const key = this.generateCacheKey(url, mediaType);
 
-        this.metadata[key] = {
-            ...this.metadata[key],
+        await this.upsertItem(key, {
             url,
             mediaType,
             isPermanentFailure: true,
             isDownloading: false,
             errorCode: errorCode || 'UNKNOWN_ERROR',
             timestamp: Date.now(),
-        };
-
-        await this.saveSingleItem(key);
+        });
         console.log('[MediaCache] Marked as permanent failure:', key, errorCode);
     }
 
@@ -608,8 +604,7 @@ class MediaCacheService {
                 delete this.metadata[key];
                 await this.repo?.deleteCacheItem(key);
             } else {
-                this.metadata[key] = {
-                    ...cachedItem,
+                await this.upsertItem(key, {
                     isUserDeleted: true,
                     localPath: undefined,
                     localThumbPath: undefined,
@@ -617,8 +612,7 @@ class MediaCacheService {
                     isDownloading: false,
                     size: 0,
                     timestamp: Date.now(),
-                };
-                await this.saveSingleItem(key);
+                })
             }
             console.log('[MediaCache] Media deleted:', key);
 
@@ -723,12 +717,12 @@ class MediaCacheService {
             const src = new File(tempUri);
             const dest = new File(thumbPath);
             src.copy(dest);
-            await this.updateItem(key, { localThumbPath: thumbPath, timestamp: Date.now() });
+            await this.upsertItem(key, { localThumbPath: thumbPath, timestamp: Date.now() });
             console.log('[MediaCache] Thumbnail saved at:', thumbPath, url);
             return thumbPath;
         } catch (error) {
             console.error('[MediaCache] Failed to create thumbnail:', url, error);
-            await this.updateItem(key, { isPermanentFailure: true, timestamp: Date.now() });
+            await this.upsertItem(key, { isPermanentFailure: true, timestamp: Date.now() });
 
             return null;
         }
