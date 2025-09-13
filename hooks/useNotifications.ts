@@ -88,7 +88,8 @@ export function useFetchNotifications() {
 	}, [data?.notifications]);
 
 	const fetchNotifications = useCallback(async (): Promise<void> => {
-		refetch()
+		await refetch();
+		await updateReceivedNotifications();
 		// setLoading(true);
 		// try {
 		// 	await fetchRemote({
