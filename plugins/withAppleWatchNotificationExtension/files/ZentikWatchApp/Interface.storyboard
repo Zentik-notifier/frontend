@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="21507" targetRuntime="watchKit" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES" initialViewController="NOTIF-CONTROLLER">
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="21505"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBWatchKitPlugin" version="21507"/>
+    </dependencies>
+    <scenes>
+        <!-- Notification Interface Controller -->
+        <scene sceneID="SCENE-NOTIF">
+            <objects>
+                <notificationController id="NOTIF-CONTROLLER" customClass="NotificationController" customModuleProvider="target">
+                    <notificationCategory key="notificationCategory" identifier="ZENTIK_MEDIA_NOTIFICATION"/>
+                    <items>
+                        <group alignment="left" width="1" height="1" id="GRP-ROOT">
+                            <items>
+                                <label width="1" alignment="left" text="Zentik" id="titleLabel"/>
+                                <label width="1" alignment="left" text="" id="subtitleLabel"/>
+                                <label width="1" alignment="left" text="" id="bodyLabel"/>
+                                <imageView width="30" height="30" alignment="left" id="iconImageView"/>
+                                <imageView width="1" height="0.6" alignment="center" id="mediaImageView"/>
+                                <label width="1" alignment="center" text="Loading..." id="placeholderLabel"/>
+                            </items>
+                        </group>
+                    </items>
+                    <connections>
+                        <outlet property="iconImageView" destination="iconImageView" id="icon-out"/>
+                        <outlet property="titleLabel" destination="titleLabel" id="title-out"/>
+                        <outlet property="subtitleLabel" destination="subtitleLabel" id="subtitle-out"/>
+                        <outlet property="bodyLabel" destination="bodyLabel" id="body-out"/>
+                        <outlet property="mediaImageView" destination="mediaImageView" id="media-out"/>
+                        <outlet property="placeholderLabel" destination="placeholderLabel" id="placeholder-out"/>
+                    </connections>
+                </notificationController>
+            </objects>
+        </scene>
+    </scenes>
+</document>

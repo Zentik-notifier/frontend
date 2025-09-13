@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="21507" targetRuntime="watchKit" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES" initialViewController="CTL-ROOT-001">
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="21505"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBWatchKitPlugin" version="21507"/>
+    </dependencies>
+    <scenes>
+        <scene sceneID="SCN-BASE-001">
+            <objects>
+                <controller identifier="NotificationController" id="CTL-ROOT-001" customClass="NotificationController" customModuleProvider="target"/>
+            </objects>
+        </scene>
+    </scenes>
+</document>

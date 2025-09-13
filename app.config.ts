@@ -148,6 +148,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             "expo-audio",
             "expo-media-library",
             ["./plugins/withIosNotificationExtensions/withIosNotificationExtensions.ts"],
+            ["./plugins/withAppleWatchNotificationExtension/withAppleWatchNotificationExtension.ts"],
             ["./plugins/withAndroidManifestFix/withAndroidManifestFix.ts"],
         ],
 
@@ -171,6 +172,13 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                                 {
                                     targetName: "ZentikNotificationContentExtension",
                                     bundleIdentifier: `${bundleIdentifier}.ZentikNotificationContentExtension`,
+                                    entitlements: {
+                                        ...commonEntitlements
+                                    },
+                                },
+                                {
+                                    targetName: "ZentikNotificationWatch",
+                                    bundleIdentifier: `${bundleIdentifier}.ZentikNotificationWatch`,
                                     entitlements: {
                                         ...commonEntitlements
                                     },

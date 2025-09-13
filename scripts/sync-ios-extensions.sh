@@ -9,6 +9,7 @@ echo "🔄 Sincronizzazione estensioni iOS in corso..."
 
 # Percorsi delle cartelle
 PLUGINS_DIR="plugins/withIosNotificationExtensions/files"
+APPLE_WATCH_PLUGINS_DIR="plugins/withAppleWatchNotificationExtension/files"
 IOS_DIR="ios"
 
 # Colori per output
@@ -53,12 +54,18 @@ fi
 replace_placeholders() {
     local file_path="$1"
     local bundle_id="$2"
-    
-    if [[ "$file_path" == *.swift ]] || [[ "$file_path" == *.m ]] || [[ "$file_path" == *.entitlements ]]; then
-        if [ -f "$file_path" ]; then
-            sed -i '' "s/{{MAIN_BUNDLE_ID}}/$bundle_id/g" "$file_path"
-            print_status "  🔄 Sostituiti placeholder in $(basename "$file_path")"
-        fi
+
+    if [ -f "$file_path" ]; then
+        case "$file_path" in
+            *.swift|*.m|*.entitlements)
+                sed -i '' "s/{{MAIN_BUNDLE_ID}}/$bundle_id/g" "$file_path" || true
+                ;;
+            *.plist)
+                # Nuova sostituzione per watch app/extension plist
+                sed -i '' "s/__BUNDLE_ID__/$bundle_id/g" "$file_path" || true
+                ;;
+        esac
+        print_status "  🔄 Sostituiti placeholder in $(basename "$file_path")"
     fi
 }
 
@@ -195,26 +202,70 @@ else
     print_warning "Cartella file app principale non trovata: $MAIN_APP_SOURCE"
 fi
 
-# 4. Verifica finale
+# 4. (Deprecato) Vecchia Apple Watch Notification Extension
+print_status "Deprecazione vecchio target Apple Watch (ZentikNotificationWatch) - non più sincronizzato"
+
+# 4b. Nuova Watch App (WatchKit 2)
+print_status "Sincronizzazione Watch App (nuova struttura)..."
+NEW_WATCH_APP_SOURCE="$APPLE_WATCH_PLUGINS_DIR/ZentikWatchApp"
+NEW_WATCH_APP_DEST="$IOS_DIR/ZentikWatchApp"
+
+if [ -d "$NEW_WATCH_APP_SOURCE" ]; then
+    mkdir -p "$NEW_WATCH_APP_DEST"
+    cp -f "$NEW_WATCH_APP_SOURCE"/*.storyboard "$NEW_WATCH_APP_DEST/" 2>/dev/null || true
+    cp -f "$NEW_WATCH_APP_SOURCE"/*.plist "$NEW_WATCH_APP_DEST/" 2>/dev/null || true
+    for file in "$NEW_WATCH_APP_DEST"/*.plist; do
+        [ -f "$file" ] && replace_placeholders "$file" "$BUNDLE_ID"
+    done
+    print_success "Watch App sincronizzata"
+else
+    print_warning "Cartella Watch App non trovata: $NEW_WATCH_APP_SOURCE"
+fi
+
+# 4c. Nuova Watch Extension
+print_status "Sincronizzazione Watch Extension (nuova struttura)..."
+NEW_WATCH_EXT_SOURCE="$APPLE_WATCH_PLUGINS_DIR/ZentikWatchExtension"
+NEW_WATCH_EXT_DEST="$IOS_DIR/ZentikWatchExtension"
+
+if [ -d "$NEW_WATCH_EXT_SOURCE" ]; then
+    mkdir -p "$NEW_WATCH_EXT_DEST"
+    cp -f "$NEW_WATCH_EXT_SOURCE"/*.swift "$NEW_WATCH_EXT_DEST/" 2>/dev/null || true
+    cp -f "$NEW_WATCH_EXT_SOURCE"/*.plist "$NEW_WATCH_EXT_DEST/" 2>/dev/null || true
+    for file in "$NEW_WATCH_EXT_DEST"/*.swift "$NEW_WATCH_EXT_DEST"/*.plist; do
+        [ -f "$file" ] && replace_placeholders "$file" "$BUNDLE_ID"
+    done
+    print_success "Watch Extension sincronizzata"
+else
+    print_warning "Cartella Watch Extension non trovata: $NEW_WATCH_EXT_SOURCE"
+fi
+
+# 5. Verifica finale
 print_status "Verifica finale sincronizzazione..."
 
 # Conta i file nelle cartelle di destinazione
 SERVICE_FILES=$(find "$SERVICE_DEST" -name "*.swift" -o -name "*.plist" 2>/dev/null | wc -l)
 CONTENT_FILES=$(find "$CONTENT_DEST" -name "*.swift" -o -name "*.plist" -o -name "*.storyboard" 2>/dev/null | wc -l)
 MAIN_APP_FILES=$(find "$MAIN_APP_DEST" -name "*.swift" -o -name "*.m" 2>/dev/null | wc -l)
+OLD_WATCH_FILES=$(find "$IOS_DIR/ZentikNotificationWatch" -name "*.swift" -o -name "*.plist" -o -name "*.storyboard" 2>/dev/null | wc -l)
+WATCH_APP_FILES=$(find "$NEW_WATCH_APP_DEST" -name "*.plist" -o -name "*.storyboard" 2>/dev/null | wc -l)
+WATCH_EXT_FILES=$(find "$NEW_WATCH_EXT_DEST" -name "*.swift" -o -name "*.plist" 2>/dev/null | wc -l)
 
 print_success "Sincronizzazione completata!"
 print_status "File copiati:"
 print_status "  📱 Notification Service Extension: $SERVICE_FILES file"
 print_status "  🎨 Content Extension: $CONTENT_FILES file"
 print_status "  🏠 App principale (Native Modules): $MAIN_APP_FILES file"
+print_status "  ⌚ (Deprecato) Vecchia Watch Extension: $OLD_WATCH_FILES file"
+print_status "  ⌚ Watch App: $WATCH_APP_FILES file"
+print_status "  ⌚ Watch Extension: $WATCH_EXT_FILES file"
 
-# 4. Suggerimenti per il prossimo step
+# 6. Suggerimenti per il prossimo step
 echo ""
 print_status "🎯 Prossimi passi:"
 print_status "1. Ricompila l'app: npx expo run:ios --clear"
-print_status "2. Testa le notifiche per verificare che entrambe le estensioni funzionino"
-print_status "3. Controlla i log per confermare l'attivazione della Content Extension"
+print_status "2. Testa le notifiche per verificare che tutte le estensioni funzionino"
+print_status "3. Controlla i log per confermare l'attivazione delle estensioni"
+print_status "4. Testa le notifiche su Apple Watch per verificare l'interfaccia personalizzata"
 
 echo ""
 print_success "✨ Sincronizzazione completata con successo!"
