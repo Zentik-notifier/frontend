@@ -375,6 +375,7 @@ export function useNotificationActions() {
         const notificationDate = notif.createdAt ? new Date(notif.createdAt).getTime() : undefined;
         for (const att of notif.message.attachments) {
           if (att?.url && att?.mediaType) {
+            console.log(`[NotificationActions] Downloading ${att}`);
             await mediaCache.downloadMedia({
               url: att.url,
               mediaType: att.mediaType,

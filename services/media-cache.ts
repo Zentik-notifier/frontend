@@ -220,6 +220,7 @@ class MediaCacheService {
             const db = await openSharedCacheDb();
             this.repo = new MediaCacheRepository(db);
             await this.loadMetadata();
+            console.log('[MediaCache] DB initialized successfull');
         } catch (error) {
             console.error('[MediaCache] Initialization failed:', error);
         }
@@ -278,6 +279,7 @@ class MediaCacheService {
     }
 
     private async loadMetadata(): Promise<void> {
+        await this.initialize();
         try {
             if (!this.repo) throw new Error('Repository not initialized');
             const items = await this.repo.listCacheItems();

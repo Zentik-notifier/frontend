@@ -78,14 +78,11 @@ export function useFetchNotifications() {
 	const apollo = useApolloClient();
 	const [fetchRemote] = useGetNotificationsLazyQuery({ errorPolicy: 'ignore' });
 	const updateReceivedNotifications = useUpdateReceivedNotifications();
-	const [notifications, setNotifications] = useState<NotificationFragment[]>([]);
 	// const [loading, setLoading] = useState(false);
 	const { data, loading, refetch } = useGetNotificationsQuery({ skip: false })
 	// const { data } = useGetNotificationsQuery({ skip: false })
 
-	useEffect(() => {
-		if (data?.notifications) setNotifications(data.notifications);
-	}, [data?.notifications]);
+	const notifications = data?.notifications ?? [];
 
 	const fetchNotifications = useCallback(async (): Promise<void> => {
 		await refetch();
