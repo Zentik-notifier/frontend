@@ -361,12 +361,14 @@ export type Mutation = {
   revokeEntityPermission: Scalars['Boolean']['output'];
   revokeSession: Scalars['Boolean']['output'];
   revokeSystemToken: Scalars['Boolean']['output'];
+  /** @deprecated Usa Bucket.setBucketSnooze (questo sarà rimosso) */
   setBucketSnooze: UserBucket;
   setPassword: Scalars['Boolean']['output'];
   shareBucket: EntityPermission;
   toggleOAuthProvider: OAuthProvider;
   unshareBucket: Scalars['Boolean']['output'];
   updateBucket: Bucket;
+  /** @deprecated Usa future Bucket mutation (updateBucketSnoozes) */
   updateBucketSnoozes: UserBucket;
   updateDeviceToken: UserDevice;
   updateOAuthProvider: OAuthProvider;
@@ -822,6 +824,7 @@ export type Query = {
   getUserAccessTokens: Array<AccessTokenListDto>;
   getUserSessions: Array<SessionInfoDto>;
   healthcheck: Scalars['String']['output'];
+  /** @deprecated Usa field Bucket.isSnoozed */
   isBucketSnoozed: Scalars['Boolean']['output'];
   listSystemTokens: Array<SystemAccessTokenDto>;
   me: User;
