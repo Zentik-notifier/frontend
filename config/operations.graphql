@@ -368,6 +368,30 @@ query GetMe {
   }
 }
 
+# User settings
+fragment UserSettingFragment on UserSetting {
+  id
+  userId
+  deviceId
+  configType
+  valueText
+  valueBool
+  createdAt
+  updatedAt
+}
+
+query GetUserSettings($deviceId: String) {
+  userSettings(deviceId: $deviceId) {
+    ...UserSettingFragment
+  }
+}
+
+mutation UpsertUserSetting($input: UpsertUserSettingInput!) {
+  upsertUserSetting(input: $input) {
+    ...UserSettingFragment
+  }
+}
+
 # User mutations
 mutation Login($input: LoginDto!) {
   login(input: $input) {

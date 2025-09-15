@@ -2,7 +2,8 @@ import { NotificationFragment } from '@/generated/gql-operations-generated';
 import { Locale } from '@/types/i18n';
 import AsyncStorage from 'expo-sqlite/kv-store';
 import * as Localization from 'expo-localization';
-import React from 'react';
+import { UserSettingType, useGetUserSettingsLazyQuery, useUpsertUserSettingMutation } from '@/generated/gql-operations-generated';
+import React, { useEffect } from 'react';
 
 // Current version of terms (update this when terms change)
 const CURRENT_TERMS_VERSION = '1.0.0';
@@ -84,12 +85,17 @@ export interface UserSettings {
   // Notification filters
   notificationFilters: NotificationFilters;
 
+  notificationsPreferences?: {
+    addIconOnNoMedias: boolean;
+    unencryptOnBigPayload: boolean;
+  };
+
   // Gallery settings
   gallery: {
     autoPlay: boolean;
     showFaultyMedias: boolean;
-  /** Number of columns in gallery grid */
-  gridSize: number;
+    /** Number of columns in gallery grid */
+    gridSize: number;
   };
 
   // Onboarding settings
@@ -133,12 +139,16 @@ const DEFAULT_SETTINGS: UserSettings = {
     searchQuery: '',
     sortBy: 'newest',
     showOnlyWithAttachments: false,
-  pagesToPreload: 5,
+    pagesToPreload: 5,
+  },
+  notificationsPreferences: {
+    addIconOnNoMedias: false,
+    unencryptOnBigPayload: false,
   },
   gallery: {
     autoPlay: true,
     showFaultyMedias: false,
-  gridSize: 3,
+    gridSize: 3,
   },
   onboarding: {
     hasCompletedOnboarding: false,
@@ -290,9 +300,7 @@ class UserSettingsService {
    * Update locale
    */
   async setLocale(locale: Locale): Promise<void> {
-    await this.updateSettings({
-      locale: locale,
-    });
+    await this.updateSettings({ locale });
   }
 
   /**
@@ -647,6 +655,12 @@ class UserSettingsService {
       },
       notificationsLastSeenId: stored.notificationsLastSeenId || DEFAULT_SETTINGS.notificationsLastSeenId,
       notificationFilters,
+      notificationsPreferences: {
+        addIconOnNoMedias:
+          stored.notificationsPreferences?.addIconOnNoMedias ?? DEFAULT_SETTINGS.notificationsPreferences!.addIconOnNoMedias,
+        unencryptOnBigPayload:
+          stored.notificationsPreferences?.unencryptOnBigPayload ?? DEFAULT_SETTINGS.notificationsPreferences!.unencryptOnBigPayload,
+      },
       gallery: {
         ...DEFAULT_SETTINGS.gallery,
         ...(stored.gallery || {}),
@@ -843,8 +857,10 @@ export const userSettings = new UserSettingsService();
 // Export hook for React components
 export function useUserSettings() {
   const [settings, setSettings] = React.useState<UserSettings>(userSettings.getSettings());
+  const [loadUserSettings, { data: remoteUserSettings }] = useGetUserSettingsLazyQuery({ fetchPolicy: 'network-only' });
+  const [upsertUserSetting] = useUpsertUserSettingMutation();
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Initialize settings
     userSettings.initialize().then(setSettings);
 
@@ -854,21 +870,76 @@ export function useUserSettings() {
     return unsubscribe;
   }, []);
 
+  // Fetch remote user settings lazily on mount
+  React.useEffect(() => {
+    loadUserSettings().catch(() => { });
+  }, [loadUserSettings]);
+
+  // Apply remote settings for timezone/language and notification prefs if available
+  useEffect(() => {
+    const list = remoteUserSettings?.userSettings ?? [];
+    if (!list || list.length === 0) return;
+    const timezoneSetting = list.find((s: any) => s?.configType === UserSettingType.Timezone);
+    const languageSetting = list.find((s: any) => s?.configType === UserSettingType.Language);
+    const addIconOnNoMedias = list.find((s: any) => s?.configType === UserSettingType.AddIconOnNoMedias);
+    const unencryptOnBigPayload = list.find((s: any) => s?.configType === UserSettingType.UnencryptOnBigPayload);
+    const updates: Partial<UserSettings> = {};
+    if (timezoneSetting?.valueText && timezoneSetting.valueText !== userSettings.getTimezone()) {
+      updates.timezone = timezoneSetting.valueText;
+    }
+    if (languageSetting?.valueText && languageSetting.valueText !== userSettings.getLocale()) {
+      updates.locale = languageSetting.valueText as any;
+    }
+    const currentPrefs = userSettings.getSettings().notificationsPreferences;
+    const nextPrefs = { ...(currentPrefs || {}) } as any;
+    let touchPrefs = false;
+    if (addIconOnNoMedias?.valueBool !== undefined && addIconOnNoMedias.valueBool !== currentPrefs?.addIconOnNoMedias) {
+      nextPrefs.addIconOnNoMedias = !!addIconOnNoMedias.valueBool; touchPrefs = true;
+    }
+    if (unencryptOnBigPayload?.valueBool !== undefined && unencryptOnBigPayload.valueBool !== currentPrefs?.unencryptOnBigPayload) {
+      nextPrefs.unencryptOnBigPayload = !!unencryptOnBigPayload.valueBool; touchPrefs = true;
+    }
+    if (touchPrefs) {
+      (updates as any).notificationsPreferences = nextPrefs;
+    }
+    if (Object.keys(updates).length > 0) {
+      userSettings.updateSettings(updates).catch(() => { });
+    }
+  }, [remoteUserSettings]);
+
   return {
     settings,
     updateSettings: userSettings.updateSettings.bind(userSettings),
     setThemeMode: userSettings.setThemeMode.bind(userSettings),
-    setLocale: userSettings.setLocale.bind(userSettings),
+    setLocale: async (locale: Locale) => {
+      await userSettings.setLocale(locale);
+      try {
+        await upsertUserSetting({ variables: { input: { configType: UserSettingType.Language, valueText: locale } } });
+      } catch { }
+    },
     getTimezone: userSettings.getTimezone.bind(userSettings),
-    setTimezone: userSettings.setTimezone.bind(userSettings),
+    setTimezone: async (tz: string) => {
+      await userSettings.setTimezone(tz);
+      try {
+        await upsertUserSetting({ variables: { input: { configType: UserSettingType.Timezone, valueText: tz } } });
+      } catch { }
+    },
     getDateFormatPreferences: userSettings.getDateFormatPreferences.bind(userSettings),
     setDateFormatPreferences: userSettings.setDateFormatPreferences.bind(userSettings),
     getIsCompactMode: userSettings.getIsCompactMode.bind(userSettings),
     setIsCompactMode: userSettings.setIsCompactMode.bind(userSettings),
     setNotificationFilters: userSettings.setNotificationFilters.bind(userSettings),
-  getPagesToPreload: userSettings.getPagesToPreload.bind(userSettings),
-  setPagesToPreload: userSettings.setPagesToPreload.bind(userSettings),
+    getPagesToPreload: userSettings.getPagesToPreload.bind(userSettings),
+    setPagesToPreload: userSettings.setPagesToPreload.bind(userSettings),
     setMaxCachedNotifications: userSettings.setMaxCachedNotifications.bind(userSettings),
+    setAddIconOnNoMedias: async (v: boolean) => {
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { addIconOnNoMedias: false, unencryptOnBigPayload: false }), addIconOnNoMedias: v } });
+      try { await upsertUserSetting({ variables: { input: { configType: UserSettingType.AddIconOnNoMedias, valueBool: v } } }); } catch {}
+    },
+    setUnencryptOnBigPayload: async (v: boolean) => {
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { addIconOnNoMedias: false, unencryptOnBigPayload: false }), unencryptOnBigPayload: v } });
+      try { await upsertUserSetting({ variables: { input: { configType: UserSettingType.UnencryptOnBigPayload, valueBool: v } } }); } catch {}
+    },
     resetSettings: userSettings.resetSettings.bind(userSettings),
     resetSection: userSettings.resetSection.bind(userSettings),
     exportSettings: userSettings.exportSettings.bind(userSettings),
@@ -883,8 +954,8 @@ export function useUserSettings() {
     // Gallery settings
     getGallerySettings: userSettings.getGallerySettings.bind(userSettings),
     updateGallerySettings: userSettings.updateGallerySettings.bind(userSettings),
-  getGalleryGridSize: userSettings.getGalleryGridSize.bind(userSettings),
-  setGalleryGridSize: userSettings.setGalleryGridSize.bind(userSettings),
+    getGalleryGridSize: userSettings.getGalleryGridSize.bind(userSettings),
+    setGalleryGridSize: userSettings.setGalleryGridSize.bind(userSettings),
     // Onboarding settings
     getOnboardingSettings: userSettings.getOnboardingSettings.bind(userSettings),
     updateOnboardingSettings: userSettings.updateOnboardingSettings.bind(userSettings),

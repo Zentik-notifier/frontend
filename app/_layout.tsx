@@ -236,16 +236,16 @@ export default function RootLayout() {
         <ThemeProvider>
           <I18nProvider>
             <NavigationOptimizationProvider>
-              <TermsGuard>
-                <GraphQLProvider>
+              <GraphQLProvider>
+                <TermsGuard>
                   <AppProvider>
                     <DeepLinkHandler />
                     <RequireAuth>
                       <ThemedLayout />
                     </RequireAuth>
                   </AppProvider>
-                </GraphQLProvider>
-              </TermsGuard>
+                </TermsGuard>
+              </GraphQLProvider>
             </NavigationOptimizationProvider>
           </I18nProvider>
         </ThemeProvider>
