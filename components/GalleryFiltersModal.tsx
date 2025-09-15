@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import SimpleSlider from "./SimpleSlider";
 import { MediaTypeIcon } from "./MediaTypeIcon";
 import { ThemedText } from "./ThemedText";
 
@@ -176,6 +177,25 @@ export default function GalleryFiltersModal({
               )}
             </View>
           </TouchableOpacity>
+
+          {/* Grid Size Slider */}
+          <View style={styles.settingItem}>
+            <View style={styles.settingContent}>
+              <ThemedText style={styles.settingLabel}>
+                {t("gallerySettings.gridSize")}
+              </ThemedText>
+              <ThemedText style={styles.settingDescription}>
+                {t("gallerySettings.gridSizeDescription")}
+              </ThemedText>
+            </View>
+          </View>
+          <SimpleSlider
+            value={userSettings.settings.gallery.gridSize}
+            min={3}
+            max={7}
+            step={1}
+            onChange={(v) => userSettings.setGalleryGridSize?.(v)}
+          />
 
           {/* Show Faulty Medias Setting */}
           <TouchableOpacity

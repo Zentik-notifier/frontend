@@ -22,13 +22,11 @@ const getDeviceLocale = (): Locale => {
   try {
     const deviceLocale = Localization.getLocales()[0].languageTag;
     console.log('🌍 Detected device locale:', deviceLocale);
-    // Map common device locales to our supported locales
     if (deviceLocale.startsWith('it')) {
       return 'it-IT';
     } else if (deviceLocale.startsWith('en')) {
       return 'en-EN';
     }
-    // Default to English for unsupported locales
     return 'en-EN';
   } catch {
     return 'en-EN';
@@ -42,6 +40,8 @@ export interface NotificationFilters {
   searchQuery: string;
   sortBy: 'newest' | 'oldest' | 'priority';
   showOnlyWithAttachments: boolean;
+  /** Number of additional pages to preload (pagination prefetch) */
+  pagesToPreload: number;
 }
 
 export type DateFormatStyle = 'short' | 'medium' | 'long';
@@ -88,6 +88,8 @@ export interface UserSettings {
   gallery: {
     autoPlay: boolean;
     showFaultyMedias: boolean;
+  /** Number of columns in gallery grid */
+  gridSize: number;
   };
 
   // Onboarding settings
@@ -131,10 +133,12 @@ const DEFAULT_SETTINGS: UserSettings = {
     searchQuery: '',
     sortBy: 'newest',
     showOnlyWithAttachments: false,
+  pagesToPreload: 5,
   },
   gallery: {
     autoPlay: true,
     showFaultyMedias: false,
+  gridSize: 3,
   },
   onboarding: {
     hasCompletedOnboarding: false,
@@ -301,6 +305,18 @@ class UserSettingsService {
         ...filters,
       },
     });
+  }
+
+  /** Get pagesToPreload (pagination prefetch pages) */
+  getPagesToPreload(): number {
+    return this.settings.notificationFilters.pagesToPreload;
+  }
+
+  /** Set pagesToPreload with validation (min 0, max 50) */
+  async setPagesToPreload(pages: number): Promise<void> {
+    if (Number.isNaN(pages)) return;
+    const clamped = Math.min(50, Math.max(0, Math.floor(pages)));
+    await this.setNotificationFilters({ pagesToPreload: clamped });
   }
 
   /**
@@ -612,6 +628,9 @@ class UserSettingsService {
       notificationFilters = {
         ...notificationFilters,
         ...stored.notificationFilters,
+        pagesToPreload: typeof stored.notificationFilters.pagesToPreload === 'number'
+          ? stored.notificationFilters.pagesToPreload
+          : notificationFilters.pagesToPreload,
       };
     }
 
@@ -628,7 +647,13 @@ class UserSettingsService {
       },
       notificationsLastSeenId: stored.notificationsLastSeenId || DEFAULT_SETTINGS.notificationsLastSeenId,
       notificationFilters,
-      gallery: stored.gallery || DEFAULT_SETTINGS.gallery,
+      gallery: {
+        ...DEFAULT_SETTINGS.gallery,
+        ...(stored.gallery || {}),
+        gridSize: typeof stored.gallery?.gridSize === 'number'
+          ? stored.gallery!.gridSize
+          : DEFAULT_SETTINGS.gallery.gridSize,
+      },
       onboarding: stored.onboarding || DEFAULT_SETTINGS.onboarding,
       termsAcceptance: stored.termsAcceptance || DEFAULT_SETTINGS.termsAcceptance,
     };
@@ -671,6 +696,18 @@ class UserSettingsService {
     };
     await this.saveSettings();
     this.notifyListeners();
+  }
+
+  /** Get current gallery grid size */
+  getGalleryGridSize(): number {
+    return this.settings.gallery.gridSize;
+  }
+
+  /** Set gallery grid size (min 1, max 8) */
+  async setGalleryGridSize(size: number): Promise<void> {
+    if (Number.isNaN(size)) return;
+    const clamped = Math.min(8, Math.max(1, Math.floor(size)));
+    await this.updateGallerySettings({ gridSize: clamped });
   }
 
   /**
@@ -829,6 +866,8 @@ export function useUserSettings() {
     getIsCompactMode: userSettings.getIsCompactMode.bind(userSettings),
     setIsCompactMode: userSettings.setIsCompactMode.bind(userSettings),
     setNotificationFilters: userSettings.setNotificationFilters.bind(userSettings),
+  getPagesToPreload: userSettings.getPagesToPreload.bind(userSettings),
+  setPagesToPreload: userSettings.setPagesToPreload.bind(userSettings),
     setMaxCachedNotifications: userSettings.setMaxCachedNotifications.bind(userSettings),
     resetSettings: userSettings.resetSettings.bind(userSettings),
     resetSection: userSettings.resetSection.bind(userSettings),
@@ -844,6 +883,8 @@ export function useUserSettings() {
     // Gallery settings
     getGallerySettings: userSettings.getGallerySettings.bind(userSettings),
     updateGallerySettings: userSettings.updateGallerySettings.bind(userSettings),
+  getGalleryGridSize: userSettings.getGalleryGridSize.bind(userSettings),
+  setGalleryGridSize: userSettings.setGalleryGridSize.bind(userSettings),
     // Onboarding settings
     getOnboardingSettings: userSettings.getOnboardingSettings.bind(userSettings),
     updateOnboardingSettings: userSettings.updateOnboardingSettings.bind(userSettings),

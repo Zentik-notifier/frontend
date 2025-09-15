@@ -64,7 +64,7 @@
         "exportMetadataButton": "Esporta metadata",
         "importButton": "Importa Notifiche",
         "exportDescription": "Esporta le notifiche in cache con tutte le relazioni risolte in un file JSON completo",
-        "exportMetadataDescription": "Esporta il file metadata.json usato dalla media-cache",
+        "exportMetadataDescription": "Esporta il file metadata di media",
         "importDescription": "Importa notifiche da un file JSON",
         "importSuccess": "Notifiche importate con successo",
         "exportError": "Impossibile esportare le notifiche",
@@ -74,7 +74,7 @@
         "invalidFileFormat": "Formato file non valido. Seleziona un file di esportazione notifiche valido.",
         "exportComplete": "Esportazione Completata",
         "exportCompleteMessage": "File salvato in: {{path}}",
-        "exportMetadataError": "Impossibile esportare il metadata.json",
+        "exportMetadataError": "Impossibile esportare i metadata media",
         "failedProcess": "Impossibile processare il file importato",
         "failedRead": "Impossibile leggere il file selezionato",
         "failedApply": "Impossibile applicare i dati importati alla cache",
@@ -609,7 +609,8 @@
     "oneWeek": "1 Settimana",
     "oneMonth": "1 Mese",
     "activeFilters": "{{count}} filtro attivo",
-    "activeFiltersPlural": "{{count}} filtri attivi"
+    "activeFiltersPlural": "{{count}} filtri attivi",
+    "prefetchPages": "Pagine da precaricare"
   },
   "swipeActions": {
     "delete": {
@@ -1171,7 +1172,9 @@
     "autoPlay": "Riproduzione Automatica",
     "autoPlayDescription": "Riproduci automaticamente video e audio quando visualizzati",
     "showFaultyMedias": "Mostra Media Difettosi",
-    "showFaultyMediasDescription": "Mostra media che hanno avuto errori di download o sono stati eliminati"
+    "showFaultyMediasDescription": "Mostra media che hanno avuto errori di download o sono stati eliminati",
+    "gridSize": "Dimensione griglia",
+    "gridSizeDescription": "Numero di colonne visualizzate nella galleria"
   },
   "onboarding": {
     "title": "Guida Introduttiva",

@@ -565,6 +565,7 @@ export interface TranslationKey {
     activeFiltersPlural: string;
     bucket: string;
     clearAll: string;
+    prefetchPages: string;
     hideOlderThan: string;
     hideRead: string;
     hideReadDescription: string;
@@ -592,6 +593,8 @@ export interface TranslationKey {
   gallerySettings: {
     autoPlay: string;
     autoPlayDescription: string;
+    gridSize: string;
+    gridSizeDescription: string;
     showFaultyMedias: string;
     showFaultyMediasDescription: string;
     title: string;

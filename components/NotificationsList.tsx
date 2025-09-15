@@ -48,6 +48,9 @@ export default function NotificationsList({
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const { refetchNotifications } = useAppContext();
+  const {
+    userSettings: { settings },
+  } = useAppContext();
 
   // Hook per operazioni di massa
   const { massDelete: massDeleteNotifications, loading: deleteLoading } =
@@ -58,10 +61,10 @@ export default function NotificationsList({
     useMassMarkNotificationsAsUnread();
 
   // Stati per multi-selezione
+  const [visibleItems, setVisibileItems] = useState<Set<string>>(new Set());
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const {
     userSettings: {
@@ -94,15 +97,10 @@ export default function NotificationsList({
     }: {
       viewableItems: ViewToken<NotificationFragment>[];
     }) => {
-      if (viewableItems.length === 0) return;
-
-      if (viewableItems.some((n) => n.item.id === maxId)) {
-        setLoading(true);
-      } else {
-        setLoading(false);
-      }
+      const visibleIds = viewableItems.map((vi) => vi.item.id);
+      setVisibileItems(new Set(visibleIds));
     },
-    [filteredNotifications, maxId]
+    []
   );
 
   const toggleItemSelection = (itemId: string) => {
@@ -202,6 +200,7 @@ export default function NotificationsList({
       return (
         <SwipeableNotificationItem
           notification={item}
+          isItemVisible={visibleItems.has(item.id)}
           hideBucketInfo={hideBucketInfo}
           isMultiSelectionMode={selectionMode}
           isSelected={isSelected}
@@ -209,7 +208,7 @@ export default function NotificationsList({
         />
       );
     },
-    [selectedItems, selectionMode, hideBucketInfo]
+    [selectedItems, selectionMode, hideBucketInfo, visibleItems]
   );
 
   // Memoized key extractor
@@ -393,32 +392,32 @@ export default function NotificationsList({
     </ThemedView>
   );
 
-  const renderListFooter = () => (
-    <View style={styles.listFooter}>
-      <ThemedText
-        style={[
-          styles.listFooterText,
-          { color: Colors[colorScheme].textSecondary },
-        ]}
-      >
-        {t("notifications.endOfList")}
-      </ThemedText>
-    </View>
-  );
+  // const renderListFooter = () => (
+  //   <View style={styles.listFooter}>
+  //     <ThemedText
+  //       style={[
+  //         styles.listFooterText,
+  //         { color: Colors[colorScheme].textSecondary },
+  //       ]}
+  //     >
+  //       {t("notifications.endOfList")}
+  //     </ThemedText>
+  //   </View>
+  // );
 
-  const renderLoadingFooter = () => (
-    <View style={styles.loadingFooter}>
-      <ActivityIndicator size="small" color={Colors[colorScheme].tint} />
-      <ThemedText
-        style={[
-          styles.loadingText,
-          { color: Colors[colorScheme].textSecondary },
-        ]}
-      >
-        {t("common.loading")}
-      </ThemedText>
-    </View>
-  );
+  // const renderLoadingFooter = () => (
+  //   <View style={styles.loadingFooter}>
+  //     <ActivityIndicator size="small" color={Colors[colorScheme].tint} />
+  //     <ThemedText
+  //       style={[
+  //         styles.loadingText,
+  //         { color: Colors[colorScheme].textSecondary },
+  //       ]}
+  //     >
+  //       {t("common.loading")}
+  //     </ThemedText>
+  //   </View>
+  // );
 
   return (
     <ThemedView style={[styles.container, listStyle]}>
@@ -440,7 +439,7 @@ export default function NotificationsList({
 
       <FlatList
         data={filteredNotifications}
-        windowSize={3}
+        windowSize={settings.notificationFilters.pagesToPreload}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         onViewableItemsChanged={onViewableItemsChanged}

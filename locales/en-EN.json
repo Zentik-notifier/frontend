@@ -64,7 +64,7 @@
         "exportMetadataButton": "Export metadata",
         "importButton": "Import Notifications",
         "exportDescription": "Export cached notifications with all relations resolved to a complete JSON file",
-        "exportMetadataDescription": "Export the metadata.json file used by media-cache",
+        "exportMetadataDescription": "Export the media metadata",
         "importDescription": "Import notifications from a JSON file",
         "importSuccess": "Notifications imported successfully",
         "exportError": "Failed to export notifications",
@@ -74,7 +74,7 @@
         "invalidFileFormat": "Invalid file format. Please select a valid notifications export file.",
         "exportComplete": "Export Complete",
         "exportCompleteMessage": "File saved to: {{path}}",
-        "exportMetadataError": "Failed to export metadata.json",
+        "exportMetadataError": "Failed to export media metadata",
         "failedProcess": "Failed to process the imported file",
         "failedRead": "Failed to read the selected file",
         "failedApply": "Failed to apply imported data to cache",
@@ -609,7 +609,8 @@
     "oneWeek": "1 Week",
     "oneMonth": "1 Month",
     "activeFilters": "{{count}} active filter",
-    "activeFiltersPlural": "{{count}} active filters"
+    "activeFiltersPlural": "{{count}} active filters",
+    "prefetchPages": "Pages to prefetch"
   },
   "swipeActions": {
     "delete": {
@@ -1171,7 +1172,9 @@
     "autoPlay": "Auto Play",
     "autoPlayDescription": "Automatically play videos and audio when viewed",
     "showFaultyMedias": "Show Faulty Media",
-    "showFaultyMediasDescription": "Show media that had download errors or were deleted"
+    "showFaultyMediasDescription": "Show media that had download errors or were deleted",
+    "gridSize": "Grid size",
+    "gridSizeDescription": "Number of columns displayed in the gallery"
   },
   "onboarding": {
     "title": "Getting Started Guide",

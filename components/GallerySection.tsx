@@ -29,12 +29,9 @@ import { MediaTypeIcon } from "./MediaTypeIcon";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 
-const availableMediaTypes = Object.values(MediaType);
-
 export default function GallerySection() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-  const { getMediaTypeFriendlyName } = useNotificationUtils();
   const { userSettings } = useAppContext();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
@@ -43,15 +40,14 @@ export default function GallerySection() {
   const [selectedMediaTypes, setSelectedMediaTypes] = useState<Set<MediaType>>(
     new Set([MediaType.Image, MediaType.Video, MediaType.Gif, MediaType.Audio])
   );
-  const [showStats, setShowStats] = useState(false);
-  const numColumns = 3;
+  const numColumns = userSettings.settings.gallery.gridSize;
 
   const itemWidth = useMemo(() => {
     const screenWidth = Dimensions.get("window").width;
     const horizontalPadding = 32; // 16px padding on each side
     const availableWidth = screenWidth - horizontalPadding;
     return availableWidth / numColumns;
-  }, []);
+  }, [numColumns]);
 
   const { filteredMedia, sections, flatOrder } = useMemo(() => {
     const allWithIds = cachedItems.map((item, index) => ({
@@ -155,7 +151,6 @@ export default function GallerySection() {
     setSelectedItems(newSelection);
   };
 
-
   const handleToggleMultiSelection = () => {
     if (selectionMode) {
       setSelectionMode(false);
@@ -164,7 +159,6 @@ export default function GallerySection() {
       setSelectionMode(true);
     }
   };
-
 
   const renderSelectionBar = () => (
     <View
@@ -343,7 +337,6 @@ export default function GallerySection() {
       </View>
     </View>
   );
-
 
   const renderStatsCard = () => {
     if (!cacheStats) return null;
@@ -686,7 +679,6 @@ export default function GallerySection() {
           />
         }
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={showStats ? renderStatsCard : null}
         ListEmptyComponent={renderEmptyState}
         stickySectionHeadersEnabled={false}
       />

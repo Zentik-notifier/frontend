@@ -1,7 +1,5 @@
 import { Colors } from "@/constants/Colors";
-import {
-  useGetBucketsQuery
-} from "@/generated/gql-operations-generated";
+import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
@@ -16,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import SimpleSlider from "./SimpleSlider";
 import BucketSelector from "./BucketSelector";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
@@ -36,7 +35,7 @@ export default function NotificationFiltersModal({
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const {
-    userSettings: { settings, setNotificationFilters },
+    userSettings: { settings, setNotificationFilters, setPagesToPreload },
   } = useAppContext();
   const filters = settings.notificationFilters;
 
@@ -168,8 +167,8 @@ export default function NotificationFiltersModal({
                   filters.selectedBucketIds.length === 0
                     ? null // All buckets
                     : filters.selectedBucketIds[0] === ""
-                      ? "" // General bucket
-                      : filters.selectedBucketIds[0] // Specific bucket
+                    ? "" // General bucket
+                    : filters.selectedBucketIds[0] // Specific bucket
                 }
                 onBucketChange={handleBucketChange}
                 buckets={buckets}
@@ -415,6 +414,24 @@ export default function NotificationFiltersModal({
                   </ThemedText>
                 </TouchableOpacity>
               ))}
+            </ThemedView>
+          </ThemedView>
+
+          {/* Prefetch Pages */}
+          <ThemedView style={styles.section}>
+            <ThemedText
+              style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}
+            >
+              {t("filters.prefetchPages")}
+            </ThemedText>
+            <ThemedView style={{ gap: 8 }}>
+              <SimpleSlider
+                value={settings.notificationFilters.pagesToPreload}
+                min={3}
+                max={15}
+                step={1}
+                onChange={(v) => setPagesToPreload?.(v)}
+              />
             </ThemedView>
           </ThemedView>
         </ScrollView>

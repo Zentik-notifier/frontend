@@ -42,6 +42,7 @@ interface SwipeableNotificationItemProps {
   hideBucketInfo?: boolean;
   isMultiSelectionMode?: boolean;
   isSelected?: boolean;
+  isItemVisible: boolean;
   onToggleSelection?: () => void;
 }
 
@@ -52,6 +53,7 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
       hideBucketInfo,
       isMultiSelectionMode,
       isSelected,
+      isItemVisible,
       onToggleSelection,
     }) => {
       const colorScheme = useColorScheme();
@@ -408,30 +410,32 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                               },
                         ]}
                       >
-                        <CachedMedia
-                          notificationDate={new Date(
-                            notification.createdAt
-                          ).getTime()}
-                          mediaType={attachment.mediaType}
-                          url={attachment.url || ""}
-                          style={
-                            isSelected
-                              ? styles.expandedImage
-                              : { width: 0, height: 0 }
-                          }
-                          originalFileName={attachment.name || undefined}
-                          videoProps={{
-                            autoPlay: isSelected,
-                            isMuted: true,
-                            isLooping: true,
-                            showControls: false,
-                          }}
-                          audioProps={{
-                            shouldPlay: false,
-                            showControls: true,
-                          }}
-                          onPress={() => handleVisualPress(attachment.url!)}
-                        />
+                        {isItemVisible && (
+                          <CachedMedia
+                            notificationDate={new Date(
+                              notification.createdAt
+                            ).getTime()}
+                            mediaType={attachment.mediaType}
+                            url={attachment.url || ""}
+                            style={
+                              isSelected
+                                ? styles.expandedImage
+                                : { width: 0, height: 0 }
+                            }
+                            originalFileName={attachment.name || undefined}
+                            videoProps={{
+                              autoPlay: isSelected,
+                              isMuted: true,
+                              isLooping: true,
+                              showControls: false,
+                            }}
+                            audioProps={{
+                              shouldPlay: false,
+                              showControls: true,
+                            }}
+                            onPress={() => handleVisualPress(attachment.url!)}
+                          />
+                        )}
                       </TouchableOpacity>
                     );
                   })}
