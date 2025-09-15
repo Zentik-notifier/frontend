@@ -237,6 +237,16 @@ export interface TranslationKey {
       notificationsCount: string;
       title: string;
     };
+    notifications: {
+      title: string;
+      description: string;
+      maxStoredTitle: string;
+      maxStoredDescription: string;
+      addIconOnNoMedias: string;
+      addIconOnNoMediasDescription: string;
+      unencryptOnBigPayload: string;
+      unencryptOnBigPayloadDescription: string;
+    };
     language: {
       description: string;
       searchLanguage: string;
