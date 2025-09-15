@@ -29,7 +29,12 @@ import { useUserSettings } from "@/services/user-settings";
 export default function UnifiedCacheSettings() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-  const { settings, setAddIconOnNoMedias, setUnencryptOnBigPayload } = useUserSettings();
+  const {
+    settings,
+    setAddIconOnNoMedias,
+    setUnencryptOnBigPayload,
+    setMarkAsReadOnView,
+  } = useUserSettings();
   const [showResetModal, setShowResetModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -53,7 +58,9 @@ export default function UnifiedCacheSettings() {
     setLocalMaxCacheAgeDays(
       settings.mediaCache.retentionPolicies?.maxCageAgeDays?.toString() || ""
     );
-    setLocalMaxNotifications((settings.maxCachedNotifications ?? 500).toString());
+    setLocalMaxNotifications(
+      (settings.maxCachedNotifications ?? 500).toString()
+    );
   }, [
     settings.mediaCache.retentionPolicies?.maxCacheSizeMB,
     settings.mediaCache.retentionPolicies?.maxCageAgeDays,
@@ -648,8 +655,53 @@ export default function UnifiedCacheSettings() {
         <Switch
           value={!!settings.notificationsPreferences?.addIconOnNoMedias}
           onValueChange={setAddIconOnNoMedias}
-          thumbColor={!!settings.notificationsPreferences?.addIconOnNoMedias ? Colors[colorScheme].tint : Colors[colorScheme].textSecondary}
-          trackColor={{ false: Colors[colorScheme].border, true: Colors[colorScheme].tint + "40" }}
+          thumbColor={
+            !!settings.notificationsPreferences?.addIconOnNoMedias
+              ? Colors[colorScheme].tint
+              : Colors[colorScheme].textSecondary
+          }
+          trackColor={{
+            false: Colors[colorScheme].border,
+            true: Colors[colorScheme].tint + "40",
+          }}
+        />
+      </View>
+
+      <View
+        style={[
+          styles.settingRow,
+          { backgroundColor: Colors[colorScheme].backgroundCard },
+        ]}
+      >
+        <View style={styles.settingInfo}>
+          <View style={styles.settingTextContainer}>
+            <ThemedText
+              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
+            >
+              {t("appSettings.notifications.markAsReadOnView")}
+            </ThemedText>
+            <ThemedText
+              style={[
+                styles.settingDescription,
+                { color: Colors[colorScheme].textSecondary },
+              ]}
+            >
+              {t("appSettings.notifications.markAsReadOnViewDescription")}
+            </ThemedText>
+          </View>
+        </View>
+        <Switch
+          value={!!settings.notificationsPreferences?.markAsReadOnView}
+          onValueChange={setMarkAsReadOnView}
+          thumbColor={
+            !!settings.notificationsPreferences?.markAsReadOnView
+              ? Colors[colorScheme].tint
+              : Colors[colorScheme].textSecondary
+          }
+          trackColor={{
+            false: Colors[colorScheme].border,
+            true: Colors[colorScheme].tint + "40",
+          }}
         />
       </View>
 
@@ -679,8 +731,15 @@ export default function UnifiedCacheSettings() {
         <Switch
           value={!!settings.notificationsPreferences?.unencryptOnBigPayload}
           onValueChange={setUnencryptOnBigPayload}
-          thumbColor={!!settings.notificationsPreferences?.unencryptOnBigPayload ? Colors[colorScheme].tint : Colors[colorScheme].textSecondary}
-          trackColor={{ false: Colors[colorScheme].border, true: Colors[colorScheme].tint + "40" }}
+          thumbColor={
+            !!settings.notificationsPreferences?.unencryptOnBigPayload
+              ? Colors[colorScheme].tint
+              : Colors[colorScheme].textSecondary
+          }
+          trackColor={{
+            false: Colors[colorScheme].border,
+            true: Colors[colorScheme].tint + "40",
+          }}
         />
       </View>
 

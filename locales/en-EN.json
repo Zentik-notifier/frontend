@@ -98,7 +98,9 @@
       "addIconOnNoMedias": "Add icon when no media",
       "addIconOnNoMediasDescription": "Automatically adds the bucket icon when the notification has no attachments",
       "unencryptOnBigPayload": "Don't encrypt large payloads",
-      "unencryptOnBigPayloadDescription": "Send payloads unencrypted when they exceed a certain size"
+      "unencryptOnBigPayloadDescription": "Send payloads unencrypted when they exceed a certain size",
+      "markAsReadOnView": "Mark as read on view",
+      "markAsReadOnViewDescription": "Notifications will be marked as read as soon as they are visible on screen"
     },
     "versions": {
       "title": "Version Information",

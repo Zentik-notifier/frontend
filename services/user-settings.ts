@@ -90,6 +90,7 @@ export interface UserSettings {
   notificationsPreferences?: {
     addIconOnNoMedias: boolean;
     unencryptOnBigPayload: boolean;
+    markAsReadOnView?: boolean;
   };
 
   // Gallery settings
@@ -147,6 +148,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   notificationsPreferences: {
     addIconOnNoMedias: false,
     unencryptOnBigPayload: false,
+    markAsReadOnView: false,
   },
   gallery: {
     autoPlay: true,
@@ -654,12 +656,13 @@ class UserSettingsService {
       },
       notificationsLastSeenId: stored.notificationsLastSeenId || DEFAULT_SETTINGS.notificationsLastSeenId,
       notificationFilters,
-      // no notificationSettings (flattened into filters)
       notificationsPreferences: {
         addIconOnNoMedias:
           stored.notificationsPreferences?.addIconOnNoMedias ?? DEFAULT_SETTINGS.notificationsPreferences!.addIconOnNoMedias,
         unencryptOnBigPayload:
           stored.notificationsPreferences?.unencryptOnBigPayload ?? DEFAULT_SETTINGS.notificationsPreferences!.unencryptOnBigPayload,
+        markAsReadOnView:
+          stored.notificationsPreferences?.markAsReadOnView ?? DEFAULT_SETTINGS.notificationsPreferences!.markAsReadOnView,
       },
       gallery: {
         ...DEFAULT_SETTINGS.gallery,
@@ -932,6 +935,9 @@ export function useUserSettings() {
     getPagesToPreload: userSettings.getPagesToPreload.bind(userSettings),
     setPagesToPreload: userSettings.setPagesToPreload.bind(userSettings),
     setMaxCachedNotifications: userSettings.setMaxCachedNotifications.bind(userSettings),
+    setMarkAsReadOnView: async (v: boolean) => {
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { addIconOnNoMedias: false, unencryptOnBigPayload: false, markAsReadOnView: false }), markAsReadOnView: v } });
+    },
     setAddIconOnNoMedias: async (v: boolean) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { addIconOnNoMedias: false, unencryptOnBigPayload: false }), addIconOnNoMedias: v } });
       try { await upsertUserSetting({ variables: { input: { configType: UserSettingType.AddIconOnNoMedias, valueBool: v } } }); } catch { }

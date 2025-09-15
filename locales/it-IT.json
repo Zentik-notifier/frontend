@@ -98,7 +98,9 @@
       "addIconOnNoMedias": "Aggiungi icona se senza media",
       "addIconOnNoMediasDescription": "Aggiunge automaticamente l'icona del bucket se la notifica non ha allegati",
       "unencryptOnBigPayload": "Non cifrare payload grandi",
-      "unencryptOnBigPayloadDescription": "Invia payload non cifrati quando superano una certa dimensione"
+      "unencryptOnBigPayloadDescription": "Invia payload non cifrati quando superano una certa dimensione",
+      "markAsReadOnView": "Segna come letta alla visualizzazione",
+      "markAsReadOnViewDescription": "Le notifiche verranno segnate come lette non appena sono visibili a schermo"
     },
     "versions": {
       "title": "Informazioni Versione",

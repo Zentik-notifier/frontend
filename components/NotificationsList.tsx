@@ -99,8 +99,19 @@ export default function NotificationsList({
     }) => {
       const visibleIds = viewableItems.map((vi) => vi.item.id);
       setVisibileItems(new Set(visibleIds));
+
+      // Se attiva la preferenza, marca come lette le visibili non ancora lette
+      if (settings.notificationsPreferences?.markAsReadOnView) {
+        const toMark = viewableItems
+          .map((vi) => vi.item)
+          .filter((n) => !n.readAt)
+          .map((n) => n.id);
+        if (toMark.length > 0) {
+          massMarkAsRead(toMark).catch(() => {});
+        }
+      }
     },
-    []
+    [settings.notificationsPreferences?.markAsReadOnView, massMarkAsRead]
   );
 
   const toggleItemSelection = (itemId: string) => {

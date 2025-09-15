@@ -246,6 +246,8 @@ export interface TranslationKey {
       addIconOnNoMediasDescription: string;
       unencryptOnBigPayload: string;
       unencryptOnBigPayloadDescription: string;
+      markAsReadOnView: string;
+      markAsReadOnViewDescription: string;
     };
     language: {
       description: string;
