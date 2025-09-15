@@ -1204,7 +1204,8 @@
     "title": "Getting Started Guide",
     "welcome": {
       "title": "Welcome to Zentik!",
-      "description": "We'll guide you through the first steps to start using Zentik to manage your notifications."
+      "description": "We'll guide you through the first steps to start using Zentik to manage your notifications.",
+      "description2": "The application allows you to collect notifications from different systems and in different ways. You can create a \"Bucket\" for each system you want to track. Later you will be able to send a notification to your bucket by authenticating with an access token"
     },
     "bucket": {
       "title": "Create your first bucket",

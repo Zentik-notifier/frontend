@@ -1204,7 +1204,8 @@
     "title": "Guida Introduttiva",
     "welcome": {
       "title": "Benvenuto in Zentik!",
-      "description": "Ti guideremo attraverso i primi passi per iniziare a utilizzare Zentik per gestire le tue notifiche."
+      "description": "Ti guideremo attraverso i primi passi per iniziare a utilizzare Zentik per gestire le tue notifiche.",
+      "description2": "L'applicazione permette di raccogliere notifiche da diversi sistemi ed in diversi modi. Puoi creare un \"Bucket\" per ogni tuo sistema che vuoi tracciare. In seguito sara' possibile inviare una notifica al tuo bucket autenticandoti con un access token"
     },
     "bucket": {
       "title": "Crea il tuo primo bucket",

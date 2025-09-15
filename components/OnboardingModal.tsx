@@ -26,6 +26,9 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  PanResponder,
+  GestureResponderEvent,
+  PanResponderGestureState,
 } from "react-native";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
@@ -62,6 +65,23 @@ export default function OnboardingModal({
   );
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_evt: GestureResponderEvent, gestureState: PanResponderGestureState) => {
+        const horizontalMove = Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+        return horizontalMove && Math.abs(gestureState.dx) > 12;
+      },
+      onPanResponderRelease: (_evt, gestureState) => {
+        if (gestureState.dx < -30) {
+          // swipe left -> next
+          handleNext();
+        } else if (gestureState.dx > 30) {
+          // swipe right -> previous
+          handlePrevious();
+        }
+      },
+    })
+  ).current;
 
   const [createBucketMutation, { loading: creatingBucket }] =
     useCreateBucketMutation();
@@ -297,6 +317,9 @@ export default function OnboardingModal({
             />
             <ThemedText style={styles.stepDescription}>
               {t("onboarding.welcome.description")}
+            </ThemedText>
+            <ThemedText style={styles.stepDescription}>
+              {t("onboarding.welcome.description2")}
             </ThemedText>
           </View>
         );
@@ -596,35 +619,13 @@ export default function OnboardingModal({
           <View style={styles.placeholder} />
         </View>
 
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            {steps.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.progressDot,
-                  {
-                    backgroundColor:
-                      index <= currentStep
-                        ? Colors[colorScheme ?? "light"].tint
-                        : Colors[colorScheme ?? "light"].border,
-                  },
-                ]}
-              />
-            ))}
-          </View>
-          <ThemedText style={styles.progressText}>
-            {t("onboarding.navigation.step", {
-              current: currentStep + 1,
-              total: steps.length,
-            })}
-          </ThemedText>
-        </View>
+        {/* progress moved to bottom above footer */}
 
         <ScrollView
           ref={scrollViewRef}
           style={styles.content}
           showsVerticalScrollIndicator={false}
+          {...panResponder.panHandlers}
         >
           <ThemedText style={styles.stepTitle}>
             {steps[currentStep]?.title}
@@ -632,6 +633,33 @@ export default function OnboardingModal({
 
           {renderStepContent()}
         </ScrollView>
+
+        <View style={styles.footerCarouselContainer}>
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBar}>
+              {steps.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.progressDot,
+                    {
+                      backgroundColor:
+                        index <= currentStep
+                          ? Colors[colorScheme ?? "light"].tint
+                          : Colors[colorScheme ?? "light"].border,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+            <ThemedText style={styles.progressText}>
+              {t("onboarding.navigation.step", {
+                current: currentStep + 1,
+                total: steps.length,
+              })}
+            </ThemedText>
+          </View>
+        </View>
 
         <View style={styles.footer}>
           {currentStep > 0 && (
@@ -711,6 +739,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    paddingHorizontal: 20,
+  },
+  footerCarouselContainer: {
+    paddingTop: 8,
     paddingHorizontal: 20,
   },
   stepTitle: {

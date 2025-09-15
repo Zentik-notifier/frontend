@@ -977,6 +977,7 @@ export interface TranslationKey {
     };
     welcome: {
       description: string;
+      description2: string;
       title: string;
     };
   };
