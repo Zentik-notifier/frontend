@@ -425,8 +425,12 @@ class MediaCacheService {
         const { url, mediaType, force, notificationDate } = props;
         await this.initialize();
 
-        const cachedItem = await this.getCachedItem(url, mediaType);
+        let cachedItem = await this.getCachedItem(url, mediaType);
         const key = this.generateCacheKey(url, mediaType);
+
+        if (!cachedItem) {
+            cachedItem = await this.repo?.getCacheItem(key) ?? undefined;
+        }
 
         if (cachedItem && !cachedItem.isUserDeleted && !force) {
             return;
