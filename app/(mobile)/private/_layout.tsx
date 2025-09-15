@@ -12,10 +12,9 @@ export default function PrivateLayout() {
         headerShown: false,
         headerTitle: "",
         headerBackTitle: t("common.back"),
-        // Ottimizzazioni per performance
-        animation: 'slide_from_right', // Animazione più fluida
+        animation: "slide_from_right",
         gestureEnabled: true,
-        gestureDirection: 'horizontal',
+        gestureDirection: "horizontal",
       }}
     >
       {/* HOME */}
@@ -26,20 +25,19 @@ export default function PrivateLayout() {
           headerShadowVisible: false,
           headerBackVisible: false,
           headerRight: () => <Header />,
-          // Ottimizzazioni specifiche per homepage
-          animationTypeForReplace: 'push', // Mantiene la schermata in memoria
-          gestureEnabled: false, // Previene swipe accidentali sulla home
+          animationTypeForReplace: "push",
+          gestureEnabled: false,
         }}
       />
       <Stack.Screen
         name="notification-detail"
         options={{
-          headerShown: false, // Il componente gestisce il proprio header
-          presentation: 'modal',
+          headerShown: false,
+          presentation: "modal",
           gestureEnabled: true,
-          gestureDirection: 'vertical',
-          animationTypeForReplace: 'push',
-          animation: 'slide_from_bottom',
+          gestureDirection: "vertical",
+          animationTypeForReplace: "push",
+          animation: "slide_from_bottom",
         }}
       />
       {/* SETTINGS */}
@@ -73,8 +71,14 @@ export default function PrivateLayout() {
       {/* ADMIN */}
       <Stack.Screen name="admin" options={{ headerShown: true }} />
       <Stack.Screen name="user-management" options={{ headerShown: true }} />
-      <Stack.Screen name="system-access-tokens" options={{ headerShown: true }} />
-      <Stack.Screen name="create-system-access-token" options={{ headerShown: true }} />
+      <Stack.Screen
+        name="system-access-tokens"
+        options={{ headerShown: true }}
+      />
+      <Stack.Screen
+        name="create-system-access-token"
+        options={{ headerShown: true }}
+      />
       <Stack.Screen
         name="edit-oauth-provider"
         options={{ headerShown: true }}

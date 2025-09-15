@@ -3,9 +3,6 @@ import { saveApiEndpoint } from './auth-storage';
 
 const CUSTOM_API_URL_KEY = 'custom_api_url';
 const apiPrefix = 'api/v1';
-const defaultApiUrl = 'https://notifier-api.zentik.app';
-// const envApiUrl = 'https://notifier-api.zentik.app';
-// const envApiUrl = process.env.API_URL;
 const envApiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://notifier-api.zentik.app';
 
 export class ApiConfigService {
@@ -22,7 +19,7 @@ export class ApiConfigService {
       const storedUrl = await AsyncStorage.getItem(CUSTOM_API_URL_KEY);
       this.customApiUrl = storedUrl || null;
       this.initialized = true;
-      
+
       // Also save the current API URL to keychain for NSE access
       const currentApiUrl = await this.getApiUrl();
       await saveApiEndpoint(currentApiUrl);
@@ -45,7 +42,7 @@ export class ApiConfigService {
     }
 
     // Otherwise use the default from environment
-    return envApiUrl || defaultApiUrl;
+    return envApiUrl;
   }
 
   /**
@@ -53,7 +50,7 @@ export class ApiConfigService {
    */
   static getApiUrlSync(): string {
     if (!this.initialized) {
-      return this.customApiUrl || envApiUrl || defaultApiUrl;
+      return this.customApiUrl || envApiUrl;
     }
 
     // If custom URL is set and not empty, use it
@@ -62,7 +59,7 @@ export class ApiConfigService {
     }
 
     // Otherwise use the default from environment
-    return envApiUrl || defaultApiUrl;
+    return envApiUrl;
   }
 
   static getApiBaseWithPrefix(): string {
@@ -79,7 +76,7 @@ export class ApiConfigService {
       const trimmedUrl = url.trim();
       await AsyncStorage.setItem(CUSTOM_API_URL_KEY, trimmedUrl);
       this.customApiUrl = trimmedUrl;
-      
+
       // Also save to keychain for NSE access
       const currentApiUrl = await this.getApiUrl();
       await saveApiEndpoint(currentApiUrl);

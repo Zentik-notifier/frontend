@@ -46,6 +46,7 @@ import {
 } from "./auth-storage";
 import { useUserSettings } from "./user-settings";
 import OnboardingModal from "../components/OnboardingModal";
+import { mediaCache } from "./media-cache";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -335,6 +336,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (nextAppState === "active" && userId) {
         console.log("📱 App became active - refreshing notifications");
         try {
+          await mediaCache.reloadMetadata();
           await refetchNotifications();
         } catch (error) {
           console.warn(

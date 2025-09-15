@@ -6,10 +6,12 @@ import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { formatFileSize } from "@/utils";
-import { getSharedMediaCacheDirectoryAsync } from '@/utils/shared-cache';
+import { getSharedMediaCacheDirectoryAsync } from "@/utils/shared-cache";
+import { openSharedCacheDb } from "@/services/media-cache-db";
+import { MediaCacheRepository } from "@/services/media-cache-repository";
 import { Ionicons } from "@expo/vector-icons";
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
@@ -32,16 +34,19 @@ export default function UnifiedCacheSettings() {
   const [isExportingMetadata, setIsExportingMetadata] = useState(false);
 
   const { cacheStats } = useGetCacheStats();
-  const { exportNotifications, importNotifications } = useGraphQLCacheImportExport(async (count) => {
-    console.log(`🎉 Import completed successfully with ${count} notifications`);
-    // Force refetch of notifications query to update UI
-    try {
-      await refetch();
-      console.log('✅ Notifications query refetched');
-    } catch (error) {
-      console.warn('⚠️ Failed to refetch notifications:', error);
-    }
-  });
+  const { exportNotifications, importNotifications } =
+    useGraphQLCacheImportExport(async (count) => {
+      console.log(
+        `🎉 Import completed successfully with ${count} notifications`
+      );
+      // Force refetch of notifications query to update UI
+      try {
+        await refetch();
+        console.log("✅ Notifications query refetched");
+      } catch (error) {
+        console.warn("⚠️ Failed to refetch notifications:", error);
+      }
+    });
   const {
     userSettings: {
       updateMediaCacheDownloadSettings,
@@ -55,8 +60,13 @@ export default function UnifiedCacheSettings() {
   } = useAppContext();
 
   // Reactive notifications count from Apollo cache
-  const { data: notifData, refetch } = useGetNotificationsQuery({ fetchPolicy: 'cache-only' });
-  const graphqlCacheInfo = useMemo(() => (notifData?.notifications?.length ?? 0), [notifData?.notifications?.length]);
+  const { data: notifData, refetch } = useGetNotificationsQuery({
+    fetchPolicy: "cache-only",
+  });
+  const graphqlCacheInfo = useMemo(
+    () => notifData?.notifications?.length ?? 0,
+    [notifData?.notifications?.length]
+  );
 
   // Calculate total cache size
   const totalCacheSize = useMemo(() => {
@@ -98,35 +108,54 @@ export default function UnifiedCacheSettings() {
   const handleExportMetadata = async () => {
     setIsExportingMetadata(true);
     try {
-      if (Platform.OS !== 'ios') {
-        Alert.alert(t('appSettings.gqlCache.importExport.exportMetadataError'), t('common.notAvailableOnWeb'));
+      // Manteniamo per ora la restrizione iOS come in precedenza (può essere rimossa se serve cross-platform)
+      if (Platform.OS !== "ios") {
+        Alert.alert(
+          t("appSettings.gqlCache.importExport.exportMetadataError"),
+          t("common.notAvailableOnWeb")
+        );
         return;
       }
 
-      const sharedDir = await getSharedMediaCacheDirectoryAsync();
-      const srcPath = `${sharedDir}metadata.json`;
-      const info = await FileSystem.getInfoAsync(srcPath);
-      if (!info.exists) {
-        Alert.alert(t('appSettings.gqlCache.importExport.exportMetadataError'), 'metadata.json not found');
-        return;
-      }
+      const db = await openSharedCacheDb();
+      const repo = new MediaCacheRepository(db);
+      const items = await repo.listCacheItems();
 
-      const content = await FileSystem.readAsStringAsync(srcPath, { encoding: FileSystem.EncodingType.UTF8 });
-      const fileName = `media-cache-metadata-${new Date().toISOString().split('T')[0]}.json`;
+      const payload = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        itemCount: items.length,
+        items,
+      };
+
+      const json = JSON.stringify(payload, null, 2);
+      const fileName = `media-cache-metadata-${
+        new Date().toISOString().split("T")[0]
+      }.json`;
       const destPath = `${FileSystem.documentDirectory}${fileName}`;
-      await FileSystem.writeAsStringAsync(destPath, content, { encoding: FileSystem.EncodingType.UTF8 });
+      await FileSystem.writeAsStringAsync(destPath, json, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(destPath, {
-          mimeType: 'application/json',
-          dialogTitle: 'Export Media Cache Metadata',
+          mimeType: "application/json",
+          dialogTitle: "Export Media Cache Metadata",
         });
       } else {
-        Alert.alert(t('appSettings.gqlCache.importExport.exportComplete'), t('appSettings.gqlCache.importExport.exportCompleteMessage', { path: destPath }));
+        Alert.alert(
+          t("appSettings.gqlCache.importExport.exportComplete"),
+          t("appSettings.gqlCache.importExport.exportCompleteMessage", {
+            path: destPath,
+          })
+        );
       }
     } catch (error) {
-      console.error('Error exporting metadata.json:', error);
-      Alert.alert(t('appSettings.gqlCache.importExport.exportMetadataError'), t('appSettings.gqlCache.importExport.exportMetadataError'));
+      console.error("Error exporting media cache DB metadata:", error);
+      Alert.alert(
+        t("appSettings.gqlCache.importExport.exportMetadataError"),
+        t("appSettings.gqlCache.importExport.exportMetadataError")
+      );
     } finally {
       setIsExportingMetadata(false);
     }
