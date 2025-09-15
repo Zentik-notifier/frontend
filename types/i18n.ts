@@ -249,6 +249,15 @@ export interface TranslationKey {
       markAsReadOnView: string;
       markAsReadOnViewDescription: string;
     };
+    logs: {
+      dbLogsTitle: string;
+      dbLogsDescription: string;
+      exportButton: string;
+      exportDescription: string;
+      exportComplete: string;
+      exportCompleteMessage: string;
+      exportError: string;
+    };
     language: {
       description: string;
       searchLanguage: string;

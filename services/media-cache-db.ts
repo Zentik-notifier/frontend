@@ -47,6 +47,19 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
 
   await db.execAsync(`CREATE UNIQUE INDEX IF NOT EXISTS idx_cache_item_key ON cache_item(key);`);
 
+  // Application logs table (keeps last 24h)
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS app_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      level TEXT NOT NULL,
+      tag TEXT,
+      message TEXT NOT NULL,
+      meta_json TEXT,
+      timestamp INTEGER NOT NULL
+    );
+  `);
+  await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_app_log_timestamp ON app_log(timestamp);`);
+
   return db;
 }
 

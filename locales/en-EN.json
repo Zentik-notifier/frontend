@@ -58,8 +58,8 @@
       "maxStoredTitle": "Max notifications to keep",
       "maxStoredDescription": "Keep at most this number of notifications in the local cache",
       "importExport": {
-        "title": "Import/Export Notifications",
-        "description": "Backup or restore cached notifications",
+        "title": "Advanced",
+        "description": "Advanced tools and utilities",
         "exportButton": "Export Notifications",
         "exportMetadataButton": "Export metadata",
         "importButton": "Import Notifications",
@@ -101,6 +101,15 @@
       "unencryptOnBigPayloadDescription": "Send payloads unencrypted when they exceed a certain size",
       "markAsReadOnView": "Mark as read on view",
       "markAsReadOnViewDescription": "Notifications will be marked as read as soon as they are visible on screen"
+    },
+    "logs": {
+      "dbLogsTitle": "DB logs (last 24h)",
+      "dbLogsDescription": "Save application logs into a local table for debugging",
+      "exportButton": "Export Logs",
+      "exportDescription": "Export all logs stored in the DB to a JSON file",
+      "exportComplete": "Export Complete",
+      "exportCompleteMessage": "File saved to: {{path}}",
+      "exportError": "Failed to export logs"
     },
     "versions": {
       "title": "Version Information",

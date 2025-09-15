@@ -9,6 +9,7 @@ import { formatFileSize } from "@/utils";
 import { getSharedMediaCacheDirectoryAsync } from "@/utils/shared-cache";
 import { openSharedCacheDb } from "@/services/media-cache-db";
 import { MediaCacheRepository } from "@/services/media-cache-repository";
+import { LogRepository } from "@/services/log-repository";
 import { Ionicons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
@@ -34,11 +35,13 @@ export default function UnifiedCacheSettings() {
     setAddIconOnNoMedias,
     setUnencryptOnBigPayload,
     setMarkAsReadOnView,
+    setLoggingEnabled,
   } = useUserSettings();
   const [showResetModal, setShowResetModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isExportingMetadata, setIsExportingMetadata] = useState(false);
+  const [isExportingLogs, setIsExportingLogs] = useState(false);
 
   const [localMaxCacheSizeMB, setLocalMaxCacheSizeMB] = useState<string>(
     settings.mediaCache.retentionPolicies?.maxCacheSizeMB?.toString() || ""
@@ -192,6 +195,45 @@ export default function UnifiedCacheSettings() {
       );
     } finally {
       setIsExportingMetadata(false);
+    }
+  };
+
+  const handleExportLogs = async () => {
+    setIsExportingLogs(true);
+    try {
+      const db = await openSharedCacheDb();
+      const repo = new LogRepository(db);
+      const logs = await repo.listSince(0);
+      const formattedLogs = logs.map((l: any) => ({
+        ...l,
+        timeLocal: new Date(Number(l.timestamp)).toLocaleString(),
+      }));
+
+      const payload = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        count: formattedLogs.length,
+        logs: formattedLogs,
+      };
+
+      const json = JSON.stringify(payload, null, 2);
+      const fileName = `app-logs-${new Date().toISOString().replace(/[:]/g, '-')}.json`;
+      const destPath = `${FileSystem.documentDirectory}${fileName}`;
+      await FileSystem.writeAsStringAsync(destPath, json, { encoding: FileSystem.EncodingType.UTF8 });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(destPath, { mimeType: "application/json", dialogTitle: t("appSettings.logs.exportComplete") });
+      } else {
+        Alert.alert(
+          t("appSettings.logs.exportComplete"),
+          t("appSettings.logs.exportCompleteMessage", { path: destPath })
+        );
+      }
+    } catch (error) {
+      console.error("Error exporting logs:", error);
+      Alert.alert(t("appSettings.logs.exportError"));
+    } finally {
+      setIsExportingLogs(false);
     }
   };
 
@@ -678,44 +720,6 @@ export default function UnifiedCacheSettings() {
             <ThemedText
               style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
             >
-              {t("appSettings.notifications.markAsReadOnView")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.settingDescription,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("appSettings.notifications.markAsReadOnViewDescription")}
-            </ThemedText>
-          </View>
-        </View>
-        <Switch
-          value={!!settings.notificationsPreferences?.markAsReadOnView}
-          onValueChange={setMarkAsReadOnView}
-          thumbColor={
-            !!settings.notificationsPreferences?.markAsReadOnView
-              ? Colors[colorScheme].tint
-              : Colors[colorScheme].textSecondary
-          }
-          trackColor={{
-            false: Colors[colorScheme].border,
-            true: Colors[colorScheme].tint + "40",
-          }}
-        />
-      </View>
-
-      <View
-        style={[
-          styles.settingRow,
-          { backgroundColor: Colors[colorScheme].backgroundCard },
-        ]}
-      >
-        <View style={styles.settingInfo}>
-          <View style={styles.settingTextContainer}>
-            <ThemedText
-              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
-            >
               {t("appSettings.notifications.unencryptOnBigPayload")}
             </ThemedText>
             <ThemedText
@@ -743,7 +747,7 @@ export default function UnifiedCacheSettings() {
         />
       </View>
 
-      {/* Import/Export Section */}
+      {/* Advanced Section */}
       <View style={styles.sectionHeader}>
         <ThemedText
           style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}
@@ -762,6 +766,35 @@ export default function UnifiedCacheSettings() {
 
       <View style={styles.importExportContainer}>
         {/* Export Button */}
+        {/* Import Button (moved first) */}
+        <TouchableOpacity
+          style={[
+            styles.importExportButton,
+            { backgroundColor: Colors[colorScheme].success },
+            isImporting && styles.importExportButtonDisabled,
+          ]}
+          onPress={handleImportNotifications}
+          disabled={isExporting || isImporting}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={isImporting ? "hourglass" : "cloud-upload"}
+            size={20}
+            color="#fff"
+            style={styles.importExportButtonIcon}
+          />
+          <View style={styles.importExportButtonTextContainer}>
+            <ThemedText style={styles.importExportButtonText}>
+              {isImporting
+                ? t("common.importing")
+                : t("appSettings.gqlCache.importExport.importButton")}
+            </ThemedText>
+            <ThemedText style={styles.importExportButtonDescription}>
+              {t("appSettings.gqlCache.importExport.importDescription")}
+            </ThemedText>
+          </View>
+        </TouchableOpacity>
+        {/* Logging toggle */}
         <TouchableOpacity
           style={[
             styles.importExportButton,
@@ -819,34 +852,66 @@ export default function UnifiedCacheSettings() {
           </View>
         </TouchableOpacity>
 
-        {/* Import Button */}
+        
+
+        {/* Export Logs Button */}
         <TouchableOpacity
           style={[
             styles.importExportButton,
-            { backgroundColor: Colors[colorScheme].success },
-            isImporting && styles.importExportButtonDisabled,
+            { backgroundColor: Colors[colorScheme].tint },
+            isExportingLogs && styles.importExportButtonDisabled,
           ]}
-          onPress={handleImportNotifications}
-          disabled={isExporting || isImporting}
+          onPress={handleExportLogs}
+          disabled={isExportingLogs}
           activeOpacity={0.8}
         >
           <Ionicons
-            name={isImporting ? "hourglass" : "cloud-upload"}
+            name={isExportingLogs ? "hourglass" : "document-text"}
             size={20}
             color="#fff"
             style={styles.importExportButtonIcon}
           />
           <View style={styles.importExportButtonTextContainer}>
             <ThemedText style={styles.importExportButtonText}>
-              {isImporting
-                ? t("common.importing")
-                : t("appSettings.gqlCache.importExport.importButton")}
+              {isExportingLogs ? t("common.exporting") : t("appSettings.logs.exportButton")}
             </ThemedText>
             <ThemedText style={styles.importExportButtonDescription}>
-              {t("appSettings.gqlCache.importExport.importDescription")}
+              {t("appSettings.logs.exportDescription")}
             </ThemedText>
           </View>
         </TouchableOpacity>
+
+        {/* Logging toggle (moved last) */}
+        <View
+          style={[
+            styles.settingRow,
+            { backgroundColor: Colors[colorScheme].backgroundCard },
+          ]}
+        >
+          <View style={styles.settingInfo}>
+            <View style={styles.settingTextContainer}>
+              <ThemedText
+                style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
+              >
+                {t("appSettings.logs.dbLogsTitle")}
+              </ThemedText>
+              <ThemedText
+                style={[
+                  styles.settingDescription,
+                  { color: Colors[colorScheme].textSecondary },
+                ]}
+              >
+                {t("appSettings.logs.dbLogsDescription")}
+              </ThemedText>
+            </View>
+          </View>
+          <Switch
+            value={!!settings.logging?.enabled}
+            onValueChange={setLoggingEnabled}
+            thumbColor={!!settings.logging?.enabled ? Colors[colorScheme].tint : Colors[colorScheme].textSecondary}
+            trackColor={{ false: Colors[colorScheme].border, true: Colors[colorScheme].tint + "40" }}
+          />
+        </View>
       </View>
 
       {/* Cache Reset Modal */}

@@ -58,8 +58,8 @@
       "maxStoredTitle": "Notifiche massime da conservare",
       "maxStoredDescription": "Mantieni al massimo questo numero di notifiche nella cache locale",
       "importExport": {
-        "title": "Importa/Esporta Notifiche",
-        "description": "Backup o ripristino delle notifiche in cache",
+        "title": "Avanzate",
+        "description": "Strumenti avanzati e utilità",
         "exportButton": "Esporta Notifiche",
         "exportMetadataButton": "Esporta metadata",
         "importButton": "Importa Notifiche",
@@ -101,6 +101,15 @@
       "unencryptOnBigPayloadDescription": "Invia payload non cifrati quando superano una certa dimensione",
       "markAsReadOnView": "Segna come letta alla visualizzazione",
       "markAsReadOnViewDescription": "Le notifiche verranno segnate come lette non appena sono visibili a schermo"
+    },
+    "logs": {
+      "dbLogsTitle": "Logs su DB (ultime 24h)",
+      "dbLogsDescription": "Salva i log applicativi in una tabella locale per il debug",
+      "exportButton": "Esporta Log",
+      "exportDescription": "Esporta tutti i log presenti nel DB in un file JSON",
+      "exportComplete": "Esportazione Completata",
+      "exportCompleteMessage": "File salvato in: {{path}}",
+      "exportError": "Impossibile esportare i log"
     },
     "versions": {
       "title": "Informazioni Versione",

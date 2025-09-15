@@ -29,6 +29,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ApiConfigService } from "../services/api-config";
 import { AppProvider, useAppContext } from "../services/app-context";
 import { openSharedCacheDb } from "../services/media-cache-db";
+import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 
 type AlertButton = {
   text?: string;
@@ -170,6 +171,7 @@ function TermsGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     ApiConfigService.initialize();
+    installConsoleLoggerBridge();
     // Ensure shared cache DB and schema exist for NSE/NCE
     (async () => {
       try {
