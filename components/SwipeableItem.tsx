@@ -7,6 +7,7 @@ import {
   Dimensions,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import {
@@ -15,6 +16,14 @@ import {
   State,
 } from 'react-native-gesture-handler';
 import Icon from './ui/Icon';
+
+// Keep only one menu open at a time across all instances
+const menuCloseHandlers = new Set<() => void>();
+const closeAllMenus = () => {
+  menuCloseHandlers.forEach((fn) => {
+    try { fn(); } catch {}
+  });
+};
 
 const { width: screenWidth } = Dimensions.get('window');
 const SWIPE_THRESHOLD = screenWidth * 0.3; // 30% of screen width
@@ -60,6 +69,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   const [currentSwipeDirection, setCurrentSwipeDirection] = useState<'left' | 'right' | null>(null);
   const [showActionBackground, setShowActionBackground] = useState<{direction: 'left' | 'right', action: SwipeAction} | null>(null);
   const colorScheme = useColorScheme();
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
 
   // Listen to translateX changes to update swipe direction
   React.useEffect(() => {
@@ -199,6 +209,26 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     }
   };
   
+  const handleMenuActionPress = async (action?: SwipeAction) => {
+    if (!action) return;
+    setIsMenuVisible(false);
+    try {
+      await action.onPress();
+    } catch (error) {
+      console.error('Error during action:', error);
+      Alert.alert('Error', 'Could not complete the action');
+    }
+  };
+
+  // Register global closer for this instance
+  React.useEffect(() => {
+    const closer = () => setIsMenuVisible(false);
+    menuCloseHandlers.add(closer);
+    return () => {
+      menuCloseHandlers.delete(closer);
+    };
+  }, []);
+  
   return (
     <View style={[styles.container, { marginBottom, marginHorizontal }, containerStyle]}>
       {/* Full background overlay during active swipe or action */}
@@ -273,9 +303,52 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
             },
           ]}
         >
+          {/* Burger menu button */}
+          {(leftAction || rightAction) && (
+            <TouchableOpacity
+              style={styles.burgerButton}
+              onPress={() => {
+                if (isMenuVisible) {
+                  setIsMenuVisible(false);
+                } else {
+                  closeAllMenus();
+                  setIsMenuVisible(true);
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.burgerIcon}>⋮</Text>
+            </TouchableOpacity>
+          )}
           {children}
         </Animated.View>
       </PanGestureHandler>
+
+      {/* Inline dropdown menu */}
+      {isMenuVisible && (
+        <>
+          {/* overlay only within the item to close on outside click */}
+          <TouchableOpacity
+            style={styles.inlineOverlay}
+            activeOpacity={1}
+            onPress={() => setIsMenuVisible(false)}
+          />
+          <View style={[styles.dropdownContainer, { borderRadius }]}> 
+            {!!leftAction && (
+              <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuActionPress(leftAction)}>
+                <Icon name={leftAction.icon} size="xs" color={leftAction.backgroundColor} />
+                <Text style={styles.menuItemText} numberOfLines={1}>{leftAction.label}</Text>
+              </TouchableOpacity>
+            )}
+            {!!rightAction && (
+              <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuActionPress(rightAction)}>
+                <Icon name={rightAction.icon} size="xs" color={rightAction.backgroundColor} />
+                <Text style={styles.menuItemText} numberOfLines={1}>{rightAction.label}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </>
+      )}
     </View>
   );
 };
@@ -325,6 +398,75 @@ const styles = StyleSheet.create({
   contentContainer: {
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  burgerButton: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    zIndex: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  burgerIcon: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: 'bold',
+    lineHeight: 16,
+  },
+  inlineOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 48, // leave space so the burger remains clickable
+    bottom: 48,
+    zIndex: 1,
+  },
+  dropdownContainer: {
+    position: 'absolute',
+    right: 8,
+    bottom: 40, // place above the burger so it stays clickable
+    backgroundColor: '#fff',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.08)',
+    zIndex: 3,
+  },
+  colorIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 8,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+  },
+  menuItemText: {
+    fontSize: 13,
+    color: '#333',
+    marginLeft: 6,
+  },
+  cancelButton: {
+    marginTop: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: '#f4f4f4',
+  },
+  cancelText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
   },
 });
 
