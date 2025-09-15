@@ -4,14 +4,15 @@ import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useRouter } from "expo-router";
+import * as Clipboard from 'expo-clipboard';
 import React, { useState } from "react";
-import { StyleSheet, TouchableWithoutFeedback, View } from "react-native";
+import { Alert, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
 import BucketDeleteModal from "./BucketDeleteModal";
 import BucketIcon from "./BucketIcon";
-import IdWithCopyButton from "./IdWithCopyButton";
 import SwipeableItem from "./SwipeableItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
+import Icon from "./ui/Icon";
 
 interface SwipeableBucketItemProps {
   bucket: BucketWithDevicesFragment;
@@ -36,6 +37,13 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
 
   const editBucket = (bucketId: string) => {
     router.push(`/(mobile)/private/edit-bucket?bucketId=${bucketId}`);
+  };
+
+  const copyBucketId = async () => {
+    if (bucket.id && bucket.id !== "N/A") {
+      await Clipboard.setStringAsync(bucket.id);
+      Alert.alert("Copied!", t("buckets.item.bucketIdCopied"));
+    }
   };
 
   const deleteAction =
@@ -82,6 +90,16 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
               <ThemedText style={styles.itemName}>{bucket.name}</ThemedText>
             </View>
             <View style={styles.headerRight}>
+              <TouchableOpacity
+                style={[
+                  styles.copyIdButton,
+                  { backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary }
+                ]}
+                onPress={copyBucketId}
+                activeOpacity={0.7}
+              >
+                <Icon name="copy" size="sm" color={Colors[colorScheme ?? "light"].tabIconDefault} />
+              </TouchableOpacity>
               {isSharedWithMe && (
                 <View style={styles.sharedWithMeTag}>
                   <ThemedText style={styles.sharedWithMeText}>
@@ -97,13 +115,6 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
               👥 {getSharedUsersText()}
             </ThemedText>
           )}
-          <IdWithCopyButton
-            id={bucket.id}
-            label="ID"
-            copyMessage={t("buckets.item.bucketIdCopied")}
-            style={styles.bucketIdContainer}
-            valueStyle={styles.itemId}
-          />
         </ThemedView>
       </TouchableWithoutFeedback>
 
@@ -146,6 +157,12 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     alignItems: "flex-end",
+    gap: 8,
+  },
+  copyIdButton: {
+    padding: 6,
+    borderRadius: 6,
+    flexShrink: 0,
   },
   sharedWithMeTag: {
     backgroundColor: "#007AFF",
@@ -163,21 +180,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  // deviceInfo removed
   sharingInfo: {
     fontSize: 13,
     opacity: 0.8,
     marginBottom: 4,
     color: "#666",
-  },
-  itemId: {
-    fontSize: 11,
-    opacity: 0.7,
-    fontFamily: "monospace",
-    marginBottom: 4,
-  },
-  bucketIdContainer: {
-    marginBottom: 0,
   },
 });
 

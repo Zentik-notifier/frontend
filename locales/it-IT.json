@@ -446,6 +446,10 @@
     "noSessionsTitle": "Nessuna sessione attiva trovata",
     "noSessionsSubtext": "Questo normalmente non dovrebbe accadere",
     "deleteError": "Impossibile revocare la sessione",
+    "revokeAllOthers": "Revoca Tutte le Altre Sessioni",
+    "revokeAllOthersTitle": "Revoca Tutte le Altre Sessioni",
+    "revokeAllOthersMessage": "Sei sicuro di voler revocare tutte le sessioni tranne quella corrente? Verrai disconnesso da tutti gli altri dispositivi.",
+    "revokeAllOthersConfirm": "Revoca Tutte",
     "item": {
       "revoke": "Revoca",
       "revokeSessionTitle": "Revoca Sessione",

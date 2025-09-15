@@ -74,7 +74,7 @@ export default function NotificationsList({
   } = useAppContext();
 
   // Filter and sort notifications based on user settings
-  const { filteredNotifications, maxId } = useMemo(() => {
+  const { filteredNotifications } = useMemo(() => {
     let filtered = (notifications ?? []).filter((notification) => {
       return userSettings.shouldFilterNotification(
         notification,

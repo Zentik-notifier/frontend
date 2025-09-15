@@ -1211,6 +1211,10 @@ export interface TranslationKey {
     };
     noSessionsSubtext: string;
     noSessionsTitle: string;
+    revokeAllOthers: string;
+    revokeAllOthersConfirm: string;
+    revokeAllOthersMessage: string;
+    revokeAllOthersTitle: string;
     title: string;
   };
   webhooks: {

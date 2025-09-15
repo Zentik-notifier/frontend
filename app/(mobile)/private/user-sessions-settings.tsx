@@ -1,6 +1,8 @@
 import RefreshableScrollView from "@/components/RefreshableScrollView";
 import { UserSessionsSettings } from "@/components/UserSessionsSettings";
+import { ThemedView } from "@/components/ThemedView";
 import React, { useState } from "react";
+import { StyleSheet } from "react-native";
 
 export default function UserSessionsSettingsScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -12,10 +14,22 @@ export default function UserSessionsSettingsScreen() {
   };
 
   return (
-    <RefreshableScrollView onRefresh={handleRefresh}>
-      {(isRefreshing) => (
-        <UserSessionsSettings refreshing={isRefreshing || refreshing} />
-      )}
-    </RefreshableScrollView>
+    <ThemedView style={styles.container}>
+      <RefreshableScrollView style={styles.content} onRefresh={handleRefresh}>
+        {(isRefreshing) => (
+          <UserSessionsSettings refreshing={isRefreshing || refreshing} />
+        )}
+      </RefreshableScrollView>
+    </ThemedView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+});

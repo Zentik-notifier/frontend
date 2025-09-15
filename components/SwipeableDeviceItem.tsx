@@ -166,6 +166,7 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
         styles.swipeContent,
         { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
       ]}
+      marginBottom={4}
     >
       <TouchableWithoutFeedback>
         <View
@@ -372,7 +373,8 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
 
 const styles = StyleSheet.create({
   swipeContainer: {
-    marginVertical: 4,
+    // marginBottom handled by SwipeableItem marginBottom prop
+    // marginHorizontal handled by SwipeableItem marginHorizontal prop
   },
   swipeContent: {
     borderRadius: 12,

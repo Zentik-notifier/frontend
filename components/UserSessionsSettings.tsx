@@ -4,6 +4,7 @@ import {
   useGetUserSessionsQuery,
   usePublicAppConfigQuery,
   useRevokeSessionMutation,
+  useRevokeAllOtherSessionsMutation,
 } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
@@ -12,7 +13,7 @@ import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect } from "react";
-import { Alert, Image, StyleSheet, View } from "react-native";
+import { Alert, Image, StyleSheet, TouchableOpacity, View } from "react-native";
 import SwipeableItem from "./SwipeableItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
@@ -35,6 +36,7 @@ export function UserSessionsSettings({
 
   const { data, loading, refetch } = useGetUserSessionsQuery();
   const [revokeSession] = useRevokeSessionMutation();
+  const [revokeAllOtherSessions] = useRevokeAllOtherSessionsMutation();
   const { data: providersData } = usePublicAppConfigQuery();
   useEffect(() => setLoading(loading), [loading]);
 
@@ -56,6 +58,16 @@ export function UserSessionsSettings({
       refetch(); // Refresh the list
     } catch (error) {
       console.error("Error deleting session:", error);
+      Alert.alert(t("common.error"), t("userSessions.deleteError") as string);
+    }
+  };
+
+  const revokeAllOtherSessionsHandler = async () => {
+    try {
+      await revokeAllOtherSessions();
+      refetch(); // Refresh the list
+    } catch (error) {
+      console.error("Error revoking all other sessions:", error);
       Alert.alert(t("common.error"), t("userSessions.deleteError") as string);
     }
   };
@@ -164,6 +176,8 @@ export function UserSessionsSettings({
               }
             : undefined
         }
+        marginBottom={12}
+        borderRadius={12}
       >
         <ThemedView
           style={[
@@ -290,6 +304,46 @@ export function UserSessionsSettings({
         {t("userSessions.description") as string}
       </ThemedText>
 
+      {sortedSessions.length > 1 && (
+        <TouchableOpacity
+          style={[
+            styles.revokeAllButton,
+            {
+              backgroundColor: Colors[colorScheme ?? "light"].buttonError,
+              borderColor: Colors[colorScheme ?? "light"].buttonError,
+            },
+          ]}
+          onPress={() => {
+            Alert.alert(
+              t("userSessions.revokeAllOthersTitle") as string,
+              t("userSessions.revokeAllOthersMessage") as string,
+              [
+                {
+                  text: t("common.cancel") as string,
+                  style: "cancel",
+                },
+                {
+                  text: t("userSessions.revokeAllOthersConfirm") as string,
+                  style: "destructive",
+                  onPress: revokeAllOtherSessionsHandler,
+                },
+              ]
+            );
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name="log-out-outline"
+            size={18}
+            color="#FFFFFF"
+            style={styles.revokeAllIcon}
+          />
+          <ThemedText style={styles.revokeAllText}>
+            {t("userSessions.revokeAllOthers") as string}
+          </ThemedText>
+        </TouchableOpacity>
+      )}
+
       {sortedSessions.length === 0 ? (
         <ThemedView style={styles.emptyState}>
           <Ionicons
@@ -316,7 +370,6 @@ export function UserSessionsSettings({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
   },
   header: {
     flexDirection: "row",
@@ -331,7 +384,25 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 14,
     opacity: 0.7,
+    marginBottom: 16,
+  },
+  revokeAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     marginBottom: 24,
+    gap: 8,
+  },
+  revokeAllIcon: {
+    marginRight: 4,
+  },
+  revokeAllText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
   emptyState: {
     flex: 1,
@@ -357,7 +428,6 @@ const styles = StyleSheet.create({
   sessionItem: {
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,

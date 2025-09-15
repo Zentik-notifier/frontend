@@ -446,6 +446,10 @@
     "noSessionsTitle": "No active sessions found",
     "noSessionsSubtext": "This shouldn't normally happen",
     "deleteError": "Failed to revoke session",
+    "revokeAllOthers": "Revoke All Other Sessions",
+    "revokeAllOthersTitle": "Revoke All Other Sessions",
+    "revokeAllOthersMessage": "Are you sure you want to revoke all sessions except the current one? You will be logged out from all other devices.",
+    "revokeAllOthersConfirm": "Revoke All",
     "item": {
       "revoke": "Revoke",
       "revokeSessionTitle": "Revoke Session",
