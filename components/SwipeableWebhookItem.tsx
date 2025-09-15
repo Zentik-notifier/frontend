@@ -9,15 +9,16 @@ import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { getHttpMethodColor } from "@/utils/webhookUtils";
 import { useRouter } from "expo-router";
+import * as Clipboard from 'expo-clipboard';
 import React from "react";
 import {
   Alert,
   StyleSheet,
   Text,
+  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import IdWithCopyButton from "./IdWithCopyButton";
 import SwipeableItem from "./SwipeableItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
@@ -42,6 +43,13 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
 
   const handleEditWebhook = (webhookId: string) => {
     router.push(`/(mobile)/private/edit-webhook?webhookId=${webhookId}`);
+  };
+
+  const copyWebhookId = async () => {
+    if (webhook.id && webhook.id !== "N/A") {
+      await Clipboard.setStringAsync(webhook.id);
+      Alert.alert("Copied!", "Webhook ID copied");
+    }
   };
 
   const deleteWebhook = async (webhookId: string) => {
@@ -86,7 +94,11 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
     : undefined;
 
   return (
-    <SwipeableItem rightAction={deleteAction}>
+    <SwipeableItem 
+      rightAction={deleteAction}
+      marginBottom={8}
+      borderRadius={12}
+    >
       <TouchableWithoutFeedback onPress={() => handleEditWebhook(webhook.id)}>
         <ThemedView
           style={[
@@ -113,6 +125,16 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
                 </ThemedText>
               </View>
             </View>
+            <TouchableOpacity
+              style={[
+                styles.copyIdButton,
+                { backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary }
+              ]}
+              onPress={copyWebhookId}
+              activeOpacity={0.7}
+            >
+              <Icon name="copy" size="sm" color={Colors[colorScheme ?? "light"].tabIconDefault} />
+            </TouchableOpacity>
           </View>
 
           {webhook.headers && webhook.headers.length > 0 && (
@@ -132,14 +154,6 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
           <ThemedText style={styles.itemDetail}>
             Created: {formatDate(webhook.createdAt)}
           </ThemedText>
-
-          <IdWithCopyButton
-            id={webhook.id}
-            label="Webhook ID"
-            copyMessage="Webhook ID copied"
-            style={styles.webhookIdContainer}
-            valueStyle={styles.itemId}
-          />
         </ThemedView>
       </TouchableWithoutFeedback>
     </SwipeableItem>
@@ -149,7 +163,6 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
 const styles = StyleSheet.create({
   itemCard: {
     padding: 16,
-    marginBottom: 8,
     borderRadius: 12,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -161,6 +174,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
+  },
+  copyIdButton: {
+    padding: 6,
+    borderRadius: 6,
+    flexShrink: 0,
   },
   itemInfo: {
     flexDirection: "row",
@@ -206,15 +224,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     opacity: 0.7,
     marginBottom: 4,
-  },
-  itemId: {
-    fontSize: 11,
-    opacity: 0.7,
-    fontFamily: "monospace",
-    marginBottom: 4,
-  },
-  webhookIdContainer: {
-    marginBottom: 0,
   },
 });
 
