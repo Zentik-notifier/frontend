@@ -670,6 +670,45 @@ export default function UnifiedCacheSettings() {
         />
       </View>
 
+      {/* Mark as read on view setting */}
+      <View
+        style={[
+          styles.settingRow,
+          { backgroundColor: Colors[colorScheme].backgroundCard },
+        ]}
+      >
+        <View style={styles.settingInfo}>
+          <View style={styles.settingTextContainer}>
+            <ThemedText
+              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
+            >
+              {t("appSettings.notifications.markAsReadOnView")}
+            </ThemedText>
+            <ThemedText
+              style={[
+                styles.settingDescription,
+                { color: Colors[colorScheme].textSecondary },
+              ]}
+            >
+              {t("appSettings.notifications.markAsReadOnViewDescription")}
+            </ThemedText>
+          </View>
+        </View>
+        <Switch
+          value={!!settings.notificationsPreferences?.markAsReadOnView}
+          onValueChange={setMarkAsReadOnView}
+          thumbColor={
+            !!settings.notificationsPreferences?.markAsReadOnView
+              ? Colors[colorScheme].tint
+              : Colors[colorScheme].textSecondary
+          }
+          trackColor={{
+            false: Colors[colorScheme].border,
+            true: Colors[colorScheme].tint + "40",
+          }}
+        />
+      </View>
+
       {/* Notifications preferences */}
       <View
         style={[
