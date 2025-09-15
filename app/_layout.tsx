@@ -172,14 +172,15 @@ function TermsGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     ApiConfigService.initialize();
     installConsoleLoggerBridge();
-    // Ensure shared cache DB and schema exist for NSE/NCE
-    (async () => {
-      try {
-        await openSharedCacheDb();
-      } catch (e) {
-        console.warn("[Bootstrap] Failed to init shared cache DB:", e);
-      }
-    })();
+    setTimeout(() => {
+      (async () => {
+        try {
+          await openSharedCacheDb();
+        } catch (e) {
+          console.warn("[Bootstrap] Failed to init shared cache DB:", e);
+        }
+      })();
+    }, 0);
     // Simulate loading state for compatibility
     const timer = setTimeout(() => setLoading(false), 100);
     return () => clearTimeout(timer);

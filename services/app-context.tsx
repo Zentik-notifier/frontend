@@ -304,10 +304,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const funct = async () => {
       try {
-        const accessToken = await getAccessToken();
-        const refreshToken = await getRefreshToken();
-        const lastUserId = await getLastUserId();
-        setLastUserId(lastUserId);
+        const [accessToken, refreshToken, storedLastUserId] = await Promise.all([
+          getAccessToken(),
+          getRefreshToken(),
+          getLastUserId(),
+        ]);
+        setLastUserId(storedLastUserId);
         if (accessToken && refreshToken) {
           await completeAuth(accessToken, refreshToken);
         } else {
@@ -331,19 +333,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loading: notificationsLoading,
   } = useFetchNotifications();
 
+  // Debounced foreground refresh to avoid heavy work immediately on resume
+  const debouncedForegroundRefresh = useDebounce(async () => {
+    try {
+      await mediaCache.reloadMetadata();
+      await refetchNotifications();
+    } catch (error) {
+      console.warn("⚠️ Failed to refresh notifications on foreground:", error);
+    }
+  }, 1000);
+
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
-        console.log("📱 App became active - refreshing notifications");
-        try {
-          await mediaCache.reloadMetadata();
-          await refetchNotifications();
-        } catch (error) {
-          console.warn(
-            "⚠️ Failed to refresh notifications on foreground:",
-            error
-          );
-        }
+        console.log("📱 App became active - scheduling refresh");
+        debouncedForegroundRefresh();
       }
     };
 
@@ -352,7 +356,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       handleAppStateChange
     );
     return () => subscription?.remove();
-  }, [userId, refetchNotifications]);
+  }, [userId, refetchNotifications, debouncedForegroundRefresh]);
 
   // Debounced refetch to avoid excessive requests from multiple subscription events
   const debouncedRefetchBuckets = useDebounce(() => {
