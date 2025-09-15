@@ -620,7 +620,10 @@
     "oneMonth": "1 Mese",
     "activeFilters": "{{count}} filtro attivo",
     "activeFiltersPlural": "{{count}} filtri attivi",
-    "prefetchPages": "Pagine da precaricare"
+    "prefetchPages": "Pagine da precaricare",
+    "loadOnlyVisible": "Carica solo elementi visibili",
+    "loadOnlyVisibleDescription": "Carica i media solo per le notifiche visibili per migliorare le performance",
+    "performance": "Performance"
   },
   "swipeActions": {
     "delete": {

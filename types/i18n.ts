@@ -575,7 +575,10 @@ export interface TranslationKey {
     activeFiltersPlural: string;
     bucket: string;
     clearAll: string;
+    performance: string;
     prefetchPages: string;
+    loadOnlyVisible: string;
+    loadOnlyVisibleDescription: string;
     hideOlderThan: string;
     hideRead: string;
     hideReadDescription: string;

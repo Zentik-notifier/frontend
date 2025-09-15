@@ -281,6 +281,7 @@ export default function NotificationFiltersModal({
                   {t("filters.withMediaDescription")}
                 </ThemedText>
               </TouchableOpacity>
+
             </ThemedView>
           </ThemedView>
 
@@ -417,14 +418,20 @@ export default function NotificationFiltersModal({
             </ThemedView>
           </ThemedView>
 
-          {/* Prefetch Pages */}
+          {/* Performance Section */}
           <ThemedView style={styles.section}>
             <ThemedText
               style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}
             >
+              {t("filters.performance")}
+            </ThemedText>
+            {/* Prefetch Pages */}
+            <ThemedText
+              style={[styles.settingLabel, { color: Colors[colorScheme].text }]}
+            >
               {t("filters.prefetchPages")}
             </ThemedText>
-            <ThemedView style={{ gap: 8 }}>
+            <ThemedView style={{ gap: 8, marginBottom: 12 }}>
               <SimpleSlider
                 value={settings.notificationFilters.pagesToPreload}
                 min={3}
@@ -433,6 +440,51 @@ export default function NotificationFiltersModal({
                 onChange={(v) => setPagesToPreload?.(v)}
               />
             </ThemedView>
+
+            {/* Load Only Visible Toggle */}
+            <TouchableOpacity
+              style={[
+                styles.quickFilter,
+                {
+                  borderColor: Colors[colorScheme].border,
+                  backgroundColor: filters.loadOnlyVisible
+                    ? Colors[colorScheme].selected
+                    : Colors[colorScheme].backgroundCard,
+                },
+              ]}
+              onPress={() => setNotificationFilters({ loadOnlyVisible: !filters.loadOnlyVisible })}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={filters.loadOnlyVisible ? "speedometer" : "speedometer-outline"}
+                size={20}
+                color={
+                  filters.loadOnlyVisible
+                    ? Colors[colorScheme].tint
+                    : Colors[colorScheme].textSecondary
+                }
+              />
+              <ThemedText
+                style={[
+                  styles.quickFilterText,
+                  {
+                    color: filters.loadOnlyVisible
+                      ? Colors[colorScheme].tint
+                      : Colors[colorScheme].text,
+                  },
+                ]}
+              >
+                {t("filters.loadOnlyVisible")}
+              </ThemedText>
+              <ThemedText
+                style={[
+                  styles.quickFilterDescription,
+                  { color: Colors[colorScheme].textSecondary },
+                ]}
+              >
+                {t("filters.loadOnlyVisibleDescription")}
+              </ThemedText>
+            </TouchableOpacity>
           </ThemedView>
         </ScrollView>
 
@@ -534,6 +586,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     marginBottom: 12,
+  },
+  settingLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 8,
   },
   quickFiltersGrid: {
     gap: 12,

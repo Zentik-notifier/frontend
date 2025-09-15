@@ -67,6 +67,7 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
             mediaCache: {
               downloadSettings: { autoDownloadEnabled },
             },
+            notificationFilters: { loadOnlyVisible },
           },
         },
       } = useAppContext();
@@ -410,7 +411,7 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
                               },
                         ]}
                       >
-                        {isItemVisible && (
+                        {(isItemVisible || !loadOnlyVisible) && (
                           <CachedMedia
                             notificationDate={new Date(
                               notification.createdAt

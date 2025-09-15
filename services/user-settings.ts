@@ -43,6 +43,8 @@ export interface NotificationFilters {
   showOnlyWithAttachments: boolean;
   /** Number of additional pages to preload (pagination prefetch) */
   pagesToPreload: number;
+  /** Load media only for items visible on screen (virtualized) */
+  loadOnlyVisible: boolean;
 }
 
 export type DateFormatStyle = 'short' | 'medium' | 'long';
@@ -140,6 +142,7 @@ const DEFAULT_SETTINGS: UserSettings = {
     sortBy: 'newest',
     showOnlyWithAttachments: false,
     pagesToPreload: 5,
+    loadOnlyVisible: false,
   },
   notificationsPreferences: {
     addIconOnNoMedias: false,
@@ -630,15 +633,11 @@ class UserSettingsService {
    * Private method to merge stored settings with defaults
    */
   private mergeWithDefaults(stored: Partial<UserSettings>): UserSettings {
-    // Ensure we keep using hideRead
     let notificationFilters = { ...DEFAULT_SETTINGS.notificationFilters };
     if (stored.notificationFilters) {
       notificationFilters = {
         ...notificationFilters,
         ...stored.notificationFilters,
-        pagesToPreload: typeof stored.notificationFilters.pagesToPreload === 'number'
-          ? stored.notificationFilters.pagesToPreload
-          : notificationFilters.pagesToPreload,
       };
     }
 
@@ -655,6 +654,7 @@ class UserSettingsService {
       },
       notificationsLastSeenId: stored.notificationsLastSeenId || DEFAULT_SETTINGS.notificationsLastSeenId,
       notificationFilters,
+      // no notificationSettings (flattened into filters)
       notificationsPreferences: {
         addIconOnNoMedias:
           stored.notificationsPreferences?.addIconOnNoMedias ?? DEFAULT_SETTINGS.notificationsPreferences!.addIconOnNoMedias,
@@ -934,11 +934,11 @@ export function useUserSettings() {
     setMaxCachedNotifications: userSettings.setMaxCachedNotifications.bind(userSettings),
     setAddIconOnNoMedias: async (v: boolean) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { addIconOnNoMedias: false, unencryptOnBigPayload: false }), addIconOnNoMedias: v } });
-      try { await upsertUserSetting({ variables: { input: { configType: UserSettingType.AddIconOnNoMedias, valueBool: v } } }); } catch {}
+      try { await upsertUserSetting({ variables: { input: { configType: UserSettingType.AddIconOnNoMedias, valueBool: v } } }); } catch { }
     },
     setUnencryptOnBigPayload: async (v: boolean) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { addIconOnNoMedias: false, unencryptOnBigPayload: false }), unencryptOnBigPayload: v } });
-      try { await upsertUserSetting({ variables: { input: { configType: UserSettingType.UnencryptOnBigPayload, valueBool: v } } }); } catch {}
+      try { await upsertUserSetting({ variables: { input: { configType: UserSettingType.UnencryptOnBigPayload, valueBool: v } } }); } catch { }
     },
     resetSettings: userSettings.resetSettings.bind(userSettings),
     resetSection: userSettings.resetSection.bind(userSettings),
