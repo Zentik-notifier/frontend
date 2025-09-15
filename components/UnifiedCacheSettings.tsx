@@ -12,7 +12,7 @@ import { MediaCacheRepository } from "@/services/media-cache-repository";
 import { Ionicons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Platform,
@@ -34,6 +34,31 @@ export default function UnifiedCacheSettings() {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isExportingMetadata, setIsExportingMetadata] = useState(false);
+
+  const [localMaxCacheSizeMB, setLocalMaxCacheSizeMB] = useState<string>(
+    settings.mediaCache.retentionPolicies?.maxCacheSizeMB?.toString() || ""
+  );
+  const [localMaxCacheAgeDays, setLocalMaxCacheAgeDays] = useState<string>(
+    settings.mediaCache.retentionPolicies?.maxCageAgeDays?.toString() || ""
+  );
+  const [localMaxNotifications, setLocalMaxNotifications] = useState<string>(
+    (settings.maxCachedNotifications ?? 500).toString()
+  );
+
+  // Sync when settings change externally
+  useEffect(() => {
+    setLocalMaxCacheSizeMB(
+      settings.mediaCache.retentionPolicies?.maxCacheSizeMB?.toString() || ""
+    );
+    setLocalMaxCacheAgeDays(
+      settings.mediaCache.retentionPolicies?.maxCageAgeDays?.toString() || ""
+    );
+    setLocalMaxNotifications((settings.maxCachedNotifications ?? 500).toString());
+  }, [
+    settings.mediaCache.retentionPolicies?.maxCacheSizeMB,
+    settings.mediaCache.retentionPolicies?.maxCageAgeDays,
+    settings.maxCachedNotifications,
+  ]);
 
   const { cacheStats } = useGetCacheStats();
   const { exportNotifications, importNotifications } =
@@ -464,15 +489,16 @@ export default function UnifiedCacheSettings() {
               borderColor: Colors[colorScheme].border,
             },
           ]}
-          value={retentionPolicies?.maxCacheSizeMB?.toString() || ""}
+          value={localMaxCacheSizeMB}
           onChangeText={(text) => {
+            setLocalMaxCacheSizeMB(text);
             if (text.trim() === "") {
               updateMediaCacheRetentionPolicies({ maxCacheSizeMB: undefined });
-            } else {
-              const value = parseInt(text, 10);
-              if (!Number.isNaN(value) && value >= 0 && value <= 10000) {
-                updateMediaCacheRetentionPolicies({ maxCacheSizeMB: value });
-              }
+              return;
+            }
+            const value = parseInt(text, 10);
+            if (!Number.isNaN(value) && value >= 0 && value <= 10000) {
+              updateMediaCacheRetentionPolicies({ maxCacheSizeMB: value });
             }
           }}
           keyboardType="numeric"
@@ -512,15 +538,16 @@ export default function UnifiedCacheSettings() {
               borderColor: Colors[colorScheme].border,
             },
           ]}
-          value={retentionPolicies?.maxCageAgeDays?.toString() || ""}
+          value={localMaxCacheAgeDays}
           onChangeText={(text) => {
+            setLocalMaxCacheAgeDays(text);
             if (text.trim() === "") {
               updateMediaCacheRetentionPolicies({ maxCageAgeDays: undefined });
-            } else {
-              const value = parseInt(text, 10);
-              if (!Number.isNaN(value) && value >= 0 && value <= 365) {
-                updateMediaCacheRetentionPolicies({ maxCageAgeDays: value });
-              }
+              return;
+            }
+            const value = parseInt(text, 10);
+            if (!Number.isNaN(value) && value >= 0 && value <= 365) {
+              updateMediaCacheRetentionPolicies({ maxCageAgeDays: value });
             }
           }}
           keyboardType="numeric"
@@ -577,8 +604,9 @@ export default function UnifiedCacheSettings() {
               borderColor: Colors[colorScheme].border,
             },
           ]}
-          value={maxCachedNotifications?.toString() || "500"}
+          value={localMaxNotifications}
           onChangeText={async (text) => {
+            setLocalMaxNotifications(text);
             if (text.trim() === "") {
               await setMaxCachedNotifications(undefined);
               return;
@@ -778,6 +806,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   sectionHeader: {
+    marginTop: 16,
     marginBottom: 16,
   },
   sectionTitle: {
