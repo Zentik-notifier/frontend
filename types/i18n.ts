@@ -56,6 +56,13 @@ export interface TranslationKey {
     errorLoadingUsers: string;
     failedToLoadUsers: string;
     failedToUpdateUserRole: string;
+    userRoleUpdatedSuccessfully: string;
+    userDetails: string;
+    userId: string;
+    userNotificationStats: string;
+    loadingStats: string;
+    noStatsAvailable: string;
+    userNotFound: string;
     joined: string;
     loadingUsers: string;
     logs: string;
@@ -1175,6 +1182,11 @@ export interface TranslationKey {
     lastNamePlaceholder: string;
     localUser: string;
     logout: string;
+    notificationStats: string;
+    today: string;
+    thisWeek: string;
+    thisMonth: string;
+    total: string;
     noDataAvailable: string;
     notAvailable: string;
     notSet: string;

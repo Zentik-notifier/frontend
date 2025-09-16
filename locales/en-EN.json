@@ -221,7 +221,12 @@
     "accountDeletedTitle": "Account Deleted",
     "accountDeletedMessage": "Your account has been successfully deleted.",
     "currentSessionProvider": "Current Session Provider",
-    "localUser": "Local User"
+    "localUser": "Local User",
+    "notificationStats": "Notification Statistics",
+    "today": "Today",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "total": "Total"
   },
   "buckets": {
     "title": "Buckets",
@@ -1053,6 +1058,13 @@
     "joined": "Joined {{date}}",
     "error": "Error",
     "failedToUpdateUserRole": "Failed to update user role",
+    "userRoleUpdatedSuccessfully": "User role updated successfully",
+    "userDetails": "User Details",
+    "userId": "User ID",
+    "userNotificationStats": "User Notification Statistics",
+    "loadingStats": "Loading statistics...",
+    "noStatsAvailable": "No statistics available",
+    "userNotFound": "User not found",
     "systemSettings": "System Settings",
     "systemTokensTitle": "System Access Tokens",
     "systemTokensDescription": "Manage system API tokens",

@@ -22,6 +22,7 @@ import {
 } from "../generated/gql-operations-generated";
 import { useAppContext } from "../services/app-context";
 import IdWithCopyButton from "./IdWithCopyButton";
+import NotificationStats from "./NotificationStats";
 import OAuthConnections from "./OAuthConnections";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
@@ -411,6 +412,9 @@ export default function UserSection({
 
       {/* OAuth Connections Section */}
       <OAuthConnections identities={user.identities} />
+
+      {/* Notification Statistics Section */}
+      <NotificationStats refreshing={externalRefreshing} />
 
       {/* User ID Section */}
       <ThemedView

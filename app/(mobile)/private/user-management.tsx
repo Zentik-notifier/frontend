@@ -23,6 +23,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { router } from "expo-router";
 
 interface UserListItemProps {
   user: UserFragment;
@@ -40,69 +41,6 @@ const UserListItem: React.FC<UserListItemProps> = ({
   const { t } = useI18n();
   const isCurrentUser = user.id === currentUserId;
 
-  const handleRoleToggle = () => {
-    if (isCurrentUser) {
-      Alert.alert(
-        t("administration.cannotModifyOwnRole"),
-        t("administration.cannotModifyOwnRoleMessage")
-      );
-      return;
-    }
-
-    // Show role selection menu
-    const roleOptions = [
-      { title: getUserRoleDisplayName(UserRole.User), value: UserRole.User },
-      {
-        title: getUserRoleDisplayName(UserRole.Moderator),
-        value: UserRole.Moderator,
-      },
-      { title: getUserRoleDisplayName(UserRole.Admin), value: UserRole.Admin },
-    ];
-
-    const currentRoleIndex = roleOptions.findIndex(
-      (role) => role.value === user.role
-    );
-    const otherRoles = roleOptions.filter(
-      (_, index) => index !== currentRoleIndex
-    );
-
-    const buttons = [
-      ...otherRoles.map((role) => ({
-        text: role.title,
-        onPress: () => confirmRoleChange(user, role.value),
-      })),
-      { text: t("common.cancel"), style: "cancel" as const },
-    ];
-
-    Alert.alert(
-      t("administration.changeUserRole"),
-      `${t("administration.currentRole", {
-        role: getUserRoleDisplayName(user.role),
-      })}\n${t("administration.selectNewRole", {
-        user: user.username || user.email,
-      })}`,
-      buttons
-    );
-  };
-
-  const confirmRoleChange = (user: UserFragment, newRole: UserRole) => {
-    Alert.alert(
-      t("administration.confirmRoleChange"),
-      t("administration.confirmRoleChangeMessage", {
-        user: user.username || user.email,
-        currentRole: getUserRoleDisplayName(user.role),
-        newRole: getUserRoleDisplayName(newRole),
-      }),
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        {
-          text: t("administration.confirm"),
-          style: "destructive",
-          onPress: () => onUserRoleUpdate(user.id, newRole),
-        },
-      ]
-    );
-  };
 
   const getUserRoleDisplayName = (role: UserRole): string => {
     switch (role) {
@@ -198,16 +136,14 @@ const UserListItem: React.FC<UserListItemProps> = ({
             {
               backgroundColor: Colors[colorScheme].backgroundCard,
               borderColor: Colors[colorScheme].border,
-              opacity: isCurrentUser ? 0.5 : 1,
             },
           ]}
-          onPress={handleRoleToggle}
-          disabled={isCurrentUser}
+          onPress={() => router.push(`/(mobile)/private/user-details?userId=${user.id}`)}
         >
           <Icon
-            name="settings"
+            name="view"
             size="sm"
-            color={isCurrentUser ? "secondary" : "primary"}
+            color="primary"
           />
         </TouchableOpacity>
       </View>

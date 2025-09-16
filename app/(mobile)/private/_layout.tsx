@@ -71,6 +71,7 @@ export default function PrivateLayout() {
       {/* ADMIN */}
       <Stack.Screen name="admin" options={{ headerShown: true }} />
       <Stack.Screen name="user-management" options={{ headerShown: true }} />
+      <Stack.Screen name="user-details" options={{ headerShown: true }} />
       <Stack.Screen
         name="system-access-tokens"
         options={{ headerShown: true }}

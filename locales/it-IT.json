@@ -221,7 +221,12 @@
     "accountDeletedTitle": "Account Eliminato",
     "accountDeletedMessage": "Il tuo account è stato eliminato con successo.",
     "currentSessionProvider": "Provider Sessione Corrente",
-    "localUser": "Utente Locale"
+    "localUser": "Utente Locale",
+    "notificationStats": "Statistiche Notifiche",
+    "today": "Oggi",
+    "thisWeek": "Questa Settimana",
+    "thisMonth": "Questo Mese",
+    "total": "Totale"
   },
   "buckets": {
     "title": "Bucket",
@@ -1053,6 +1058,13 @@
     "joined": "Iscritto il {{date}}",
     "error": "Errore",
     "failedToUpdateUserRole": "Impossibile aggiornare il ruolo utente",
+    "userRoleUpdatedSuccessfully": "Ruolo utente aggiornato con successo",
+    "userDetails": "Dettagli Utente",
+    "userId": "ID Utente",
+    "userNotificationStats": "Statistiche Notifiche Utente",
+    "loadingStats": "Caricamento statistiche...",
+    "noStatsAvailable": "Nessuna statistica disponibile",
+    "userNotFound": "Utente non trovato",
     "systemSettings": "Impostazioni Sistema",
     "systemTokensTitle": "Token di Sistema",
     "systemTokensDescription": "Gestisci i token API di sistema",

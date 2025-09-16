@@ -931,3 +931,23 @@ query GetEventsByObject($objectId: String!) {
 query GetEventCount {
   eventCount
 }
+
+# User Notification Statistics
+query UserNotificationStats {
+  userNotificationStats {
+    today
+    thisWeek
+    thisMonth
+    total
+  }
+}
+
+# Admin: Get user notification statistics by userId
+query UserNotificationStatsByUserId($userId: String!) {
+  userNotificationStats(userId: $userId) {
+    today
+    thisWeek
+    thisMonth
+    total
+  }
+}

@@ -195,6 +195,7 @@ export type EntityPermission = {
 export type Event = {
   __typename?: 'Event';
   createdAt: Scalars['DateTime']['output'];
+  deviceId: Maybe<Scalars['String']['output']>;
   id: Scalars['String']['output'];
   objectId: Maybe<Scalars['String']['output']>;
   type: EventType;
@@ -721,6 +722,37 @@ export enum NotificationServiceType {
   Push = 'PUSH'
 }
 
+export type NotificationsPerBucketUserAllTimeView = {
+  __typename?: 'NotificationsPerBucketUserAllTimeView';
+  bucketId: Scalars['String']['output'];
+  count: Scalars['Float']['output'];
+  userId: Scalars['String']['output'];
+};
+
+export type NotificationsPerBucketUserDailyView = {
+  __typename?: 'NotificationsPerBucketUserDailyView';
+  bucketId: Scalars['String']['output'];
+  count: Scalars['Float']['output'];
+  periodStart: Scalars['DateTime']['output'];
+  userId: Scalars['String']['output'];
+};
+
+export type NotificationsPerBucketUserMonthlyView = {
+  __typename?: 'NotificationsPerBucketUserMonthlyView';
+  bucketId: Scalars['String']['output'];
+  count: Scalars['Float']['output'];
+  periodStart: Scalars['DateTime']['output'];
+  userId: Scalars['String']['output'];
+};
+
+export type NotificationsPerBucketUserWeeklyView = {
+  __typename?: 'NotificationsPerBucketUserWeeklyView';
+  bucketId: Scalars['String']['output'];
+  count: Scalars['Float']['output'];
+  periodStart: Scalars['DateTime']['output'];
+  userId: Scalars['String']['output'];
+};
+
 export type OAuthProvider = {
   __typename?: 'OAuthProvider';
   additionalConfig: Maybe<Scalars['String']['output']>;
@@ -837,12 +869,17 @@ export type Query = {
   notification: Notification;
   notificationServices: Array<NotificationServiceInfo>;
   notifications: Array<Notification>;
+  notificationsPerBucketUserAllTime: Maybe<NotificationsPerBucketUserAllTimeView>;
+  notificationsPerBucketUserDaily: Array<NotificationsPerBucketUserDailyView>;
+  notificationsPerBucketUserMonthly: Array<NotificationsPerBucketUserMonthlyView>;
+  notificationsPerBucketUserWeekly: Array<NotificationsPerBucketUserWeeklyView>;
   oauthProvider: OAuthProvider;
   payloadMapper: PayloadMapper;
   payloadMappers: Array<PayloadMapperWithBuiltin>;
   publicAppConfig: PublicAppConfig;
   userDevice: Maybe<UserDevice>;
   userDevices: Array<UserDevice>;
+  userNotificationStats: UserNotificationStats;
   userSettings: Array<UserSetting>;
   userWebhooks: Array<UserWebhook>;
   users: Array<User>;
@@ -895,6 +932,36 @@ export type QueryNotificationArgs = {
 };
 
 
+export type QueryNotificationsPerBucketUserAllTimeArgs = {
+  bucketId: Scalars['String']['input'];
+  userId: Scalars['String']['input'];
+};
+
+
+export type QueryNotificationsPerBucketUserDailyArgs = {
+  bucketId: Scalars['String']['input'];
+  endDate?: InputMaybe<Scalars['DateTime']['input']>;
+  startDate?: InputMaybe<Scalars['DateTime']['input']>;
+  userId: Scalars['String']['input'];
+};
+
+
+export type QueryNotificationsPerBucketUserMonthlyArgs = {
+  bucketId: Scalars['String']['input'];
+  endDate?: InputMaybe<Scalars['DateTime']['input']>;
+  startDate?: InputMaybe<Scalars['DateTime']['input']>;
+  userId: Scalars['String']['input'];
+};
+
+
+export type QueryNotificationsPerBucketUserWeeklyArgs = {
+  bucketId: Scalars['String']['input'];
+  endDate?: InputMaybe<Scalars['DateTime']['input']>;
+  startDate?: InputMaybe<Scalars['DateTime']['input']>;
+  userId: Scalars['String']['input'];
+};
+
+
 export type QueryOauthProviderArgs = {
   id: Scalars['String']['input'];
 };
@@ -902,6 +969,11 @@ export type QueryOauthProviderArgs = {
 
 export type QueryPayloadMapperArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type QueryUserNotificationStatsArgs = {
+  userId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -1209,6 +1281,14 @@ export type UserIdentity = {
   updatedAt: Scalars['DateTime']['output'];
   user: User;
   userId: Scalars['String']['output'];
+};
+
+export type UserNotificationStats = {
+  __typename?: 'UserNotificationStats';
+  thisMonth: Scalars['Float']['output'];
+  thisWeek: Scalars['Float']['output'];
+  today: Scalars['Float']['output'];
+  total: Scalars['Float']['output'];
 };
 
 /** User role enum */
@@ -1917,6 +1997,18 @@ export type GetEventCountQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type GetEventCountQuery = { __typename?: 'Query', eventCount: number };
+
+export type UserNotificationStatsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type UserNotificationStatsQuery = { __typename?: 'Query', userNotificationStats: { __typename?: 'UserNotificationStats', today: number, thisWeek: number, thisMonth: number, total: number } };
+
+export type UserNotificationStatsByUserIdQueryVariables = Exact<{
+  userId: Scalars['String']['input'];
+}>;
+
+
+export type UserNotificationStatsByUserIdQuery = { __typename?: 'Query', userNotificationStats: { __typename?: 'UserNotificationStats', today: number, thisWeek: number, thisMonth: number, total: number } };
 
 export const MessageAttachmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageAttachmentFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MessageAttachment"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"saveOnServer"}}]}}]} as unknown as DocumentNode;
 export const NotificationActionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationActionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationAction"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"destructive"}}]}}]} as unknown as DocumentNode;
@@ -4513,3 +4605,70 @@ export type GetEventCountQueryHookResult = ReturnType<typeof useGetEventCountQue
 export type GetEventCountLazyQueryHookResult = ReturnType<typeof useGetEventCountLazyQuery>;
 export type GetEventCountSuspenseQueryHookResult = ReturnType<typeof useGetEventCountSuspenseQuery>;
 export type GetEventCountQueryResult = Apollo.QueryResult<GetEventCountQuery, GetEventCountQueryVariables>;
+export const UserNotificationStatsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserNotificationStats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userNotificationStats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"today"}},{"kind":"Field","name":{"kind":"Name","value":"thisWeek"}},{"kind":"Field","name":{"kind":"Name","value":"thisMonth"}},{"kind":"Field","name":{"kind":"Name","value":"total"}}]}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useUserNotificationStatsQuery__
+ *
+ * To run a query within a React component, call `useUserNotificationStatsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useUserNotificationStatsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useUserNotificationStatsQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useUserNotificationStatsQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<UserNotificationStatsQuery, UserNotificationStatsQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<UserNotificationStatsQuery, UserNotificationStatsQueryVariables>(UserNotificationStatsDocument, options);
+      }
+export function useUserNotificationStatsLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<UserNotificationStatsQuery, UserNotificationStatsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<UserNotificationStatsQuery, UserNotificationStatsQueryVariables>(UserNotificationStatsDocument, options);
+        }
+export function useUserNotificationStatsSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<UserNotificationStatsQuery, UserNotificationStatsQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<UserNotificationStatsQuery, UserNotificationStatsQueryVariables>(UserNotificationStatsDocument, options);
+        }
+export type UserNotificationStatsQueryHookResult = ReturnType<typeof useUserNotificationStatsQuery>;
+export type UserNotificationStatsLazyQueryHookResult = ReturnType<typeof useUserNotificationStatsLazyQuery>;
+export type UserNotificationStatsSuspenseQueryHookResult = ReturnType<typeof useUserNotificationStatsSuspenseQuery>;
+export type UserNotificationStatsQueryResult = Apollo.QueryResult<UserNotificationStatsQuery, UserNotificationStatsQueryVariables>;
+export const UserNotificationStatsByUserIdDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserNotificationStatsByUserId"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userNotificationStats"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"today"}},{"kind":"Field","name":{"kind":"Name","value":"thisWeek"}},{"kind":"Field","name":{"kind":"Name","value":"thisMonth"}},{"kind":"Field","name":{"kind":"Name","value":"total"}}]}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useUserNotificationStatsByUserIdQuery__
+ *
+ * To run a query within a React component, call `useUserNotificationStatsByUserIdQuery` and pass it any options that fit your needs.
+ * When your component renders, `useUserNotificationStatsByUserIdQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useUserNotificationStatsByUserIdQuery({
+ *   variables: {
+ *      userId: // value for 'userId'
+ *   },
+ * });
+ */
+export function useUserNotificationStatsByUserIdQuery(baseOptions: ApolloReactHooks.QueryHookOptions<UserNotificationStatsByUserIdQuery, UserNotificationStatsByUserIdQueryVariables> & ({ variables: UserNotificationStatsByUserIdQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<UserNotificationStatsByUserIdQuery, UserNotificationStatsByUserIdQueryVariables>(UserNotificationStatsByUserIdDocument, options);
+      }
+export function useUserNotificationStatsByUserIdLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<UserNotificationStatsByUserIdQuery, UserNotificationStatsByUserIdQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<UserNotificationStatsByUserIdQuery, UserNotificationStatsByUserIdQueryVariables>(UserNotificationStatsByUserIdDocument, options);
+        }
+export function useUserNotificationStatsByUserIdSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<UserNotificationStatsByUserIdQuery, UserNotificationStatsByUserIdQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<UserNotificationStatsByUserIdQuery, UserNotificationStatsByUserIdQueryVariables>(UserNotificationStatsByUserIdDocument, options);
+        }
+export type UserNotificationStatsByUserIdQueryHookResult = ReturnType<typeof useUserNotificationStatsByUserIdQuery>;
+export type UserNotificationStatsByUserIdLazyQueryHookResult = ReturnType<typeof useUserNotificationStatsByUserIdLazyQuery>;
+export type UserNotificationStatsByUserIdSuspenseQueryHookResult = ReturnType<typeof useUserNotificationStatsByUserIdSuspenseQuery>;
+export type UserNotificationStatsByUserIdQueryResult = Apollo.QueryResult<UserNotificationStatsByUserIdQuery, UserNotificationStatsByUserIdQueryVariables>;
