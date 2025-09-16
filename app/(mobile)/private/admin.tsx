@@ -80,6 +80,15 @@ export default function AdministrationScreen() {
       onPress: () => router.push("/(mobile)/private/system-access-tokens"),
       enabled: true,
     },
+    {
+      id: "events-review",
+      title: t("eventsReview.title"),
+      description: t("eventsReview.description"),
+      icon: "notebook",
+      iconColor: "#ef4444",
+      onPress: () => router.push("/(mobile)/private/events-review"),
+      enabled: true,
+    },
     // {
     //   id: "system",
     //   title: t("administration.systemSettings"),

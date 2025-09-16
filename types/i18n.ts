@@ -496,10 +496,12 @@ export interface TranslationKey {
   common: {
     actionError: string;
     actionFailed: string;
+    all: string;
     apply: string;
     back: string;
     backendUnreachable: string;
     cancel: string;
+    clear: string;
     close: string;
     colorPalette: string;
     copied: string;
@@ -1265,6 +1267,19 @@ export interface TranslationKey {
     noWebhooksTitle: string;
     title: string;
     updateErrorMessage: string;
+  };
+  eventsReview: {
+    title: string;
+    description: string;
+    filters: {
+      type: string;
+      userId: string;
+      objectId: string;
+    };
+    empty: {
+      title: string;
+      description: string;
+    };
   };
 }
 

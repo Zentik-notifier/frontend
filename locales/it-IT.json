@@ -703,7 +703,9 @@
     "customColor": "Colore Personalizzato",
     "hexColorCode": "Codice Colore Esadecimale",
     "apply": "Applica",
-    "saving": "Salvataggio..."
+    "saving": "Salvataggio...",
+    "all": "Tutti",
+    "clear": "Cancella"
   },
   "notificationDetail": {
     "loading": "Caricamento notifica...",
@@ -1264,6 +1266,19 @@
       "createBucketFirst": "Prima crea un bucket",
       "tokenCopied": "Il tuo access token è stato creato e copiato negli appunti:",
       "useInHeader": "Usalo nell'header Authorization: Bearer"
+    }
+  },
+  "eventsReview": {
+    "title": "Revisione Eventi",
+    "description": "Rivedi tutti gli eventi generati dal sistema",
+    "filters": {
+      "type": "Tipo Evento",
+      "userId": "ID Utente",
+      "objectId": "ID Oggetto"
+    },
+    "empty": {
+      "title": "Nessun evento trovato",
+      "description": "Modifica i filtri o prova ad aggiornare."
     }
   }
 }

@@ -88,6 +88,7 @@ export default function PrivateLayout() {
         name="create-oauth-provider"
         options={{ headerShown: true }}
       />
+      <Stack.Screen name="events-review" options={{ headerShown: true }} />
     </Stack>
   );
 }

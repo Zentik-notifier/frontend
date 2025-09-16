@@ -893,3 +893,41 @@ query PublicAppConfig {
     }
   }
 }
+
+# Event fragments and queries
+fragment EventFragment on Event {
+  id
+  type
+  userId
+  objectId
+  createdAt
+}
+
+query GetEvents {
+  events {
+    ...EventFragment
+  }
+}
+
+query GetEventsByType($type: EventType!) {
+  eventsByType(type: $type) {
+    ...EventFragment
+  }
+}
+
+query GetEventsByUser($userId: String!) {
+  eventsByUser(userId: $userId) {
+    ...EventFragment
+  }
+}
+
+query GetEventsByObject($objectId: String!) {
+  eventsByObject(objectId: $objectId) {
+    ...EventFragment
+  }
+}
+
+# Helper: total count
+query GetEventCount {
+  eventCount
+}

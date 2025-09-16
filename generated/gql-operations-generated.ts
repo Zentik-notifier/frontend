@@ -1885,6 +1885,39 @@ export type PublicAppConfigQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type PublicAppConfigQuery = { __typename?: 'Query', publicAppConfig: { __typename?: 'PublicAppConfig', emailEnabled: boolean, uploadEnabled: boolean, oauthProviders: Array<{ __typename?: 'OAuthProviderPublicDto', id: string, name: string, providerId: string, type: OAuthProviderType, iconUrl: string | null, color: string | null, textColor: string | null }> } };
 
+export type EventFragment = { __typename?: 'Event', id: string, type: EventType, userId: string | null, objectId: string | null, createdAt: string };
+
+export type GetEventsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetEventsQuery = { __typename?: 'Query', events: Array<{ __typename?: 'Event', id: string, type: EventType, userId: string | null, objectId: string | null, createdAt: string }> };
+
+export type GetEventsByTypeQueryVariables = Exact<{
+  type: EventType;
+}>;
+
+
+export type GetEventsByTypeQuery = { __typename?: 'Query', eventsByType: Array<{ __typename?: 'Event', id: string, type: EventType, userId: string | null, objectId: string | null, createdAt: string }> };
+
+export type GetEventsByUserQueryVariables = Exact<{
+  userId: Scalars['String']['input'];
+}>;
+
+
+export type GetEventsByUserQuery = { __typename?: 'Query', eventsByUser: Array<{ __typename?: 'Event', id: string, type: EventType, userId: string | null, objectId: string | null, createdAt: string }> };
+
+export type GetEventsByObjectQueryVariables = Exact<{
+  objectId: Scalars['String']['input'];
+}>;
+
+
+export type GetEventsByObjectQuery = { __typename?: 'Query', eventsByObject: Array<{ __typename?: 'Event', id: string, type: EventType, userId: string | null, objectId: string | null, createdAt: string }> };
+
+export type GetEventCountQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetEventCountQuery = { __typename?: 'Query', eventCount: number };
+
 export const MessageAttachmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageAttachmentFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MessageAttachment"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"saveOnServer"}}]}}]} as unknown as DocumentNode;
 export const NotificationActionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationActionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationAction"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"destructive"}}]}}]} as unknown as DocumentNode;
 export const BucketFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"BucketFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Bucket"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"isSnoozed"}},{"kind":"Field","name":{"kind":"Name","value":"isProtected"}},{"kind":"Field","name":{"kind":"Name","value":"isPublic"}}]}}]} as unknown as DocumentNode;
@@ -1906,6 +1939,7 @@ export const OAuthProviderPublicFragmentDoc = {"kind":"Document","definitions":[
 export const OAuthProviderFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"OAuthProviderFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"OAuthProvider"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"providerId"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"clientId"}},{"kind":"Field","name":{"kind":"Name","value":"clientSecret"}},{"kind":"Field","name":{"kind":"Name","value":"scopes"}},{"kind":"Field","name":{"kind":"Name","value":"iconUrl"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"textColor"}},{"kind":"Field","name":{"kind":"Name","value":"isEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"authorizationUrl"}},{"kind":"Field","name":{"kind":"Name","value":"tokenUrl"}},{"kind":"Field","name":{"kind":"Name","value":"userInfoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"profileFields"}},{"kind":"Field","name":{"kind":"Name","value":"additionalConfig"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 export const NotificationServiceInfoFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationServiceInfoFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationServiceInfo"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"devicePlatform"}},{"kind":"Field","name":{"kind":"Name","value":"service"}}]}}]} as unknown as DocumentNode;
 export const SystemAccessTokenFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SystemAccessTokenFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SystemAccessTokenDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"maxCalls"}},{"kind":"Field","name":{"kind":"Name","value":"calls"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"requester"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}}]}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
+export const EventFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EventFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Event"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"objectId"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode;
 export const RequestPasswordResetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RequestPasswordReset"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RequestPasswordResetDto"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"requestPasswordReset"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode;
 export type RequestPasswordResetMutationFn = Apollo.MutationFunction<RequestPasswordResetMutation, RequestPasswordResetMutationVariables>;
 
@@ -4311,3 +4345,171 @@ export type PublicAppConfigQueryHookResult = ReturnType<typeof usePublicAppConfi
 export type PublicAppConfigLazyQueryHookResult = ReturnType<typeof usePublicAppConfigLazyQuery>;
 export type PublicAppConfigSuspenseQueryHookResult = ReturnType<typeof usePublicAppConfigSuspenseQuery>;
 export type PublicAppConfigQueryResult = Apollo.QueryResult<PublicAppConfigQuery, PublicAppConfigQueryVariables>;
+export const GetEventsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetEvents"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"events"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EventFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EventFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Event"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"objectId"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetEventsQuery__
+ *
+ * To run a query within a React component, call `useGetEventsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetEventsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetEventsQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useGetEventsQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<GetEventsQuery, GetEventsQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetEventsQuery, GetEventsQueryVariables>(GetEventsDocument, options);
+      }
+export function useGetEventsLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetEventsQuery, GetEventsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetEventsQuery, GetEventsQueryVariables>(GetEventsDocument, options);
+        }
+export function useGetEventsSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetEventsQuery, GetEventsQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetEventsQuery, GetEventsQueryVariables>(GetEventsDocument, options);
+        }
+export type GetEventsQueryHookResult = ReturnType<typeof useGetEventsQuery>;
+export type GetEventsLazyQueryHookResult = ReturnType<typeof useGetEventsLazyQuery>;
+export type GetEventsSuspenseQueryHookResult = ReturnType<typeof useGetEventsSuspenseQuery>;
+export type GetEventsQueryResult = Apollo.QueryResult<GetEventsQuery, GetEventsQueryVariables>;
+export const GetEventsByTypeDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetEventsByType"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"type"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"EventType"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"eventsByType"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"type"},"value":{"kind":"Variable","name":{"kind":"Name","value":"type"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EventFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EventFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Event"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"objectId"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetEventsByTypeQuery__
+ *
+ * To run a query within a React component, call `useGetEventsByTypeQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetEventsByTypeQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetEventsByTypeQuery({
+ *   variables: {
+ *      type: // value for 'type'
+ *   },
+ * });
+ */
+export function useGetEventsByTypeQuery(baseOptions: ApolloReactHooks.QueryHookOptions<GetEventsByTypeQuery, GetEventsByTypeQueryVariables> & ({ variables: GetEventsByTypeQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetEventsByTypeQuery, GetEventsByTypeQueryVariables>(GetEventsByTypeDocument, options);
+      }
+export function useGetEventsByTypeLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetEventsByTypeQuery, GetEventsByTypeQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetEventsByTypeQuery, GetEventsByTypeQueryVariables>(GetEventsByTypeDocument, options);
+        }
+export function useGetEventsByTypeSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetEventsByTypeQuery, GetEventsByTypeQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetEventsByTypeQuery, GetEventsByTypeQueryVariables>(GetEventsByTypeDocument, options);
+        }
+export type GetEventsByTypeQueryHookResult = ReturnType<typeof useGetEventsByTypeQuery>;
+export type GetEventsByTypeLazyQueryHookResult = ReturnType<typeof useGetEventsByTypeLazyQuery>;
+export type GetEventsByTypeSuspenseQueryHookResult = ReturnType<typeof useGetEventsByTypeSuspenseQuery>;
+export type GetEventsByTypeQueryResult = Apollo.QueryResult<GetEventsByTypeQuery, GetEventsByTypeQueryVariables>;
+export const GetEventsByUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetEventsByUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"eventsByUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EventFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EventFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Event"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"objectId"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetEventsByUserQuery__
+ *
+ * To run a query within a React component, call `useGetEventsByUserQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetEventsByUserQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetEventsByUserQuery({
+ *   variables: {
+ *      userId: // value for 'userId'
+ *   },
+ * });
+ */
+export function useGetEventsByUserQuery(baseOptions: ApolloReactHooks.QueryHookOptions<GetEventsByUserQuery, GetEventsByUserQueryVariables> & ({ variables: GetEventsByUserQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetEventsByUserQuery, GetEventsByUserQueryVariables>(GetEventsByUserDocument, options);
+      }
+export function useGetEventsByUserLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetEventsByUserQuery, GetEventsByUserQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetEventsByUserQuery, GetEventsByUserQueryVariables>(GetEventsByUserDocument, options);
+        }
+export function useGetEventsByUserSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetEventsByUserQuery, GetEventsByUserQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetEventsByUserQuery, GetEventsByUserQueryVariables>(GetEventsByUserDocument, options);
+        }
+export type GetEventsByUserQueryHookResult = ReturnType<typeof useGetEventsByUserQuery>;
+export type GetEventsByUserLazyQueryHookResult = ReturnType<typeof useGetEventsByUserLazyQuery>;
+export type GetEventsByUserSuspenseQueryHookResult = ReturnType<typeof useGetEventsByUserSuspenseQuery>;
+export type GetEventsByUserQueryResult = Apollo.QueryResult<GetEventsByUserQuery, GetEventsByUserQueryVariables>;
+export const GetEventsByObjectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetEventsByObject"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"objectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"eventsByObject"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"objectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"objectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EventFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EventFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Event"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"objectId"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetEventsByObjectQuery__
+ *
+ * To run a query within a React component, call `useGetEventsByObjectQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetEventsByObjectQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetEventsByObjectQuery({
+ *   variables: {
+ *      objectId: // value for 'objectId'
+ *   },
+ * });
+ */
+export function useGetEventsByObjectQuery(baseOptions: ApolloReactHooks.QueryHookOptions<GetEventsByObjectQuery, GetEventsByObjectQueryVariables> & ({ variables: GetEventsByObjectQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetEventsByObjectQuery, GetEventsByObjectQueryVariables>(GetEventsByObjectDocument, options);
+      }
+export function useGetEventsByObjectLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetEventsByObjectQuery, GetEventsByObjectQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetEventsByObjectQuery, GetEventsByObjectQueryVariables>(GetEventsByObjectDocument, options);
+        }
+export function useGetEventsByObjectSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetEventsByObjectQuery, GetEventsByObjectQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetEventsByObjectQuery, GetEventsByObjectQueryVariables>(GetEventsByObjectDocument, options);
+        }
+export type GetEventsByObjectQueryHookResult = ReturnType<typeof useGetEventsByObjectQuery>;
+export type GetEventsByObjectLazyQueryHookResult = ReturnType<typeof useGetEventsByObjectLazyQuery>;
+export type GetEventsByObjectSuspenseQueryHookResult = ReturnType<typeof useGetEventsByObjectSuspenseQuery>;
+export type GetEventsByObjectQueryResult = Apollo.QueryResult<GetEventsByObjectQuery, GetEventsByObjectQueryVariables>;
+export const GetEventCountDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetEventCount"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"eventCount"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetEventCountQuery__
+ *
+ * To run a query within a React component, call `useGetEventCountQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetEventCountQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetEventCountQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useGetEventCountQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<GetEventCountQuery, GetEventCountQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetEventCountQuery, GetEventCountQueryVariables>(GetEventCountDocument, options);
+      }
+export function useGetEventCountLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetEventCountQuery, GetEventCountQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetEventCountQuery, GetEventCountQueryVariables>(GetEventCountDocument, options);
+        }
+export function useGetEventCountSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetEventCountQuery, GetEventCountQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetEventCountQuery, GetEventCountQueryVariables>(GetEventCountDocument, options);
+        }
+export type GetEventCountQueryHookResult = ReturnType<typeof useGetEventCountQuery>;
+export type GetEventCountLazyQueryHookResult = ReturnType<typeof useGetEventCountLazyQuery>;
+export type GetEventCountSuspenseQueryHookResult = ReturnType<typeof useGetEventCountSuspenseQuery>;
+export type GetEventCountQueryResult = Apollo.QueryResult<GetEventCountQuery, GetEventCountQueryVariables>;
