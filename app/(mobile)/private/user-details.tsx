@@ -1,18 +1,18 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { Icon } from "@/components/ui";
-import NotificationStats from "@/components/NotificationStats";
+import InlinePicker, { InlinePickerOption } from "@/components/InlinePicker";
 import { Colors } from "@/constants/Colors";
 import {
   UpdateUserRoleInput,
   UserFragment,
   UserRole,
+  useGetUserByIdQuery,
   useUpdateUserRoleMutation,
   useUserNotificationStatsByUserIdQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
-import { router, useLocalSearchParams, Stack } from "expo-router";
+import { useLocalSearchParams, Stack } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -20,10 +20,8 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from "react-native";
-import IconButton from "@/components/ui/IconButton";
 
 export default function UserDetailsScreen() {
   const colorScheme = useColorScheme();
@@ -31,12 +29,22 @@ export default function UserDetailsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { userId } = useLocalSearchParams<{ userId: string }>();
 
+  const { data: userData, loading: userLoading, refetch: refetchUser } = useGetUserByIdQuery({
+    variables: { id: userId! },
+    skip: !userId,
+  });
+  const { data: statsData, loading: statsLoading, refetch: refetchStats } = useUserNotificationStatsByUserIdQuery({
+    variables: { userId: userId! },
+    skip: !userId,
+  });
+
   const [updateUserRole] = useUpdateUserRoleMutation({
     onCompleted: () => {
       Alert.alert(
         t("common.success"),
         t("administration.userRoleUpdatedSuccessfully")
       );
+      refetchUser(); // Refresh user data after role update
     },
     onError: (error) => {
       Alert.alert(
@@ -46,29 +54,31 @@ export default function UserDetailsScreen() {
     },
   });
 
-  const { data: statsData, loading: statsLoading, refetch: refetchStats } = useUserNotificationStatsByUserIdQuery({
-    variables: { userId: userId! },
-    skip: !userId,
-  });
+  const user = userData?.user;
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await refetchStats();
+      await Promise.all([refetchUser(), refetchStats()]);
     } finally {
       setRefreshing(false);
     }
   };
 
-  const handleRoleChange = (newRole: UserRole) => {
-    if (!userId) return;
+  const handleRoleChange = (newRole: string) => {
+    if (!userId || !user) return;
+
+    const roleEnum = newRole as UserRole;
+
+    // Se il ruolo è lo stesso, non fare nulla
+    if (user.role === roleEnum) return;
 
     Alert.alert(
       t("administration.confirmRoleChange"),
       t("administration.confirmRoleChangeMessage", {
-        user: "User", // We'll get this from props or query
-        currentRole: getUserRoleDisplayName(UserRole.User), // We'll get this from props
-        newRole: getUserRoleDisplayName(newRole),
+        user: user.username || user.email || user.id,
+        currentRole: getUserRoleDisplayName(user.role),
+        newRole: getUserRoleDisplayName(roleEnum),
       }),
       [
         { text: t("common.cancel"), style: "cancel" },
@@ -78,7 +88,7 @@ export default function UserDetailsScreen() {
           onPress: () => {
             const input: UpdateUserRoleInput = {
               userId,
-              role: newRole,
+              role: roleEnum,
             };
             updateUserRole({ variables: { input } });
           },
@@ -113,7 +123,51 @@ export default function UserDetailsScreen() {
     }
   };
 
+  const roleOptions: InlinePickerOption[] = [
+    {
+      label: getUserRoleDisplayName(UserRole.User),
+      value: UserRole.User,
+      color: getRoleColor(UserRole.User),
+    },
+    {
+      label: getUserRoleDisplayName(UserRole.Moderator),
+      value: UserRole.Moderator,
+      color: getRoleColor(UserRole.Moderator),
+    },
+    {
+      label: getUserRoleDisplayName(UserRole.Admin),
+      value: UserRole.Admin,
+      color: getRoleColor(UserRole.Admin),
+    },
+  ];
+
   if (!userId) {
+    return (
+      <ThemedView style={styles.container}>
+        <ThemedText style={styles.errorText}>
+          {t("administration.userNotFound")}
+        </ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (userLoading) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator
+            size="large"
+            color={Colors[colorScheme ?? 'light'].tint}
+          />
+          <ThemedText style={styles.loadingText}>
+            {t("common.loading")}
+          </ThemedText>
+        </View>
+      </ThemedView>
+    );
+  }
+
+  if (!user) {
     return (
       <ThemedView style={styles.container}>
         <ThemedText style={styles.errorText}>
@@ -147,52 +201,79 @@ export default function UserDetailsScreen() {
         <ThemedView style={[styles.section, { backgroundColor: Colors[colorScheme ?? 'light'].backgroundCard }]}>
           <ThemedText style={styles.sectionTitle}>{t("administration.userDetails")}</ThemedText>
           
-          <View style={styles.userInfo}>
-            <ThemedText style={styles.userIdLabel}>{t("administration.userId")}</ThemedText>
-            <ThemedText style={styles.userId}>{userId}</ThemedText>
+          {/* User Details */}
+          <View style={styles.userDetails}>
+            <View style={styles.detailRow}>
+              <ThemedText style={styles.detailLabel}>{t("administration.userId")}</ThemedText>
+              <ThemedText style={styles.detailValue}>{user.id}</ThemedText>
+            </View>
+            
+            {user.username && (
+              <View style={styles.detailRow}>
+                <ThemedText style={styles.detailLabel}>{t("administration.username")}</ThemedText>
+                <ThemedText style={styles.detailValue}>{user.username}</ThemedText>
+              </View>
+            )}
+            
+            {user.email && (
+              <View style={styles.detailRow}>
+                <ThemedText style={styles.detailLabel}>{t("administration.email")}</ThemedText>
+                <ThemedText style={styles.detailValue}>{user.email}</ThemedText>
+              </View>
+            )}
+            
+            <View style={styles.detailRow}>
+              <ThemedText style={styles.detailLabel}>{t("administration.createdAt")}</ThemedText>
+              <ThemedText style={styles.detailValue}>
+                {new Date(user.createdAt).toLocaleDateString()}
+              </ThemedText>
+            </View>
+            
+            <View style={styles.detailRow}>
+              <ThemedText style={styles.detailLabel}>{t("administration.lastUpdated")}</ThemedText>
+              <ThemedText style={styles.detailValue}>
+                {new Date(user.updatedAt).toLocaleDateString()}
+              </ThemedText>
+            </View>
           </View>
 
           {/* Role Management */}
           <View style={styles.roleSection}>
             <ThemedText style={styles.roleLabel}>{t("administration.currentRole", { role: "" }).replace(": ", "")}</ThemedText>
-            <View style={styles.roleButtons}>
-              <TouchableOpacity
-                style={[
-                  styles.roleButton,
-                  { backgroundColor: getRoleColor(UserRole.User) }
-                ]}
-                onPress={() => handleRoleChange(UserRole.User)}
-              >
-                <ThemedText style={styles.roleButtonText}>
-                  {getUserRoleDisplayName(UserRole.User)}
-                </ThemedText>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.roleButton,
-                  { backgroundColor: getRoleColor(UserRole.Moderator) }
-                ]}
-                onPress={() => handleRoleChange(UserRole.Moderator)}
-              >
-                <ThemedText style={styles.roleButtonText}>
-                  {getUserRoleDisplayName(UserRole.Moderator)}
-                </ThemedText>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.roleButton,
-                  { backgroundColor: getRoleColor(UserRole.Admin) }
-                ]}
-                onPress={() => handleRoleChange(UserRole.Admin)}
-              >
-                <ThemedText style={styles.roleButtonText}>
-                  {getUserRoleDisplayName(UserRole.Admin)}
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
+            <InlinePicker
+              selectedValue={user.role}
+              options={roleOptions}
+              onValueChange={handleRoleChange}
+              placeholder={t("administration.selectNewRole")}
+            />
           </View>
+        </ThemedView>
+
+        {/* User Buckets Section */}
+        <ThemedView style={[styles.section, { backgroundColor: Colors[colorScheme ?? 'light'].backgroundCard }]}>
+          <ThemedText style={styles.sectionTitle}>{t("administration.userBuckets")}</ThemedText>
+          
+          {user.buckets && user.buckets.length > 0 ? (
+            <View style={styles.bucketsList}>
+              {user.buckets.map((bucket) => (
+                <View key={bucket.id} style={styles.bucketItem}>
+                  <View style={styles.bucketInfo}>
+                    <View style={styles.bucketHeader}>
+                      {/* {bucket.icon && (
+                        <ThemedText style={styles.bucketIcon}>{bucket.icon}</ThemedText>
+                      )} */}
+                      <ThemedText style={styles.bucketName}>{bucket.name}</ThemedText>
+                    </View>
+                    <ThemedText style={styles.bucketId}>ID: {bucket.id}</ThemedText>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <ThemedText style={styles.noDataText}>
+              {t("administration.noBucketsFound")}
+            </ThemedText>
+          )}
         </ThemedView>
 
         {/* Notification Statistics Section */}
@@ -246,16 +327,6 @@ export default function UserDetailsScreen() {
           )}
         </ThemedView>
 
-        {/* Back Button */}
-        <View style={styles.buttonContainer}>
-          <IconButton
-            title={t("common.back")}
-            iconName="arrow-left"
-            onPress={() => router.back()}
-            variant="secondary"
-            size="md"
-          />
-        </View>
         </ScrollView>
       </ThemedView>
     </>
@@ -288,17 +359,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 16,
   },
-  userInfo: {
-    marginBottom: 16,
+  userDetails: {
+    marginBottom: 20,
   },
-  userIdLabel: {
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  detailLabel: {
     fontSize: 14,
     opacity: 0.7,
-    marginBottom: 4,
+    flex: 1,
   },
-  userId: {
-    fontSize: 16,
+  detailValue: {
+    fontSize: 14,
     fontWeight: '500',
+    flex: 2,
+    textAlign: 'right',
     fontFamily: 'monospace',
   },
   roleSection: {
@@ -309,20 +390,50 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginBottom: 8,
   },
-  roleButtons: {
-    flexDirection: 'row',
-    gap: 8,
+  bucketsList: {
+    gap: 12,
   },
-  roleButton: {
-    flex: 1,
+  bucketItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
-  roleButtonText: {
-    color: 'white',
+  bucketInfo: {
+    flex: 1,
+  },
+  bucketHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  bucketIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  bucketName: {
+    fontSize: 16,
     fontWeight: '600',
+  },
+  bucketDescription: {
     fontSize: 14,
+    opacity: 0.7,
+    marginBottom: 4,
+  },
+  bucketId: {
+    fontSize: 12,
+    opacity: 0.6,
+    fontFamily: 'monospace',
+  },
+  bucketColorIndicator: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginLeft: 8,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -364,8 +475,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#ff6b6b',
     padding: 20,
-  },
-  buttonContainer: {
-    marginTop: 16,
   },
 });

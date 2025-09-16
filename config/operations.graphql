@@ -169,6 +169,15 @@ fragment UserFragment on User {
     createdAt
     updatedAt
   }
+  buckets {
+    id
+    name
+    description
+    icon
+    color
+    createdAt
+    updatedAt
+  }
   createdAt
   updatedAt
 }
@@ -842,6 +851,13 @@ fragment SystemAccessTokenFragment on SystemAccessTokenDto {
 # User operations for system token creation
 query GetAllUsers {
   users {
+    ...UserFragment
+  }
+}
+
+# Admin: Get single user details
+query GetUserById($id: String!) {
+  user(id: $id) {
     ...UserFragment
   }
 }

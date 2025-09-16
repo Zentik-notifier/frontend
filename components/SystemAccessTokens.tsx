@@ -74,7 +74,6 @@ export default function SystemAccessTokens({
       <SwipeableItem
         key={item.id}
         marginBottom={8}
-        marginHorizontal={16}
         rightAction={
           !disabledActions
             ? {
@@ -246,7 +245,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.7,
     marginBottom: 24,
-    marginHorizontal: 16,
   },
   emptyState: {
     flex: 1,

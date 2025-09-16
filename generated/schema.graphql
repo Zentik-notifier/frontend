@@ -569,6 +569,7 @@ type Query {
   payloadMapper(id: String!): PayloadMapper!
   payloadMappers: [PayloadMapperWithBuiltin!]!
   publicAppConfig: PublicAppConfig!
+  user(id: String!): User!
   userDevice: UserDevice
   userDevices: [UserDevice!]!
   userNotificationStats(userId: String): UserNotificationStats!
