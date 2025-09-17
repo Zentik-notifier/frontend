@@ -1,7 +1,6 @@
 import { AlertModal } from "@/components/AlertModal";
 import { GraphQLProvider } from "@/components/GraphQLProvider";
 import { I18nProvider } from "@/components/I18nProvider";
-import { NavigationOptimizationProvider } from "@/components/NavigationOptimizationProvider";
 import { TermsAcceptanceScreen } from "@/components/TermsAcceptanceScreen";
 import { useUserSettings } from "@/services/user-settings";
 import { ThemeProvider, useTheme } from "@/hooks/useTheme";
@@ -229,7 +228,6 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider>
           <I18nProvider>
-            {/* <NavigationOptimizationProvider> */}
             <GraphQLProvider>
               <TermsGuard>
                 <AppProvider>
@@ -240,7 +238,6 @@ export default function RootLayout() {
                 </AppProvider>
               </TermsGuard>
             </GraphQLProvider>
-            {/* </NavigationOptimizationProvider> */}
           </I18nProvider>
         </ThemeProvider>
       </SafeAreaProvider>
