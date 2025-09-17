@@ -87,7 +87,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [lastUserId, setLastUserId] = useState<string | null>(null);
-  const apolloClient = useApolloClient();
   const push = usePushNotifications();
   const { t } = useI18n();
   const [fetchMe] = useGetMeLazyQuery();
@@ -334,8 +333,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
         console.log("📱 App became active - scheduling refresh");
-        await mediaCache.reloadMetadata();
         await refetchNotifications();
+        await mediaCache.reloadMetadata();
       }
     };
 

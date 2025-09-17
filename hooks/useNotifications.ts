@@ -85,6 +85,7 @@ export function useFetchNotifications() {
 	const notifications = data?.notifications ?? [];
 
 	const fetchNotifications = useCallback(async (): Promise<void> => {
+		console.log('🔄 Fetching notifications');
 		await refetch();
 		await updateReceivedNotifications();
 		// setLoading(true);
@@ -101,7 +102,7 @@ export function useFetchNotifications() {
 		// } finally {
 		// 	setLoading(false);
 		// }
-	}, [fetchRemote])
+	}, [fetchRemote, updateReceivedNotifications])
 
 	return { fetchNotifications, notifications, loading };
 }
