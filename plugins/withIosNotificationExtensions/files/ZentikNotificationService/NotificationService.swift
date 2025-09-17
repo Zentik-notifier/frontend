@@ -48,11 +48,19 @@ class NotificationService: UNNotificationServiceExtension {
                     self.downloadMediaAttachments(content: bestAttemptContent) {
                         print("📱 [NotificationService] Media processing completed, delivering notification")
                         print("📱 [NotificationService] 🚀 Delivering notification with category: \(bestAttemptContent.categoryIdentifier ?? "nil")")
+                        
+                        // Save notification for cache update
+                        self.savePendingNotification(content: bestAttemptContent)
+                        
                         contentHandler(bestAttemptContent)
                     }
                 } else {
                     print("📱 [NotificationService] No media attachments, delivering notification immediately")
                     print("📱 [NotificationService] 🚀 Delivering notification with category: \(bestAttemptContent.categoryIdentifier ?? "nil")")
+                    
+                    // Save notification for cache update
+                    self.savePendingNotification(content: bestAttemptContent)
+                    
                     contentHandler(bestAttemptContent)
                 }
             }
@@ -2034,5 +2042,116 @@ class NotificationService: UNNotificationServiceExtension {
             let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
             return documentsPath.appendingPathComponent("shared_media_cache")
         }
+    }
+    
+    // MARK: - Pending Notifications Storage
+    
+    private func savePendingNotification(content: UNMutableNotificationContent) {
+        print("📱 [NotificationService] 💾 Saving pending notification for cache update")
+        
+        guard let userInfo = content.userInfo as? [String: Any] else {
+            print("📱 [NotificationService] ❌ No userInfo available")
+            return
+        }
+        
+        // Extract essential notification data
+        var notificationData: [String: Any] = [
+            "title": content.title,
+            "body": content.body,
+            "timestamp": ISO8601DateFormatter().string(from: Date())
+        ]
+        
+        if !content.subtitle.isEmpty {
+            notificationData["subtitle"] = content.subtitle
+        }
+        
+        // Extract notification ID
+        if let notificationId = userInfo["notificationId"] as? String {
+            notificationData["notificationId"] = notificationId
+        }
+        
+        // Extract bucket ID
+        if let bucketId = userInfo["bucketId"] as? String {
+            notificationData["bucketId"] = bucketId
+        }
+        
+        // Extract actions
+        if let actions = userInfo["actions"] as? [[String: Any]] {
+            notificationData["actions"] = actions
+        }
+        
+        // Extract attachment data
+        if let attachmentData = userInfo["attachmentData"] as? [[String: Any]] {
+            notificationData["attachmentData"] = attachmentData
+        }
+        
+        // Extract tap action
+        if let tapAction = userInfo["tapAction"] as? [String: Any] {
+            notificationData["tapAction"] = tapAction
+        }
+        
+        // Save to shared storage
+        do {
+            try storePendingNotification(data: notificationData)
+            print("📱 [NotificationService] ✅ Pending notification saved successfully")
+        } catch {
+            print("📱 [NotificationService] ❌ Failed to save pending notification: \(error)")
+        }
+    }
+    
+    private func storePendingNotification(data: [String: Any]) throws {
+        // Get existing pending notifications
+        var pendingNotifications: [[String: Any]] = []
+        
+        // Try to read existing notifications from keychain
+        let options: [String: Any] = Device.isDevice
+            ? [kSecClass as String: kSecClassGenericPassword,
+               kSecAttrService as String: "zentik-pending-notifications",
+               kSecAttrAccessGroup as String: "C3F24V5NS5.com.apocaliss92.zentik.dev.keychain",
+               kSecReturnData as String: true]
+            : [kSecClass as String: kSecClassGenericPassword,
+               kSecAttrService as String: "zentik-pending-notifications",
+               kSecReturnData as String: true]
+        
+        var result: AnyObject?
+        let status = SecItemCopyMatching(options as CFDictionary, &result)
+        
+        if status == errSecSuccess, let data = result as? Data {
+            if let existing = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                pendingNotifications = existing
+            }
+        }
+        
+        // Add new notification
+        pendingNotifications.append(data)
+        
+        // Limit to last 50 notifications to avoid excessive storage
+        if pendingNotifications.count > 50 {
+            pendingNotifications = Array(pendingNotifications.suffix(50))
+        }
+        
+        // Save back to keychain
+        let jsonData = try JSONSerialization.data(withJSONObject: pendingNotifications)
+        
+        let saveOptions: [String: Any] = Device.isDevice
+            ? [kSecClass as String: kSecClassGenericPassword,
+               kSecAttrService as String: "zentik-pending-notifications",
+               kSecAttrAccessGroup as String: "C3F24V5NS5.com.apocaliss92.zentik.dev.keychain",
+               kSecValueData as String: jsonData]
+            : [kSecClass as String: kSecClassGenericPassword,
+               kSecAttrService as String: "zentik-pending-notifications",
+               kSecValueData as String: jsonData]
+        
+        // Delete existing entry first
+        let deleteStatus = SecItemDelete(saveOptions as CFDictionary)
+        
+        // Add new entry
+        let addStatus = SecItemAdd(saveOptions as CFDictionary, nil)
+        
+        if addStatus != errSecSuccess {
+            throw NSError(domain: "PendingNotificationStorage", code: Int(addStatus), userInfo: [NSLocalizedDescriptionKey: "Failed to save pending notification"])
+        }
+        
+        print("📱 [NotificationService] 📊 Total pending notifications: \(pendingNotifications.count)")
     }
 }

@@ -12,6 +12,7 @@ import {
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { useI18n } from "@/hooks/useI18n";
 import { useFetchNotifications } from "@/hooks/useNotifications";
+import { usePendingNotifications } from "@/hooks/usePendingNotifications";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import React, {
   createContext,
@@ -325,6 +326,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     notifications,
     loading: notificationsLoading,
   } = useFetchNotifications();
+
+  // Process pending notifications from NSE
+  usePendingNotifications();
 
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {

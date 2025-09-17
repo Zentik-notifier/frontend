@@ -68,11 +68,14 @@ export let clearBadgeCount: () => Promise<void>;
 export let saveApiEndpoint: (endpoint: string) => Promise<void>;
 export let getStoredApiEndpoint: () => Promise<string | null>;
 export let clearApiEndpoint: () => Promise<void>;
+export let getPendingNotifications: () => Promise<any[]>;
+export let clearPendingNotifications: () => Promise<void>;
 
 const SERVICE = 'zentik-auth';
 const PUBLIC_KEY_SERVICE = 'zentik-public-key';
 const PRIVATE_KEY_SERVICE = 'zentik-private-key';
 const PENDING_NAVIGATION_SERVICE = 'zentik-pending-navigation';
+const PENDING_NOTIFICATIONS_SERVICE = 'zentik-pending-notifications';
 const BADGE_COUNT_SERVICE = 'zentik-badge-count';
 const API_ENDPOINT_SERVICE = 'zentik-api-endpoint';
 
@@ -392,6 +395,32 @@ if (Platform.OS === 'ios') {
       await AsyncStorage.removeItem(API_ENDPOINT_KEY);
     } catch { }
   };
+
+  // Pending notifications - use keychain with access group for iOS
+  getPendingNotifications = async () => {
+    try {
+      const options: Keychain.GetOptions = Device.isDevice
+        ? { service: PENDING_NOTIFICATIONS_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
+        : { service: PENDING_NOTIFICATIONS_SERVICE };
+      const creds = await Keychain.getGenericPassword(options);
+      if (creds) {
+        const data = JSON.parse(creds.password);
+        return Array.isArray(data) ? data : [];
+      }
+      return [];
+    } catch (error) {
+      console.error('Failed to get pending notifications from keychain:', error);
+      return [];
+    }
+  };
+  clearPendingNotifications = async () => {
+    try {
+      const options: Keychain.SetOptions = Device.isDevice
+        ? { service: PENDING_NOTIFICATIONS_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
+        : { service: PENDING_NOTIFICATIONS_SERVICE };
+      await Keychain.resetGenericPassword(options);
+    } catch { }
+  };
 } else {
   savePublicKey = async (publicKey: string) => {
     await AsyncStorage.setItem(PUBLIC_KEY_KEY, publicKey);
@@ -476,6 +505,25 @@ if (Platform.OS === 'ios') {
   clearApiEndpoint = async () => {
     try {
       await AsyncStorage.removeItem(API_ENDPOINT_KEY);
+    } catch { }
+  };
+
+  // Pending notifications - use AsyncStorage for Android
+  getPendingNotifications = async () => {
+    try {
+      const data = await AsyncStorage.getItem('pending_notifications');
+      if (data) {
+        const parsed = JSON.parse(data);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  };
+  clearPendingNotifications = async () => {
+    try {
+      await AsyncStorage.removeItem('pending_notifications');
     } catch { }
   };
 }
