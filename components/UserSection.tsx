@@ -38,7 +38,7 @@ export default function UserSection({
 }: UserSectionProps) {
   const {
     logout,
-    setLoading,
+    setMainLoading,
     refreshUserData,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
@@ -87,7 +87,7 @@ export default function UserSection({
 
   const { data: userData, loading, error, refetch } = useGetMeQuery();
   const { data: providersData } = usePublicAppConfigQuery();
-  useEffect(() => setLoading(loading), [loading]);
+  useEffect(() => setMainLoading(loading), [loading]);
 
   const user = userData?.me;
 

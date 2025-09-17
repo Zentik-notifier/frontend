@@ -33,7 +33,7 @@ export default function OAuthConnections({
   const { t } = useI18n();
   const colorScheme = useColorScheme();
   const {
-    setLoading,
+    setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const [connectingProvider, setConnectingProvider] = useState<string | null>(
@@ -42,7 +42,7 @@ export default function OAuthConnections({
 
   const { data: providersData, loading: providersLoading } =
     usePublicAppConfigQuery();
-  useEffect(() => setLoading(providersLoading), [providersLoading]);
+  useEffect(() => setMainLoading(providersLoading), [providersLoading]);
 
   // Filter out any custom providers (those that might not be standard OAuth providers)
   const oauthIdentities =

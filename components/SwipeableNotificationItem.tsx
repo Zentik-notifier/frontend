@@ -102,18 +102,18 @@ const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
       }, [notification.id]);
 
       // Auto-download all attachments when component mounts or auto-download is enabled
-      useEffect(() => {
-        if (!autoDownloadEnabled) return;
+      // useEffect(() => {
+      //   if (!autoDownloadEnabled) return;
 
-        for (const attachment of attachments) {
-          attachment.url &&
-            mediaCache.checkMediaExists({
-              url: attachment.url,
-              mediaType: attachment.mediaType,
-              notificationDate: new Date(notification.createdAt).getTime(),
-            });
-        }
-      }, [attachments, autoDownloadEnabled, notification]);
+      //   for (const attachment of attachments) {
+      //     attachment.url &&
+      //       mediaCache.checkMediaExists({
+      //         url: attachment.url,
+      //         mediaType: attachment.mediaType,
+      //         notificationDate: new Date(notification.createdAt).getTime(),
+      //       });
+      //   }
+      // }, [attachments, autoDownloadEnabled, notification]);
 
       const handlePress = () => {
         if (swipeActive) {

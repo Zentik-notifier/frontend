@@ -142,11 +142,11 @@ export default function OAuthProvidersSettings({
   const [togglingProviderId, setTogglingProviderId] = useState<string | null>(
     null
   );
-  const { setLoading } = useAppContext();
+  const { setMainLoading } = useAppContext();
 
   const { data, loading, error, refetch } = useAllOAuthProvidersQuery({});
   const [toggleOAuthProvider] = useToggleOAuthProviderMutation();
-  useEffect(() => setLoading(loading), [loading]);
+  useEffect(() => setMainLoading(loading), [loading]);
 
   const allProviders = data?.allOAuthProviders || [];
 

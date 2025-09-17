@@ -44,7 +44,7 @@ import { AppLoader } from "./ui/AppLoader";
 export default function NotificationsSettings() {
   const push = usePushNotifications();
   const {
-    setLoading,
+    setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const { t } = useI18n();
@@ -63,7 +63,7 @@ export default function NotificationsSettings() {
 
   const loading = bucketsLoading || webhooksLoading;
 
-  useEffect(() => setLoading(loading), [loading]);
+  useEffect(() => setMainLoading(loading), [loading]);
 
   // State for form fields
   const [title, setTitle] = useState(notificationFormDefaults.title);

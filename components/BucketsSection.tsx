@@ -44,7 +44,7 @@ const BucketsSection: React.FC = () => {
   } = useGetBucketsQuery();
   const {
     notifications,
-    setLoading,
+    setMainLoading,
     refetchNotifications,
     notificationsLoading,
   } = useAppContext();
@@ -52,7 +52,7 @@ const BucketsSection: React.FC = () => {
 
   const loading = notificationsLoading || bucketsLoading;
 
-  useEffect(() => setLoading(loading), [loading]);
+  useEffect(() => setMainLoading(loading), [loading]);
 
   const bucketStats = useMemo((): BucketStats[] => {
     return buckets

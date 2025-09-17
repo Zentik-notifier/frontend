@@ -14,14 +14,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
@@ -133,22 +132,19 @@ export default function UserManagement({
   refreshing: externalRefreshing,
 }: UserManagementProps) {
   const colorScheme = useColorScheme();
-  const router = useRouter();
   const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const {
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
-    setLoading,
+    setMainLoading,
   } = useAppContext();
-
-  const disabledActions = isOfflineAuth || isBackendUnreachable;
 
   const { data, loading, error, refetch } = useGetAllUsersQuery();
   const { data: meData } = useGetMeQuery();
   const [updateUserRole] = useUpdateUserRoleMutation();
 
-  useEffect(() => setLoading(loading), [loading]);
+  useEffect(() => setMainLoading(loading), [loading]);
 
   const users = data?.users || [];
   const currentUserId = meData?.me?.id || "";

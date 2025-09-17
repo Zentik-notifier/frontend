@@ -30,7 +30,7 @@ export function UserSessionsSettings({
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
   const {
-    setLoading,
+    setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
 
@@ -38,7 +38,7 @@ export function UserSessionsSettings({
   const [revokeSession] = useRevokeSessionMutation();
   const [revokeAllOtherSessions] = useRevokeAllOtherSessionsMutation();
   const { data: providersData } = usePublicAppConfigQuery();
-  useEffect(() => setLoading(loading), [loading]);
+  useEffect(() => setMainLoading(loading), [loading]);
 
   const sessions = data?.getUserSessions || [];
   const sortedSessions = useEntitySorting(sessions, "desc");

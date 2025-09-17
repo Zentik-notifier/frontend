@@ -26,11 +26,11 @@ export default function DevicesSettings({ refreshing }: DevicesSettingsProps) {
 
   const { data: userDevicesData, loading, refetch } = useGetUserDevicesQuery();
   const {
-    setLoading,
+    setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
 
-  useEffect(() => setLoading(loading), [loading]);
+  useEffect(() => setMainLoading(loading), [loading]);
 
   const devices = userDevicesData?.userDevices || [];
   const sortedDevices = useEntitySorting(devices, "desc");

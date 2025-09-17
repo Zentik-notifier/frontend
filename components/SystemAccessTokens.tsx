@@ -31,14 +31,14 @@ export default function SystemAccessTokens({
   const { formatDate: formatDateService } = useDateFormat();
   const {
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
-    setLoading,
+    setMainLoading,
   } = useAppContext();
 
   const disabledActions = isOfflineAuth || isBackendUnreachable;
 
   const { data, loading, refetch } = useGetSystemAccessTokensQuery();
   const [revokeSystemToken] = useRevokeSystemAccessTokenMutation();
-  useEffect(() => setLoading(loading), [loading]);
+  useEffect(() => setMainLoading(loading), [loading]);
 
   const tokens = data?.listSystemTokens || [];
   const sortedTokens = useEntitySorting(tokens, "desc");

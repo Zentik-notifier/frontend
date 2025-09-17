@@ -1,6 +1,5 @@
 import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetNotificationLazyQuery, useGetNotificationsLazyQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation, MediaType, useGetNotificationQuery, useGetNotificationsQuery } from '@/generated/gql-operations-generated';
 import { mediaCache } from '@/services/media-cache';
-// import { useAppContext } from '@/services/app-context';
 import { Reference, useApolloClient } from '@apollo/client';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -28,14 +27,12 @@ export function useNotificationById(id?: string) {
 	const [localNotification, setLocalNotification] = useState<NotificationFragment | null>(null);
 	const [fetchOne, { data, loading, error }] = useGetNotificationLazyQuery();
 
-	// Local-first lookup with robust server fallback
 	useEffect(() => {
 		if (id) {
 			const fetchLocal = async () => {
 				const local = await readLocal(id);
 				setLocalNotification(local);
 
-				// Always try to fetch from server if not found locally or to get fresh data
 				if (!local) {
 					console.log(`📡 [useNotificationById] Notification ${id} not found locally, fetching from server...`);
 					try {
@@ -67,7 +64,6 @@ export function useNotificationById(id?: string) {
 	const notification = localNotification ?? data?.notification ?? null;
 	const effectiveLoading = !!id && !notification ? loading : false;
 
-	// Only show error if we've finished loading and still don't have the notification
 	const effectiveError = !loading && !notification && id ? (error ?? new Error('Notification not found')) : null;
 	const source = data?.notification ? 'remote' as const : (localNotification ? 'local' as const : null);
 
@@ -78,7 +74,7 @@ export function useFetchNotifications() {
 	const [fetchRemote] = useGetNotificationsLazyQuery({ errorPolicy: 'ignore' });
 	const updateReceivedNotifications = useUpdateReceivedNotifications();
 	const [refetching, setRefetching] = useState(false);
-	const { data, loading, refetch } = useGetNotificationsQuery({ skip: false })
+	const { data, loading, refetch } = useGetNotificationsQuery();
 
 	const notifications = data?.notifications ?? [];
 
@@ -89,20 +85,6 @@ export function useFetchNotifications() {
 		console.log('🔄 Fetching notifications finished: ', newData.data?.notifications?.length);
 		await updateReceivedNotifications();
 		setRefetching(false);
-		// setLoading(true);
-		// try {
-		// 	await fetchRemote({
-		// 		fetchPolicy: 'network-only',
-		// 	});
-		// 	await updateReceivedNotifications();
-		// 	try {
-		// 		const merged: any = apollo.readQuery({ query: GetNotificationsDocument });
-		// 		setNotifications(merged?.notifications ?? []);
-		// 	} catch { }
-		// } catch (e) {
-		// } finally {
-		// 	setLoading(false);
-		// }
 	}, [fetchRemote, updateReceivedNotifications])
 
 	return { fetchNotifications, notifications, loading };
@@ -115,10 +97,8 @@ export function useDeleteNotification() {
 	const deleteNotification = useCallback(async (id: string) => {
 		console.log(`🗑️ Starting deletion of notification: ${id}`);
 
-		// First, get the notification data to extract attachments before deletion
 		let notificationData: NotificationFragment | null = null;
 		try {
-			// Try to get notification from the notifications query cache
 			const queryData = apollo.cache.readQuery({
 				query: GetNotificationsDocument,
 			}) as { notifications: NotificationFragment[] } | null;
@@ -140,13 +120,11 @@ export function useDeleteNotification() {
 		}
 
 		try {
-			// Delete all attachments from local cache if notification data is available
 			if (notificationData?.message?.attachments) {
 				console.log(`🗑️ Deleting ${notificationData.message.attachments.length} attachments from local cache`);
 
 				for (const attachment of notificationData.message.attachments) {
 					try {
-						// Only delete media attachments (not icons) and ensure URL exists
 						if (attachment.mediaType && attachment.mediaType !== MediaType.Icon && attachment.url) {
 							await mediaCache.deleteCachedMedia(attachment.url, attachment.mediaType, true);
 							console.log(`🗑️ Deleted attachment from cache: ${attachment.url}`);
@@ -157,13 +135,11 @@ export function useDeleteNotification() {
 				}
 			}
 
-			// First, remove from Query.notifications list
 			apollo.cache.modify({
 				fields: {
 					notifications(existingNotifications: readonly any[] | Reference = [], { readField }) {
 						console.log(`🔍 Cache modify - processing notifications list, current length: ${Array.isArray(existingNotifications) ? existingNotifications.length : 'not array'}`);
 
-						// Handle both array and Reference types
 						if (!existingNotifications || (typeof existingNotifications === 'object' && 'ref' in existingNotifications)) {
 							console.log(`⚠️ Cache modify - existingNotifications is not an array, returning as-is`);
 							return existingNotifications;
@@ -174,7 +150,6 @@ export function useDeleteNotification() {
 							return existingNotifications;
 						}
 
-						// Filter out the deleted notification
 						const filtered = existingNotifications.filter((notification: any) => {
 							const notificationId = readField('id', notification);
 							const shouldKeep = notificationId !== id;
@@ -190,15 +165,13 @@ export function useDeleteNotification() {
 				}
 			});
 
-			// Then evict the entity itself
 			console.log(`🗑️ Evicting notification entity: Notification:${id}`);
 			const evicted = apollo.cache.evict({
 				id: `Notification:${id}`,
-				broadcast: true // Forza il broadcast dell'aggiornamento
+				broadcast: true
 			});
 			console.log(`🗑️ Entity eviction result:`, evicted);
 
-			// Force garbage collection (non distruttivo)
 			const gcResult = apollo.cache.gc();
 			console.log(`🧹 Cache garbage collection completed - removed ${gcResult.length} orphaned objects`);
 
@@ -217,13 +190,11 @@ export function useUpdateReceivedNotifications() {
 
 	const updateReceivedNotifications = useCallback(async () => {
 		try {
-			// Get all notifications from cache to update them
 			const currentData: any = apollo.readQuery({
 				query: GetNotificationsDocument,
 			});
 
 			if (currentData?.notifications && currentData.notifications.length > 0) {
-				// Find notifications that don't have receivedAt set
 				const notificationsToUpdate = currentData.notifications.filter(
 					(notification: any) => !notification.receivedAt
 				);
@@ -259,7 +230,6 @@ export function useUpdateReceivedNotifications() {
 	return updateReceivedNotifications;
 }
 
-// Mark all as read (wraps mutation and updates local cache entities in batch)
 export function useMarkAllNotificationsAsRead() {
 	const apollo = useApolloClient();
 	const [markAllMutation] = useMarkAllNotificationsAsReadMutation();
@@ -268,7 +238,6 @@ export function useMarkAllNotificationsAsRead() {
 	const markAllAsRead = useCallback(async () => {
 		setLoading(true);
 		try {
-			// Execute server mutation first
 			await markAllMutation();
 
 			const data: any = apollo.readQuery({
@@ -299,7 +268,6 @@ export function useMarkAllNotificationsAsRead() {
 	return { markAllAsRead, loading };
 }
 
-// Mark as Read (local-first, with server mutation)
 export function useMarkNotificationRead() {
 	const apollo = useApolloClient();
 	const [markReadMutation] = useMarkNotificationAsReadMutation();
@@ -312,15 +280,6 @@ export function useMarkNotificationRead() {
 			}
 		} catch (e) { }
 		finally {
-			// const entityId = apollo.cache.identify({ __typename: 'Notification', id }) || `Notification:${id}`;
-			// // console.log('entityId', entityId);
-			// const now = new Date().toISOString();
-			// apollo.cache.updateFragment({
-			// 	id: entityId,
-			// 	// id: `Notification:${id}`,
-			// 	fragment: NotificationFragmentDoc,
-			// }, (data) => ({ ...data, readAt: now }) // update function
-			// );
 			const now = new Date().toISOString();
 			await applyLocal(id, { readAt: now });
 		}
@@ -329,7 +288,6 @@ export function useMarkNotificationRead() {
 	return markAsRead;
 }
 
-// Mark as Unread (local-first, with server mutation)
 export function useMarkNotificationUnread() {
 	const [markUnreadMutation] = useMarkNotificationAsUnreadMutation();
 	const applyLocal = useNotificationCacheUpdater();
@@ -348,7 +306,6 @@ export function useMarkNotificationUnread() {
 	return markAsUnread;
 }
 
-// Mass Delete Notifications
 export function useMassDeleteNotifications() {
 	const apollo = useApolloClient();
 	const [massDeleteNotificationsMutation] = useMassDeleteNotificationsMutation();
@@ -360,10 +317,8 @@ export function useMassDeleteNotifications() {
 		setLoading(true);
 		console.log(`🗑️ Starting mass deletion of ${notificationIds.length} notifications`);
 
-		// First, collect all attachments from notifications before deletion
 		const allAttachments: Array<{ url: string; mediaType: MediaType }> = [];
 
-		// Try to get all notifications from the query cache first
 		let cachedNotifications: NotificationFragment[] = [];
 		try {
 			const queryData = apollo.cache.readQuery({
@@ -392,7 +347,6 @@ export function useMassDeleteNotifications() {
 		}
 
 		try {
-			// Execute mass delete mutation on backend
 			const result = await massDeleteNotificationsMutation({
 				variables: { ids: notificationIds },
 				errorPolicy: 'all'
@@ -400,7 +354,6 @@ export function useMassDeleteNotifications() {
 
 			console.log(`✅ Server mass deletion completed: ${result.data?.massDeleteNotifications.deletedCount} notifications deleted`);
 
-			// Delete all attachments from local cache
 			if (allAttachments.length > 0) {
 				console.log(`🗑️ Deleting ${allAttachments.length} attachments from local cache`);
 
@@ -414,7 +367,6 @@ export function useMassDeleteNotifications() {
 				}
 			}
 
-			// Update cache in batch
 			apollo.cache.modify({
 				fields: {
 					notifications(existingNotifications: readonly any[] | Reference = [], { readField }) {
@@ -434,12 +386,10 @@ export function useMassDeleteNotifications() {
 				}
 			});
 
-			// Evict entities in batch
 			for (const id of notificationIds) {
 				apollo.cache.evict({ id: `Notification:${id}` });
 			}
 
-			// Single garbage collection at the end
 			const gcResult = apollo.cache.gc();
 			console.log(`🧹 Mass delete cache cleanup - removed ${gcResult.length} orphaned objects`);
 
@@ -454,7 +404,6 @@ export function useMassDeleteNotifications() {
 	return { massDelete, loading };
 }
 
-// Mass Mark as Read
 export function useMassMarkNotificationsAsRead() {
 	const [massMarkNotificationsAsReadMutation] = useMassMarkNotificationsAsReadMutation();
 	const applyLocal = useNotificationCacheUpdater();
@@ -469,7 +418,6 @@ export function useMassMarkNotificationsAsRead() {
 		try {
 			const now = new Date().toISOString();
 
-			// Execute mass mark as read mutation on backend (if enabled)
 			if (shouldUpdateRemoteReadAt) {
 				const result = await massMarkNotificationsAsReadMutation({
 					variables: { ids: notificationIds },
@@ -478,7 +426,6 @@ export function useMassMarkNotificationsAsRead() {
 				console.log(`✅ Server mass mark as read completed: ${result.data?.massMarkNotificationsAsRead.updatedCount} notifications updated`);
 			}
 
-			// Update local cache in batch
 			for (const id of notificationIds) {
 				await applyLocal(id, { readAt: now });
 			}
@@ -495,7 +442,6 @@ export function useMassMarkNotificationsAsRead() {
 	return { massMarkAsRead, loading };
 }
 
-// Mass Mark as Unread
 export function useMassMarkNotificationsAsUnread() {
 	const [massMarkNotificationsAsUnreadMutation] = useMassMarkNotificationsAsUnreadMutation();
 	const applyLocal = useNotificationCacheUpdater();
@@ -508,7 +454,6 @@ export function useMassMarkNotificationsAsUnread() {
 		console.log(`📝 Starting mass mark as unread for ${notificationIds.length} notifications`);
 
 		try {
-			// Execute mass mark as unread mutation on backend (if enabled)
 			if (shouldUpdateRemoteReadAt) {
 				const result = await massMarkNotificationsAsUnreadMutation({
 					variables: { ids: notificationIds },
@@ -517,7 +462,6 @@ export function useMassMarkNotificationsAsUnread() {
 				console.log(`✅ Server mass mark as unread completed: ${result.data?.massMarkNotificationsAsUnread.updatedCount} notifications updated`);
 			}
 
-			// Update local cache in batch
 			for (const id of notificationIds) {
 				await applyLocal(id, { readAt: null });
 			}
@@ -533,5 +477,3 @@ export function useMassMarkNotificationsAsUnread() {
 
 	return { massMarkAsUnread, loading };
 }
-
-

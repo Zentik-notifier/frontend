@@ -23,7 +23,7 @@ export default function WebhooksSettings({
   const { t } = useI18n();
   const router = useRouter();
   const {
-    setLoading,
+    setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const isOffline = isOfflineAuth || isBackendUnreachable;
@@ -33,7 +33,7 @@ export default function WebhooksSettings({
     loading,
     refetch,
   } = useGetUserWebhooksQuery();
-  useEffect(() => setLoading(loading), [loading]);
+  useEffect(() => setMainLoading(loading), [loading]);
 
   const webhooks = userWebhooksData?.userWebhooks || [];
   const sortedWebhooks = useEntitySorting(webhooks, "desc");

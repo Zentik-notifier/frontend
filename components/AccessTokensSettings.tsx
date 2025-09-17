@@ -30,7 +30,7 @@ export function AccessTokensSettings({
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
   const {
-    setLoading,
+    setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const disabledAdd = isOfflineAuth || isBackendUnreachable;
@@ -39,7 +39,7 @@ export function AccessTokensSettings({
   const { data, loading, refetch } = useGetUserAccessTokensQuery();
   const [revokeAccessToken] = useRevokeAccessTokenMutation();
 
-  useEffect(() => setLoading(loading), [loading]);
+  useEffect(() => setMainLoading(loading), [loading]);
 
   const tokens = data?.getUserAccessTokens || [];
   const sortedTokens = useEntitySorting(tokens, "desc");

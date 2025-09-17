@@ -90,8 +90,7 @@ export default function UnifiedCacheSettings() {
       updateMediaCacheRetentionPolicies,
       setMaxCachedNotifications,
       settings: {
-        maxCachedNotifications,
-        mediaCache: { downloadSettings, retentionPolicies },
+        mediaCache: { downloadSettings },
       },
     },
   } = useAppContext();
@@ -217,12 +216,19 @@ export default function UnifiedCacheSettings() {
       };
 
       const json = JSON.stringify(payload, null, 2);
-      const fileName = `app-logs-${new Date().toISOString().replace(/[:]/g, '-')}.json`;
+      const fileName = `app-logs-${new Date()
+        .toISOString()
+        .replace(/[:]/g, "-")}.json`;
       const destPath = `${FileSystem.documentDirectory}${fileName}`;
-      await FileSystem.writeAsStringAsync(destPath, json, { encoding: FileSystem.EncodingType.UTF8 });
+      await FileSystem.writeAsStringAsync(destPath, json, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
 
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(destPath, { mimeType: "application/json", dialogTitle: t("appSettings.logs.exportComplete") });
+        await Sharing.shareAsync(destPath, {
+          mimeType: "application/json",
+          dialogTitle: t("appSettings.logs.exportComplete"),
+        });
       } else {
         Alert.alert(
           t("appSettings.logs.exportComplete"),
@@ -891,8 +897,6 @@ export default function UnifiedCacheSettings() {
           </View>
         </TouchableOpacity>
 
-        
-
         {/* Export Logs Button */}
         <TouchableOpacity
           style={[
@@ -912,7 +916,9 @@ export default function UnifiedCacheSettings() {
           />
           <View style={styles.importExportButtonTextContainer}>
             <ThemedText style={styles.importExportButtonText}>
-              {isExportingLogs ? t("common.exporting") : t("appSettings.logs.exportButton")}
+              {isExportingLogs
+                ? t("common.exporting")
+                : t("appSettings.logs.exportButton")}
             </ThemedText>
             <ThemedText style={styles.importExportButtonDescription}>
               {t("appSettings.logs.exportDescription")}
@@ -930,7 +936,10 @@ export default function UnifiedCacheSettings() {
           <View style={styles.settingInfo}>
             <View style={styles.settingTextContainer}>
               <ThemedText
-                style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
+                style={[
+                  styles.settingTitle,
+                  { color: Colors[colorScheme].text },
+                ]}
               >
                 {t("appSettings.logs.dbLogsTitle")}
               </ThemedText>
@@ -947,8 +956,15 @@ export default function UnifiedCacheSettings() {
           <Switch
             value={!!settings.logging?.enabled}
             onValueChange={setLoggingEnabled}
-            thumbColor={!!settings.logging?.enabled ? Colors[colorScheme].tint : Colors[colorScheme].textSecondary}
-            trackColor={{ false: Colors[colorScheme].border, true: Colors[colorScheme].tint + "40" }}
+            thumbColor={
+              !!settings.logging?.enabled
+                ? Colors[colorScheme].tint
+                : Colors[colorScheme].textSecondary
+            }
+            trackColor={{
+              false: Colors[colorScheme].border,
+              true: Colors[colorScheme].tint + "40",
+            }}
           />
         </View>
       </View>

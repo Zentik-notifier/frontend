@@ -1,7 +1,5 @@
 import { Colors } from "@/constants/Colors";
 import { MediaType } from "@/generated/gql-operations-generated";
-import { useI18n } from "@/hooks/useI18n";
-import { useNotificationUtils } from "@/hooks/useNotificationUtils";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { formatFileSize } from "@/utils";
@@ -45,33 +43,9 @@ export default function GalleryFilters({
   cacheStats,
 }: GalleryFiltersProps) {
   const colorScheme = useColorScheme();
-  const { t } = useI18n();
-  const { getMediaTypeFriendlyName } = useNotificationUtils();
   const { userSettings } = useAppContext();
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [showStatsTooltip, setShowStatsTooltip] = useState(false);
-
-  const getSelectedTypesText = () => {
-    const allCount = availableMediaTypes.length;
-    const selectedCount = selectedMediaTypes.size;
-
-    if (selectedCount === 0) return t("medias.filters.noType");
-    if (selectedCount === allCount) return t("medias.filters.allTypes");
-
-    const selectedTypes = availableMediaTypes.filter((type) =>
-      selectedMediaTypes.has(type)
-    );
-    if (selectedCount <= 2) {
-      return selectedTypes
-        .map((type) => getMediaTypeFriendlyName(type))
-        .join(", ");
-    }
-
-    return t("medias.filters.selectedTypesCount", {
-      selected: selectedCount,
-      total: allCount,
-    });
-  };
 
   const getActiveFiltersCount = (): number => {
     let count = 0;

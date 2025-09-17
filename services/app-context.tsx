@@ -1,18 +1,13 @@
 import { subscriptionsEnabledVar } from "@/config/apollo-client";
 import {
   DeviceInfoDto,
-  GetBucketsDocument,
   LoginDto,
   NotificationFragment,
   RegisterDto,
-  useBucketCreatedSubscription,
-  useBucketDeletedSubscription,
-  useBucketUpdatedSubscription,
-  useNotificationCreatedSubscription,
+  useGetMeLazyQuery,
   useLoginMutation,
   useLogoutMutation,
-  useRegisterMutation,
-  useGetMeLazyQuery,
+  useRegisterMutation
 } from "@/generated/gql-operations-generated";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { useI18n } from "@/hooks/useI18n";
@@ -26,12 +21,13 @@ import React, {
   useState,
 } from "react";
 import {
+  ActivityIndicator,
   Alert,
   AppState,
-  ActivityIndicator,
-  View,
   StyleSheet,
+  View,
 } from "react-native";
+import OnboardingModal from "../components/OnboardingModal";
 import {
   clearLastUserId,
   clearTokens,
@@ -42,12 +38,8 @@ import {
   savePushNotificationsInitialized,
   saveTokens,
 } from "./auth-storage";
-import { useUserSettings } from "./user-settings";
-import OnboardingModal from "../components/OnboardingModal";
 import { mediaCache } from "./media-cache";
-import { ApiConfigService } from "./api-config";
-import { installConsoleLoggerBridge } from "./console-logger-hook";
-import { openSharedCacheDb } from "./media-cache-db";
+import { useUserSettings } from "./user-settings";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -71,8 +63,8 @@ interface AppContextProps {
   showOnboarding: () => void;
   isOnboardingOpen: boolean;
   hideOnboarding: () => void;
-  setLoading: (loading: boolean) => void;
-  isLoading: boolean;
+  setMainLoading: (loading: boolean) => void;
+  isMainLoading: boolean;
   userSettings: ReturnType<typeof useUserSettings>;
   connectionStatus: ReturnType<typeof useConnectionStatus>;
   deviceToken: string | null;
@@ -100,7 +92,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isMainLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     subscriptionsEnabledVar(true);
@@ -431,8 +423,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         showOnboarding: () => setIsOnboardingOpen(true),
         isOnboardingOpen,
         hideOnboarding: () => setIsOnboardingOpen(false),
-        setLoading: setIsLoading,
-        isLoading,
+        setMainLoading: setIsLoading,
+        isMainLoading,
         userSettings,
         connectionStatus,
         deviceToken: push.deviceToken,
@@ -450,7 +442,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       />
 
       {/* Global Loading Indicator - Bottom Left */}
-      {isLoading && (
+      {isMainLoading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="small" color="#0a7ea4" />
         </View>

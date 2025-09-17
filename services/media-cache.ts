@@ -334,7 +334,7 @@ class MediaCacheService {
                 await this.repo.upsertCacheItem({ ...item, key });
             }
         } catch (error) {
-            console.error('[MediaCache] Failed to persist single item to DB:', error);
+            console.error('[MediaCache] Failed to persist single item to DB:', key, error);
         } finally {
             this.emitMetadata();
             return next;

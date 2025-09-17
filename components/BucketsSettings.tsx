@@ -23,12 +23,12 @@ export default function BucketsSettings({
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const {
-    setLoading,
+    setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
 
   const { data, loading, error, refetch } = useGetBucketsQuery();
-  useEffect(() => setLoading(loading), [loading]);
+  useEffect(() => setMainLoading(loading), [loading]);
 
   const buckets = data?.buckets || [];
   const sortedBuckets = useEntitySorting(buckets, "desc");

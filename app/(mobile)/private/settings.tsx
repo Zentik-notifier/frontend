@@ -21,7 +21,7 @@ interface SettingsOption {
 }
 
 export default function SettingsScreen() {
-  const { userId, showOnboarding, setLoading, isLoading } = useAppContext();
+  const { userId } = useAppContext();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
