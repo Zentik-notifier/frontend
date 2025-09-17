@@ -24,7 +24,7 @@ export default function PrivateLayout() {
           headerShown: true,
           headerShadowVisible: false,
           headerBackVisible: false,
-          headerRight: () => <Header />,
+          header: () => <Header />,
           animationTypeForReplace: "push",
           gestureEnabled: false,
         }}

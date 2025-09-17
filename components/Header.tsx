@@ -12,7 +12,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useColorScheme } from "@/hooks/useTheme";
+import { Colors } from "@/constants/Colors";
 import { LoginModal } from "./LoginModal";
 import { StatusBadge } from "./StatusBadge";
 import UserDropdown from "./UserDropdown";
@@ -25,18 +27,17 @@ export default function Header() {
     isMarkingAllAsRead,
   } = useBadgeSync();
   const { isLoginModalOpen, closeLoginModal } = useAppContext();
-  const insets = useSafeAreaInsets();
   const { itemsInQueue, inProcessing } = useDownloadQueue();
+  const colorScheme = useColorScheme();
 
   return (
     <>
-      <View
+      <SafeAreaView
         style={[
           styles.headerContainer,
-          Platform.OS === "android" && {
-            paddingTop: (StatusBar.currentHeight ?? insets.top ?? 0) + 4,
-          },
+          { backgroundColor: Colors[colorScheme ?? "light"].background }
         ]}
+        edges={['top']}
       >
         {hasUnreadNotifications && (
           <View style={styles.markAllButtonContainer}>
@@ -90,7 +91,7 @@ export default function Header() {
         <StatusBadge />
         <View style={styles.spacer} />
         <UserDropdown />
-      </View>
+      </SafeAreaView>
 
       <LoginModal visible={isLoginModalOpen} onClose={closeLoginModal} />
     </>
@@ -103,6 +104,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
     minHeight: Platform.OS === "android" ? 56 : 44,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
 
   markAllButtonContainer: {
