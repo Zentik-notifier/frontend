@@ -917,35 +917,22 @@ fragment EventFragment on Event {
   userId
   objectId
   createdAt
+  deviceId
 }
 
-query GetEvents {
-  events {
-    ...EventFragment
+# Paginated event queries - Single unified query
+query GetEvents($query: EventsQueryDto!) {
+  events(query: $query) {
+    events {
+      ...EventFragment
+    }
+    total
+    page
+    limit
+    totalPages
+    hasNextPage
+    hasPreviousPage
   }
-}
-
-query GetEventsByType($type: EventType!) {
-  eventsByType(type: $type) {
-    ...EventFragment
-  }
-}
-
-query GetEventsByUser($userId: String!) {
-  eventsByUser(userId: $userId) {
-    ...EventFragment
-  }
-}
-
-query GetEventsByObject($objectId: String!) {
-  eventsByObject(objectId: $objectId) {
-    ...EventFragment
-  }
-}
-
-# Helper: total count
-query GetEventCount {
-  eventCount
 }
 
 # User Notification Statistics

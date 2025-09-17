@@ -521,6 +521,12 @@ export interface TranslationKey {
     backendUnreachable: string;
     cancel: string;
     clear: string;
+    endOfResults: string;
+    loadMore: string;
+    of: string;
+    page: string;
+    results: string;
+    showing: string;
     close: string;
     colorPalette: string;
     copied: string;
@@ -1296,9 +1302,11 @@ export interface TranslationKey {
     title: string;
     description: string;
     filters: {
+      title: string;
       type: string;
       userId: string;
       objectId: string;
+      deviceId: string;
     };
     empty: {
       title: string;

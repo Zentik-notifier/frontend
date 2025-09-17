@@ -710,7 +710,13 @@
     "apply": "Applica",
     "saving": "Salvataggio...",
     "all": "Tutti",
-    "clear": "Cancella"
+    "clear": "Cancella",
+    "showing": "Visualizzando",
+    "of": "di",
+    "results": "risultati",
+    "page": "Pagina",
+    "loadMore": "Carica Altri",
+    "endOfResults": "Fine dei risultati"
   },
   "notificationDetail": {
     "loading": "Caricamento notifica...",
@@ -1296,9 +1302,11 @@
     "title": "Revisione Eventi",
     "description": "Rivedi tutti gli eventi generati dal sistema",
     "filters": {
+      "title": "Filtri",
       "type": "Tipo Evento",
       "userId": "ID Utente",
-      "objectId": "ID Oggetto"
+      "objectId": "ID Oggetto",
+      "deviceId": "ID Dispositivo"
     },
     "empty": {
       "title": "Nessun evento trovato",
