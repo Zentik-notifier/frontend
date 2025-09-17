@@ -917,11 +917,11 @@ fragment EventFragment on Event {
   userId
   objectId
   createdAt
-  deviceId
+  targetId
 }
 
 # Paginated event queries - Single unified query
-query GetEvents($query: EventsQueryDto!) {
+query GetEventsPaginated($query: EventsQueryDto!) {
   events(query: $query) {
     events {
       ...EventFragment

@@ -5,7 +5,8 @@ import { Colors } from "@/constants/Colors";
 import {
   EventType,
   useGetAllUsersQuery,
-  useGetEventsQuery,
+  useGetEventsPaginatedQuery,
+  useGetBucketsQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
@@ -32,7 +33,7 @@ export default function EventsReviewScreen() {
   );
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const [objectId, setObjectId] = useState("");
-  const [deviceId, setDeviceId] = useState("");
+  const [targetId, setTargetId] = useState("");
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const pageSize = 20;
@@ -48,10 +49,10 @@ export default function EventsReviewScreen() {
         type: selectedType,
         userId,
         objectId: objectId || undefined,
-        deviceId: deviceId || undefined,
+        targetId: targetId || undefined,
       },
     }),
-    [selectedType, userId, objectId, deviceId, pageSize]
+    [selectedType, userId, objectId, targetId, pageSize]
   );
 
   const {
@@ -59,7 +60,7 @@ export default function EventsReviewScreen() {
     loading: isLoading,
     refetch,
     fetchMore,
-  } = useGetEventsQuery({
+  } = useGetEventsPaginatedQuery({
     variables: queryVariables,
     notifyOnNetworkStatusChange: true,
     fetchPolicy: "network-only",
@@ -107,7 +108,7 @@ export default function EventsReviewScreen() {
     setSelectedType(undefined);
     setUserId(undefined);
     setObjectId("");
-    setDeviceId("");
+    setTargetId("");
   }, []);
 
   const eventTypeOptions = useMemo(
@@ -128,12 +129,12 @@ export default function EventsReviewScreen() {
   );
 
   const userOptions = useMemo(() => {
-    const options = (usersData?.users ?? []).map((u) => ({
-      label: u.username || u.email || u.id,
-      value: u.id as string,
-      subtitle: u.email || undefined,
-    }));
-    return [{ label: t("common.all"), value: undefined as any }, ...options];
+      const options = (usersData?.users ?? []).map((u) => ({
+        label: u.username || u.email || u.id,
+        value: u.id as string,
+        subtitle: u.email || undefined,
+      }));
+      return [{ label: t("common.all"), value: undefined as any }, ...options];
   }, [usersData, t]);
 
   const userIdToName = useMemo(() => {
@@ -143,6 +144,49 @@ export default function EventsReviewScreen() {
     }
     return map;
   }, [usersData]);
+
+  const formatTargetId = useCallback((targetId: string | null | undefined, eventType: EventType): string => {
+    if (!targetId) return "-";
+    
+    if (eventType === EventType.BucketSharing || eventType === EventType.BucketUnsharing) {
+      return userIdToName[targetId] || targetId;
+    }
+    
+    return targetId;
+  }, [userIdToName]);
+
+  const formatObjectId = useCallback((objectId: string | null | undefined, eventType: EventType): string => {
+    if (!objectId) return mappedObjectIdPlaceholder(eventType);
+    
+    return objectId;
+  }, []);
+
+  const getTargetIdLabel = useCallback((eventType: EventType): string => {
+    switch (eventType) {
+      case EventType.BucketSharing:
+        return "shared with:";
+      case EventType.BucketUnsharing:
+        return "unshared from:";
+      case EventType.Notification:
+      case EventType.DeviceRegister:
+      case EventType.DeviceUnregister:
+        return "device:";
+      default:
+        return "targetId:";
+    }
+  }, []);
+
+  const getObjectIdLabel = useCallback((eventType: EventType): string => {
+    switch (eventType) {
+      case EventType.BucketSharing:
+      case EventType.BucketUnsharing:
+        return "bucket:";
+      case EventType.PushPassthrough:
+        return "token:";
+      default:
+        return "objectId:";
+    }
+  }, []);
 
   const renderItem = ({ item }: any) => {
     const userDisplay = item.userId
@@ -166,16 +210,24 @@ export default function EventsReviewScreen() {
             <ThemedText style={styles.metaLabel}>user:</ThemedText>
             <ThemedText style={styles.metaValue}>{userDisplay}</ThemedText>
           </View>
-          <View style={styles.metaRow}>
-            <ThemedText style={styles.metaLabel}>objectId:</ThemedText>
-            <ThemedText style={styles.metaValue}>
-              {item.objectId || mappedObjectIdPlaceholder(item.type)}
-            </ThemedText>
-          </View>
-          {item.deviceId && (
+          {item.objectId && (
             <View style={styles.metaRow}>
-              <ThemedText style={styles.metaLabel}>deviceId:</ThemedText>
-              <ThemedText style={styles.metaValue}>{item.deviceId}</ThemedText>
+              <ThemedText style={styles.metaLabel}>
+                {getObjectIdLabel(item.type)}
+              </ThemedText>
+              <ThemedText style={styles.metaValue}>
+                {formatObjectId(item.objectId, item.type)}
+              </ThemedText>
+            </View>
+          )}
+          {item.targetId && (
+            <View style={styles.metaRow}>
+              <ThemedText style={styles.metaLabel}>
+                {getTargetIdLabel(item.type)}
+              </ThemedText>
+              <ThemedText style={styles.metaValue}>
+                {formatTargetId(item.targetId, item.type)}
+              </ThemedText>
             </View>
           )}
           <View style={styles.metaRow}>
@@ -219,18 +271,18 @@ export default function EventsReviewScreen() {
             color={Colors[colorScheme ?? "light"].textSecondary}
             style={styles.searchIcon}
           />
-          <TextInput
+            <TextInput
             style={[
               styles.searchInput,
               { color: Colors[colorScheme ?? "light"].text },
             ]}
-            placeholder={t("eventsReview.filters.objectId")}
+              placeholder={t("eventsReview.filters.objectId")}
             placeholderTextColor={
               Colors[colorScheme ?? "light"].inputPlaceholder
             }
-            value={objectId}
-            onChangeText={setObjectId}
-          />
+              value={objectId}
+              onChangeText={setObjectId}
+            />
           {objectId.length > 0 && (
             <TouchableOpacity
               onPress={() => setObjectId("")}
@@ -244,11 +296,11 @@ export default function EventsReviewScreen() {
             </TouchableOpacity>
           )}
         </ThemedView>
-      </View>
+          </View>
 
-      {/* Second row for Device ID search */}
+      {/* Second row for Target ID search */}
       <View style={styles.filtersContainer}>
-        {/* Search Input for Device ID */}
+        {/* Search Input for Target ID */}
         <ThemedView
           style={[
             styles.searchContainer,
@@ -266,16 +318,16 @@ export default function EventsReviewScreen() {
               styles.searchInput,
               { color: Colors[colorScheme ?? "light"].text },
             ]}
-            placeholder={t("eventsReview.filters.deviceId")}
+            placeholder={t("eventsReview.filters.targetId")}
             placeholderTextColor={
               Colors[colorScheme ?? "light"].inputPlaceholder
             }
-            value={deviceId}
-            onChangeText={setDeviceId}
+            value={targetId}
+            onChangeText={setTargetId}
           />
-          {deviceId.length > 0 && (
+          {targetId.length > 0 && (
             <TouchableOpacity
-              onPress={() => setDeviceId("")}
+              onPress={() => setTargetId("")}
               style={styles.clearButton}
             >
               <Ionicons
@@ -359,7 +411,7 @@ export default function EventsReviewScreen() {
         </TouchableOpacity>
 
         {/* Clear Filters Button */}
-        {(selectedType || userId || objectId || deviceId) && (
+        {(selectedType || userId || objectId || targetId) && (
           <TouchableOpacity
             style={[
               styles.clearFiltersButton,
@@ -573,13 +625,13 @@ function mappedObjectIdPlaceholder(type: EventType): string {
     case EventType.PushPassthrough:
       return "systemTokenId";
     case EventType.Notification:
-      return "deviceId";
+      return "-"; // targetId ora è nel campo targetId
     case EventType.BucketSharing:
     case EventType.BucketUnsharing:
-      return "bucketId";
+      return "bucketId"; // objectId = bucketId, targetId = sharedWithUserId
     case EventType.DeviceRegister:
     case EventType.DeviceUnregister:
-      return "deviceId";
+      return "-"; // targetId ora è nel campo targetId
     default:
       return "-";
   }

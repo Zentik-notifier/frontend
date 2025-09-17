@@ -1306,7 +1306,7 @@
       "type": "Event Type",
       "userId": "User ID",
       "objectId": "Object ID",
-      "deviceId": "Device ID"
+      "targetId": "Target ID"
     },
     "empty": {
       "title": "No events found",

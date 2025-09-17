@@ -1306,7 +1306,7 @@ export interface TranslationKey {
       type: string;
       userId: string;
       objectId: string;
-      deviceId: string;
+      targetId: string;
     };
     empty: {
       title: string;
