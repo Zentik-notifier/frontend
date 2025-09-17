@@ -211,10 +211,6 @@ export default function RootLayout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
-  if (!loaded) {
-    return <Slot />;
-  }
-
   useEffect(() => {
     installConsoleLoggerBridge();
     console.log("🔄 [LayoutInit] Console logger bridge installed");
@@ -223,6 +219,10 @@ export default function RootLayout() {
     openSharedCacheDb().catch();
     console.log("🔄 [LayoutInit] Shared cache DB opened");
   }, []);
+
+  if (!loaded) {
+    return <Slot />;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
