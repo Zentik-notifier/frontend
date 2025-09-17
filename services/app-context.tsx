@@ -15,11 +15,9 @@ import {
   useGetMeLazyQuery,
 } from "@/generated/gql-operations-generated";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
-import { useDebounce } from "@/hooks/useDebounce";
 import { useI18n } from "@/hooks/useI18n";
 import { useFetchNotifications } from "@/hooks/useNotifications";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { useApolloClient } from "@apollo/client";
 import React, {
   createContext,
   ReactNode,
@@ -47,6 +45,9 @@ import {
 import { useUserSettings } from "./user-settings";
 import OnboardingModal from "../components/OnboardingModal";
 import { mediaCache } from "./media-cache";
+import { ApiConfigService } from "./api-config";
+import { installConsoleLoggerBridge } from "./console-logger-hook";
+import { openSharedCacheDb } from "./media-cache-db";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -302,8 +303,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const funct = async () => {
       try {
+        console.log("🔄 [AppInit] started");
+        await ApiConfigService.initialize();
+        console.log("🔄 [AppInit] App config initialized");
+        installConsoleLoggerBridge();
+        console.log("🔄 [AppInit] Console logger bridge installed");
+        await openSharedCacheDb();
+        console.log("🔄 [AppInit] Shared cache DB opened");
         const [accessToken, refreshToken, storedLastUserId] = await Promise.all(
           [getAccessToken(), getRefreshToken(), getLastUserId()]
+        );
+        console.log(
+          `🔄 [AppInit] tokens found: ${accessToken} ${refreshToken} ${storedLastUserId}`
         );
         setLastUserId(storedLastUserId);
         if (accessToken && refreshToken) {

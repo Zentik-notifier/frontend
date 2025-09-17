@@ -75,19 +75,19 @@ export function useNotificationById(id?: string) {
 }
 
 export function useFetchNotifications() {
-	const apollo = useApolloClient();
 	const [fetchRemote] = useGetNotificationsLazyQuery({ errorPolicy: 'ignore' });
 	const updateReceivedNotifications = useUpdateReceivedNotifications();
-	// const [loading, setLoading] = useState(false);
+	const [refetching, setRefetching] = useState(false);
 	const { data, loading, refetch } = useGetNotificationsQuery({ skip: false })
-	// const { data } = useGetNotificationsQuery({ skip: false })
 
 	const notifications = data?.notifications ?? [];
 
 	const fetchNotifications = useCallback(async (): Promise<void> => {
 		console.log('🔄 Fetching notifications');
+		if (refetching) return;
 		await refetch();
 		await updateReceivedNotifications();
+		setRefetching(false);
 		// setLoading(true);
 		// try {
 		// 	await fetchRemote({

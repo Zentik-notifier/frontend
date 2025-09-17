@@ -167,24 +167,6 @@ function DeepLinkHandler() {
 
 function TermsGuard({ children }: { children: React.ReactNode }) {
   const { hasAcceptedTerms, acceptTerms } = useUserSettings();
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    ApiConfigService.initialize();
-    installConsoleLoggerBridge();
-    setTimeout(() => {
-      (async () => {
-        try {
-          await openSharedCacheDb();
-        } catch (e) {
-          console.warn("[Bootstrap] Failed to init shared cache DB:", e);
-        }
-      })();
-    }, 0);
-    // Simulate loading state for compatibility
-    const timer = setTimeout(() => setLoading(false), 100);
-    return () => clearTimeout(timer);
-  }, []);
 
   const handleTermsAccepted = async () => {
     await acceptTerms();
@@ -201,7 +183,7 @@ function TermsGuard({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (!loading && !hasAcceptedTerms()) {
+  if (!hasAcceptedTerms()) {
     return (
       <SafeAreaView style={styles.container}>
         <TermsAcceptanceScreen
@@ -238,18 +220,18 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider>
           <I18nProvider>
-            <NavigationOptimizationProvider>
-              <GraphQLProvider>
-                <TermsGuard>
-                  <AppProvider>
-                    <DeepLinkHandler />
-                    <RequireAuth>
-                      <ThemedLayout />
-                    </RequireAuth>
-                  </AppProvider>
-                </TermsGuard>
-              </GraphQLProvider>
-            </NavigationOptimizationProvider>
+            {/* <NavigationOptimizationProvider> */}
+            <GraphQLProvider>
+              <TermsGuard>
+                <AppProvider>
+                  <DeepLinkHandler />
+                  <RequireAuth>
+                    <ThemedLayout />
+                  </RequireAuth>
+                </AppProvider>
+              </TermsGuard>
+            </GraphQLProvider>
+            {/* </NavigationOptimizationProvider> */}
           </I18nProvider>
         </ThemeProvider>
       </SafeAreaProvider>
