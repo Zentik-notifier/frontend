@@ -95,7 +95,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
 
-
   const connectionStatus = useConnectionStatus(!userId);
   const userSettings = useUserSettings();
 
@@ -304,11 +303,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const funct = async () => {
       try {
-        const [accessToken, refreshToken, storedLastUserId] = await Promise.all([
-          getAccessToken(),
-          getRefreshToken(),
-          getLastUserId(),
-        ]);
+        const [accessToken, refreshToken, storedLastUserId] = await Promise.all(
+          [getAccessToken(), getRefreshToken(), getLastUserId()]
+        );
         setLastUserId(storedLastUserId);
         if (accessToken && refreshToken) {
           await completeAuth(accessToken, refreshToken);
@@ -333,21 +330,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loading: notificationsLoading,
   } = useFetchNotifications();
 
-  // Debounced foreground refresh to avoid heavy work immediately on resume
-  const debouncedForegroundRefresh = useDebounce(async () => {
-    try {
-      await mediaCache.reloadMetadata();
-      await refetchNotifications();
-    } catch (error) {
-      console.warn("⚠️ Failed to refresh notifications on foreground:", error);
-    }
-  }, 1000);
-
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
         console.log("📱 App became active - scheduling refresh");
-        debouncedForegroundRefresh();
+        await mediaCache.reloadMetadata();
+        await refetchNotifications();
       }
     };
 
@@ -356,72 +344,72 @@ export function AppProvider({ children }: { children: ReactNode }) {
       handleAppStateChange
     );
     return () => subscription?.remove();
-  }, [userId, refetchNotifications, debouncedForegroundRefresh]);
+  }, [userId, refetchNotifications]);
 
-  // Debounced refetch to avoid excessive requests from multiple subscription events
-  const debouncedRefetchBuckets = useDebounce(() => {
-    apolloClient.refetchQueries({
-      include: [GetBucketsDocument],
-    });
-  }, 2000);
+  // // Debounced refetch to avoid excessive requests from multiple subscription events
+  // const debouncedRefetchBuckets = useDebounce(() => {
+  //   apolloClient.refetchQueries({
+  //     include: [GetBucketsDocument],
+  //   });
+  // }, 2000);
 
-  // Unified subscription handler for bucket events
-  const handleBucketSubscriptionEvent = async (
-    eventType: string,
-    data: any
-  ) => {
-    console.log(`🔄 Bucket ${eventType} via subscription:`, data);
-    debouncedRefetchBuckets();
-  };
+  // // Unified subscription handler for bucket events
+  // const handleBucketSubscriptionEvent = async (
+  //   eventType: string,
+  //   data: any
+  // ) => {
+  //   console.log(`🔄 Bucket ${eventType} via subscription:`, data);
+  //   debouncedRefetchBuckets();
+  // };
 
   // GraphQL Subscriptions
-  const notificationCreatedSubscription = useNotificationCreatedSubscription({
-    skip: !userId,
-    onData: async ({ data }) => {
-      if (data?.data?.notificationCreated) {
-        await refetchNotifications();
-      }
-    },
-    onError: (error) => {
-      console.error("❌ Notification created subscription error:", error);
-    },
-  });
+  // const notificationCreatedSubscription = useNotificationCreatedSubscription({
+  //   skip: !userId,
+  //   onData: async ({ data }) => {
+  //     if (data?.data?.notificationCreated) {
+  //       await refetchNotifications();
+  //     }
+  //   },
+  //   onError: (error) => {
+  //     console.error("❌ Notification created subscription error:", error);
+  //   },
+  // });
 
-  const bucketUpdatedSubscription = useBucketUpdatedSubscription({
-    skip: !userId,
-    onData: async ({ data }) => {
-      if (data?.data?.bucketUpdated) {
-        await handleBucketSubscriptionEvent("updated", data.data.bucketUpdated);
-      }
-    },
-    onError: (error) => {
-      console.error("❌ Bucket updated subscription error:", error);
-    },
-  });
+  // const bucketUpdatedSubscription = useBucketUpdatedSubscription({
+  //   skip: !userId,
+  //   onData: async ({ data }) => {
+  //     if (data?.data?.bucketUpdated) {
+  //       await handleBucketSubscriptionEvent("updated", data.data.bucketUpdated);
+  //     }
+  //   },
+  //   onError: (error) => {
+  //     console.error("❌ Bucket updated subscription error:", error);
+  //   },
+  // });
 
-  const bucketCreatedSubscription = useBucketCreatedSubscription({
-    skip: !userId,
-    onData: async ({ data }) => {
-      if (data?.data?.bucketCreated) {
-        await handleBucketSubscriptionEvent("created", data.data.bucketCreated);
-      }
-    },
-    onError: (error) => {
-      console.error("❌ Bucket created subscription error:", error);
-    },
-  });
+  // const bucketCreatedSubscription = useBucketCreatedSubscription({
+  //   skip: !userId,
+  //   onData: async ({ data }) => {
+  //     if (data?.data?.bucketCreated) {
+  //       await handleBucketSubscriptionEvent("created", data.data.bucketCreated);
+  //     }
+  //   },
+  //   onError: (error) => {
+  //     console.error("❌ Bucket created subscription error:", error);
+  //   },
+  // });
 
-  const bucketDeletedSubscription = useBucketDeletedSubscription({
-    skip: !userId,
-    onData: async ({ data }) => {
-      if (data?.data?.bucketDeleted) {
-        await handleBucketSubscriptionEvent("deleted", data.data.bucketDeleted);
-      }
-    },
-    onError: (error) => {
-      console.error("❌ Bucket deleted subscription error:", error);
-    },
-  });
+  // const bucketDeletedSubscription = useBucketDeletedSubscription({
+  //   skip: !userId,
+  //   onData: async ({ data }) => {
+  //     if (data?.data?.bucketDeleted) {
+  //       await handleBucketSubscriptionEvent("deleted", data.data.bucketDeleted);
+  //     }
+  //   },
+  //   onError: (error) => {
+  //     console.error("❌ Bucket deleted subscription error:", error);
+  //   },
+  // });
 
   return (
     <AppContext.Provider
