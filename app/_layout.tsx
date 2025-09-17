@@ -215,6 +215,15 @@ export default function RootLayout() {
     return <Slot />;
   }
 
+  useEffect(() => {
+    installConsoleLoggerBridge();
+    console.log("🔄 [LayoutInit] Console logger bridge installed");
+    ApiConfigService.initialize().catch();
+    console.log("🔄 [LayoutInit] App config initialized");
+    openSharedCacheDb().catch();
+    console.log("🔄 [LayoutInit] Shared cache DB opened");
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

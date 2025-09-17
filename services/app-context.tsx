@@ -304,12 +304,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const funct = async () => {
       try {
         console.log("🔄 [AppInit] started");
-        await ApiConfigService.initialize();
-        console.log("🔄 [AppInit] App config initialized");
-        installConsoleLoggerBridge();
-        console.log("🔄 [AppInit] Console logger bridge installed");
-        await openSharedCacheDb();
-        console.log("🔄 [AppInit] Shared cache DB opened");
         const [accessToken, refreshToken, storedLastUserId] = await Promise.all(
           [getAccessToken(), getRefreshToken(), getLastUserId()]
         );
