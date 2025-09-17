@@ -15,7 +15,6 @@ const PUBLIC_KEY_KEY = 'public_key';
 const PRIVATE_KEY_KEY = 'private_key';
 const PUSH_NOTIFICATIONS_INITIALIZED_KEY = 'push_notifications_initialized';
 const PENDING_NAVIGATION_INTENT_KEY = 'pending_navigation_intent';
-const PENDING_SNOOZE_INTENT_KEY = 'pending_snooze_intent';
 const BADGE_COUNT_KEY = 'badge_count';
 const API_ENDPOINT_KEY = 'api_endpoint';
 
@@ -63,9 +62,6 @@ export let clearPushNotificationsInitialized: () => Promise<void>;
 export let savePendingNavigationIntent: (intent: any) => Promise<void>;
 export let getPendingNavigationIntent: () => Promise<any>;
 export let clearPendingNavigationIntent: () => Promise<void>;
-export let savePendingSnoozeIntent: (intent: any) => Promise<void>;
-export let getPendingSnoozeIntent: () => Promise<any>;
-export let clearPendingSnoozeIntent: () => Promise<void>;
 export let saveBadgeCount: (count: number) => Promise<void>;
 export let getStoredBadgeCount: () => Promise<number>;
 export let clearBadgeCount: () => Promise<void>;
@@ -77,7 +73,6 @@ const SERVICE = 'zentik-auth';
 const PUBLIC_KEY_SERVICE = 'zentik-public-key';
 const PRIVATE_KEY_SERVICE = 'zentik-private-key';
 const PENDING_NAVIGATION_SERVICE = 'zentik-pending-navigation';
-const PENDING_SNOOZE_SERVICE = 'zentik-pending-snooze';
 const BADGE_COUNT_SERVICE = 'zentik-badge-count';
 const API_ENDPOINT_SERVICE = 'zentik-api-endpoint';
 
@@ -307,49 +302,6 @@ if (Platform.OS === 'ios') {
     } catch { }
   };
 
-  savePendingSnoozeIntent = async (intent: any) => {
-    try {
-      const options: Keychain.SetOptions = Device.isDevice
-        ? { service: PENDING_SNOOZE_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
-        : { service: PENDING_SNOOZE_SERVICE, accessible: ACCESSIBLE };
-      await Keychain.setGenericPassword('snooze', JSON.stringify(intent), options);
-    } catch (error) {
-      console.error('Failed to save pending snooze intent to keychain:', error);
-      await AsyncStorage.setItem(PENDING_SNOOZE_INTENT_KEY, JSON.stringify(intent));
-    }
-  };
-  getPendingSnoozeIntent = async () => {
-    try {
-      const options: Keychain.GetOptions = Device.isDevice
-        ? { service: PENDING_SNOOZE_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-        : { service: PENDING_SNOOZE_SERVICE };
-      const creds = await Keychain.getGenericPassword(options);
-      if (creds) {
-        return JSON.parse(creds.password);
-      }
-      const fallback = await AsyncStorage.getItem(PENDING_SNOOZE_INTENT_KEY);
-      return fallback ? JSON.parse(fallback) : null;
-    } catch (error) {
-      console.error('Failed to get pending snooze intent from keychain:', error);
-      try {
-        const fallback = await AsyncStorage.getItem(PENDING_SNOOZE_INTENT_KEY);
-        return fallback ? JSON.parse(fallback) : null;
-      } catch {
-        return null;
-      }
-    }
-  };
-  clearPendingSnoozeIntent = async () => {
-    try {
-      const options: Keychain.SetOptions = Device.isDevice
-        ? { service: PENDING_SNOOZE_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-        : { service: PENDING_SNOOZE_SERVICE };
-      await Keychain.resetGenericPassword(options);
-    } catch { }
-    try {
-      await AsyncStorage.removeItem(PENDING_SNOOZE_INTENT_KEY);
-    } catch { }
-  };
 
   // Badge count - use keychain with access group for iOS
   saveBadgeCount = async (count: number) => {
@@ -489,22 +441,6 @@ if (Platform.OS === 'ios') {
   clearPendingNavigationIntent = async () => {
     try {
       await AsyncStorage.removeItem(PENDING_NAVIGATION_INTENT_KEY);
-    } catch { }
-  };
-  savePendingSnoozeIntent = async (intent: any) => {
-    await AsyncStorage.setItem(PENDING_SNOOZE_INTENT_KEY, JSON.stringify(intent));
-  };
-  getPendingSnoozeIntent = async () => {
-    try {
-      const value = await AsyncStorage.getItem(PENDING_SNOOZE_INTENT_KEY);
-      return value ? JSON.parse(value) : null;
-    } catch {
-      return null;
-    }
-  };
-  clearPendingSnoozeIntent = async () => {
-    try {
-      await AsyncStorage.removeItem(PENDING_SNOOZE_INTENT_KEY);
     } catch { }
   };
 

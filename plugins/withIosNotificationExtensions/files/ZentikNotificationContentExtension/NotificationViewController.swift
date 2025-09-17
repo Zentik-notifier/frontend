@@ -3209,28 +3209,40 @@ extension NotificationViewController {
     }
     
     private func findMatchingAction(actionIdentifier: String, userInfo: [AnyHashable: Any]) -> [String: Any]? {
+        print("📱 [ContentExtension] 🔍 Looking for action with identifier: \(actionIdentifier)")
+        
         var actions: [[String: Any]] = []
         
         // Extract actions from different payload structures
         if let actionsArray = userInfo["actions"] as? [[String: Any]] {
             actions = actionsArray
+            print("📱 [ContentExtension] 📄 Found \(actions.count) actions in userInfo")
         } else if let singleAction = userInfo["action"] as? [String: Any] {
             actions = [singleAction]
+            print("📱 [ContentExtension] 📄 Found single action in userInfo")
         } else if let payload = userInfo["payload"] as? [String: Any] {
             if let payloadActions = payload["actions"] as? [[String: Any]] {
                 actions = payloadActions
+                print("📱 [ContentExtension] 📄 Found \(actions.count) actions in payload")
             } else if let singlePayloadAction = payload["action"] as? [String: Any] {
                 actions = [singlePayloadAction]
+                print("📱 [ContentExtension] 📄 Found single action in payload")
             }
         }
         
         // Try to match by action identifier pattern
-        for action in actions {
+        for (index, action) in actions.enumerated() {
             guard let type = action["type"] as? String,
-                  let value = action["value"] as? String else { continue }
+                  let value = action["value"] as? String else { 
+                print("📱 [ContentExtension] ⚠️ Action \(index) missing type or value")
+                continue 
+            }
             
             let expectedId = "action_\(type)_\(value)"
-            if actionIdentifier == expectedId || actionIdentifier.contains(value) {
+            print("📱 [ContentExtension] 🔍 Comparing '\(actionIdentifier)' with '\(expectedId)' for action type: \(type)")
+            
+            if actionIdentifier == expectedId {
+                print("📱 [ContentExtension] ✅ Found matching action: \(type) with value: \(value)")
                 return action
             }
         }
@@ -3311,40 +3323,19 @@ extension NotificationViewController {
     private func handleWebhookAction(webhookId: String, notificationId: String, action: [String: Any], completion: @escaping (Bool) -> Void) {
         print("📱 [ContentExtension] 🪝 Webhook action: \(webhookId)")
         
-        Task {
+        // Launch webhook execution in background without waiting
+        Task.detached {
             do {
-                // First, get the webhook configuration
-                let webhook = try await fetchWebhook(webhookId: webhookId)
-                
-                // Build the payload
-                var payload: [String: Any] = [
-                    "notificationId": notificationId,
-                    "actionType": action["type"] ?? "",
-                    "actionValue": action["value"] ?? "",
-                    "timestamp": ISO8601DateFormatter().string(from: Date()),
-                    "webhookId": webhook["id"] ?? "",
-                    "webhookName": webhook["name"] ?? ""
-                ]
-                
-                // Merge webhook body if provided
-                if let webhookBody = webhook["body"] as? [String: Any] {
-                    payload.merge(webhookBody) { _, new in new }
-                }
-                
-                // Execute the webhook
-                try await executeWebhook(webhook: webhook, payload: payload)
-                
-                await MainActor.run {
-                    print("📱 [ContentExtension] ✅ Webhook executed successfully")
-                    completion(true)
-                }
+                try await self.executeWebhookViaBackend(webhookId: webhookId)
+                print("📱 [ContentExtension] ✅ Webhook executed successfully via backend")
             } catch {
-                await MainActor.run {
-                    print("📱 [ContentExtension] ❌ Webhook execution failed: \(error)")
-                    completion(false)
-                }
+                print("📱 [ContentExtension] ❌ Webhook execution failed: \(error)")
             }
         }
+        
+        // Complete immediately without waiting for webhook execution
+        print("📱 [ContentExtension] 🚀 Webhook launched in background, completing action immediately")
+        completion(true)
     }
     
     private func handleBackgroundCallAction(value: String, completion: @escaping (Bool) -> Void) {
@@ -3360,80 +3351,83 @@ extension NotificationViewController {
         let method = components[0]
         let url = components[1]
         
-        Task {
+        // Launch background call execution in background without waiting
+        Task.detached {
             do {
-                try await executeBackgroundCall(method: method, url: url)
-                await MainActor.run {
-                    print("📱 [ContentExtension] ✅ Background call executed successfully")
-                    completion(true)
-                }
+                try await self.executeBackgroundCall(method: method, url: url)
+                print("📱 [ContentExtension] ✅ Background call executed successfully")
             } catch {
-                await MainActor.run {
-                    print("📱 [ContentExtension] ❌ Background call failed: \(error)")
-                    completion(false)
-                }
+                print("📱 [ContentExtension] ❌ Background call failed: \(error)")
             }
         }
+        
+        // Complete immediately without waiting for background call execution
+        print("📱 [ContentExtension] 🚀 Background call launched in background, completing action immediately")
+        completion(true)
     }
     
     private func handleMarkAsReadAction(notificationId: String, completion: @escaping (Bool) -> Void) {
         print("📱 [ContentExtension] ✅ Mark as read action: \(notificationId)")
         
-        Task {
+        // Launch mark as read execution in background without waiting
+        Task.detached {
             do {
-                try await markNotificationAsRead(notificationId: notificationId)
+                try await self.markNotificationAsRead(notificationId: notificationId)
                 // Decrease badge count since notification is marked as read
-                decrementBadgeCount()
-                await MainActor.run {
-                    print("📱 [ContentExtension] ✅ Notification marked as read successfully")
-                    completion(true)
-                }
+                self.decrementBadgeCount()
+                print("📱 [ContentExtension] ✅ Notification marked as read successfully")
             } catch {
-                await MainActor.run {
-                    print("📱 [ContentExtension] ❌ Mark as read failed: \(error)")
-                    completion(false)
-                }
+                print("📱 [ContentExtension] ❌ Mark as read failed: \(error)")
             }
         }
+        
+        // Complete immediately without waiting for mark as read execution
+        print("📱 [ContentExtension] 🚀 Mark as read launched in background, completing action immediately")
+        completion(true)
     }
     
     private func handleDeleteAction(notificationId: String, completion: @escaping (Bool) -> Void) {
         print("📱 [ContentExtension] 🗑️ Delete action: \(notificationId)")
         
-        Task {
+        // Launch delete execution in background without waiting
+        Task.detached {
             do {
-                try await deleteNotification(notificationId: notificationId)
+                try await self.deleteNotification(notificationId: notificationId)
                 // Decrease badge count since notification is deleted
-                decrementBadgeCount()
-                await MainActor.run {
-                    print("📱 [ContentExtension] ✅ Notification deleted successfully")
-                    completion(true)
-                }
+                self.decrementBadgeCount()
+                print("📱 [ContentExtension] ✅ Notification deleted successfully")
             } catch {
-                await MainActor.run {
-                    print("📱 [ContentExtension] ❌ Delete notification failed: \(error)")
-                    completion(false)
-                }
+                print("📱 [ContentExtension] ❌ Delete notification failed: \(error)")
             }
         }
+        
+        // Complete immediately without waiting for delete execution
+        print("📱 [ContentExtension] 🚀 Delete launched in background, completing action immediately")
+        completion(true)
     }
     
     private func handleSnoozeAction(value: String, completion: @escaping (Bool) -> Void) {
         print("📱 [ContentExtension] ⏰ Snooze action: \(value)")
         
-        // Parse snooze duration (format: snooze_X where X is minutes)
-        if let match = value.range(of: #"snooze_(\d+)"#, options: .regularExpression) {
-            let minutesString = String(value[match]).replacingOccurrences(of: "snooze_", with: "")
-            if let minutes = Int(minutesString) {
-                scheduleSnoozeNotification(minutes: minutes)
-                print("📱 [ContentExtension] ⏰ Scheduled snooze for \(minutes) minutes")
-                completion(true)
-                return
+        // Parse snooze duration (format: number as string, e.g., "5", "30")
+        if let minutes = Int(value) {
+            // Launch snooze execution in background without waiting
+            Task.detached {
+                do {
+                    try await self.snoozeViaBucketsEndpoint(minutes: minutes)
+                    print("📱 [ContentExtension] ✅ Snoozed bucket for \(minutes) minutes")
+                } catch {
+                    print("📱 [ContentExtension] ❌ Failed to snooze bucket: \(error)")
+                }
             }
+            
+            // Complete immediately without waiting for snooze execution
+            print("📱 [ContentExtension] 🚀 Snooze launched in background, completing action immediately")
+            completion(true)
+        } else {
+            print("📱 [ContentExtension] ❌ Invalid snooze format (expected number): \(value)")
+            completion(false)
         }
-        
-        print("📱 [ContentExtension] ❌ Invalid snooze format: \(value)")
-        completion(false)
     }
     
     private func handleOpenNotificationAction(value: String, completion: @escaping (Bool) -> Void) {
@@ -3467,41 +3461,28 @@ extension NotificationViewController {
         }
     }
     
-    private func scheduleSnoozeNotification(minutes: Int) {
-        let snoozeData = [
-            "type": "SNOOZE",
-            "minutes": minutes,
-            "timestamp": ISO8601DateFormatter().string(from: Date())
-        ] as [String : Any]
-        
-        do {
-            try storeIntentInKeychain(data: snoozeData, service: "zentik-pending-snooze")
-            print("📱 [ContentExtension] ⏰ Stored snooze intent in keychain for \(minutes) minutes")
-        } catch {
-            print("📱 [ContentExtension] ❌ Failed to store snooze intent in keychain: \(error)")
-        }
-    }
 }
 
 // MARK: - Network Operations
 
 extension NotificationViewController {
     
-    private func fetchWebhook(webhookId: String) async throws -> [String: Any] {
-        print("📱 [ContentExtension] 📡 Fetching webhook: \(webhookId)")
+    private func executeWebhookViaBackend(webhookId: String) async throws {
+        print("📱 [ContentExtension] 📡 Executing webhook via backend: \(webhookId)")
         
         guard let apiEndpoint = getApiEndpoint() else {
             throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not configured"])
         }
         
-        let urlString = "\(apiEndpoint)/api/v1/webhooks/\(webhookId)"
+        let urlString = "\(apiEndpoint)/api/v1/webhooks/\(webhookId)/execute"
         guard let url = URL(string: urlString) else {
             throw NSError(domain: "APIError", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid API URL"])
         }
         
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
+        request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Zentik-iOS-Extension/1.0", forHTTPHeaderField: "User-Agent")
         
         // Add authentication token if available
         if let authToken = getStoredAuthToken() {
@@ -3511,61 +3492,99 @@ extension NotificationViewController {
         let (data, response) = try await URLSession.shared.data(for: request)
         
         if let httpResponse = response as? HTTPURLResponse {
-            print("📱 [ContentExtension] 📥 Fetch webhook response: \(httpResponse.statusCode)")
+            print("📱 [ContentExtension] 📥 Execute webhook response: \(httpResponse.statusCode)")
             if httpResponse.statusCode >= 400 {
                 let responseString = String(data: data, encoding: .utf8) ?? "Unknown error"
                 throw NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): \(responseString)"])
             }
         }
         
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw NSError(domain: "APIError", code: -3, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON response"])
+        // Optionally parse response for additional info
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            print("📱 [ContentExtension] 📥 Webhook execution response: \(json)")
         }
-        
-        return json
     }
     
-    private func executeWebhook(webhook: [String: Any], payload: [String: Any]) async throws {
-        guard let url = webhook["url"] as? String,
-              let method = webhook["method"] as? String else {
-            throw NSError(domain: "WebhookError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid webhook configuration"])
+    private func snoozeViaBucketsEndpoint(minutes: Int) async throws {
+        print("📱 [ContentExtension] ⏰ Snoozing bucket for \(minutes) minutes via backend")
+        
+        // First, get the bucket ID from the current notification
+        guard let userInfo = currentNotificationUserInfo,
+              let bucketId = extractBucketId(from: userInfo) else {
+            throw NSError(domain: "SnoozeError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Bucket ID not found in notification"])
         }
         
-        print("📱 [ContentExtension] 📤 Executing webhook: \(method) \(url)")
-        
-        guard let requestUrl = URL(string: url) else {
-            throw NSError(domain: "WebhookError", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid webhook URL"])
+        guard let apiEndpoint = getApiEndpoint() else {
+            throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not configured"])
         }
         
-        var request = URLRequest(url: requestUrl)
-        request.httpMethod = method
+        let urlString = "\(apiEndpoint)/api/v1/buckets/\(bucketId)/snooze-minutes"
+        guard let url = URL(string: urlString) else {
+            throw NSError(domain: "APIError", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid API URL"])
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Zentik-Mobile/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("Zentik-iOS-Extension/1.0", forHTTPHeaderField: "User-Agent")
         
-        // Add custom headers
-        if let headers = webhook["headers"] as? [[String: Any]] {
-            for header in headers {
-                if let key = header["key"] as? String,
-                   let value = header["value"] as? String {
-                    request.setValue(value, forHTTPHeaderField: key)
-                }
-            }
+        // Add authentication token if available
+        if let authToken = getStoredAuthToken() {
+            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         }
         
-        // Set request body
-        let jsonData = try JSONSerialization.data(withJSONObject: payload)
-        request.httpBody = jsonData
+        // Create request body
+        let requestBody = ["minutes": minutes]
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
         if let httpResponse = response as? HTTPURLResponse {
-            print("📱 [ContentExtension] 📥 Webhook response: \(httpResponse.statusCode)")
+            print("📱 [ContentExtension] 📥 Snooze bucket response: \(httpResponse.statusCode)")
             if httpResponse.statusCode >= 400 {
                 let responseString = String(data: data, encoding: .utf8) ?? "Unknown error"
-                throw NSError(domain: "WebhookError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): \(responseString)"])
+                throw NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): \(responseString)"])
             }
         }
+        
+        // Optionally parse response for additional info
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            print("📱 [ContentExtension] 📥 Bucket snooze response: \(json)")
+        }
     }
+    
+    private func extractBucketId(from userInfo: [AnyHashable: Any]) -> String? {
+        print("📱 [ContentExtension] 🔍 Extracting bucketId from userInfo keys: \(userInfo.keys)")
+        
+        // Try to extract bucket ID from notification payload
+        // For non-encrypted notifications: bucketId should be directly in userInfo
+        if let bucketId = userInfo["bucketId"] as? String {
+            print("📱 [ContentExtension] ✅ Found bucketId directly in userInfo: \(bucketId)")
+            return bucketId
+        }
+        
+        // For encrypted notifications: bucketId should be in the decrypted payload
+        if let payload = userInfo["payload"] as? [String: Any] {
+            print("📱 [ContentExtension] 🔍 Found payload, keys: \(payload.keys)")
+            if let bucketId = payload["bucketId"] as? String {
+                print("📱 [ContentExtension] ✅ Found bucketId in payload: \(bucketId)")
+                return bucketId
+            }
+        }
+        
+        // Fallback: try to extract from nested structure (legacy format)
+        if let payload = userInfo["payload"] as? [String: Any],
+           let message = payload["message"] as? [String: Any],
+           let bucket = message["bucket"] as? [String: Any],
+           let bucketId = bucket["id"] as? String {
+            print("📱 [ContentExtension] ✅ Found bucketId in legacy format: \(bucketId)")
+            return bucketId
+        }
+        
+        print("📱 [ContentExtension] ❌ bucketId not found in any expected location")
+        return nil
+    }
+    
     
     private func executeBackgroundCall(method: String, url: String) async throws {
         print("📱 [ContentExtension] 📞 Executing background call: \(method) \(url)")

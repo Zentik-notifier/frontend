@@ -80,6 +80,7 @@ export function useFetchNotifications() {
 
 	const fetchNotifications = useCallback(async (): Promise<void> => {
 		if (refetching) return;
+		setRefetching(true);
 		console.log('🔄 Fetching notifications started');
 		const newData = await refetch();
 		console.log('🔄 Fetching notifications finished: ', newData.data?.notifications?.length);

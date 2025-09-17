@@ -1,8 +1,6 @@
 import { Colors } from "@/constants/Colors";
 import {
   CreateBucketDto,
-  GetBucketsDocument,
-  GetBucketsQuery,
   UpdateBucketDto,
   useCreateBucketMutation,
   useUpdateBucketMutation,
@@ -13,7 +11,6 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
-import { useApolloClient } from "@apollo/client";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -44,7 +41,6 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const { formatDate } = useDateFormat();
-  const apolloClient = useApolloClient();
   const {
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
@@ -62,28 +58,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
 
   const [createBucketMutation, { loading: creatingBucket }] =
     useCreateBucketMutation({
+      refetchQueries: ['GetBuckets'],
       onCompleted: async (data) => {
-        if (data?.createBucket) {
-          const newBucket = data.createBucket;
-
-          try {
-            const existingData = apolloClient.cache.readQuery<GetBucketsQuery>({
-              query: GetBucketsDocument,
-            });
-
-            if (existingData?.buckets) {
-              apolloClient.cache.writeQuery<GetBucketsQuery>({
-                query: GetBucketsDocument,
-                data: {
-                  buckets: [newBucket, ...existingData.buckets],
-                },
-              });
-            }
-          } catch (error) {
-            console.debug("⚠️ Cache update failed, will refetch:", error);
-          }
-        }
-
         setBucketName("");
         setBucketColor(defaultColor);
         setBucketIcon("");

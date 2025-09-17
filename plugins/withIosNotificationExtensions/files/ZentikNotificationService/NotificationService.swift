@@ -81,6 +81,7 @@ class NotificationService: UNNotificationServiceExtension {
 
                 var updated = content.userInfo as? [String: Any] ?? [:]
                 if let notificationId = obj["notificationId"] { updated["notificationId"] = notificationId }
+                if let bucketId = obj["bucketId"] { updated["bucketId"] = bucketId }
                 if let actions = obj["actions"] as? [[String: Any]] { updated["actions"] = actions }
                 if let attachmentData = obj["attachmentData"] as? [[String: Any]] { updated["attachmentData"] = attachmentData }
                 if let tapAction = obj["tapAction"] as? [String: Any] { 
@@ -124,6 +125,16 @@ class NotificationService: UNNotificationServiceExtension {
                 updatedUserInfo["notificationId"] = decryptedId
                 content.userInfo = updatedUserInfo
                 print("📱 [NotificationService] 🔓 Decrypted notificationId: \(decryptedId)")
+            }
+        }
+        
+        // Decrypt bucketId if present
+        if let encryptedBucketId = userInfo["bucketId"] as? String {
+            if let decryptedBucketId = decryptValue(encryptedBucketId) {
+                var updatedUserInfo = content.userInfo as? [String: Any] ?? [:]
+                updatedUserInfo["bucketId"] = decryptedBucketId
+                content.userInfo = updatedUserInfo
+                print("📱 [NotificationService] 🔓 Decrypted bucketId: \(decryptedBucketId)")
             }
         }
         

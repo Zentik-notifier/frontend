@@ -88,7 +88,6 @@ export function usePushNotifications() {
   };
 
   const enableBackgroundFetch = async () => {
-    BackgroundFetch.unregisterTaskAsync(NOTIFICATION_REFRESH_TASK);
     try {
       const status = await BackgroundFetch.getStatusAsync();
       if (status === BackgroundFetch.BackgroundTaskStatus.Restricted) {

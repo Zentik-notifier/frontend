@@ -389,6 +389,7 @@ export type Mutation = {
   deletePayloadMapper: Scalars['Boolean']['output'];
   deleteWebhook: Scalars['Boolean']['output'];
   deviceReportNotificationReceived: Notification;
+  executeWebhook: Scalars['Boolean']['output'];
   grantEntityPermission: EntityPermission;
   login: LoginResponse;
   logout: Scalars['String']['output'];
@@ -415,6 +416,7 @@ export type Mutation = {
   revokeSystemToken: Scalars['Boolean']['output'];
   /** @deprecated Usa Bucket.setBucketSnooze (questo sarà rimosso) */
   setBucketSnooze: UserBucket;
+  setBucketSnoozeMinutes: UserBucket;
   setPassword: Scalars['Boolean']['output'];
   shareBucket: EntityPermission;
   toggleOAuthProvider: OAuthProvider;
@@ -510,6 +512,11 @@ export type MutationDeleteWebhookArgs = {
 
 export type MutationDeviceReportNotificationReceivedArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type MutationExecuteWebhookArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -617,6 +624,12 @@ export type MutationRevokeSystemTokenArgs = {
 export type MutationSetBucketSnoozeArgs = {
   bucketId: Scalars['String']['input'];
   snoozeUntil?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationSetBucketSnoozeMinutesArgs = {
+  bucketId: Scalars['String']['input'];
+  input: SetBucketSnoozeMinutesInput;
 };
 
 
@@ -1077,6 +1090,10 @@ export type SessionInfoDto = {
   location: Maybe<Scalars['String']['output']>;
   loginProvider: Maybe<Scalars['String']['output']>;
   operatingSystem: Maybe<Scalars['String']['output']>;
+};
+
+export type SetBucketSnoozeMinutesInput = {
+  minutes: Scalars['Float']['input'];
 };
 
 export type SnoozeSchedule = {
@@ -2004,6 +2021,21 @@ export type UserNotificationStatsByUserIdQueryVariables = Exact<{
 
 
 export type UserNotificationStatsByUserIdQuery = { __typename?: 'Query', userNotificationStats: { __typename?: 'UserNotificationStats', today: number, thisWeek: number, thisMonth: number, total: number } };
+
+export type ExecuteWebhookMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type ExecuteWebhookMutation = { __typename?: 'Mutation', executeWebhook: boolean };
+
+export type SetBucketSnoozeMinutesMutationVariables = Exact<{
+  bucketId: Scalars['String']['input'];
+  input: SetBucketSnoozeMinutesInput;
+}>;
+
+
+export type SetBucketSnoozeMinutesMutation = { __typename?: 'Mutation', setBucketSnoozeMinutes: { __typename?: 'UserBucket', id: string, snoozeUntil: string | null, bucket: { __typename?: 'Bucket', id: string, name: string } } };
 
 export const MessageAttachmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageAttachmentFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MessageAttachment"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"saveOnServer"}}]}}]} as unknown as DocumentNode;
 export const NotificationActionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationActionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationAction"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"destructive"}}]}}]} as unknown as DocumentNode;
@@ -4567,3 +4599,58 @@ export type UserNotificationStatsByUserIdQueryHookResult = ReturnType<typeof use
 export type UserNotificationStatsByUserIdLazyQueryHookResult = ReturnType<typeof useUserNotificationStatsByUserIdLazyQuery>;
 export type UserNotificationStatsByUserIdSuspenseQueryHookResult = ReturnType<typeof useUserNotificationStatsByUserIdSuspenseQuery>;
 export type UserNotificationStatsByUserIdQueryResult = Apollo.QueryResult<UserNotificationStatsByUserIdQuery, UserNotificationStatsByUserIdQueryVariables>;
+export const ExecuteWebhookDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ExecuteWebhook"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"executeWebhook"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode;
+export type ExecuteWebhookMutationFn = Apollo.MutationFunction<ExecuteWebhookMutation, ExecuteWebhookMutationVariables>;
+
+/**
+ * __useExecuteWebhookMutation__
+ *
+ * To run a mutation, you first call `useExecuteWebhookMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useExecuteWebhookMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [executeWebhookMutation, { data, loading, error }] = useExecuteWebhookMutation({
+ *   variables: {
+ *      id: // value for 'id'
+ *   },
+ * });
+ */
+export function useExecuteWebhookMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<ExecuteWebhookMutation, ExecuteWebhookMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<ExecuteWebhookMutation, ExecuteWebhookMutationVariables>(ExecuteWebhookDocument, options);
+      }
+export type ExecuteWebhookMutationHookResult = ReturnType<typeof useExecuteWebhookMutation>;
+export type ExecuteWebhookMutationResult = Apollo.MutationResult<ExecuteWebhookMutation>;
+export type ExecuteWebhookMutationOptions = Apollo.BaseMutationOptions<ExecuteWebhookMutation, ExecuteWebhookMutationVariables>;
+export const SetBucketSnoozeMinutesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SetBucketSnoozeMinutes"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"bucketId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SetBucketSnoozeMinutesInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setBucketSnoozeMinutes"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"bucketId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"bucketId"}}},{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"snoozeUntil"}},{"kind":"Field","name":{"kind":"Name","value":"bucket"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}}]} as unknown as DocumentNode;
+export type SetBucketSnoozeMinutesMutationFn = Apollo.MutationFunction<SetBucketSnoozeMinutesMutation, SetBucketSnoozeMinutesMutationVariables>;
+
+/**
+ * __useSetBucketSnoozeMinutesMutation__
+ *
+ * To run a mutation, you first call `useSetBucketSnoozeMinutesMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useSetBucketSnoozeMinutesMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [setBucketSnoozeMinutesMutation, { data, loading, error }] = useSetBucketSnoozeMinutesMutation({
+ *   variables: {
+ *      bucketId: // value for 'bucketId'
+ *      input: // value for 'input'
+ *   },
+ * });
+ */
+export function useSetBucketSnoozeMinutesMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<SetBucketSnoozeMinutesMutation, SetBucketSnoozeMinutesMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<SetBucketSnoozeMinutesMutation, SetBucketSnoozeMinutesMutationVariables>(SetBucketSnoozeMinutesDocument, options);
+      }
+export type SetBucketSnoozeMinutesMutationHookResult = ReturnType<typeof useSetBucketSnoozeMinutesMutation>;
+export type SetBucketSnoozeMinutesMutationResult = Apollo.MutationResult<SetBucketSnoozeMinutesMutation>;
+export type SetBucketSnoozeMinutesMutationOptions = Apollo.BaseMutationOptions<SetBucketSnoozeMinutesMutation, SetBucketSnoozeMinutesMutationVariables>;

@@ -1,7 +1,6 @@
 import { UpdateUserDeviceInput, useUpdateUserDeviceMutation } from '@/generated/gql-operations-generated';
-import { clearPendingNavigationIntent, getStoredDeviceToken } from '@/services/auth-storage';
+import { clearPendingNavigationIntent } from '@/services/auth-storage';
 import { mediaCache } from '@/services/media-cache';
-import { useApolloClient } from '@apollo/client';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { useCallback } from 'react';
@@ -11,8 +10,9 @@ import {
   NotificationActionType,
   UpdateDeviceTokenDto,
   useDeviceReportNotificationReceivedMutation,
+  useExecuteWebhookMutation,
   useGetNotificationLazyQuery,
-  useGetWebhookLazyQuery,
+  useSetBucketSnoozeMinutesMutation,
   useUpdateDeviceTokenMutation
 } from '../generated/gql-operations-generated';
 import { useI18n } from './useI18n';
@@ -24,18 +24,17 @@ import { useDeleteNotification, useFetchNotifications, useMarkNotificationRead }
  */
 export function useNotificationActions() {
   const { t } = useI18n();
-  const apolloClient = useApolloClient();
   const deleteNotificationFn = useDeleteNotification();
   const markAsReadFn = useMarkNotificationRead();
-  const [getWebhook] = useGetWebhookLazyQuery();
   const [getNotification] = useGetNotificationLazyQuery();
+  const [executeWebhook] = useExecuteWebhookMutation();
+  const [setBucketSnoozeMinutes] = useSetBucketSnoozeMinutesMutation();
   const [deviceReportReceived] = useDeviceReportNotificationReceivedMutation();
   const [updateDeviceToken] = useUpdateDeviceTokenMutation();
   const [updateUserDeviceMutation] = useUpdateUserDeviceMutation();
   const { fetchNotifications } = useFetchNotifications();
 
   const deleteNotification = useCallback(async (notificationId: string) => {
-    const deviceToken = await getStoredDeviceToken();
     deleteNotificationFn(notificationId);
   }, [deleteNotificationFn]);
 
@@ -94,86 +93,32 @@ export function useNotificationActions() {
         throw new Error(t('webhooks.form.noWebhookId'));
       }
 
-      // Load the webhook entity using GraphQL
-      const webhookResponse = await getWebhook({
+      console.log('📡 Executing webhook via backend endpoint:', webhookId);
+
+      // Execute the webhook using the new backend endpoint
+      const response = await executeWebhook({
         variables: { id: webhookId }
       });
 
-      const webhook = webhookResponse.data?.webhook;
-
-      if (!webhook) {
-        throw new Error(t('webhooks.form.webhookNotFound'));
+      if (response.data?.executeWebhook) {
+        console.log('✅ Webhook executed successfully via backend');
+        // Show success feedback to user
+        Alert.alert(t('common.success'), t('webhooks.form.webhookSuccess', { name: webhookId }));
+      } else {
+        throw new Error('Webhook execution returned false');
       }
-
-      console.log('📡 Loaded webhook entity:', webhook);
-
-      // Build the request payload with notification context
-      let payload: any = {
-        notificationId,
-        actionType: action.type,
-        actionValue: action.value,
-        timestamp: new Date().toISOString(),
-        webhookId: webhook.id,
-        webhookName: webhook.name,
-      };
-
-      // Merge webhook body if provided
-      if (webhook.body && typeof webhook.body === 'object') {
-        payload = {
-          ...webhook.body,
-          ...payload,
-        };
-      }
-
-      // Convert webhook headers array to headers object
-      const customHeaders: Record<string, string> = {};
-      if (webhook.headers && Array.isArray(webhook.headers)) {
-        webhook.headers.forEach((header: any) => {
-          customHeaders[header.key] = header.value;
-        });
-      }
-
-      console.log('📤 Final webhook payload:', payload);
-
-      // Execute the webhook using the entity's URL and method
-      const response = await fetch(webhook.url, {
-        method: webhook.method,
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Zentik-Mobile/1.0',
-          ...customHeaders,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const responseData = await response.text();
-      console.log('✅ Webhook executed successfully:', {
-        webhookName: webhook.name,
-        url: webhook.url,
-        method: webhook.method,
-        status: response.status,
-        statusText: response.statusText,
-        response: responseData
-      });
-
-      // Show success feedback to user
-      Alert.alert(t('common.success'), t('webhooks.form.webhookSuccess', { name: webhook.name }));
     } catch (error) {
       console.error('❌ Failed to execute webhook:', error);
       Alert.alert(t('webhooks.form.webhookError'), t('webhooks.form.webhookExecutionFailed'));
     }
-  }, [getWebhook, t]);
+  }, [executeWebhook, t]);
 
   const onBackgroundCall = useCallback(async (action: NotificationActionFragment) => {
     console.log('📞 Executing background call:', JSON.stringify(action));
 
     try {
       // Parse method and URL from action value (format: "METHOD:URL")
-      const [method, url] = action.value.split('::');
+      const [method, url] = action.value?.split('::') || [];
 
       if (!url) {
         throw new Error('Invalid background call format. Expected METHOD:URL');
@@ -231,20 +176,46 @@ export function useNotificationActions() {
     }
   }, [deleteNotification, t]);
 
-  const onSnooze = useCallback((action: NotificationActionFragment) => {
+  const onSnooze = useCallback(async (notificationId: string, action: NotificationActionFragment) => {
     console.log('⏰ Snoozing notification for:', action.value);
 
-    // Parse snooze duration from action value (e.g., "snooze_5", "snooze_30")
-    const match = action.value.match(/snooze_(\d+)/);
-    if (match) {
-      const minutes = parseInt(match[1], 10);
-      console.log(`⏰ Snoozing notification for ${minutes} minutes`);
-      Alert.alert(t('common.snooze'), t('common.snoozeMessage', { minutes: minutes.toString() }));
-    } else {
-      console.warn('⚠️ Invalid snooze format:', action.value);
-      Alert.alert(t('common.snooze'), t('common.snoozeGeneric'));
+    try {
+      // Get the notification to extract bucket ID
+      const notificationResponse = await getNotification({
+        variables: { id: notificationId }
+      });
+
+      const notification = notificationResponse.data?.notification;
+      if (!notification) {
+        throw new Error('Notification not found');
+      }
+
+      const bucketId = notification.message.bucket.id;
+
+      // Parse snooze duration from action value (e.g., "5", "30")
+      if (action.value && /^\d+$/.test(action.value)) {
+        const minutes = parseInt(action.value, 10);
+        console.log(`⏰ Snoozing bucket ${bucketId} for ${minutes} minutes`);
+
+        // Use the new endpoint to snooze the bucket
+        await setBucketSnoozeMinutes({
+          variables: {
+            bucketId: bucketId,
+            input: { minutes: minutes }
+          }
+        });
+
+        console.log('✅ Bucket snoozed successfully');
+        Alert.alert(t('common.success'), t('common.snoozeMessage', { minutes: minutes.toString() }));
+      } else {
+        console.warn('⚠️ Invalid snooze format (expected number):', action.value);
+        Alert.alert(t('common.error'), 'Invalid snooze format');
+      }
+    } catch (error) {
+      console.error('❌ Failed to snooze bucket:', error);
+      Alert.alert(t('common.error'), 'Failed to snooze notification');
     }
-  }, [t]);
+  }, [getNotification, setBucketSnoozeMinutes, t]);
 
   // Helper function to wait for router to be ready
   const waitForRouter = async (maxAttempts = 10): Promise<boolean> => {
@@ -310,7 +281,9 @@ export function useNotificationActions() {
     switch (action.type) {
       case NotificationActionType.Navigate:
         console.log('🧭 Navigate action');
-        onNavigate(action.value);
+        if (action.value) {
+          onNavigate(action.value);
+        }
         break;
       case NotificationActionType.Webhook:
         console.log('🪝 Webhook action');
@@ -330,7 +303,7 @@ export function useNotificationActions() {
         break;
       case NotificationActionType.Snooze:
         console.log('⏰ Snooze action');
-        onSnooze(action);
+        await onSnooze(notificationId, action);
         break;
       case NotificationActionType.OpenNotification:
         console.log('📂 Open notification action');
@@ -387,7 +360,7 @@ export function useNotificationActions() {
     } catch (error) {
       console.error('pushNotificationReceived error', error);
     }
-  }, [getNotification, deviceReportReceived, apolloClient]);
+  }, [getNotification, deviceReportReceived]);
 
   return {
     onNavigate,

@@ -954,3 +954,18 @@ query UserNotificationStatsByUserId($userId: String!) {
     total
   }
 }
+
+mutation ExecuteWebhook($id: ID!) {
+  executeWebhook(id: $id)
+}
+
+mutation SetBucketSnoozeMinutes($bucketId: String!, $input: SetBucketSnoozeMinutesInput!) {
+  setBucketSnoozeMinutes(bucketId: $bucketId, input: $input) {
+    id
+    snoozeUntil
+    bucket {
+      id
+      name
+    }
+  }
+}

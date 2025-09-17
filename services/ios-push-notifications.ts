@@ -5,9 +5,7 @@ import { DevicePlatform, NotificationActionFragment, NotificationActionType, Reg
 import { ApiConfigService } from './api-config';
 import {
     clearPendingNavigationIntent,
-    clearPendingSnoozeIntent,
     getPendingNavigationIntent,
-    getPendingSnoozeIntent,
 } from './auth-storage';
 
 class IOSNativePushNotificationService {
@@ -287,26 +285,6 @@ class IOSNativePushNotificationService {
                 return true; // Intent was processed
             }
 
-            // Check for pending snooze intent using keychain
-            const snoozeIntent = await getPendingSnoozeIntent();
-            if (snoozeIntent && this.actionCallbacks) {
-                console.log('📱 iOS: Found pending snooze intent:', snoozeIntent);
-
-                // Schedule the snooze notification
-                if (snoozeIntent.minutes) {
-                    this.actionCallbacks.onSnooze({
-                        type: NotificationActionType.Snooze,
-                        value: `snooze_${snoozeIntent.minutes}`,
-                        destructive: false,
-                        icon: '',
-                        title: `Snooze ${snoozeIntent.minutes}m`
-                    });
-                }
-
-                // Clear the processed intent
-                await clearPendingSnoozeIntent();
-                console.log('📱 iOS: Snooze intent processed and cleared');
-            }
 
             return false; // No navigation intent was processed
 

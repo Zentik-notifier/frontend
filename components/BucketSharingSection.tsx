@@ -6,12 +6,11 @@ import {
   Permission,
   ResourceType,
   useShareBucketMutation,
-  useUnshareBucketMutation
+  useUnshareBucketMutation,
 } from "@/generated/gql-operations-generated";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
-import { useApolloClient } from "@apollo/client";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
@@ -34,12 +33,33 @@ interface BucketSharingSectionProps {
 }
 
 // Define permission levels
-type PermissionLevel = 'read' | 'readwrite' | 'admin';
+type PermissionLevel = "read" | "readwrite" | "admin";
 
-const PERMISSION_LEVELS: { value: PermissionLevel; label: string; permissions: Permission[] }[] = [
-  { value: 'read', label: 'buckets.sharing.permission.read', permissions: [Permission.Read] },
-  { value: 'readwrite', label: 'buckets.sharing.permission.readwrite', permissions: [Permission.Read, Permission.Write] },
-  { value: 'admin', label: 'buckets.sharing.permission.admin', permissions: [Permission.Read, Permission.Write, Permission.Delete, Permission.Admin] },
+const PERMISSION_LEVELS: {
+  value: PermissionLevel;
+  label: string;
+  permissions: Permission[];
+}[] = [
+  {
+    value: "read",
+    label: "buckets.sharing.permission.read",
+    permissions: [Permission.Read],
+  },
+  {
+    value: "readwrite",
+    label: "buckets.sharing.permission.readwrite",
+    permissions: [Permission.Read, Permission.Write],
+  },
+  {
+    value: "admin",
+    label: "buckets.sharing.permission.admin",
+    permissions: [
+      Permission.Read,
+      Permission.Write,
+      Permission.Delete,
+      Permission.Admin,
+    ],
+  },
 ];
 
 interface ShareModalProps {
@@ -62,13 +82,16 @@ const ShareModal: React.FC<ShareModalProps> = ({
   const { t } = useI18n();
   const colorScheme = useColorScheme();
   const [identifier, setIdentifier] = useState("");
-  const [selectedPermissionLevel, setSelectedPermissionLevel] = useState<PermissionLevel>('read');
+  const [selectedPermissionLevel, setSelectedPermissionLevel] =
+    useState<PermissionLevel>("read");
 
   const isEditing = !!editingPermission;
 
   const handleShare = () => {
-    const selectedPermissions = PERMISSION_LEVELS.find(level => level.value === selectedPermissionLevel)?.permissions || [Permission.Read];
-    
+    const selectedPermissions = PERMISSION_LEVELS.find(
+      (level) => level.value === selectedPermissionLevel
+    )?.permissions || [Permission.Read];
+
     if (isEditing) {
       if (onUpdate) {
         onUpdate(selectedPermissions);
@@ -84,19 +107,22 @@ const ShareModal: React.FC<ShareModalProps> = ({
 
   const reset = () => {
     setIdentifier("");
-    setSelectedPermissionLevel('read');
+    setSelectedPermissionLevel("read");
   };
 
   // Initialize form with editing data
   useEffect(() => {
     if (isEditing && editingPermission) {
       // Find the matching permission level based on current permissions
-      const currentLevel = PERMISSION_LEVELS.find(level => 
-        level.permissions.length === editingPermission.permissions.length &&
-        level.permissions.every(p => editingPermission.permissions.includes(p))
+      const currentLevel = PERMISSION_LEVELS.find(
+        (level) =>
+          level.permissions.length === editingPermission.permissions.length &&
+          level.permissions.every((p) =>
+            editingPermission.permissions.includes(p)
+          )
       );
-      setSelectedPermissionLevel(currentLevel?.value || 'read');
-      
+      setSelectedPermissionLevel(currentLevel?.value || "read");
+
       if (editingPermission.user?.username) {
         setIdentifier(editingPermission.user.username);
       } else if (editingPermission.user?.email) {
@@ -424,7 +450,6 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
   bucketId,
 }) => {
   const { t } = useI18n();
-  const apolloClient = useApolloClient();
   const [showShareModal, setShowShareModal] = useState(false);
   const [editingPermission, setEditingPermission] =
     useState<EntityPermissionFragment | null>(null);
@@ -526,21 +551,6 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
     });
   };
 
-  // Helper function to update cache when removing permissions
-  const updateCacheAfterRevoke = (userId: string) => {
-    apolloClient.cache.modify({
-      id: apolloClient.cache.identify({ __typename: "Bucket", id: bucketId }),
-      fields: {
-        permissions(existingPermissions = []) {
-          // Remove the permission for the specific user
-          return existingPermissions.filter(
-            (permission: any) => permission.user?.id !== userId
-          );
-        },
-      },
-    });
-  };
-
   const handleRevoke = (permission: EntityPermissionFragment) => {
     Alert.alert(
       t("buckets.sharing.confirmRevoke"),
@@ -556,9 +566,6 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
           text: t("buckets.sharing.revoke"),
           style: "destructive",
           onPress: () => {
-            // Update Apollo cache immediately for better UX
-            updateCacheAfterRevoke(permission.user?.id || "");
-
             unshareBucket({
               variables: {
                 input: {
