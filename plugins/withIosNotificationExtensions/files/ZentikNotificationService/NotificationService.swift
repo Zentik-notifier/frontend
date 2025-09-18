@@ -2104,7 +2104,8 @@ class NotificationService: UNNotificationServiceExtension {
         var pendingNotifications: [[String: Any]] = []
         
         // Try to read existing notifications from keychain
-        let options: [String: Any] = Device.isDevice
+        let isPhysicalDevice = !TARGET_OS_SIMULATOR
+        let options: [String: Any] = isPhysicalDevice
             ? [kSecClass as String: kSecClassGenericPassword,
                kSecAttrService as String: "zentik-pending-notifications",
                kSecAttrAccessGroup as String: "C3F24V5NS5.com.apocaliss92.zentik.dev.keychain",
@@ -2133,7 +2134,7 @@ class NotificationService: UNNotificationServiceExtension {
         // Save back to keychain
         let jsonData = try JSONSerialization.data(withJSONObject: pendingNotifications)
         
-        let saveOptions: [String: Any] = Device.isDevice
+        let saveOptions: [String: Any] = isPhysicalDevice
             ? [kSecClass as String: kSecClassGenericPassword,
                kSecAttrService as String: "zentik-pending-notifications",
                kSecAttrAccessGroup as String: "C3F24V5NS5.com.apocaliss92.zentik.dev.keychain",
