@@ -1,4 +1,4 @@
-import { NotificationFragmentDoc } from '@/generated/gql-operations-generated';
+import { GetNotificationsDocument, GetNotificationsQuery, NotificationFragmentDoc } from '@/generated/gql-operations-generated';
 import { useApolloClient } from '@apollo/client';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -95,45 +95,77 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
         return;
       }
 
+      // Rimuovi path specifici dalle notifiche per ridurre dimensione
+      const fullPath = currentPath ? `${currentPath}.${key}` : key;
+      if (fullPath === 'message.bucket.user' || 
+          fullPath === 'message.bucket.userBucket' || 
+          fullPath === 'userDevice') {
+        console.log(`🧹 Removing unnecessary path from export: ${fullPath}`);
+        return;
+      }
+
       // Maschera informazioni sensibili richieste da fragment/schema
       if (key === 'publicKey' || key === 'privateKey' || key === 'deviceToken') {
         cleaned[key] = '***';
         return;
       }
 
-      cleaned[key] = cleanExportData(value, currentPath ? `${currentPath}.${key}` : key);
+      cleaned[key] = cleanExportData(value, fullPath);
     });
 
     return cleaned;
   }, []);
 
   /**
-   * Estrae tutte le notifiche dalla cache GraphQL con tutte le relazioni risolte
+   * Estrae le notifiche dalla query GetNotifications invece che dalla cache raw
+   * Questo evita di includere notifiche orfane che sono state cancellate
    */
-  const extractNotificationsFromCache = useCallback((): any[] => {
+  const extractNotificationsFromQuery = useCallback((): any[] => {
     try {
       const cache = apolloClient?.cache;
       if (!cache) {
         throw new Error(t('appSettings.gqlCache.importExport.errors.apolloCacheUnavailable'));
       }
 
-      // Evita di leggere da storage persistito; prendiamo solo lo stato attuale in memoria
-      const cacheData = cache.extract(true as any);
-      const notifications: any[] = [];
+      // Leggi direttamente dalla query GetNotifications invece che dalla cache raw
+      let queryData: GetNotificationsQuery | null = null;
+      try {
+        queryData = cache.readQuery<GetNotificationsQuery>({
+          query: GetNotificationsDocument
+        });
+      } catch (error) {
+        console.warn('⚠️ GetNotifications query not found in cache, trying cache extract...');
+        // Fallback alla cache raw se la query non esiste
+        const cacheData = cache.extract(true as any) as Record<string, any>;
+        const notifications: any[] = [];
+        
+        Object.entries(cacheData).forEach(([key, entity]: [string, any]) => {
+          if (entity && entity.__typename === 'Notification') {
+            const resolvedNotification = resolveEntity(cacheData, entity);
+            const cleanedNotification = cleanExportData(resolvedNotification);
+            notifications.push(cleanedNotification);
+          }
+        });
+        
+        console.log(`📤 Exporting ${notifications.length} notifications from raw cache (fallback)`);
+        return notifications;
+      }
 
-      // Estrai tutte le notifiche dalla cache e risolvi le relazioni
-      Object.entries(cacheData).forEach(([key, entity]: [string, any]) => {
-        if (entity && entity.__typename === 'Notification') {
-          const resolvedNotification = resolveEntity(cacheData, entity);
-          const cleanedNotification = cleanExportData(resolvedNotification, 'notifications');
-          notifications.push(cleanedNotification);
-        }
+      if (!queryData?.notifications) {
+        console.log('📤 No notifications found in query result');
+        return [];
+      }
+
+      // Usa solo le notifiche dalla query (quelle effettivamente visibili)
+      const notifications = queryData.notifications.map(notification => {
+        const cleanedNotification = cleanExportData(notification);
+        return cleanedNotification;
       });
 
-      console.log(`📤 Exporting ${notifications.length} notifications from raw cache`);
+      console.log(`📤 Exporting ${notifications.length} notifications from GetNotifications query`);
       return notifications;
     } catch (error) {
-      console.error('Error extracting notifications from cache:', error);
+      console.error('Error extracting notifications from query:', error);
       throw error;
     }
   }, [t, resolveEntity, cleanExportData]);
@@ -317,60 +349,152 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
   }, [t]);
 
   /**
-   * Esporta le notifiche dalla cache GraphQL in un file JSON
+   * Esporta le notifiche dalla cache GraphQL in un file JSON con streaming per evitare crash
    */
   const exportNotifications = useCallback(async (): Promise<boolean> => {
     try {
-      // Rimuove entità orfane dalla cache prima dell'estrazione
+      // Rimuove entità orfane dalla cache (il cleanup automatico è gestito in apollo-client.ts)
       try {
         apolloClient?.cache.gc();
       } catch {}
-      const notifications = extractNotificationsFromCache();
+
+      const fileName = `notifications-${new Date().toISOString().split('T')[0]}.json`;
+
+      if (Platform.OS === 'web') {
+        return await exportNotificationsWeb(fileName);
+      } else {
+        return await exportNotificationsMobile(fileName);
+      }
+
+    } catch (error) {
+      console.error('Error exporting notifications:', error);
+      Alert.alert(t('appSettings.gqlCache.importExport.exportError'), t('appSettings.gqlCache.importExport.exportError') + ': ' + (error instanceof Error ? error.message : 'Unknown error'));
+      return false;
+    }
+  }, [t]);
+
+  /**
+   * Export per mobile con streaming per evitare crash di memoria
+   */
+  const exportNotificationsMobile = useCallback(async (fileName: string): Promise<boolean> => {
+    const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+    
+    try {
+      // Usa extractNotificationsFromQuery invece della cache raw
+      const notifications = extractNotificationsFromQuery();
 
       if (notifications.length === 0) {
         Alert.alert(t('appSettings.gqlCache.importExport.exportError'), t('appSettings.gqlCache.importExport.noNotificationsToExport'));
         return false;
       }
 
-      // Esporta un array puro di notifiche con relazioni risolte
-      const jsonData = JSON.stringify(notifications, null, 2);
-      const fileName = `notifications-${new Date().toISOString().split('T')[0]}.json`;
+      console.log(`📤 Exporting ${notifications.length} notifications in batches...`);
 
-      if (Platform.OS === 'web') {
-        // Per il web, usa il download diretto
-        const blob = new Blob([jsonData], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } else {
-        // Per mobile, usa Expo FileSystem e Sharing
-        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-        await FileSystem.writeAsStringAsync(fileUri, jsonData, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
+      // Costruisci il contenuto in chunk per evitare crash di memoria
+      let fileContent = '[\n';
+      const batchSize = 50;
+      
+      for (let i = 0; i < notifications.length; i += batchSize) {
+        const batch = notifications.slice(i, i + batchSize);
 
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: 'application/json',
-            dialogTitle: 'Export Notifications Cache',
-          });
+        // Aggiungi il batch al contenuto
+        const batchJson = batch
+          .map(notification => JSON.stringify(notification, null, 2))
+          .join(',\n');
+        
+        if (i > 0) {
+          fileContent += ',\n' + batchJson;
         } else {
-          Alert.alert(t('appSettings.gqlCache.importExport.exportComplete'), t('appSettings.gqlCache.importExport.exportCompleteMessage', { path: fileUri }));
+          fileContent += batchJson;
         }
+
+        console.log(`📤 Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(notifications.length / batchSize)}`);
+        
+        // Piccola pausa per evitare blocco UI
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+
+      fileContent += '\n]';
+
+      // Scrivi tutto il file una volta sola
+      await FileSystem.writeAsStringAsync(fileUri, fileContent, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'application/json',
+          dialogTitle: 'Export Notifications Cache',
+        });
+      } else {
+        Alert.alert(t('appSettings.gqlCache.importExport.exportComplete'), t('appSettings.gqlCache.importExport.exportCompleteMessage', { path: fileUri }));
       }
 
       return true;
     } catch (error) {
-      console.error('Error exporting notifications:', error);
-      Alert.alert(t('appSettings.gqlCache.importExport.exportError'), t('appSettings.gqlCache.importExport.exportError') + ': ' + (error instanceof Error ? error.message : 'Unknown error'));
-      return false;
+      console.error('Error in mobile export:', error);
+      throw error;
     }
-  }, [extractNotificationsFromCache, t]);
+  }, [t, extractNotificationsFromQuery]);
+
+  /**
+   * Export per web con batch processing per evitare crash di memoria
+   */
+  const exportNotificationsWeb = useCallback(async (fileName: string): Promise<boolean> => {
+    try {
+      // Usa extractNotificationsFromQuery invece della cache raw
+      const notifications = extractNotificationsFromQuery();
+
+      if (notifications.length === 0) {
+        Alert.alert(t('appSettings.gqlCache.importExport.exportError'), t('appSettings.gqlCache.importExport.noNotificationsToExport'));
+        return false;
+      }
+
+      console.log(`📤 Exporting ${notifications.length} notifications via web batching...`);
+
+      // Costruisci il contenuto in batch per evitare crash di memoria
+      let fileContent = '[\n';
+      const batchSize = 50;
+      
+      for (let i = 0; i < notifications.length; i += batchSize) {
+        const batch = notifications.slice(i, i + batchSize);
+
+        // Aggiungi il batch al contenuto
+        const batchJson = batch
+          .map(notification => JSON.stringify(notification, null, 2))
+          .join(',\n');
+        
+        if (i > 0) {
+          fileContent += ',\n' + batchJson;
+        } else {
+          fileContent += batchJson;
+        }
+
+        console.log(`📤 Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(notifications.length / batchSize)}`);
+        
+        // Piccola pausa per evitare blocco UI
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+
+      fileContent += '\n]';
+
+      // Crea e scarica il file
+      const blob = new Blob([fileContent], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      return true;
+    } catch (error) {
+      console.error('Error in web export:', error);
+      throw error;
+    }
+  }, [t, extractNotificationsFromQuery]);
 
   /**
    * Importa le notifiche da un file JSON nella cache GraphQL
@@ -492,10 +616,11 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
     }
   }, []);
 
+
   return {
     exportNotifications,
     importNotifications,
     getCacheStats,
-    extractNotificationsFromCache,
+    extractNotificationsFromQuery,
   };
 }

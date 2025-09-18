@@ -5,25 +5,14 @@ import NotificationsSection from "@/components/NotificationsSection";
 import { ThemedView } from "@/components/ThemedView";
 import { useUserSettings } from "@/services/user-settings";
 import { useAppContext } from "@/services/app-context";
-import React, {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet } from "react-native";
 
-export default function OptimizedHomeScreen() {
-  const {
-    refetchNotifications,
-    showOnboarding,
-  } = useAppContext();
+export default function HomeScreen() {
+  const { showOnboarding } = useAppContext();
   const [currentSection, setCurrentSection] = useState<HomeSection>("all");
   const { getOnboardingSettings } = useUserSettings();
   const { hasCompletedOnboarding } = getOnboardingSettings();
-
-  useEffect(() => {
-    refetchNotifications();
-  }, [refetchNotifications]);
 
   useEffect(() => {
     if (!hasCompletedOnboarding) {

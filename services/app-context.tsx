@@ -7,7 +7,7 @@ import {
   useGetMeLazyQuery,
   useLoginMutation,
   useLogoutMutation,
-  useRegisterMutation
+  useRegisterMutation,
 } from "@/generated/gql-operations-generated";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { useI18n } from "@/hooks/useI18n";
@@ -201,6 +201,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       connectionStatus.refreshDeviceRegistration();
 
       setIsInitializing(false);
+      await refetchNotifications();
       return true;
     } catch (e) {
       console.error("Error during completeAuth:", e);

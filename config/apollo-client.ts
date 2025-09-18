@@ -2,6 +2,7 @@ import { authService } from '@/services/auth-service';
 import { getStoredDeviceToken } from '@/services/auth-storage';
 import { userSettings } from '@/services/user-settings';
 import { ApolloClient, createHttpLink, InMemoryCache, makeVar, NormalizedCacheObject, split } from '@apollo/client';
+import { GetNotificationsDocument, GetNotificationsQuery } from '@/generated/gql-operations-generated';
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
@@ -226,6 +227,81 @@ const cache = createCacheDynamic();
 export let apolloClient: ApolloClient<any> | null = null;
 export let persistor: CachePersistor<NormalizedCacheObject> | null = null;
 
+/**
+ * Controlla e pulisce le notifiche orfane dalla cache Apollo
+ */
+const checkAndCleanOrphanedNotifications = (client: ApolloClient<NormalizedCacheObject>) => {
+  try {
+    console.log('🧹 [Apollo Setup] Checking for orphaned notifications...');
+    
+    const cache = client.cache;
+    
+    // Leggi le notifiche dalla query GetNotifications
+    let queryNotificationIds: Set<string> = new Set();
+    try {
+      const queryData = cache.readQuery<GetNotificationsQuery>({
+        query: GetNotificationsDocument
+      });
+      if (queryData?.notifications) {
+        queryNotificationIds = new Set(queryData.notifications.map(n => n.id));
+        console.log(`📊 [Apollo Setup] Found ${queryNotificationIds.size} notifications in GetNotifications query`);
+      }
+    } catch (error) {
+      console.log('📊 [Apollo Setup] GetNotifications query not found in cache yet, skipping cleanup');
+      return; // Se la query non esiste ancora, non fare cleanup
+    }
+
+    // Estrai tutte le notifiche dalla cache raw
+    const cacheData = cache.extract(true as any) as Record<string, any>;
+    const allCacheNotificationIds: string[] = [];
+    
+    Object.entries(cacheData).forEach(([key, entity]: [string, any]) => {
+      if (entity && entity.__typename === 'Notification' && entity.id) {
+        allCacheNotificationIds.push(entity.id);
+      }
+    });
+
+    console.log(`📊 [Apollo Setup] Found ${allCacheNotificationIds.length} notifications in raw cache`);
+
+    // Trova notifiche orfane (in cache ma non nella query)
+    const orphanedIds = allCacheNotificationIds.filter(id => !queryNotificationIds.has(id));
+    
+    if (orphanedIds.length === 0) {
+      console.log('✅ [Apollo Setup] No orphaned notifications found');
+      return;
+    }
+
+    console.log(`🧹 [Apollo Setup] Found ${orphanedIds.length} orphaned notifications, cleaning up...`);
+
+    // Rimuovi le notifiche orfane dalla cache
+    let cleanedCount = 0;
+    orphanedIds.forEach(id => {
+      try {
+        cache.evict({ id: cache.identify({ __typename: 'Notification', id }) });
+        cleanedCount++;
+      } catch (error) {
+        console.warn(`⚠️ [Apollo Setup] Failed to evict orphaned notification ${id}:`, error);
+      }
+    });
+
+    // Garbage collect per rimuovere riferimenti dangling
+    cache.gc();
+
+    console.log(`✅ [Apollo Setup] Cleaned ${cleanedCount}/${orphanedIds.length} orphaned notifications from cache`);
+    
+    // Log finale delle statistiche
+    const finalCacheData = cache.extract(true as any) as Record<string, any>;
+    const finalNotificationCount = Object.keys(finalCacheData).filter(key => 
+      finalCacheData[key] && finalCacheData[key].__typename === 'Notification'
+    ).length;
+    
+    console.log(`📊 [Apollo Setup] Cache cleanup complete - Final notification count: ${finalNotificationCount}`);
+    
+  } catch (error) {
+    console.error('❌ [Apollo Setup] Error during orphaned notifications cleanup:', error);
+  }
+};
+
 export const initApolloClient = async () => {
   await ApiConfigService.initialize();
 
@@ -266,6 +342,8 @@ export const initApolloClient = async () => {
       },
     },
   });
+
+  checkAndCleanOrphanedNotifications(apolloClient);
 
   return apolloClient;
 }
