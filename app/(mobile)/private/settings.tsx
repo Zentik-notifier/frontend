@@ -56,20 +56,28 @@ export default function SettingsScreen() {
       route: "/(mobile)/private/buckets-settings",
     },
     {
-      id: "devices-settings",
-      title: t("devices.title"),
-      description: t("devices.description"),
-      icon: "device",
-      iconColor: "#DC2626", // Red
-      route: "/(mobile)/private/devices-settings",
-    },
-    {
       id: "access-tokens-settings",
       title: t("accessTokens.title"),
       description: t("accessTokens.description"),
       icon: "password",
       iconColor: "#0891B2", // Cyan
       route: "/(mobile)/private/access-tokens-settings",
+    },
+    {
+      id: "webhooks-settings",
+      title: t("webhooks.title"),
+      description: t("webhooks.description"),
+      icon: "webhook",
+      iconColor: "#10B981", // Green
+      route: "/(mobile)/private/webhooks-settings",
+    },
+    {
+      id: "devices-settings",
+      title: t("devices.title"),
+      description: t("devices.description"),
+      icon: "device",
+      iconColor: "#DC2626", // Red
+      route: "/(mobile)/private/devices-settings",
     },
     {
       id: "user-sessions-settings",
@@ -86,14 +94,6 @@ export default function SettingsScreen() {
       icon: "notification",
       iconColor: "#7C3AED", // Violet
       route: "/(mobile)/private/notifications-settings",
-    },
-    {
-      id: "webhooks-settings",
-      title: t("webhooks.title"),
-      description: t("webhooks.description"),
-      icon: "webhook",
-      iconColor: "#10B981", // Green
-      route: "/(mobile)/private/webhooks-settings",
     },
   ];
 
