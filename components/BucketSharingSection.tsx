@@ -454,7 +454,6 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
   const [editingPermission, setEditingPermission] =
     useState<EntityPermissionFragment | null>(null);
 
-  // Check if current user has admin permissions
   const { canAdmin, refetch, allPermissions, loading, bucket } =
     useGetBucketData(bucketId);
 
@@ -462,19 +461,6 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
     onCompleted: (data) => {
       setShowShareModal(false);
       setEditingPermission(null);
-      // refetch?.();
-
-      // // Update Apollo cache immediately for better UX
-      // apolloClient.cache.modify({
-      //   id: apolloClient.cache.identify({ __typename: "Bucket", id: bucketId }),
-      //   fields: {
-      //     permissions(existingPermissions = []) {
-      //       return [...existingPermissions, data.shareBucket];
-      //     },
-      //   },
-      // });
-
-      // Alert.alert(t("common.success"), t("buckets.sharing.shareSuccess"));
     },
     onError: (error: any) => {
       Alert.alert(

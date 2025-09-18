@@ -1,6 +1,6 @@
 import { ApolloClient, ApolloProvider } from "@apollo/client";
 import React, { useEffect } from "react";
-import { initApolloClient } from "../config/apollo-client";
+import { initApolloClient, initPersistedCache } from "../config/apollo-client";
 import { ApiConfigService } from "../services/api-config";
 
 interface GraphQLProviderProps {
@@ -18,11 +18,13 @@ export const GraphQLProvider: React.FC<GraphQLProviderProps> = ({
 
   useEffect(() => {
     (async () => {
-      // await StorageMigrationService.migrateFromAsyncStorage();
-      // Ensure API URL is loaded before creating Apollo client
       await ApiConfigService.initialize();
       const apolloClient = await initApolloClient();
       setClient(apolloClient);
+
+      setTimeout(async () => {
+        await initPersistedCache();
+      }, 1000);
     })();
   }, []);
 

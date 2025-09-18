@@ -19,6 +19,10 @@ if (__DEV__) {
   loadErrorMessages();
 }
 
+// cacheSizes.canonicalStringify = 3000;
+// cacheSizes['inMemoryCache.executeSelectionSet'] = 100000;
+// cacheSizes['inMemoryCache.executeSubSelectedArray'] = 30000;
+
 // Get the base URL from environment or custom setting
 const getBaseUrl = () => {
   const apiUrl = ApiConfigService.getApiUrlSync();
@@ -90,22 +94,27 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
 
 // Create cache with dynamic URL resolution
 const createCacheDynamic = () => new InMemoryCache({
+  dataIdFromObject: (object: any) => {
+    if (object.id) {
+      return `${object.__typename}:${object.id}`;
+    }
+    return undefined;
+  },
   typePolicies: {
-    Message: {
-      keyFields: ['id'],
-      merge(existing, incoming) {
-        const safeExisting = (existing ?? {}) as Record<string, any>;
-        const safeIncoming = (incoming ?? {}) as Record<string, any>;
-        const result: Record<string, any> = { ...safeIncoming };
-        for (const key of Object.keys(safeExisting)) {
-          const value = safeExisting[key];
-          if (value !== undefined && value !== null) {
-            result[key] = value;
-          }
-        }
-        return result as any;
-      },
-    },
+    // Message: {
+    //   merge(existing, incoming) {
+    //     const safeExisting = (existing ?? {}) as Record<string, any>;
+    //     const safeIncoming = (incoming ?? {}) as Record<string, any>;
+    //     const result: Record<string, any> = { ...safeIncoming };
+    //     for (const key of Object.keys(safeExisting)) {
+    //       const value = safeExisting[key];
+    //       if (value !== undefined && value !== null) {
+    //         result[key] = value;
+    //       }
+    //     }
+    //     return result as any;
+    //   },
+    // },
     MessageAttachment: {
       fields: {
         url: {
@@ -122,7 +131,6 @@ const createCacheDynamic = () => new InMemoryCache({
       },
     },
     Notification: {
-      keyFields: ['id'],
       merge(existing, incoming) {
         const safeExisting = (existing ?? {}) as Record<string, any>;
         const safeIncoming = (incoming ?? {}) as Record<string, any>;
@@ -148,7 +156,6 @@ const createCacheDynamic = () => new InMemoryCache({
         },
       },
     },
-    Bucket: { keyFields: ['id'] },
     Query: {
       fields: {
         notifications: {
@@ -233,9 +240,9 @@ export let persistor: CachePersistor<NormalizedCacheObject> | null = null;
 const checkAndCleanOrphanedNotifications = (client: ApolloClient<NormalizedCacheObject>) => {
   try {
     console.log('🧹 [Apollo Setup] Checking for orphaned notifications...');
-    
+
     const cache = client.cache;
-    
+
     // Leggi le notifiche dalla query GetNotifications
     let queryNotificationIds: Set<string> = new Set();
     try {
@@ -254,7 +261,7 @@ const checkAndCleanOrphanedNotifications = (client: ApolloClient<NormalizedCache
     // Estrai tutte le notifiche dalla cache raw
     const cacheData = cache.extract(true as any) as Record<string, any>;
     const allCacheNotificationIds: string[] = [];
-    
+
     Object.entries(cacheData).forEach(([key, entity]: [string, any]) => {
       if (entity && entity.__typename === 'Notification' && entity.id) {
         allCacheNotificationIds.push(entity.id);
@@ -265,7 +272,7 @@ const checkAndCleanOrphanedNotifications = (client: ApolloClient<NormalizedCache
 
     // Trova notifiche orfane (in cache ma non nella query)
     const orphanedIds = allCacheNotificationIds.filter(id => !queryNotificationIds.has(id));
-    
+
     if (orphanedIds.length === 0) {
       console.log('✅ [Apollo Setup] No orphaned notifications found');
       return;
@@ -288,15 +295,15 @@ const checkAndCleanOrphanedNotifications = (client: ApolloClient<NormalizedCache
     cache.gc();
 
     console.log(`✅ [Apollo Setup] Cleaned ${cleanedCount}/${orphanedIds.length} orphaned notifications from cache`);
-    
+
     // Log finale delle statistiche
     const finalCacheData = cache.extract(true as any) as Record<string, any>;
-    const finalNotificationCount = Object.keys(finalCacheData).filter(key => 
+    const finalNotificationCount = Object.keys(finalCacheData).filter(key =>
       finalCacheData[key] && finalCacheData[key].__typename === 'Notification'
     ).length;
-    
+
     console.log(`📊 [Apollo Setup] Cache cleanup complete - Final notification count: ${finalNotificationCount}`);
-    
+
   } catch (error) {
     console.error('❌ [Apollo Setup] Error during orphaned notifications cleanup:', error);
   }
@@ -305,26 +312,26 @@ const checkAndCleanOrphanedNotifications = (client: ApolloClient<NormalizedCache
 export const initApolloClient = async () => {
   await ApiConfigService.initialize();
 
-  persistor = new CachePersistor({
-    cache,
-    storage: new AsyncStorageWrapper({
-      getItem: async (key) => {
-        return await AsyncStorage.getItem(key);
-      },
-      setItem: async (key, value) => {
-        if (value) {
-          return await AsyncStorage.setItem(key, value);
-        } else {
-          return await AsyncStorage.removeItem(key);
-        }
-      },
-      removeItem: async (key) => {
-        return await AsyncStorage.removeItem(key);
-      },
-    }),
-    maxSize: 0,
-  });
-  await persistor.restore();
+  // persistor = new CachePersistor({
+  //   cache,
+  //   storage: new AsyncStorageWrapper({
+  //     getItem: async (key) => {
+  //       const value = await AsyncStorage.getItem(key);
+  //       return value;
+  //     },
+  //     setItem: async (key, value) => {
+  //       if (value) {
+  //         return await AsyncStorage.setItem(key, value);
+  //       } else {
+  //         return await AsyncStorage.removeItem(key);
+  //       }
+  //     },
+  //     removeItem: async (key) => {
+  //       return await AsyncStorage.removeItem(key);
+  //     },
+  //   }),
+  //   maxSize: 0,
+  // });
 
   const splitLink = createSplitLinkDynamic();
 
@@ -346,6 +353,10 @@ export const initApolloClient = async () => {
   checkAndCleanOrphanedNotifications(apolloClient);
 
   return apolloClient;
+}
+
+export const initPersistedCache = async () => {
+  await persistor?.restore();
 }
 
 // Helper function to reset Apollo cache (useful for logout)
