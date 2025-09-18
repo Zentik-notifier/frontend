@@ -2103,15 +2103,9 @@ class NotificationService: UNNotificationServiceExtension {
         // Get existing pending notifications
         var pendingNotifications: [[String: Any]] = []
         
-        // Try to read existing notifications from keychain
-        let isPhysicalDevice = !TARGET_OS_SIMULATOR
-        let options: [String: Any] = isPhysicalDevice
-            ? [kSecClass as String: kSecClassGenericPassword,
+        let options: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                kSecAttrService as String: "zentik-pending-notifications",
                kSecAttrAccessGroup as String: "C3F24V5NS5.com.apocaliss92.zentik.dev.keychain",
-               kSecReturnData as String: true]
-            : [kSecClass as String: kSecClassGenericPassword,
-               kSecAttrService as String: "zentik-pending-notifications",
                kSecReturnData as String: true]
         
         var result: AnyObject?
@@ -2134,13 +2128,9 @@ class NotificationService: UNNotificationServiceExtension {
         // Save back to keychain
         let jsonData = try JSONSerialization.data(withJSONObject: pendingNotifications)
         
-        let saveOptions: [String: Any] = isPhysicalDevice
-            ? [kSecClass as String: kSecClassGenericPassword,
+        let saveOptions: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                kSecAttrService as String: "zentik-pending-notifications",
                kSecAttrAccessGroup as String: "C3F24V5NS5.com.apocaliss92.zentik.dev.keychain",
-               kSecValueData as String: jsonData]
-            : [kSecClass as String: kSecClassGenericPassword,
-               kSecAttrService as String: "zentik-pending-notifications",
                kSecValueData as String: jsonData]
         
         // Delete existing entry first
