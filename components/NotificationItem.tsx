@@ -71,7 +71,7 @@ export function getNotificationItemHeight(
   }
 
   if (hasSubtitle) {
-    height += 5;
+    height += 20;
   }
 
   if (hasBody) {

@@ -35,7 +35,7 @@ export default function NotificationFiltersModal({
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const {
-    userSettings: { settings, setNotificationFilters, setPagesToPreload },
+    userSettings: { settings, setNotificationFilters },
   } = useAppContext();
   const filters = settings.notificationFilters;
 
@@ -425,21 +425,6 @@ export default function NotificationFiltersModal({
             >
               {t("filters.performance")}
             </ThemedText>
-            {/* Prefetch Pages */}
-            <ThemedText
-              style={[styles.settingLabel, { color: Colors[colorScheme].text }]}
-            >
-              {t("filters.prefetchPages")}
-            </ThemedText>
-            <ThemedView style={{ gap: 8, marginBottom: 12 }}>
-              <SimpleSlider
-                value={settings.notificationFilters.pagesToPreload}
-                min={3}
-                max={15}
-                step={1}
-                onChange={(v) => setPagesToPreload?.(v)}
-              />
-            </ThemedView>
 
             {/* Load Only Visible Toggle */}
             <TouchableOpacity

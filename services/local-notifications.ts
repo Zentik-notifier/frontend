@@ -169,7 +169,6 @@ class LocalNotificationsService {
    */
   cleanup() {
     try {
-      // Disable GQL subscriptions to avoid repopulating cache after a reset
       subscriptionsEnabledVar(false);
       if (this.gqlUnsub) {
         try { this.gqlUnsub(); } catch {}

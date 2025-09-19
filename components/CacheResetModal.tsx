@@ -1,4 +1,4 @@
-import { apolloClient, purgeApolloCache } from "@/config/apollo-client";
+import { apolloClient, resetApolloCache } from "@/config/apollo-client";
 import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
 import {
@@ -92,7 +92,7 @@ export function CacheResetModal({
               await Promise.all([
                 // Stop realtime/populators before purging GQL cache
                 Promise.resolve().then(() => localNotifications.cleanup()),
-                purgeApolloCache(),
+                resetApolloCache(),
                 mediaCache.clearCacheComplete(),
                 userSettings.resetSettings(),
                 clearAllAuthData(),
@@ -195,12 +195,8 @@ export function CacheResetModal({
               // Reset selected entities
               if (selectedEntities.has("gql")) {
                 // Stop realtime/populators before purging GQL cache
-                localNotifications.cleanup();
-                await purgeApolloCache();
-                // Verifica e svuota ancora lo store (fallback)
-                try {
-                  await apolloClient?.resetStore();
-                } catch {}
+                // localNotifications.cleanup();
+                await resetApolloCache();
               }
 
               if (selectedEntities.has("media")) {

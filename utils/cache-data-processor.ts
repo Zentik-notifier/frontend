@@ -10,33 +10,27 @@ export const extractAllEntities = (obj: any, entities = new Map<string, any>(), 
     return entities;
   }
 
-  // Se è un array, processa ogni elemento
   if (Array.isArray(obj)) {
     obj.forEach(item => extractAllEntities(item, entities, visited));
     return entities;
   }
 
-  // Se è un'entità con __typename e id, aggiungila alla mappa
   if (obj.__typename && obj.id) {
     const entityKey = `${obj.__typename}:${obj.id}`;
 
-    // Evita cicli infiniti
     if (visited.has(entityKey)) {
       return entities;
     }
     visited.add(entityKey);
 
-    // Aggiungi l'entità alla mappa
     entities.set(entityKey, { ...obj, userDevice: null });
 
-    // Continua a estrarre entità dalle proprietà annidate
     Object.values(obj).forEach(value => {
       extractAllEntities(value, entities, visited);
     });
 
     visited.delete(entityKey);
   } else {
-    // Se non è un'entità, continua a cercare nelle proprietà
     Object.values(obj).forEach(value => {
       extractAllEntities(value, entities, visited);
     });
@@ -57,15 +51,13 @@ export const writeEntitiesToCache = (
 
   entities.forEach((entity, entityKey) => {
     try {
-      // Usa writeFragment per scrivere l'entità nella cache
       cache.writeFragment({
         id: entityKey,
-        fragment: NotificationFragmentDoc as any,
+        fragment: NotificationFragmentDoc,
         fragmentName: 'NotificationFragment',
         data: entity,
       });
 
-      // console.log(`✅ [${context}] Wrote ${entity.__typename}: ${entity.id}`);
       successCount++;
     } catch (error) {
       console.warn(`⚠️ [${context}] Failed to write ${entityKey}:`, error);
@@ -93,7 +85,7 @@ export const processNotificationsToCache = (
     extractAllEntities(notification, allEntities);
   });
 
-  const writtenEntities = writeEntitiesToCache(cache, allEntities, context);
+  writeEntitiesToCache(cache, allEntities, context);
 
   let notificationCount = 0;
   allEntities.forEach((entity) => {

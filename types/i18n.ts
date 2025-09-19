@@ -614,7 +614,6 @@ export interface TranslationKey {
     bucket: string;
     clearAll: string;
     performance: string;
-    prefetchPages: string;
     loadOnlyVisible: string;
     loadOnlyVisibleDescription: string;
     hideOlderThan: string;
@@ -1314,17 +1313,6 @@ export interface TranslationKey {
     };
   };
 }
-
-
-
-
-
-
-
-
-
-
-
 
 // Supported locales
 export type Locale = 'en-EN' | 'it-IT';

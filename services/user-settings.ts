@@ -41,8 +41,6 @@ export interface NotificationFilters {
   searchQuery: string;
   sortBy: 'newest' | 'oldest' | 'priority';
   showOnlyWithAttachments: boolean;
-  /** Number of additional pages to preload (pagination prefetch) */
-  pagesToPreload: number;
   /** Load media only for items visible on screen (virtualized) */
   loadOnlyVisible: boolean;
 }
@@ -150,7 +148,6 @@ const DEFAULT_SETTINGS: UserSettings = {
     searchQuery: '',
     sortBy: 'newest',
     showOnlyWithAttachments: false,
-    pagesToPreload: 5,
     loadOnlyVisible: false,
   },
   notificationsPreferences: {
@@ -326,18 +323,6 @@ class UserSettingsService {
         ...filters,
       },
     });
-  }
-
-  /** Get pagesToPreload (pagination prefetch pages) */
-  getPagesToPreload(): number {
-    return this.settings.notificationFilters.pagesToPreload;
-  }
-
-  /** Set pagesToPreload with validation (min 0, max 50) */
-  async setPagesToPreload(pages: number): Promise<void> {
-    if (Number.isNaN(pages)) return;
-    const clamped = Math.min(50, Math.max(0, Math.floor(pages)));
-    await this.setNotificationFilters({ pagesToPreload: clamped });
   }
 
   /**
@@ -943,8 +928,6 @@ export function useUserSettings() {
     getIsCompactMode: userSettings.getIsCompactMode.bind(userSettings),
     setIsCompactMode: userSettings.setIsCompactMode.bind(userSettings),
     setNotificationFilters: userSettings.setNotificationFilters.bind(userSettings),
-    getPagesToPreload: userSettings.getPagesToPreload.bind(userSettings),
-    setPagesToPreload: userSettings.setPagesToPreload.bind(userSettings),
     setMaxCachedNotifications: userSettings.setMaxCachedNotifications.bind(userSettings),
     setMarkAsReadOnView: async (v: boolean) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { addIconOnNoMedias: false, unencryptOnBigPayload: false, markAsReadOnView: false }), markAsReadOnView: v } });

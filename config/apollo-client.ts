@@ -432,23 +432,17 @@ export const resetApolloCache = async () => {
   //   try { persistor.pause(); } catch { }
   // }
   try {
-    const snapshot = apolloClient.cache.extract();
-    for (const id of Object.keys(snapshot)) {
-      try { apolloClient.cache.evict({ id }); } catch { }
-    }
     apolloClient.cache.gc();
     apolloClient.cache.restore({});
+    apolloClient.resetStore();
   } catch { }
   try { await apolloClient.clearStore(); } catch { }
   // if (persistor) {
   //   try { await persistor.purge(); } catch { }
   //   try { persistor.resume(); } catch { }
   // }
-};
+  await AsyncStorage.removeItem(APOLLO_CACHE_KEY);
 
-// Esegue un reset profondo: memoria + disco, pensato per modali di reset
-export const purgeApolloCache = async () => {
-  await resetApolloCache();
 };
 
 // Helper function to recreate Apollo client with new API URL

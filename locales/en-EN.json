@@ -640,7 +640,6 @@
     "oneMonth": "1 Month",
     "activeFilters": "{{count}} active filter",
     "activeFiltersPlural": "{{count}} active filters",
-    "prefetchPages": "Pages to prefetch",
     "loadOnlyVisible": "Load only visible items",
     "loadOnlyVisibleDescription": "Load media only for notifications visible on screen to improve performance",
     "performance": "Performance"
