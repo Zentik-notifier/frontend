@@ -6,12 +6,11 @@ import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { formatFileSize } from "@/utils";
-import { getSharedMediaCacheDirectoryAsync } from "@/utils/shared-cache";
 import { openSharedCacheDb } from "@/services/media-cache-db";
 import { MediaCacheRepository } from "@/services/media-cache-repository";
 import { LogRepository } from "@/services/log-repository";
 import { Ionicons } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -168,10 +167,9 @@ export default function UnifiedCacheSettings() {
       const fileName = `media-cache-metadata-${
         new Date().toISOString().split("T")[0]
       }.json`;
-      const destPath = `${FileSystem.documentDirectory}${fileName}`;
-      await FileSystem.writeAsStringAsync(destPath, json, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
+      const destPath = `${Paths.document.uri}${fileName}`;
+      const file = new File(destPath);
+      file.write(json);
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(destPath, {
@@ -185,6 +183,12 @@ export default function UnifiedCacheSettings() {
             path: destPath,
           })
         );
+      }
+
+      try {
+        file.delete();
+      } catch (cleanupError) {
+        console.log("File cleanup failed:", cleanupError);
       }
     } catch (error) {
       console.error("Error exporting media cache DB metadata:", error);
@@ -219,10 +223,9 @@ export default function UnifiedCacheSettings() {
       const fileName = `app-logs-${new Date()
         .toISOString()
         .replace(/[:]/g, "-")}.json`;
-      const destPath = `${FileSystem.documentDirectory}${fileName}`;
-      await FileSystem.writeAsStringAsync(destPath, json, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
+      const destPath = `${Paths.document.uri}${fileName}`;
+      const file = new File(destPath);
+      file.write(json);
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(destPath, {
@@ -234,6 +237,12 @@ export default function UnifiedCacheSettings() {
           t("appSettings.logs.exportComplete"),
           t("appSettings.logs.exportCompleteMessage", { path: destPath })
         );
+      }
+
+      try {
+        file.delete();
+      } catch (cleanupError) {
+        console.log("File cleanup failed:", cleanupError);
       }
     } catch (error) {
       console.error("Error exporting logs:", error);

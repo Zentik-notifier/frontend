@@ -30,6 +30,7 @@ const createHttpLinkDynamic = () => createHttpLink({
 });
 
 export const subscriptionsEnabledVar = makeVar<boolean>(false);
+export const loadedFromPersistedCacheVar = makeVar<boolean>(false);
 
 // Create WebSocket link - function to allow recreation
 const createWsLinkDynamic = () => {
@@ -374,7 +375,7 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
     );
 
     console.log(`✅ [Apollo Cache] Successfully loaded ${successCount} notifications from persisted cache`);
-
+    loadedFromPersistedCacheVar(true);
   } catch (error) {
     console.error('❌ [Apollo Cache] Error loading notifications from persisted cache:', error);
   }
@@ -386,6 +387,10 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
  */
 export const saveNotificationsToPersistedCache = async (): Promise<void> => {
   try {
+    if (!loadedFromPersistedCacheVar) {
+      console.log('💾 [Apollo Cache] Not saving notifications, waiting for initial loading from persisted cache');
+      return;
+    }
     console.log('💾 [Apollo Cache] Saving notifications to persisted cache...');
 
     if (!apolloClient) {

@@ -153,7 +153,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   notificationsPreferences: {
     addIconOnNoMedias: false,
     unencryptOnBigPayload: false,
-    markAsReadOnView: false,
+    markAsReadOnView: true,
   },
   gallery: {
     autoPlay: true,

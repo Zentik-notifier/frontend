@@ -173,7 +173,6 @@ export default function NotificationDetailScreen() {
           UTI: "public.plain-text",
         });
 
-        // Pulisco il file temporaneo dopo la condivisione
         try {
           file.delete();
         } catch (cleanupError) {

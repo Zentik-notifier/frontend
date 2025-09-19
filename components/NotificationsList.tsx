@@ -112,7 +112,6 @@ export default function NotificationsList({
       setVisibileItems(visibleSet);
       visibleIdsRef.current = visibleSet;
 
-      // Mostra il pulsante "torna su" quando il primo elemento non è visibile
       try {
         const firstId = filteredNotifications[0]?.id;
         setShowScrollTop(firstId ? !visibleSet.has(firstId) : false);
