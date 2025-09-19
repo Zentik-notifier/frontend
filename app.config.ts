@@ -44,11 +44,12 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             bundleIdentifier,
             appleTeamId: "C3F24V5NS5",
             buildNumber: "20",
-            icon: {
-                light: "./assets/icons/generators/glas_default.png",
-                dark: "./assets/icons/generators/glas_dark.png",
-                tinted: "./assets/icons/generators/glas_tinted_light.png",
-            },
+            icon: "./assets/icons/generators/glas_default.png",
+            // icon: {
+            //     light: "./assets/icons/generators/glas_default.png",
+            //     dark: "./assets/icons/generators/glas_dark.png",
+            //     tinted: "./assets/icons/generators/glas_tinted_light.png",
+            // },
             googleServicesFile: process.env.GOOGLE_SERVICE_INFO_PLIST ?? './keys/GoogleService-Info.plist',
             infoPlist: {
                 NSUserNotificationUsageDescription: "This app uses notifications to send you important updates about your buckets and notifications.",
@@ -129,16 +130,6 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                     dark: {
                         image: "./assets/icons/generators/glas_dark.png",
                         backgroundColor: "#6c6363"
-                    },
-                    ios: {
-                        backgroundColor: "#ffffff",
-                        image: "./assets/icons/generators/glas_default.png",
-                        resizeMode: "contain"
-                    },
-                    android: {
-                        backgroundColor: "#ffffff",
-                        image: "./assets/icons/generators/glas_default.png",
-                        imageWidth: 200
                     }
                 },
             ],
@@ -176,7 +167,6 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             "expo-video",
             "expo-audio",
             "expo-media-library",
-            // ["./plugins/withRnfbNonmodularFix/withRnfbNonmodularFix.js"],
             ["./plugins/withIosNotificationExtensions/withIosNotificationExtensions.ts"],
             ["./plugins/withAndroidManifestFix/withAndroidManifestFix.ts"],
         ],
