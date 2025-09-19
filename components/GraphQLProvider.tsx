@@ -1,6 +1,9 @@
 import { ApolloClient, ApolloProvider } from "@apollo/client";
 import React, { useEffect } from "react";
-import { initApolloClient, loadNotificationsFromPersistedCache } from "../config/apollo-client";
+import {
+  initApolloClient,
+  loadNotificationsFromPersistedCache,
+} from "../config/apollo-client";
 import { ApiConfigService } from "../services/api-config";
 
 interface GraphQLProviderProps {
@@ -20,14 +23,9 @@ export const GraphQLProvider: React.FC<GraphQLProviderProps> = ({
     (async () => {
       await ApiConfigService.initialize();
       const apolloClient = await initApolloClient();
-      
-      // Carica la cache persistente PRIMA di impostare il client
-      await loadNotificationsFromPersistedCache();
-      
-      // Piccolo delay per assicurarsi che Apollo riconosca i dati in cache
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       setClient(apolloClient);
+
+      await loadNotificationsFromPersistedCache();
     })();
   }, []);
 

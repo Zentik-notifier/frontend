@@ -104,7 +104,8 @@ export const processNotificationsToCache = (
 export const processNotificationsToCacheWithQuery = (
   cache: InMemoryCache,
   notifications: any[],
-  context: string = 'import'
+  context: string = 'import',
+  maxBatch?: number
 ): number => {
   // Prima scrivi tutte le entità
   const notificationCount = processNotificationsToCache(cache, notifications, context);
@@ -176,11 +177,12 @@ export const parseNotificationJson = (jsonContent: string): any[] => {
  * Funzione completa per processare JSON raw e scrivere tutto nella cache
  * Gestisce parsing, validazione, scrittura entità e aggiornamento query
  */
-export const processJsonToCache = (
+export const processJsonToCache = async (
   cache: InMemoryCache,
   jsonContent: string,
-  context: string = 'import'
-): number => {
+  context: string = 'import',
+  maxBatch?: number
+): Promise<number> => {
   console.log(`🔄 [${context}] Processing JSON content...`);
 
   // 1. Parsa il JSON
@@ -200,14 +202,35 @@ export const processJsonToCache = (
     console.warn(`⚠️ [${context}] Filtered out ${notifications.length - validNotifications.length} invalid notifications`);
   }
 
-  // 3. Processa e scrivi nella cache con aggiornamento query
-  const successCount = processNotificationsToCacheWithQuery(
-    cache,
-    validNotifications,
-    context
-  );
+  if (!maxBatch) {
+    const successCount = processNotificationsToCacheWithQuery(
+      cache,
+      validNotifications,
+      context,
+      maxBatch
+    );
+    return successCount;
+  }
 
-  return successCount;
+  let totalCount = 0;
+  for (let i = 0; i < validNotifications.length; i += maxBatch) {
+    const batch = validNotifications.slice(i, i + maxBatch);
+    const batchIndex = Math.floor(i / maxBatch) + 1;
+    const batchContext = `${context} batch ${batchIndex}`;
+
+    const count = processNotificationsToCacheWithQuery(
+      cache,
+      batch,
+      batchContext,
+      maxBatch
+    );
+    totalCount += count;
+
+    if (i + maxBatch < validNotifications.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+  return totalCount;
 };
 
 /**

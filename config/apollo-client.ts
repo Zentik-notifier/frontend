@@ -8,21 +8,15 @@ import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { getMainDefinition } from '@apollo/client/utilities';
-// import { AsyncStorageWrapper, CachePersistor } from 'apollo3-cache-persist';
 import { loadDevMessages, loadErrorMessages } from "@apollo/client/dev";
 import AsyncStorage from 'expo-sqlite/kv-store';
 import { createClient } from 'graphql-ws';
 import { ApiConfigService } from '../services/api-config';
 
 if (__DEV__) {
-  // Adds messages only in a dev environment
   loadDevMessages();
   loadErrorMessages();
 }
-
-// cacheSizes.canonicalStringify = 3000;
-// cacheSizes['inMemoryCache.executeSelectionSet'] = 100000;
-// cacheSizes['inMemoryCache.executeSubSelectedArray'] = 30000;
 
 // Get the base URL from environment or custom setting
 const getBaseUrl = () => {
@@ -372,10 +366,11 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
       return;
     }
 
-    const successCount = processJsonToCache(
+    const successCount = await processJsonToCache(
       apolloClient.cache as InMemoryCache,
       persistedCacheData,
-      'Apollo Cache'
+      'Apollo Cache',
+      100,
     );
 
     console.log(`✅ [Apollo Cache] Successfully loaded ${successCount} notifications from persisted cache`);

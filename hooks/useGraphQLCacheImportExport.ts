@@ -102,7 +102,7 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
               style: 'default',
               onPress: async () => {
                 try {
-                  const successCount = processJsonToCache(
+                  const successCount = await processJsonToCache(
                     cache as InMemoryCache,
                     jsonContent,
                     'Import'
