@@ -24,8 +24,8 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
         name,
         slug: "zentik",
         version: "1.2.0",
-        orientation: "portrait",
-        icon: "./assets/icons/icon-512x512.png",
+        orientation: "default",
+        icon: "./assets/icons/generators/glas_default.png",
         scheme: "zentik",
         userInterfaceStyle: "automatic",
         newArchEnabled: true,
@@ -33,6 +33,10 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             image: "./assets/images/splash-icon.png",
             resizeMode: "contain",
             backgroundColor: "#ffffff",
+            dark: {
+                image: "./assets/images/splash-icon-dark.png",
+                backgroundColor: "#6c6363",
+            },
         },
         assetBundlePatterns: ["**/*"],
         ios: {
@@ -40,7 +44,11 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             bundleIdentifier,
             appleTeamId: "C3F24V5NS5",
             buildNumber: "20",
-            icon: "./assets/icons/icon-512x512.png",
+            icon: {
+                light: "./assets/icons/generators/glas_default.png",
+                dark: "./assets/icons/generators/glas_dark.png",
+                tinted: "./assets/icons/generators/glas_tinted_light.png",
+            },
             googleServicesFile: process.env.GOOGLE_SERVICE_INFO_PLIST ?? './keys/GoogleService-Info.plist',
             infoPlist: {
                 NSUserNotificationUsageDescription: "This app uses notifications to send you important updates about your buckets and notifications.",
@@ -59,7 +67,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
         },
         android: {
             adaptiveIcon: {
-                foregroundImage: "./assets/icons/icon-512x512.png",
+                foregroundImage: "./assets/icons/generators/glas_default.png",
                 backgroundColor: "#ffffff",
             },
             package: bundleIdentifier,
@@ -86,7 +94,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                 theme_color: "#0a7ea4",
                 background_color: "#ffffff",
                 display: "standalone",
-                orientation: "portrait",
+                orientation: "default",
                 icons: [
                     { src: "./assets/icons/icon-72x72.png", sizes: "72x72", type: "image/png" },
                     { src: "./assets/icons/icon-96x96.png", sizes: "96x96", type: "image/png" },
@@ -104,21 +112,41 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             "expo-router",
             "expo-localization",
             "expo-background-task",
+            [
+                "expo-screen-orientation",
+                {
+                    "initialOrientation": "DEFAULT"
+                }
+            ],
             "expo-sqlite",
             [
                 "expo-splash-screen",
                 {
-                    image: "./assets/images/splash-icon.png",
-                    imageWidth: 200,
-                    resizeMode: "cover",
                     backgroundColor: "#ffffff",
+                    image: "./assets/icons/generators/glas_default.png",
+                    imageWidth: 200,
+                    resizeMode: "contain",
+                    dark: {
+                        image: "./assets/icons/generators/glas_dark.png",
+                        backgroundColor: "#6c6363"
+                    },
+                    ios: {
+                        backgroundColor: "#ffffff",
+                        image: "./assets/icons/generators/glas_default.png",
+                        resizeMode: "contain"
+                    },
+                    android: {
+                        backgroundColor: "#ffffff",
+                        image: "./assets/icons/generators/glas_default.png",
+                        imageWidth: 200
+                    }
                 },
             ],
             "expo-secure-store",
             [
                 "expo-notifications",
                 {
-                    icon: "./assets/icons/notification-android.png",
+                    icon: "./assets/icons/generators/glas_default.png",
                     color: "#0a7ea4",
                     defaultChannel: "default",
                     sounds: [],

@@ -71,7 +71,7 @@ export default function LoginScreen() {
             >
               <View style={styles.logoImageWrapper}>
                 <Image
-                  source={require("../../../assets/generators/zentik_logo_FINAL_circle_aqua_whiteZ_1024_80.png")}
+                  source={require("../../../assets/icons/icon-512x512.png")}
                   style={styles.logoImage}
                   resizeMode="cover"
                 />

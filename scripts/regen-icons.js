@@ -8,7 +8,7 @@ const path = require('path');
 const sharp = require('sharp');
 
 const projectRoot = path.resolve(__dirname, '..');
-const srcImagePath = path.join(projectRoot, 'assets', 'generators', 'zentik_logo_FINAL_square_aqua_whiteZ_1024_80.png');
+const srcImagePath = path.join(projectRoot, 'assets', 'generators', 'Icon project-iOS-Default-1024x1024@1x.png');
 
 // Predefined targets with explicit sizes
 const targets = [
@@ -33,15 +33,6 @@ const targets = [
   { path: 'assets/images/favicon.png', width: 768, height: 768 },
   { path: 'assets/images/icon.png', width: 768, height: 768 },
   { path: 'assets/images/notification-icon.png', width: 768, height: 768 },
-  { path: 'assets/images/splash-icon.png', width: 1024, height: 1024 },
-
-  // assets/images (demo React logos)
-  { path: 'assets/images/react-logo.png', width: 100, height: 100 },
-  { path: 'assets/images/react-logo@2x.png', width: 200, height: 200 },
-  { path: 'assets/images/react-logo@3x.png', width: 300, height: 300 },
-
-  // Non-square example (will crop/cover from square source)
-  { path: 'assets/images/partial-react-logo.png', width: 518, height: 316 },
 ];
 
 // Favicon targets for web documentation
