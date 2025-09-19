@@ -53,35 +53,49 @@ export function getNotificationItemHeight(
   );
   const hasSubtitle = Boolean(message?.subtitle);
   const hasBody = Boolean(message?.body);
-  // const hasOnlyTitle = hasTitle && !hasSubtitle && !hasBody && !hasMedia;
-  // const hasOnlyTitleAndBody = hasTitle && hasBody && !hasSubtitle && !hasMedia;
   const hasBucketName = Boolean(message?.bucket?.name);
-  const hasSnooze = notification.message.bucket.isSnoozed;
 
   let height = 60;
 
   if (isCompactMode) {
-    if (hasActions || hasSnooze || hasMedia) {
-      height += 15;
+    if (hasActions || hasMedia) {
+      height += 40;
     }
   } else {
     if (hasMedia) {
-      height += 150;
+      height += 180;
     }
     if (hasActions) {
-      height += 30;
-    }
-    if (hasSnooze) {
       height += 30;
     }
   }
 
   if (hasSubtitle) {
-    height += 15;
+    height += 5;
   }
 
   if (hasBody) {
-    height += isCompactMode ? 35 : 75;
+    const maxBodyLines = isCompactMode ? (hasMedia ? 1 : 2) : hasMedia ? 2 : 5;
+    const charsPerLine = isCompactMode ? 42 : 60;
+    const bodyText = message?.body ?? "";
+    const perLine = 18; // approx styles.body lineHeight (17) + padding
+
+    // Consider newline characters by splitting and estimating each paragraph
+    const segments = bodyText.split(/\r?\n/);
+    let totalEstimatedLines = 0;
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      const len = seg.trim().length;
+      const linesForSeg = Math.max(1, Math.ceil(len / charsPerLine));
+      totalEstimatedLines += linesForSeg;
+      if (totalEstimatedLines >= maxBodyLines) {
+        totalEstimatedLines = maxBodyLines;
+        break;
+      }
+    }
+
+    if (totalEstimatedLines === 0) totalEstimatedLines = 1;
+    height += totalEstimatedLines * perLine;
   }
 
   if (hasBucketName) {
@@ -264,6 +278,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         rightAction={isMultiSelectionMode ? undefined : deleteAction}
         onSwipeActiveChange={setSwipeActive}
         contentStyle={styles.swipeContent}
+        marginBottom={2}
+        marginHorizontal={16}
+        borderRadius={8}
       >
         <TouchableWithoutFeedback onPress={handlePress}>
           <ThemedView
@@ -360,13 +377,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                           fullWidth
                         />
                       )}
-
-                      {/* <NotificationSnoozeButton
-                      bucketId={notification.message?.bucket?.id}
-                      variant="swipeable"
-                      showText={false}
-                      fullWidth
-                    /> */}
                     </View>
                   )}
                 </View>
@@ -393,9 +403,16 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                       style={[styles.title, !isRead && styles.titleUnread]}
                     />
                   </View>
-                  <ThemedText style={styles.date}>
-                    {formatRelativeTime(notification.createdAt)}
-                  </ThemedText>
+                  <View style={styles.rightMeta}>
+                    <ThemedText style={styles.date}>
+                      {formatRelativeTime(notification.createdAt)}
+                    </ThemedText>
+                    <NotificationSnoozeButton
+                      bucketId={notification.message?.bucket?.id}
+                      variant="inline"
+                      showText
+                    />
+                  </View>
                 </View>
 
                 {!!notification.message?.subtitle && (
@@ -478,101 +495,92 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               </ThemedView>
             )}
 
-            {hasAttachments ? (
+            <ThemedView
+              style={[styles.bottomRow, { backgroundColor: "transparent" }]}
+            >
               <ThemedView
-                style={[styles.bottomRow, { backgroundColor: "transparent" }]}
+                style={[
+                  styles.mediaIndicators,
+                  { backgroundColor: "transparent" },
+                ]}
               >
-                <ThemedView
-                  style={[
-                    styles.mediaIndicators,
-                    { backgroundColor: "transparent" },
-                  ]}
-                >
-                  {attachments.length > 0 &&
-                    (isCompactMode ? (
-                      <View style={styles.inlinePillsRow}>
+                {attachments.length > 0 &&
+                  (isCompactMode ? (
+                    <View style={styles.inlinePillsRow}>
+                      <ThemedView
+                        style={[
+                          styles.mediaIndicator,
+                          {
+                            backgroundColor:
+                              Colors[colorScheme].backgroundSecondary,
+                          },
+                        ]}
+                      >
+                        <Icon name="image" size="xs" color="secondary" />
+                        <ThemedText
+                          style={styles.mediaText}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {t("attachmentGallery.attachments", {
+                            count: attachments.length,
+                          })}
+                        </ThemedText>
+                      </ThemedView>
+
+                      {hasActions && (
+                        <NotificationActionsButton
+                          notification={notification}
+                          actions={actions}
+                          showTextLabel
+                          variant="inline"
+                        />
+                      )}
+                    </View>
+                  ) : (
+                    attachments.map((attachment, index) => {
+                      const isPreviewSelected = index === selectedPreviewIndex;
+                      const pill = (
                         <ThemedView
+                          key={index}
                           style={[
                             styles.mediaIndicator,
                             {
                               backgroundColor:
                                 Colors[colorScheme].backgroundSecondary,
+                              borderWidth: isPreviewSelected ? 1.5 : 0,
+                              borderColor: isPreviewSelected
+                                ? Colors[colorScheme].tint
+                                : "transparent",
                             },
                           ]}
                         >
-                          <Icon name="image" size="xs" color="secondary" />
-                          <ThemedText
-                            style={styles.mediaText}
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
-                          >
-                            {t("attachmentGallery.attachments", {
-                              count: attachments.length,
-                            })}
-                          </ThemedText>
-                        </ThemedView>
-
-                        {hasActions && (
-                          <NotificationActionsButton
-                            notification={notification}
-                            actions={actions}
-                            showTextLabel
-                            variant="inline"
+                          <MediaTypeIcon
+                            mediaType={attachment.mediaType}
+                            size={12}
+                            base
+                            showLabel
+                            label={attachment.name}
                           />
-                        )}
-                        {/* <View style={styles.filler} />
-                      <NotificationSnoozeButton
-                        bucketId={notification.message?.bucket?.id}
-                        variant="inline"
-                        showText
-                      /> */}
-                      </View>
-                    ) : (
-                      attachments.map((attachment, index) => {
-                        const isPreviewSelected =
-                          index === selectedPreviewIndex;
-                        const pill = (
-                          <ThemedView
-                            key={index}
-                            style={[
-                              styles.mediaIndicator,
-                              {
-                                backgroundColor:
-                                  Colors[colorScheme].backgroundSecondary,
-                                borderWidth: isPreviewSelected ? 1.5 : 0,
-                                borderColor: isPreviewSelected
-                                  ? Colors[colorScheme].tint
-                                  : "transparent",
-                              },
-                            ]}
-                          >
-                            <MediaTypeIcon
-                              mediaType={attachment.mediaType}
-                              size={12}
-                              base
-                              showLabel
-                              label={attachment.name}
-                            />
-                          </ThemedView>
-                        );
+                        </ThemedView>
+                      );
 
-                        return (
-                          <TouchableOpacity
-                            key={index}
-                            activeOpacity={0.8}
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              if (index >= 0) setSelectedPreviewIndex(index);
-                            }}
-                          >
-                            {pill}
-                          </TouchableOpacity>
-                        );
-                      })
-                    ))}
-                </ThemedView>
+                      return (
+                        <TouchableOpacity
+                          key={index}
+                          activeOpacity={0.8}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            if (index >= 0) setSelectedPreviewIndex(index);
+                          }}
+                        >
+                          {pill}
+                        </TouchableOpacity>
+                      );
+                    })
+                  ))}
               </ThemedView>
-            ) : null}
+            </ThemedView>
           </ThemedView>
         </TouchableWithoutFeedback>
 
@@ -607,10 +615,7 @@ const styles = StyleSheet.create({
   swipeContent: {
     borderRadius: 8,
   },
-  wrapper: {
-    marginHorizontal: 16,
-    marginBottom: 2,
-  },
+  wrapper: {},
   itemCard: {
     borderRadius: 8,
     overflow: "hidden",
@@ -636,6 +641,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 4,
+  },
+  rightMeta: {
+    marginLeft: 8,
+    alignItems: "flex-end",
+    gap: 4,
   },
   titleSection: {
     flex: 1,
