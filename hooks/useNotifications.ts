@@ -1,9 +1,41 @@
 import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetNotificationLazyQuery, useGetNotificationsLazyQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation, MediaType, useGetNotificationQuery, useGetNotificationsQuery } from '@/generated/gql-operations-generated';
+import { saveNotificationsToPersistedCache } from '@/config/apollo-client';
 import { mediaCache } from '@/services/media-cache';
 import { Reference, useApolloClient } from '@apollo/client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const shouldUpdateRemoteReadAt = false;
+
+export const useSaveNotificationsToStorage = () => {
+	const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const DEBOUNCE_DELAY = 2000;
+	const {
+		notifications,
+	} = useFetchNotifications();
+
+	const saveNotifications = useCallback(() => {
+		if (debounceTimeoutRef.current) {
+			clearTimeout(debounceTimeoutRef.current);
+		}
+
+		debounceTimeoutRef.current = setTimeout(async () => {
+			console.log('🔄 Saving notifications to persisted cache', notifications.length);
+			await saveNotificationsToPersistedCache();
+		}, DEBOUNCE_DELAY);
+	}, []);
+
+	useEffect(() => {
+		return () => {
+			if (debounceTimeoutRef.current) {
+				clearTimeout(debounceTimeoutRef.current);
+			}
+		};
+	}, []);
+
+	useEffect(() => {
+		saveNotifications();
+	}, [notifications, saveNotifications]);
+}
 
 function useNotificationCacheUpdater() {
 	const apollo = useApolloClient();
@@ -70,11 +102,13 @@ export function useNotificationById(id?: string) {
 	return { notification, loading: effectiveLoading, error: effectiveError, source };
 }
 
-export function useFetchNotifications() {
-	const [fetchRemote] = useGetNotificationsLazyQuery({ errorPolicy: 'ignore' });
+export function useFetchNotifications(onlyCache?: boolean) {
 	const updateReceivedNotifications = useUpdateReceivedNotifications();
 	const [refetching, setRefetching] = useState(false);
-	const { data, loading, refetch } = useGetNotificationsQuery();
+	const { data, loading, refetch } = useGetNotificationsQuery({
+		fetchPolicy: onlyCache ? 'cache-first' : 'cache-and-network',
+		errorPolicy: 'ignore'
+	});
 
 	const notifications = data?.notifications ?? [];
 
@@ -86,7 +120,19 @@ export function useFetchNotifications() {
 		console.log('🔄 Fetching notifications finished: ', newData.data?.notifications?.length);
 		await updateReceivedNotifications();
 		setRefetching(false);
-	}, [fetchRemote, updateReceivedNotifications])
+	}, [refetch, updateReceivedNotifications, refetching]);
+
+	// Fetch iniziale se la cache è vuota (con debounce per evitare chiamate multiple)
+	useEffect(() => {
+		if (!loading && notifications.length === 0) {
+			const timeoutId = setTimeout(() => {
+				console.log('📥 Cache empty, performing initial fetch...');
+				fetchNotifications();
+			}, 200); // Piccolo delay per evitare fetch multipli simultanei
+
+			return () => clearTimeout(timeoutId);
+		}
+	}, [loading, notifications.length, fetchNotifications]);
 
 	return { fetchNotifications, notifications, loading };
 }

@@ -6,6 +6,7 @@ export function useGetBucketData(bucketId?: string) {
     const { userId } = useAppContext();
 
     const bucketSrcData = useGetBucketQuery({
+        fetchPolicy: 'cache-first',
         variables: { id: bucketId || '' },
         skip: !bucketId,
     });

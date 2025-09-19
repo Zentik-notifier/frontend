@@ -16,13 +16,13 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function EventsReviewScreen() {
   const colorScheme = useColorScheme();

@@ -14,12 +14,12 @@ import React, { useMemo, useState } from "react";
 import {
   Alert,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { Button } from "./ui/Button";

@@ -11,7 +11,10 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { useI18n } from "@/hooks/useI18n";
-import { useFetchNotifications } from "@/hooks/useNotifications";
+import {
+  useFetchNotifications,
+  useSaveNotificationsToStorage,
+} from "@/hooks/useNotifications";
 import { usePendingNotifications } from "@/hooks/usePendingNotifications";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import React, {
@@ -327,9 +330,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     notifications,
     loading: notificationsLoading,
   } = useFetchNotifications();
-
-  // Process pending notifications from NSE
   usePendingNotifications();
+  useSaveNotificationsToStorage();
 
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {

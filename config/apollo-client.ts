@@ -1,17 +1,18 @@
+import { GetNotificationsDocument, GetNotificationsQuery } from '@/generated/gql-operations-generated';
 import { authService } from '@/services/auth-service';
 import { getStoredDeviceToken } from '@/services/auth-storage';
 import { userSettings } from '@/services/user-settings';
+import { processJsonToCache } from '@/utils/cache-data-processor';
 import { ApolloClient, createHttpLink, InMemoryCache, makeVar, NormalizedCacheObject, split } from '@apollo/client';
-import { GetNotificationsDocument, GetNotificationsQuery } from '@/generated/gql-operations-generated';
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { getMainDefinition } from '@apollo/client/utilities';
-import { AsyncStorageWrapper, CachePersistor } from 'apollo3-cache-persist';
+// import { AsyncStorageWrapper, CachePersistor } from 'apollo3-cache-persist';
+import { loadDevMessages, loadErrorMessages } from "@apollo/client/dev";
+import AsyncStorage from 'expo-sqlite/kv-store';
 import { createClient } from 'graphql-ws';
 import { ApiConfigService } from '../services/api-config';
-import { loadErrorMessages, loadDevMessages } from "@apollo/client/dev";
-import AsyncStorage from 'expo-sqlite/kv-store';
 
 if (__DEV__) {
   // Adds messages only in a dev environment
@@ -232,7 +233,7 @@ const createCacheDynamic = () => new InMemoryCache({
 const cache = createCacheDynamic();
 
 export let apolloClient: ApolloClient<any> | null = null;
-export let persistor: CachePersistor<NormalizedCacheObject> | null = null;
+// export let persistor: CachePersistor<NormalizedCacheObject> | null = null;
 
 /**
  * Controlla e pulisce le notifiche orfane dalla cache Apollo
@@ -258,8 +259,7 @@ const checkAndCleanOrphanedNotifications = (client: ApolloClient<NormalizedCache
       return; // Se la query non esiste ancora, non fare cleanup
     }
 
-    // Estrai tutte le notifiche dalla cache raw
-    const cacheData = cache.extract(true as any) as Record<string, any>;
+    const cacheData = cache.extract(true);
     const allCacheNotificationIds: string[] = [];
 
     Object.entries(cacheData).forEach(([key, entity]: [string, any]) => {
@@ -270,7 +270,6 @@ const checkAndCleanOrphanedNotifications = (client: ApolloClient<NormalizedCache
 
     console.log(`📊 [Apollo Setup] Found ${allCacheNotificationIds.length} notifications in raw cache`);
 
-    // Trova notifiche orfane (in cache ma non nella query)
     const orphanedIds = allCacheNotificationIds.filter(id => !queryNotificationIds.has(id));
 
     if (orphanedIds.length === 0) {
@@ -355,16 +354,83 @@ export const initApolloClient = async () => {
   return apolloClient;
 }
 
-export const initPersistedCache = async () => {
-  await persistor?.restore();
-}
+const APOLLO_CACHE_KEY = 'apollo-cache-notifications';
 
-// Helper function to reset Apollo cache (useful for logout)
+export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
+  try {
+    console.log('📥 [Apollo Cache] Loading notifications from persisted cache...');
+
+    if (!apolloClient) {
+      console.warn('⚠️ [Apollo Cache] Apollo client not initialized');
+      return;
+    }
+
+    const persistedCacheData = await AsyncStorage.getItem(APOLLO_CACHE_KEY);
+
+    if (!persistedCacheData) {
+      console.log('📥 [Apollo Cache] No persisted cache found');
+      return;
+    }
+
+    const successCount = processJsonToCache(
+      apolloClient.cache as InMemoryCache,
+      persistedCacheData,
+      'Apollo Cache'
+    );
+
+    console.log(`✅ [Apollo Cache] Successfully loaded ${successCount} notifications from persisted cache`);
+
+  } catch (error) {
+    console.error('❌ [Apollo Cache] Error loading notifications from persisted cache:', error);
+  }
+};
+
+/**
+ * Salva on-demand le notifiche correnti nella cache persistente
+ * utilizzando la stessa chiave del CachePersistor
+ */
+export const saveNotificationsToPersistedCache = async (): Promise<void> => {
+  try {
+    console.log('💾 [Apollo Cache] Saving notifications to persisted cache...');
+
+    if (!apolloClient) {
+      console.warn('⚠️ [Apollo Cache] Apollo client not initialized');
+      return;
+    }
+
+    let queryData: GetNotificationsQuery | null = null;
+    try {
+      queryData = apolloClient.cache.readQuery<GetNotificationsQuery>({
+        query: GetNotificationsDocument
+      });
+    } catch (error) {
+      console.warn('⚠️ [Apollo Cache] GetNotifications query not found in cache');
+      return;
+    }
+
+    if (!queryData?.notifications || queryData.notifications.length === 0) {
+      console.log('💾 [Apollo Cache] No notifications to save');
+      return;
+    }
+
+    const notificationsToSave = queryData.notifications;
+
+    await AsyncStorage.setItem(
+      APOLLO_CACHE_KEY,
+      JSON.stringify(notificationsToSave)
+    );
+
+    console.log(`✅ [Apollo Cache] Successfully saved ${notificationsToSave.length} complete notifications to persisted cache`);
+  } catch (error) {
+    console.error('❌ [Apollo Cache] Error saving notifications to persisted cache:', error);
+  }
+};
+
 export const resetApolloCache = async () => {
   if (!apolloClient) return;
-  if (persistor) {
-    try { persistor.pause(); } catch { }
-  }
+  // if (persistor) {
+  //   try { persistor.pause(); } catch { }
+  // }
   try {
     const snapshot = apolloClient.cache.extract();
     for (const id of Object.keys(snapshot)) {
@@ -374,10 +440,10 @@ export const resetApolloCache = async () => {
     apolloClient.cache.restore({});
   } catch { }
   try { await apolloClient.clearStore(); } catch { }
-  if (persistor) {
-    try { await persistor.purge(); } catch { }
-    try { persistor.resume(); } catch { }
-  }
+  // if (persistor) {
+  //   try { await persistor.purge(); } catch { }
+  //   try { persistor.resume(); } catch { }
+  // }
 };
 
 // Esegue un reset profondo: memoria + disco, pensato per modali di reset
@@ -396,9 +462,9 @@ export const reinitializeApolloClient = async () => {
     console.log('🔄 Reinitializing Apollo Client with new API URL:', ApiConfigService.getApiUrlSync());
 
     // Stop the cache persistor
-    if (persistor) {
-      persistor.pause();
-    }
+    // if (persistor) {
+    //   persistor.pause();
+    // }
 
     // Clear the current cache
     await apolloClient.clearStore();
@@ -410,9 +476,9 @@ export const reinitializeApolloClient = async () => {
     apolloClient.setLink(errorLink.concat(splitLink));
 
     // Resume the cache persistor
-    if (persistor) {
-      persistor.resume();
-    }
+    // if (persistor) {
+    //   persistor.resume();
+    // }
 
     console.log('✅ Apollo Client successfully reinitialized');
   } catch (error) {

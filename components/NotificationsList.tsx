@@ -1,5 +1,8 @@
 import { Colors } from "@/constants/Colors";
-import { NotificationFragment } from "@/generated/gql-operations-generated";
+import {
+  MediaType,
+  NotificationFragment,
+} from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import {
   useMassDeleteNotifications,
@@ -21,10 +24,13 @@ import {
   ViewToken,
 } from "react-native";
 import NotificationFilters from "./NotificationFilters";
-import SwipeableNotificationItem from "./SwipeableNotificationItem";
+import NotificationItem, {
+  getNotificationItemHeight,
+} from "./NotificationItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { FlatList } from "react-native-gesture-handler";
+import { FlashList } from "@shopify/flash-list";
 
 interface NotificationsListProps {
   notifications: NotificationFragment[];
@@ -65,7 +71,6 @@ export default function NotificationsList({
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
   const {
     userSettings: {
       settings: { notificationFilters, isCompactMode },
@@ -204,12 +209,38 @@ export default function NotificationsList({
     }
   };
 
+  // Predicted item heights (max) to help FlashList pre-compute layouts
+  // Compact: only text + optional attachments pills
+  // Heights imported from NotificationItem to keep values in sync
+
+  const itemHasMediaAttachments = useCallback((n: NotificationFragment) => {
+    const atts = n.message?.attachments ?? [];
+    return atts.some((a) =>
+      [
+        MediaType.Image,
+        MediaType.Gif,
+        MediaType.Video,
+        MediaType.Audio,
+      ].includes(a.mediaType)
+    );
+  }, []);
+
+  // Provide a predictable max size per type so FlashList can pre-measure content length
+  const overrideItemLayout = useCallback(
+    (layout: { span?: number; size?: number }, item: NotificationFragment) => {
+      layout.size = getNotificationItemHeight(item, isCompactMode);
+    },
+    [isCompactMode]
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: NotificationFragment }) => {
       const isSelected = selectedItems.has(item.id);
 
+      // return <ThemedText>{item.message.title}</ThemedText>
+
       return (
-        <SwipeableNotificationItem
+        <NotificationItem
           notification={item}
           isItemVisible={visibleItems.has(item.id)}
           hideBucketInfo={hideBucketInfo}
@@ -448,11 +479,11 @@ export default function NotificationsList({
 
       {customHeader}
 
-      <FlatList
+      <FlashList
         data={filteredNotifications}
-        windowSize={settings.notificationFilters.pagesToPreload}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
+        overrideItemLayout={overrideItemLayout}
         onViewableItemsChanged={onViewableItemsChanged}
         refreshControl={
           <RefreshControl
@@ -463,7 +494,6 @@ export default function NotificationsList({
           />
         }
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.listContent, contentContainerStyle]}
         ListEmptyComponent={renderEmptyState}
         // ListFooterComponent={loading ? renderLoadingFooter : renderListFooter}
       />

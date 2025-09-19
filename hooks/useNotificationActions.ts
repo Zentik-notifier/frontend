@@ -32,7 +32,7 @@ export function useNotificationActions() {
   const [deviceReportReceived] = useDeviceReportNotificationReceivedMutation();
   const [updateDeviceToken] = useUpdateDeviceTokenMutation();
   const [updateUserDeviceMutation] = useUpdateUserDeviceMutation();
-  const { fetchNotifications } = useFetchNotifications();
+  const { fetchNotifications } = useFetchNotifications(true);
 
   const deleteNotification = useCallback(async (notificationId: string) => {
     deleteNotificationFn(notificationId);

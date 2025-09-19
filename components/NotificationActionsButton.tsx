@@ -66,10 +66,10 @@ const NotificationActionsButton: React.FC<NotificationActionsButtonProps> = ({
   if (actionCount === 0) return null;
 
   // Determina il testo del pulsante
-  const buttonText = showTextLabel 
-    ? (actionCount === 1
-        ? t("notificationActions.actionCount", { count: actionCount })
-        : t("notificationActions.actionCountPlural", { count: actionCount }))
+  const buttonText = showTextLabel
+    ? actionCount === 1
+      ? t("notificationActions.actionCount", { count: actionCount })
+      : t("notificationActions.actionCountPlural", { count: actionCount })
     : actionCount.toString();
 
   // Stili specifici per variante
@@ -78,8 +78,7 @@ const NotificationActionsButton: React.FC<NotificationActionsButtonProps> = ({
       ? [
           styles.inlinePill,
           {
-            backgroundColor:
-              Colors[colorScheme ?? "light"].backgroundSecondary,
+            backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
             borderColor: Colors[colorScheme ?? "light"].border,
           },
         ]
@@ -88,16 +87,14 @@ const NotificationActionsButton: React.FC<NotificationActionsButtonProps> = ({
           styles.snoozeLikeButton,
           fullWidth ? ({ width: "100%" } as const) : null,
           {
-            backgroundColor:
-              Colors[colorScheme ?? "light"].backgroundSecondary,
+            backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
             borderColor: Colors[colorScheme ?? "light"].border,
           },
         ]
       : [
           styles.detailButton,
           {
-            backgroundColor:
-              Colors[colorScheme ?? "light"].backgroundSecondary,
+            backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
             borderColor: Colors[colorScheme ?? "light"].border,
           },
         ];
@@ -111,7 +108,11 @@ const NotificationActionsButton: React.FC<NotificationActionsButtonProps> = ({
         <Icon
           name="action"
           size="xs"
-          color={variant === "inline" ? "secondary" : Colors[colorScheme ?? "light"].text}
+          color={
+            variant === "inline"
+              ? "secondary"
+              : Colors[colorScheme ?? "light"].text
+          }
         />
         {(showTextLabel || variant === "swipeable") && (
           <ThemedText

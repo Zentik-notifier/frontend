@@ -19,12 +19,11 @@ import {
   Alert,
   BackHandler,
   Platform,
-  SafeAreaView,
   StyleSheet,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { ApiConfigService } from "../services/api-config";
 import { AppProvider, useAppContext } from "../services/app-context";
 import { openSharedCacheDb } from "../services/media-cache-db";
@@ -110,7 +109,7 @@ function ThemedLayout() {
     >
       <Stack>
         <Stack.Screen name="(mobile)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" options={{ title: "" }} />
+        {/* <Stack.Screen name="+not-found" options={{ title: "" }} /> */}
       </Stack>
       <StatusBar
         style="auto"

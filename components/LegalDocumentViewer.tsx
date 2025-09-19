@@ -8,11 +8,11 @@ import {
     Modal,
     Platform,
     Pressable,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
 import { ThemedText } from './ThemedText';
 import { Button } from './ui';

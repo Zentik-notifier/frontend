@@ -260,12 +260,12 @@ export default function UserDropdown() {
         style={styles.avatarButton}
       >
         {renderMainAvatar()}
-        <Ionicons
+        {/* <Ionicons
           name="chevron-down"
           size={12}
           color={isDark ? "#ffffff" : "#666666"}
           style={styles.dropdownIcon}
-        />
+        /> */}
       </TouchableOpacity>
 
       <Modal visible={isVisible} transparent animationType="fade">

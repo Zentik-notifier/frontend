@@ -3,12 +3,12 @@ import { useColorScheme } from "@/hooks/useTheme";
 import React from "react";
 import {
     Modal,
-    SafeAreaView,
     StatusBar,
     StyleSheet,
     TouchableOpacity,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { AppSettings } from "./AppSettings";
 import { Icon } from "./ui/Icon";
 

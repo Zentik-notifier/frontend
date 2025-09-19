@@ -447,7 +447,7 @@ export const CachedMedia = React.memo(function CachedMedia({
               }
               contentFit={imageProps?.contentFit ?? contentFit}
               transition={imageProps?.transition ?? 150}
-              cachePolicy={imageProps?.cachePolicy || "none"}
+              cachePolicy={imageProps?.cachePolicy || "memory"}
             />
           </Pressable>
         );

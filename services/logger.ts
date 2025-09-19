@@ -19,13 +19,6 @@ class DbLogger {
 
   private async write(level: LogLevel, tag: string | undefined, message: string, meta?: any) {
     if (!userSettings.getSettings().logging?.enabled) return;
-    // Ignore noisy Apollo warnings
-    const lowerTag = (tag || '').toLowerCase();
-    const strMeta = meta ? JSON.stringify(meta) : '';
-    const hasApollo = lowerTag.includes('apollo') || /apollo/i.test(message) || /apollo/i.test(strMeta);
-    if (level === 'warn' && hasApollo) {
-      return;
-    }
     try {
       const repo = await this.getRepo();
       const now = Date.now();

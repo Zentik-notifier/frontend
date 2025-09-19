@@ -3,12 +3,12 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import React, { useState } from 'react';
 import {
     Modal,
-    SafeAreaView,
     StatusBar,
     StyleSheet,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from './ThemedText';
 
 interface VideoPlayerModalProps {

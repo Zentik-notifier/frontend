@@ -1,5 +1,5 @@
 import { MediaType } from '@/generated/gql-operations-generated';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { Alert, Platform } from 'react-native';
 import { mediaCache } from './media-cache';
@@ -30,14 +30,13 @@ export async function saveMediaToGallery(
 		}
 
 		// Validate file exists
-		const info = await FileSystem.getInfoAsync(localPath);
-		if (!info.exists) {
+		const file = new File(localPath);
+		if (!file.exists) {
 			if (!options?.silent) Alert.alert('Error', 'Local media file not found');
 			return false;
 		}
 
 		const asset = await MediaLibrary.createAssetAsync(localPath);
-		// Optionally, create or add to album
 		try {
 			const albumName = Platform.OS === 'ios' ? 'Zentik' : 'Zentik';
 			let album = await MediaLibrary.getAlbumAsync(albumName);
@@ -46,7 +45,7 @@ export async function saveMediaToGallery(
 			} else {
 				await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
 			}
-		} catch {}
+		} catch { }
 
 		return true;
 	} catch (e) {

@@ -1,124 +1,22 @@
 import { GetNotificationsDocument, GetNotificationsQuery, NotificationFragmentDoc } from '@/generated/gql-operations-generated';
-import { useApolloClient } from '@apollo/client';
+import { useApolloClient, InMemoryCache } from '@apollo/client';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import { useI18n } from './useI18n';
+import { cleanExportData, processJsonToCache } from '@/utils/cache-data-processor';
 
 export function useGraphQLCacheImportExport(onImportComplete?: (count: number) => void) {
   const { t } = useI18n();
   const apolloClient = useApolloClient();
-  
+
+
 
   /**
-   * Risolve una referenza nella cache Apollo
-   */
-  const resolveReference = useCallback((cacheData: any, ref: any, visited = new Set<string>()): any => {
-    if (!ref || typeof ref !== 'object') {
-      return ref;
-    }
-
-    // Se è una referenza Apollo Cache
-    if (ref.__ref) {
-      // Protezione contro cicli infiniti
-      if (visited.has(ref.__ref)) {
-        return { __ref: ref.__ref }; // Mantieni solo la referenza per evitare cicli
-      }
-
-      const referencedEntity = cacheData[ref.__ref];
-      if (referencedEntity) {
-        visited.add(ref.__ref);
-        const resolved = resolveEntity(cacheData, referencedEntity, visited);
-        visited.delete(ref.__ref);
-        return resolved;
-      }
-    }
-
-    // Se è un array, risolvi ogni elemento
-    if (Array.isArray(ref)) {
-      return ref.map(item => resolveReference(cacheData, item, visited));
-    }
-
-    // Se è un oggetto, risolvi ogni proprietà
-    if (typeof ref === 'object') {
-      const resolved: any = {};
-      Object.entries(ref).forEach(([key, value]) => {
-        resolved[key] = resolveReference(cacheData, value, visited);
-      });
-      return resolved;
-    }
-
-    return ref;
-  }, []);
-
-  /**
-   * Risolve tutte le relazioni di un'entità
-   */
-  const resolveEntity = useCallback((cacheData: any, entity: any, visited = new Set<string>()): any => {
-    if (!entity || typeof entity !== 'object') {
-      return entity;
-    }
-
-    const resolved: any = { ...entity };
-
-    // Risolvi ogni proprietà dell'entità
-    Object.entries(entity).forEach(([key, value]) => {
-      if (key === '__typename') {
-        resolved[key] = value;
-        return;
-      }
-
-      resolved[key] = resolveReference(cacheData, value, visited);
-    });
-
-    return resolved;
-  }, [resolveReference]);
-
-  /**
-   * Pulisce i dati rimuovendo metadati interni di Apollo Cache e proprietà non necessarie
-   */
-  const cleanExportData = useCallback((data: any, currentPath: string = ''): any => {
-    if (!data || typeof data !== 'object') {
-      return data;
-    }
-
-    if (Array.isArray(data)) {
-      return data.map(item => cleanExportData(item, currentPath));
-    }
-
-    const cleaned: any = {};
-    Object.entries(data).forEach(([key, value]) => {
-      // Rimuovi metadati interni di Apollo Cache (mantieni __typename)
-      if (key.startsWith('__') && key !== '__typename') {
-        return;
-      }
-
-      // Rimuovi path specifici dalle notifiche per ridurre dimensione
-      const fullPath = currentPath ? `${currentPath}.${key}` : key;
-      if (fullPath === 'message.bucket.user' || 
-          fullPath === 'message.bucket.userBucket' || 
-          fullPath === 'userDevice') {
-        console.log(`🧹 Removing unnecessary path from export: ${fullPath}`);
-        return;
-      }
-
-      // Maschera informazioni sensibili richieste da fragment/schema
-      if (key === 'publicKey' || key === 'privateKey' || key === 'deviceToken') {
-        cleaned[key] = '***';
-        return;
-      }
-
-      cleaned[key] = cleanExportData(value, fullPath);
-    });
-
-    return cleaned;
-  }, []);
-
-  /**
-   * Estrae le notifiche dalla query GetNotifications invece che dalla cache raw
-   * Questo evita di includere notifiche orfane che sono state cancellate
+   * Estrae le notifiche dalla query GetNotifications
+   * Restituisce un array di notifiche complete con tutte le entità annidate
    */
   const extractNotificationsFromQuery = useCallback((): any[] => {
     try {
@@ -127,48 +25,33 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
         throw new Error(t('appSettings.gqlCache.importExport.errors.apolloCacheUnavailable'));
       }
 
-      // Leggi direttamente dalla query GetNotifications invece che dalla cache raw
+      // Prova prima a leggere dalla query GetNotifications
       let queryData: GetNotificationsQuery | null = null;
       try {
         queryData = cache.readQuery<GetNotificationsQuery>({
           query: GetNotificationsDocument
         });
       } catch (error) {
-        console.warn('⚠️ GetNotifications query not found in cache, trying cache extract...');
-        // Fallback alla cache raw se la query non esiste
-        const cacheData = cache.extract(true as any) as Record<string, any>;
-        const notifications: any[] = [];
-        
-        Object.entries(cacheData).forEach(([key, entity]: [string, any]) => {
-          if (entity && entity.__typename === 'Notification') {
-            const resolvedNotification = resolveEntity(cacheData, entity);
-            const cleanedNotification = cleanExportData(resolvedNotification);
-            notifications.push(cleanedNotification);
-          }
-        });
-        
-        console.log(`📤 Exporting ${notifications.length} notifications from raw cache (fallback)`);
+        console.warn('⚠️ GetNotifications query not found in cache');
+      }
+
+      if (queryData?.notifications) {
+        // Usa le notifiche dalla query (già complete con tutte le relazioni)
+        const notifications = queryData.notifications.map(notification =>
+          cleanExportData(notification)
+        );
+        console.log(`📤 Exporting ${notifications.length} notifications from query`);
         return notifications;
       }
 
-      if (!queryData?.notifications) {
-        console.log('📤 No notifications found in query result');
-        return [];
-      }
-
-      // Usa solo le notifiche dalla query (quelle effettivamente visibili)
-      const notifications = queryData.notifications.map(notification => {
-        const cleanedNotification = cleanExportData(notification);
-        return cleanedNotification;
-      });
-
-      console.log(`📤 Exporting ${notifications.length} notifications from GetNotifications query`);
-      return notifications;
+      // Fallback: nessuna notifica trovata
+      console.log('📤 No notifications found to export');
+      return [];
     } catch (error) {
       console.error('Error extracting notifications from query:', error);
       throw error;
     }
-  }, [t, resolveEntity, cleanExportData]);
+  }, [t]);
 
   /**
    * Processa i dati importati e li inserisce nella cache
@@ -176,56 +59,6 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
   const processImportedData = useCallback(async (jsonContent: string): Promise<boolean> => {
     try {
       console.log('🔄 Processing imported data...');
-      console.log('📄 JSON content length:', jsonContent.length);
-      
-      // Verifica che il contenuto non sia vuoto
-      if (!jsonContent || jsonContent.trim().length === 0) {
-        console.error('❌ Empty JSON content');
-        throw new Error('File JSON vuoto o non valido');
-      }
-      
-      // Verifica che il contenuto sia JSON valido
-      let parsed: any;
-      try {
-        parsed = JSON.parse(jsonContent);
-      } catch (parseError) {
-        console.error('❌ JSON parse error:', parseError);
-        throw new Error('Formato JSON non valido');
-      }
-      // Supporta sia array puro sia formato { notifications: [...] }
-      const incomingNotifications: any[] = Array.isArray(parsed)
-        ? parsed
-        : (Array.isArray(parsed?.notifications) ? parsed.notifications : []);
-
-      // Valida la struttura dei dati
-      if (!Array.isArray(incomingNotifications)) {
-        console.error('❌ Invalid notifications payload:', parsed);
-        throw new Error(t('appSettings.gqlCache.importExport.errors.notificationsArrayNotFound'));
-      }
-
-      // Verifica che le notifiche abbiano i campi necessari
-      const validNotifications = incomingNotifications.filter((notification, index) => {
-        if (!notification.id) {
-          console.warn(`⚠️ Notification at index ${index} missing ID`);
-          return false;
-        }
-        if (!notification.__typename || notification.__typename !== 'Notification') {
-          console.warn(`⚠️ Notification at index ${index} missing or invalid __typename:`, notification.__typename);
-          return false;
-        }
-        return true;
-      });
-
-      if (validNotifications.length === 0) {
-        console.error('❌ No valid notifications found in import data');
-        throw new Error('Nessuna notifica valida trovata nel file di import');
-      }
-
-      if (validNotifications.length !== incomingNotifications.length) {
-        console.warn(`⚠️ Filtered out ${incomingNotifications.length - validNotifications.length} invalid notifications`);
-      }
-
-      // Si assume che le relazioni siano già risolte nel payload in ingresso
 
       const cache = apolloClient?.cache;
       if (!cache) {
@@ -233,11 +66,28 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
         throw new Error(t('appSettings.gqlCache.importExport.errors.apolloCacheUnavailable'));
       }
 
+      // Usa la funzione centralizzata per ottenere il count delle notifiche
+      let notificationCount = 0;
+      try {
+        // Processa temporaneamente solo per ottenere il count (senza scrivere nella cache)
+        const tempNotifications = JSON.parse(jsonContent);
+        const notifications = Array.isArray(tempNotifications)
+          ? tempNotifications
+          : (Array.isArray(tempNotifications?.notifications) ? tempNotifications.notifications : []);
+        notificationCount = notifications.length;
+      } catch {
+        throw new Error('Formato JSON non valido');
+      }
+
+      if (notificationCount === 0) {
+        throw new Error('Nessuna notifica trovata nel file di import');
+      }
+
       // Conferma l'import con l'utente
       return new Promise((resolve) => {
         Alert.alert(
           t('appSettings.gqlCache.importExport.importTitle'),
-          t('appSettings.gqlCache.importExport.confirmImportMessage', { count: validNotifications.length }),
+          t('appSettings.gqlCache.importExport.confirmImportMessage', { count: notificationCount }),
           [
             {
               text: t('appSettings.gqlCache.importExport.buttons.cancel'),
@@ -252,84 +102,22 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
               style: 'default',
               onPress: async () => {
                 try {
-                  console.log('🔄 Writing notifications into Apollo cache...');
-                  for (const original of validNotifications) {
-                    try {
-                      // Sanitize incoming object: remove sensitive keys and ensure required fields
-                      const notification = cleanExportData(original);
-                      // Ensure masked sensitive fields exist if fragment expects them
-                      if (notification?.userDevice) {
-                        if (notification.userDevice.deviceToken === undefined) notification.userDevice.deviceToken = '***';
-                        if (notification.userDevice.publicKey === undefined) notification.userDevice.publicKey = '***';
-                        if (notification.userDevice.privateKey === undefined) notification.userDevice.privateKey = '***';
-                      }
-                      if (notification.userDevice === undefined) {
-                        notification.userDevice = null;
-                      }
-
-                      const entityId = cache.identify({ __typename: 'Notification', id: notification.id }) || `Notification:${notification.id}`;
-                      cache.writeFragment({
-                        id: entityId,
-                        fragment: NotificationFragmentDoc as any,
-                        fragmentName: 'NotificationFragment',
-                        data: notification,
-                      });
-                    } catch (writeErr) {
-                      console.warn('⚠️ Failed to write notification to cache', (original as any)?.id, writeErr);
-                    }
-                  }
-                  console.log('✅ Cache writes completed successfully');
-
-                  // Aggiorna la lista Query.notifications per riflettere subito l'import
-                  try {
-                    cache.modify({
-                      id: 'ROOT_QUERY',
-                      fields: {
-                        notifications(_existing = [], { toReference }: any) {
-                          try {
-                            const refs = validNotifications.map((n) => toReference({ __typename: 'Notification', id: n.id }));
-                            return refs;
-                          } catch {
-                            return _existing;
-                          }
-                        },
-                      },
-                    });
-                    console.log('🧭 Query.notifications updated with imported items');
-                  } catch (e) {
-                    console.warn('⚠️ Failed to update Query.notifications list:', e);
-                  }
-
-                  // Force cache update to ensure UI reflects changes
-                  try {
-                    console.log('🔄 Triggering cache update...');
-                    // Trigger a cache update by reading from cache
-                    const updatedCacheData = cache.extract();
-                    const updatedNotifications = Object.entries(updatedCacheData)
-                      .filter(([key, entity]: [string, any]) => entity && entity.__typename === 'Notification')
-                      .length;
-                    console.log(`📊 Cache updated - Total notifications in cache: ${updatedNotifications}`);
-                    
-                    // Force refresh of active queries
-                    console.log('🔄 Refreshing active queries...');
-                    await apolloClient.refetchQueries({
-                      include: 'active',
-                    });
-                    console.log('✅ Active queries refreshed');
-                  } catch (cacheUpdateError) {
-                    console.warn('⚠️ Cache update check failed:', cacheUpdateError);
-                  }
+                  const successCount = processJsonToCache(
+                    cache as InMemoryCache,
+                    jsonContent,
+                    'Import'
+                  );
 
                   Alert.alert(
                     t('appSettings.gqlCache.importExport.importSuccess'),
-                    t('appSettings.gqlCache.importExport.importSuccessMessage', { count: validNotifications.length })
+                    t('appSettings.gqlCache.importExport.importSuccessMessage', { count: successCount })
                   );
-                  
+
                   // Notify callback if provided
                   if (onImportComplete) {
-                    onImportComplete(validNotifications.length);
+                    onImportComplete(successCount);
                   }
-                  
+
                   resolve(true);
                 } catch (error) {
                   console.error('❌ Error applying cache updates:', error);
@@ -356,7 +144,7 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
       // Rimuove entità orfane dalla cache (il cleanup automatico è gestito in apollo-client.ts)
       try {
         apolloClient?.cache.gc();
-      } catch {}
+      } catch { }
 
       const fileName = `notifications-${new Date().toISOString().split('T')[0]}.json`;
 
@@ -377,8 +165,9 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
    * Export per mobile con streaming per evitare crash di memoria
    */
   const exportNotificationsMobile = useCallback(async (fileName: string): Promise<boolean> => {
-    const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-    
+    const fileUri = `${Paths.document}${fileName}`;
+    const file = new File(fileUri);
+
     try {
       // Usa extractNotificationsFromQuery invece della cache raw
       const notifications = extractNotificationsFromQuery();
@@ -393,15 +182,15 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
       // Costruisci il contenuto in chunk per evitare crash di memoria
       let fileContent = '[\n';
       const batchSize = 50;
-      
+
       for (let i = 0; i < notifications.length; i += batchSize) {
         const batch = notifications.slice(i, i + batchSize);
 
         // Aggiungi il batch al contenuto
         const batchJson = batch
-          .map(notification => JSON.stringify(notification, null, 2))
+          .map((notification: any) => JSON.stringify(notification, null, 2))
           .join(',\n');
-        
+
         if (i > 0) {
           fileContent += ',\n' + batchJson;
         } else {
@@ -409,17 +198,14 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
         }
 
         console.log(`📤 Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(notifications.length / batchSize)}`);
-        
+
         // Piccola pausa per evitare blocco UI
         await new Promise(resolve => setTimeout(resolve, 10));
       }
 
       fileContent += '\n]';
 
-      // Scrivi tutto il file una volta sola
-      await FileSystem.writeAsStringAsync(fileUri, fileContent, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
+      file.write(fileContent);
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, {
@@ -455,15 +241,15 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
       // Costruisci il contenuto in batch per evitare crash di memoria
       let fileContent = '[\n';
       const batchSize = 50;
-      
+
       for (let i = 0; i < notifications.length; i += batchSize) {
         const batch = notifications.slice(i, i + batchSize);
 
         // Aggiungi il batch al contenuto
         const batchJson = batch
-          .map(notification => JSON.stringify(notification, null, 2))
+          .map((notification: any) => JSON.stringify(notification, null, 2))
           .join(',\n');
-        
+
         if (i > 0) {
           fileContent += ',\n' + batchJson;
         } else {
@@ -471,7 +257,7 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
         }
 
         console.log(`📤 Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(notifications.length / batchSize)}`);
-        
+
         // Piccola pausa per evitare blocco UI
         await new Promise(resolve => setTimeout(resolve, 10));
       }
@@ -570,9 +356,8 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
 
         const fileUri = result.assets[0].uri;
         console.log('📄 Reading file from URI:', fileUri);
-        fileContent = await FileSystem.readAsStringAsync(fileUri, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
+        const file = new File(fileUri);
+        const fileContent = await file.text();
 
         console.log('📄 File content loaded, length:', fileContent.length);
         return await processImportedData(fileContent);

@@ -6,7 +6,6 @@ import React from "react";
 import {
   ActivityIndicator,
   Platform,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -104,7 +103,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
     minHeight: Platform.OS === "android" ? 56 : 44,
-    paddingHorizontal: 16,
+    paddingHorizontal: 30,
     paddingVertical: 8,
   },
 

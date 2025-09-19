@@ -7,10 +7,10 @@ import {
   StyleSheet,
   Alert,
   Image,
-  SafeAreaView,
   StatusBar,
   Modal,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useI18n } from "@/hooks/useI18n";
 import * as DocumentPicker from "expo-document-picker";

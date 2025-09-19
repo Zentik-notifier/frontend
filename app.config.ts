@@ -130,7 +130,8 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                 "expo-build-properties",
                 {
                     "ios": {
-                        "useFrameworks": "static"
+                        "useFrameworks": "static",
+                        "buildReactNativeFromSource": true,
                     },
                     "android": {
                         "compileSdkVersion": 35,
@@ -147,6 +148,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             "expo-video",
             "expo-audio",
             "expo-media-library",
+            // ["./plugins/withRnfbNonmodularFix/withRnfbNonmodularFix.js"],
             ["./plugins/withIosNotificationExtensions/withIosNotificationExtensions.ts"],
             ["./plugins/withAndroidManifestFix/withAndroidManifestFix.ts"],
         ],

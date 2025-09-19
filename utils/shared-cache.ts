@@ -1,4 +1,4 @@
-import { Directory, Paths } from 'expo-file-system/next';
+import { Directory, Paths } from 'expo-file-system';
 import { Platform, NativeModules } from 'react-native';
 
 

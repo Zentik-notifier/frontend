@@ -15,13 +15,13 @@ import {
   Alert,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { Button } from "./ui/Button";

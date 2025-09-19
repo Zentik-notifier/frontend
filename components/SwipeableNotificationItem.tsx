@@ -36,6 +36,7 @@ import SwipeableItem from "./SwipeableItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { Icon, SmartTextRenderer } from "./ui";
+import { useRecyclingState } from "@shopify/flash-list";
 
 interface SwipeableNotificationItemProps {
   notification: NotificationFragment;
@@ -46,530 +47,522 @@ interface SwipeableNotificationItemProps {
   onToggleSelection?: () => void;
 }
 
-const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> =
-  React.memo(
-    ({
-      notification,
-      hideBucketInfo,
-      isMultiSelectionMode,
-      isSelected,
-      isItemVisible,
-      onToggleSelection,
-    }) => {
-      const colorScheme = useColorScheme();
-      const router = useRouter();
-      const { t } = useI18n();
-      const { formatRelativeTime } = useDateFormat();
-      const {
-        userSettings: {
-          settings: {
-            isCompactMode,
-            mediaCache: {
-              downloadSettings: { autoDownloadEnabled },
-            },
-            notificationFilters: { loadOnlyVisible },
-          },
+const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps> = ({
+  notification,
+  hideBucketInfo,
+  isMultiSelectionMode,
+  isSelected,
+  isItemVisible,
+  onToggleSelection,
+}) => {
+  const colorScheme = useColorScheme();
+  const router = useRouter();
+  const { t } = useI18n();
+  const { formatRelativeTime } = useDateFormat();
+  const {
+    userSettings: {
+      settings: {
+        isCompactMode,
+        mediaCache: {
+          downloadSettings: { autoDownloadEnabled },
         },
-      } = useAppContext();
+        notificationFilters: { loadOnlyVisible },
+      },
+    },
+  } = useAppContext();
 
-      const deleteNotification = useDeleteNotification();
-      const markAsRead = useMarkNotificationRead();
-      const markAsUnread = useMarkNotificationUnread();
+  const deleteNotification = useDeleteNotification();
+  const markAsRead = useMarkNotificationRead();
+  const markAsUnread = useMarkNotificationUnread();
 
-      // State for full screen visual modal (images and gifs)
-      const [fullScreenIndex, setFullScreenIndex] = useState<number>(-1);
+  // State for full screen visual modal (images and gifs)
+  const [fullScreenIndex, setFullScreenIndex] = useState<number>(-1);
 
-      const [swipeActive, setSwipeActive] = useState(false);
+  const [swipeActive, setSwipeActive] = useState(false);
 
-      const attachments = useMemo(
-        () =>
-          (notification.message?.attachments ?? []).filter((a) =>
-            [
-              MediaType.Image,
-              MediaType.Gif,
-              MediaType.Video,
-              MediaType.Audio,
-            ].includes(a.mediaType)
-          ),
-        [notification]
+  const attachments = useMemo(
+    () =>
+      (notification.message?.attachments ?? []).filter((a) =>
+        [
+          MediaType.Image,
+          MediaType.Gif,
+          MediaType.Video,
+          MediaType.Audio,
+        ].includes(a.mediaType)
+      ),
+    [notification]
+  );
+
+  const [selectedPreviewIndex, setSelectedPreviewIndex] = useState<number>(0);
+
+  useEffect(() => {
+    setSelectedPreviewIndex(0);
+  }, [notification.id]);
+
+  // Auto-download all attachments when component mounts or auto-download is enabled
+  useEffect(() => {
+    if (!autoDownloadEnabled) return;
+
+    for (const attachment of attachments) {
+      attachment.url &&
+        mediaCache.checkMediaExists({
+          url: attachment.url,
+          mediaType: attachment.mediaType,
+          notificationDate: new Date(notification.createdAt).getTime(),
+        });
+    }
+  }, [attachments, autoDownloadEnabled, notification]);
+
+  const handlePress = () => {
+    if (swipeActive) {
+      return; // avoid triggering press when swipe is active/recovering
+    }
+
+    if (isMultiSelectionMode) {
+      onToggleSelection?.();
+    } else {
+      router.push(
+        `/(mobile)/private/notification-detail?id=${notification.id}`
       );
+    }
+  };
 
-      const [selectedPreviewIndex, setSelectedPreviewIndex] =
-        useState<number>(0);
+  const handleDelete = async () => {
+    try {
+      await deleteNotification(notification.id);
+    } catch (error) {
+      console.error("❌ Failed to delete notification:", error);
+      Alert.alert(t("common.error"), t("swipeActions.delete.error"));
+    }
+  };
 
-      useEffect(() => {
-        setSelectedPreviewIndex(0);
-      }, [notification.id]);
+  const handleMarkAsRead = async () => {
+    try {
+      await markAsRead(notification.id);
+    } catch (error) {}
+  };
 
-      // Auto-download all attachments when component mounts or auto-download is enabled
-      useEffect(() => {
-        if (!autoDownloadEnabled) return;
+  const handleMarkAsUnread = async () => {
+    try {
+      await markAsUnread(notification.id);
+    } catch (error) {}
+  };
+  const deleteAction = {
+    icon: "delete" as const,
+    label: t("swipeActions.delete.label"),
+    backgroundColor: "#ff4444",
+    onPress: handleDelete,
+    showAlert: {
+      title: t("swipeActions.delete.title"),
+      message: t("swipeActions.delete.message"),
+      confirmText: t("swipeActions.delete.confirm"),
+      cancelText: t("swipeActions.delete.cancel"),
+    },
+  };
 
-        for (const attachment of attachments) {
-          attachment.url &&
-            mediaCache.checkMediaExists({
-              url: attachment.url,
-              mediaType: attachment.mediaType,
-              notificationDate: new Date(notification.createdAt).getTime(),
-            });
-        }
-      }, [attachments, autoDownloadEnabled, notification]);
-
-      const handlePress = () => {
-        if (swipeActive) {
-          return; // avoid triggering press when swipe is active/recovering
-        }
-
-        if (isMultiSelectionMode) {
-          onToggleSelection?.();
-        } else {
-          router.push(
-            `/(mobile)/private/notification-detail?id=${notification.id}`
-          );
-        }
+  const isRead = !!notification.readAt;
+  const toggleReadAction = isRead
+    ? {
+        icon: "view" as const,
+        label: t("swipeActions.markAsUnread.label"),
+        backgroundColor: "#007AFF",
+        onPress: handleMarkAsUnread,
+      }
+    : {
+        icon: "view-off" as const,
+        label: t("swipeActions.markAsRead.label"),
+        backgroundColor: "#28a745",
+        onPress: handleMarkAsRead,
       };
 
-      const handleDelete = async () => {
-        try {
-          await deleteNotification(notification.id);
-        } catch (error) {
-          console.error("❌ Failed to delete notification:", error);
-          Alert.alert(t("common.error"), t("swipeActions.delete.error"));
-        }
-      };
+  const bucketName = notification.message?.bucket?.name || t("common.general");
 
-      const handleMarkAsRead = async () => {
-        try {
-          await markAsRead(notification.id);
-        } catch (error) {}
-      };
+  // Currently visible attachment in extended mode
+  const visibleAttachment = !isCompactMode
+    ? attachments[selectedPreviewIndex] || null
+    : null;
 
-      const handleMarkAsUnread = async () => {
-        try {
-          await markAsUnread(notification.id);
-        } catch (error) {}
-      };
-      const deleteAction = {
-        icon: "delete" as const,
-        label: t("swipeActions.delete.label"),
-        backgroundColor: "#ff4444",
-        onPress: handleDelete,
-        showAlert: {
-          title: t("swipeActions.delete.title"),
-          message: t("swipeActions.delete.message"),
-          confirmText: t("swipeActions.delete.confirm"),
-          cancelText: t("swipeActions.delete.cancel"),
+  const handleVisualPress = (visualUri: string) => {
+    const attachmentIndex = attachments.findIndex(
+      (att) => att.url === visualUri
+    );
+    setFullScreenIndex(attachmentIndex >= 0 ? attachmentIndex : 0);
+  };
+
+  const handleCloseFullScreenImage = () => {
+    setFullScreenIndex(-1);
+  };
+
+  const hasAttachments = attachments.length > 0;
+  const actions = filteredActions(notification);
+
+  return (
+    <SwipeableItem
+      leftAction={isMultiSelectionMode ? undefined : toggleReadAction}
+      rightAction={isMultiSelectionMode ? undefined : deleteAction}
+      onSwipeActiveChange={setSwipeActive}
+      containerStyle={styles.swipeContainer}
+      contentStyle={[
+        styles.swipeContent,
+        {
+          backgroundColor:
+            isMultiSelectionMode && isSelected
+              ? Colors[colorScheme].selected
+              : isRead
+              ? Colors[colorScheme].backgroundCard
+              : Colors[colorScheme].selected,
         },
-      };
-
-      const isRead = !!notification.readAt;
-      const toggleReadAction = isRead
-        ? {
-            icon: "view" as const,
-            label: t("swipeActions.markAsUnread.label"),
-            backgroundColor: "#007AFF",
-            onPress: handleMarkAsUnread,
-          }
-        : {
-            icon: "view-off" as const,
-            label: t("swipeActions.markAsRead.label"),
-            backgroundColor: "#28a745",
-            onPress: handleMarkAsRead,
-          };
-
-      const bucketName =
-        notification.message?.bucket?.name || t("common.general");
-
-      // Currently visible attachment in extended mode
-      const visibleAttachment = !isCompactMode
-        ? attachments[selectedPreviewIndex] || null
-        : null;
-
-      const handleVisualPress = (visualUri: string) => {
-        const attachmentIndex = attachments.findIndex(
-          (att) => att.url === visualUri
-        );
-        setFullScreenIndex(attachmentIndex >= 0 ? attachmentIndex : 0);
-      };
-
-      const handleCloseFullScreenImage = () => {
-        setFullScreenIndex(-1);
-      };
-
-      const hasAttachments = attachments.length > 0;
-      const actions = filteredActions(notification);
-
-      return (
-        <SwipeableItem
-          leftAction={isMultiSelectionMode ? undefined : toggleReadAction}
-          rightAction={isMultiSelectionMode ? undefined : deleteAction}
-          onSwipeActiveChange={setSwipeActive}
-          containerStyle={styles.swipeContainer}
-          contentStyle={[
-            styles.swipeContent,
+      ]}
+      marginBottom={2} // Pass the custom margin
+      marginHorizontal={16} // Pass the horizontal margin
+    >
+      <TouchableWithoutFeedback onPress={handlePress}>
+        <ThemedView
+          onStartShouldSetResponder={() => true}
+          style={[
+            styles.itemCard,
             {
-              backgroundColor:
-                isMultiSelectionMode && isSelected
-                  ? Colors[colorScheme].selected
-                  : isRead
-                  ? Colors[colorScheme].backgroundCard
-                  : Colors[colorScheme].selected,
+              backgroundColor: "transparent", // Let SwipeableItem handle the background
+              borderColor: Colors[colorScheme].border,
+              // Add priority borders for delivery type
+              ...(notification.message?.deliveryType ===
+                NotificationDeliveryType.Critical ||
+              notification.message?.deliveryType ===
+                NotificationDeliveryType.Silent
+                ? {
+                    borderWidth: 2,
+                    borderColor:
+                      notification.message?.deliveryType ===
+                      NotificationDeliveryType.Critical
+                        ? Colors[colorScheme].error
+                        : Colors[colorScheme].textSecondary,
+                  }
+                : {}),
             },
           ]}
-          marginBottom={2} // Pass the custom margin
-          marginHorizontal={16} // Pass the horizontal margin
         >
-          <TouchableWithoutFeedback onPress={handlePress}>
-            <ThemedView
-              onStartShouldSetResponder={() => true}
+          {/* Priority background overlay for critical/silent notifications */}
+          {(notification.message?.deliveryType ===
+            NotificationDeliveryType.Critical ||
+            notification.message?.deliveryType ===
+              NotificationDeliveryType.Silent) && (
+            <View
               style={[
-                styles.itemCard,
+                styles.priorityBackground,
                 {
-                  backgroundColor: "transparent", // Let SwipeableItem handle the background
-                  borderColor: Colors[colorScheme].border,
-                  // Add priority borders for delivery type
-                  ...(notification.message?.deliveryType ===
-                    NotificationDeliveryType.Critical ||
-                  notification.message?.deliveryType ===
-                    NotificationDeliveryType.Silent
-                    ? {
-                        borderWidth: 2,
-                        borderColor:
-                          notification.message?.deliveryType ===
-                          NotificationDeliveryType.Critical
-                            ? Colors[colorScheme].error
-                            : Colors[colorScheme].textSecondary,
-                      }
-                    : {}),
+                  backgroundColor:
+                    notification.message?.deliveryType ===
+                    NotificationDeliveryType.Critical
+                      ? Colors[colorScheme].error
+                      : Colors[colorScheme].textSecondary,
                 },
               ]}
-            >
-              {/* Priority background overlay for critical/silent notifications */}
-              {(notification.message?.deliveryType ===
-                NotificationDeliveryType.Critical ||
-                notification.message?.deliveryType ===
-                  NotificationDeliveryType.Silent) && (
-                <View
+            />
+          )}
+
+          {/* RIGA 1: Checkbox/Icona bucket (col 1) + Contenuto testuale (col 2) + Data (col 3) */}
+          <ThemedView
+            style={[styles.firstRow, { backgroundColor: "transparent" }]}
+          >
+            {/* Colonna 1: Checkbox (in multi-selezione) o Icona bucket */}
+            {isMultiSelectionMode ? (
+              <TouchableOpacity
+                style={styles.checkboxContainer}
+                onPress={onToggleSelection}
+                activeOpacity={0.7}
+              >
+                <ThemedView
                   style={[
-                    styles.priorityBackground,
+                    styles.checkbox,
                     {
-                      backgroundColor:
-                        notification.message?.deliveryType ===
-                        NotificationDeliveryType.Critical
-                          ? Colors[colorScheme].error
-                          : Colors[colorScheme].textSecondary,
+                      backgroundColor: isSelected
+                        ? Colors[colorScheme].tint
+                        : "transparent",
+                      borderColor: Colors[colorScheme].border,
                     },
                   ]}
+                >
+                  {isSelected && (
+                    <Ionicons name="checkmark" size={16} color="white" />
+                  )}
+                </ThemedView>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.leftColumn}>
+                <View
+                  style={styles.bucketIconContainer}
+                  onStartShouldSetResponder={() => true}
+                >
+                  <BucketIcon
+                    bucketId={notification.message?.bucket?.id}
+                    size={"lg"}
+                  />
+                </View>
+                {!isCompactMode && (
+                  <View style={styles.underIconRow}>
+                    {actions.length > 0 && (
+                      <NotificationActionsButton
+                        notification={notification}
+                        actions={actions}
+                        variant="swipeable"
+                        fullWidth
+                      />
+                    )}
+
+                    <NotificationSnoozeButton
+                      bucketId={notification.message?.bucket?.id}
+                      variant="swipeable"
+                      showText={false}
+                      fullWidth
+                    />
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Colonna 2: Contenuto testuale */}
+            <ThemedView
+              style={[styles.textContent, { backgroundColor: "transparent" }]}
+            >
+              {/* Riga con nome bucket, titolo e orario */}
+              <View style={styles.titleAndDateRow}>
+                <View style={styles.titleSection}>
+                  {/* Nome bucket (solo in modalità estesa) */}
+                  {!hideBucketInfo && !isCompactMode && (
+                    <ThemedText style={styles.bucketName}>
+                      {bucketName}
+                    </ThemedText>
+                  )}
+
+                  {/* Titolo notifica */}
+                  <SmartTextRenderer
+                    content={notification.message?.title}
+                    maxLines={1}
+                    style={[styles.title, !isRead && styles.titleUnread]}
+                  />
+                </View>
+
+                {/* Orario */}
+                <ThemedText style={styles.date}>
+                  {formatRelativeTime(notification.createdAt)}
+                </ThemedText>
+              </View>
+
+              {/* Subtitle - mostra sempre se presente */}
+              {notification.message?.subtitle && (
+                <SmartTextRenderer
+                  content={notification.message.subtitle}
+                  maxLines={1}
+                  style={styles.subtitle}
                 />
               )}
 
-              {/* RIGA 1: Checkbox/Icona bucket (col 1) + Contenuto testuale (col 2) + Data (col 3) */}
+              {/* Messaggio/Body - mostra più linee, anche con gallery */}
+              {notification.message?.body && (
+                <SmartTextRenderer
+                  content={notification.message.body}
+                  maxLines={6}
+                  style={styles.body}
+                />
+              )}
+            </ThemedView>
+
+            {/* Read indicator (only when not in multi-selection mode) */}
+            {!isMultiSelectionMode && !isRead && (
               <ThemedView
-                style={[styles.firstRow, { backgroundColor: "transparent" }]}
-              >
-                {/* Colonna 1: Checkbox (in multi-selezione) o Icona bucket */}
-                {isMultiSelectionMode ? (
+                style={[
+                  styles.unreadIndicator,
+                  { backgroundColor: Colors[colorScheme].tint },
+                ]}
+              />
+            )}
+          </ThemedView>
+
+          {/* RIGA 2: Preview del media selezionato (solo in modalità estesa) */}
+          {!!visibleAttachment && (
+            <ThemedView
+              style={[
+                styles.mediaPreviewRow,
+                { backgroundColor: "transparent" },
+              ]}
+            >
+              {/* Render all CachedMedia components but only show the selected one */}
+              {attachments.map((attachment, index) => {
+                const isSelected = index === selectedPreviewIndex;
+
+                return (
                   <TouchableOpacity
-                    style={styles.checkboxContainer}
-                    onPress={onToggleSelection}
-                    activeOpacity={0.7}
-                  >
-                    <ThemedView
-                      style={[
-                        styles.checkbox,
-                        {
-                          backgroundColor: isSelected
-                            ? Colors[colorScheme].tint
-                            : "transparent",
-                          borderColor: Colors[colorScheme].border,
-                        },
-                      ]}
-                    >
-                      {isSelected && (
-                        <Ionicons name="checkmark" size={16} color="white" />
-                      )}
-                    </ThemedView>
-                  </TouchableOpacity>
-                ) : (
-                  <View style={styles.leftColumn}>
-                    <View
-                      style={styles.bucketIconContainer}
-                      onStartShouldSetResponder={() => true}
-                    >
-                      <BucketIcon
-                        bucketId={notification.message?.bucket?.id}
-                        size={"lg"}
-                      />
-                    </View>
-                    {!isCompactMode && (
-                      <View style={styles.underIconRow}>
-                        {actions.length > 0 && (
-                          <NotificationActionsButton
-                            notification={notification}
-                            actions={actions}
-                            variant="swipeable"
-                            fullWidth
-                          />
-                        )}
-
-                        <NotificationSnoozeButton
-                          bucketId={notification.message?.bucket?.id}
-                          variant="swipeable"
-                          showText={false}
-                          fullWidth
-                        />
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                {/* Colonna 2: Contenuto testuale */}
-                <ThemedView
-                  style={[
-                    styles.textContent,
-                    { backgroundColor: "transparent" },
-                  ]}
-                >
-                  {/* Riga con nome bucket, titolo e orario */}
-                  <View style={styles.titleAndDateRow}>
-                    <View style={styles.titleSection}>
-                      {/* Nome bucket (solo in modalità estesa) */}
-                      {!hideBucketInfo && !isCompactMode && (
-                        <ThemedText style={styles.bucketName}>
-                          {bucketName}
-                        </ThemedText>
-                      )}
-
-                      {/* Titolo notifica */}
-                      <SmartTextRenderer
-                        content={notification.message?.title}
-                        maxLines={1}
-                        style={[styles.title, !isRead && styles.titleUnread]}
-                      />
-                    </View>
-
-                    {/* Orario */}
-                    <ThemedText style={styles.date}>
-                      {formatRelativeTime(notification.createdAt)}
-                    </ThemedText>
-                  </View>
-
-                  {/* Subtitle - mostra sempre se presente */}
-                  {notification.message?.subtitle && (
-                    <SmartTextRenderer
-                      content={notification.message.subtitle}
-                      maxLines={1}
-                      style={styles.subtitle}
-                    />
-                  )}
-
-                  {/* Messaggio/Body - mostra più linee, anche con gallery */}
-                  {notification.message?.body && (
-                    <SmartTextRenderer
-                      content={notification.message.body}
-                      maxLines={6}
-                      style={styles.body}
-                    />
-                  )}
-                </ThemedView>
-
-                {/* Read indicator (only when not in multi-selection mode) */}
-                {!isMultiSelectionMode && !isRead && (
-                  <ThemedView
+                    key={`${attachment.url}-${index}`}
+                    activeOpacity={0.8}
                     style={[
-                      styles.unreadIndicator,
-                      { backgroundColor: Colors[colorScheme].tint },
+                      isSelected
+                        ? styles.expandedImage
+                        : {
+                            width: 0,
+                            height: 0,
+                            opacity: 0,
+                            position: "absolute",
+                          },
                     ]}
-                  />
-                )}
-              </ThemedView>
-
-              {/* RIGA 2: Preview del media selezionato (solo in modalità estesa) */}
-              {!!visibleAttachment && (
-                <ThemedView
-                  style={[
-                    styles.mediaPreviewRow,
-                    { backgroundColor: "transparent" },
-                  ]}
-                >
-                  {/* Render all CachedMedia components but only show the selected one */}
-                  {attachments.map((attachment, index) => {
-                    const isSelected = index === selectedPreviewIndex;
-
-                    return (
-                      <TouchableOpacity
-                        key={`${attachment.url}-${index}`}
-                        activeOpacity={0.8}
-                        style={[
+                  >
+                    {(isItemVisible || !loadOnlyVisible) && (
+                      <CachedMedia
+                        notificationDate={new Date(
+                          notification.createdAt
+                        ).getTime()}
+                        mediaType={attachment.mediaType}
+                        url={attachment.url || ""}
+                        style={
                           isSelected
                             ? styles.expandedImage
-                            : {
-                                width: 0,
-                                height: 0,
-                                opacity: 0,
-                                position: "absolute",
-                              },
+                            : { width: 0, height: 0 }
+                        }
+                        originalFileName={attachment.name || undefined}
+                        videoProps={{
+                          autoPlay: isSelected,
+                          isMuted: true,
+                          isLooping: true,
+                          showControls: false,
+                        }}
+                        audioProps={{
+                          shouldPlay: false,
+                          showControls: true,
+                        }}
+                        onPress={() => handleVisualPress(attachment.url!)}
+                      />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ThemedView>
+          )}
+
+          {/* RIGA 3: Allegati (sinistra) + Azioni e Snooze (destra) */}
+          {hasAttachments ? (
+            <ThemedView
+              style={[styles.bottomRow, { backgroundColor: "transparent" }]}
+            >
+              {/* Indicatori allegati */}
+              <ThemedView
+                style={[
+                  styles.mediaIndicators,
+                  { backgroundColor: "transparent" },
+                ]}
+              >
+                {attachments.length > 0 &&
+                  (isCompactMode ? (
+                    <View style={styles.inlinePillsRow}>
+                      <ThemedView
+                        style={[
+                          styles.mediaIndicator,
+                          {
+                            backgroundColor:
+                              Colors[colorScheme].backgroundSecondary,
+                          },
                         ]}
                       >
-                        {(isItemVisible || !loadOnlyVisible) && (
-                          <CachedMedia
-                            notificationDate={new Date(
-                              notification.createdAt
-                            ).getTime()}
+                        <Icon name="image" size="xs" color="secondary" />
+                        <ThemedText style={styles.mediaText}>
+                          {t("attachmentGallery.attachments", {
+                            count: attachments.length,
+                          })}
+                        </ThemedText>
+                      </ThemedView>
+
+                      {actions.length > 0 && (
+                        <NotificationActionsButton
+                          notification={notification}
+                          actions={actions}
+                          showTextLabel
+                          variant="inline"
+                        />
+                      )}
+                      <View style={styles.filler} />
+                      <NotificationSnoozeButton
+                        bucketId={notification.message?.bucket?.id}
+                        variant="inline"
+                        showText
+                      />
+                    </View>
+                  ) : (
+                    attachments.map((attachment, index) => {
+                      const isSelected = index === selectedPreviewIndex;
+
+                      const pill = (
+                        <ThemedView
+                          key={index}
+                          style={[
+                            styles.mediaIndicator,
+                            {
+                              backgroundColor:
+                                Colors[colorScheme].backgroundSecondary,
+                              borderWidth: isSelected ? 1.5 : 0,
+                              borderColor: isSelected
+                                ? Colors[colorScheme].tint
+                                : "transparent",
+                            },
+                          ]}
+                        >
+                          <MediaTypeIcon
                             mediaType={attachment.mediaType}
-                            url={attachment.url || ""}
-                            style={
-                              isSelected
-                                ? styles.expandedImage
-                                : { width: 0, height: 0 }
+                            size={12}
+                            base
+                            showLabel
+                            label={attachment.name}
+                          />
+                        </ThemedView>
+                      );
+
+                      return (
+                        <TouchableOpacity
+                          key={index}
+                          activeOpacity={0.8}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            if (index >= 0) {
+                              setSelectedPreviewIndex(index);
                             }
-                            originalFileName={attachment.name || undefined}
-                            videoProps={{
-                              autoPlay: isSelected,
-                              isMuted: true,
-                              isLooping: true,
-                              showControls: false,
-                            }}
-                            audioProps={{
-                              shouldPlay: false,
-                              showControls: true,
-                            }}
-                            onPress={() => handleVisualPress(attachment.url!)}
-                          />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ThemedView>
-              )}
-
-              {/* RIGA 3: Allegati (sinistra) + Azioni e Snooze (destra) */}
-              {hasAttachments ? (
-                <ThemedView
-                  style={[styles.bottomRow, { backgroundColor: "transparent" }]}
-                >
-                  {/* Indicatori allegati */}
-                  <ThemedView
-                    style={[
-                      styles.mediaIndicators,
-                      { backgroundColor: "transparent" },
-                    ]}
-                  >
-                    {attachments.length > 0 &&
-                      (isCompactMode ? (
-                        <View style={styles.inlinePillsRow}>
-                          <ThemedView
-                            style={[
-                              styles.mediaIndicator,
-                              {
-                                backgroundColor:
-                                  Colors[colorScheme].backgroundSecondary,
-                              },
-                            ]}
-                          >
-                            <Icon name="image" size="xs" color="secondary" />
-                            <ThemedText style={styles.mediaText}>
-                              {t("attachmentGallery.attachments", {
-                                count: attachments.length,
-                              })}
-                            </ThemedText>
-                          </ThemedView>
-
-                          {actions.length > 0 && (
-                            <NotificationActionsButton
-                              notification={notification}
-                              actions={actions}
-                              showTextLabel
-                              variant="inline"
-                            />
-                          )}
-                          <View style={styles.filler} />
-                          <NotificationSnoozeButton
-                            bucketId={notification.message?.bucket?.id}
-                            variant="inline"
-                            showText
-                          />
-                        </View>
-                      ) : (
-                        attachments.map((attachment, index) => {
-                          const isSelected = index === selectedPreviewIndex;
-
-                          const pill = (
-                            <ThemedView
-                              key={index}
-                              style={[
-                                styles.mediaIndicator,
-                                {
-                                  backgroundColor:
-                                    Colors[colorScheme].backgroundSecondary,
-                                  borderWidth: isSelected ? 1.5 : 0,
-                                  borderColor: isSelected
-                                    ? Colors[colorScheme].tint
-                                    : "transparent",
-                                },
-                              ]}
-                            >
-                              <MediaTypeIcon
-                                mediaType={attachment.mediaType}
-                                size={12}
-                                base
-                                showLabel
-                                label={attachment.name}
-                              />
-                            </ThemedView>
-                          );
-
-                          return (
-                            <TouchableOpacity
-                              key={index}
-                              activeOpacity={0.8}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                if (index >= 0) {
-                                  setSelectedPreviewIndex(index);
-                                }
-                              }}
-                            >
-                              {pill}
-                            </TouchableOpacity>
-                          );
-                        })
-                      ))}
-                  </ThemedView>
-                </ThemedView>
-              ) : null}
+                          }}
+                        >
+                          {pill}
+                        </TouchableOpacity>
+                      );
+                    })
+                  ))}
+              </ThemedView>
             </ThemedView>
-          </TouchableWithoutFeedback>
+          ) : null}
+        </ThemedView>
+      </TouchableWithoutFeedback>
 
-          {/* Full Screen Media Viewer */}
-          {fullScreenIndex >= 0 && attachments[fullScreenIndex] && (
-            <FullScreenMediaViewer
-              visible
-              notificationDate={new Date(notification.createdAt).getTime()}
-              url={attachments[fullScreenIndex].url || ""}
-              mediaType={attachments[fullScreenIndex].mediaType}
-              originalFileName={attachments[fullScreenIndex].name || undefined}
-              onClose={handleCloseFullScreenImage}
-              enableSwipeNavigation={attachments.length > 1}
-              onSwipeLeft={() => {
-                // Array circolare: dall'ultimo va al primo
-                setFullScreenIndex((fullScreenIndex + 1) % attachments.length);
-              }}
-              onSwipeRight={() => {
-                // Array circolare: dal primo va all'ultimo
-                setFullScreenIndex(
-                  fullScreenIndex === 0
-                    ? attachments.length - 1
-                    : fullScreenIndex - 1
-                );
-              }}
-              currentPosition={`${fullScreenIndex + 1} / ${attachments.length}`}
-            />
-          )}
-        </SwipeableItem>
-      );
-    }
+      {/* Full Screen Media Viewer */}
+      {fullScreenIndex >= 0 && attachments[fullScreenIndex] && (
+        <FullScreenMediaViewer
+          visible
+          notificationDate={new Date(notification.createdAt).getTime()}
+          url={attachments[fullScreenIndex].url || ""}
+          mediaType={attachments[fullScreenIndex].mediaType}
+          originalFileName={attachments[fullScreenIndex].name || undefined}
+          onClose={handleCloseFullScreenImage}
+          enableSwipeNavigation={attachments.length > 1}
+          onSwipeLeft={() => {
+            // Array circolare: dall'ultimo va al primo
+            setFullScreenIndex((fullScreenIndex + 1) % attachments.length);
+          }}
+          onSwipeRight={() => {
+            // Array circolare: dal primo va all'ultimo
+            setFullScreenIndex(
+              fullScreenIndex === 0
+                ? attachments.length - 1
+                : fullScreenIndex - 1
+            );
+          }}
+          currentPosition={`${fullScreenIndex + 1} / ${attachments.length}`}
+        />
+      )}
+    </SwipeableItem>
   );
+};
 
 const styles = StyleSheet.create({
   swipeContainer: {

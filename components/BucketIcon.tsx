@@ -10,6 +10,14 @@ import { CachedMedia } from "./CachedMedia";
 import { ThemedText } from "./ThemedText";
 import { Icon } from "./ui";
 
+const sizeMap = {
+  sm: { container: 32, icon: 28, text: 14 },
+  md: { container: 40, icon: 36, text: 16 },
+  lg: { container: 48, icon: 44, text: 20 },
+  xl: { container: 64, icon: 60, text: 24 },
+  xxl: { container: 80, icon: 76, text: 28 },
+};
+
 interface BucketIconProps {
   size?: "lg" | "xl" | "xxl";
   showBorder?: boolean;
@@ -30,15 +38,6 @@ export default function BucketIcon({
 
   // Default color if none provided
   const bucketColor = color || Colors[colorScheme].tint;
-
-  // Size mapping
-  const sizeMap = {
-    sm: { container: 32, icon: 28, text: 14 },
-    md: { container: 40, icon: 36, text: 16 },
-    lg: { container: 48, icon: 44, text: 20 },
-    xl: { container: 64, icon: 60, text: 24 },
-    xxl: { container: 80, icon: 76, text: 28 },
-  };
 
   const currentSize = sizeMap[size];
 

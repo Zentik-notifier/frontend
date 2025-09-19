@@ -4,13 +4,13 @@ import {
     ActivityIndicator,
     Alert,
     Platform,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
 import { Colors } from '../constants/Colors';
 import { useI18n } from '../hooks/useI18n';

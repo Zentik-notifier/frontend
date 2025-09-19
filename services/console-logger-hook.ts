@@ -4,6 +4,19 @@ type ConsoleMethod = (...args: any[]) => void;
 
 let installed = false;
 
+/**
+ * Controlla se il messaggio dovrebbe essere filtrato (ignorato)
+ */
+const shouldFilterMessage = (msg: string): boolean => {
+  // Filtra i warning di Apollo Client 4.0 deprecation
+  if (msg.includes('is deprecated and will be removed in Apollo Client 4.0')) {
+    return true;
+  }
+  
+  // Aggiungi altri filtri qui se necessario
+  return false;
+};
+
 export function installConsoleLoggerBridge(): void {
   if (installed) return;
   installed = true;
@@ -16,41 +29,79 @@ export function installConsoleLoggerBridge(): void {
     debug: console.debug ? console.debug.bind(console) as ConsoleMethod : console.log.bind(console),
   };
 
-  const toMessage = (args: any[]): { msg: string, meta?: any } => {
+  const toMessage = (args: any[]): { msg: string, meta?: any, shouldFilter?: boolean } => {
     try {
       if (!args || args.length === 0) return { msg: '' };
       if (typeof args[0] === 'string') {
         const msg = args[0] as string;
         const rest = args.slice(1);
         const meta = rest && rest.length ? (rest.length === 1 ? rest[0] : rest) : undefined;
-        return { msg, meta };
+        return { msg, meta, shouldFilter: shouldFilterMessage(msg) };
       }
       // First arg is not a string: stringify compact
-      return { msg: JSON.stringify(args[0]), meta: args.length > 1 ? args.slice(1) : undefined };
+      const msg = JSON.stringify(args[0]);
+      const meta = args.length > 1 ? args.slice(1) : undefined;
+      return { msg, meta, shouldFilter: shouldFilterMessage(msg) };
     } catch {
-      return { msg: String(args?.[0] ?? '') };
+      const msg = String(args?.[0] ?? '');
+      return { msg, shouldFilter: shouldFilterMessage(msg) };
     }
   };
 
   console.log = (...args: any[]) => {
-    try { const { msg, meta } = toMessage(args); logger.info(msg, meta, 'console'); } catch {}
-    original.log(...args);
+    try { 
+      const { msg, meta, shouldFilter } = toMessage(args); 
+      if (!shouldFilter) {
+        logger.info(msg, meta, 'console');
+        original.log(...args);
+      }
+    } catch { 
+      original.log(...args);
+    }
   };
   console.info = (...args: any[]) => {
-    try { const { msg, meta } = toMessage(args); logger.info(msg, meta, 'console'); } catch {}
-    original.info(...args);
+    try { 
+      const { msg, meta, shouldFilter } = toMessage(args); 
+      if (!shouldFilter) {
+        logger.info(msg, meta, 'console');
+        original.info(...args);
+      }
+    } catch { 
+      original.info(...args);
+    }
   };
   console.warn = (...args: any[]) => {
-    try { const { msg, meta } = toMessage(args); logger.warn(msg, meta, 'console'); } catch {}
-    original.warn(...args);
+    try { 
+      const { msg, meta, shouldFilter } = toMessage(args); 
+      if (!shouldFilter) {
+        logger.warn(msg, meta, 'console');
+        original.warn(...args);
+      }
+    } catch { 
+      original.warn(...args);
+    }
   };
   console.error = (...args: any[]) => {
-    try { const { msg, meta } = toMessage(args); logger.error(msg, meta, 'console'); } catch {}
-    original.error(...args);
+    try { 
+      const { msg, meta, shouldFilter } = toMessage(args); 
+      if (!shouldFilter) {
+        logger.error(msg, meta, 'console');
+        original.error(...args);
+      }
+    } catch { 
+      original.error(...args);
+    }
   };
   console.debug = (...args: any[]) => {
-    try { const { msg, meta } = toMessage(args); logger.debug(msg, meta, 'console'); } catch {}
-    original.debug(...args);
+    try { 
+      const { msg, meta, shouldFilter } = toMessage(args); 
+      if (!shouldFilter) {
+        logger.debug(msg, meta, 'console');
+        original.debug(...args);
+      }
+    } catch { 
+      original.debug(...args);
+    }
   };
 }
 

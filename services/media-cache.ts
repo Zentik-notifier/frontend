@@ -1,4 +1,4 @@
-import { Directory, File } from 'expo-file-system/next';
+import { Directory, File } from 'expo-file-system';
 import { BehaviorSubject } from "rxjs";
 import { MediaType } from '../generated/gql-operations-generated';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';

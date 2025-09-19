@@ -4,10 +4,10 @@ import { useI18n } from '@/hooks/useI18n';
 import React from 'react';
 import {
   Modal,
-  SafeAreaView,
   StyleSheet,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import LoginForm from './LoginForm';
 
 interface LoginModalProps {
