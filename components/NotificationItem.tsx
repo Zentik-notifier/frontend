@@ -80,7 +80,7 @@ export function getNotificationItemHeight(
     const maxBodyLines = isCompactMode ? (hasMedia ? 1 : 2) : hasMedia ? 2 : 5;
     const charsPerLine = isCompactMode ? 42 : 60;
     const bodyText = message?.body ?? "";
-    const perLine = 18; // approx styles.body lineHeight (17) + padding
+    const perLine = 21; // approx styles.body lineHeight (17) + padding
 
     // Consider newline characters by splitting and estimating each paragraph
     const segments = bodyText.split(/\r?\n/);

@@ -29,8 +29,8 @@ import NotificationItem, {
 } from "./NotificationItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
-import { FlatList } from "react-native-gesture-handler";
 import { FlashList } from "@shopify/flash-list";
+import { Icon } from "./ui";
 
 interface NotificationsListProps {
   notifications: NotificationFragment[];
@@ -80,6 +80,8 @@ export default function NotificationsList({
   const visibleIdsRef = useRef<Set<string>>(new Set());
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didUserScrollRef = useRef(false);
+  const listRef = useRef<any>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // Filter and sort notifications based on user settings
   const { filteredNotifications } = useMemo(() => {
@@ -109,6 +111,12 @@ export default function NotificationsList({
       const visibleSet = new Set(visibleIds);
       setVisibileItems(visibleSet);
       visibleIdsRef.current = visibleSet;
+
+      // Mostra il pulsante "torna su" quando il primo elemento non è visibile
+      try {
+        const firstId = filteredNotifications[0]?.id;
+        setShowScrollTop(firstId ? !visibleSet.has(firstId) : false);
+      } catch {}
 
       if (!settings.notificationsPreferences?.markAsReadOnView) return;
 
@@ -497,6 +505,7 @@ export default function NotificationsList({
       {customHeader}
 
       <FlashList
+        ref={listRef}
         data={filteredNotifications}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
@@ -518,6 +527,26 @@ export default function NotificationsList({
         ListEmptyComponent={renderEmptyState}
         ListFooterComponent={renderListFooter}
       />
+
+      {showScrollTop && (
+        <TouchableOpacity
+          onPress={() => {
+            try {
+              listRef.current?.scrollToOffset({ offset: 0, animated: true });
+            } catch {}
+          }}
+          activeOpacity={0.8}
+          style={[
+            styles.scrollTopFab,
+            {
+              backgroundColor: Colors[colorScheme].tint,
+              shadowColor: "#000",
+            },
+          ]}
+        >
+          <Icon name="expand" size="md" color="white" />
+        </TouchableOpacity>
+      )}
     </ThemedView>
   );
 }
@@ -606,5 +635,19 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     opacity: 0.7,
+  },
+  scrollTopFab: {
+    position: "absolute",
+    right: 16,
+    bottom: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
 });
