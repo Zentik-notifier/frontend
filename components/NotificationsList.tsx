@@ -129,7 +129,11 @@ export default function NotificationsList({
         }
       }, 1000);
     },
-    [settings.notificationsPreferences?.markAsReadOnView, massMarkAsRead, filteredNotifications]
+    [
+      settings.notificationsPreferences?.markAsReadOnView,
+      massMarkAsRead,
+      filteredNotifications,
+    ]
   );
 
   const toggleItemSelection = (itemId: string) => {
@@ -447,18 +451,18 @@ export default function NotificationsList({
     </ThemedView>
   );
 
-  // const renderListFooter = () => (
-  //   <View style={styles.listFooter}>
-  //     <ThemedText
-  //       style={[
-  //         styles.listFooterText,
-  //         { color: Colors[colorScheme].textSecondary },
-  //       ]}
-  //     >
-  //       {t("notifications.endOfList")}
-  //     </ThemedText>
-  //   </View>
-  // );
+  const renderListFooter = () => (
+    <View style={styles.listFooter}>
+      <ThemedText
+        style={[
+          styles.listFooterText,
+          { color: Colors[colorScheme].textSecondary },
+        ]}
+      >
+        {t("notifications.endOfList")}
+      </ThemedText>
+    </View>
+  );
 
   // const renderLoadingFooter = () => (
   //   <View style={styles.loadingFooter}>
@@ -510,9 +514,9 @@ export default function NotificationsList({
             tintColor={Colors[colorScheme ?? "light"].tint}
           />
         }
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator
         ListEmptyComponent={renderEmptyState}
-        // ListFooterComponent={loading ? renderLoadingFooter : renderListFooter}
+        ListFooterComponent={renderListFooter}
       />
     </ThemedView>
   );

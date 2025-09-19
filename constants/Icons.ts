@@ -96,6 +96,7 @@ export const AppIcons: Record<string, { set: keyof typeof IconSets, name: string
   reset: { set: 'Ionicons', name: 'refresh-outline' } as const,
   cancel: { set: 'Ionicons', name: 'close' } as const,
   confirm: { set: 'Ionicons', name: 'checkmark' } as const,
+  more: { set: 'Ionicons', name: 'ellipsis-horizontal' } as const,
 
   // Snooze / Muted indicator
   snooze: { set: 'MaterialCommunityIcons', name: 'bell-sleep-outline' } as const,

@@ -16,9 +16,11 @@ import { useAppContext } from "@/services/app-context";
 import { mediaCache } from "@/services/media-cache";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Dimensions,
+  Modal,
   StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -29,14 +31,14 @@ import BucketIcon from "./BucketIcon";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
 import { MediaTypeIcon } from "./MediaTypeIcon";
-import NotificationActionsButton, {
-  filteredActions,
-} from "./NotificationActionsButton";
+import { filteredActions } from "./NotificationActionsButton";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { Icon, SmartTextRenderer } from "./ui";
 import SwipeableItem from "./SwipeableItem";
+import { useNotificationActions } from "@/hooks/useNotificationActions";
+import { useNotificationUtils } from "@/hooks/useNotificationUtils";
 
 // Dynamic height calculator to keep FlashList and item in sync
 export function getNotificationItemHeight(
@@ -155,7 +157,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     [notification]
   );
 
-  // FlashList-friendly local states that reset when item is recycled for a new notification
   const [selectedPreviewIndex, setSelectedPreviewIndex] =
     useRecyclingState<number>(0, [notification.id]);
   const [fullScreenIndex, setFullScreenIndex] = useRecyclingState<number>(-1, [
@@ -222,6 +223,30 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const actions = filteredActions(notification);
   const hasActions = actions.length > 0;
 
+  const { executeAction } = useNotificationActions();
+  const { getActionTypeIcon } = useNotificationUtils();
+
+  const [isActionsMenuVisible, setIsActionsMenuVisible] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<"above" | "below">("above");
+  const actionButtonRef = useRef<View | null>(null);
+
+  const openActionsMenu = () => {
+    try {
+      const windowHeight = Dimensions.get("window").height;
+      actionButtonRef.current?.measure?.(
+        (x, y, width, height, pageX, pageY) => {
+          const spaceAbove = pageY;
+          const spaceBelow = windowHeight - (pageY + height);
+          setMenuPosition(spaceBelow >= spaceAbove ? "below" : "above");
+          setIsActionsMenuVisible(true);
+        }
+      );
+    } catch {
+      setMenuPosition("above");
+      setIsActionsMenuVisible(true);
+    }
+  };
+
   const itemHeight = getNotificationItemHeight(notification, isCompactMode);
   const bodyMaxLines = isCompactMode
     ? hasAttachments
@@ -274,6 +299,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   return (
     <View style={[styles.wrapper, { height: itemHeight }]}>
       <SwipeableItem
+        withButton={false}
         leftAction={isMultiSelectionMode ? undefined : toggleReadAction}
         rightAction={isMultiSelectionMode ? undefined : deleteAction}
         onSwipeActiveChange={setSwipeActive}
@@ -367,18 +393,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                       size={"lg"}
                     />
                   </View>
-                  {!isCompactMode && (
-                    <View style={styles.underIconRow}>
-                      {hasActions && (
-                        <NotificationActionsButton
-                          notification={notification}
-                          actions={actions}
-                          variant="swipeable"
-                          fullWidth
-                        />
-                      )}
-                    </View>
-                  )}
+                  {/* Removed legacy inline actions button under bucket icon */}
                 </View>
               )}
 
@@ -527,15 +542,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                           })}
                         </ThemedText>
                       </ThemedView>
-
-                      {hasActions && (
-                        <NotificationActionsButton
-                          notification={notification}
-                          actions={actions}
-                          showTextLabel
-                          variant="inline"
-                        />
-                      )}
                     </View>
                   ) : (
                     attachments.map((attachment, index) => {
@@ -580,6 +586,27 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                     })
                   ))}
               </ThemedView>
+              <View style={styles.bottomRightActions}>
+                <TouchableOpacity
+                  ref={(r) => {
+                    actionButtonRef.current = r;
+                  }}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openActionsMenu();
+                  }}
+                  activeOpacity={0.8}
+                  style={[
+                    styles.actionsFab,
+                    {
+                      borderColor: Colors[colorScheme].border,
+                      backgroundColor: Colors[colorScheme].background,
+                    },
+                  ]}
+                >
+                  <Icon name="more" size="sm" color="primary" />
+                </TouchableOpacity>
+              </View>
             </ThemedView>
           </ThemedView>
         </TouchableWithoutFeedback>
@@ -607,6 +634,96 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           />
         )}
       </SwipeableItem>
+      <Modal
+        visible={isActionsMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsActionsMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.actionsMenuOverlay}
+          activeOpacity={1}
+          onPress={() => setIsActionsMenuVisible(false)}
+        >
+          <ThemedView
+            style={[
+              styles.actionsMenu,
+              menuPosition === "above" ? styles.menuAbove : styles.menuBelow,
+              {
+                borderColor: Colors[colorScheme].border,
+                backgroundColor: Colors[colorScheme].background,
+              },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => {
+                setIsActionsMenuVisible(false);
+                isRead ? handleMarkAsUnread() : handleMarkAsRead();
+              }}
+              style={[
+                styles.menuItem,
+                { borderColor: Colors[colorScheme].borderLight },
+              ]}
+            >
+              <Icon
+                name={isRead ? "view" : "view-off"}
+                size="sm"
+                color="secondary"
+              />
+              <ThemedText style={styles.menuItemText}>
+                {isRead
+                  ? t("swipeActions.markAsUnread.label")
+                  : t("swipeActions.markAsRead.label")}
+              </ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setIsActionsMenuVisible(false);
+                handleDelete();
+              }}
+              style={[
+                styles.menuItem,
+                { borderColor: Colors[colorScheme].borderLight },
+              ]}
+            >
+              <Icon name="delete" size="sm" color="error" />
+              <ThemedText
+                style={[
+                  styles.menuItemText,
+                  { color: Colors[colorScheme].error },
+                ]}
+              >
+                {t("swipeActions.delete.label")}
+              </ThemedText>
+            </TouchableOpacity>
+
+            {hasActions &&
+              actions.map((action, index) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => {
+                    setIsActionsMenuVisible(false);
+                    executeAction(notification.id!, action);
+                  }}
+                  style={[
+                    styles.menuItem,
+                    { borderColor: Colors[colorScheme].borderLight },
+                  ]}
+                >
+                  <Icon
+                    name={getActionTypeIcon(action.type) as any}
+                    size="sm"
+                    color={action.destructive ? "error" : "secondary"}
+                  />
+                  <ThemedText style={styles.menuItemText}>
+                    {action.title || action.value?.slice(0, 50)}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+          </ThemedView>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -733,6 +850,18 @@ const styles = StyleSheet.create({
     flexWrap: "nowrap",
     overflow: "hidden",
   },
+  bottomRightActions: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  actionsFab: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
   mediaPreviewRow: {
     paddingHorizontal: 12,
     paddingTop: 0,
@@ -761,6 +890,39 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginLeft: 3,
     fontWeight: "500",
+  },
+  actionsMenuOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    justifyContent: "flex-end",
+  },
+  actionsMenu: {
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  menuAbove: {
+    marginBottom: 56,
+  },
+  menuBelow: {
+    marginBottom: 12,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  menuItemText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  menuSeparator: {
+    height: 1,
+    marginVertical: 4,
   },
   priorityBackground: {
     position: "absolute",
