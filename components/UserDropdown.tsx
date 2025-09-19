@@ -257,15 +257,25 @@ export default function UserDropdown() {
         ref={buttonRef}
         onPress={showDropdown}
         activeOpacity={0.7}
-        style={styles.avatarButton}
+        style={[
+          styles.avatarButton,
+          {
+            backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+            borderRadius: 20,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderWidth: 1,
+            borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)",
+          },
+        ]}
       >
         {renderMainAvatar()}
-        {/* <Ionicons
+        <Ionicons
           name="chevron-down"
-          size={12}
+          size={14}
           color={isDark ? "#ffffff" : "#666666"}
           style={styles.dropdownIcon}
-        /> */}
+        />
       </TouchableOpacity>
 
       <Modal visible={isVisible} transparent animationType="fade">
@@ -342,6 +352,7 @@ const styles = StyleSheet.create({
   avatarButton: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
   avatarContainer: {
     width: 36,
@@ -350,13 +361,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#0a7ea4",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: 8,
   },
   avatarImage: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    marginRight: 12,
+    marginRight: 8,
   },
   initialsText: {
     color: "#fff",
@@ -429,6 +440,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dropdownIcon: {
-    marginLeft: 4,
+    marginLeft: 2,
   },
 });
