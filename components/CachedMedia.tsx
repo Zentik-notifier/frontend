@@ -17,11 +17,11 @@ import {
   StyleProp,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
   ViewStyle,
 } from "react-native";
 import { Pressable } from "react-native-gesture-handler";
-import { PressableEvent } from "react-native-gesture-handler/lib/typescript/components/Pressable/PressableProps";
 import { MediaType } from "../generated/gql-operations-generated";
 import { useI18n } from "../hooks/useI18n";
 import { useCachedItem } from "../hooks/useMediaCache";
@@ -149,7 +149,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   }, [url, mediaType, notificationDate]);
 
   const handleFrameClick = useCallback(
-    async (event: PressableEvent) => {
+    async (event?: any) => {
       onPressParent?.();
     },
     [onPressParent]
@@ -506,17 +506,52 @@ export const CachedMedia = React.memo(function CachedMedia({
         case MediaType.Video:
           const showControls = videoProps?.showControls ?? true;
           return (
-            <Pressable onPress={handleFrameClick}>
+            <View
+              style={{
+                position: "relative",
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <VideoView
                 style={
                   isCompact
                     ? [defaultStyles.stateContainerCompact, style]
-                    : [style, { position: "relative" }]
+                    : [
+                        style,
+                        {
+                          position: "relative",
+                          maxWidth: "100%",
+                          maxHeight: "100%",
+                          aspectRatio: 16 / 9, // Default aspect ratio, will be adjusted by video content
+                        },
+                      ]
                 }
                 player={videoPlayer}
                 nativeControls={showControls && !isCompact}
+                allowsPictureInPicture={showControls}
+                fullscreenOptions={{
+                  enable: showControls,
+                  orientation: "default",
+                  autoExitOnRotate: true,
+                }}
               />
-            </Pressable>
+              {!showControls && (
+                <TouchableOpacity
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "transparent",
+                  }}
+                  onPress={handleFrameClick}
+                  activeOpacity={1}
+                />
+              )}
+            </View>
           );
 
         case MediaType.Audio:

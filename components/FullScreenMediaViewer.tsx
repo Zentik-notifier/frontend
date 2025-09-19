@@ -309,7 +309,12 @@ export default function FullScreenMediaViewer({
         >
           {enableSwipeNavigation && (
             <View style={styles.navigationSection}>
-              <View style={[styles.navigationButtons, { backgroundColor: bgSecondary, borderRadius: 12 }]}>
+              <View
+                style={[
+                  styles.navigationButtons,
+                  { backgroundColor: bgSecondary, borderRadius: 12 },
+                ]}
+              >
                 <TouchableOpacity
                   style={[
                     styles.iconButton,
@@ -436,7 +441,12 @@ export default function FullScreenMediaViewer({
                 url={url}
                 style={{ width: "100%", height: "100%" }}
                 originalFileName={originalFileName}
-                videoProps={{ isMuted: false }}
+                videoProps={{
+                  isMuted: false,
+                  showControls: true,
+                  autoPlay: true,
+                  isLooping: true,
+                }}
                 imageProps={{ contentFit: "contain" }}
                 notificationDate={notificationDate}
               />
@@ -518,7 +528,7 @@ const styles = StyleSheet.create({
     lineHeight: 34,
   },
   content: { flex: 1, alignItems: "center", justifyContent: "center" },
-  media: { width: "95%", height: "85%" },
+  media: { width: "95%" },
   bottomBar: {
     position: "absolute",
     left: 16,
