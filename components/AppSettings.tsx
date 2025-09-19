@@ -318,16 +318,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(0,0,0,0.1)",
+    paddingHorizontal: 16,
   },
   timezoneSection: {
     marginBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(0,0,0,0.1)",
+    paddingHorizontal: 16,
   },
   dateFormatSection: {
     marginBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(0,0,0,0.1)",
+    paddingHorizontal: 16,
   },
   apiUrlSection: {
     marginBottom: 20,

@@ -79,11 +79,6 @@ export interface UserSettings {
     };
   };
 
-  // Logging settings
-  logging?: {
-    enabled: boolean;
-  };
-
   // Notification settings
   notificationsLastSeenId?: string;
 
@@ -136,9 +131,6 @@ const DEFAULT_SETTINGS: UserSettings = {
       autoDownloadEnabled: true,
       wifiOnlyDownload: false,
     },
-  },
-  logging: {
-    enabled: false,
   },
   notificationsLastSeenId: undefined,
   notificationFilters: {
@@ -647,9 +639,6 @@ class UserSettingsService {
         retentionPolicies: stored.mediaCache?.retentionPolicies || DEFAULT_SETTINGS.mediaCache.retentionPolicies,
         downloadSettings: stored.mediaCache?.downloadSettings || DEFAULT_SETTINGS.mediaCache.downloadSettings,
       },
-      logging: {
-        enabled: stored.logging?.enabled ?? DEFAULT_SETTINGS.logging!.enabled,
-      },
       notificationsLastSeenId: stored.notificationsLastSeenId || DEFAULT_SETTINGS.notificationsLastSeenId,
       notificationFilters,
       notificationsPreferences: {
@@ -956,10 +945,6 @@ export function useUserSettings() {
     updateGallerySettings: userSettings.updateGallerySettings.bind(userSettings),
     getGalleryGridSize: userSettings.getGalleryGridSize.bind(userSettings),
     setGalleryGridSize: userSettings.setGalleryGridSize.bind(userSettings),
-    isLoggingEnabled: () => !!userSettings.getSettings().logging?.enabled,
-    setLoggingEnabled: async (enabled: boolean) => {
-      await userSettings.updateSettings({ logging: { enabled } as any });
-    },
     // Onboarding settings
     getOnboardingSettings: userSettings.getOnboardingSettings.bind(userSettings),
     updateOnboardingSettings: userSettings.updateOnboardingSettings.bind(userSettings),

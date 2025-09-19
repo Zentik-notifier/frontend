@@ -42,7 +42,12 @@
       "description": "Customize how dates and times are displayed in the app",
       "selectStyle": "Date Style",
       "use24Hour": "24-Hour Format",
-      "use24HourDescription": "Use 24-hour format instead of 12-hour format with AM/PM"
+      "use24HourDescription": "Use 24-hour format instead of 12-hour format with AM/PM",
+      "styles": {
+        "short": { "name": "Short", "description": "Short date format" },
+        "medium": { "name": "Medium", "description": "Medium date format" },
+        "long": { "name": "Long", "description": "Long date format" }
+      }
     },
     "autoDownload": {
       "title": "Auto Download Attachments",
@@ -103,8 +108,6 @@
       "markAsReadOnViewDescription": "Notifications will be marked as read as soon as they are visible on screen"
     },
     "logs": {
-      "dbLogsTitle": "DB logs (last 24h)",
-      "dbLogsDescription": "Save application logs into a local table for debugging",
       "exportButton": "Export Logs",
       "exportDescription": "Export all logs stored in the DB to a JSON file",
       "exportComplete": "Export Complete",

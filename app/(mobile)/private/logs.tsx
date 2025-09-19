@@ -176,7 +176,11 @@ export default function AppLogsScreen() {
           activeOpacity={0.8}
           disabled={isExporting}
         >
-          <Icon name={isExporting ? "loading" : "share"} size="sm" color="primary" />
+          {isExporting ? (
+            <ActivityIndicator size="small" color={Colors[colorScheme].tint} />
+          ) : (
+            <Icon name="share" size="sm" color="primary" />
+          )}
           <ThemedText style={styles.exportText}>{t("appSettings.logs.exportButton")}</ThemedText>
         </TouchableOpacity>
       </View>

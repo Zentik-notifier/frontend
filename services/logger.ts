@@ -18,7 +18,6 @@ class DbLogger {
   }
 
   private async write(level: LogLevel, tag: string | undefined, message: string, meta?: any) {
-    if (!userSettings.getSettings().logging?.enabled) return;
     try {
       const repo = await this.getRepo();
       const now = Date.now();

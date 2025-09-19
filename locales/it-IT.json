@@ -42,7 +42,12 @@
       "description": "Personalizza come vengono visualizzate le date e gli orari nell'app",
       "selectStyle": "Stile Data",
       "use24Hour": "Formato 24 Ore",
-      "use24HourDescription": "Usa il formato 24 ore invece del formato 12 ore con AM/PM"
+      "use24HourDescription": "Usa il formato 24 ore invece del formato 12 ore con AM/PM",
+      "styles": {
+        "short": { "name": "Breve", "description": "Formato data breve" },
+        "medium": { "name": "Medio", "description": "Formato data medio" },
+        "long": { "name": "Lungo", "description": "Formato data lungo" }
+      }
     },
     "autoDownload": {
       "title": "Download Automatico Allegati",
@@ -103,8 +108,6 @@
       "markAsReadOnViewDescription": "Le notifiche verranno segnate come lette non appena sono visibili a schermo"
     },
     "logs": {
-      "dbLogsTitle": "Logs su DB (ultime 24h)",
-      "dbLogsDescription": "Salva i log applicativi in una tabella locale per il debug",
       "exportButton": "Esporta Log",
       "exportDescription": "Esporta tutti i log presenti nel DB in un file JSON",
       "exportComplete": "Esportazione Completata",

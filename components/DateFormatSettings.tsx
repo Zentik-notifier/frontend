@@ -65,13 +65,13 @@ export function DateFormatSettings({ style }: DateFormatSettingsProps) {
       >
         <View style={styles.modalOptionContent}>
           <ThemedText style={styles.modalOptionTitle}>
-            {styleInfo.name}
+            {t(`appSettings.dateFormat.styles.${item}.name`)}
           </ThemedText>
           <ThemedText style={styles.modalOptionExample}>
             {styleInfo.example}
           </ThemedText>
           <ThemedText style={styles.modalOptionDescription}>
-            {styleInfo.description}
+            {t(`appSettings.dateFormat.styles.${item}.description`)}
           </ThemedText>
         </View>
         {isSelected && (
@@ -108,7 +108,7 @@ export function DateFormatSettings({ style }: DateFormatSettingsProps) {
           {t("appSettings.dateFormat.selectStyle")}
           </ThemedText>
           <ThemedText style={styles.settingValue}>
-            {DATE_FORMAT_STYLES[preferences.dateStyle]?.name}
+            {t(`appSettings.dateFormat.styles.${preferences.dateStyle}.name`)}
           </ThemedText>
         </View>
         <Ionicons

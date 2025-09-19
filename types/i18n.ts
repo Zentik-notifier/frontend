@@ -281,8 +281,6 @@ export interface TranslationKey {
       markAsReadOnViewDescription: string;
     };
     logs: {
-      dbLogsTitle: string;
-      dbLogsDescription: string;
       exportButton: string;
       exportDescription: string;
       exportComplete: string;
