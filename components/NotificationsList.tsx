@@ -58,7 +58,6 @@ export default function NotificationsList({
     userSettings: { settings },
   } = useAppContext();
 
-  // Hook per operazioni di massa
   const { massDelete: massDeleteNotifications, loading: deleteLoading } =
     useMassDeleteNotifications();
   const { massMarkAsRead, loading: markAsReadLoading } =
@@ -66,7 +65,6 @@ export default function NotificationsList({
   const { massMarkAsUnread, loading: markAsUnreadLoading } =
     useMassMarkNotificationsAsUnread();
 
-  // Stati per multi-selezione
   const [visibleItems, setVisibileItems] = useState<Set<string>>(new Set());
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
@@ -77,6 +75,11 @@ export default function NotificationsList({
       setIsCompactMode,
     },
   } = useAppContext();
+
+  // Track currently visible item ids and debounce marking as read
+  const visibleIdsRef = useRef<Set<string>>(new Set());
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didUserScrollRef = useRef(false);
 
   // Filter and sort notifications based on user settings
   const { filteredNotifications } = useMemo(() => {
@@ -103,20 +106,30 @@ export default function NotificationsList({
       viewableItems: ViewToken<NotificationFragment>[];
     }) => {
       const visibleIds = viewableItems.map((vi) => vi.item.id);
-      setVisibileItems(new Set(visibleIds));
+      const visibleSet = new Set(visibleIds);
+      setVisibileItems(visibleSet);
+      visibleIdsRef.current = visibleSet;
 
-      // Se attiva la preferenza, marca come lette le visibili non ancora lette
-      if (settings.notificationsPreferences?.markAsReadOnView) {
-        const toMark = viewableItems
-          .map((vi) => vi.item)
-          .filter((n) => !n.readAt)
-          .map((n) => n.id);
-        if (toMark.length > 0) {
-          massMarkAsRead(toMark).catch(() => {});
-        }
+      if (!settings.notificationsPreferences?.markAsReadOnView) return;
+
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
       }
+      debounceTimerRef.current = setTimeout(() => {
+        if (!didUserScrollRef.current) return;
+        didUserScrollRef.current = false;
+        const candidates: string[] = [];
+        for (const n of filteredNotifications) {
+          if (visibleIdsRef.current.has(n.id) && !n.readAt) {
+            candidates.push(n.id);
+          }
+        }
+        if (candidates.length > 0) {
+          massMarkAsRead(candidates).catch(() => {});
+        }
+      }, 1000);
     },
-    [settings.notificationsPreferences?.markAsReadOnView, massMarkAsRead]
+    [settings.notificationsPreferences?.markAsReadOnView, massMarkAsRead, filteredNotifications]
   );
 
   const toggleItemSelection = (itemId: string) => {
@@ -485,6 +498,10 @@ export default function NotificationsList({
         renderItem={renderItem}
         overrideItemLayout={overrideItemLayout}
         onViewableItemsChanged={onViewableItemsChanged}
+        onScroll={() => {
+          didUserScrollRef.current = true;
+        }}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}

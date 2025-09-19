@@ -25,7 +25,7 @@ import { useNotificationUtils } from "@/hooks/useNotificationUtils";
 import { useColorScheme } from "@/hooks/useTheme";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import * as FileSystem from "expo-file-system";
+import { Paths, File } from "expo-file-system";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
@@ -163,11 +163,9 @@ export default function NotificationDetailScreen() {
       if (await Sharing.isAvailableAsync()) {
         // Creo un file temporaneo con il testo della notifica
         const fileName = `notification_${Date.now()}.txt`;
-        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
-
-        await FileSystem.writeAsStringAsync(fileUri, fullText, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
+        const fileUri = `${Paths.document.uri}${fileName}`;
+        const file = new File(fileUri);
+        file.write(fullText);
 
         await Sharing.shareAsync(fileUri, {
           mimeType: "text/plain",
@@ -177,7 +175,7 @@ export default function NotificationDetailScreen() {
 
         // Pulisco il file temporaneo dopo la condivisione
         try {
-          await FileSystem.deleteAsync(fileUri);
+          file.delete();
         } catch (cleanupError) {
           console.log("File cleanup failed:", cleanupError);
         }

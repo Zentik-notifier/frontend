@@ -165,7 +165,7 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
    * Export per mobile con streaming per evitare crash di memoria
    */
   const exportNotificationsMobile = useCallback(async (fileName: string): Promise<boolean> => {
-    const fileUri = `${Paths.document}${fileName}`;
+    const fileUri = `${Paths.document.uri}${fileName}`;
     const file = new File(fileUri);
 
     try {
