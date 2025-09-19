@@ -95,6 +95,14 @@ export default function SettingsScreen() {
       iconColor: "#7C3AED", // Violet
       route: "/(mobile)/private/notifications-settings",
     },
+    {
+      id: "app-logs",
+      title: "Application Logs",
+      description: "View and refresh local application logs stored on device.",
+      icon: "notebook",
+      iconColor: "#0EA5E9", // Sky
+      route: "/(mobile)/private/logs",
+    },
   ];
 
   return (

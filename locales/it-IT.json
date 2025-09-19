@@ -1312,4 +1312,17 @@
       "description": "Modifica i filtri o prova ad aggiornare."
     }
   }
+  ,
+  "appLogs": {
+    "title": "Log Applicazione",
+    "description": "Visualizza e aggiorna i log applicativi salvati sul dispositivo.",
+    "refresh": "Aggiorna",
+    "loading": "Caricamento log...",
+    "filterPlaceholder": "Filtra log per testo, tag, livello",
+    "fields": {
+      "tag": "tag",
+      "message": "messaggio",
+      "meta": "meta"
+    }
+  }
 }

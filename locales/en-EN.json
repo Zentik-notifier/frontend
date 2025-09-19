@@ -1312,4 +1312,17 @@
       "description": "Adjust filters or try refreshing."
     }
   }
+  ,
+  "appLogs": {
+    "title": "Application Logs",
+    "description": "View and refresh application logs stored on device.",
+    "refresh": "Refresh",
+    "loading": "Loading logs...",
+    "filterPlaceholder": "Filter logs by text, tag, level",
+    "fields": {
+      "tag": "tag",
+      "message": "message",
+      "meta": "meta"
+    }
+  }
 }

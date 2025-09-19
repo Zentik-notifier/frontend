@@ -367,9 +367,24 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
       return;
     }
 
+    // Parse, sort by createdAt desc, then import (ensures most recent first)
+    let toImport = persistedCacheData;
+    try {
+      const parsed = JSON.parse(persistedCacheData);
+      const notifications = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.notifications) ? parsed.notifications : []);
+      if (Array.isArray(notifications)) {
+        notifications.sort((a, b) => {
+          const aTime = a?.createdAt ? Date.parse(a.createdAt) : 0;
+          const bTime = b?.createdAt ? Date.parse(b.createdAt) : 0;
+          return bTime - aTime;
+        });
+        toImport = JSON.stringify(notifications);
+      }
+    } catch {}
+
     const successCount = await processJsonToCache(
       apolloClient.cache as InMemoryCache,
-      persistedCacheData,
+      toImport,
       'Apollo Cache',
       100,
     );

@@ -48,6 +48,7 @@ export default function PrivateLayout() {
       <Stack.Screen name="buckets-settings" options={{ headerShown: true }} />
       <Stack.Screen name="create-bucket" options={{ headerShown: true }} />
       <Stack.Screen name="edit-bucket" options={{ headerShown: true }} />
+      <Stack.Screen name="logs" options={{ headerShown: true }} />
       <Stack.Screen
         name="access-tokens-settings"
         options={{ headerShown: true }}

@@ -1,4 +1,16 @@
 export interface TranslationKey {
+  appLogs: {
+    description: string;
+    fields: {
+      meta: string;
+      message: string;
+      tag: string;
+    };
+    filterPlaceholder: string;
+    loading: string;
+    refresh: string;
+    title: string;
+  };
   accessTokens: {
     deleteError: string;
     description: string;
