@@ -101,6 +101,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   });
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekTime, setSeekTime] = useState(0);
+  const [videoSize, setVideoSize] = useState<{ width: number; height: number } | null>(null);
   const { item: mediaSource } = useCachedItem(url, mediaType);
   const isVideoType = mediaType === MediaType.Video && !useThumbnail;
   const isAudioType = mediaType === MediaType.Audio && !useThumbnail;
@@ -119,6 +120,21 @@ export const CachedMedia = React.memo(function CachedMedia({
       }
     }
   });
+
+  // Get video dimensions when video track changes
+  const { videoTrack } = useEvent(videoPlayer, 'videoTrackChange', { 
+    videoTrack: videoPlayer.videoTrack 
+  });
+
+  // Update video size when track changes
+  useEffect(() => {
+    if (videoTrack?.size) {
+      setVideoSize({
+        width: videoTrack.size.width,
+        height: videoTrack.size.height,
+      });
+    }
+  }, [videoTrack]);
 
   const { status: videoStatus, error: videoError } = useEvent(
     videoPlayer,
@@ -524,17 +540,26 @@ export const CachedMedia = React.memo(function CachedMedia({
                           position: "relative",
                           maxWidth: "100%",
                           maxHeight: "100%",
-                          aspectRatio: 16 / 9, // Default aspect ratio, will be adjusted by video content
+                          // Use actual video dimensions if available, otherwise fallback to 16:9
+                          aspectRatio: videoSize 
+                            ? videoSize.width / videoSize.height 
+                            : 16 / 9,
+                          // Set specific dimensions based on video size when available
+                          ...(videoSize && !isCompact && {
+                            width: Math.min(videoSize.width, 400), // Max width constraint
+                            height: Math.min(videoSize.height, 300), // Max height constraint
+                          }),
                         },
                       ]
                 }
                 player={videoPlayer}
                 nativeControls={showControls && !isCompact}
+                allowsFullscreen={showControls && !isCompact}
                 allowsPictureInPicture={showControls}
                 fullscreenOptions={{
-                  enable: showControls,
-                  orientation: "default",
-                  autoExitOnRotate: true,
+                  enable: showControls && !isCompact,
+                  orientation: "default", // Allow device orientation changes
+                  autoExitOnRotate: false, // Don't exit fullscreen on rotation
                 }}
               />
               {!showControls && (
