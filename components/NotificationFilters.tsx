@@ -16,6 +16,7 @@ interface NotificationFiltersProps {
   onToggleMultiSelection: () => void;
   selectedCount: number;
   isMultiSelectionMode: boolean;
+  notificationsCount: number;
 }
 
 export default function NotificationFilters({
@@ -25,6 +26,7 @@ export default function NotificationFilters({
   onToggleMultiSelection,
   selectedCount,
   isMultiSelectionMode,
+  notificationsCount,
 }: NotificationFiltersProps) {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
@@ -103,7 +105,7 @@ export default function NotificationFilters({
           />
           <TextInput
             style={[styles.searchInput, { color: Colors[colorScheme].text }]}
-            placeholder={t("home.search.placeholder")}
+            placeholder={t("home.search.placeholder", { count: notificationsCount })}
             value={internalSearchQuery}
             onChangeText={handleSearchChange}
             placeholderTextColor={Colors[colorScheme].inputPlaceholder}

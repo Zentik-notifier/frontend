@@ -19,7 +19,6 @@ export const useSaveNotificationsToStorage = () => {
 		}
 
 		debounceTimeoutRef.current = setTimeout(async () => {
-			console.log('🔄 Saving notifications to persisted cache', notifications.length);
 			await saveNotificationsToPersistedCache();
 		}, DEBOUNCE_DELAY);
 	}, []);
@@ -123,16 +122,16 @@ export function useFetchNotifications(onlyCache?: boolean) {
 	}, [refetch, updateReceivedNotifications, refetching]);
 
 	// Fetch iniziale se la cache è vuota (con debounce per evitare chiamate multiple)
-	useEffect(() => {
-		if (!loading && notifications.length === 0) {
-			const timeoutId = setTimeout(() => {
-				console.log('📥 Cache empty, performing initial fetch...');
-				fetchNotifications();
-			}, 200); // Piccolo delay per evitare fetch multipli simultanei
+	// useEffect(() => {
+	// 	if (!loading && notifications.length === 0) {
+	// 		const timeoutId = setTimeout(() => {
+	// 			console.log('📥 Cache empty, performing initial fetch...');
+	// 			fetchNotifications();
+	// 		}, 200); // Piccolo delay per evitare fetch multipli simultanei
 
-			return () => clearTimeout(timeoutId);
-		}
-	}, [loading, notifications.length, fetchNotifications]);
+	// 		return () => clearTimeout(timeoutId);
+	// 	}
+	// }, [loading, notifications.length, fetchNotifications]);
 
 	return { fetchNotifications, notifications, loading };
 }

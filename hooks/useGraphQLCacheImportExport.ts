@@ -287,11 +287,7 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
    */
   const importNotifications = useCallback(async (): Promise<boolean> => {
     try {
-      console.log('📥 Starting import notifications...');
-      let fileContent: string;
-
       if (Platform.OS === 'web') {
-        console.log('🌐 Using web file picker...');
         // Per il web, usa un input file
         return new Promise((resolve) => {
           const input = document.createElement('input');
@@ -332,21 +328,10 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
           document.body.removeChild(input);
         });
       } else {
-        console.log('📱 Using mobile DocumentPicker...');
         // Per mobile, usa DocumentPicker
         const result = await DocumentPicker.getDocumentAsync({
           type: 'application/json',
           copyToCacheDirectory: true,
-        });
-
-        console.log('📋 DocumentPicker result:', {
-          canceled: result.canceled,
-          assetsCount: result.assets?.length,
-          firstAsset: result.assets?.[0] ? {
-            name: result.assets[0].name,
-            size: result.assets[0].size,
-            uri: result.assets[0].uri.substring(0, 50) + '...'
-          } : null
         });
 
         if (result.canceled || !result.assets || result.assets.length === 0) {

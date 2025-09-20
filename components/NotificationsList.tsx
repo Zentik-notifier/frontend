@@ -487,7 +487,6 @@ export default function NotificationsList({
 
   return (
     <ThemedView style={[styles.container, listStyle]}>
-      {/* Barra di selezione (visibile solo in modalità selezione) */}
       {selectionMode && renderSelectionBar()}
 
       {!selectionMode && (
@@ -498,6 +497,7 @@ export default function NotificationsList({
           onToggleMultiSelection={handleToggleMultiSelection}
           selectedCount={selectedItems.size}
           isMultiSelectionMode={selectionMode}
+          notificationsCount={filteredNotifications.length}
         />
       )}
 

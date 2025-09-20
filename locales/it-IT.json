@@ -603,7 +603,7 @@
       "noNotifications": "Nessuna notifica trovata"
     },
     "search": {
-      "placeholder": "Cerca notifiche..."
+      "placeholder": "Cerca notifiche... ({{count}})"
     }
   },
   "iconEditor": {

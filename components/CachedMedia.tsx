@@ -554,7 +554,6 @@ export const CachedMedia = React.memo(function CachedMedia({
                 }
                 player={videoPlayer}
                 nativeControls={showControls && !isCompact}
-                allowsFullscreen={showControls && !isCompact}
                 allowsPictureInPicture={showControls}
                 fullscreenOptions={{
                   enable: showControls && !isCompact,

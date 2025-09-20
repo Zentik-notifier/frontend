@@ -1,6 +1,9 @@
 import { NotificationFragmentDoc, GetNotificationsDocument } from '@/generated/gql-operations-generated';
 import { InMemoryCache } from '@apollo/client';
 
+const BATCH_SIZE = 300;
+const BATCH_DELAY = 300;
+
 /**
  * Estrae tutte le entità da un oggetto e le restituisce come mappa
  * Ogni entità con __typename e id viene estratta e mappata con la sua chiave cache
@@ -23,7 +26,7 @@ export const extractAllEntities = (obj: any, entities = new Map<string, any>(), 
     }
     visited.add(entityKey);
 
-    entities.set(entityKey, { ...obj, userDevice: null });
+    entities.set(entityKey, obj);
 
     Object.values(obj).forEach(value => {
       extractAllEntities(value, entities, visited);
@@ -78,7 +81,6 @@ export const processNotificationsToCache = (
 ): number => {
   console.log(`🔄 [${context}] Processing ${notifications.length} notifications...`);
 
-  // Estrai tutte le entità da tutte le notifiche
   const allEntities = new Map<string, any>();
 
   notifications.forEach(notification => {
@@ -105,17 +107,14 @@ export const processNotificationsToCacheWithQuery = (
   cache: InMemoryCache,
   notifications: any[],
   context: string = 'import',
-  maxBatch?: number
 ): number => {
-  // Prima scrivi tutte le entità
   const notificationCount = processNotificationsToCache(cache, notifications, context);
 
-  // Poi scrivi direttamente la query GetNotifications
   try {
     cache.writeQuery({
       query: GetNotificationsDocument,
       data: {
-        notifications: notifications
+        notifications
       }
     });
     console.log(`🧭 [${context}] Query.notifications written directly with ${notifications.length} items`);
@@ -181,53 +180,34 @@ export const processJsonToCache = async (
   cache: InMemoryCache,
   jsonContent: string,
   context: string = 'import',
-  maxBatch?: number
 ): Promise<number> => {
   console.log(`🔄 [${context}] Processing JSON content...`);
 
-  // 1. Parsa il JSON
   const notifications = parseNotificationJson(jsonContent);
 
-  // 2. Valida le notifiche
   const validNotifications = notifications.filter((notification, index) =>
     validateNotification(notification, index)
   );
-
-  if (validNotifications.length === 0) {
-    console.error(`❌ [${context}] No valid notifications found`);
-    throw new Error('Nessuna notifica valida trovata');
-  }
 
   if (validNotifications.length !== notifications.length) {
     console.warn(`⚠️ [${context}] Filtered out ${notifications.length - validNotifications.length} invalid notifications`);
   }
 
-  if (!maxBatch) {
-    const successCount = processNotificationsToCacheWithQuery(
-      cache,
-      validNotifications,
-      context,
-      maxBatch
-    );
-    return successCount;
-  }
-
   let totalCount = 0;
-  for (let i = 0; i < validNotifications.length; i += maxBatch) {
-    const batch = validNotifications.slice(i, i + maxBatch);
-    const batchIndex = Math.floor(i / maxBatch) + 1;
+  for (let i = 0; i < validNotifications.length; i += BATCH_SIZE) {
+    const batch = validNotifications.slice(i, i + BATCH_SIZE);
+    const batchIndex = Math.floor(i / BATCH_SIZE) + 1;
     const batchContext = `${context} batch ${batchIndex}`;
 
     const count = processNotificationsToCacheWithQuery(
       cache,
       batch,
       batchContext,
-      maxBatch
     );
     totalCount += count;
 
-    if (i + maxBatch < validNotifications.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    if (i + BATCH_SIZE < validNotifications.length) {
+      await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
     }
   }
   return totalCount;

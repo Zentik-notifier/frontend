@@ -239,7 +239,6 @@ const checkAndCleanOrphanedNotifications = (client: ApolloClient<NormalizedCache
 
     const cache = client.cache;
 
-    // Leggi le notifiche dalla query GetNotifications
     let queryNotificationIds: Set<string> = new Set();
     try {
       const queryData = cache.readQuery<GetNotificationsQuery>({
@@ -274,7 +273,6 @@ const checkAndCleanOrphanedNotifications = (client: ApolloClient<NormalizedCache
 
     console.log(`🧹 [Apollo Setup] Found ${orphanedIds.length} orphaned notifications, cleaning up...`);
 
-    // Rimuovi le notifiche orfane dalla cache
     let cleanedCount = 0;
     orphanedIds.forEach(id => {
       try {
@@ -285,12 +283,10 @@ const checkAndCleanOrphanedNotifications = (client: ApolloClient<NormalizedCache
       }
     });
 
-    // Garbage collect per rimuovere riferimenti dangling
     cache.gc();
 
     console.log(`✅ [Apollo Setup] Cleaned ${cleanedCount}/${orphanedIds.length} orphaned notifications from cache`);
 
-    // Log finale delle statistiche
     const finalCacheData = cache.extract(true as any) as Record<string, any>;
     const finalNotificationCount = Object.keys(finalCacheData).filter(key =>
       finalCacheData[key] && finalCacheData[key].__typename === 'Notification'
@@ -305,27 +301,6 @@ const checkAndCleanOrphanedNotifications = (client: ApolloClient<NormalizedCache
 
 export const initApolloClient = async () => {
   await ApiConfigService.initialize();
-
-  // persistor = new CachePersistor({
-  //   cache,
-  //   storage: new AsyncStorageWrapper({
-  //     getItem: async (key) => {
-  //       const value = await AsyncStorage.getItem(key);
-  //       return value;
-  //     },
-  //     setItem: async (key, value) => {
-  //       if (value) {
-  //         return await AsyncStorage.setItem(key, value);
-  //       } else {
-  //         return await AsyncStorage.removeItem(key);
-  //       }
-  //     },
-  //     removeItem: async (key) => {
-  //       return await AsyncStorage.removeItem(key);
-  //     },
-  //   }),
-  //   maxSize: 0,
-  // });
 
   const splitLink = createSplitLinkDynamic();
 
@@ -380,29 +355,25 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
         });
         toImport = JSON.stringify(notifications);
       }
-    } catch {}
+    } catch { }
 
     const successCount = await processJsonToCache(
       apolloClient.cache as InMemoryCache,
       toImport,
       'Apollo Cache',
-      100,
     );
 
     console.log(`✅ [Apollo Cache] Successfully loaded ${successCount} notifications from persisted cache`);
-    loadedFromPersistedCacheVar(true);
   } catch (error) {
     console.error('❌ [Apollo Cache] Error loading notifications from persisted cache:', error);
+  } finally {
+    loadedFromPersistedCacheVar(true);
   }
 };
 
-/**
- * Salva on-demand le notifiche correnti nella cache persistente
- * utilizzando la stessa chiave del CachePersistor
- */
 export const saveNotificationsToPersistedCache = async (): Promise<void> => {
   try {
-    if (!loadedFromPersistedCacheVar) {
+    if (!loadedFromPersistedCacheVar()) {
       console.log('💾 [Apollo Cache] Not saving notifications, waiting for initial loading from persisted cache');
       return;
     }
@@ -423,8 +394,8 @@ export const saveNotificationsToPersistedCache = async (): Promise<void> => {
       return;
     }
 
-    if (!queryData?.notifications || queryData.notifications.length === 0) {
-      console.log('💾 [Apollo Cache] No notifications to save');
+    if (!queryData?.notifications) {
+      console.log('💾 [Apollo Cache] No notifications data found');
       return;
     }
 
@@ -443,51 +414,29 @@ export const saveNotificationsToPersistedCache = async (): Promise<void> => {
 
 export const resetApolloCache = async () => {
   if (!apolloClient) return;
-  // if (persistor) {
-  //   try { persistor.pause(); } catch { }
-  // }
   try {
     apolloClient.cache.gc();
     apolloClient.cache.restore({});
     apolloClient.resetStore();
   } catch { }
   try { await apolloClient.clearStore(); } catch { }
-  // if (persistor) {
-  //   try { await persistor.purge(); } catch { }
-  //   try { persistor.resume(); } catch { }
-  // }
   await AsyncStorage.removeItem(APOLLO_CACHE_KEY);
 
 };
 
-// Helper function to recreate Apollo client with new API URL
 export const reinitializeApolloClient = async () => {
   if (!apolloClient) return;
 
   try {
-    // Reinitialize ApiConfigService to pick up the new URL from storage
     await ApiConfigService.initialize();
 
     console.log('🔄 Reinitializing Apollo Client with new API URL:', ApiConfigService.getApiUrlSync());
 
-    // Stop the cache persistor
-    // if (persistor) {
-    //   persistor.pause();
-    // }
-
-    // Clear the current cache
     await apolloClient.clearStore();
 
-    // Create new links with updated URL
     const splitLink = createSplitLinkDynamic();
 
-    // Update the Apollo Client link
     apolloClient.setLink(errorLink.concat(splitLink));
-
-    // Resume the cache persistor
-    // if (persistor) {
-    //   persistor.resume();
-    // }
 
     console.log('✅ Apollo Client successfully reinitialized');
   } catch (error) {

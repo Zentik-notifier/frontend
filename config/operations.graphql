@@ -74,41 +74,8 @@ fragment NotificationFragment on Notification {
   sentAt
   createdAt
   updatedAt
-  userId
-  userDeviceId
   message {
     ...MessageFragment
-  }
-  userDevice {
-    id
-    platform
-    deviceToken
-    lastUsed
-    onlyLocal
-  }
-}
-
-fragment NotificationWithActionsFragment on Notification {
-  id
-  receivedAt
-  readAt
-  sentAt
-  createdAt
-  updatedAt
-  userId
-  userDeviceId
-  message {
-    ...MessageFragment
-    actions {
-      ...NotificationActionFragment
-    }
-  }
-  userDevice {
-    id
-    platform
-    deviceToken
-    lastUsed
-    onlyLocal
   }
 }
 
