@@ -117,23 +117,33 @@ class MediaCacheService {
         this.isProcessingQueue = true;
         this.updateQueueState();
 
-        while (this.downloadQueue.length > 0) {
-            const item = this.downloadQueue.shift()!;
-            this.updateQueueState();
+        await this.processNextItem();
+    }
 
-            try {
-                if (item.op === 'download') {
-                    await this.performDownload(item);
-                } else if (item.op === 'thumbnail') {
-                    await this.performThumbnail(item);
-                }
-            } catch (error) {
-                console.error('[MediaCache] Queue task failed:', item.op, error);
-            }
+    private async processNextItem(): Promise<void> {
+        if (this.downloadQueue.length === 0) {
+            this.isProcessingQueue = false;
+            this.updateQueueState();
+            return;
         }
 
-        this.isProcessingQueue = false;
+        const item = this.downloadQueue.shift()!;
         this.updateQueueState();
+
+        try {
+            if (item.op === 'download') {
+                await this.performDownload(item);
+            } else if (item.op === 'thumbnail') {
+                await this.performThumbnail(item);
+            }
+        } catch (error) {
+            console.error('[MediaCache] Queue task failed:', item.op, error);
+        }
+
+        // Use setTimeout to yield control back to the event loop before processing next item
+        setTimeout(() => {
+            this.processNextItem();
+        }, 0);
     }
 
     private async performDownload(item: DownloadQueueItem) {
