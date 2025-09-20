@@ -60,17 +60,16 @@ export function getNotificationItemHeight(
   let height = 60;
 
   if (isCompactMode) {
-    if (hasActions || hasMedia) {
-      height += 40;
-    }
+    // if (hasActions || hasMedia) {
+    //   height += 40;
+    // }
   } else {
     if (hasMedia) {
       height += 180;
     }
-    if (hasActions) {
-      height += 30;
-    }
+    // height += 30;
   }
+  height += 30;
 
   if (hasSubtitle) {
     height += 20;
