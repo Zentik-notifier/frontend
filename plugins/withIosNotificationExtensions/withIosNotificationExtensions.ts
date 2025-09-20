@@ -1,4 +1,4 @@
-import { ConfigPlugin, ExportedConfigWithProps, withXcodeProject } from '@expo/config-plugins';
+import { ConfigPlugin, ExportedConfigWithProps, withXcodeProject, XcodeProject } from '@expo/config-plugins';
 import fs from 'fs';
 import path from 'path';
 
@@ -113,7 +113,8 @@ async function addAppExtensionTarget(
   } else if (targetName === 'ZentikNotificationService') {
     frameworksToLink.push(
       'UserNotifications.framework',
-      'Security.framework'
+      'Security.framework',
+      'Intents.framework'
     );
   }
 
@@ -137,25 +138,25 @@ async function addMainAppFiles(
   mainBundleId: string
 ) {
   const iosDir = path.join(projectRoot, 'ios');
-  
+
   // Find the main app target directory (should be something like ZentikDev)
   const iosDirEntries = fs.readdirSync(iosDir);
   let appTargetName = 'ZentikDev'; // fallback
-  
+
   for (const entry of iosDirEntries) {
     const entryPath = path.join(iosDir, entry);
-    if (fs.statSync(entryPath).isDirectory() && 
-        !entry.includes('Extension') && 
-        !entry.includes('Service') &&
-        !entry.endsWith('.xcodeproj') &&
-        !entry.startsWith('.')) {
+    if (fs.statSync(entryPath).isDirectory() &&
+      !entry.includes('Extension') &&
+      !entry.includes('Service') &&
+      !entry.endsWith('.xcodeproj') &&
+      !entry.startsWith('.')) {
       appTargetName = entry;
       break;
     }
   }
-  
+
   const destDir = path.join(iosDir, appTargetName);
-  
+
   // Ensure destination directory exists
   if (!fs.existsSync(destDir)) {
     console.log(`Creating main app directory: ${destDir}`);
@@ -168,7 +169,7 @@ async function addMainAppFiles(
     for (const file of entries) {
       const srcPath = path.join(sourceDir, file);
       const destPath = path.join(destDir, file);
-      
+
       if (fs.statSync(srcPath).isFile()) {
         // Process file content to replace placeholders
         if (file.endsWith('.swift') || file.endsWith('.m')) {
@@ -183,6 +184,69 @@ async function addMainAppFiles(
     console.log(`Main app files copied to ${appTargetName}`);
   } else {
     console.log(`Source directory ${sourceDir} does not exist, skipping main app files`);
+  }
+}
+
+async function addCommunicationNotificationsCapability(
+  pbxProject: XcodeProject,
+  projectRoot: string,
+  targetName: string
+) {
+  try {
+    // Find the main app target
+    const targets = pbxProject.hash.project.objects.PBXNativeTarget;
+    let mainTarget = null;
+    
+    for (const targetId in targets) {
+      const target = targets[targetId];
+      if (target.name === targetName) {
+        mainTarget = target;
+        break;
+      }
+    }
+    
+    if (!mainTarget) {
+      console.log(`Target ${targetName} not found, skipping Communication Notifications capability`);
+      return;
+    }
+    
+    // Add Communication Notifications capability
+    const entitlementsPath = path.join(projectRoot, 'ios', targetName, `${targetName}.entitlements`);
+    
+    let entitlements = '';
+    let fileExists = fs.existsSync(entitlementsPath);
+    
+    if (fileExists) {
+      // Read existing entitlements
+      entitlements = fs.readFileSync(entitlementsPath, 'utf8');
+    } else {
+      // Create basic entitlements file
+      entitlements = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+</dict>
+</plist>`;
+      console.log(`Created entitlements file for ${targetName}`);
+    }
+    
+    // Add Communication Notifications capability if not already present
+    if (!entitlements.includes('com.apple.developer.usernotifications.communication')) {
+      // Find the closing </dict> tag and add the capability before it
+      const capabilityEntry = `    <key>com.apple.developer.usernotifications.communication</key>
+    <true/>
+`;
+      
+      if (entitlements.includes('</dict>')) {
+        entitlements = entitlements.replace('</dict>', `${capabilityEntry}</dict>`);
+        fs.writeFileSync(entitlementsPath, entitlements, 'utf8');
+        console.log(`✅ Added Communication Notifications capability to ${targetName}`);
+      }
+    } else {
+      console.log(`Communication Notifications capability already present in ${targetName}`);
+    }
+  } catch (error) {
+    console.log(`Error adding Communication Notifications capability: ${error}`);
   }
 }
 
@@ -226,6 +290,28 @@ const withZentikNotificationExtensions: ConfigPlugin = (config) => {
       `${baseBundleId}.notification-content`,
       path.resolve(pluginDir, './files/ZentikNotificationContentExtension'),
       baseBundleId
+    );
+
+    // Add Communication Notifications capability to main app target
+    const iosDir = path.join(projectRoot, 'ios');
+    const entries = fs.readdirSync(iosDir);
+    let appTargetName = 'Runner'; // Default fallback
+    
+    for (const entry of entries) {
+      if (fs.statSync(path.join(iosDir, entry)).isDirectory() &&
+          !entry.includes('Extension') &&
+          !entry.includes('Service') &&
+          !entry.endsWith('.xcodeproj') &&
+          !entry.startsWith('.')) {
+        appTargetName = entry;
+        break;
+      }
+    }
+    
+    await addCommunicationNotificationsCapability(
+      pbxProject,
+      projectRoot,
+      appTargetName
     );
 
     return newConfig;

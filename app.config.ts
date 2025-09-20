@@ -60,6 +60,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                     NSAllowsArbitraryLoads: true,
                 },
                 ITSAppUsesNonExemptEncryption: false,
+                NSUserActivityTypes: ["INSendMessageIntent"],
             },
             entitlements: {
                 "aps-environment": "production",
@@ -137,7 +138,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             [
                 "expo-notifications",
                 {
-                    icon: "./assets/icons/generators/glas_default.png",
+                    icon: "./assets/icons/notification-ios.png",
                     color: "#0a7ea4",
                     defaultChannel: "default",
                     sounds: [],
