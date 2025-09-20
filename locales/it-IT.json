@@ -1227,7 +1227,8 @@
     "thisWeek": "Questa settimana",
     "thisMonth": "Questo mese",
     "older": "Più vecchi",
-    "cachedOn": "In cache il"
+    "cachedOn": "In cache il",
+    "cachedItems": "{{count}} elementi"
   },
   "gallerySettings": {
     "title": "Impostazioni Galleria",
@@ -1314,8 +1315,7 @@
       "title": "Nessun evento trovato",
       "description": "Modifica i filtri o prova ad aggiornare."
     }
-  }
-  ,
+  },
   "appLogs": {
     "title": "Log Applicazione",
     "description": "Visualizza e aggiorna i log applicativi salvati sul dispositivo.",

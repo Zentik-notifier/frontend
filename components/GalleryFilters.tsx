@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/Colors";
 import { MediaType } from "@/generated/gql-operations-generated";
+import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { formatFileSize } from "@/utils";
@@ -44,18 +45,19 @@ export default function GalleryFilters({
 }: GalleryFiltersProps) {
   const colorScheme = useColorScheme();
   const { userSettings } = useAppContext();
+  const { t } = useI18n();
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [showStatsTooltip, setShowStatsTooltip] = useState(false);
 
   const getActiveFiltersCount = (): number => {
     let count = 0;
-    
+
     // Conta se non sono selezionati tutti i tipi di media
     if (selectedMediaTypes.size !== availableMediaTypes.length) count++;
-    
+
     // Conta se showFaultyMedias è attivo (opzione speciale)
     if (userSettings.settings.gallery.showFaultyMedias) count++;
-    
+
     return count;
   };
 
@@ -92,9 +94,7 @@ export default function GalleryFilters({
                   showLabel
                   textStyle={{ fontSize: 14 }}
                 />
-                <ThemedText style={styles.tooltipCount}>
-                  {count}
-                </ThemedText>
+                <ThemedText style={styles.tooltipCount}>{count}</ThemedText>
               </View>
             ))}
           </View>
@@ -125,7 +125,7 @@ export default function GalleryFilters({
                   color={Colors[colorScheme].textSecondary}
                 />
                 <ThemedText style={styles.statsText}>
-                  {cacheStats.totalItems} elementi
+                  {t("gallery.cachedItems", { count: cacheStats.totalItems })}
                 </ThemedText>
               </View>
               <View style={styles.statItem}>
@@ -172,14 +172,15 @@ export default function GalleryFilters({
             <Ionicons
               name={isMultiSelectionMode ? "close" : "checkmark-circle-outline"}
               size={16}
-              color={isMultiSelectionMode ? "white" : Colors[colorScheme].textSecondary}
+              color={
+                isMultiSelectionMode
+                  ? "white"
+                  : Colors[colorScheme].textSecondary
+              }
             />
             {isMultiSelectionMode && selectedCount > 0 && (
               <View
-                style={[
-                  styles.selectionBadge,
-                  { backgroundColor: "white" },
-                ]}
+                style={[styles.selectionBadge, { backgroundColor: "white" }]}
               >
                 <ThemedText
                   style={[

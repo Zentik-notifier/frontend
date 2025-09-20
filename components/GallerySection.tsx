@@ -2,7 +2,6 @@ import { Colors } from "@/constants/Colors";
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useNotificationUtils } from "@/hooks/useNotificationUtils";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { CacheItem, mediaCache } from "@/services/media-cache";
@@ -13,14 +12,13 @@ import React, { useMemo, useState } from "react";
 import {
   Alert,
   Dimensions,
-  Modal,
   Pressable,
   RefreshControl,
   SectionList,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";

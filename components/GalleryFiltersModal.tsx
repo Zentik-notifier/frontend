@@ -191,8 +191,8 @@ export default function GalleryFiltersModal({
           </View>
           <SimpleSlider
             value={userSettings.settings.gallery.gridSize}
-            min={3}
-            max={7}
+            min={2}
+            max={5}
             step={1}
             onChange={(v) => userSettings.setGalleryGridSize?.(v)}
           />

@@ -1227,7 +1227,8 @@
     "thisWeek": "This week",
     "thisMonth": "This month",
     "older": "Older",
-    "cachedOn": "Cached on"
+    "cachedOn": "Cached on",
+    "cachedItems": "{{count}} items"
   },
   "gallerySettings": {
     "title": "Gallery Settings",

@@ -189,6 +189,7 @@ export interface TranslationKey {
       description: string;
       inCache: string;
       items: string;
+      elements: string;
       mediaSize: string;
       notificationsCount: string;
       resetCache: string;
@@ -649,6 +650,7 @@ export interface TranslationKey {
     thisWeek: string;
     today: string;
     yesterday: string;
+    cachedItems: string;
   };
   gallerySettings: {
     autoPlay: string;

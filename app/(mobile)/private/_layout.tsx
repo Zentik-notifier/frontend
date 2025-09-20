@@ -29,6 +29,18 @@ export default function PrivateLayout() {
           gestureEnabled: false,
         }}
       />
+      {/* HOME TABS */}
+      <Stack.Screen
+        name="(homeTabs)"
+        options={{
+          headerShown: true,
+          headerShadowVisible: false,
+          headerBackVisible: false,
+          header: () => <Header />,
+          animationTypeForReplace: "push",
+          gestureEnabled: false,
+        }}
+      />
       <Stack.Screen
         name="notification-detail"
         options={{
