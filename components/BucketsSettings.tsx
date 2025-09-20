@@ -2,7 +2,7 @@ import { Colors } from "@/constants/Colors";
 import {
   useGetBucketsQuery,
   BucketFragmentDoc,
-  MessageFragmentDoc,
+  useCreateBucketMutation,
 } from "@/generated/gql-operations-generated";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
@@ -10,7 +10,7 @@ import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { useApolloClient, Reference } from "@apollo/client";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   StyleSheet,
@@ -33,6 +33,7 @@ export default function BucketsSettings({
   refreshing: externalRefreshing,
 }: BucketsSettingsProps) {
   const router = useRouter();
+  const { danglingBucketId } = useLocalSearchParams<{ danglingBucketId?: string }>();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const {
@@ -51,6 +52,9 @@ export default function BucketsSettings({
   const [isMigrating, setIsMigrating] = useState(false);
 
   const { data, loading, error, refetch } = useGetBucketsQuery();
+  const [createBucketMutation, { loading: creatingBucket }] = useCreateBucketMutation({
+    refetchQueries: ['GetBuckets'],
+  });
   useEffect(() => setMainLoading(loading), [loading]);
 
   const buckets = data?.buckets || [];
@@ -75,6 +79,22 @@ export default function BucketsSettings({
 
     return Array.from(danglingBucketMap.values());
   }, [notifications, buckets]);
+
+  // Gestisci l'apertura automatica del modal per bucket orfani specifici
+  useEffect(() => {
+    if (danglingBucketId && danglingBuckets.length > 0) {
+      const targetDanglingBucket = danglingBuckets.find(
+        (item) => item.bucket.id === danglingBucketId
+      );
+      
+      if (targetDanglingBucket) {
+        console.log("🔄 Auto-opening modal for dangling bucket:", danglingBucketId);
+        setSelectedDanglingBucket(targetDanglingBucket);
+        setShowDanglingBucketModal(true);
+        setShowDanglingBuckets(true); // Mostra anche la sezione dangling buckets
+      }
+    }
+  }, [danglingBucketId, danglingBuckets]);
 
   useEffect(() => {
     if (externalRefreshing) {
@@ -259,7 +279,7 @@ export default function BucketsSettings({
     );
   };
 
-  const handleCreateNewBucket = () => {
+  const handleCreateNewBucket = async () => {
     if (!selectedDanglingBucket) return;
 
     Alert.alert(
@@ -271,15 +291,67 @@ export default function BucketsSettings({
         { text: t("buckets.cancel"), style: "cancel" },
         {
           text: t("buckets.createNewBucket"),
-          onPress: () => {
+          onPress: async () => {
             setIsMigrating(true);
-            // Naviga alla pagina di creazione bucket con il dangling bucket come riferimento
-            router.push(
-              `/(mobile)/private/create-bucket?danglingBucketId=${selectedDanglingBucket.bucket.id}`
-            );
-            setShowDanglingBucketModal(false);
-            setSelectedDanglingBucket(null);
-            setIsMigrating(false);
+            try {
+              // Crea il nuovo bucket utilizzando i dati del dangling bucket
+              const newBucketInput = {
+                name: selectedDanglingBucket.bucket.name || `Bucket ${selectedDanglingBucket.bucket.id.slice(0, 8)}`,
+                icon: selectedDanglingBucket.bucket.icon,
+                description: selectedDanglingBucket.bucket.description,
+                color: selectedDanglingBucket.bucket.color || "#0a7ea4",
+                isProtected: false,
+                isPublic: false,
+              };
+
+              console.log("🔄 Creating new bucket from dangling bucket:", newBucketInput);
+
+              const result = await createBucketMutation({
+                variables: { input: newBucketInput },
+              });
+
+              if (result.data?.createBucket) {
+                const newBucket = result.data.createBucket;
+                console.log("✅ Created new bucket:", newBucket.id);
+
+                // Migra le notifiche al nuovo bucket
+                await migrateNotificationsToBucket(
+                  selectedDanglingBucket.bucket.id,
+                  newBucket.id,
+                  newBucket.name
+                );
+
+                Alert.alert(
+                  t("buckets.bucketCreationSuccess"),
+                  t("buckets.bucketCreationSuccessMessage", {
+                    count: selectedDanglingBucket.count,
+                    bucketName: newBucket.name,
+                  })
+                );
+
+                setShowDanglingBucketModal(false);
+                setSelectedDanglingBucket(null);
+                // Pulisce il parametro URL se presente
+                if (danglingBucketId) {
+                  router.replace("/(mobile)/private/buckets-settings");
+                }
+
+                // Refresh notifications and buckets
+                apolloClient.refetchQueries({
+                  include: ["GetNotifications", "GetBuckets"],
+                });
+              }
+            } catch (error) {
+              console.error("Create bucket error:", error);
+              Alert.alert(
+                t("buckets.bucketCreationError"),
+                t("buckets.bucketCreationErrorMessage", {
+                  error: error instanceof Error ? error.message : "Unknown error",
+                })
+              );
+            } finally {
+              setIsMigrating(false);
+            }
           },
         },
       ]
@@ -459,7 +531,15 @@ export default function BucketsSettings({
         visible={showDanglingBucketModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => !isMigrating && setShowDanglingBucketModal(false)}
+        onRequestClose={() => {
+          if (!isMigrating) {
+            setShowDanglingBucketModal(false);
+            // Pulisce il parametro URL se presente
+            if (danglingBucketId) {
+              router.replace("/(mobile)/private/buckets-settings");
+            }
+          }
+        }}
       >
         <ThemedView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
@@ -470,7 +550,7 @@ export default function BucketsSettings({
               ]}
             >
               {isMigrating
-                ? t("buckets.migrating")
+                ? (creatingBucket ? t("buckets.creatingBucket") : t("buckets.migrating"))
                 : t("buckets.danglingBucketAction")}
             </ThemedText>
             <TouchableOpacity
@@ -478,7 +558,15 @@ export default function BucketsSettings({
                 styles.modalCloseButton,
                 { opacity: isMigrating ? 0.5 : 1 },
               ]}
-              onPress={() => !isMigrating && setShowDanglingBucketModal(false)}
+              onPress={() => {
+                if (!isMigrating) {
+                  setShowDanglingBucketModal(false);
+                  // Pulisce il parametro URL se presente
+                  if (danglingBucketId) {
+                    router.replace("/(mobile)/private/buckets-settings");
+                  }
+                }
+              }}
               disabled={isMigrating}
             >
               <Ionicons
@@ -548,7 +636,9 @@ export default function BucketsSettings({
                   ]}
                 >
                   {isMigrating
-                    ? t("buckets.migratingDescription")
+                    ? (creatingBucket 
+                        ? t("buckets.creatingBucketDescription")
+                        : t("buckets.migratingDescription"))
                     : t("buckets.danglingBucketActionDescription", {
                         count: selectedDanglingBucket.count,
                       })}

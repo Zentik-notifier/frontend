@@ -414,6 +414,12 @@ export interface TranslationKey {
     migratingDescription: string;
     notification: string;
     notifications: string;
+    creatingBucket: string;
+    creatingBucketDescription: string;
+    bucketCreationSuccess: string;
+    bucketCreationSuccessMessage: string;
+    bucketCreationError: string;
+    bucketCreationErrorMessage: string;
     delete: {
       confirm: string;
       confirmDeleteMessage: string;

@@ -4,6 +4,7 @@ import { MediaType } from "@/generated/gql-operations-generated";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { CachedMedia } from "./CachedMedia";
@@ -44,7 +45,11 @@ export default function BucketIcon({
   const currentSize = sizeMap[size];
 
   const handlePress = () => {
-    if (!noRouting) {
+    if (isOrphaned) {
+      router.push(
+        `/(mobile)/private/buckets-settings?danglingBucketId=${bucketId}` as any
+      );
+    } else if (!noRouting) {
       router.push(`/(mobile)/private/bucket-detail?id=${bucketId}`);
     }
   };
@@ -69,7 +74,7 @@ export default function BucketIcon({
               width: currentSize.container,
               height: currentSize.container,
               borderRadius: currentSize.container / 2,
-              borderColor: bucketColor,
+              borderColor: isOrphaned ? "#ff4444" : bucketColor,
               borderWidth: 2,
             },
           ]}
@@ -77,18 +82,35 @@ export default function BucketIcon({
       )}
 
       {/* Icon container */}
-      <View
-        style={[
-          styles.iconContainer,
-          {
-            width: currentSize.icon,
-            height: currentSize.icon,
-            borderRadius: currentSize.icon / 2,
-            backgroundColor: bucketColor,
-          },
-        ]}
-      >
-        {icon && typeof icon === "string" && icon.startsWith("http") ? (
+      {isOrphaned ? (
+        // TouchableOpacity per bucket orfani
+        <TouchableOpacity
+          style={[
+            styles.iconContainer,
+            {
+              width: currentSize.icon,
+              height: currentSize.icon,
+              borderRadius: currentSize.icon / 2,
+              backgroundColor: "#ff4444",
+            },
+          ]}
+          onPress={handlePress}
+        >
+          <Ionicons name="link" size={currentSize.text} color="#fff" />
+        </TouchableOpacity>
+      ) : (
+        <View
+          style={[
+            styles.iconContainer,
+            {
+              width: currentSize.icon,
+              height: currentSize.icon,
+              borderRadius: currentSize.icon / 2,
+              backgroundColor: bucketColor,
+            },
+          ]}
+        >
+          {icon && typeof icon === "string" && icon.startsWith("http") ? (
           <CachedMedia
             noBorder
             url={icon}
@@ -128,7 +150,8 @@ export default function BucketIcon({
             color="#fff"
           />
         )}
-      </View>
+        </View>
+      )}
     </View>
   );
 }
