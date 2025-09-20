@@ -14,12 +14,10 @@ import {
   View,
 } from "react-native";
 import BucketIcon from "./BucketIcon";
-import { SectionHeader } from "./SectionHeader";
+import NotificationSnoozeButton from "./NotificationSnoozeButton";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
-import { AppLoader } from "./ui/AppLoader";
 import Icon from "./ui/Icon";
-import NotificationSnoozeButton from "./NotificationSnoozeButton";
 
 interface BucketStats {
   id: string;

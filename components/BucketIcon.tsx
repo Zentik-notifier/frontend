@@ -33,8 +33,10 @@ export default function BucketIcon({
 }: BucketIconProps) {
   const colorScheme = useColorScheme();
   const router = useRouter();
-  const { bucket } = useGetBucketData(bucketId);
+  const { bucket, error } = useGetBucketData(bucketId);
   const { color, icon } = bucket || {};
+
+  const isOrphaned = error && error.message.includes("Bucket not found");
 
   // Default color if none provided
   const bucketColor = color || Colors[colorScheme].tint;

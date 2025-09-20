@@ -397,6 +397,23 @@ export interface TranslationKey {
     bucketNotFoundDescription: string;
     composeMessage: string;
     createFirstBucket: string;
+    danglingBuckets: string;
+    danglingBucketsDescription: string;
+    danglingBucketItem: string;
+    noDanglingBuckets: string;
+    danglingBucketAction: string;
+    danglingBucketActionDescription: string;
+    migrateToExisting: string;
+    createNewBucket: string;
+    cancel: string;
+    migrationSuccess: string;
+    migrationSuccessMessage: string;
+    migrationError: string;
+    migrationErrorMessage: string;
+    migrating: string;
+    migratingDescription: string;
+    notification: string;
+    notifications: string;
     delete: {
       confirm: string;
       confirmDeleteMessage: string;

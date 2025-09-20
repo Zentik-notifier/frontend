@@ -127,18 +127,18 @@ const createCacheDynamic = () => new InMemoryCache({
       },
     },
     Notification: {
-      merge(existing, incoming) {
-        const safeExisting = (existing ?? {}) as Record<string, any>;
-        const safeIncoming = (incoming ?? {}) as Record<string, any>;
-        const result: Record<string, any> = { ...safeIncoming };
-        for (const key of Object.keys(safeExisting)) {
-          const value = safeExisting[key];
-          if (value !== undefined && value !== null) {
-            result[key] = value;
-          }
-        }
-        return result as any;
-      },
+      // merge(existing, incoming) {
+      //   const safeExisting = (existing ?? {}) as Record<string, any>;
+      //   const safeIncoming = (incoming ?? {}) as Record<string, any>;
+      //   const result: Record<string, any> = { ...safeIncoming };
+      //   for (const key of Object.keys(safeExisting)) {
+      //     const value = safeExisting[key];
+      //     if (value !== undefined && value !== null) {
+      //       result[key] = value;
+      //     }
+      //   }
+      //   return result as any;
+      // },
       fields: {
         readAt: {
           merge(existing, incoming) {
@@ -217,6 +217,26 @@ const createCacheDynamic = () => new InMemoryCache({
 
             // console.log(`📊 [Apollo] Filtered notifications: ${byId.size} -> ${filteredArray.length} (removed ${byId.size - filteredArray.length} dangling), limited to ${limited.length}`);
             return limited;
+          },
+        },
+        buckets: {
+          keyArgs: false,
+          merge(existing = [], incoming = [], { readField }) {
+            try {
+            } catch { }
+            const byId = new Map<string, any>();
+
+            for (const item of existing) {
+              const id = readField<string>('id', item);
+              if (id && !byId.has(id)) byId.set(id, item);
+            }
+
+            for (const item of incoming) {
+              const id = readField<string>('id', item);
+              if (id && !byId.has(id)) byId.set(id, item);
+            }
+
+            return Array.from(byId.values());
           },
         },
       },
