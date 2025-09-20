@@ -508,7 +508,7 @@ export default function NotificationsList({
         data={filteredNotifications}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        overrideItemLayout={overrideItemLayout}
+        // overrideItemLayout={overrideItemLayout}
         onViewableItemsChanged={onViewableItemsChanged}
         onScroll={() => {
           didUserScrollRef.current = true;

@@ -296,7 +296,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       };
 
   return (
-    <View style={[styles.wrapper, { height: itemHeight }]}>
+    <View style={[styles.wrapper]}>
+    {/* <View style={[styles.wrapper, { height: itemHeight }]}> */}
       <SwipeableItem
         withButton={false}
         leftAction={isMultiSelectionMode ? undefined : toggleReadAction}
