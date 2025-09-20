@@ -137,7 +137,6 @@ class NotificationService: UNNotificationServiceExtension {
         "📱 [NotificationService] 🎭 Created INSendMessageIntent with sender: \(intent.sender?.displayName ?? "nil")"
       )
 
-      // Set the sender image explicitly - this is crucial for Communication Notifications
       if let senderImage = senderImage {
         intent.setImage(senderImage, forParameterNamed: \.sender)
         print("📱 [NotificationService] 🎭 ✅ Set sender image using setImage method")
@@ -145,12 +144,10 @@ class NotificationService: UNNotificationServiceExtension {
         print("📱 [NotificationService] 🎭 ⚠️ No sender image to set")
       }
 
-      // Donate interaction as incoming message
       let interaction = INInteraction(intent: intent, response: nil)
       interaction.direction = .incoming
       print("📱 [NotificationService] 🎭 Donating interaction...")
 
-      // Donate with completion handler to ensure proper timing
       interaction.donate { (error) in
         if let error = error {
           print("📱 [NotificationService] 🎭 ❌ Failed to donate interaction: \(error)")
