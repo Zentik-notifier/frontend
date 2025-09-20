@@ -35,42 +35,32 @@ class NotificationService: UNNotificationServiceExtension {
       // Decrypt encrypted values first
       decryptNotificationContent(content: bestAttemptContent)
 
-      self.applyCommunicationStyleIfPossible(content: bestAttemptContent) {
-        contentHandler(bestAttemptContent)
-        return
-      }
-
       // Update badge count before setting up actions
       updateBadgeCount(content: bestAttemptContent)
+
+      self.savePendingNotification(content: bestAttemptContent)
 
       // Setup custom actions in a synchronized manner
       setupNotificationActions(content: bestAttemptContent) { [weak self] in
         guard let self = self else { return }
 
-        self.applyCommunicationStyleIfPossible(content: bestAttemptContent) {
-          // Check if this notification has media attachments
-          if self.hasMediaAttachments(content: bestAttemptContent) {
-            print("📱 [NotificationService] Media attachments detected, starting download...")
-            self.downloadMediaAttachments(content: bestAttemptContent) {
-              print("📱 [NotificationService] Media processing completed, delivering notification")
-              print(
-                "📱 [NotificationService] 🚀 Delivering notification with category: \(bestAttemptContent.categoryIdentifier ?? "nil")"
-              )
-
-              // Save notification for cache update
-              self.savePendingNotification(content: bestAttemptContent)
+        // Check if this notification has media attachments first
+        if self.hasMediaAttachments(content: bestAttemptContent) {
+          print("📱 [NotificationService] Media attachments detected, starting download...")
+          self.downloadMediaAttachments(content: bestAttemptContent) {
+            print("📱 [NotificationService] Media processing completed, applying Communication Style...")
+            
+            self.applyCommunicationStyleIfPossible(content: bestAttemptContent) {
+              print("📱 [NotificationService] 🚀 Delivering notification with category: \(bestAttemptContent.categoryIdentifier ?? "nil")")
 
               contentHandler(bestAttemptContent)
             }
-          } else {
-            print(
-              "📱 [NotificationService] No media attachments, delivering notification immediately")
-            print(
-              "📱 [NotificationService] 🚀 Delivering notification with category: \(bestAttemptContent.categoryIdentifier ?? "nil")"
-            )
-
-            // Save notification for cache update
-            self.savePendingNotification(content: bestAttemptContent)
+          }
+        } else {
+          print("📱 [NotificationService] No media attachments, applying Communication Style...")
+          
+          self.applyCommunicationStyleIfPossible(content: bestAttemptContent) {
+            print("📱 [NotificationService] 🚀 Delivering notification with category: \(bestAttemptContent.categoryIdentifier ?? "nil")")
 
             contentHandler(bestAttemptContent)
           }
