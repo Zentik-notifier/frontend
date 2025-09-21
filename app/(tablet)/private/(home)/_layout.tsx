@@ -38,7 +38,7 @@ export default function TabletHomeLayout() {
     return `/${segments.join("/").replace("[id]", id || "")}`;
   }, [pathnameSrc, segments]);
 
-  const notifCount = notifications.length;
+  const notifCount = notifications.filter(n => !n.readAt).length;
   const galleryCount = cacheStats?.totalItems ?? 0;
   const { isDesktop, isTablet } = useDeviceType();
 
@@ -69,7 +69,7 @@ export default function TabletHomeLayout() {
       id: bucket.id,
       title: bucket.name,
       icon: "bucket",
-      count: notifications.filter((n) => n.message?.bucket?.id === bucket.id)
+      count: notifications.filter((n) => n.message?.bucket?.id === bucket.id && !n.readAt)
         .length,
       color: bucket.color || "#059669",
       type: "bucket" as const,
@@ -107,11 +107,6 @@ export default function TabletHomeLayout() {
             style={styles.sidebarContent}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.sidebarHeader}>
-              <Icon name="home" size="lg" color="#4F46E5" />
-              <ThemedText style={styles.sidebarTitle}>Home</ThemedText>
-            </View>
-
             <View style={styles.menuItems}>
               {menuItems.map((item) => {
                 const isSelected = pathname === item.route;

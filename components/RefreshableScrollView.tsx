@@ -3,7 +3,7 @@ import { RefreshControl, ScrollView, StyleSheet } from "react-native";
 
 interface RefreshableScrollViewProps {
   children: React.ReactNode | ((refreshing: boolean) => React.ReactNode);
-  onRefresh?: () => Promise<void>;
+  onRefresh?: () => Promise<any>;
   style?: any;
   contentStyle?: any;
   refreshControlColors?: string[];

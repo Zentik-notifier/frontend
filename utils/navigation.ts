@@ -23,6 +23,18 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToEditBucket: (bucketId: string, fromHome: boolean) => {
+            if (isTabletOrDesktop) {
+                if(fromHome) {
+                    router.push(`/(tablet)/private/(home)/edit-bucket/${bucketId}`);
+                } else {
+                    // router.push(`/(tablet)/private/(settings)/edit-bucket/${bucketId}`);
+                }
+            } else {
+                router.push(`/(mobile)/private/edit-bucket?bucketId=${bucketId}`);
+            }
+        },
+
         navigateToSettings: () => {
             router.push(`${basePath}/private/settings`);
         },

@@ -7,6 +7,7 @@ import { useAppContext } from "@/services/app-context";
 import { useUserSettings, userSettings } from "@/services/user-settings";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useNavigationUtils } from "@/utils/navigation";
 import * as Clipboard from "expo-clipboard";
 import React, { useMemo, useState } from "react";
 import {
@@ -32,7 +33,7 @@ interface BucketDetailProps {
 export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
-  const router = useRouter();
+  const { navigateToEditBucket } = useNavigationUtils();
   const [isMessageBuilderVisible, setIsMessageBuilderVisible] = useState(false);
   const { massMarkAsRead, loading: markAllAsReadLoading } =
     useMassMarkNotificationsAsRead();
@@ -196,11 +197,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
                 backgroundColor: Colors[colorScheme].backgroundSecondary,
               },
             ]}
-            onPress={() =>
-              router.push(
-                `/(mobile)/private/edit-bucket?bucketId=${bucketId}` as any
-              )
-            }
+            onPress={() => navigateToEditBucket(bucketId, true)}
           >
             <Ionicons
               name="pencil"

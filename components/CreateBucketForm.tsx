@@ -33,10 +33,13 @@ const defaultColor = "#0a7ea4";
 
 interface CreateBucketFormProps {
   bucketId?: string;
-  refreshing?: boolean;
+  withHeader?: boolean;
 }
 
-export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
+export default function CreateBucketForm({
+  bucketId,
+  withHeader,
+}: CreateBucketFormProps) {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
@@ -58,7 +61,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
 
   const [createBucketMutation, { loading: creatingBucket }] =
     useCreateBucketMutation({
-      refetchQueries: ['GetBuckets'],
+      refetchQueries: ["GetBuckets"],
       onCompleted: async (data) => {
         setBucketName("");
         setBucketColor(defaultColor);
@@ -111,7 +114,6 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       setOriginalIcon(bucket.icon || "");
     }
   }, [bucket, isEditing]);
-  const userBucket = bucket?.userBucket;
 
   const saveBucket = async () => {
     if (!bucketName.trim() || isLoading || (isEditing && !canWrite) || offline)
@@ -182,7 +184,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
 
   return (
     <ThemedView style={styles.container}>
-      {showTitle && (
+      {showTitle && withHeader && (
         <View style={styles.header}>
           <Ionicons
             name={isEditing ? "create-outline" : "folder-outline"}

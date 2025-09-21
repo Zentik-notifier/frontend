@@ -15,7 +15,6 @@ import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { mediaCache } from "@/services/media-cache";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
