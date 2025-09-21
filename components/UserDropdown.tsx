@@ -2,6 +2,7 @@ import { UserRole, useGetMeQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useTheme } from "@/hooks/useTheme";
 import { useDeviceType } from "@/hooks/useDeviceType";
+import { useNavigationUtils } from "@/utils/navigation";
 import { useAppContext } from "@/services/app-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -32,10 +33,9 @@ export default function UserDropdown() {
   const [showInitials, setShowInitials] = useState(false);
   const [showInitialsSmall, setShowInitialsSmall] = useState(false);
   const buttonRef = useRef<View>(null);
-  const router = useRouter();
   const { themeMode, setThemeMode, isDark } = useTheme();
   const { t } = useI18n();
-  const { isTablet, isDesktop } = useDeviceType();
+  const { navigateToSettings, navigateToAdmin } = useNavigationUtils();
 
   const { data: userData } = useGetMeQuery();
   const user = userData?.me;
@@ -191,8 +191,7 @@ export default function UserDropdown() {
       label: t("userDropdown.settings"),
       icon: "settings",
       onPress: () => {
-        const basePath = (isTablet || isDesktop) ? "/(tablet)" : "/(mobile)";
-        router.navigate(`${basePath}/private/settings` as any);
+        navigateToSettings();
         hideDropdown();
       },
     },
@@ -203,8 +202,7 @@ export default function UserDropdown() {
             label: t("userDropdown.administration"),
             icon: "shield" as keyof typeof Ionicons.glyphMap,
             onPress: () => {
-              const basePath = (isTablet || isDesktop) ? "/(tablet)" : "/(mobile)";
-              router.navigate(`${basePath}/private/admin` as any);
+              navigateToAdmin();
               hideDropdown();
             },
           },

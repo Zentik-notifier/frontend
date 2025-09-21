@@ -6,8 +6,10 @@ import { IconName } from "@/constants/Icons";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
-import { Href, useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useNavigationUtils } from "@/utils/navigation";
+import { usePathname, useRouter } from "expo-router";
+import { Slot } from "expo-router";
+import React from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -22,17 +24,16 @@ interface SettingsOption {
   description: string;
   icon: IconName;
   iconColor: string;
-  route: Href;
+  route: string;
 }
 
-export default function TabletSettingsScreen() {
+export default function TabletSettingsLayout() {
   const { userId } = useAppContext();
-  const router = useRouter();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const { width } = useWindowDimensions();
-
-  const [selectedSetting, setSelectedSetting] = useState("app-settings");
+  const pathname = usePathname();
+  const router = useRouter();
 
   const isTablet = width >= 768 && width < 1024;
   const isDesktop = width >= 1024;
@@ -44,20 +45,20 @@ export default function TabletSettingsScreen() {
 
   const settingsOptions: SettingsOption[] = [
     {
-      id: "app-settings",
-      title: t("appSettings.title"),
-      description: t("appSettings.description"),
-      icon: "settings",
-      iconColor: "#F59E0B",
-      route: "/(tablet)/private/app-settings",
-    },
-    {
       id: "user-profile",
       title: t("userProfile.title"),
       description: t("userProfile.description"),
       icon: "user",
       iconColor: "#4F46E5",
-      route: "/(tablet)/private/user-profile",
+      route: "/(tablet)/private/(settings)/user-profile",
+    },
+    {
+      id: "app-settings",
+      title: t("appSettings.title"),
+      description: t("appSettings.description"),
+      icon: "settings",
+      iconColor: "#F59E0B",
+      route: "/(tablet)/private/(settings)/app-settings",
     },
     {
       id: "buckets-settings",
@@ -65,7 +66,7 @@ export default function TabletSettingsScreen() {
       description: t("buckets.description"),
       icon: "bucket",
       iconColor: "#059669",
-      route: "/(tablet)/private/buckets-settings",
+      route: "/(tablet)/private/(settings)/buckets-settings",
     },
     {
       id: "access-tokens-settings",
@@ -73,7 +74,7 @@ export default function TabletSettingsScreen() {
       description: t("accessTokens.description"),
       icon: "password",
       iconColor: "#0891B2",
-      route: "/(tablet)/private/access-tokens-settings",
+      route: "/(tablet)/private/(settings)/access-tokens-settings",
     },
     {
       id: "webhooks-settings",
@@ -81,7 +82,7 @@ export default function TabletSettingsScreen() {
       description: t("webhooks.description"),
       icon: "webhook",
       iconColor: "#10B981",
-      route: "/(tablet)/private/webhooks-settings",
+      route: "/(tablet)/private/(settings)/webhooks-settings",
     },
     {
       id: "devices-settings",
@@ -89,7 +90,7 @@ export default function TabletSettingsScreen() {
       description: t("devices.description"),
       icon: "device",
       iconColor: "#DC2626",
-      route: "/(tablet)/private/devices-settings",
+      route: "/(tablet)/private/(settings)/devices-settings",
     },
     {
       id: "user-sessions-settings",
@@ -97,7 +98,7 @@ export default function TabletSettingsScreen() {
       description: t("userSessions.description"),
       icon: "notebook",
       iconColor: "#2563EB",
-      route: "/(tablet)/private/user-sessions-settings",
+      route: "/(tablet)/private/(settings)/user-sessions-settings",
     },
     {
       id: "notifications-settings",
@@ -105,7 +106,7 @@ export default function TabletSettingsScreen() {
       description: t("notifications.description"),
       icon: "notification",
       iconColor: "#7C3AED",
-      route: "/(tablet)/private/notifications-settings",
+      route: "/(tablet)/private/(settings)/notifications-settings",
     },
     {
       id: "app-logs",
@@ -113,19 +114,18 @@ export default function TabletSettingsScreen() {
       description: "View and refresh local application logs stored on device.",
       icon: "notebook",
       iconColor: "#0EA5E9",
-      route: "/(tablet)/private/logs",
+      route: "/(tablet)/private/(settings)/logs",
     },
   ];
 
   const handleSettingPress = (option: SettingsOption) => {
-    // Per il layout tablet, navighiamo alla pagina che reindirizza al mobile
-    router.push(option.route);
+    router.push(option.route as any);
   };
 
   return (
     <ThemedView style={styles.container}>
       <View style={styles.layout}>
-        {/* Sidebar */}
+        {/* Fixed Sidebar */}
         <View
           style={[
             styles.sidebar,
@@ -136,7 +136,10 @@ export default function TabletSettingsScreen() {
             },
           ]}
         >
-          <ScrollView style={styles.sidebarContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.sidebarContent}
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.sidebarHeader}>
               <Icon name="wrench" size="lg" color="#8B5CF6" />
               <ThemedText style={styles.sidebarTitle}>
@@ -145,72 +148,74 @@ export default function TabletSettingsScreen() {
             </View>
 
             <View style={styles.menuItems}>
-              {settingsOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.id}
-                  style={[
-                    styles.menuItem,
-                    {
-                      backgroundColor: Colors[colorScheme].backgroundCard,
-                      borderColor: Colors[colorScheme].border,
-                    },
-                  ]}
-                  onPress={() => handleSettingPress(option)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.menuItemContent}>
-                    <View
-                      style={[
-                        styles.menuItemIcon,
-                        { backgroundColor: `${option.iconColor}15` },
-                      ]}
-                    >
-                      <Icon
-                        name={option.icon}
-                        size="md"
-                        color={
-                          option.iconColor || Colors[colorScheme].tint
-                        }
-                      />
-                    </View>
-                    <View style={styles.menuItemText}>
-                      <ThemedText
+              {settingsOptions.map((option) => {
+                const isSelected = pathname.includes(option.route);
+                
+                return (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={[
+                      styles.menuItem,
+                      {
+                        backgroundColor: isSelected
+                          ? Colors[colorScheme].tint + "15"
+                          : "transparent",
+                        borderColor: isSelected
+                          ? Colors[colorScheme].tint
+                          : "transparent",
+                      },
+                    ]}
+                    onPress={() => handleSettingPress(option)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.menuItemContent}>
+                      <View
                         style={[
-                          styles.menuItemTitle,
-                          { color: Colors[colorScheme].text },
+                          styles.menuItemIcon,
+                          { backgroundColor: `${option.iconColor}15` },
                         ]}
                       >
-                        {option.title}
-                      </ThemedText>
-                      <ThemedText
-                        style={[
-                          styles.menuItemDescription,
-                          { color: Colors[colorScheme].textSecondary },
-                        ]}
-                        numberOfLines={2}
-                      >
-                        {option.description}
-                      </ThemedText>
+                        <Icon
+                          name={option.icon}
+                          size="md"
+                          color={option.iconColor}
+                        />
+                      </View>
+                      <View style={styles.menuItemText}>
+                        <ThemedText
+                          style={[
+                            styles.menuItemTitle,
+                            {
+                              color: isSelected
+                                ? Colors[colorScheme].tint
+                                : Colors[colorScheme].text,
+                              fontWeight: isSelected ? "600" : "500",
+                            },
+                          ]}
+                        >
+                          {option.title}
+                        </ThemedText>
+                        <ThemedText
+                          style={[
+                            styles.menuItemDescription,
+                            { color: Colors[colorScheme].textSecondary },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {option.description}
+                        </ThemedText>
+                      </View>
                     </View>
-                  </View>
-                  <Icon name="chevron" size="md" color="secondary" />
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </ScrollView>
         </View>
 
-        {/* Content - Placeholder per il layout tablet */}
+        {/* Dynamic Content Area */}
         <View style={styles.content}>
-          <ThemedView style={styles.contentPlaceholder}>
-            <Icon name="wrench" size="xl" color="secondary" />
-            <ThemedText style={styles.placeholderTitle}>
-              {t("common.settings")}
-            </ThemedText>
-            <ThemedText style={styles.placeholderText}>
-              Seleziona un'opzione dal menu per configurare le impostazioni
-            </ThemedText>
-          </ThemedView>
+          <Slot />
         </View>
       </View>
     </ThemedView>
@@ -283,24 +288,5 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-  },
-  contentPlaceholder: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 40,
-  },
-  placeholderTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginTop: 20,
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  placeholderText: {
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 22,
-    opacity: 0.7,
   },
 });

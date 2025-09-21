@@ -43,7 +43,17 @@ export default function TabletPrivateLayout() {
       />
       
       {/* SETTINGS */}
-      <Stack.Screen name="settings" options={{ headerShown: true }} />
+      <Stack.Screen
+        name="(settings)"
+        options={{
+          headerShown: true,
+          headerShadowVisible: false,
+          headerBackVisible: false,
+          header: () => <Header />,
+          animationTypeForReplace: "push",
+          gestureEnabled: false,
+        }}
+      />
       
       {/* ADMIN */}
       <Stack.Screen name="admin" options={{ headerShown: true }} />

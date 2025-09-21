@@ -1,4 +1,4 @@
-import { useHealthcheckLazyQuery } from '@/generated/gql-operations-generated';
+import { useGetMeQuery, useHealthcheckLazyQuery } from '@/generated/gql-operations-generated';
 import NetInfo from '@react-native-community/netinfo';
 import * as Updates from 'expo-updates';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -42,6 +42,7 @@ export function useConnectionStatus(skip?: boolean) {
   const errorCountRef = useRef(0);
   const pollingIntervalRef = useRef<number | null>(null);
   const isPollingRef = useRef(false);
+  const { data: userData } = useGetMeQuery();
 
   // Functions to update auth state (for external use)
   const setOfflineAuth = useCallback((value: boolean) => {
@@ -59,6 +60,13 @@ export function useConnectionStatus(skip?: boolean) {
     isPollingRef.current = true;
     try {
       const result = await healthcheck({ fetchPolicy: 'network-only' });
+
+      if (!userData?.me) {
+        setIsOfflineAuth(true);
+        return;
+      } else {
+        setIsOfflineAuth(false);
+      }
 
       if (result.error) {
         // Check for 401 Unauthorized

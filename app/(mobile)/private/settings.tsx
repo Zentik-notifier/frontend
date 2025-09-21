@@ -32,20 +32,20 @@ export default function SettingsScreen() {
 
   const settingsOptions: SettingsOption[] = [
     {
-      id: "app-settings",
-      title: t("appSettings.title"),
-      description: t("appSettings.description"),
-      icon: "settings",
-      iconColor: "#F59E0B", // Amber
-      route: "/(mobile)/private/app-settings",
-    },
-    {
       id: "user-profile",
       title: t("userProfile.title"),
       description: t("userProfile.description"),
       icon: "user",
       iconColor: "#4F46E5", // Indigo
       route: "/(mobile)/private/user-profile",
+    },
+    {
+      id: "app-settings",
+      title: t("appSettings.title"),
+      description: t("appSettings.description"),
+      icon: "settings",
+      iconColor: "#F59E0B", // Amber
+      route: "/(mobile)/private/app-settings",
     },
     {
       id: "buckets-settings",

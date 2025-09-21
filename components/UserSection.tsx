@@ -26,7 +26,6 @@ import NotificationStats from "./NotificationStats";
 import OAuthConnections from "./OAuthConnections";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
-import { AppLoader } from "./ui/AppLoader";
 import IconButton from "./ui/IconButton";
 
 interface UserSectionProps {

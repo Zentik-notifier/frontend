@@ -36,7 +36,83 @@ export function useNavigationUtils() {
         },
 
         navigateToSettings: () => {
-            router.push(`${basePath}/private/settings`);
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(settings)");
+            } else {
+                router.push("/(mobile)/private/settings");
+            }
+        },
+
+        navigateToAppSettings: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(settings)/app-settings");
+            } else {
+                router.push("/(mobile)/private/app-settings");
+            }
+        },
+
+        navigateToUserProfile: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(settings)/user-profile");
+            } else {
+                router.push("/(mobile)/private/user-profile");
+            }
+        },
+
+        navigateToBucketsSettings: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(settings)/buckets-settings");
+            } else {
+                router.push("/(mobile)/private/buckets-settings");
+            }
+        },
+
+        navigateToAccessTokensSettings: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(settings)/access-tokens-settings");
+            } else {
+                router.push("/(mobile)/private/access-tokens-settings");
+            }
+        },
+
+        navigateToWebhooksSettings: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(settings)/webhooks-settings");
+            } else {
+                router.push("/(mobile)/private/webhooks-settings");
+            }
+        },
+
+        navigateToDevicesSettings: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(settings)/devices-settings");
+            } else {
+                router.push("/(mobile)/private/devices-settings");
+            }
+        },
+
+        navigateToNotificationsSettings: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(settings)/notifications-settings");
+            } else {
+                router.push("/(mobile)/private/notifications-settings");
+            }
+        },
+
+        navigateToUserSessionsSettings: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(settings)/user-sessions-settings");
+            } else {
+                router.push("/(mobile)/private/user-sessions-settings");
+            }
+        },
+
+        navigateToLogs: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(settings)/logs");
+            } else {
+                router.push("/(mobile)/private/logs");
+            }
         },
 
         navigateToAdmin: () => {
