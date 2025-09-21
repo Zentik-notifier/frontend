@@ -673,7 +673,7 @@ export default function UnifiedCacheSettings() {
       </View>
 
       {/* Notifications preferences */}
-      <View
+      {/* <View
         style={[
           styles.settingRow,
           { backgroundColor: Colors[colorScheme].backgroundCard },
@@ -709,7 +709,7 @@ export default function UnifiedCacheSettings() {
             true: Colors[colorScheme].tint + "40",
           }}
         />
-      </View>
+      </View> */}
 
       <View
         style={[

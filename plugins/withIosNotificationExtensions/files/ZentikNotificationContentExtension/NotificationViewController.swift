@@ -506,37 +506,62 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
 
     private func refreshHeaderIcon() {
         guard let imageView = headerIconImageView else { return }
-        // Cerca ICON negli attachmentData
-        if let iconData = attachmentData.first(where: { ($0["mediaType"] as? String ?? "").uppercased() == "ICON" }),
-           let iconUrl = iconData["url"] as? String {
-            // Ensure icon is visible since we have an ICON attachment
-            imageView.isHidden = false
-            // Prova cache condivisa, poi download diretto
-            loadIconFromSharedCache(iconUrl: iconUrl, iconImageView: imageView)
-        } else {
-            // Try to find app icon
-            var fallbackImage: UIImage?
+        
+        // Prima prova a scaricare da bucketIconUrl (esattamente come fa la NSE)
+        if let userInfo = currentNotificationUserInfo,
+           let bucketIconUrl = userInfo["bucketIconUrl"] as? String,
+           let url = URL(string: bucketIconUrl) {
+            print("📱 [ContentExtension] 🎭 Trying to load bucket icon from URL: \(bucketIconUrl)")
             
-            // Try different app icon names
-            let appIconNames = ["AppIcon", "AppIcon-60", "AppIcon-76", "AppIcon-83.5", "AppIcon-1024"]
-            for iconName in appIconNames {
-                if let appIcon = UIImage(named: iconName) {
-                    fallbackImage = appIcon
-                    print("📱 [ContentExtension] ✅ Found app icon: \(iconName)")
-                    break
-                }
-            }
-            
-            if let appIcon = fallbackImage {
-                imageView.image = appIcon
+            // Prova a scaricare l'icona dal bucket
+            if let imageData = try? Data(contentsOf: url),
+               let image = UIImage(data: imageData) {
+                imageView.image = image
                 imageView.isHidden = false
+                print("📱 [ContentExtension] 🎭 ✅ Successfully loaded bucket icon from URL")
+                return
             } else {
-                // Nessuna icona disponibile: manteniamo comunque lo spazio dell'icona per non alterare la larghezza disponibile
-                // Impostiamo un placeholder trasparente 50x50 per mantenere la metrica coerente con il caso con icona
-                imageView.image = UIImage()
-                imageView.isHidden = false
-                print("📱 [ContentExtension] ⚠️ No icon available, keeping placeholder to preserve layout width")
+                print("📱 [ContentExtension] 🎭 ❌ Failed to load bucket icon from URL")
             }
+        }
+        
+        // Se non disponibile da URL, cerca placeholder nella cache condivisa
+        if let userInfo = currentNotificationUserInfo,
+           let bucketId = userInfo["bucketId"] as? String,
+           let bucketName = userInfo["bucketName"] as? String {
+            print("📱 [ContentExtension] 🎭 Checking shared cache for placeholder...")
+            
+            if let placeholderData = getPlaceholderFromSharedCache(bucketId: bucketId, bucketName: bucketName),
+               let placeholderImage = UIImage(data: placeholderData) {
+                imageView.image = placeholderImage
+                imageView.isHidden = false
+                print("📱 [ContentExtension] 🎭 ✅ Loaded placeholder from shared cache for \(bucketName)")
+                return
+            } else {
+                print("📱 [ContentExtension] 🎭 ❌ No placeholder found in shared cache")
+            }
+        }
+        
+        // Se ancora non disponibile, prova app icon
+        var fallbackImage: UIImage?
+        let appIconNames = ["AppIcon", "AppIcon-60", "AppIcon-76", "AppIcon-83.5", "AppIcon-1024"]
+        for iconName in appIconNames {
+            if let appIcon = UIImage(named: iconName) {
+                fallbackImage = appIcon
+                print("📱 [ContentExtension] ✅ Found app icon: \(iconName)")
+                break
+            }
+        }
+        
+        if let appIcon = fallbackImage {
+            imageView.image = appIcon
+            imageView.isHidden = false
+        } else {
+            // Nessuna icona disponibile: manteniamo comunque lo spazio dell'icona per non alterare la larghezza disponibile
+            // Impostiamo un placeholder trasparente 50x50 per mantenere la metrica coerente con il caso con icona
+            imageView.image = UIImage()
+            imageView.isHidden = false
+            print("📱 [ContentExtension] ⚠️ No icon available, keeping placeholder to preserve layout width")
         }
     }
 
@@ -4402,5 +4427,33 @@ extension NotificationViewController {
                 }
             }
         }.resume()
+    }
+    
+    // MARK: - Shared Storage Methods
+    
+    private func getPlaceholderFromSharedCache(bucketId: String, bucketName: String) -> Data? {
+        let cacheDirectory = getSharedMediaCacheDirectory()
+        let placeholderDirectory = cacheDirectory.appendingPathComponent("PLACEHOLDER")
+        
+        // Generate filename based on bucket info
+        let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
+        let fileName = "placeholder_\(bucketId)_\(safeBucketName).png"
+        let fileURL = placeholderDirectory.appendingPathComponent(fileName)
+        
+        // Check if placeholder exists
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            print("📱 [ContentExtension] 🎭 No cached placeholder found for \(bucketName)")
+            return nil
+        }
+        
+        // Load placeholder data
+        do {
+            let data = try Data(contentsOf: fileURL)
+            print("📱 [ContentExtension] 🎭 ✅ Found cached placeholder for \(bucketName)")
+            return data
+        } catch {
+            print("📱 [ContentExtension] 🎭 ❌ Failed to load cached placeholder: \(error)")
+            return nil
+        }
     }
 }

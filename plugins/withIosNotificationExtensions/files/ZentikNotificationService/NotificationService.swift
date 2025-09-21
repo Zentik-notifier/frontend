@@ -82,6 +82,8 @@ class NotificationService: UNNotificationServiceExtension {
     }
   }
 
+  // MARK: - Communication Notifications (INSendMessageIntent)
+  
   func _handleChatMessage() {
     print("📱 [NotificationService] 🎭 Starting Communication Style processing...")
     guard let content = bestAttemptContent else {
@@ -103,27 +105,45 @@ class NotificationService: UNNotificationServiceExtension {
     let senderId = (userInfo["bucketId"] as? String)
     let chatRoomName = (userInfo["bucketName"] as? String)
     let senderDisplayName = (content.title as? String)
-    // let senderDisplayName = (userInfo["bucketName"] as? String)
     let senderThumbnail = (userInfo["bucketIconUrl"] as? String)
     let bucketColor = (userInfo["bucketColor"] as? String)
 
-    guard let senderThumbnailUrl: URL = URL(string: senderThumbnail!) else {
-      return
+    var senderAvatarImageData: Data?
+    
+    if let senderThumbnailUrl = URL(string: senderThumbnail ?? ""),
+       let senderThumbnailImageData = try? Data(contentsOf: senderThumbnailUrl) {
+      // Successfully downloaded the image - use it directly
+      senderAvatarImageData = senderThumbnailImageData
+      print("📱 [NotificationService] 🎭 ✅ Successfully loaded sender image from URL")
     }
-
-    let senderThumbnailFileName: String = senderThumbnailUrl.lastPathComponent  // we grab the last part in the hope it contains the actual filename (any-picture.jpg)
-
-    guard let senderThumbnailImageData: Data = try? Data(contentsOf: senderThumbnailUrl),
-      let senderThumbnailImageFileUrl: URL = try? downloadAttachment(
-        data: senderThumbnailImageData, fileName: senderThumbnailFileName),
-      let senderThumbnailImageFileData: Data = try? Data(contentsOf: senderThumbnailImageFileUrl)
-    else {
-
+    
+    // If no image data available, check shared cache first, then generate placeholder
+    if senderAvatarImageData == nil {
+      print("📱 [NotificationService] 🎭 ⚠️ Sender image not available, checking shared cache...")
+      
+      // Try to get placeholder from shared cache first
+      if let bucketId = senderId, let bucketName = chatRoomName ?? senderDisplayName {
+        senderAvatarImageData = getPlaceholderFromSharedCache(bucketId: bucketId, bucketName: bucketName)
+      }
+      
+      // If still no image data, generate new placeholder
+      if senderAvatarImageData == nil {
+        print("📱 [NotificationService] 🎭 No cached placeholder found, generating new one")
+        senderAvatarImageData = generateAvatarPlaceholder(
+          name: chatRoomName ?? senderDisplayName ?? "Zentik",
+          hexColor: bucketColor,
+          bucketId: senderId
+        )
+      }
+    }
+    
+    guard let finalImageData = senderAvatarImageData else {
+      print("📱 [NotificationService] 🎭 ❌ Failed to generate sender image")
       return
     }
 
     // profile picture that will be displayed in the notification (left side)
-    let senderAvatar: INImage = INImage(imageData: senderThumbnailImageFileData)
+    let senderAvatar: INImage = INImage(imageData: finalImageData)
 
     var personNameComponents = PersonNameComponents()
     personNameComponents.nickname = senderDisplayName
@@ -191,155 +211,16 @@ class NotificationService: UNNotificationServiceExtension {
     }
   }
 
-  // MARK: - Communication Notifications (INSendMessageIntent)
-
-  func downloadAttachment(data: Data, fileName: String) -> URL? {
-    // Create a temporary file URL to write the file data to
-    let fileManager = FileManager.default
-    let tmpSubFolderName = ProcessInfo.processInfo.globallyUniqueString
-    let tmpSubFolderURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(
-      tmpSubFolderName, isDirectory: true)
-
-    do {
-      // prepare temp subfolder
-      try fileManager.createDirectory(
-        at: tmpSubFolderURL, withIntermediateDirectories: true, attributes: nil)
-      let fileURL: URL = tmpSubFolderURL.appendingPathComponent(fileName)
-
-      // Save the image data to the local file URL
-      try data.write(to: fileURL)
-
-      return fileURL
-    } catch let error {
-      print("error \(error)")
-    }
-
-    return nil
-  }
-
-  private func applyCommunicationStyleIfPossible(
-    content: UNMutableNotificationContent, completion: @escaping () -> Void
-  ) {
-    print("📱 [NotificationService] 🎭 Starting Communication Style processing...")
-    guard let userInfo = content.userInfo as? [String: Any] else {
-      print("📱 [NotificationService] 🎭 No userInfo found, skipping Communication Style")
-      completion()
-      return
-    }
-
-    print("📱 [NotificationService] 🎭 UserInfo keys: \(userInfo.keys.sorted())")
-
-    // Extract bucket/sender fields
-    let bucketId = (userInfo["bucketId"] as? String)
-    let bucketName = (userInfo["bucketName"] as? String)
-    let bucketIconUrl = (userInfo["bucketIconUrl"] as? String)
-    let bucketColor = (userInfo["bucketColor"] as? String)
-
-    print(
-      "📱 [NotificationService] 🎭 Extracted fields - bucketId: \(bucketId ?? "nil"), bucketName: \(bucketName ?? "nil"), bucketIconUrl: \(bucketIconUrl ?? "nil"), bucketColor: \(bucketColor ?? "nil")"
-    )
-
-    // Build INPerson for sender
-    let senderHandleValue = bucketId ?? UUID().uuidString
-    let displayName = bucketName ?? "Zentik"
-
-    func finalize(with imageData: Data?) {
-      print(
-        "📱 [NotificationService] 🎭 Finalizing Communication Style with imageData: \(imageData?.count ?? 0) bytes"
-      )
-
-      let resizedImageData =
-        imageData != nil ? resizeImageForCommunication(imageData: imageData!) : nil
-      let senderImage: INImage? =
-        resizedImageData != nil ? INImage(imageData: resizedImageData!) : nil
-      print(
-        "📱 [NotificationService] 🎭 Created sender image: \(senderImage != nil ? "YES" : "NO") (resized from \(imageData?.count ?? 0) to \(resizedImageData?.count ?? 0) bytes)"
-      )
-
-      let intent = INSendMessageIntent(
-        recipients: nil,
-        outgoingMessageType: .outgoingMessageText,
-        content: nil,
-        speakableGroupName: nil,
-        conversationIdentifier: displayName,
-        serviceName: nil,
-        sender: INPerson(
-          personHandle: INPersonHandle(value: senderHandleValue, type: .unknown),
-          nameComponents: nil,
-          displayName: "\(displayName)",
-          image: senderImage,
-          contactIdentifier: nil,
-          customIdentifier: nil,
-          isMe: false,
-          suggestionType: .none
-        ),
-        attachments: nil
-      )
-
-      print(
-        "📱 [NotificationService] 🎭 Created INSendMessageIntent with sender: \(intent.sender?.displayName ?? "nil")"
-      )
-
-      if let senderImage = senderImage {
-        intent.setImage(senderImage, forParameterNamed: \.sender)
-        print("📱 [NotificationService] 🎭 ✅ Set sender image using setImage method")
-      } else {
-        print("📱 [NotificationService] 🎭 ⚠️ No sender image to set")
-      }
-
-      let interaction = INInteraction(intent: intent, response: nil)
-      interaction.direction = .incoming
-      print("📱 [NotificationService] 🎭 Donating interaction...")
-
-      interaction.donate { (error) in
-        if let error = error {
-          print("📱 [NotificationService] 🎭 ❌ Failed to donate interaction: \(error)")
-        } else {
-          print("📱 [NotificationService] 🎭 ✅ Interaction donated successfully")
-        }
-
-        do {
-          print("📱 [NotificationService] 🎭 Attempting to update content from intent...")
-          if let updatedContent = try content.updating(from: intent)
-            as? UNMutableNotificationContent
-          {
-            print("📱 [NotificationService] 🎭 Successfully updated content from intent")
-
-            self.bestAttemptContent = updatedContent
-          } else {
-            print(
-              "📱 [NotificationService] 🎭 Failed to cast updated content to UNMutableNotificationContent"
-            )
-          }
-        } catch {
-          print("📱 [NotificationService] 🎭 Failed to update content from intent: \(error)")
-        }
-        print("📱 [NotificationService] 🎭 Communication Style processing completed")
-        completion()
-      }
-    }
-
-    // If we have an icon URL, download it; otherwise, generate placeholder
-    if let iconUrlString = bucketIconUrl, let iconUrl = URL(string: iconUrlString) {
-      let session = URLSession(configuration: .ephemeral)
-      session.configuration.timeoutIntervalForRequest = 5
-      session.dataTask(with: iconUrl) { data, _, _ in
-        if let data = data, !data.isEmpty {
-          finalize(with: data)
-        } else {
-          finalize(with: self.generateAvatarPlaceholder(name: displayName, hexColor: bucketColor))
-        }
-      }.resume()
-    } else {
-      finalize(with: generateAvatarPlaceholder(name: displayName, hexColor: bucketColor))
-    }
-  }
-
-  private func generateAvatarPlaceholder(name: String, hexColor: String?) -> Data? {
+  private func generateAvatarPlaceholder(name: String, hexColor: String?, bucketId: String? = nil) -> Data? {
     let initials: String = {
-      let parts = name.split(separator: " ")
-      if let first = parts.first { return String(first.prefix(1)).uppercased() }
-      return String(name.prefix(1)).uppercased()
+      let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+      if cleanName.count >= 2 {
+        return String(cleanName.prefix(2)).uppercased()
+      } else if cleanName.count == 1 {
+        return cleanName.uppercased()
+      } else {
+        return "Z" // Fallback for empty name
+      }
     }()
 
     let size = CGSize(width: 128, height: 128)
@@ -368,7 +249,18 @@ class NotificationService: UNNotificationServiceExtension {
     )
     text.draw(in: textRect, withAttributes: attributes)
 
-    return UIGraphicsGetImageFromCurrentImageContext()?.pngData()
+    guard let imageData = UIGraphicsGetImageFromCurrentImageContext()?.pngData() else {
+      print("📱 [NotificationService] ❌ Failed to generate placeholder image data")
+      return nil
+    }
+
+    // Save placeholder to shared cache for NCE to access
+    if let bucketId = bucketId {
+      let _ = savePlaceholderToSharedCache(imageData, bucketId: bucketId, bucketName: name)
+      print("📱 [NotificationService] 🎭 Generated placeholder with initials: \(initials)")
+    }
+
+    return imageData
   }
 
   private func colorFromHex(_ hex: String?) -> UIColor? {
@@ -908,9 +800,8 @@ class NotificationService: UNNotificationServiceExtension {
       "📱 [NotificationService] Selected media: \(mediaAttachments[0].mediaType) with priority \(getCompactPriority(mediaAttachments[0].mediaType))"
     )
 
-    // Select only ONE media by priority for attachment (prefer non-ICON)
-    let nonIconItems = mediaAttachments.filter { $0.mediaType.uppercased() != "ICON" }
-    let selectedItem: MediaAttachment = nonIconItems.first ?? mediaAttachments[0]
+    // Select only ONE media by priority for attachment (ICONs already filtered out)
+    let selectedItem: MediaAttachment = mediaAttachments.first!
     print("📱 [NotificationService] 🎯 Selected for NSE attachment: \(selectedItem.mediaType)")
 
     // Download only the selected media
@@ -920,15 +811,7 @@ class NotificationService: UNNotificationServiceExtension {
         print(
           "📱 [NotificationService] ✅ Media downloaded for compact view: \(selectedItem.mediaType)")
 
-        // Additionally, download only the ICON to shared cache (if exists and not the selected one)
-        if let iconItem = mediaAttachments.first(where: { $0.mediaType.uppercased() == "ICON" }),
-          iconItem.url != selectedItem.url
-        {
-          let cacheDir = self.getSharedMediaCacheDirectory()
-          self.downloadMediaToSharedCache(iconItem, in: cacheDir) {
-            print("📱 [NotificationService] 💾 ICON cached for Content Extension")
-          }
-        }
+        // self.downloadIconsToSharedCache(from: userInfo)
       } else {
         print("📱 [NotificationService] ❌ Failed to download selected media, will show error")
         // Set error flag in shared metadata for Content Extension to handle
@@ -939,6 +822,28 @@ class NotificationService: UNNotificationServiceExtension {
   }
 
   // MARK: - Media Processing Helpers
+  
+  // private func downloadIconsToSharedCache(from userInfo: [String: Any]) {
+  //   guard let attachmentData = userInfo["attachmentData"] as? [[String: Any]] else {
+  //     return
+  //   }
+    
+  //   // Find all ICON attachments and download them to shared cache
+  //   for attachment in attachmentData {
+  //     if let mediaType = attachment["mediaType"] as? String,
+  //        mediaType.uppercased() == "ICON",
+  //        let url = attachment["url"] as? String,
+  //        let name = attachment["name"] as? String {
+        
+  //       let iconItem = MediaAttachment(mediaType: mediaType, url: url, name: name)
+  //       let cacheDir = self.getSharedMediaCacheDirectory()
+        
+  //       self.downloadMediaToSharedCache(iconItem, in: cacheDir) {
+  //         print("📱 [NotificationService] 💾 ICON cached for Content Extension: \(name)")
+  //       }
+  //     }
+  //   }
+  // }
 
   private struct MediaAttachment {
     let mediaType: String
@@ -955,6 +860,12 @@ class NotificationService: UNNotificationServiceExtension {
         if let mediaType = attachment["mediaType"] as? String,
           let url = attachment["url"] as? String
         {
+          // Filtra le icone: non devono mai essere usate come attachment nella NSE
+          if mediaType.uppercased() == "ICON" {
+            print("📱 [NotificationService] 🚫 Filtered out ICON attachment [\(index)]: \(url)")
+            continue
+          }
+          
           let name = attachment["name"] as? String
           let originalFileName = attachment["originalFileName"] as? String
 
@@ -2234,5 +2145,60 @@ class NotificationService: UNNotificationServiceExtension {
       "📱 [NotificationService] 🎭 ✅ Image resized successfully: \(imageData.count) -> \(resizedData.count) bytes"
     )
     return resizedData
+  }
+
+  // MARK: - Shared Storage Methods
+
+  private func getPlaceholderFromSharedCache(bucketId: String, bucketName: String) -> Data? {
+    let cacheDirectory = getSharedMediaCacheDirectory()
+    let placeholderDirectory = cacheDirectory.appendingPathComponent("PLACEHOLDER")
+    
+    // Generate filename based on bucket info
+    let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
+    let fileName = "placeholder_\(bucketId)_\(safeBucketName).png"
+    let fileURL = placeholderDirectory.appendingPathComponent(fileName)
+    
+    // Check if placeholder exists
+    guard FileManager.default.fileExists(atPath: fileURL.path) else {
+      print("📱 [NotificationService] 🎭 No cached placeholder found for \(bucketName)")
+      return nil
+    }
+    
+    // Load placeholder data
+    do {
+      let data = try Data(contentsOf: fileURL)
+      print("📱 [NotificationService] 🎭 ✅ Found cached placeholder for \(bucketName)")
+      return data
+    } catch {
+      print("📱 [NotificationService] 🎭 ❌ Failed to load cached placeholder: \(error)")
+      return nil
+    }
+  }
+
+  private func savePlaceholderToSharedCache(_ imageData: Data, bucketId: String, bucketName: String) -> URL? {
+    let cacheDirectory = getSharedMediaCacheDirectory()
+    let placeholderDirectory = cacheDirectory.appendingPathComponent("PLACEHOLDER")
+    
+    // Create placeholder directory if it doesn't exist
+    do {
+      try FileManager.default.createDirectory(at: placeholderDirectory, withIntermediateDirectories: true, attributes: nil)
+    } catch {
+      print("📱 [NotificationService] ❌ Failed to create placeholder directory: \(error)")
+      return nil
+    }
+    
+    // Generate filename based on bucket info
+    let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
+    let fileName = "placeholder_\(bucketId)_\(safeBucketName).png"
+    let fileURL = placeholderDirectory.appendingPathComponent(fileName)
+    
+    do {
+      try imageData.write(to: fileURL)
+      print("📱 [NotificationService] ✅ Saved placeholder to shared cache: \(fileURL.lastPathComponent)")
+      return fileURL
+    } catch {
+      print("📱 [NotificationService] ❌ Failed to save placeholder to shared cache: \(error)")
+      return nil
+    }
   }
 }
