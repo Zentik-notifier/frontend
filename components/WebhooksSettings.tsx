@@ -3,7 +3,6 @@ import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
-import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { useGetUserWebhooksQuery } from "../generated/gql-operations-generated";
@@ -11,6 +10,7 @@ import SwipeableWebhookItem from "./SwipeableWebhookItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import Icon from "./ui/Icon";
+import { useNavigationUtils } from "@/utils/navigation";
 
 interface WebhooksSettingsProps {
   refreshing?: boolean;
@@ -21,7 +21,7 @@ export default function WebhooksSettings({
 }: WebhooksSettingsProps) {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-  const router = useRouter();
+  const { navigateToCreateWebhook } = useNavigationUtils();
   const {
     setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
@@ -47,7 +47,7 @@ export default function WebhooksSettings({
   }, [refreshing, refetch]);
 
   const handleCreateWebhook = () => {
-    router.push("/(mobile)/private/create-webhook");
+    navigateToCreateWebhook();
   };
 
   return (

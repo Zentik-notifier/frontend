@@ -3,8 +3,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import IconButton from "@/components/ui/IconButton";
 import {
-    useDeleteWebhookMutation,
-    useGetWebhookQuery
+  useDeleteWebhookMutation,
+  useGetWebhookQuery,
 } from "@/generated/gql-operations-generated";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
@@ -12,13 +12,13 @@ import { Alert, ScrollView, StyleSheet, View } from "react-native";
 
 export default function EditWebhookScreen() {
   const router = useRouter();
-  const { webhookId } = useLocalSearchParams<{ webhookId: string }>();
+  const { id } = useLocalSearchParams();
 
   const { data, loading, error } = useGetWebhookQuery({
     variables: {
-      id: webhookId,
+      id: id as string,
     },
-    skip: !webhookId,
+    skip: !id,
   });
 
   const [deleteWebhookMutation, { loading: deletingWebhook }] =
@@ -88,11 +88,7 @@ export default function EditWebhookScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <CreateWebhookForm
-          initialWebhook={webhook}
-          showTitle={true}
-          isEditing={true}
-        />
+        <CreateWebhookForm webhookId={id as string} showTitle />
 
         {/* Delete Webhook Button */}
         <View style={styles.deleteSection}>

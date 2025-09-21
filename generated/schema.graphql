@@ -199,33 +199,6 @@ enum EventType {
   REGISTER
 }
 
-type EventsPerBucketUserAllTimeView {
-  bucketId: String!
-  count: Float!
-  userId: String!
-}
-
-type EventsPerBucketUserDailyView {
-  bucketId: String!
-  count: Float!
-  periodStart: DateTime!
-  userId: String!
-}
-
-type EventsPerBucketUserMonthlyView {
-  bucketId: String!
-  count: Float!
-  periodStart: DateTime!
-  userId: String!
-}
-
-type EventsPerBucketUserWeeklyView {
-  bucketId: String!
-  count: Float!
-  periodStart: DateTime!
-  userId: String!
-}
-
 input EventsQueryDto {
   limit: Int = 20
   objectId: String
@@ -531,6 +504,7 @@ type PayloadMapper {
 """Built-in payload mapper types"""
 enum PayloadMapperBuiltInType {
   ZentikAuthentik
+  ZentikRailway
   ZentikServarr
 }
 
@@ -567,10 +541,6 @@ type Query {
   checkEmailStatus(email: String!): EmailStatusResponseDto!
   enabledOAuthProviders: [OAuthProviderPublicDto!]!
   events(query: EventsQueryDto!): EventsResponseDto!
-  eventsPerBucketUserAllTime(bucketId: String!, userId: String!): [EventsPerBucketUserAllTimeView!]!
-  eventsPerBucketUserDaily(bucketId: String!, endDate: DateTime, startDate: DateTime, userId: String!): [EventsPerBucketUserDailyView!]!
-  eventsPerBucketUserMonthly(bucketId: String!, endDate: DateTime, startDate: DateTime, userId: String!): [EventsPerBucketUserMonthlyView!]!
-  eventsPerBucketUserWeekly(bucketId: String!, endDate: DateTime, startDate: DateTime, userId: String!): [EventsPerBucketUserWeeklyView!]!
   getBackendVersion: String!
   getResourcePermissions(input: GetResourcePermissionsInput!): [EntityPermission!]!
   getUserAccessTokens: [AccessTokenListDto!]!
@@ -923,6 +893,9 @@ type UserSetting {
 }
 
 enum UserSettingType {
+  ExpoKey
+  HomeassistantToken
+  HomeassistantUrl
   Language
   Timezone
   UnencryptOnBigPayload

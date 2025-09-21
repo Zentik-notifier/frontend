@@ -6,7 +6,7 @@ import {
   HttpMethod,
   UpdateWebhookDto,
   useCreateWebhookMutation,
-  UserWebhookFragment,
+  useGetWebhookQuery,
   useUpdateWebhookMutation,
   WebhookHeaderDto,
 } from "@/generated/gql-operations-generated";
@@ -41,14 +41,12 @@ const httpMethods = [
 
 interface CreateWebhookFormProps {
   showTitle?: boolean;
-  initialWebhook?: UserWebhookFragment;
-  isEditing?: boolean;
+  webhookId?: string;
 }
 
 export default function CreateWebhookForm({
-  showTitle = true,
-  initialWebhook,
-  isEditing = false,
+  showTitle,
+  webhookId,
 }: CreateWebhookFormProps) {
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -58,6 +56,15 @@ export default function CreateWebhookForm({
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const isOffline = isOfflineAuth || isBackendUnreachable;
+
+  // Load webhook data if editing
+  const { data: webhookData, loading: loadingWebhook } = useGetWebhookQuery({
+    variables: { id: webhookId || "" },
+    skip: !webhookId,
+  });
+
+  const webhook = webhookData?.webhook;
+  const isEditing = !!webhookId;
 
   const [name, setName] = useState("");
   const [method, setMethod] = useState<HttpMethod>(HttpMethod.Post);
@@ -114,7 +121,7 @@ export default function CreateWebhookForm({
       },
     });
 
-  const isLoading = creatingWebhook || updatingWebhook;
+  const isLoading = creatingWebhook || updatingWebhook || loadingWebhook;
 
   // Store original values for reset functionality
   const [originalName, setOriginalName] = useState("");
@@ -127,27 +134,23 @@ export default function CreateWebhookForm({
   );
   const [originalBodyText, setOriginalBodyText] = useState("");
 
-  // Initialize form with webhook data when editing
+  // Populate form fields when webhook data is loaded
   useEffect(() => {
-    if (initialWebhook && isEditing) {
-      setName(initialWebhook.name);
-      setMethod(initialWebhook.method);
-      setUrl(initialWebhook.url);
-      setHeaders(
-        (initialWebhook.headers || []).map(({ __typename, ...rest }) => rest)
-      );
-      setBodyText(
-        initialWebhook.body ? JSON.stringify(initialWebhook.body) : ""
-      );
+    if (webhook && isEditing) {
+      setName(webhook.name || "");
+      setMethod(webhook.method || HttpMethod.Post);
+      setUrl(webhook.url || "");
+      setHeaders(webhook.headers || []);
+      setBodyText(webhook.body ? JSON.stringify(webhook.body) : "");
 
       // Store original values
-      setOriginalName(initialWebhook.name);
-      setOriginalMethod(initialWebhook.method);
-      setOriginalUrl(initialWebhook.url);
-      setOriginalHeaders(initialWebhook.headers || []);
-      setOriginalBodyText(initialWebhook.body ?? "");
+      setOriginalName(webhook.name || "");
+      setOriginalMethod(webhook.method || HttpMethod.Post);
+      setOriginalUrl(webhook.url || "");
+      setOriginalHeaders(webhook.headers || []);
+      setOriginalBodyText(webhook.body ? JSON.stringify(webhook.body) : "");
     }
-  }, [initialWebhook, isEditing]);
+  }, [webhook, isEditing]);
 
   const resetFormToDefaults = () => {
     setName("");
@@ -210,10 +213,10 @@ export default function CreateWebhookForm({
         body: parsedBody,
       };
 
-      if (isEditing && initialWebhook) {
+      if (isEditing && webhook) {
         await updateWebhookMutation({
           variables: {
-            id: initialWebhook.id,
+            id: webhook.id,
             input: webhookData as UpdateWebhookDto,
           },
         });
@@ -460,7 +463,9 @@ export default function CreateWebhookForm({
               onPress={() => {
                 Alert.alert(
                   t("webhooks.form.jsonHelpTitle"),
-                  `${t("webhooks.form.jsonHelpMessage")}\n\n${t("webhooks.form.jsonExample")}`,
+                  `${t("webhooks.form.jsonHelpMessage")}\n\n${t(
+                    "webhooks.form.jsonExample"
+                  )}`,
                   [{ text: t("common.ok") }]
                 );
               }}
@@ -516,8 +521,8 @@ export default function CreateWebhookForm({
                   ? t("webhooks.form.saving")
                   : t("webhooks.form.creating")
                 : isEditing
-                  ? t("webhooks.form.save")
-                  : t("webhooks.form.create")}
+                ? t("webhooks.form.save")
+                : t("webhooks.form.create")}
             </ThemedText>
           </TouchableOpacity>
 
@@ -533,7 +538,7 @@ export default function CreateWebhookForm({
       </ThemedView>
 
       {/* Readonly fields for editing mode */}
-      {isEditing && initialWebhook && (
+      {isEditing && webhook && (
         <ThemedView
           style={[
             styles.readonlyContainer,
@@ -544,7 +549,7 @@ export default function CreateWebhookForm({
           ]}
         >
           <IdWithCopyButton
-            id={initialWebhook.id}
+            id={webhook.id}
             label="Webhook ID"
             copyMessage="Webhook ID copied"
             valueStyle={styles.readonlyValue}
@@ -552,14 +557,14 @@ export default function CreateWebhookForm({
           <View style={styles.readonlyField}>
             <ThemedText style={styles.readonlyLabel}>Created:</ThemedText>
             <ThemedText style={styles.readonlyValue}>
-              {formatDate(initialWebhook.createdAt)}
+              {formatDate(webhook.createdAt)}
             </ThemedText>
           </View>
-          {initialWebhook.updatedAt && (
+          {webhook.updatedAt && (
             <View style={styles.readonlyField}>
               <ThemedText style={styles.readonlyLabel}>Updated:</ThemedText>
               <ThemedText style={styles.readonlyValue}>
-                {formatDate(initialWebhook.updatedAt)}
+                {formatDate(webhook.updatedAt)}
               </ThemedText>
             </View>
           )}

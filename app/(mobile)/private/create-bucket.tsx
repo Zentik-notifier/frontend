@@ -12,7 +12,7 @@ export default function CreateBucketScreen() {
   return (
     <ThemedView style={styles.container}>
       <RefreshableScrollView style={styles.content} onRefresh={handleRefresh}>
-        {(refreshing: boolean) => <CreateBucketForm refreshing={refreshing} />}
+        {() => <CreateBucketForm withHeader />}
       </RefreshableScrollView>
     </ThemedView>
   );

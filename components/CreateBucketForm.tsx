@@ -54,7 +54,6 @@ export default function CreateBucketForm({
   const [isIconEditorVisible, setIsIconEditorVisible] = useState(false);
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const isEditing = !!bucketId;
-  const showTitle = !!bucketId;
 
   const { bucket, refetch, canWrite } = useGetBucketData(bucketId);
   const { data: appConfig } = usePublicAppConfigQuery();
@@ -184,7 +183,7 @@ export default function CreateBucketForm({
 
   return (
     <ThemedView style={styles.container}>
-      {showTitle && withHeader && (
+      {withHeader && (
         <View style={styles.header}>
           <Ionicons
             name={isEditing ? "create-outline" : "folder-outline"}

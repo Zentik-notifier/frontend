@@ -1,23 +1,18 @@
-import NotificationDetail from "@/components/NotificationDetail";
+import CreateBucketForm from "@/components/CreateBucketForm";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import Icon from "@/components/ui/Icon";
 import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import React from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
-export default function TabletNotificationDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+export default function TabletCreateBucketScreen() {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
   const router = useRouter();
-
-  if (!id) {
-    return null;
-  }
 
   const handleClose = () => {
     router.back();
@@ -25,6 +20,7 @@ export default function TabletNotificationDetail() {
 
   return (
     <ThemedView style={styles.container}>
+      {/* Header with close button */}
       <View
         style={[
           styles.header,
@@ -35,7 +31,7 @@ export default function TabletNotificationDetail() {
         ]}
       >
         <ThemedText style={styles.headerTitle}>
-          {t("notificationDetail.title")}
+          {t("buckets.form.createTitle")}
         </ThemedText>
         <TouchableOpacity
           style={[
@@ -49,10 +45,14 @@ export default function TabletNotificationDetail() {
         </TouchableOpacity>
       </View>
 
-      {/* Notification detail content */}
-      <View style={styles.content}>
-        <NotificationDetail notificationId={id} onBack={handleClose} />
-      </View>
+      {/* Create bucket content */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <CreateBucketForm />
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -80,7 +80,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    paddingBottom: 40,
   },
 });

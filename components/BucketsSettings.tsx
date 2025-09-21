@@ -8,9 +8,9 @@ import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
-import { useApolloClient, Reference } from "@apollo/client";
+import { useApolloClient } from "@apollo/client";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   StyleSheet,
@@ -24,6 +24,7 @@ import SwipeableBucketItem from "./SwipeableBucketItem";
 import BucketSelector from "./BucketSelector";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
+import { useNavigationUtils } from "@/utils/navigation";
 
 interface BucketsSettingsProps {
   refreshing?: boolean;
@@ -32,8 +33,9 @@ interface BucketsSettingsProps {
 export default function BucketsSettings({
   refreshing: externalRefreshing,
 }: BucketsSettingsProps) {
-  const router = useRouter();
-  const { danglingBucketId } = useLocalSearchParams<{ danglingBucketId?: string }>();
+  const { danglingBucketId } = useLocalSearchParams<{
+    danglingBucketId?: string;
+  }>();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const {
@@ -42,6 +44,8 @@ export default function BucketsSettings({
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const apolloClient = useApolloClient();
+  const { navigateToCreateBucket, navigateToBucketsSettings } =
+    useNavigationUtils();
 
   const [showDanglingBuckets, setShowDanglingBuckets] = useState(false);
   const [showDanglingBucketModal, setShowDanglingBucketModal] = useState(false);
@@ -52,9 +56,10 @@ export default function BucketsSettings({
   const [isMigrating, setIsMigrating] = useState(false);
 
   const { data, loading, error, refetch } = useGetBucketsQuery();
-  const [createBucketMutation, { loading: creatingBucket }] = useCreateBucketMutation({
-    refetchQueries: ['GetBuckets'],
-  });
+  const [createBucketMutation, { loading: creatingBucket }] =
+    useCreateBucketMutation({
+      refetchQueries: ["GetBuckets"],
+    });
   useEffect(() => setMainLoading(loading), [loading]);
 
   const buckets = data?.buckets || [];
@@ -86,9 +91,12 @@ export default function BucketsSettings({
       const targetDanglingBucket = danglingBuckets.find(
         (item) => item.bucket.id === danglingBucketId
       );
-      
+
       if (targetDanglingBucket) {
-        console.log("🔄 Auto-opening modal for dangling bucket:", danglingBucketId);
+        console.log(
+          "🔄 Auto-opening modal for dangling bucket:",
+          danglingBucketId
+        );
         setSelectedDanglingBucket(targetDanglingBucket);
         setShowDanglingBucketModal(true);
         setShowDanglingBuckets(true); // Mostra anche la sezione dangling buckets
@@ -296,7 +304,9 @@ export default function BucketsSettings({
             try {
               // Crea il nuovo bucket utilizzando i dati del dangling bucket
               const newBucketInput = {
-                name: selectedDanglingBucket.bucket.name || `Bucket ${selectedDanglingBucket.bucket.id.slice(0, 8)}`,
+                name:
+                  selectedDanglingBucket.bucket.name ||
+                  `Bucket ${selectedDanglingBucket.bucket.id.slice(0, 8)}`,
                 icon: selectedDanglingBucket.bucket.icon,
                 description: selectedDanglingBucket.bucket.description,
                 color: selectedDanglingBucket.bucket.color || "#0a7ea4",
@@ -304,7 +314,10 @@ export default function BucketsSettings({
                 isPublic: false,
               };
 
-              console.log("🔄 Creating new bucket from dangling bucket:", newBucketInput);
+              console.log(
+                "🔄 Creating new bucket from dangling bucket:",
+                newBucketInput
+              );
 
               const result = await createBucketMutation({
                 variables: { input: newBucketInput },
@@ -333,7 +346,7 @@ export default function BucketsSettings({
                 setSelectedDanglingBucket(null);
                 // Pulisce il parametro URL se presente
                 if (danglingBucketId) {
-                  router.replace("/(mobile)/private/buckets-settings");
+                  navigateToBucketsSettings();
                 }
 
                 // Refresh notifications and buckets
@@ -346,7 +359,8 @@ export default function BucketsSettings({
               Alert.alert(
                 t("buckets.bucketCreationError"),
                 t("buckets.bucketCreationErrorMessage", {
-                  error: error instanceof Error ? error.message : "Unknown error",
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
                 })
               );
             } finally {
@@ -397,7 +411,7 @@ export default function BucketsSettings({
                     : Colors[colorScheme ?? "light"].tint,
               },
             ]}
-            onPress={() => router.push("/(mobile)/private/create-bucket")}
+            onPress={() => navigateToCreateBucket()}
             disabled={isOfflineAuth || isBackendUnreachable}
           >
             <Ionicons name="add" size={24} color="white" />
@@ -536,7 +550,7 @@ export default function BucketsSettings({
             setShowDanglingBucketModal(false);
             // Pulisce il parametro URL se presente
             if (danglingBucketId) {
-              router.replace("/(mobile)/private/buckets-settings");
+              navigateToBucketsSettings();
             }
           }
         }}
@@ -550,7 +564,9 @@ export default function BucketsSettings({
               ]}
             >
               {isMigrating
-                ? (creatingBucket ? t("buckets.creatingBucket") : t("buckets.migrating"))
+                ? creatingBucket
+                  ? t("buckets.creatingBucket")
+                  : t("buckets.migrating")
                 : t("buckets.danglingBucketAction")}
             </ThemedText>
             <TouchableOpacity
@@ -563,7 +579,7 @@ export default function BucketsSettings({
                   setShowDanglingBucketModal(false);
                   // Pulisce il parametro URL se presente
                   if (danglingBucketId) {
-                    router.replace("/(mobile)/private/buckets-settings");
+                    navigateToBucketsSettings();
                   }
                 }
               }}
@@ -636,9 +652,9 @@ export default function BucketsSettings({
                   ]}
                 >
                   {isMigrating
-                    ? (creatingBucket 
-                        ? t("buckets.creatingBucketDescription")
-                        : t("buckets.migratingDescription"))
+                    ? creatingBucket
+                      ? t("buckets.creatingBucketDescription")
+                      : t("buckets.migratingDescription")
                     : t("buckets.danglingBucketActionDescription", {
                         count: selectedDanglingBucket.count,
                       })}

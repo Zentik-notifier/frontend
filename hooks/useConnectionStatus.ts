@@ -42,7 +42,7 @@ export function useConnectionStatus(skip?: boolean) {
   const errorCountRef = useRef(0);
   const pollingIntervalRef = useRef<number | null>(null);
   const isPollingRef = useRef(false);
-  const { data: userData } = useGetMeQuery();
+  const { data: userData, loading } = useGetMeQuery();
 
   // Functions to update auth state (for external use)
   const setOfflineAuth = useCallback((value: boolean) => {
@@ -61,7 +61,7 @@ export function useConnectionStatus(skip?: boolean) {
     try {
       const result = await healthcheck({ fetchPolicy: 'network-only' });
 
-      if (!userData?.me) {
+      if (!userData?.me && !loading) {
         setIsOfflineAuth(true);
         return;
       } else {

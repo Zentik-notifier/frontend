@@ -218,37 +218,6 @@ export enum EventType {
   Register = 'REGISTER'
 }
 
-export type EventsPerBucketUserAllTimeView = {
-  __typename?: 'EventsPerBucketUserAllTimeView';
-  bucketId: Scalars['String']['output'];
-  count: Scalars['Float']['output'];
-  userId: Scalars['String']['output'];
-};
-
-export type EventsPerBucketUserDailyView = {
-  __typename?: 'EventsPerBucketUserDailyView';
-  bucketId: Scalars['String']['output'];
-  count: Scalars['Float']['output'];
-  periodStart: Scalars['DateTime']['output'];
-  userId: Scalars['String']['output'];
-};
-
-export type EventsPerBucketUserMonthlyView = {
-  __typename?: 'EventsPerBucketUserMonthlyView';
-  bucketId: Scalars['String']['output'];
-  count: Scalars['Float']['output'];
-  periodStart: Scalars['DateTime']['output'];
-  userId: Scalars['String']['output'];
-};
-
-export type EventsPerBucketUserWeeklyView = {
-  __typename?: 'EventsPerBucketUserWeeklyView';
-  bucketId: Scalars['String']['output'];
-  count: Scalars['Float']['output'];
-  periodStart: Scalars['DateTime']['output'];
-  userId: Scalars['String']['output'];
-};
-
 export type EventsQueryDto = {
   limit?: InputMaybe<Scalars['Int']['input']>;
   objectId?: InputMaybe<Scalars['String']['input']>;
@@ -847,6 +816,7 @@ export type PayloadMapper = {
 /** Built-in payload mapper types */
 export enum PayloadMapperBuiltInType {
   ZentikAuthentik = 'ZentikAuthentik',
+  ZentikRailway = 'ZentikRailway',
   ZentikServarr = 'ZentikServarr'
 }
 
@@ -886,10 +856,6 @@ export type Query = {
   checkEmailStatus: EmailStatusResponseDto;
   enabledOAuthProviders: Array<OAuthProviderPublicDto>;
   events: EventsResponseDto;
-  eventsPerBucketUserAllTime: Array<EventsPerBucketUserAllTimeView>;
-  eventsPerBucketUserDaily: Array<EventsPerBucketUserDailyView>;
-  eventsPerBucketUserMonthly: Array<EventsPerBucketUserMonthlyView>;
-  eventsPerBucketUserWeekly: Array<EventsPerBucketUserWeeklyView>;
   getBackendVersion: Scalars['String']['output'];
   getResourcePermissions: Array<EntityPermission>;
   getUserAccessTokens: Array<AccessTokenListDto>;
@@ -934,36 +900,6 @@ export type QueryCheckEmailStatusArgs = {
 
 export type QueryEventsArgs = {
   query: EventsQueryDto;
-};
-
-
-export type QueryEventsPerBucketUserAllTimeArgs = {
-  bucketId: Scalars['String']['input'];
-  userId: Scalars['String']['input'];
-};
-
-
-export type QueryEventsPerBucketUserDailyArgs = {
-  bucketId: Scalars['String']['input'];
-  endDate?: InputMaybe<Scalars['DateTime']['input']>;
-  startDate?: InputMaybe<Scalars['DateTime']['input']>;
-  userId: Scalars['String']['input'];
-};
-
-
-export type QueryEventsPerBucketUserMonthlyArgs = {
-  bucketId: Scalars['String']['input'];
-  endDate?: InputMaybe<Scalars['DateTime']['input']>;
-  startDate?: InputMaybe<Scalars['DateTime']['input']>;
-  userId: Scalars['String']['input'];
-};
-
-
-export type QueryEventsPerBucketUserWeeklyArgs = {
-  bucketId: Scalars['String']['input'];
-  endDate?: InputMaybe<Scalars['DateTime']['input']>;
-  startDate?: InputMaybe<Scalars['DateTime']['input']>;
-  userId: Scalars['String']['input'];
 };
 
 
@@ -1363,6 +1299,9 @@ export type UserSetting = {
 };
 
 export enum UserSettingType {
+  ExpoKey = 'ExpoKey',
+  HomeassistantToken = 'HomeassistantToken',
+  HomeassistantUrl = 'HomeassistantUrl',
   Language = 'Language',
   Timezone = 'Timezone',
   UnencryptOnBigPayload = 'UnencryptOnBigPayload'

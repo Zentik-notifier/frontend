@@ -3,19 +3,17 @@ import { ThemedView } from "@/components/ThemedView";
 import Icon from "@/components/ui/Icon";
 import { Colors } from "@/constants/Colors";
 import { IconName } from "@/constants/Icons";
+import { useDeviceType } from "@/hooks/useDeviceType";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
-import { useNavigationUtils } from "@/utils/navigation";
-import { usePathname, useRouter } from "expo-router";
-import { Slot } from "expo-router";
-import React from "react";
+import { Slot, usePathname, useRouter, useSegments } from "expo-router";
+import React, { useMemo } from "react";
 import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  useWindowDimensions,
-  View,
+  View
 } from "react-native";
 
 interface SettingsOption {
@@ -31,12 +29,15 @@ export default function TabletSettingsLayout() {
   const { userId } = useAppContext();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-  const { width } = useWindowDimensions();
-  const pathname = usePathname();
+  const { isDesktop, isTablet } = useDeviceType();
+  const segments = useSegments();
   const router = useRouter();
+  const pathnameSrc = usePathname();
 
-  const isTablet = width >= 768 && width < 1024;
-  const isDesktop = width >= 1024;
+  const pathname = useMemo(() => {
+    return `/${segments.join("/")}`;
+  }, [pathnameSrc, segments]);
+
   const sidebarWidth = isDesktop ? 320 : isTablet ? 280 : 250;
 
   if (!userId) {
@@ -150,7 +151,8 @@ export default function TabletSettingsLayout() {
             <View style={styles.menuItems}>
               {settingsOptions.map((option) => {
                 const isSelected = pathname.includes(option.route);
-                
+                console.log(option.route, pathname);
+
                 return (
                   <TouchableOpacity
                     key={option.id}

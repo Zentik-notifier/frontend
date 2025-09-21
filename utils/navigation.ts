@@ -23,15 +23,47 @@ export function useNavigationUtils() {
             }
         },
 
-        navigateToEditBucket: (bucketId: string, fromHome: boolean) => {
+        navigateToEditBucket: (bucketId: string, fromHome: boolean = true) => {
             if (isTabletOrDesktop) {
-                if(fromHome) {
+                if (fromHome) {
                     router.push(`/(tablet)/private/(home)/edit-bucket/${bucketId}`);
                 } else {
-                    // router.push(`/(tablet)/private/(settings)/edit-bucket/${bucketId}`);
+                    router.push(`/(tablet)/private/(settings)/edit-bucket/${bucketId}`);
                 }
             } else {
                 router.push(`/(mobile)/private/edit-bucket?bucketId=${bucketId}`);
+            }
+        },
+
+        navigateToCreateBucket: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(settings)/create-bucket");
+            } else {
+                router.push("/(mobile)/private/create-bucket");
+            }
+        },
+
+        navigateToCreateAccessToken: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(settings)/create-access-token");
+            } else {
+                router.push("/(mobile)/private/create-access-token");
+            }
+        },
+
+        navigateToCreateWebhook: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(settings)/create-webhook");
+            } else {
+                router.push("/(mobile)/private/create-webhook");
+            }
+        },
+
+        navigateToEditWebhook: (webhookId: string) => {
+            if (isTabletOrDesktop) {
+                router.push(`/(tablet)/private/(settings)/edit-webhook/${webhookId}`);
+            } else {
+                router.push(`/(mobile)/private/edit-webhook?id=${webhookId}`);
             }
         },
 

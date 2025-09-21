@@ -48,8 +48,8 @@ export default function TabletPrivateLayout() {
         options={{
           headerShown: true,
           headerShadowVisible: false,
-          headerBackVisible: false,
-          header: () => <Header />,
+          headerBackVisible: true,
+          headerBackTitle: t("common.back"),
           animationTypeForReplace: "push",
           gestureEnabled: false,
         }}
@@ -58,22 +58,8 @@ export default function TabletPrivateLayout() {
       {/* ADMIN */}
       <Stack.Screen name="admin" options={{ headerShown: true }} />
 
-      {/* Tutte le altre pagine rimangono uguali al mobile */}
-      <Stack.Screen name="app-settings" options={{ headerShown: true }} />
-      <Stack.Screen name="user-profile" options={{ headerShown: true }} />
+      {/* Pages not yet moved to submodules */}
       <Stack.Screen name="change-password" options={{ headerShown: true }} />
-      <Stack.Screen name="buckets-settings" options={{ headerShown: true }} />
-      <Stack.Screen name="create-bucket" options={{ headerShown: true }} />
-      <Stack.Screen name="edit-bucket" options={{ headerShown: true }} />
-      <Stack.Screen name="logs" options={{ headerShown: true }} />
-      <Stack.Screen name="access-tokens-settings" options={{ headerShown: true }} />
-      <Stack.Screen name="create-access-token" options={{ headerShown: true }} />
-      <Stack.Screen name="devices-settings" options={{ headerShown: true }} />
-      <Stack.Screen name="notifications-settings" options={{ headerShown: true }} />
-      <Stack.Screen name="user-sessions-settings" options={{ headerShown: true }} />
-      <Stack.Screen name="webhooks-settings" options={{ headerShown: true }} />
-      <Stack.Screen name="create-webhook" options={{ headerShown: true }} />
-      <Stack.Screen name="edit-webhook" options={{ headerShown: true }} />
       <Stack.Screen name="user-management" options={{ headerShown: true }} />
       <Stack.Screen name="user-details" options={{ headerShown: true }} />
       <Stack.Screen name="system-access-tokens" options={{ headerShown: true }} />
@@ -82,7 +68,6 @@ export default function TabletPrivateLayout() {
       <Stack.Screen name="oauth-providers" options={{ headerShown: true }} />
       <Stack.Screen name="create-oauth-provider" options={{ headerShown: true }} />
       <Stack.Screen name="events-review" options={{ headerShown: true }} />
-      <Stack.Screen name="bucket-detail" options={{ headerShown: true }} />
     </Stack>
   );
 }

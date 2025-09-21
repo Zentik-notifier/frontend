@@ -10,13 +10,12 @@ import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import SwipeableItem from "./SwipeableItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
-import { AppLoader } from "./ui/AppLoader";
+import { useNavigationUtils } from "@/utils/navigation";
 
 interface AccessTokensSettingsProps {
   refreshing?: boolean;
@@ -26,7 +25,7 @@ export function AccessTokensSettings({
   refreshing,
 }: AccessTokensSettingsProps) {
   const colorScheme = useColorScheme();
-  const router = useRouter();
+  const { navigateToCreateAccessToken } = useNavigationUtils();
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
   const {
@@ -161,7 +160,7 @@ export function AccessTokensSettings({
                 : Colors[colorScheme ?? "light"].tint,
             },
           ]}
-          onPress={() => router.push("/(mobile)/private/create-access-token")}
+          onPress={() => navigateToCreateAccessToken()}
           disabled={disabledAdd}
         >
           <Ionicons

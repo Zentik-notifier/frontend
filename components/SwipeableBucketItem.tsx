@@ -13,6 +13,7 @@ import SwipeableItem from "./SwipeableItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import Icon from "./ui/Icon";
+import { useNavigationUtils } from "@/utils/navigation";
 
 interface SwipeableBucketItemProps {
   bucket: BucketWithDevicesFragment;
@@ -27,7 +28,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
 }) => {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-  const router = useRouter();
+  const { navigateToEditBucket } = useNavigationUtils();
 
   // Use the bucket permissions hook to check permissions
   const { canDelete, isSharedWithMe, sharedCount } = useGetBucketData(
@@ -36,7 +37,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const editBucket = (bucketId: string) => {
-    router.push(`/(mobile)/private/edit-bucket?bucketId=${bucketId}`);
+    navigateToEditBucket(bucketId, false);
   };
 
   const copyBucketId = async () => {

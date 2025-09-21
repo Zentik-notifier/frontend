@@ -34,6 +34,7 @@ export default function GallerySection() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [fullscreenIndex, setFullscreenIndex] = useState<number>(-1);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
   const { cacheStats, cachedItems, updateStats } = useGetCacheStats();
   const [selectedMediaTypes, setSelectedMediaTypes] = useState<Set<MediaType>>(
     new Set([MediaType.Image, MediaType.Video, MediaType.Gif, MediaType.Audio])
@@ -41,11 +42,18 @@ export default function GallerySection() {
   const numColumns = userSettings.settings.gallery.gridSize;
 
   const itemWidth = useMemo(() => {
-    const screenWidth = Dimensions.get("window").width;
+    if (containerWidth === 0) {
+      // Fallback to screen width if container width is not available yet
+      const screenWidth = Dimensions.get("window").width;
+      const horizontalPadding = 32; // 16px padding on each side
+      const availableWidth = screenWidth - horizontalPadding;
+      return availableWidth / numColumns;
+    }
+    
     const horizontalPadding = 32; // 16px padding on each side
-    const availableWidth = screenWidth - horizontalPadding;
+    const availableWidth = containerWidth - horizontalPadding;
     return availableWidth / numColumns;
-  }, [numColumns]);
+  }, [numColumns, containerWidth]);
 
   const { filteredMedia, sections, flatOrder } = useMemo(() => {
     const allWithIds = cachedItems.map((item, index) => ({
@@ -645,7 +653,13 @@ export default function GallerySection() {
   };
 
   return (
-    <>
+    <ThemedView 
+      style={styles.container}
+      onLayout={(event) => {
+        const { width } = event.nativeEvent.layout;
+        setContainerWidth(width);
+      }}
+    >
       {selectionMode && renderSelectionBar()}
       {!selectionMode && (
         <GalleryFilters
@@ -708,11 +722,14 @@ export default function GallerySection() {
           currentPosition={`${fullscreenIndex + 1} / ${flatOrder.length}`}
         />
       )}
-    </>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   galleryContainer: {
     paddingHorizontal: 16,
     paddingBottom: 80,

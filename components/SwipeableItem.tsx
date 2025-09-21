@@ -27,8 +27,8 @@ const closeAllMenus = () => {
   });
 };
 
+// Fallback to screen width if container width is not available
 const { width: screenWidth } = Dimensions.get("window");
-const SWIPE_THRESHOLD = screenWidth * 0.3; // 30% of screen width
 
 export interface SwipeAction {
   icon: keyof typeof AppIcons;
@@ -77,8 +77,12 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     direction: "left" | "right";
     action: SwipeAction;
   } | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(screenWidth);
   const colorScheme = useColorScheme();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+  
+  // Calculate swipe threshold based on container width
+  const SWIPE_THRESHOLD = containerWidth * 0.3; // 30% of container width
 
   // Listen to translateX changes to update swipe direction
   React.useEffect(() => {
@@ -248,6 +252,10 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
         { marginBottom, marginHorizontal },
         containerStyle,
       ]}
+      onLayout={(event) => {
+        const { width } = event.nativeEvent.layout;
+        setContainerWidth(width);
+      }}
     >
       {/* Full background overlay during active swipe or action */}
       {currentSwipeDirection === "right" && leftAction && (

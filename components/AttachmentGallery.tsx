@@ -7,7 +7,6 @@ import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import React, { useRef, useState } from "react";
 import {
-  Dimensions,
   FlatList,
   StyleSheet,
   TouchableOpacity,
@@ -17,8 +16,6 @@ import { CachedMedia } from "./CachedMedia";
 import { MediaTypeIcon } from "./MediaTypeIcon";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
-
-const { width: screenWidth } = Dimensions.get("window");
 
 interface AttachmentGalleryProps {
   attachments: NotificationAttachmentDto[];
@@ -36,6 +33,7 @@ interface AttachmentItemProps {
   isSingle?: boolean;
   isSelected?: boolean;
   notificationDate: number;
+  containerWidth?: number;
 }
 
 const AttachmentItem: React.FC<AttachmentItemProps> = ({
@@ -44,10 +42,29 @@ const AttachmentItem: React.FC<AttachmentItemProps> = ({
   isSingle,
   isSelected,
   notificationDate,
+  containerWidth = 0,
 }) => {
-  const containerStyle = [styles.attachmentContainer];
+  const getDynamicItemStyles = (containerWidth: number) => {
+    if (containerWidth === 0) return {};
+    
+    return {
+      attachmentContainer: {
+        width: "100%",
+        height: containerWidth * 0.4,
+        borderRadius: 12,
+        overflow: "hidden" as const,
+        position: "relative" as const,
+      },
+      singleAttachmentContainer: {
+        height: containerWidth * 0.6, // Larger height for single attachment
+      },
+    };
+  };
+
+  const dynamicItemStyles = getDynamicItemStyles(containerWidth);
+  const containerStyle = [styles.attachmentContainer, dynamicItemStyles.attachmentContainer];
   const singleAttachmentStyle = isSingle
-    ? [styles.singleAttachmentContainer]
+    ? [styles.singleAttachmentContainer, dynamicItemStyles.singleAttachmentContainer]
     : [];
   const finalContainerStyle = [...containerStyle, ...singleAttachmentStyle];
 
@@ -103,6 +120,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   const colorScheme = useColorScheme() ?? "light";
   const { t } = useI18n();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
   const flatListRef = useRef<FlatList<NotificationAttachmentDto>>(null);
 
   if (!attachments || attachments.length === 0) {
@@ -126,6 +144,32 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
     );
   };
 
+  const getDynamicStyles = (containerWidth: number) => {
+    if (containerWidth === 0) return {};
+    
+    return {
+      itemContainer: {
+        width: containerWidth * 0.4,
+      },
+      singleItemContainer: {
+        width: containerWidth - 32, // Account for container padding
+        paddingHorizontal: 16, // Internal padding for content
+      },
+      attachmentContainer: {
+        width: "100%",
+        height: containerWidth * 0.4,
+        borderRadius: 12,
+        overflow: "hidden" as const,
+        position: "relative" as const,
+      },
+      singleAttachmentContainer: {
+        height: containerWidth * 0.6, // Larger height for single attachment
+      },
+    };
+  };
+
+  const dynamicStyles = getDynamicStyles(containerWidth);
+
   const renderAttachment = ({
     item,
     index,
@@ -133,17 +177,26 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
     item: NotificationAttachmentDto;
     index: number;
   }) => (
-    <AttachmentItem
-      attachment={item}
-      onPress={() => handleAttachmentPress(item)}
-      isSingle
-      isSelected={currentIndex === index}
-      notificationDate={notificationDate}
-    />
+    <View style={[styles.singleItemContainer, dynamicStyles.singleItemContainer]}>
+      <AttachmentItem
+        attachment={item}
+        onPress={() => handleAttachmentPress(item)}
+        isSingle
+        isSelected={currentIndex === index}
+        notificationDate={notificationDate}
+        containerWidth={containerWidth}
+      />
+    </View>
   );
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView 
+      style={styles.container}
+      onLayout={(event) => {
+        const { width } = event.nativeEvent.layout;
+        setContainerWidth(width);
+      }}
+    >
       <View style={styles.headerContainer}>
         <ThemedText style={styles.sectionTitle}>
           {t("attachmentGallery.attachments", { count: attachments.length })}
@@ -198,15 +251,17 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           setCurrentIndex(-1);
         }}
         onMomentumScrollEnd={(event) => {
-          const newIndex = Math.round(
-            event.nativeEvent.contentOffset.x / (screenWidth - 32)
-          );
-          setCurrentIndex(newIndex);
+          if (containerWidth > 0) {
+            const newIndex = Math.round(
+              event.nativeEvent.contentOffset.x / (containerWidth - 32)
+            );
+            setCurrentIndex(newIndex);
+          }
         }}
         pagingEnabled={true}
         scrollEnabled={true}
         decelerationRate="fast"
-        snapToInterval={screenWidth - 32}
+        snapToInterval={containerWidth > 0 ? containerWidth - 32 : undefined}
         snapToAlignment="start"
       />
 
@@ -300,21 +355,21 @@ const styles = StyleSheet.create({
     width: 12,
   },
   itemContainer: {
-    width: screenWidth * 0.4,
+    // Dynamic width will be set via getDynamicStyles
   },
   singleItemContainer: {
-    width: screenWidth - 32, // Account for container padding
-    paddingHorizontal: 16, // Internal padding for content
+    // Dynamic width and padding will be set via getDynamicStyles
+    paddingHorizontal: 0, // Will be overridden by dynamic styles
   },
   attachmentContainer: {
     width: "100%",
-    height: screenWidth * 0.4,
+    // Dynamic height will be set via getDynamicItemStyles
     borderRadius: 12,
     overflow: "hidden",
     position: "relative",
   },
   singleAttachmentContainer: {
-    height: screenWidth * 0.6, // Larger height for single attachment
+    // Dynamic height will be set via getDynamicItemStyles
   },
   image: {
     width: "100%",

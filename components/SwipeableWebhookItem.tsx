@@ -8,8 +8,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { getHttpMethodColor } from "@/utils/webhookUtils";
-import { useRouter } from "expo-router";
-import * as Clipboard from 'expo-clipboard';
+import * as Clipboard from "expo-clipboard";
 import React from "react";
 import {
   Alert,
@@ -23,6 +22,7 @@ import SwipeableItem from "./SwipeableItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import Icon from "./ui/Icon";
+import { useNavigationUtils } from "@/utils/navigation";
 
 interface SwipeableWebhookItemProps {
   webhook: UserWebhookFragment;
@@ -34,7 +34,7 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const { formatDate } = useDateFormat();
-  const router = useRouter();
+  const { navigateToEditWebhook } = useNavigationUtils();
   const {
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
@@ -42,7 +42,7 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
   const [deleteWebhookMutation] = useDeleteWebhookMutation();
 
   const handleEditWebhook = (webhookId: string) => {
-    router.push(`/(mobile)/private/edit-webhook?webhookId=${webhookId}`);
+    navigateToEditWebhook(webhookId);
   };
 
   const copyWebhookId = async () => {
@@ -94,7 +94,7 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
     : undefined;
 
   return (
-    <SwipeableItem 
+    <SwipeableItem
       rightAction={deleteAction}
       marginBottom={8}
       borderRadius={12}
@@ -128,12 +128,19 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
             <TouchableOpacity
               style={[
                 styles.copyIdButton,
-                { backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary }
+                {
+                  backgroundColor:
+                    Colors[colorScheme ?? "light"].backgroundSecondary,
+                },
               ]}
               onPress={copyWebhookId}
               activeOpacity={0.7}
             >
-              <Icon name="copy" size="sm" color={Colors[colorScheme ?? "light"].tabIconDefault} />
+              <Icon
+                name="copy"
+                size="sm"
+                color={Colors[colorScheme ?? "light"].tabIconDefault}
+              />
             </TouchableOpacity>
           </View>
 
