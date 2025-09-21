@@ -4,6 +4,7 @@ import { I18nProvider } from "@/components/I18nProvider";
 import { TermsAcceptanceScreen } from "@/components/TermsAcceptanceScreen";
 import { useUserSettings } from "@/services/user-settings";
 import { ThemeProvider, useTheme } from "@/hooks/useTheme";
+import { useDeviceType } from "@/hooks/useDeviceType";
 import { RequireAuth } from "@/services/require-auth";
 import {
   DarkTheme,
@@ -15,12 +16,7 @@ import * as Linking from "expo-linking";
 import { router, Slot, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Alert,
-  BackHandler,
-  Platform,
-  StyleSheet,
-} from "react-native";
+import { Alert, BackHandler, Platform, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -44,6 +40,7 @@ type WebAlertState = {
 
 function ThemedLayout() {
   const { colorScheme } = useTheme();
+  const { isTablet, isDesktop, isReady } = useDeviceType();
   const [webAlert, setWebAlert] = useState<WebAlertState>({ visible: false });
   const originalAlertRef = useRef<typeof Alert.alert>(null);
 
@@ -103,12 +100,22 @@ function ThemedLayout() {
 
   const handleCloseAlert = () => setWebAlert((s) => ({ ...s, visible: false }));
 
+  if (!isReady) {
+    return null;
+  }
+
   return (
     <NavigationThemeProvider
       value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
     >
-      <Stack>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+        initialRouteName={isTablet || isDesktop ? "(tablet)" : "(mobile)"}
+      >
         <Stack.Screen name="(mobile)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tablet)" options={{ headerShown: false }} />
         {/* <Stack.Screen name="+not-found" options={{ title: "" }} /> */}
       </Stack>
       <StatusBar

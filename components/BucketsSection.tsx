@@ -3,6 +3,7 @@ import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
+import { useDeviceType } from "@/hooks/useDeviceType";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo } from "react";
@@ -35,6 +36,7 @@ const BucketsSection: React.FC = () => {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
   const router = useRouter();
+  const { isTablet, isDesktop } = useDeviceType();
   const {
     data: bucketsData,
     loading: bucketsLoading,
@@ -94,7 +96,8 @@ const BucketsSection: React.FC = () => {
   }, [buckets, notifications]);
 
   const handleBucketPress = (bucketId: string) => {
-    router.push(`/(mobile)/private/bucket-detail?id=${bucketId}`);
+    const basePath = (isTablet || isDesktop) ? "/(tablet)" : "/(mobile)";
+    router.push(`${basePath}/private/bucket-detail?id=${bucketId}`);
   };
 
   const formatLastActivity = (lastNotificationAt: string | null) => {
@@ -148,7 +151,10 @@ const BucketsSection: React.FC = () => {
         {/* Floating Action Button per creare nuovo bucket */}
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: Colors[colorScheme].tint }]}
-          onPress={() => router.push("/(mobile)/private/create-bucket")}
+          onPress={() => {
+            const basePath = (isTablet || isDesktop) ? "/(tablet)" : "/(mobile)";
+            router.push(`${basePath}/private/create-bucket`);
+          }}
           activeOpacity={0.8}
         >
           <Ionicons name="add" size={24} color="white" />
@@ -286,7 +292,10 @@ const BucketsSection: React.FC = () => {
       {/* Floating Action Button per creare nuovo bucket */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: Colors[colorScheme].tint }]}
-        onPress={() => router.push("/(mobile)/private/create-bucket")}
+        onPress={() => {
+          const basePath = (isTablet || isDesktop) ? "/(tablet)" : "/(mobile)";
+          router.push(`${basePath}/private/create-bucket`);
+        }}
         activeOpacity={0.8}
       >
         <Ionicons name="add" size={24} color="white" />

@@ -64,6 +64,7 @@ export const AppIcons: Record<string, { set: keyof typeof IconSets, name: string
   // Content types
   text: { set: 'Ionicons', name: 'document-text-outline' } as const,
   image: { set: 'Ionicons', name: 'image-outline' } as const,
+  images: { set: 'Ionicons', name: 'images-outline' } as const,
   video: { set: 'Ionicons', name: 'videocam-outline' } as const,
   sound: { set: 'Ionicons', name: 'volume-high-outline' } as const,
   gif: { set: 'MaterialCommunityIcons', name: 'file-gif-box' } as const,

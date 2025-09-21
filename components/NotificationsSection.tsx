@@ -3,22 +3,33 @@ import React, { useEffect, useState } from "react";
 import NotificationsList from "./NotificationsList";
 import { NotificationFragment } from "@/generated/gql-operations-generated";
 
-export default function NotificationsSection() {
+interface NotificationsSectionProps {
+  filteredNotifications?: NotificationFragment[];
+  bucketId?: string;
+}
+
+export default function NotificationsSection({ 
+  filteredNotifications, 
+  bucketId 
+}: NotificationsSectionProps) {
   const { notifications, setMainLoading, notificationsLoading } =
     useAppContext();
 
   useEffect(() => setMainLoading(notificationsLoading), [notificationsLoading]);
+
+  // Usa le notifiche filtrate se fornite, altrimenti usa tutte le notifiche
+  const notificationsToShow = filteredNotifications || notifications;
 
   // const [paginatedNotifications, setPaginatedNotifications] = useState<
   //   NotificationFragment[]
   // >([]);
 
   // useEffect(() => {
-  //   const slicedNotifications = (notifications ?? []).slice(0, 10);
+  //   const slicedNotifications = (notificationsToShow ?? []).slice(0, 10);
 
   //   setPaginatedNotifications(slicedNotifications);
-  // }, [notifications]);
+  // }, [notificationsToShow]);
 
   // return <NotificationsList notifications={paginatedNotifications} />;
-  return <NotificationsList notifications={notifications} />;
+  return <NotificationsList notifications={notificationsToShow} />;
 }
