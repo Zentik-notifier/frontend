@@ -151,37 +151,6 @@ class NotificationService: UNNotificationServiceExtension {
       return
     }
 
-    // example for adding attachments. Will be displayed by the communication notification.
-    var attachments: [UNNotificationAttachment] = []
-
-    // Note: TODO -> Make sure that it has a file extension. Otherwise the creation of an attachment will fail and return nil.
-    let link: String? =
-      "https://fastly.picsum.photos/id/368/536/354.jpg?hmac=2b0UU6Y-8XxkiRBhatgBJ-ni3aWJ5CcVVENpX-mEiIA"  // payload["link"] as? String
-
-    // this is the attachment to display (large image one)
-    if let link = link, !link.isEmpty {
-      let url = URL(string: link)
-      let fileName = url!.lastPathComponent  // same here => we hope it contains a proper file extension.
-
-      let imageData = try? Data(contentsOf: url!)
-
-      if imageData != nil {
-        let attachment = createNotificationAttachment(
-          identifier: "media", fileName: fileName, data: imageData!, options: nil)
-
-        if attachment != nil {
-          attachments.append(attachment!)
-        }
-      }
-    }
-
-    // Add a preview to the notification.
-    // Maybe the sender attached a picture or a video.
-    // Handle attachments here before converting it to a communication notification
-    // as I had issues when trying adding attachments afterwards.
-    // Note: Those can be reused in the Notification Content Extension
-    content.attachments = attachments
-
     // profile picture that will be displayed in the notification (left side)
     let senderAvatar: INImage = INImage(imageData: senderThumbnailImageFileData)
 
