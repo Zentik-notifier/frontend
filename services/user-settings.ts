@@ -86,7 +86,6 @@ export interface UserSettings {
   notificationFilters: NotificationFilters;
 
   notificationsPreferences?: {
-    addIconOnNoMedias: boolean;
     unencryptOnBigPayload: boolean;
     markAsReadOnView?: boolean;
   };
@@ -143,7 +142,6 @@ const DEFAULT_SETTINGS: UserSettings = {
     loadOnlyVisible: false,
   },
   notificationsPreferences: {
-    addIconOnNoMedias: false,
     unencryptOnBigPayload: false,
     markAsReadOnView: true,
   },
@@ -642,8 +640,6 @@ class UserSettingsService {
       notificationsLastSeenId: stored.notificationsLastSeenId || DEFAULT_SETTINGS.notificationsLastSeenId,
       notificationFilters,
       notificationsPreferences: {
-        addIconOnNoMedias:
-          stored.notificationsPreferences?.addIconOnNoMedias ?? DEFAULT_SETTINGS.notificationsPreferences!.addIconOnNoMedias,
         unencryptOnBigPayload:
           stored.notificationsPreferences?.unencryptOnBigPayload ?? DEFAULT_SETTINGS.notificationsPreferences!.unencryptOnBigPayload,
         markAsReadOnView:
@@ -869,7 +865,6 @@ export function useUserSettings() {
     if (!list || list.length === 0) return;
     const timezoneSetting = list.find((s: any) => s?.configType === UserSettingType.Timezone);
     const languageSetting = list.find((s: any) => s?.configType === UserSettingType.Language);
-    const addIconOnNoMedias = list.find((s: any) => s?.configType === UserSettingType.AddIconOnNoMedias);
     const unencryptOnBigPayload = list.find((s: any) => s?.configType === UserSettingType.UnencryptOnBigPayload);
     const updates: Partial<UserSettings> = {};
     if (timezoneSetting?.valueText && timezoneSetting.valueText !== userSettings.getTimezone()) {
@@ -881,9 +876,6 @@ export function useUserSettings() {
     const currentPrefs = userSettings.getSettings().notificationsPreferences;
     const nextPrefs = { ...(currentPrefs || {}) } as any;
     let touchPrefs = false;
-    if (addIconOnNoMedias?.valueBool !== undefined && addIconOnNoMedias.valueBool !== currentPrefs?.addIconOnNoMedias) {
-      nextPrefs.addIconOnNoMedias = !!addIconOnNoMedias.valueBool; touchPrefs = true;
-    }
     if (unencryptOnBigPayload?.valueBool !== undefined && unencryptOnBigPayload.valueBool !== currentPrefs?.unencryptOnBigPayload) {
       nextPrefs.unencryptOnBigPayload = !!unencryptOnBigPayload.valueBool; touchPrefs = true;
     }
@@ -919,14 +911,10 @@ export function useUserSettings() {
     setNotificationFilters: userSettings.setNotificationFilters.bind(userSettings),
     setMaxCachedNotifications: userSettings.setMaxCachedNotifications.bind(userSettings),
     setMarkAsReadOnView: async (v: boolean) => {
-      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { addIconOnNoMedias: false, unencryptOnBigPayload: false, markAsReadOnView: false }), markAsReadOnView: v } });
-    },
-    setAddIconOnNoMedias: async (v: boolean) => {
-      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { addIconOnNoMedias: false, unencryptOnBigPayload: false }), addIconOnNoMedias: v } });
-      try { await upsertUserSetting({ variables: { input: { configType: UserSettingType.AddIconOnNoMedias, valueBool: v } } }); } catch { }
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { unencryptOnBigPayload: false, markAsReadOnView: false }), markAsReadOnView: v } });
     },
     setUnencryptOnBigPayload: async (v: boolean) => {
-      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { addIconOnNoMedias: false, unencryptOnBigPayload: false }), unencryptOnBigPayload: v } });
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { unencryptOnBigPayload: false }), unencryptOnBigPayload: v } });
       try { await upsertUserSetting({ variables: { input: { configType: UserSettingType.UnencryptOnBigPayload, valueBool: v } } }); } catch { }
     },
     resetSettings: userSettings.resetSettings.bind(userSettings),

@@ -1363,7 +1363,6 @@ export type UserSetting = {
 };
 
 export enum UserSettingType {
-  AddIconOnNoMedias = 'AddIconOnNoMedias',
   Language = 'Language',
   Timezone = 'Timezone',
   UnencryptOnBigPayload = 'UnencryptOnBigPayload'

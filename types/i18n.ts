@@ -274,8 +274,6 @@ export interface TranslationKey {
       description: string;
       maxStoredTitle: string;
       maxStoredDescription: string;
-      addIconOnNoMedias: string;
-      addIconOnNoMediasDescription: string;
       unencryptOnBigPayload: string;
       unencryptOnBigPayloadDescription: string;
       markAsReadOnView: string;

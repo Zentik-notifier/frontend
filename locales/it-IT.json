@@ -100,8 +100,6 @@
       "description": "Impostazioni di memorizzazione locale e preferenze per le notifiche",
       "maxStoredTitle": "Notifiche massime da conservare",
       "maxStoredDescription": "Mantieni al massimo questo numero di notifiche in locale",
-      "addIconOnNoMedias": "Aggiungi icona se senza media",
-      "addIconOnNoMediasDescription": "Aggiunge automaticamente l'icona del bucket se la notifica non ha allegati",
       "unencryptOnBigPayload": "Non cifrare payload grandi",
       "unencryptOnBigPayloadDescription": "Invia payload non cifrati quando superano una certa dimensione",
       "markAsReadOnView": "Segna come letta alla visualizzazione",

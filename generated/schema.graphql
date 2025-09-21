@@ -923,7 +923,6 @@ type UserSetting {
 }
 
 enum UserSettingType {
-  AddIconOnNoMedias
   Language
   Timezone
   UnencryptOnBigPayload

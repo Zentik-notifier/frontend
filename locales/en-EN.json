@@ -100,8 +100,6 @@
       "description": "Local storage and preferences for notifications",
       "maxStoredTitle": "Max notifications to keep",
       "maxStoredDescription": "Keep at most this number of notifications locally",
-      "addIconOnNoMedias": "Add icon when no media",
-      "addIconOnNoMediasDescription": "Automatically adds the bucket icon when the notification has no attachments",
       "unencryptOnBigPayload": "Don't encrypt large payloads",
       "unencryptOnBigPayloadDescription": "Send payloads unencrypted when they exceed a certain size",
       "markAsReadOnView": "Mark as read on view",

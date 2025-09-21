@@ -30,7 +30,6 @@ export default function UnifiedCacheSettings() {
   const { t } = useI18n();
   const {
     settings,
-    setAddIconOnNoMedias,
     setUnencryptOnBigPayload,
     setMarkAsReadOnView,
   } = useUserSettings();
@@ -673,44 +672,6 @@ export default function UnifiedCacheSettings() {
       </View>
 
       {/* Notifications preferences */}
-      {/* <View
-        style={[
-          styles.settingRow,
-          { backgroundColor: Colors[colorScheme].backgroundCard },
-        ]}
-      >
-        <View style={styles.settingInfo}>
-          <View style={styles.settingTextContainer}>
-            <ThemedText
-              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
-            >
-              {t("appSettings.notifications.addIconOnNoMedias")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.settingDescription,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("appSettings.notifications.addIconOnNoMediasDescription")}
-            </ThemedText>
-          </View>
-        </View>
-        <Switch
-          value={!!settings.notificationsPreferences?.addIconOnNoMedias}
-          onValueChange={setAddIconOnNoMedias}
-          thumbColor={
-            !!settings.notificationsPreferences?.addIconOnNoMedias
-              ? Colors[colorScheme].tint
-              : Colors[colorScheme].textSecondary
-          }
-          trackColor={{
-            false: Colors[colorScheme].border,
-            true: Colors[colorScheme].tint + "40",
-          }}
-        />
-      </View> */}
-
       <View
         style={[
           styles.settingRow,
