@@ -343,7 +343,7 @@ export default function CreateBucketForm({
                 <Image
                   source={{ uri: bucketIcon }}
                   style={styles.previewIcon}
-                  resizeMode="contain"
+                  contentFit="contain"
                   onError={() => {
                     // If image fails to load, it will show the color indicator as fallback
                   }}
