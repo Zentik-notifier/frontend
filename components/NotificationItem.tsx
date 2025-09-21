@@ -47,8 +47,6 @@ export function getNotificationItemHeight(
   isCompactMode: boolean
 ): number {
   const message = notification.message;
-  const actions = filteredActions(notification);
-  const hasActions = actions.length > 0;
   const hasMedia = (message?.attachments ?? []).some((a) =>
     [MediaType.Image, MediaType.Gif, MediaType.Video, MediaType.Audio].includes(
       a.mediaType
@@ -125,7 +123,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   onToggleSelection,
 }) => {
   const colorScheme = useColorScheme();
-  const router = useRouter();
   const { navigateToNotificationDetail } = useNavigationUtils();
   const { t } = useI18n();
   const { formatRelativeTime } = useDateFormat();
@@ -246,7 +243,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     }
   };
 
-  const itemHeight = getNotificationItemHeight(notification, isCompactMode);
+  // const itemHeight = getNotificationItemHeight(notification, isCompactMode);
   const bodyMaxLines = isCompactMode
     ? hasAttachments
       ? 1

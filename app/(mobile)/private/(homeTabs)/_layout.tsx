@@ -25,7 +25,7 @@ export default function HomeTabsLayout() {
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme].tint,
         tabBarInactiveTintColor: Colors[colorScheme].textSecondary,
-        tabBarActiveBackgroundColor: Colors[colorScheme].border,
+        // tabBarActiveBackgroundColor: Colors[colorScheme].border,
         tabBarStyle: {
           backgroundColor: Colors[colorScheme].background,
           borderTopColor: Colors[colorScheme].border,

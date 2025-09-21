@@ -9,7 +9,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
-export default function TabletNotificationDetail() {
+export default function TabletNotificationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useI18n();
   const colorScheme = useColorScheme();
@@ -20,11 +20,12 @@ export default function TabletNotificationDetail() {
   }
 
   const handleClose = () => {
-    router.back();
+    router.push("/(tablet)/private/(home)/notifications");
   };
 
   return (
     <ThemedView style={styles.container}>
+      {/* Header with close button */}
       <View
         style={[
           styles.header,
@@ -82,5 +83,16 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  placeholder: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  placeholderSubtext: {
+    fontSize: 14,
+    opacity: 0.7,
+    textAlign: "center",
   },
 });

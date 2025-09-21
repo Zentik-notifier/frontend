@@ -2,6 +2,7 @@ import { useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { useAppContext } from "../services/app-context";
 import { useDeviceType } from "@/hooks/useDeviceType";
+import { useNavigationUtils } from "@/utils/navigation";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { lastUserId, isInitializing } = useAppContext();
@@ -9,23 +10,23 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const segments = useSegments();
   const showPrivateRoutes = !!lastUserId;
   const { isTablet, isDesktop } = useDeviceType();
+  const { navigateToHome, navigateToLogin } = useNavigationUtils();
 
   useEffect(() => {
     const isPrivate = segments?.some((segment) => segment === "private");
     const isPublic = segments?.some((segment) => segment === "public");
     const isHome = segments?.some((segment) => segment === "home");
-    const rootRoute = isTablet || isDesktop ? "(tablet)" : "(mobile)";
 
     if (!showPrivateRoutes && isPrivate && !isInitializing) {
-      router.replace(`/${rootRoute}/public/login`);
+      navigateToLogin();
     }
 
     if (showPrivateRoutes && isPublic && !isHome) {
-      router.replace(`/${rootRoute}/private/home`);
+      navigateToHome();
     }
 
     if (!isPrivate && !isPublic && !isHome) {
-      router.replace(`/${rootRoute}/private/home`);
+      navigateToHome();
     }
   }, [showPrivateRoutes, segments, isInitializing]);
 

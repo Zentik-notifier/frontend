@@ -8,11 +8,19 @@ export function useNavigationUtils() {
 
     return {
         navigateToNotificationDetail: (notificationId: string) => {
-            router.push(`${basePath}/private/notification-detail?id=${notificationId}`);
+            if (isTabletOrDesktop) {
+                router.push(`/(tablet)/private/(home)/notification-detail/${notificationId}`);
+            } else {
+                router.push(`/(mobile)/private/notification-detail?id=${notificationId}`);
+            }
         },
 
         navigateToBucketDetail: (bucketId: string) => {
-            router.push(`${basePath}/private/bucket-detail?id=${bucketId}`);
+            if (isTabletOrDesktop) {
+                router.push(`/(tablet)/private/(home)/bucket/${bucketId}`);
+            } else {
+                router.push(`/(mobile)/private/bucket-detail?id=${bucketId}`);
+            }
         },
 
         navigateToSettings: () => {
@@ -24,7 +32,15 @@ export function useNavigationUtils() {
         },
 
         navigateToHome: () => {
-            router.push(`${basePath}/private/home`);
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(home)");
+            } else {
+                router.push("/(mobile)/private/(homeTabs)");
+            }
+        },
+
+        navigateToLogin: () => {
+            router.push(`${basePath}/public/login`);
         },
 
         isTabletOrDesktop,

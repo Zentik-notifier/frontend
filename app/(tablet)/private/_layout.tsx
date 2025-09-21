@@ -19,7 +19,7 @@ export default function TabletPrivateLayout() {
     >
       {/* HOME */}
       <Stack.Screen
-        name="home"
+        name="(home)"
         options={{
           headerShown: true,
           headerShadowVisible: false,
