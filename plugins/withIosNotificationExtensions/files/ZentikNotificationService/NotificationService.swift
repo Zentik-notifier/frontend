@@ -52,8 +52,7 @@ class NotificationService: UNNotificationServiceExtension {
             print(
               "📱 [NotificationService] Media processing completed, applying Communication Style...")
 
-            let payload: [AnyHashable: Any] = bestAttemptContent.userInfo
-            self._handleChatMessage(payload: payload)
+            self._handleChatMessage()
             return
             // self.applyCommunicationStyleIfPossible(content: bestAttemptContent) {
             //   print(
@@ -66,8 +65,7 @@ class NotificationService: UNNotificationServiceExtension {
         } else {
           print("📱 [NotificationService] No media attachments, applying Communication Style...")
 
-          let payload: [AnyHashable: Any] = bestAttemptContent.userInfo
-          self._handleChatMessage(payload: payload)
+          self._handleChatMessage()
           return
           // self.applyCommunicationStyleIfPossible(content: bestAttemptContent) {
           //   print(
@@ -83,33 +81,9 @@ class NotificationService: UNNotificationServiceExtension {
       contentHandler(request.content)
     }
   }
-  /// Shorthand for creating a notification attachment.
-  /// - Parameters:
-  ///   - identifier: Unique identifier for the attachment. So it can be referenced within a Notification Content extension for example.
-  ///   - fileName: The name of the file. This is the name that will be used to store the name on disk.
-  ///   - data: A Data object based on the remote url.
-  ///   - options: A dictionary of options. See Apple's documentation for more information.
-  /// - Returns: A UNNotificationAttachment object.
-  func createNotificationAttachment(
-    identifier: String, fileName: String, data: Data, options: [NSObject: AnyObject]?
-  ) -> UNNotificationAttachment? {
-    do {
-      if let fileURL: URL = downloadAttachment(data: data, fileName: fileName) {
-        let attachment: UNNotificationAttachment = try UNNotificationAttachment.init(
-          identifier: identifier, url: fileURL, options: options)
 
-        return attachment
-      }
-
-      return nil
-    } catch let error {
-      print("error \(error)")
-    }
-
-    return nil
-  }
-
-  func _handleChatMessage(payload: [AnyHashable: Any]) {
+  func _handleChatMessage() {
+    print("📱 [NotificationService] 🎭 Starting Communication Style processing...")
     guard let content = bestAttemptContent else {
       return
     }
@@ -118,25 +92,22 @@ class NotificationService: UNNotificationServiceExtension {
       return
     }
 
-    // add your custom logic here. Read the payload information and act accordingly.
-    // all following code assumes you provide this information in the payload.
+    guard let userInfo = content.userInfo as? [String: Any] else {
+      print("📱 [NotificationService] 🎭 No userInfo found, skipping Communication Style")
+      return
+    }
 
-    // let chatRoomName: String? = payload["chatRoomName"] as? String
+    print("📱 [NotificationService] 🎭 UserInfo keys: \(userInfo.keys.sorted())")
 
-    // guard let chatRoomName: String = chatRoomName, !chatRoomName.isEmpty else {
-    //     return
-    // }
+    // Extract bucket/sender fields
+    let senderId = (userInfo["bucketId"] as? String)
+    let chatRoomName = (userInfo["bucketName"] as? String)
+    let senderDisplayName = (content.title as? String)
+    // let senderDisplayName = (userInfo["bucketName"] as? String)
+    let senderThumbnail = (userInfo["bucketIconUrl"] as? String)
+    let bucketColor = (userInfo["bucketColor"] as? String)
 
-    let chatRoomName: String = "My Custom Room"  // this can be a senders name or the name of a channel or group
-
-    let senderId: String = "f91840a2-a1bd-4d7a-a7ea-b4c08f7292e0"  // use whatever value you have from your backend
-
-    let senderDisplayName: String = "Sender A"
-
-    // The avatar displayed at the top left of the message
-    let senderThumbnail: String = "https://picsum.photos/300"
-
-    guard let senderThumbnailUrl: URL = URL(string: senderThumbnail) else {
+    guard let senderThumbnailUrl: URL = URL(string: senderThumbnail!) else {
       return
     }
 
