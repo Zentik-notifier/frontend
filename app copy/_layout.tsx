@@ -70,7 +70,7 @@ function DeepLinkHandler() {
           if (refreshToken) oauthParams.set("refreshToken", refreshToken);
           if (connected) oauthParams.set("connected", connected);
           if (provider) oauthParams.set("provider", provider);
-          router.push(`/public/oauth?${oauthParams.toString()}`);
+          router.push(`/(mobile)/public/oauth?${oauthParams.toString()}`);
           return;
         }
       } catch (e) {
@@ -196,10 +196,6 @@ export default function RootLayout() {
     openSharedCacheDb().catch();
     console.log("🔄 [LayoutInit] Shared cache DB opened");
   }, []);
-
-  if (!loaded) {
-    return null;
-  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

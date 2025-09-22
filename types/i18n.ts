@@ -786,6 +786,7 @@ export interface TranslationKey {
     };
   };
   navigation: {
+    title: string;
     help: string;
     notifications: string;
     sections: {
@@ -794,6 +795,12 @@ export interface TranslationKey {
       gallery: string;
     };
     settings: string;
+    placeholder: {
+      content: string;
+      notifications: string;
+      buckets: string;
+      gallery: string;
+    };
   };
   notificationActions: {
     actionCount: string;

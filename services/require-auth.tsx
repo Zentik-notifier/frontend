@@ -1,15 +1,12 @@
-import { useRouter, useSegments } from "expo-router";
+import { useNavigationUtils } from "@/utils/navigation";
+import { useSegments } from "expo-router";
 import { useEffect } from "react";
 import { useAppContext } from "../services/app-context";
-import { useDeviceType } from "@/hooks/useDeviceType";
-import { useNavigationUtils } from "@/utils/navigation";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { lastUserId, isInitializing } = useAppContext();
-  const router = useRouter();
   const segments = useSegments();
   const showPrivateRoutes = !!lastUserId;
-  const { isTablet, isDesktop } = useDeviceType();
   const { navigateToHome, navigateToLogin } = useNavigationUtils();
 
   useEffect(() => {

@@ -9,7 +9,7 @@ export function useNavigationUtils() {
     return {
         navigateToNotificationDetail: (notificationId: string) => {
             if (isTabletOrDesktop) {
-                router.push(`/(tablet)/private/(home)/notification-detail/${notificationId}`);
+                router.push(`/home/notification-detail/${notificationId}`);
             } else {
                 router.push(`/(mobile)/private/notification-detail?id=${notificationId}`);
             }
@@ -17,21 +17,17 @@ export function useNavigationUtils() {
 
         navigateToBucketDetail: (bucketId: string) => {
             if (isTabletOrDesktop) {
-                router.push(`/(tablet)/private/(home)/bucket/${bucketId}`);
+                router.push(`/home/bucket/${bucketId}`);
             } else {
                 router.push(`/(mobile)/private/bucket-detail?id=${bucketId}`);
             }
         },
 
         navigateToEditBucket: (bucketId: string, fromHome: boolean = true) => {
-            if (isTabletOrDesktop) {
-                if (fromHome) {
-                    router.push(`/(tablet)/private/(home)/edit-bucket/${bucketId}`);
-                } else {
-                    router.push(`/(tablet)/private/(settings)/edit-bucket/${bucketId}`);
-                }
+            if (fromHome) {
+                router.push(`/home/edit-bucket/${bucketId}`);
             } else {
-                router.push(`/(mobile)/private/edit-bucket?bucketId=${bucketId}`);
+                // router.push(`private/settings/edit-bucket/${bucketId}`);
             }
         },
 
@@ -223,11 +219,12 @@ export function useNavigationUtils() {
         },
 
         navigateToHome: () => {
-            if (isTabletOrDesktop) {
-                router.push("/(tablet)/private/(home)");
-            } else {
-                router.push("/(mobile)/private/(homeTabs)");
-            }
+            router.push("/home");
+            // if (isTabletOrDesktop) {
+            //     router.push("/(tablet)/private/(home)");
+            // } else {
+            //     router.push("/(mobile)/private/(homeTabs)");
+            // }
         },
 
         navigateToLogin: (email?: string) => {

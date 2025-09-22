@@ -1205,6 +1205,7 @@
     "version": "Version {{version}}"
   },
   "navigation": {
+    "title": "Zentik",
     "notifications": "Notifications",
     "settings": "Settings",
     "help": "Help",
@@ -1212,6 +1213,12 @@
       "all": "All Notifications",
       "buckets": "Buckets",
       "gallery": "Gallery"
+    },
+    "placeholder": {
+      "content": "Content of the selected section",
+      "notifications": "Your notifications will appear here",
+      "buckets": "Your buckets will appear here",
+      "gallery": "Your media gallery will appear here"
     }
   },
   "medias": {
