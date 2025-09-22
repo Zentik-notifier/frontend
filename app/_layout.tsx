@@ -3,6 +3,7 @@ import { GraphQLProvider } from "@/components/GraphQLProvider";
 import { I18nProvider } from "@/components/I18nProvider";
 import { TermsAcceptanceScreen } from "@/components/TermsAcceptanceScreen";
 import { ThemeProvider, useTheme } from "@/hooks/useTheme";
+import { useI18n } from "@/hooks/useI18n";
 import { RequireAuth } from "@/services/require-auth";
 import { useUserSettings } from "@/services/user-settings";
 import {
@@ -12,7 +13,7 @@ import {
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import * as Linking from "expo-linking";
-import { router, Slot } from "expo-router";
+import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, BackHandler, Platform, StyleSheet } from "react-native";
@@ -23,6 +24,7 @@ import { ApiConfigService } from "../services/api-config";
 import { AppProvider, useAppContext } from "../services/app-context";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb } from "../services/media-cache-db";
+import { useDeviceType } from "@/hooks/useDeviceType";
 
 type AlertButton = {
   text?: string;
@@ -70,7 +72,7 @@ function DeepLinkHandler() {
           if (refreshToken) oauthParams.set("refreshToken", refreshToken);
           if (connected) oauthParams.set("connected", connected);
           if (provider) oauthParams.set("provider", provider);
-          router.push(`/public/oauth?${oauthParams.toString()}`);
+          router.push(`/(auth)/oauth?${oauthParams.toString()}`);
           return;
         }
       } catch (e) {
@@ -123,6 +125,71 @@ function TermsGuard({ children }: { children: React.ReactNode }) {
   }
 
   return null;
+}
+
+function AppStack() {
+  const { t } = useI18n();
+  const { isMobile } = useDeviceType();
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        headerTitle: "",
+        headerBackTitle: t("common.back"),
+        animation: "slide_from_right",
+        gestureEnabled: true,
+        gestureDirection: "horizontal",
+      }}
+    >
+      {/* AUTH */}
+      <Stack.Screen
+        name="(auth)"
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+        }}
+      />
+
+      {/* HOME */}
+      <Stack.Screen
+        name="home"
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+        }}
+      />
+
+      {/* HOME TABS */}
+      <Stack.Screen
+        name="(homeTabs)"
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+        }}
+      />
+
+      {/* SETTINGS */}
+      <Stack.Screen
+        name="settings"
+        options={{
+          headerShown: !isMobile,
+        }}
+      />
+
+      {/* NOTIFICATION DETAIL */}
+      <Stack.Screen
+        name="notification-detail"
+        options={{
+          headerShown: false,
+          presentation: "modal",
+          gestureEnabled: true,
+          gestureDirection: "vertical",
+          animation: "slide_from_bottom",
+        }}
+      />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {
@@ -212,7 +279,7 @@ export default function RootLayout() {
                   <DeepLinkHandler />
                   <RequireAuth>
                     <ThemedLayout>
-                      <Slot />
+                      <AppStack />
                       <StatusBar
                         style="auto"
                         backgroundColor="transparent"

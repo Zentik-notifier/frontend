@@ -150,7 +150,7 @@ const BucketsSection: React.FC = () => {
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: Colors[colorScheme].tint }]}
           onPress={() => {
-            navigateToCreateBucket();
+            navigateToCreateBucket(true);
           }}
           activeOpacity={0.8}
         >
@@ -290,7 +290,7 @@ const BucketsSection: React.FC = () => {
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: Colors[colorScheme].tint }]}
         onPress={() => {
-          navigateToCreateBucket();
+          navigateToCreateBucket(true);
         }}
         activeOpacity={0.8}
       >

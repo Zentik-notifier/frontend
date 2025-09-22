@@ -31,7 +31,7 @@ export default function HomeLayout() {
           }}
         />
         <Stack.Screen
-          name="notification-detail/[id]"
+          name="notification/[id]"
           options={{
             presentation: "modal",
             headerShown: false,
@@ -46,7 +46,15 @@ export default function HomeLayout() {
           }}
         />
         <Stack.Screen
-          name="edit-bucket/[id]"
+          name="bucket-setting/[id]"
+          options={{
+            headerShown: true,
+            headerTitle: "",
+            headerBackTitle: t("common.back"),
+          }}
+        />
+        <Stack.Screen
+          name="bucket-setting/create"
           options={{
             headerShown: true,
             headerTitle: "",

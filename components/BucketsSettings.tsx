@@ -411,7 +411,7 @@ export default function BucketsSettings({
                     : Colors[colorScheme ?? "light"].tint,
               },
             ]}
-            onPress={() => navigateToCreateBucket()}
+            onPress={() => navigateToCreateBucket(false)}
             disabled={isOfflineAuth || isBackendUnreachable}
           >
             <Ionicons name="add" size={24} color="white" />

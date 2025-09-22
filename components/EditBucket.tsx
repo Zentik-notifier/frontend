@@ -9,6 +9,7 @@ import { Colors } from "@/constants/Colors";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
+import { Stack } from "expo-router";
 import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
 

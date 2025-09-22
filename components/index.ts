@@ -5,7 +5,6 @@ export { ThemedView } from './ThemedView';
 export { default as Icon } from './ui/Icon';
 
 // Layout Components
-export { default as HomeHeader } from './HomeHeader';
 export { PageTemplate } from './PageTemplate';
 export { default as SectionHeader } from './SectionHeader';
 

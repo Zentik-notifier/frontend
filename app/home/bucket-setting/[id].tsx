@@ -7,7 +7,7 @@ import { useDeviceType } from "@/hooks/useDeviceType";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
-import { useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
@@ -28,6 +28,7 @@ export default function EditBucketPage() {
 
   return (
     <ThemedView style={styles.container}>
+      <Stack.Screen options={{ title: 'ok', headerShown: true }} />
       {/* Header with close button */}
       {!isMobile && (
         <View

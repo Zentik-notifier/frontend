@@ -1,19 +1,10 @@
-import React from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
 import BucketDetail from "@/components/BucketDetail";
-import Icon from "@/components/ui/Icon";
-import { Colors } from "@/constants/Colors";
-import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
-import { useDeviceType } from "@/hooks/useDeviceType";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useLocalSearchParams } from "expo-router";
+import React from "react";
+import { StyleSheet } from "react-native";
 
 export default function BucketDetailPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t } = useI18n();
 
   if (!id) {
     return null;
