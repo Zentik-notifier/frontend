@@ -3,8 +3,8 @@ import {
   CreateBucketDto,
   UpdateBucketDto,
   useCreateBucketMutation,
-  useUpdateBucketMutation,
   usePublicAppConfigQuery,
+  useUpdateBucketMutation,
 } from "@/generated/gql-operations-generated";
 import { useGetBucketData } from "@/hooks";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -33,13 +33,9 @@ const defaultColor = "#0a7ea4";
 
 interface CreateBucketFormProps {
   bucketId?: string;
-  withHeader?: boolean;
 }
 
-export default function CreateBucketForm({
-  bucketId,
-  withHeader,
-}: CreateBucketFormProps) {
+export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
@@ -183,26 +179,6 @@ export default function CreateBucketForm({
 
   return (
     <ThemedView style={styles.container}>
-      {withHeader && (
-        <View style={styles.header}>
-          <Ionicons
-            name={isEditing ? "create-outline" : "folder-outline"}
-            size={48}
-            color={Colors[colorScheme ?? "light"].tint}
-          />
-          <ThemedText style={styles.title}>
-            {isEditing
-              ? t("buckets.form.editTitle")
-              : t("buckets.form.createTitle")}
-          </ThemedText>
-          <ThemedText style={styles.description}>
-            {isEditing
-              ? t("buckets.form.editDescription")
-              : t("buckets.form.createDescription")}
-          </ThemedText>
-        </View>
-      )}
-
       <ThemedView
         style={[
           styles.formContainer,

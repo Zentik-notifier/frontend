@@ -6,7 +6,7 @@ import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { useUserSettings, userSettings } from "@/services/user-settings";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useNavigationUtils } from "@/utils/navigation";
 import * as Clipboard from "expo-clipboard";
 import React, { useMemo, useState } from "react";
@@ -281,6 +281,12 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
 
   return (
     <ThemedView style={styles.container}>
+      <Stack.Screen
+        options={{
+          title: bucket?.name,
+          headerShown: true,
+        }}
+      />
       {/* Sticky Header with Bucket Info */}
       <View style={styles.stickyHeader}>{renderBucketHeader()}</View>
 

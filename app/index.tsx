@@ -1,5 +1,12 @@
-import { Redirect } from "expo-router";
+import { useNavigationUtils } from "@/utils/navigation";
+import { useEffect } from "react";
 
 export default function Index() {
-  return <Redirect href="/home" />;
+  const { navigateToHome } = useNavigationUtils();
+
+  useEffect(() => {
+    navigateToHome();
+  }, []);
+
+  return null;
 }

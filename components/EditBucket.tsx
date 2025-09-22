@@ -6,12 +6,11 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import IconButton from "@/components/ui/IconButton";
 import { Colors } from "@/constants/Colors";
-import { useDeviceType } from "@/hooks/useDeviceType";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { Stack } from "expo-router";
 import React, { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 
 interface EditBucketProps {
   bucketId: string;
@@ -21,10 +20,8 @@ interface EditBucketProps {
 export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   const { t } = useI18n();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const { isMobile } = useDeviceType();
 
-  const { bucket, loading, error, canAdmin, refetch } =
-    useGetBucketData(bucketId);
+  const { bucket, loading, error, canAdmin } = useGetBucketData(bucketId);
 
   if (!bucketId) {
     return (
@@ -68,10 +65,16 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <RefreshableScrollView onRefresh={refetch}>
+    <ScrollView>
+      <ThemedView style={styles.container}>
+        <Stack.Screen
+          options={{
+            title: t("buckets.form.editTitle", { name: bucket?.name! }),
+            headerShown: true,
+          }}
+        />
         <View style={styles.content}>
-          <CreateBucketForm bucketId={bucketId} withHeader={isMobile} />
+          <CreateBucketForm bucketId={bucketId} />
 
           {canAdmin && (
             <View style={styles.sharingSection}>
@@ -86,16 +89,16 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
             </View>
           )}
         </View>
-      </RefreshableScrollView>
 
-      <BucketDeleteModal
-        visible={showDeleteModal}
-        bucket={bucket}
-        onClose={() => setShowDeleteModal(false)}
-        onBucketDeleted={onDeleteComplete}
-        onSharingRevoked={onDeleteComplete}
-      />
-    </ThemedView>
+        <BucketDeleteModal
+          visible={showDeleteModal}
+          bucket={bucket}
+          onClose={() => setShowDeleteModal(false)}
+          onBucketDeleted={onDeleteComplete}
+          onSharingRevoked={onDeleteComplete}
+        />
+      </ThemedView>
+    </ScrollView>
   );
 }
 

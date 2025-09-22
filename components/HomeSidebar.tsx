@@ -1,6 +1,7 @@
 import BucketIcon from "@/components/BucketIcon";
 import { Colors } from "@/constants/Colors";
 import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
+import { useDeviceType } from "@/hooks/useDeviceType";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useColorScheme } from "@/hooks/useTheme";
@@ -17,7 +18,7 @@ import {
   View,
 } from "react-native";
 
-export default function HomeDesktopLayout() {
+export default function HomeSidebar() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const { notifications } = useAppContext();
@@ -26,6 +27,7 @@ export default function HomeDesktopLayout() {
   const pathname = usePathname();
   const { navigateToHome, navigateToGallery, navigateToBucketDetail } =
     useNavigationUtils();
+  const { isDesktop } = useDeviceType();
 
   const notifCount = notifications.length;
   const galleryCount = cacheStats?.totalItems ?? 0;
@@ -36,7 +38,7 @@ export default function HomeDesktopLayout() {
   };
 
   const isBucketSelected = (bucketId: string) => {
-    return pathname === `/home/bucket/${bucketId}`;
+    return pathname === `/bucket/${bucketId}`;
   };
 
   const bucketStats = useMemo(() => {
@@ -86,7 +88,7 @@ export default function HomeDesktopLayout() {
       title: t("navigation.sections.all"),
       icon: "notifications-outline",
       count: notifCount,
-      route: "/home/notifications",
+      route: "/notifications",
       onPress: () => navigateToHome(),
     },
     {
@@ -94,7 +96,7 @@ export default function HomeDesktopLayout() {
       title: t("navigation.sections.gallery"),
       icon: "images-outline",
       count: galleryCount,
-      route: "/home/gallery",
+      route: "/gallery",
       onPress: () => navigateToGallery(),
     },
   ];
@@ -102,8 +104,10 @@ export default function HomeDesktopLayout() {
   const renderSidebar = () => (
     <View
       style={[
-        styles.sidebar,
-        { backgroundColor: Colors[colorScheme].background },
+        {
+          backgroundColor: Colors[colorScheme].background,
+          width: isDesktop ? 450 : 300,
+        },
       ]}
     >
       <ScrollView style={styles.sidebarScroll}>
@@ -232,38 +236,12 @@ export default function HomeDesktopLayout() {
     </View>
   );
 
-  return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: Colors[colorScheme].background },
-      ]}
-    >
-      {renderSidebar()}
-    </View>
-  );
+  return renderSidebar();
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    flexDirection: "row",
-  },
-  sidebar: {
-    width: 280,
-  },
   sidebarScroll: {
     flex: 1,
-  },
-  sidebarHeader: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  sidebarTitle: {
-    fontSize: 18,
-    fontWeight: "600",
   },
   sidebarItem: {
     flexDirection: "row",

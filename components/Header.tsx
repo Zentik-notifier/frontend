@@ -31,66 +31,66 @@ export default function Header() {
 
   return (
     <>
-      <SafeAreaView
-        style={[
+      {/* <SafeAreaView */}
+      {/* style={[
           styles.headerContainer,
           { backgroundColor: Colors[colorScheme ?? "light"].background }
         ]}
         edges={['top']}
-      >
-        {hasUnreadNotifications && (
-          <View style={styles.markAllButtonContainer}>
-            <TouchableOpacity
-              style={[
-                styles.markAllButton,
-                hasUnreadNotifications
-                  ? styles.markAllButtonActive
-                  : styles.markAllButtonInactive,
-              ]}
-              onPress={handleMarkAllAsRead}
-              disabled={!hasUnreadNotifications || isMarkingAllAsRead}
-              activeOpacity={0.7}
-            >
-              {isMarkingAllAsRead ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Ionicons name="checkmark-done" size={18} color="#fff" />
-              )}
-            </TouchableOpacity>
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {unreadCount > 99 ? "99+" : unreadCount.toString()}
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Download Queue Progress Icon */}
-        {inProcessing && (
-          <View style={styles.downloadQueueContainer}>
-            <TouchableOpacity
-              style={[
-                styles.downloadQueueButton,
-                styles.downloadQueueButtonActive,
-              ]}
-              activeOpacity={0.7}
-            >
+      > */}
+      {hasUnreadNotifications && (
+        <View style={styles.markAllButtonContainer}>
+          <TouchableOpacity
+            style={[
+              styles.markAllButton,
+              hasUnreadNotifications
+                ? styles.markAllButtonActive
+                : styles.markAllButtonInactive,
+            ]}
+            onPress={handleMarkAllAsRead}
+            disabled={!hasUnreadNotifications || isMarkingAllAsRead}
+            activeOpacity={0.7}
+          >
+            {isMarkingAllAsRead ? (
               <ActivityIndicator size="small" color="#fff" />
-            </TouchableOpacity>
-            <View style={styles.downloadQueueBadge}>
-              <Text style={styles.downloadQueueBadgeText}>
-                {itemsInQueue > 99 ? "99+" : itemsInQueue.toString()}
+            ) : (
+              <Ionicons name="checkmark-done" size={18} color="#fff" />
+            )}
+          </TouchableOpacity>
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadCount > 99 ? "99+" : unreadCount.toString()}
               </Text>
             </View>
-          </View>
-        )}
+          )}
+        </View>
+      )}
 
-        <StatusBadge />
-        <View style={styles.spacer} />
-        <UserDropdown />
-      </SafeAreaView>
+      {/* Download Queue Progress Icon */}
+      {inProcessing && (
+        <View style={styles.downloadQueueContainer}>
+          <TouchableOpacity
+            style={[
+              styles.downloadQueueButton,
+              styles.downloadQueueButtonActive,
+            ]}
+            activeOpacity={0.7}
+          >
+            <ActivityIndicator size="small" color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.downloadQueueBadge}>
+            <Text style={styles.downloadQueueBadgeText}>
+              {itemsInQueue > 99 ? "99+" : itemsInQueue.toString()}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      <StatusBadge />
+      {/* <View style={styles.spacer} />
+        <UserDropdown /> */}
+      {/* </SafeAreaView> */}
 
       <LoginModal visible={isLoginModalOpen} onClose={closeLoginModal} />
     </>

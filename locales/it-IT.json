@@ -280,7 +280,7 @@
       "justNow": "Proprio ora"
     },
     "form": {
-      "editTitle": "Modifica Bucket",
+      "editTitle": "Modifica bucket",
       "createTitle": "Crea Nuovo Bucket",
       "noBucketId": "Nessun ID bucket fornito",
       "bucketNotFound": "Bucket non trovato",

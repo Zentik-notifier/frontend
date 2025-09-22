@@ -10,13 +10,9 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { navigateToHome, navigateToLogin } = useNavigationUtils();
 
   useEffect(() => {
-    // const isPrivate = segments?.some((segment) =>
-    //   ["home", "settings", "admin"].includes(segment)
-    // );
-    // const isPublic = !isPrivate;
-    const isPublic = segments?.some((segment) => ["(auth)"].includes(segment));
+    const isPublic = segments[0] === "(auth)";
     const isPrivate = !isPublic;
-    const isHome = segments?.some((segment) => segment === "home");
+    const isHome = segments[0] === "(home)";
 
     if (!showPrivateRoutes && isPrivate && !isInitializing) {
       navigateToLogin();
