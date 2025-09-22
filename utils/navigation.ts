@@ -8,19 +8,11 @@ export function useNavigationUtils() {
 
     return {
         navigateToNotificationDetail: (notificationId: string) => {
-            // if (isTabletOrDesktop) {
             router.push(`/home/notification-detail/${notificationId}`);
-            // } else {
-            //     router.push(`/(mobile)/private/notification-detail?id=${notificationId}`);
-            // }
         },
 
         navigateToBucketDetail: (bucketId: string) => {
-            // if (isTabletOrDesktop) {
             router.push(`/home/bucket/${bucketId}`);
-            // } else {
-            //     router.push(`/(mobile)/private/bucket-detail?id=${bucketId}`);
-            // }
         },
 
         navigateToEditBucket: (bucketId: string, fromHome: boolean = true) => {
@@ -220,28 +212,23 @@ export function useNavigationUtils() {
 
         navigateToHome: () => {
             router.push("/home");
-            // if (isTabletOrDesktop) {
-            //     router.push("/(tablet)/private/(home)");
-            // } else {
-            //     router.push("/(mobile)/private/(homeTabs)");
-            // }
         },
 
         navigateToLogin: (email?: string) => {
-            router.push({ pathname: `${basePath}/public/login`, params: email ? { email } : undefined });
+            router.push({ pathname: `/(auth)/login`, params: email ? { email } : undefined });
         },
 
         navigateToEmailConfirmation: (props: { email?: string, code?: string }) => {
             const { code, email } = props;
-            router.push({ pathname: `${basePath}/public/email-confirmation`, params: { code, email } });
+            router.push({ pathname: `/(auth)/email-confirmation`, params: { code, email } });
         },
 
         navigateToRegister: (email?: string) => {
-            router.push({ pathname: `${basePath}/public/register`, params: email ? { email } : undefined });
+            router.push({ pathname: `/(auth)/register`, params: email ? { email } : undefined });
         },
 
         navigateToForgotPassword: (email?: string) => {
-            router.push({ pathname: `${basePath}/public/forgot-password`, params: email ? { email } : undefined });
+            router.push({ pathname: `/(auth)/forgot-password`, params: email ? { email } : undefined });
         },
 
         navigateToChangePassword: () => {
