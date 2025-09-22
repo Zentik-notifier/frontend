@@ -32,12 +32,6 @@ export default function MobileLayout() {
         }}
       />
       <Stack.Screen
-        name="(home)/bucket-setting-standalone/create"
-        options={{
-          headerTitle: t("buckets.form.createTitle"),
-        }}
-      />
-      <Stack.Screen
         name="(auth)/login"
         options={{
           headerShown: false,
@@ -57,12 +51,6 @@ export default function MobileLayout() {
       />
       <Stack.Screen
         name="(auth)/register"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/reset-password"
         options={{
           headerShown: false,
         }}

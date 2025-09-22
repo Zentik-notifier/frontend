@@ -30,12 +30,6 @@ export default function TabletLayout() {
           animation: "slide_from_bottom",
         }}
       />
-      {/* <Stack.Screen
-        name="(home)/(stack)/bucket-setting/create"
-        options={{
-          headerTitle: t("buckets.form.createTitle"),
-        }}
-      /> */}
       <Stack.Screen
         name="(auth)/login"
         options={{
@@ -56,12 +50,6 @@ export default function TabletLayout() {
       />
       <Stack.Screen
         name="(auth)/register"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/reset-password"
         options={{
           headerShown: false,
         }}

@@ -15,5 +15,9 @@ export default function NotificationDetailPage() {
     navigateToHome();
   };
 
-  return <NotificationDetail notificationId={id} onBack={handleClose} />;
+  return (
+    <>
+      <NotificationDetail notificationId={id} onBack={handleClose} />
+    </>
+  );
 }
