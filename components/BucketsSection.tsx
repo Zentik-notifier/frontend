@@ -3,9 +3,8 @@ import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
-import { useDeviceType } from "@/hooks/useDeviceType";
+import { useNavigationUtils } from "@/utils/navigation";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import React, { useEffect, useMemo } from "react";
 import {
   RefreshControl,
@@ -35,8 +34,6 @@ interface BucketStats {
 const BucketsSection: React.FC = () => {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
-  const router = useRouter();
-  const { isTablet, isDesktop } = useDeviceType();
   const {
     data: bucketsData,
     loading: bucketsLoading,
@@ -49,6 +46,8 @@ const BucketsSection: React.FC = () => {
     notificationsLoading,
   } = useAppContext();
   const buckets = bucketsData?.buckets ?? [];
+  const { navigateToCreateBucket, navigateToBucketDetail } =
+    useNavigationUtils();
 
   const loading = notificationsLoading || bucketsLoading;
 
@@ -96,8 +95,7 @@ const BucketsSection: React.FC = () => {
   }, [buckets, notifications]);
 
   const handleBucketPress = (bucketId: string) => {
-    const basePath = (isTablet || isDesktop) ? "/(tablet)" : "/(mobile)";
-    router.push(`${basePath}/private/bucket-detail?id=${bucketId}`);
+    navigateToBucketDetail(bucketId);
   };
 
   const formatLastActivity = (lastNotificationAt: string | null) => {
@@ -152,8 +150,7 @@ const BucketsSection: React.FC = () => {
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: Colors[colorScheme].tint }]}
           onPress={() => {
-            const basePath = (isTablet || isDesktop) ? "/(tablet)" : "/(mobile)";
-            router.push(`${basePath}/private/create-bucket`);
+            navigateToCreateBucket();
           }}
           activeOpacity={0.8}
         >
@@ -293,8 +290,7 @@ const BucketsSection: React.FC = () => {
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: Colors[colorScheme].tint }]}
         onPress={() => {
-          const basePath = (isTablet || isDesktop) ? "/(tablet)" : "/(mobile)";
-          router.push(`${basePath}/private/create-bucket`);
+          navigateToCreateBucket();
         }}
         activeOpacity={0.8}
       >

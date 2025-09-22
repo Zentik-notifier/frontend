@@ -5,7 +5,8 @@ import { Colors } from "@/constants/Colors";
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
-import { router, useLocalSearchParams } from "expo-router";
+import { useNavigationUtils } from "@/utils/navigation";
+import { useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
   Image,
@@ -28,13 +29,15 @@ export default function LoginScreen() {
   const { data } = usePublicAppConfigQuery();
   const emailEnabled = data?.publicAppConfig.emailEnabled;
   const { email } = useLocalSearchParams<{ email?: string }>();
+  const { navigateToRegister, navigateToHome, navigateToForgotPassword } =
+    useNavigationUtils();
 
   const handleLoginSuccess = () => {
-    router.replace("/(mobile)/private/home");
+    navigateToHome();
   };
 
   const goToRegister = () => {
-    router.replace("/(mobile)/public/register");
+    navigateToRegister();
   };
 
   return (
@@ -64,11 +67,7 @@ export default function LoginScreen() {
         >
           <View style={styles.logoContainer}>
             <ThemedText style={styles.appName}>Zentik</ThemedText>
-            <View
-              style={[
-                styles.logoPlaceholder,
-              ]}
-            >
+            <View style={[styles.logoPlaceholder]}>
               <View style={styles.logoImageWrapper}>
                 <Image
                   source={require("../../../assets/icons/icon-512x512.png")}
@@ -82,7 +81,10 @@ export default function LoginScreen() {
             </ThemedText>
           </View>
 
-          <LoginForm onSuccess={handleLoginSuccess} initialEmail={typeof email === 'string' ? email : undefined} />
+          <LoginForm
+            onSuccess={handleLoginSuccess}
+            initialEmail={typeof email === "string" ? email : undefined}
+          />
 
           <View style={styles.registerContainer}>
             <ThemedText style={styles.registerText}>
@@ -102,9 +104,7 @@ export default function LoginScreen() {
 
           {emailEnabled && (
             <View style={styles.forgotPasswordContainer}>
-              <TouchableOpacity
-                onPress={() => router.push("/(mobile)/public/forgot-password")}
-              >
+              <TouchableOpacity onPress={() => navigateToForgotPassword()}>
                 <Text
                   style={[
                     styles.forgotPasswordText,

@@ -2,11 +2,15 @@ import { ThemedText } from "@/components/ThemedText";
 import UnauthenticatedHeader from "@/components/UnauthenticatedHeader";
 import { Button } from "@/components/ui";
 import { Colors } from "@/constants/Colors";
-import { useConfirmEmailMutation, useRequestEmailConfirmationMutation } from "@/generated/gql-operations-generated";
+import {
+  useConfirmEmailMutation,
+  useRequestEmailConfirmationMutation,
+} from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useLanguageSync } from "@/hooks/useLanguageSync";
 import { useColorScheme } from "@/hooks/useTheme";
-import { router, useLocalSearchParams } from "expo-router";
+import { useNavigationUtils } from "@/utils/navigation";
+import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -26,21 +30,28 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function EmailConfirmationScreen() {
   const { t } = useI18n();
   const { currentLocale } = useLanguageSync();
-  const { email: initialEmail, code } = useLocalSearchParams<{ email?: string; code?: string }>();
+  const { email: initialEmail, code } = useLocalSearchParams<{
+    email?: string;
+    code?: string;
+  }>();
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
-  const [confirmationStatus, setConfirmationStatus] = useState<'pending' | 'success' | 'error'>('pending');
-  const [confirmationCode, setConfirmationCode] = useState(code || '');
-  const [showCodeInput, setShowCodeInput] = useState(!code);
-  const [email, setEmail] = useState(initialEmail || '');
+  const [confirmationStatus, setConfirmationStatus] = useState<
+    "pending" | "success" | "error"
+  >("pending");
+  const [confirmationCode, setConfirmationCode] = useState(code || "");
+  const [showCodeInput] = useState(!code);
+  const [email, setEmail] = useState(initialEmail || "");
   const [showEmailInput, setShowEmailInput] = useState(!initialEmail);
-  
+  const { navigateToLogin } = useNavigationUtils();
+
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  
+
   const [confirmEmailMutation] = useConfirmEmailMutation();
-  const [requestEmailConfirmationMutation] = useRequestEmailConfirmationMutation();
+  const [requestEmailConfirmationMutation] =
+    useRequestEmailConfirmationMutation();
 
   useEffect(() => {
     if (code) {
@@ -55,23 +66,20 @@ export default function EmailConfirmationScreen() {
     setIsLoading(true);
     try {
       const result = await confirmEmailMutation({
-        variables: { input: { code: emailCode, locale: currentLocale } }
+        variables: { input: { code: emailCode, locale: currentLocale } },
       });
-      
+
       if (result.data?.confirmEmail.success) {
-        setConfirmationStatus('success');
+        setConfirmationStatus("success");
         setTimeout(() => {
-          router.replace({
-            pathname: "/(mobile)/public/login",
-            params: email ? { email } : undefined,
-          });
-        }, 3000);
+          navigateToLogin(email);
+        }, 1500);
       } else {
-        setConfirmationStatus('error');
+        setConfirmationStatus("error");
       }
     } catch (error) {
       console.error("Email confirmation error:", error);
-      setConfirmationStatus('error');
+      setConfirmationStatus("error");
     } finally {
       setIsLoading(false);
     }
@@ -79,18 +87,21 @@ export default function EmailConfirmationScreen() {
 
   const handleResendEmail = async () => {
     if (!email) return;
-    
+
     setIsResending(true);
     try {
       const result = await requestEmailConfirmationMutation({
-        variables: { input: { email, locale: currentLocale } }
+        variables: { input: { email, locale: currentLocale } },
       });
-      
+
       if (result.data?.requestEmailConfirmation.success) {
         setEmailSent(true);
         setTimeout(() => setEmailSent(false), 5000);
       } else {
-        Alert.alert(t("common.error"), t("auth.emailConfirmation.errorMessage"));
+        Alert.alert(
+          t("common.error"),
+          t("auth.emailConfirmation.errorMessage")
+        );
       }
     } catch (error) {
       console.error("Resend email error:", error);
@@ -101,23 +112,26 @@ export default function EmailConfirmationScreen() {
   };
 
   const handleRequestEmailConfirmation = async () => {
-    if (!email || !email.includes('@')) {
+    if (!email || !email.includes("@")) {
       Alert.alert(t("common.error"), t("auth.emailConfirmation.invalidEmail"));
       return;
     }
-    
+
     setIsResending(true);
     try {
       const result = await requestEmailConfirmationMutation({
-        variables: { input: { email, locale: currentLocale } }
+        variables: { input: { email, locale: currentLocale } },
       });
-      
+
       if (result.data?.requestEmailConfirmation.success) {
         setEmailSent(true);
         setShowEmailInput(false);
         setTimeout(() => setEmailSent(false), 5000);
       } else {
-        Alert.alert(t("common.error"), t("auth.emailConfirmation.errorMessage"));
+        Alert.alert(
+          t("common.error"),
+          t("auth.emailConfirmation.errorMessage")
+        );
       }
     } catch (error) {
       console.error("Request email confirmation error:", error);
@@ -132,18 +146,27 @@ export default function EmailConfirmationScreen() {
       Alert.alert(t("common.error"), t("auth.emailConfirmation.invalidCode"));
       return;
     }
-    
+
     await handleConfirmEmail(confirmationCode);
   };
 
   const renderContent = () => {
-    if (confirmationStatus === 'success') {
+    if (confirmationStatus === "success") {
       return (
         <View style={styles.contentContainer}>
           <View style={styles.iconContainer}>
-            <Text style={[styles.successIcon, { color: Colors[colorScheme].success }]}>✓</Text>
+            <Text
+              style={[
+                styles.successIcon,
+                { color: Colors[colorScheme].success },
+              ]}
+            >
+              ✓
+            </Text>
           </View>
-          <ThemedText style={[styles.title, { color: Colors[colorScheme].success }]}>
+          <ThemedText
+            style={[styles.title, { color: Colors[colorScheme].success }]}
+          >
             {t("auth.emailConfirmation.success")}
           </ThemedText>
           <ThemedText style={styles.description}>
@@ -154,7 +177,7 @@ export default function EmailConfirmationScreen() {
           </ThemedText>
           <Button
             title={t("auth.emailConfirmation.backToLogin")}
-            onPress={() => router.replace({ pathname: "/(mobile)/public/login", params: email ? { email } : undefined })}
+            onPress={() => navigateToLogin(email)}
             style={{ marginTop: 20 }}
             variant="outline"
           />
@@ -162,13 +185,19 @@ export default function EmailConfirmationScreen() {
       );
     }
 
-    if (confirmationStatus === 'error') {
+    if (confirmationStatus === "error") {
       return (
         <View style={styles.contentContainer}>
           <View style={styles.iconContainer}>
-            <Text style={[styles.errorIcon, { color: Colors[colorScheme].error }]}>✗</Text>
+            <Text
+              style={[styles.errorIcon, { color: Colors[colorScheme].error }]}
+            >
+              ✗
+            </Text>
           </View>
-          <ThemedText style={[styles.title, { color: Colors[colorScheme].error }]}>
+          <ThemedText
+            style={[styles.title, { color: Colors[colorScheme].error }]}
+          >
             {t("auth.emailConfirmation.error")}
           </ThemedText>
           <ThemedText style={styles.description}>
@@ -176,7 +205,7 @@ export default function EmailConfirmationScreen() {
           </ThemedText>
           <Button
             title={t("auth.emailConfirmation.backToLogin")}
-            onPress={() => router.replace({ pathname: "/(mobile)/public/login", params: email ? { email } : undefined })}
+            onPress={() => navigateToLogin(email)}
             style={{ marginTop: 20 }}
           />
         </View>
@@ -186,7 +215,9 @@ export default function EmailConfirmationScreen() {
     return (
       <View style={styles.contentContainer}>
         <View style={styles.iconContainer}>
-          <Text style={[styles.emailIcon, { color: Colors[colorScheme].tint }]}>✉️</Text>
+          <Text style={[styles.emailIcon, { color: Colors[colorScheme].tint }]}>
+            ✉️
+          </Text>
         </View>
         <ThemedText style={[styles.title, { color: Colors[colorScheme].tint }]}>
           {t("register.emailConfirmation.title")}
@@ -194,7 +225,7 @@ export default function EmailConfirmationScreen() {
         <ThemedText style={styles.description}>
           {t("register.emailConfirmation.description")}
         </ThemedText>
-        
+
         {showEmailInput && (
           <View style={styles.emailInputContainer}>
             <ThemedText style={styles.emailInputLabel}>
@@ -204,14 +235,18 @@ export default function EmailConfirmationScreen() {
               {t("auth.emailConfirmation.description")}
             </ThemedText>
             <View style={styles.inputContainer}>
-              <ThemedText style={[styles.label, { color: Colors[colorScheme].text }]}>
+              <ThemedText
+                style={[styles.label, { color: Colors[colorScheme].text }]}
+              >
                 {t("login.emailOrUsername")}
               </ThemedText>
               <TextInput
                 style={[
                   styles.input,
                   {
-                    backgroundColor: Colors[colorScheme].inputBackground || Colors[colorScheme].background,
+                    backgroundColor:
+                      Colors[colorScheme].inputBackground ||
+                      Colors[colorScheme].background,
                     borderColor: Colors[colorScheme].border,
                     color: Colors[colorScheme].text,
                   },
@@ -226,17 +261,26 @@ export default function EmailConfirmationScreen() {
               />
             </View>
             <Button
-              title={isResending ? t("auth.emailConfirmation.resending") : t("auth.emailConfirmation.resendEmail")}
+              title={
+                isResending
+                  ? t("auth.emailConfirmation.resending")
+                  : t("auth.emailConfirmation.resendEmail")
+              }
               onPress={handleRequestEmailConfirmation}
               loading={isResending}
-              disabled={isResending || !email || !email.includes('@')}
+              disabled={isResending || !email || !email.includes("@")}
               style={{ marginTop: 16 }}
             />
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.backToLoginButton}
-              onPress={() => router.replace({ pathname: "/(mobile)/public/login", params: email ? { email } : undefined })}
+              onPress={() => navigateToLogin(email)}
             >
-              <Text style={[styles.backToLoginText, { color: Colors[colorScheme].tint }]}>
+              <Text
+                style={[
+                  styles.backToLoginText,
+                  { color: Colors[colorScheme].tint },
+                ]}
+              >
                 {t("auth.emailConfirmation.backToLogin")}
               </Text>
             </TouchableOpacity>
@@ -249,7 +293,9 @@ export default function EmailConfirmationScreen() {
               <ThemedText style={styles.emailLabel}>
                 {t("register.emailConfirmation.checkEmail")}
               </ThemedText>
-              <ThemedText style={[styles.emailText, { color: Colors[colorScheme].tint }]}>
+              <ThemedText
+                style={[styles.emailText, { color: Colors[colorScheme].tint }]}
+              >
                 {email}
               </ThemedText>
             </View>
@@ -262,7 +308,12 @@ export default function EmailConfirmationScreen() {
               </ThemedText>
             </View>
             {emailSent && (
-              <ThemedText style={[styles.successMessage, { color: Colors[colorScheme].success }]}>
+              <ThemedText
+                style={[
+                  styles.successMessage,
+                  { color: Colors[colorScheme].success },
+                ]}
+              >
                 {t("register.emailConfirmation.emailSentMessage")}
               </ThemedText>
             )}
@@ -279,7 +330,9 @@ export default function EmailConfirmationScreen() {
                 style={[
                   styles.input,
                   {
-                    backgroundColor: Colors[colorScheme].inputBackground || Colors[colorScheme].background,
+                    backgroundColor:
+                      Colors[colorScheme].inputBackground ||
+                      Colors[colorScheme].background,
                     borderColor: Colors[colorScheme].border,
                     color: Colors[colorScheme].text,
                   },
@@ -288,7 +341,9 @@ export default function EmailConfirmationScreen() {
                 placeholderTextColor={Colors[colorScheme].textSecondary}
                 value={confirmationCode}
                 onChangeText={(v) => {
-                  const normalized = v.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                  const normalized = v
+                    .replace(/[^a-zA-Z0-9]/g, "")
+                    .toUpperCase();
                   setConfirmationCode(normalized);
                 }}
                 keyboardType="default"
@@ -301,7 +356,11 @@ export default function EmailConfirmationScreen() {
             </View>
             <View style={styles.buttonRow}>
               <Button
-                title={isResending ? t("register.emailConfirmation.resending") : t("register.emailConfirmation.resendEmail")}
+                title={
+                  isResending
+                    ? t("register.emailConfirmation.resending")
+                    : t("register.emailConfirmation.resendEmail")
+                }
                 onPress={handleResendEmail}
                 loading={isResending}
                 disabled={isResending}
@@ -309,18 +368,27 @@ export default function EmailConfirmationScreen() {
                 variant="outline"
               />
               <Button
-                title={isLoading ? t("auth.emailConfirmation.verifying") : t("auth.emailConfirmation.verifyCode")}
+                title={
+                  isLoading
+                    ? t("auth.emailConfirmation.verifying")
+                    : t("auth.emailConfirmation.verifyCode")
+                }
                 onPress={handleManualConfirmation}
                 loading={isLoading}
                 disabled={isLoading || confirmationCode.length !== 6}
                 style={{ flex: 1 }}
               />
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.backToLoginButton}
-              onPress={() => router.replace({ pathname: "/(mobile)/public/login", params: email ? { email } : undefined })}
+              onPress={() => navigateToLogin(email)}
             >
-              <Text style={[styles.backToLoginText, { color: Colors[colorScheme].tint }]}>
+              <Text
+                style={[
+                  styles.backToLoginText,
+                  { color: Colors[colorScheme].tint },
+                ]}
+              >
                 {t("auth.emailConfirmation.backToLogin")}
               </Text>
             </TouchableOpacity>
@@ -501,9 +569,9 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
     marginTop: 20,
     gap: 12,
   },

@@ -3,7 +3,7 @@ import { AppIcons } from "@/constants/Icons";
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useColorScheme } from "@/hooks/useTheme";
-import { useRouter } from "expo-router";
+import { useNavigationUtils } from "@/utils/navigation";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -33,9 +33,10 @@ export default function BucketIcon({
   noRouting = false,
 }: BucketIconProps) {
   const colorScheme = useColorScheme();
-  const router = useRouter();
   const { bucket, error } = useGetBucketData(bucketId);
   const { color, icon } = bucket || {};
+  const { navigateToBucketsSettings, navigateToBucketDetail } =
+    useNavigationUtils();
 
   const isOrphaned = error && error.message.includes("Bucket not found");
 
@@ -46,11 +47,9 @@ export default function BucketIcon({
 
   const handlePress = () => {
     if (isOrphaned) {
-      router.push(
-        `/(mobile)/private/buckets-settings?danglingBucketId=${bucketId}` as any
-      );
+      navigateToBucketsSettings(bucketId);
     } else if (!noRouting) {
-      router.push(`/(mobile)/private/bucket-detail?id=${bucketId}`);
+      navigateToBucketDetail(bucketId);
     }
   };
 
@@ -111,45 +110,45 @@ export default function BucketIcon({
           ]}
         >
           {icon && typeof icon === "string" && icon.startsWith("http") ? (
-          <CachedMedia
-            noBorder
-            url={icon}
-            mediaType={MediaType.Icon}
-            style={[
-              {
-                width: currentSize.icon,
-                height: currentSize.icon,
-                borderRadius: currentSize.icon / 2,
-              },
-            ]}
-            isCompact
-            onPress={handlePress}
-          />
-        ) : icon &&
-          typeof icon === "string" &&
-          !icon.startsWith("sfsymbols:") &&
-          icon.length <= 2 ? (
-          <ThemedText
-            style={[
-              styles.bucketIconText,
-              {
-                fontSize: currentSize.text,
-                color: "#fff",
-              },
-            ]}
-          >
-            {icon}
-          </ThemedText>
-        ) : (
-          <Icon
-            name={
-              (icon?.replace("sfsymbols:", "") as keyof typeof AppIcons) ||
-              "bucket"
-            }
-            size={size}
-            color="#fff"
-          />
-        )}
+            <CachedMedia
+              noBorder
+              url={icon}
+              mediaType={MediaType.Icon}
+              style={[
+                {
+                  width: currentSize.icon,
+                  height: currentSize.icon,
+                  borderRadius: currentSize.icon / 2,
+                },
+              ]}
+              isCompact
+              onPress={handlePress}
+            />
+          ) : icon &&
+            typeof icon === "string" &&
+            !icon.startsWith("sfsymbols:") &&
+            icon.length <= 2 ? (
+            <ThemedText
+              style={[
+                styles.bucketIconText,
+                {
+                  fontSize: currentSize.text,
+                  color: "#fff",
+                },
+              ]}
+            >
+              {icon}
+            </ThemedText>
+          ) : (
+            <Icon
+              name={
+                (icon?.replace("sfsymbols:", "") as keyof typeof AppIcons) ||
+                "bucket"
+              }
+              size={size}
+              color="#fff"
+            />
+          )}
         </View>
       )}
     </View>

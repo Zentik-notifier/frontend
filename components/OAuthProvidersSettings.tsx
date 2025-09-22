@@ -8,6 +8,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -137,6 +138,7 @@ export default function OAuthProvidersSettings({
   refreshing: externalRefreshing,
 }: OAuthProvidersSettingsProps) {
   const router = useRouter();
+  const { navigateToCreateOAuthProvider, navigateToEditOAuthProvider } = useNavigationUtils();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const [togglingProviderId, setTogglingProviderId] = useState<string | null>(
@@ -157,13 +159,11 @@ export default function OAuthProvidersSettings({
   }, [externalRefreshing, refetch]);
 
   const handleCreateProvider = () => {
-    router.push("/(mobile)/private/create-oauth-provider");
+    navigateToCreateOAuthProvider();
   };
 
   const handleEditProvider = (provider: OAuthProviderFragment) => {
-    router.push(
-      `/(mobile)/private/edit-oauth-provider?providerId=${provider.id}`
-    );
+    navigateToEditOAuthProvider(provider.id);
   };
 
   const handleToggleProvider = async (provider: OAuthProviderFragment) => {

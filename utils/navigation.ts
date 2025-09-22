@@ -91,12 +91,15 @@ export function useNavigationUtils() {
             }
         },
 
-        navigateToBucketsSettings: () => {
-            if (isTabletOrDesktop) {
-                router.push("/(tablet)/private/(settings)/buckets-settings");
-            } else {
-                router.push("/(mobile)/private/buckets-settings");
-            }
+        navigateToBucketsSettings: (danglingBucketId?: string) => {
+            const pathname = isTabletOrDesktop
+                ? "/(tablet)/private/(settings)/buckets-settings"
+                : "/(mobile)/private/buckets-settings";
+
+            router.push({
+                pathname,
+                params: danglingBucketId ? { danglingBucketId } : undefined
+            });
         },
 
         navigateToAccessTokensSettings: () => {
@@ -148,7 +151,75 @@ export function useNavigationUtils() {
         },
 
         navigateToAdmin: () => {
-            router.push(`${basePath}/private/admin`);
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(admin)");
+            } else {
+                router.push("/(mobile)/private/admin");
+            }
+        },
+
+        navigateToUserManagement: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(admin)/user-management");
+            } else {
+                router.push("/(mobile)/private/user-management");
+            }
+        },
+
+        navigateToOAuthProviders: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(admin)/oauth-providers");
+            } else {
+                router.push("/(mobile)/private/oauth-providers");
+            }
+        },
+
+        navigateToSystemAccessTokens: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(admin)/system-access-tokens");
+            } else {
+                router.push("/(mobile)/private/system-access-tokens");
+            }
+        },
+
+        navigateToEventsReview: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(admin)/events-review");
+            } else {
+                router.push("/(mobile)/private/events-review");
+            }
+        },
+
+        navigateToCreateOAuthProvider: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(admin)/create-oauth-provider");
+            } else {
+                router.push("/(mobile)/private/create-oauth-provider");
+            }
+        },
+
+        navigateToEditOAuthProvider: (providerId: string) => {
+            if (isTabletOrDesktop) {
+                router.push(`/(tablet)/private/(admin)/edit-oauth-provider/${providerId}`);
+            } else {
+                router.push(`/(mobile)/private/edit-oauth-provider?providerId=${providerId}`);
+            }
+        },
+
+        navigateToCreateSystemAccessToken: () => {
+            if (isTabletOrDesktop) {
+                router.push("/(tablet)/private/(admin)/create-system-access-token");
+            } else {
+                router.push("/(mobile)/private/create-system-access-token");
+            }
+        },
+
+        navigateToUserDetails: (userId: string) => {
+            if (isTabletOrDesktop) {
+                router.push(`/(tablet)/private/(admin)/user-details/${userId}`);
+            } else {
+                router.push(`/(mobile)/private/user-details?id=${userId}`);
+            }
         },
 
         navigateToHome: () => {
@@ -159,8 +230,25 @@ export function useNavigationUtils() {
             }
         },
 
-        navigateToLogin: () => {
-            router.push(`${basePath}/public/login`);
+        navigateToLogin: (email?: string) => {
+            router.push({ pathname: `${basePath}/public/login`, params: email ? { email } : undefined });
+        },
+
+        navigateToEmailConfirmation: (props: { email?: string, code?: string }) => {
+            const { code, email } = props;
+            router.push({ pathname: `${basePath}/public/email-confirmation`, params: { code, email } });
+        },
+
+        navigateToRegister: (email?: string) => {
+            router.push({ pathname: `${basePath}/public/register`, params: email ? { email } : undefined });
+        },
+
+        navigateToForgotPassword: (email?: string) => {
+            router.push({ pathname: `${basePath}/public/forgot-password`, params: email ? { email } : undefined });
+        },
+
+        navigateToChangePassword: () => {
+            router.push({ pathname: `${basePath}/private/change-password` });
         },
 
         isTabletOrDesktop,

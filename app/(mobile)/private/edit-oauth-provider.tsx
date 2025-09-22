@@ -105,9 +105,8 @@ export default function EditOAuthProviderPage() {
     <ThemedView style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <CreateOAuthProviderForm
-          provider={provider}
+          providerId={providerId}
           showTitle={true}
-          isEditing={true}
         />
         
         {/* Delete Provider Button - Only show for custom providers */}

@@ -7,6 +7,7 @@ import { useLanguageSync } from "@/hooks/useLanguageSync";
 import { useColorScheme } from "@/hooks/useTheme";
 import { ApiConfigService } from "@/services/api-config";
 import { useAppContext } from "@/services/app-context";
+import { useNavigationUtils } from "@/utils/navigation";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -41,6 +42,7 @@ export default function LoginForm({
   }>({});
   const { login } = useAppContext();
   const colorScheme = useColorScheme();
+  const { navigateToEmailConfirmation } = useNavigationUtils();
 
   const { data: providersData, loading: providersLoading } =
     usePublicAppConfigQuery({ fetchPolicy: "network-only" });
@@ -74,10 +76,7 @@ export default function LoginForm({
       ) {
         const userEmail = emailOrUsername.includes("@") ? emailOrUsername : "";
 
-        router.replace({
-          pathname: "/(mobile)/public/email-confirmation",
-          params: { email: userEmail },
-        });
+        navigateToEmailConfirmation({ email: userEmail });
         return;
       }
 
@@ -121,8 +120,12 @@ export default function LoginForm({
           style={[
             styles.input,
             {
-              backgroundColor: Colors[colorScheme].inputBackground || Colors[colorScheme].background,
-              borderColor: errors.emailOrUsername ? '#FF3B30' : Colors[colorScheme].border,
+              backgroundColor:
+                Colors[colorScheme].inputBackground ||
+                Colors[colorScheme].background,
+              borderColor: errors.emailOrUsername
+                ? "#FF3B30"
+                : Colors[colorScheme].border,
               color: Colors[colorScheme].text,
             },
           ]}
@@ -135,7 +138,9 @@ export default function LoginForm({
           autoCorrect={false}
         />
         {errors.emailOrUsername && (
-          <ThemedText style={styles.errorText}>{errors.emailOrUsername}</ThemedText>
+          <ThemedText style={styles.errorText}>
+            {errors.emailOrUsername}
+          </ThemedText>
         )}
       </View>
 
@@ -147,8 +152,12 @@ export default function LoginForm({
           style={[
             styles.input,
             {
-              backgroundColor: Colors[colorScheme].inputBackground || Colors[colorScheme].background,
-              borderColor: errors.password ? '#FF3B30' : Colors[colorScheme].border,
+              backgroundColor:
+                Colors[colorScheme].inputBackground ||
+                Colors[colorScheme].background,
+              borderColor: errors.password
+                ? "#FF3B30"
+                : Colors[colorScheme].border,
               color: Colors[colorScheme].text,
             },
           ]}
@@ -247,7 +256,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   errorText: {
-    color: '#FF3B30',
+    color: "#FF3B30",
     fontSize: 14,
     marginTop: 4,
   },

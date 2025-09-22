@@ -151,7 +151,6 @@ export default function TabletSettingsLayout() {
             <View style={styles.menuItems}>
               {settingsOptions.map((option) => {
                 const isSelected = pathname.includes(option.route);
-                console.log(option.route, pathname);
 
                 return (
                   <TouchableOpacity

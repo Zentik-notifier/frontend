@@ -5,13 +5,15 @@ import {
   OAuthProviderType,
   UpdateOAuthProviderDto,
   useCreateOAuthProviderMutation,
+  useOAuthProviderQuery,
   useUpdateOAuthProviderMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   StyleSheet,
   TextInput,
@@ -23,18 +25,25 @@ import { ThemedText } from "./ThemedText";
 
 interface CreateOAuthProviderFormProps {
   showTitle?: boolean;
-  provider?: OAuthProviderFragment;
-  isEditing?: boolean;
+  providerId?: string;
 }
 
 export default function CreateOAuthProviderForm({
   showTitle,
-  provider,
-  isEditing,
+  providerId,
 }: CreateOAuthProviderFormProps) {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
+
+  // Load provider data if editing
+  const { data: providerData, loading: loadingProvider } = useOAuthProviderQuery({
+    variables: { id: providerId || "" },
+    skip: !providerId,
+  });
+
+  const provider = providerData?.oauthProvider;
+  const isEditing = !!providerId;
 
   // GraphQL mutations
   const [createOAuthProvider, { loading: creating }] =
@@ -43,25 +52,46 @@ export default function CreateOAuthProviderForm({
     useUpdateOAuthProviderMutation();
 
   const isSaving = creating || updating;
+  const isLoading = loadingProvider;
 
   // Refs for color pickers
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const textColorPickerRef = useRef<ColorPickerRef>(null);
 
   const [formData, setFormData] = useState({
-    name: provider?.name || "",
-    providerId: provider?.providerId || "",
-    clientId: provider?.clientId || "",
-    clientSecret: provider?.clientSecret || "",
-    scopes: provider?.scopes?.join(", ") || "",
-    iconUrl: provider?.iconUrl || "",
-    color: provider?.color || "",
-    textColor: provider?.textColor || "",
-    authorizationUrl: provider?.authorizationUrl || "",
-    tokenUrl: provider?.tokenUrl || "",
-    userInfoUrl: provider?.userInfoUrl || "",
-    isEnabled: provider?.isEnabled ?? true,
+    name: "",
+    providerId: "",
+    clientId: "",
+    clientSecret: "",
+    scopes: "",
+    iconUrl: "",
+    color: "",
+    textColor: "",
+    authorizationUrl: "",
+    tokenUrl: "",
+    userInfoUrl: "",
+    isEnabled: true,
   });
+
+  // Load provider data when editing
+  useEffect(() => {
+    if (provider && isEditing) {
+      setFormData({
+        name: provider.name || "",
+        providerId: provider.providerId || "",
+        clientId: provider.clientId || "",
+        clientSecret: provider.clientSecret || "",
+        scopes: provider.scopes?.join(", ") || "",
+        iconUrl: provider.iconUrl || "",
+        color: provider.color || "",
+        textColor: provider.textColor || "",
+        authorizationUrl: provider.authorizationUrl || "",
+        tokenUrl: provider.tokenUrl || "",
+        userInfoUrl: provider.userInfoUrl || "",
+        isEnabled: provider.isEnabled ?? true,
+      });
+    }
+  }, [provider, isEditing]);
 
   const handleSave = async () => {
     // Per i provider non-custom (GitHub, Google) sono richiesti solo clientId e clientSecret
@@ -148,6 +178,17 @@ export default function CreateOAuthProviderForm({
 
   const isCustomProvider =
     !provider || provider?.type === OAuthProviderType.Custom;
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={Colors[colorScheme ?? "light"].tint} />
+        <ThemedText style={styles.loadingText}>
+          {t("common.loading")}
+        </ThemedText>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -559,6 +600,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    opacity: 0.7,
   },
   header: {
     flexDirection: "row",

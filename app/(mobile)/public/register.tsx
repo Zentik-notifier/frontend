@@ -5,8 +5,8 @@ import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
+import { useNavigationUtils } from "@/utils/navigation";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
@@ -43,6 +43,8 @@ export default function RegisterScreen() {
   const { register } = useAppContext();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const { navigateToHome, navigateToLogin, navigateToEmailConfirmation } =
+    useNavigationUtils();
 
   const validateForm = () => {
     const newErrors: {
@@ -52,7 +54,7 @@ export default function RegisterScreen() {
       password?: string;
       confirmPassword?: string;
     } = {};
-    
+
     // firstName validation (required)
     if (!firstName || firstName.trim().length === 0)
       newErrors.firstName = "Il nome è obbligatorio";
@@ -60,15 +62,15 @@ export default function RegisterScreen() {
       newErrors.firstName = "Il nome deve essere di almeno 2 caratteri";
     else if (firstName.length > 50)
       newErrors.firstName = "Il nome non può superare 50 caratteri";
-      
-    // lastName validation (required)  
+
+    // lastName validation (required)
     if (!lastName || lastName.trim().length === 0)
       newErrors.lastName = "Il cognome è obbligatorio";
     else if (lastName.trim().length < 2)
       newErrors.lastName = "Il cognome deve essere di almeno 2 caratteri";
     else if (lastName.length > 50)
       newErrors.lastName = "Il cognome non può superare 50 caratteri";
-      
+
     if (!email) newErrors.email = t("register.validation.emailRequired");
     else if (!/\S+@\S+\.\S+/.test(email))
       newErrors.email = t("register.validation.emailInvalid");
@@ -100,17 +102,14 @@ export default function RegisterScreen() {
       }
 
       if (res === "emailConfirmationRequired") {
-        router.replace({
-          pathname: "/(mobile)/public/email-confirmation",
-          params: { email },
-        });
+        navigateToEmailConfirmation({ email });
         return;
       } else if (res === "ok") {
-        router.replace("/(mobile)/private/home");
+        navigateToHome();
         return;
       } else {
         Alert.alert(t("common.error"), t("register.errors.registrationFailed"));
-        router.replace({ pathname: "/(mobile)/public/login" });
+        navigateToLogin();
         return;
       }
     } catch (error: any) {
@@ -152,17 +151,23 @@ export default function RegisterScreen() {
           >
             {t("register.title")}
           </ThemedText>
-          
+
           <View style={styles.inputContainer}>
-            <ThemedText style={[styles.label, { color: Colors[colorScheme].text }]}>
+            <ThemedText
+              style={[styles.label, { color: Colors[colorScheme].text }]}
+            >
               {t("register.firstName")} *
             </ThemedText>
             <TextInput
               style={[
                 styles.input,
                 {
-                  backgroundColor: Colors[colorScheme].inputBackground || Colors[colorScheme].background,
-                  borderColor: errors.firstName ? '#FF3B30' : Colors[colorScheme].border,
+                  backgroundColor:
+                    Colors[colorScheme].inputBackground ||
+                    Colors[colorScheme].background,
+                  borderColor: errors.firstName
+                    ? "#FF3B30"
+                    : Colors[colorScheme].border,
                   color: Colors[colorScheme].text,
                 },
               ]}
@@ -177,20 +182,28 @@ export default function RegisterScreen() {
               importantForAutofill="yes"
             />
             {errors.firstName && (
-              <ThemedText style={styles.errorText}>{errors.firstName}</ThemedText>
+              <ThemedText style={styles.errorText}>
+                {errors.firstName}
+              </ThemedText>
             )}
           </View>
 
           <View style={styles.inputContainer}>
-            <ThemedText style={[styles.label, { color: Colors[colorScheme].text }]}>
+            <ThemedText
+              style={[styles.label, { color: Colors[colorScheme].text }]}
+            >
               {t("register.lastName")} *
             </ThemedText>
             <TextInput
               style={[
                 styles.input,
                 {
-                  backgroundColor: Colors[colorScheme].inputBackground || Colors[colorScheme].background,
-                  borderColor: errors.lastName ? '#FF3B30' : Colors[colorScheme].border,
+                  backgroundColor:
+                    Colors[colorScheme].inputBackground ||
+                    Colors[colorScheme].background,
+                  borderColor: errors.lastName
+                    ? "#FF3B30"
+                    : Colors[colorScheme].border,
                   color: Colors[colorScheme].text,
                 },
               ]}
@@ -205,20 +218,28 @@ export default function RegisterScreen() {
               importantForAutofill="yes"
             />
             {errors.lastName && (
-              <ThemedText style={styles.errorText}>{errors.lastName}</ThemedText>
+              <ThemedText style={styles.errorText}>
+                {errors.lastName}
+              </ThemedText>
             )}
           </View>
 
           <View style={styles.inputContainer}>
-            <ThemedText style={[styles.label, { color: Colors[colorScheme].text }]}>
+            <ThemedText
+              style={[styles.label, { color: Colors[colorScheme].text }]}
+            >
               {t("register.email")} *
             </ThemedText>
             <TextInput
               style={[
                 styles.input,
                 {
-                  backgroundColor: Colors[colorScheme].inputBackground || Colors[colorScheme].background,
-                  borderColor: errors.email ? '#FF3B30' : Colors[colorScheme].border,
+                  backgroundColor:
+                    Colors[colorScheme].inputBackground ||
+                    Colors[colorScheme].background,
+                  borderColor: errors.email
+                    ? "#FF3B30"
+                    : Colors[colorScheme].border,
                   color: Colors[colorScheme].text,
                 },
               ]}
@@ -239,7 +260,9 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <ThemedText style={[styles.label, { color: Colors[colorScheme].text }]}>
+            <ThemedText
+              style={[styles.label, { color: Colors[colorScheme].text }]}
+            >
               {t("register.password")} *
             </ThemedText>
             <View style={styles.passwordContainer}>
@@ -248,8 +271,12 @@ export default function RegisterScreen() {
                   styles.input,
                   styles.passwordInput,
                   {
-                    backgroundColor: Colors[colorScheme].inputBackground || Colors[colorScheme].background,
-                    borderColor: errors.password ? '#FF3B30' : Colors[colorScheme].border,
+                    backgroundColor:
+                      Colors[colorScheme].inputBackground ||
+                      Colors[colorScheme].background,
+                    borderColor: errors.password
+                      ? "#FF3B30"
+                      : Colors[colorScheme].border,
                     color: Colors[colorScheme].text,
                   },
                 ]}
@@ -275,7 +302,9 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </View>
             {errors.password && (
-              <ThemedText style={styles.errorText}>{errors.password}</ThemedText>
+              <ThemedText style={styles.errorText}>
+                {errors.password}
+              </ThemedText>
             )}
             <ThemedText style={styles.helperText}>
               Minimo 6 caratteri, massimo 100
@@ -283,7 +312,9 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <ThemedText style={[styles.label, { color: Colors[colorScheme].text }]}>
+            <ThemedText
+              style={[styles.label, { color: Colors[colorScheme].text }]}
+            >
               {t("register.confirmPassword")} *
             </ThemedText>
             <View style={styles.passwordContainer}>
@@ -292,8 +323,12 @@ export default function RegisterScreen() {
                   styles.input,
                   styles.passwordInput,
                   {
-                    backgroundColor: Colors[colorScheme].inputBackground || Colors[colorScheme].background,
-                    borderColor: errors.confirmPassword ? '#FF3B30' : Colors[colorScheme].border,
+                    backgroundColor:
+                      Colors[colorScheme].inputBackground ||
+                      Colors[colorScheme].background,
+                    borderColor: errors.confirmPassword
+                      ? "#FF3B30"
+                      : Colors[colorScheme].border,
                     color: Colors[colorScheme].text,
                   },
                 ]}
@@ -320,7 +355,9 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </View>
             {errors.confirmPassword && (
-              <ThemedText style={styles.errorText}>{errors.confirmPassword}</ThemedText>
+              <ThemedText style={styles.errorText}>
+                {errors.confirmPassword}
+              </ThemedText>
             )}
           </View>
 
@@ -339,9 +376,7 @@ export default function RegisterScreen() {
             <ThemedText style={styles.loginText}>
               {t("register.haveAccount")}
             </ThemedText>
-            <TouchableOpacity
-              onPress={() => router.replace("/(mobile)/public/login")}
-            >
+            <TouchableOpacity onPress={() => navigateToLogin()}>
               <Text
                 style={[styles.loginLink, { color: Colors[colorScheme].tint }]}
               >
@@ -391,19 +426,19 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   passwordContainer: {
-    position: 'relative',
+    position: "relative",
   },
   passwordInput: {
     paddingRight: 50, // Make space for eye icon
   },
   eyeButton: {
-    position: 'absolute',
+    position: "absolute",
     right: 12,
     top: 14,
     padding: 4,
   },
   errorText: {
-    color: '#FF3B30',
+    color: "#FF3B30",
     fontSize: 14,
     marginTop: 4,
   },

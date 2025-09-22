@@ -17,6 +17,7 @@ import {
 } from '../generated/gql-operations-generated';
 import { useI18n } from './useI18n';
 import { useDeleteNotification, useFetchNotifications, useMarkNotificationRead } from './useNotifications';
+import { useNavigationUtils } from '@/utils/navigation';
 
 /**
  * Hook that provides callbacks for handling notification actions
@@ -33,6 +34,7 @@ export function useNotificationActions() {
   const [updateDeviceToken] = useUpdateDeviceTokenMutation();
   const [updateUserDeviceMutation] = useUpdateUserDeviceMutation();
   const { fetchNotifications } = useFetchNotifications(true);
+  const { navigateToNotificationDetail, navigateToHome } = useNavigationUtils();
 
   const deleteNotification = useCallback(async (notificationId: string) => {
     deleteNotificationFn(notificationId);
@@ -54,27 +56,10 @@ export function useNotificationActions() {
     }
 
     try {
-      if (destination.startsWith('/')) {
-        // Internal route - wait for router to be ready
-        const routerReady = await waitForRouter();
-        if (!routerReady) {
-          console.error('❌ Router not ready for internal navigation');
-          Alert.alert(t('common.navigationError'), t('common.navigationFailed'));
-          return;
-        }
-        router.push(destination as any);
-      } else if (destination.startsWith('http')) {
-        // External URL
+      if (destination.startsWith('http')) {
         Linking.openURL(destination);
       } else {
-        // Assume internal route, add leading slash
-        const routerReady = await waitForRouter();
-        if (!routerReady) {
-          console.error('❌ Router not ready for internal navigation');
-          Alert.alert(t('common.navigationError'), t('common.navigationFailed'));
-          return;
-        }
-        router.push(`/${destination}` as any);
+        console.log('🧭 Navigating not supported:', destination);
       }
     } catch (error) {
       console.error('❌ Navigation failed:', error);
@@ -261,12 +246,10 @@ export function useNotificationActions() {
       // Navigate to notifications list or specific notification
       if (action.value && action.value.trim() !== '') {
         console.log('🧭 Navigating to notification detail:', action.value);
-        const route = `/(mobile)/private/notification-detail?id=${encodeURIComponent(action.value)}` as any;
-        console.log('🧭 Route:', route);
-        router.push(route);
+        navigateToNotificationDetail(action.value);
       } else {
         console.log('🧭 Navigating to home (no notification ID)');
-        router.push('/(mobile)/private/home');
+        navigateToHome();
       }
     } catch (error) {
       console.error('❌ Navigation failed:', error);

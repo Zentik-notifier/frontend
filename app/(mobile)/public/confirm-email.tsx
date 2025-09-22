@@ -1,21 +1,18 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { useNavigationUtils } from "@/utils/navigation";
+import { useLocalSearchParams } from "expo-router";
 import { useEffect } from "react";
 
 export default function ConfirmEmailRedirect() {
   const { code } = useLocalSearchParams<{ code?: string }>();
+  const { navigateToLogin, navigateToEmailConfirmation } = useNavigationUtils();
 
   useEffect(() => {
     if (code) {
-      // Redirect to email confirmation screen with code
-      router.replace({
-        pathname: "/(mobile)/public/email-confirmation",
-        params: { code }
-      });
+      navigateToEmailConfirmation({ code });
     } else {
-      // No code, redirect to login
-      router.replace("/(mobile)/public/login");
+      navigateToLogin();
     }
   }, [code]);
 
-  return null; // This component doesn't render anything
+  return null;
 }

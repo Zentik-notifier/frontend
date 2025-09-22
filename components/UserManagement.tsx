@@ -1,20 +1,16 @@
 import { Colors } from "@/constants/Colors";
 import {
-  UpdateUserRoleInput,
   useGetAllUsersQuery,
-  useGetMeQuery,
   UserFragment,
   UserRole,
-  useUpdateUserRoleMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -32,20 +28,15 @@ interface UserManagementProps {
 
 interface UserListItemProps {
   user: UserFragment;
-  currentUserId: string;
-  onUserRoleUpdate: (userId: string, newRole: UserRole) => void;
   colorScheme: "light" | "dark";
 }
 
 const UserListItem: React.FC<UserListItemProps> = ({
   user,
-  currentUserId,
-  onUserRoleUpdate,
   colorScheme,
 }) => {
   const { t } = useI18n();
-  const router = useRouter();
-  const isCurrentUser = user.id === currentUserId;
+  const { navigateToUserDetails } = useNavigationUtils();
 
   const getUserRoleDisplayName = (role: UserRole): string => {
     switch (role) {
@@ -82,7 +73,7 @@ const UserListItem: React.FC<UserListItemProps> = ({
           borderColor: Colors[colorScheme].border,
         },
       ]}
-      onPress={() => router.push(`/(mobile)/private/user-details?userId=${user.id}`)}
+      onPress={() => navigateToUserDetails(user.id)}
     >
       <View style={styles.userInfo}>
         <View style={styles.userDetails}>
@@ -114,7 +105,7 @@ const UserListItem: React.FC<UserListItemProps> = ({
                 borderColor: Colors[colorScheme].border,
               },
             ]}
-            onPress={() => router.push(`/(mobile)/private/user-details?userId=${user.id}`)}
+            onPress={() => navigateToUserDetails(user.id)}
           >
             <Ionicons
               name="eye-outline"
@@ -141,13 +132,10 @@ export default function UserManagement({
   } = useAppContext();
 
   const { data, loading, error, refetch } = useGetAllUsersQuery();
-  const { data: meData } = useGetMeQuery();
-  const [updateUserRole] = useUpdateUserRoleMutation();
 
   useEffect(() => setMainLoading(loading), [loading]);
 
   const users = data?.users || [];
-  const currentUserId = meData?.me?.id || "";
 
   useEffect(() => {
     if (externalRefreshing) {
@@ -174,34 +162,9 @@ export default function UserManagement({
     );
   });
 
-  const handleUserRoleUpdate = async (userId: string, newRole: UserRole) => {
-    try {
-      await updateUserRole({
-        variables: {
-          input: {
-            userId,
-            role: newRole,
-          } as UpdateUserRoleInput,
-        },
-      });
-      Alert.alert(
-        t("common.success"),
-        t("administration.userRoleUpdatedSuccessfully")
-      );
-      refetch();
-    } catch (error: any) {
-      Alert.alert(
-        t("administration.error"),
-        error.message || t("administration.failedToUpdateUserRole")
-      );
-    }
-  };
-
   const renderUserItem = ({ item }: { item: UserFragment }) => (
     <UserListItem
       user={item}
-      currentUserId={currentUserId}
-      onUserRoleUpdate={handleUserRoleUpdate}
       colorScheme={colorScheme ?? "light"}
     />
   );

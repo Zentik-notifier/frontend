@@ -4,7 +4,7 @@ import UnauthenticatedHeader from "@/components/UnauthenticatedHeader";
 import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
-import { router } from "expo-router";
+import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
 import {
   KeyboardAvoidingView,
@@ -14,16 +14,16 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ForgotPasswordScreen() {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const { navigateToLogin } = useNavigationUtils();
 
   const handleBackToLogin = () => {
-    router.replace("/(mobile)/public/login");
+    navigateToLogin();
   };
 
   return (
@@ -55,14 +55,17 @@ export default function ForgotPasswordScreen() {
             <ThemedText style={styles.title}>
               {t("auth.forgotPassword.title")}
             </ThemedText>
-            <ThemedText style={[styles.subtitle, { color: Colors[colorScheme].textSecondary }]}>
+            <ThemedText
+              style={[
+                styles.subtitle,
+                { color: Colors[colorScheme].textSecondary },
+              ]}
+            >
               {t("auth.forgotPassword.description")}
             </ThemedText>
           </View>
 
-                    <ForgotPasswordFlow
-            onBackToLogin={handleBackToLogin}
-          />
+          <ForgotPasswordFlow onBackToLogin={handleBackToLogin} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

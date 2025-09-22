@@ -11,6 +11,7 @@ import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect } from "react";
 import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import SwipeableItem from "./SwipeableItem";
@@ -27,6 +28,7 @@ export default function SystemAccessTokens({
 }: SystemAccessTokensProps) {
   const colorScheme = useColorScheme();
   const router = useRouter();
+  const { navigateToCreateSystemAccessToken } = useNavigationUtils();
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
   const {
@@ -177,7 +179,7 @@ export default function SystemAccessTokens({
             },
           ]}
           onPress={() =>
-            router.push("/(mobile)/private/create-system-access-token")
+            navigateToCreateSystemAccessToken()
           }
           disabled={disabledAdd}
         >

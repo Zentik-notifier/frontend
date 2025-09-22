@@ -1,7 +1,6 @@
 import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
-import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -27,6 +26,7 @@ import OAuthConnections from "./OAuthConnections";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import IconButton from "./ui/IconButton";
+import { useNavigationUtils } from "@/utils/navigation";
 
 interface UserSectionProps {
   refreshing?: boolean;
@@ -47,6 +47,8 @@ export default function UserSection({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [avatar, setAvatar] = useState("");
+  const { navigateToChangePassword } =
+    useNavigationUtils();
 
   const [updateProfileMutation, { loading: savingProfile }] =
     useUpdateProfileMutation({
@@ -144,7 +146,7 @@ export default function UserSection({
   };
 
   const handleChangePassword = () => {
-    router.push("/(mobile)/private/change-password");
+    navigateToChangePassword();
   };
 
   const handleDeleteAccount = () => {

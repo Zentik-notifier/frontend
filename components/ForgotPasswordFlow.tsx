@@ -1,62 +1,63 @@
-import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { ForgotPasswordForm } from './ForgotPasswordForm';
-import { NewPasswordStep } from './NewPasswordStep';
-import { ResetCodeStep } from './ResetCodeStep';
+import { router } from "expo-router";
+import React, { useState } from "react";
+import { ForgotPasswordForm } from "./ForgotPasswordForm";
+import { NewPasswordStep } from "./NewPasswordStep";
+import { ResetCodeStep } from "./ResetCodeStep";
+import { useNavigationUtils } from "@/utils/navigation";
 
-type Step = 'email' | 'code' | 'password';
+type Step = "email" | "code" | "password";
 
 interface ForgotPasswordFlowProps {
   onBackToLogin: () => void;
 }
 
 export function ForgotPasswordFlow({ onBackToLogin }: ForgotPasswordFlowProps) {
-  const [currentStep, setCurrentStep] = useState<Step>('email');
-  const [email, setEmail] = useState('');
-  const [resetToken, setResetToken] = useState('');
+  const [currentStep, setCurrentStep] = useState<Step>("email");
+  const [email, setEmail] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const { navigateToLogin } = useNavigationUtils();
 
   const handleEmailSubmitted = (userEmail: string) => {
     setEmail(userEmail);
-    setCurrentStep('code');
+    setCurrentStep("code");
   };
 
   const handleCodeVerified = (code: string) => {
     setResetToken(code);
-    setCurrentStep('password');
+    setCurrentStep("password");
   };
 
   const handlePasswordReset = () => {
     // Reset to initial state and go back to login with email prefilled
-    const emailToPass = email;
-    setCurrentStep('email');
-    setEmail('');
-    setResetToken('');
-    
+    setCurrentStep("email");
+    setEmail("");
+    setResetToken("");
+
     // Navigate to login with email parameter
-    router.replace(`/(mobile)/public/login?email=${encodeURIComponent(emailToPass)}`);
+    navigateToLogin(email);
   };
 
   const handleBackToEmail = () => {
-    setCurrentStep('email');
-    setEmail('');
-    setResetToken('');
+    setCurrentStep("email");
+    setEmail("");
+    setResetToken("");
   };
 
   const handleBackToCode = () => {
-    setCurrentStep('code');
-    setResetToken('');
+    setCurrentStep("code");
+    setResetToken("");
   };
 
   const renderCurrentStep = () => {
     switch (currentStep) {
-      case 'email':
+      case "email":
         return (
           <ForgotPasswordForm
             onResetRequested={handleEmailSubmitted}
             onBackToLogin={onBackToLogin}
           />
         );
-      case 'code':
+      case "code":
         return (
           <ResetCodeStep
             email={email}
@@ -64,7 +65,7 @@ export function ForgotPasswordFlow({ onBackToLogin }: ForgotPasswordFlowProps) {
             onBack={handleBackToEmail}
           />
         );
-      case 'password':
+      case "password":
         return (
           <NewPasswordStep
             resetToken={resetToken}
