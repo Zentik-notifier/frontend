@@ -3,6 +3,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import Icon from "@/components/ui/Icon";
 import { Colors } from "@/constants/Colors";
+import { useDeviceType } from "@/hooks/useDeviceType";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -15,6 +16,7 @@ export default function EditBucketPage() {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
   const { navigateToHome } = useNavigationUtils();
+  const { isMobile } = useDeviceType();
 
   if (!id) {
     return null;
@@ -27,29 +29,31 @@ export default function EditBucketPage() {
   return (
     <ThemedView style={styles.container}>
       {/* Header with close button */}
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: Colors[colorScheme].backgroundCard,
-            borderBottomColor: Colors[colorScheme].border,
-          },
-        ]}
-      >
-        <ThemedText style={styles.headerTitle}>
-          {t("buckets.form.editTitle")}
-        </ThemedText>
-        <TouchableOpacity
+      {!isMobile && (
+        <View
           style={[
-            styles.closeButton,
-            { backgroundColor: Colors[colorScheme].background },
+            styles.header,
+            {
+              backgroundColor: Colors[colorScheme].backgroundCard,
+              borderBottomColor: Colors[colorScheme].border,
+            },
           ]}
-          onPress={handleClose}
-          activeOpacity={0.7}
         >
-          <Icon name="close" size="md" color={Colors[colorScheme].text} />
-        </TouchableOpacity>
-      </View>
+          <ThemedText style={styles.headerTitle}>
+            {t("buckets.form.editTitle")}
+          </ThemedText>
+          <TouchableOpacity
+            style={[
+              styles.closeButton,
+              { backgroundColor: Colors[colorScheme].background },
+            ]}
+            onPress={handleClose}
+            activeOpacity={0.7}
+          >
+            <Icon name="close" size="md" color={Colors[colorScheme].text} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Edit bucket content */}
       <View style={styles.content}>

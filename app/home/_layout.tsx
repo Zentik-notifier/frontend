@@ -6,10 +6,12 @@ import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useTheme";
 import Header from "@/components/Header";
 import HomeDesktopLayout from "../../views/HomeDesktopLayout";
+import { useI18n } from "@/hooks";
 
 export default function HomeLayout() {
   const { isReady, isMobile } = useDeviceType();
   const colorScheme = useColorScheme();
+  const { t } = useI18n();
 
   if (!isReady) {
     return null;
@@ -36,10 +38,19 @@ export default function HomeLayout() {
           }}
         />
         <Stack.Screen
+          name="bucket/[id]"
+          options={{
+            headerShown: true,
+            headerTitle: "",
+            headerBackTitle: t("common.back"),
+          }}
+        />
+        <Stack.Screen
           name="edit-bucket/[id]"
           options={{
-            presentation: "modal",
-            headerShown: false,
+            headerShown: true,
+            headerTitle: "",
+            headerBackTitle: t("common.back"),
           }}
         />
       </Stack>
