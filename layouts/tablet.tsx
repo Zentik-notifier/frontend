@@ -16,7 +16,6 @@ export default function TabletLayout() {
           headerTitle: "Home",
           headerRight: () => <UserDropdown />,
           headerLeft: () => <Header />,
-          // headerLeft: () => <StatusBadge />,
         }}
       />
       <Stack.Screen
@@ -31,10 +30,52 @@ export default function TabletLayout() {
           animation: "slide_from_bottom",
         }}
       />
-      <Stack.Screen
-        name="(home)/bucket-setting/create"
+      {/* <Stack.Screen
+        name="(home)/(stack)/bucket-setting/create"
         options={{
           headerTitle: t("buckets.form.createTitle"),
+        }}
+      /> */}
+      <Stack.Screen
+        name="(auth)/login"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="(auth)/oauth"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="(auth)/forgot-password"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="(auth)/register"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="(auth)/reset-password"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="(auth)/confirm-email"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="(auth)/email-confirmation"
+        options={{
+          headerShown: false,
         }}
       />
     </Stack>

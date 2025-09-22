@@ -17,7 +17,6 @@ export default function MobileLayout() {
           headerTitle: "Home",
           headerRight: () => <UserDropdown />,
           headerLeft: () => <Header />,
-          // headerLeft: () => <StatusBadge />,
         }}
       />
       <Stack.Screen
@@ -36,6 +35,48 @@ export default function MobileLayout() {
         name="(home)/bucket-setting-standalone/create"
         options={{
           headerTitle: t("buckets.form.createTitle"),
+        }}
+      />
+      <Stack.Screen
+        name="(auth)/login"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="(auth)/oauth"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="(auth)/forgot-password"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="(auth)/register"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="(auth)/reset-password"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="(auth)/confirm-email"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="(auth)/email-confirmation"
+        options={{
+          headerShown: false,
         }}
       />
     </Stack>
