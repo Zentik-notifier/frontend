@@ -4,8 +4,9 @@ import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
+import { useDeviceType } from "@/hooks/useDeviceType";
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
+import { Tabs, Slot } from "expo-router";
 import React from "react";
 import { Platform, View } from "react-native";
 import Header from "@/components/Header";
@@ -16,11 +17,18 @@ export default function MobileTabsLayout() {
   const { notifications } = useAppContext();
   const { data: bucketsData } = useGetBucketsQuery();
   const { cacheStats } = useGetCacheStats();
+  const { isMobile } = useDeviceType();
 
   const notifCount = notifications.length;
   const bucketsCount = bucketsData?.buckets?.length ?? 0;
   const galleryCount = cacheStats?.totalItems ?? 0;
 
+  // Per desktop, mostra solo il contenuto senza header e tabs
+  if (!isMobile) {
+    return <Slot />;
+  }
+
+  // Per mobile, mostra header e tabs
   return (
     <View style={{ flex: 1, backgroundColor: Colors[colorScheme].background }}>
       <Header />
