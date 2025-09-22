@@ -42,9 +42,9 @@ interface NotificationDetailProps {
   onBack?: () => void;
 }
 
-export default function NotificationDetail({ 
-  notificationId, 
-  onBack 
+export default function NotificationDetail({
+  notificationId,
+  onBack,
 }: NotificationDetailProps) {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
@@ -210,111 +210,124 @@ export default function NotificationDetail({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.notificationContainer}>
-          {/* Header with bucket and actions */}
-          <View style={styles.headerContainer}>
-            <View style={styles.bucketContainer}>
-              <BucketIcon bucketId={message?.bucket?.id || ""} size="lg" noRouting />
-              <View style={styles.bucketInfo}>
-                <ThemedText style={styles.bucketName}>{bucketName}</ThemedText>
+
+          {/* Header with two columns: left (bucket info) and right (actions + timestamps) */}
+          <View style={styles.headerRow}>
+            {/* Left side: Bucket info */}
+            <View style={styles.headerLeft}>
+              <View style={styles.bucketContainer}>
+                <BucketIcon
+                  bucketId={message?.bucket?.id || ""}
+                  size="xxl"
+                  noRouting
+                />
+                <View style={styles.bucketInfo}>
+                  <ThemedText style={styles.bucketName}>{bucketName}</ThemedText>
+                </View>
               </View>
             </View>
 
-            <View style={styles.headerActions}>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  {
-                    backgroundColor: Colors[colorScheme].backgroundSecondary,
-                  },
-                ]}
-                onPress={copyNotificationToClipboard}
-              >
-                <Ionicons
-                  name="copy"
-                  size={16}
-                  color={Colors[colorScheme].tabIconDefault}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  {
-                    backgroundColor: Colors[colorScheme].backgroundSecondary,
-                  },
-                ]}
-                onPress={shareNotification}
-              >
-                <Ionicons
-                  name="share"
-                  size={16}
-                  color={Colors[colorScheme].tabIconDefault}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  {
-                    backgroundColor: Colors[colorScheme].error,
-                  },
-                ]}
-                onPress={handleDeleteNotification}
-              >
-                <Ionicons name="trash" size={16} color="white" />
-              </TouchableOpacity>
-
-              {message?.deliveryType !== NotificationDeliveryType.Normal && (
-                <View
+            {/* Right side: Actions and timestamps */}
+            <View style={styles.headerRight}>
+              {/* Actions */}
+              <View style={styles.actionsContainer}>
+                <TouchableOpacity
                   style={[
                     styles.actionButton,
                     {
-                      backgroundColor: getDeliveryTypeColor(
-                        message?.deliveryType as NotificationDeliveryType
-                      ),
+                      backgroundColor: Colors[colorScheme].backgroundSecondary,
                     },
                   ]}
+                  onPress={copyNotificationToClipboard}
                 >
-                  <Text style={styles.statusText}>
-                    {getDeliveryTypeFriendlyName(
-                      message?.deliveryType as NotificationDeliveryType
-                    )}
-                  </Text>
-                </View>
-              )}
+                  <Ionicons
+                    name="copy"
+                    size={16}
+                    color={Colors[colorScheme].tabIconDefault}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    {
+                      backgroundColor: Colors[colorScheme].backgroundSecondary,
+                    },
+                  ]}
+                  onPress={shareNotification}
+                >
+                  <Ionicons
+                    name="share"
+                    size={16}
+                    color={Colors[colorScheme].tabIconDefault}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    {
+                      backgroundColor: Colors[colorScheme].error,
+                    },
+                  ]}
+                  onPress={handleDeleteNotification}
+                >
+                  <Ionicons name="trash" size={16} color="white" />
+                </TouchableOpacity>
+
+                {message?.deliveryType !== NotificationDeliveryType.Normal && (
+                  <View
+                    style={[
+                      styles.actionButton,
+                      {
+                        backgroundColor: getDeliveryTypeColor(
+                          message?.deliveryType as NotificationDeliveryType
+                        ),
+                      },
+                    ]}
+                  >
+                    <Text style={styles.statusText}>
+                      {getDeliveryTypeFriendlyName(
+                        message?.deliveryType as NotificationDeliveryType
+                      )}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              
+              {/* Timestamps */}
+              <View style={styles.timestampsContainer}>
+                {notification.sentAt && (
+                  <ThemedText style={styles.timestampText}>
+                    {t("notificationDetail.sent")}{" "}
+                    {formatDate(notification.sentAt, true)}
+                  </ThemedText>
+                )}
+                {notification.readAt && (
+                  <ThemedText style={styles.timestampText}>
+                    {t("notificationDetail.read")}{" "}
+                    {formatDate(notification.readAt, true)}
+                  </ThemedText>
+                )}
+              </View>
             </View>
           </View>
 
-          {notification.sentAt && (
-            <ThemedText style={styles.timestampText}>
-              {t("notificationDetail.sent")}{" "}
-              {formatDate(notification.sentAt, true)}
-            </ThemedText>
-          )}
-          {notification.readAt && (
-            <ThemedText style={styles.timestampText}>
-              {t("notificationDetail.read")}{" "}
-              {formatDate(notification.readAt, true)}
-            </ThemedText>
-          )}
-
-          {/* Actions / Snooze row */}
-          {(actions.length > 0 || message?.bucket?.id) && (
-            <View style={styles.headerActionsRow}>
-              {actions.length > 0 && (
-                <NotificationActionsButton
-                  notification={notification}
-                  actions={actions}
-                  variant="detail"
-                  showTextLabel
-                />
-              )}
-              <View style={styles.filler} />
-              <NotificationSnoozeButton
-                bucketId={message?.bucket?.id}
+          {/* Actions and Snooze buttons */}
+          <View style={styles.actionsRow}>
+            {actions.length > 0 && (
+              <NotificationActionsButton
+                notification={notification}
+                actions={actions}
                 variant="detail"
-                showText
+                showTextLabel
               />
-            </View>
-          )}
+            )}
+            <View style={styles.filler} />
+            <NotificationSnoozeButton
+              bucketId={message?.bucket?.id}
+              variant="detail"
+              showText
+            />
+          </View>
 
           {/* Title */}
           <SmartTextRenderer content={message?.title} style={styles.title} />
@@ -359,9 +372,7 @@ export default function NotificationDetail({
         }
         onSwipeRight={() =>
           setFullScreenIndex(
-            fullScreenIndex === 0
-              ? attachments.length - 1
-              : fullScreenIndex - 1
+            fullScreenIndex === 0 ? attachments.length - 1 : fullScreenIndex - 1
           )
         }
         currentPosition={
@@ -416,10 +427,37 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 16,
   },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  headerLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerRight: {
+    flexDirection: "column",
+    alignItems: "flex-end",
+    justifyContent: "flex-start",
+  },
+  actionsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
   bucketContainer: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
   },
   bucketInfo: {
     marginLeft: 12,
@@ -445,10 +483,15 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "white",
   },
+  timestampsContainer: {
+    flexDirection: "column",
+    alignItems: "flex-end",
+    justifyContent: "flex-start",
+    gap: 2,
+  },
   timestampText: {
     fontSize: 10,
     opacity: 0.7,
-    marginBottom: 8,
   },
   headerActionsRow: {
     flexDirection: "row",

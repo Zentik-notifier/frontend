@@ -8,19 +8,19 @@ export function useNavigationUtils() {
 
     return {
         navigateToNotificationDetail: (notificationId: string) => {
-            if (isTabletOrDesktop) {
-                router.push(`/home/notification-detail/${notificationId}`);
-            } else {
-                router.push(`/(mobile)/private/notification-detail?id=${notificationId}`);
-            }
+            // if (isTabletOrDesktop) {
+            router.push(`/home/notification-detail/${notificationId}`);
+            // } else {
+            //     router.push(`/(mobile)/private/notification-detail?id=${notificationId}`);
+            // }
         },
 
         navigateToBucketDetail: (bucketId: string) => {
-            if (isTabletOrDesktop) {
-                router.push(`/home/bucket/${bucketId}`);
-            } else {
-                router.push(`/(mobile)/private/bucket-detail?id=${bucketId}`);
-            }
+            // if (isTabletOrDesktop) {
+            router.push(`/home/bucket/${bucketId}`);
+            // } else {
+            //     router.push(`/(mobile)/private/bucket-detail?id=${bucketId}`);
+            // }
         },
 
         navigateToEditBucket: (bucketId: string, fromHome: boolean = true) => {
