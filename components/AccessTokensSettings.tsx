@@ -15,15 +15,10 @@ import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import SwipeableItem from "./SwipeableItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
+import SettingsScrollView from "@/components/SettingsScrollView";
 import { useNavigationUtils } from "@/utils/navigation";
 
-interface AccessTokensSettingsProps {
-  refreshing?: boolean;
-}
-
-export function AccessTokensSettings({
-  refreshing,
-}: AccessTokensSettingsProps) {
+export function AccessTokensSettings() {
   const colorScheme = useColorScheme();
   const { navigateToCreateAccessToken } = useNavigationUtils();
   const { t } = useI18n();
@@ -42,14 +37,6 @@ export function AccessTokensSettings({
 
   const tokens = data?.getUserAccessTokens || [];
   const sortedTokens = useEntitySorting(tokens, "desc");
-
-  // Refetch data when refreshing prop changes
-  useEffect(() => {
-    if (refreshing) {
-      console.log("AccessTokensSettings: Refreshing data...");
-    }
-    refetch();
-  }, [refreshing, refetch]);
 
   const deleteToken = async (tokenId: string) => {
     try {
@@ -147,57 +134,58 @@ export function AccessTokensSettings({
     );
   };
 
+  const handleRefresh = async () => {
+    await refetch();
+  };
+
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>{t("accessTokens.title")}</ThemedText>
-        <TouchableOpacity
-          style={[
-            styles.createButton,
-            {
-              backgroundColor: disabledAdd
-                ? Colors[colorScheme ?? "light"].buttonDisabled
-                : Colors[colorScheme ?? "light"].tint,
-            },
-          ]}
-          onPress={() => navigateToCreateAccessToken()}
-          disabled={disabledAdd}
-        >
-          <Ionicons
-            name="add"
-            size={24}
-            color={
-              disabledAdd
-                ? Colors[colorScheme ?? "light"].textSecondary
-                : "white"
-            }
-          />
-        </TouchableOpacity>
-      </View>
-
-      <ThemedText style={styles.description}>
-        {t("accessTokens.description")}
-      </ThemedText>
-
-      {sortedTokens.length === 0 ? (
-        <ThemedView style={styles.emptyState}>
-          <Ionicons
-            name="key-outline"
-            size={64}
-            color={Colors[colorScheme ?? "light"].icon}
-          />
-          <ThemedText style={styles.emptyText}>
-            {t("accessTokens.noTokensTitle")}
-          </ThemedText>
-          <ThemedText style={styles.emptySubtext}>
-            {t("accessTokens.noTokensSubtext")}
-          </ThemedText>
-        </ThemedView>
-      ) : (
-        <View style={styles.tokensContainer}>
-          {sortedTokens.map((item) => renderTokenItem(item))}
+      <SettingsScrollView onRefresh={handleRefresh}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[
+              styles.createButton,
+              {
+                backgroundColor: disabledAdd
+                  ? Colors[colorScheme ?? "light"].buttonDisabled
+                  : Colors[colorScheme ?? "light"].tint,
+              },
+            ]}
+            onPress={() => navigateToCreateAccessToken()}
+            disabled={disabledAdd}
+          >
+            <Ionicons
+              name="add"
+              size={24}
+              color={
+                disabledAdd
+                  ? Colors[colorScheme ?? "light"].textSecondary
+                  : "white"
+              }
+            />
+          </TouchableOpacity>
         </View>
-      )}
+
+        {sortedTokens.length === 0 ? (
+          <ThemedView style={styles.emptyState}>
+            <Ionicons
+              name="key-outline"
+              size={64}
+              color={Colors[colorScheme ?? "light"].icon}
+            />
+            <ThemedText style={styles.emptyText}>
+              {t("accessTokens.noTokensTitle")}
+            </ThemedText>
+            <ThemedText style={styles.emptySubtext}>
+              {t("accessTokens.noTokensSubtext")}
+            </ThemedText>
+          </ThemedView>
+        ) : (
+          <View style={styles.tokensContainer}>
+            {sortedTokens.map((item) => renderTokenItem(item))}
+          </View>
+        )}
+      </SettingsScrollView>
     </ThemedView>
   );
 }
@@ -222,11 +210,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-  },
-  description: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 24,
   },
   emptyState: {
     flex: 1,

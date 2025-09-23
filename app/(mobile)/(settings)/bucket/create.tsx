@@ -1,28 +1,14 @@
 import CreateBucketForm from "@/components/CreateBucketForm";
-import RefreshableScrollView from "@/components/RefreshableScrollView";
-import { ThemedView } from "@/components/ThemedView";
+import { useI18n } from "@/hooks/useI18n";
 import React from "react";
-import { StyleSheet } from "react-native";
+import { Stack } from "expo-router";
 
 export default function CreateBucketScreen() {
-  const handleRefresh = async () => {
-    console.debug("Refreshing create bucket form");
-  };
-
+  const { t } = useI18n();
   return (
-    <ThemedView style={styles.container}>
-      <RefreshableScrollView style={styles.content} onRefresh={handleRefresh}>
-        {() => <CreateBucketForm withHeader />}
-      </RefreshableScrollView>
-    </ThemedView>
+    <>
+      <Stack.Screen options={{ headerTitle: t("buckets.form.createTitle") }} />
+      <CreateBucketForm withHeader={false} />
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-  },
-});

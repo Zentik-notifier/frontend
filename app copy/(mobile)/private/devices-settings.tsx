@@ -11,11 +11,8 @@ export default function DevicesSettingsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <RefreshableScrollView 
-        style={styles.content}
-        onRefresh={handleRefresh}
-      >
-        {(refreshing: boolean) => <DevicesSettings refreshing={refreshing} />}
+      <RefreshableScrollView style={styles.content} onRefresh={handleRefresh}>
+        {(refreshing: boolean) => <DevicesSettings />}
       </RefreshableScrollView>
     </ThemedView>
   );

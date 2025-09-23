@@ -1,26 +1,14 @@
 import CreateWebhookForm from "@/components/CreateWebhookForm";
-import { ThemedView } from "@/components/ThemedView";
+import { useI18n } from "@/hooks/useI18n";
+import { Stack } from "expo-router";
 import React from "react";
-import {
-    ScrollView,
-    StyleSheet,
-} from "react-native";
 
 export default function CreateWebhookScreen() {
+  const { t } = useI18n();
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <CreateWebhookForm showTitle={true} />
-      </ScrollView>
-    </ThemedView>
+    <>
+      <Stack.Screen options={{ title: t("webhooks.create") }} />
+      <CreateWebhookForm showTitle={false} />
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-  },
-});

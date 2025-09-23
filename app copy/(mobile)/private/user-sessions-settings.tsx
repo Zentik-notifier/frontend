@@ -16,9 +16,7 @@ export default function UserSessionsSettingsScreen() {
   return (
     <ThemedView style={styles.container}>
       <RefreshableScrollView style={styles.content} onRefresh={handleRefresh}>
-        {(isRefreshing) => (
-          <UserSessionsSettings refreshing={isRefreshing || refreshing} />
-        )}
+        {(isRefreshing) => <UserSessionsSettings />}
       </RefreshableScrollView>
     </ThemedView>
   );

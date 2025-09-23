@@ -4,6 +4,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { useColorScheme } from '@/hooks/useTheme';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, TextInput, View } from 'react-native';
+import SettingsScrollView from '@/components/SettingsScrollView';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
 import { Button } from './ui/Button';
@@ -121,7 +122,8 @@ export function ChangePasswordForm({ hasPassword, onSuccess }: ChangePasswordFor
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <SettingsScrollView>
+      <ThemedView style={styles.container}>
       {hasPassword && (
         <View style={styles.inputContainer}>
           <ThemedText style={[styles.label, { color: Colors[colorScheme ?? 'light'].text }]}>
@@ -218,23 +220,14 @@ export function ChangePasswordForm({ hasPassword, onSuccess }: ChangePasswordFor
         disabled={loading}
         style={styles.button}
       />
-    </ThemedView>
+      </ThemedView>
+    </SettingsScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  description: {
-    fontSize: 16,
-    opacity: 0.7,
-    marginBottom: 24,
   },
   inputContainer: {
     marginBottom: 16,

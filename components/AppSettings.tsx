@@ -1,4 +1,5 @@
 import { Colors } from "@/constants/Colors";
+import SettingsScrollView from "@/components/SettingsScrollView";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { Ionicons } from "@expo/vector-icons";
@@ -166,17 +167,13 @@ export function AppSettings() {
     </TouchableOpacity>
   );
 
+  const handleRefresh = async () => {
+    // This screen mostly manages local settings; noop refresh hook
+  };
+
   return (
-    <ScrollView
-      style={[
-        styles.container,
-        { backgroundColor: Colors[colorScheme].background },
-      ]}
-    >
-      {/* Header Section */}
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>{t("appSettings.title")}</ThemedText>
-      </View>
+    <SettingsScrollView onRefresh={handleRefresh}>
+      {/* Removed internal title to delegate to Stack header */}
 
       {/* API URL Section */}
       <View style={styles.apiUrlSection}>
@@ -294,7 +291,7 @@ export function AppSettings() {
           {t("appSettings.autoSaveDescription")}
         </ThemedText>
       </View>
-    </ScrollView>
+    </SettingsScrollView>
   );
 }
 
@@ -302,18 +299,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
+  
   languageSection: {
     marginBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,

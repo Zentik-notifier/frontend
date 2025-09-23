@@ -17,15 +17,9 @@ import { Alert, Image, StyleSheet, TouchableOpacity, View } from "react-native";
 import SwipeableItem from "./SwipeableItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
-import { AppLoader } from "./ui/AppLoader";
+import SettingsScrollView from "@/components/SettingsScrollView";
 
-interface UserSessionsSettingsProps {
-  refreshing?: boolean;
-}
-
-export function UserSessionsSettings({
-  refreshing,
-}: UserSessionsSettingsProps) {
+export function UserSessionsSettings() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
@@ -42,13 +36,6 @@ export function UserSessionsSettings({
 
   const sessions = data?.getUserSessions || [];
   const sortedSessions = useEntitySorting(sessions, "desc");
-
-  useEffect(() => {
-    if (refreshing) {
-      console.log("UserSessionsSettings: Refreshing data...");
-    }
-    refetch();
-  }, [refreshing, refetch]);
 
   const deleteSession = async (sessionId: string) => {
     try {
@@ -294,17 +281,8 @@ export function UserSessionsSettings({
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>
-          {t("userSessions.title") as string}
-        </ThemedText>
-      </View>
-
-      <ThemedText style={styles.description}>
-        {t("userSessions.description") as string}
-      </ThemedText>
-
-      {sortedSessions.length > 1 && (
+      <SettingsScrollView onRefresh={refetch}>
+        {sortedSessions.length > 1 && (
         <TouchableOpacity
           style={[
             styles.revokeAllButton,
@@ -342,27 +320,28 @@ export function UserSessionsSettings({
             {t("userSessions.revokeAllOthers") as string}
           </ThemedText>
         </TouchableOpacity>
-      )}
+        )}
 
-      {sortedSessions.length === 0 ? (
-        <ThemedView style={styles.emptyState}>
-          <Ionicons
-            name="globe-outline"
-            size={64}
-            color={Colors[colorScheme ?? "light"].icon}
-          />
-          <ThemedText style={styles.emptyText}>
-            {t("userSessions.noSessionsTitle") as string}
-          </ThemedText>
-          <ThemedText style={styles.emptySubtext}>
-            {t("userSessions.noSessionsSubtext") as string}
-          </ThemedText>
-        </ThemedView>
-      ) : (
-        <View style={styles.sessionsContainer}>
-          {sortedSessions.map((item) => renderSessionItem(item))}
-        </View>
-      )}
+        {sortedSessions.length === 0 ? (
+          <ThemedView style={styles.emptyState}>
+            <Ionicons
+              name="globe-outline"
+              size={64}
+              color={Colors[colorScheme ?? "light"].icon}
+            />
+            <ThemedText style={styles.emptyText}>
+              {t("userSessions.noSessionsTitle") as string}
+            </ThemedText>
+            <ThemedText style={styles.emptySubtext}>
+              {t("userSessions.noSessionsSubtext") as string}
+            </ThemedText>
+          </ThemedView>
+        ) : (
+          <View style={styles.sessionsContainer}>
+            {sortedSessions.map((item) => renderSessionItem(item))}
+          </View>
+        )}
+      </SettingsScrollView>
     </ThemedView>
   );
 }
@@ -380,11 +359,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "bold",
-  },
-  description: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 16,
   },
   revokeAllButton: {
     flexDirection: "row",

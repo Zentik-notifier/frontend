@@ -1,3 +1,4 @@
+import SettingsScrollView from "@/components/SettingsScrollView";
 import { Colors } from "@/constants/Colors";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
@@ -10,14 +11,9 @@ import { useGetUserDevicesQuery } from "../generated/gql-operations-generated";
 import SwipeableDeviceItem from "./SwipeableDeviceItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
-import { AppLoader } from "./ui/AppLoader";
 import Icon from "./ui/Icon";
 
-interface DevicesSettingsProps {
-  refreshing?: boolean;
-}
-
-export default function DevicesSettings({ refreshing }: DevicesSettingsProps) {
+export default function DevicesSettings() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const push = usePushNotifications();
@@ -34,11 +30,6 @@ export default function DevicesSettings({ refreshing }: DevicesSettingsProps) {
 
   const devices = userDevicesData?.userDevices || [];
   const sortedDevices = useEntitySorting(devices, "desc");
-
-  // Refetch data when refreshing prop changes
-  useEffect(() => {
-    refetch();
-  }, [refreshing, refetch]);
 
   const handleRegisterDevice = async () => {
     setManagingDevice(true);
@@ -107,129 +98,108 @@ export default function DevicesSettings({ refreshing }: DevicesSettingsProps) {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>{t("devices.title")}</ThemedText>
-      </View>
-
-      <ThemedText style={styles.description}>
-        {t("devices.description")}
-      </ThemedText>
-
-      <View style={styles.buttonContainer}>
-        {(() => {
-          const disabledRegister =
-            managingDevice ||
-            !push.isReady() ||
-            isOfflineAuth ||
-            isBackendUnreachable;
-          return (
-            <TouchableOpacity
-              style={[
-                styles.button,
-                styles.registerButton,
-                {
-                  backgroundColor: disabledRegister
-                    ? Colors[colorScheme ?? "light"].buttonDisabled
-                    : Colors[colorScheme ?? "light"].tint,
-                },
-              ]}
-              onPress={handleRegisterDevice}
-              disabled={disabledRegister}
-            >
-              <Text style={styles.registerButtonText}>
-                {managingDevice
-                  ? t("devices.registering")
-                  : t("devices.registerDevice")}
-              </Text>
-            </TouchableOpacity>
-          );
-        })()}
-
-        {(() => {
-          const disabledUnregister =
-            managingDevice || isOfflineAuth || isBackendUnreachable;
-          return (
-            <TouchableOpacity
-              style={[
-                styles.button,
-                styles.unregisterButton,
-                {
-                  backgroundColor: disabledUnregister
-                    ? Colors[colorScheme ?? "light"].buttonDisabled
-                    : Colors[colorScheme ?? "light"].backgroundCard,
-                  borderColor: Colors[colorScheme ?? "light"].border,
-                },
-              ]}
-              onPress={handleUnregisterDevice}
-              disabled={disabledUnregister}
-            >
-              <Text
+    <SettingsScrollView onRefresh={refetch}>
+      <ThemedView style={styles.container}>
+        <View style={styles.buttonContainer}>
+          {(() => {
+            const disabledRegister =
+              managingDevice ||
+              !push.isReady() ||
+              isOfflineAuth ||
+              isBackendUnreachable;
+            return (
+              <TouchableOpacity
                 style={[
-                  styles.unregisterButtonText,
+                  styles.button,
+                  styles.registerButton,
                   {
-                    color: disabledUnregister
-                      ? Colors[colorScheme ?? "light"].textSecondary
-                      : "#FF3B30",
+                    backgroundColor: disabledRegister
+                      ? Colors[colorScheme ?? "light"].buttonDisabled
+                      : Colors[colorScheme ?? "light"].tint,
                   },
                 ]}
+                onPress={handleRegisterDevice}
+                disabled={disabledRegister}
               >
-                {managingDevice
-                  ? t("devices.unregistering")
-                  : t("devices.unregisterDevice")}
-              </Text>
-            </TouchableOpacity>
-          );
-        })()}
-      </View>
+                <Text style={styles.registerButtonText}>
+                  {managingDevice
+                    ? t("devices.registering")
+                    : t("devices.registerDevice")}
+                </Text>
+              </TouchableOpacity>
+            );
+          })()}
 
-      {sortedDevices.length === 0 ? (
-        <ThemedView style={styles.emptyState}>
-          <Icon
-            name="mobile"
-            size={64}
-            color={Colors[colorScheme ?? "light"].icon}
-          />
-          <ThemedText style={styles.emptyText}>
-            {t("devices.noDevicesTitle")}
-          </ThemedText>
-          <ThemedText style={styles.emptySubtext}>
-            {t("devices.noDevicesSubtext")}
-          </ThemedText>
-        </ThemedView>
-      ) : (
-        <View style={styles.devicesContainer}>
-          {sortedDevices.map((item) => (
-            <SwipeableDeviceItem
-              key={item.id}
-              device={item}
-              isCurrentDevice={deviceToken === item.deviceToken}
-            />
-          ))}
+          {(() => {
+            const disabledUnregister =
+              managingDevice || isOfflineAuth || isBackendUnreachable;
+            return (
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  styles.unregisterButton,
+                  {
+                    backgroundColor: disabledUnregister
+                      ? Colors[colorScheme ?? "light"].buttonDisabled
+                      : Colors[colorScheme ?? "light"].backgroundCard,
+                    borderColor: Colors[colorScheme ?? "light"].border,
+                  },
+                ]}
+                onPress={handleUnregisterDevice}
+                disabled={disabledUnregister}
+              >
+                <Text
+                  style={[
+                    styles.unregisterButtonText,
+                    {
+                      color: disabledUnregister
+                        ? Colors[colorScheme ?? "light"].textSecondary
+                        : "#FF3B30",
+                    },
+                  ]}
+                >
+                  {managingDevice
+                    ? t("devices.unregistering")
+                    : t("devices.unregisterDevice")}
+                </Text>
+              </TouchableOpacity>
+            );
+          })()}
         </View>
-      )}
-    </ThemedView>
+
+        {sortedDevices.length === 0 ? (
+          <ThemedView style={styles.emptyState}>
+            <Icon
+              name="mobile"
+              size={64}
+              color={Colors[colorScheme ?? "light"].icon}
+            />
+            <ThemedText style={styles.emptyText}>
+              {t("devices.noDevicesTitle")}
+            </ThemedText>
+            <ThemedText style={styles.emptySubtext}>
+              {t("devices.noDevicesSubtext")}
+            </ThemedText>
+          </ThemedView>
+        ) : (
+          <View style={styles.devicesContainer}>
+            {sortedDevices.map((item) => (
+              <SwipeableDeviceItem
+                key={item.id}
+                device={item}
+                isCurrentDevice={deviceToken === item.deviceToken}
+              />
+            ))}
+          </View>
+        )}
+      </ThemedView>
+    </SettingsScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  description: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 24,
   },
   buttonContainer: {
     gap: 12,

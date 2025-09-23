@@ -1,31 +1,14 @@
 import { AccessTokensSettings } from "@/components/AccessTokensSettings";
-import RefreshableScrollView from "@/components/RefreshableScrollView";
-import { ThemedView } from "@/components/ThemedView";
+import { useI18n } from "@/hooks/useI18n";
 import React from "react";
-import { StyleSheet } from "react-native";
+import { Stack } from "expo-router";
 
 export default function AccessTokensSettingsScreen() {
-  const handleRefresh = async () => {
-    console.debug("Refreshing access token settings");
-  };
-
+  const { t } = useI18n();
   return (
-    <ThemedView style={styles.container}>
-      <RefreshableScrollView style={styles.content} onRefresh={handleRefresh}>
-        {(refreshing: boolean) => (
-          <AccessTokensSettings refreshing={refreshing} />
-        )}
-      </RefreshableScrollView>
-    </ThemedView>
+    <>
+      <Stack.Screen options={{ title: t("accessTokens.title") }} />
+      <AccessTokensSettings />
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-});

@@ -3,12 +3,13 @@ import { ThemedView } from "@/components/ThemedView";
 import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
-import { Href, useRouter, useSegments } from "expo-router";
+import { useRouter, useSegments } from "expo-router";
 import React from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import Icon from "@/components/ui/Icon";
 import { IconName } from "@/constants/Icons";
 import { useDeviceType } from "@/hooks/useDeviceType";
+import { useNavigationUtils } from "@/utils/navigation";
 
 interface SettingsOption {
   id: string;
@@ -16,7 +17,7 @@ interface SettingsOption {
   description: string;
   icon: IconName;
   iconColor: string;
-  route: Href;
+  onPress: () => void;
   selectionSegment: string;
 }
 
@@ -26,6 +27,7 @@ export default function SettingsSidebar() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const { isMobile, isDesktop } = useDeviceType();
+  const nav = useNavigationUtils();
 
   const settingsOptions: SettingsOption[] = [
     {
@@ -34,7 +36,7 @@ export default function SettingsSidebar() {
       description: t("userProfile.description"),
       icon: "user",
       iconColor: "#4F46E5", // Indigo
-      route: "/(settings)/user-profile",
+      onPress: nav.navigateToUserProfile,
       selectionSegment: "user-profile",
     },
     {
@@ -43,7 +45,7 @@ export default function SettingsSidebar() {
       description: t("appSettings.description"),
       icon: "settings",
       iconColor: "#F59E0B", // Amber
-      route: "/(settings)/app-settings",
+      onPress: nav.navigateToAppSettings,
       selectionSegment: "app-settings",
     },
     {
@@ -52,7 +54,7 @@ export default function SettingsSidebar() {
       description: t("buckets.description"),
       icon: "folder",
       iconColor: "#059669", // Emerald
-      route: "/(settings)/bucket/list",
+      onPress: () => nav.navigateToBucketsSettings(),
       selectionSegment: "bucket",
     },
     {
@@ -61,7 +63,7 @@ export default function SettingsSidebar() {
       description: t("accessTokens.description"),
       icon: "key",
       iconColor: "#0891B2", // Cyan
-      route: "/(settings)/access-token/list",
+      onPress: nav.navigateToAccessTokensSettings,
       selectionSegment: "access-token",
     },
     {
@@ -70,7 +72,7 @@ export default function SettingsSidebar() {
       description: t("webhooks.description"),
       icon: "webhook",
       iconColor: "#10B981", // Green
-      route: "/(settings)/webhook/list",
+      onPress: nav.navigateToWebhooksSettings,
       selectionSegment: "webhook",
     },
     {
@@ -79,7 +81,7 @@ export default function SettingsSidebar() {
       description: t("devices.description"),
       icon: "device",
       iconColor: "#DC2626", // Red
-      route: "/(settings)/devices",
+      onPress: nav.navigateToDevicesSettings,
       selectionSegment: "devices",
     },
     {
@@ -88,7 +90,7 @@ export default function SettingsSidebar() {
       description: t("userSessions.description"),
       icon: "notebook",
       iconColor: "#2563EB", // Notebook blue
-      route: "/(settings)/user-sessions",
+      onPress: nav.navigateToUserSessionsSettings,
       selectionSegment: "user-sessions",
     },
     {
@@ -97,7 +99,7 @@ export default function SettingsSidebar() {
       description: t("notifications.description"),
       icon: "notification",
       iconColor: "#7C3AED", // Violet
-      route: "/(settings)/notifications",
+      onPress: nav.navigateToNotificationsSettings,
       selectionSegment: "notifications",
     },
     {
@@ -106,7 +108,7 @@ export default function SettingsSidebar() {
       description: "View and refresh local application logs stored on device.",
       icon: "notebook",
       iconColor: "#0EA5E9", // Sky
-      route: "/(settings)/logs",
+      onPress: nav.navigateToLogs,
       selectionSegment: "logs",
     },
   ];
@@ -139,7 +141,7 @@ export default function SettingsSidebar() {
                       : "transparent",
                   },
                 ]}
-                onPress={() => router.push(option.route)}
+                onPress={option.onPress}
               >
                 <Icon
                   name={option.icon}
@@ -190,7 +192,7 @@ export default function SettingsSidebar() {
                   borderColor: Colors[colorScheme ?? "light"].border,
                 },
               ]}
-              onPress={() => router.push(option.route)}
+              onPress={option.onPress}
               activeOpacity={0.7}
             >
               <View

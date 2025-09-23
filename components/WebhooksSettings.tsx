@@ -5,6 +5,7 @@ import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import React, { useEffect } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
+import SettingsScrollView from "@/components/SettingsScrollView";
 import { useGetUserWebhooksQuery } from "../generated/gql-operations-generated";
 import SwipeableWebhookItem from "./SwipeableWebhookItem";
 import { ThemedText } from "./ThemedText";
@@ -50,51 +51,52 @@ export default function WebhooksSettings({
     navigateToCreateWebhook();
   };
 
+  const handleRefresh = async () => {
+    await refetch();
+  };
+
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>{t("webhooks.title")}</ThemedText>
-        <TouchableOpacity
-          style={[
-            styles.addButton,
-            {
-              backgroundColor: isOffline
-                ? Colors[colorScheme ?? "light"].buttonDisabled
-                : Colors[colorScheme ?? "light"].tint,
-            },
-          ]}
-          onPress={handleCreateWebhook}
-          disabled={isOffline}
-        >
-          <Icon name="add" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
-
-      <ThemedText style={styles.description}>
-        {t("webhooks.description")}
-      </ThemedText>
-
-      {webhooks.length === 0 ? (
-        <ThemedView style={styles.emptyState}>
-          <Icon
-            name="webhook"
-            size={64}
-            color={Colors[colorScheme ?? "light"].icon}
-          />
-          <ThemedText style={styles.emptyText}>
-            {t("webhooks.noWebhooksTitle")}
-          </ThemedText>
-          <ThemedText style={styles.emptySubtext}>
-            {t("webhooks.noWebhooksSubtext")}
-          </ThemedText>
-        </ThemedView>
-      ) : (
-        <View style={styles.webhooksContainer}>
-          {sortedWebhooks.map((webhook) => (
-            <SwipeableWebhookItem key={webhook.id} webhook={webhook} />
-          ))}
+      <SettingsScrollView onRefresh={handleRefresh}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[
+              styles.addButton,
+              {
+                backgroundColor: isOffline
+                  ? Colors[colorScheme ?? "light"].buttonDisabled
+                  : Colors[colorScheme ?? "light"].tint,
+              },
+            ]}
+            onPress={handleCreateWebhook}
+            disabled={isOffline}
+          >
+            <Icon name="add" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
-      )}
+
+        {webhooks.length === 0 ? (
+          <ThemedView style={styles.emptyState}>
+            <Icon
+              name="webhook"
+              size={64}
+              color={Colors[colorScheme ?? "light"].icon}
+            />
+            <ThemedText style={styles.emptyText}>
+              {t("webhooks.noWebhooksTitle")}
+            </ThemedText>
+            <ThemedText style={styles.emptySubtext}>
+              {t("webhooks.noWebhooksSubtext")}
+            </ThemedText>
+          </ThemedView>
+        ) : (
+          <View style={styles.webhooksContainer}>
+            {sortedWebhooks.map((webhook) => (
+              <SwipeableWebhookItem key={webhook.id} webhook={webhook} />
+            ))}
+          </View>
+        )}
+      </SettingsScrollView>
     </ThemedView>
   );
 }
@@ -119,11 +121,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-  },
-  description: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 24,
   },
   emptyState: {
     flex: 1,

@@ -1,32 +1,14 @@
 import BucketsSettings from "@/components/BucketsSettings";
-import RefreshableScrollView from "@/components/RefreshableScrollView";
-import { ThemedView } from "@/components/ThemedView";
+import { useI18n } from "@/hooks/useI18n";
 import React from "react";
-import { StyleSheet } from "react-native";
+import { Stack } from "expo-router";
 
 export default function BucketsSettingsScreen() {
-  const handleRefresh = async () => {
-    console.debug("Refreshing buckets settings");
-  };
-
+  const { t } = useI18n();
   return (
-    <ThemedView style={styles.container}>
-      <RefreshableScrollView 
-        style={styles.content}
-        onRefresh={handleRefresh}
-      >
-        {(refreshing: boolean) => <BucketsSettings refreshing={refreshing} />}
-      </RefreshableScrollView>
-    </ThemedView>
+    <>
+      <Stack.Screen options={{ title: t("buckets.title") }} />
+      <BucketsSettings />
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-});

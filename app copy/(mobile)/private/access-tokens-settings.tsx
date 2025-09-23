@@ -12,9 +12,7 @@ export default function AccessTokensSettingsScreen() {
   return (
     <ThemedView style={styles.container}>
       <RefreshableScrollView style={styles.content} onRefresh={handleRefresh}>
-        {(refreshing: boolean) => (
-          <AccessTokensSettings refreshing={refreshing} />
-        )}
+        {(refreshing: boolean) => <AccessTokensSettings />}
       </RefreshableScrollView>
     </ThemedView>
   );

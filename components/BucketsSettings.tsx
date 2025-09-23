@@ -21,18 +21,13 @@ import {
   ActivityIndicator,
 } from "react-native";
 import SwipeableBucketItem from "./SwipeableBucketItem";
+import SettingsScrollView from "@/components/SettingsScrollView";
 import BucketSelector from "./BucketSelector";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { useNavigationUtils } from "@/utils/navigation";
 
-interface BucketsSettingsProps {
-  refreshing?: boolean;
-}
-
-export default function BucketsSettings({
-  refreshing: externalRefreshing,
-}: BucketsSettingsProps) {
+export default function BucketsSettings() {
   const { danglingBucketId } = useLocalSearchParams<{
     danglingBucketId?: string;
   }>();
@@ -103,12 +98,6 @@ export default function BucketsSettings({
       }
     }
   }, [danglingBucketId, danglingBuckets]);
-
-  useEffect(() => {
-    if (externalRefreshing) {
-      refetch();
-    }
-  }, [externalRefreshing, refetch]);
 
   // Handle GraphQL error
   if (error) {
@@ -374,8 +363,8 @@ export default function BucketsSettings({
 
   return (
     <ThemedView style={styles.container}>
+      <SettingsScrollView>
       <View style={styles.header}>
-        <ThemedText style={styles.title}>{t("buckets.title")}</ThemedText>
         <View style={styles.headerButtons}>
           {danglingBuckets.length > 0 && (
             <TouchableOpacity
@@ -418,10 +407,6 @@ export default function BucketsSettings({
           </TouchableOpacity>
         </View>
       </View>
-
-      <ThemedText style={styles.description}>
-        {t("buckets.organize")}
-      </ThemedText>
 
       {/* Sezione Dangling Buckets */}
       {showDanglingBuckets && (
@@ -730,6 +715,7 @@ export default function BucketsSettings({
           )}
         </ThemedView>
       </Modal>
+      </SettingsScrollView>
     </ThemedView>
   );
 }
@@ -754,11 +740,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-  },
-  description: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 24,
   },
   emptyState: {
     flex: 1,

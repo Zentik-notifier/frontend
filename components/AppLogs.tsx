@@ -20,13 +20,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useI18n } from "@/hooks/useI18n";
 import * as Sharing from "expo-sharing";
 import { File, Paths } from "expo-file-system";
-import { useDeviceType } from "@/hooks/useDeviceType";
-import { Stack } from "expo-router";
 
-export default function AppLogsScreen() {
+export default function AppLogs() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-  const { isMobile } = useDeviceType();
   const [logs, setLogs] = useState<AppLog[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -39,7 +36,6 @@ export default function AppLogsScreen() {
       const db = await openSharedCacheDb();
       const repo = new LogRepository(db);
       const all = await repo.listSince(0);
-      // Ensure newest first (repo already orders DESC)
       setLogs(all);
     } catch (e) {
       console.warn("Failed to load logs", e);
@@ -62,53 +58,72 @@ export default function AppLogsScreen() {
     loadLogs();
   }, [loadLogs]);
 
-  const levelToColor = useMemo(() => ({
-    debug: Colors[colorScheme].textSecondary,
-    info: Colors[colorScheme].tint,
-    warn: Colors[colorScheme].warning,
-    error: Colors[colorScheme].error,
-  } as const), [colorScheme]);
+  const levelToColor = useMemo(
+    () =>
+      ({
+        debug: Colors[colorScheme].textSecondary,
+        info: Colors[colorScheme].tint,
+        warn: Colors[colorScheme].warning,
+        error: Colors[colorScheme].error,
+      } as const),
+    [colorScheme]
+  );
 
-  const renderItem = useCallback(({ item }: { item: AppLog }) => {
-    let meta: any = null;
-    try { meta = item.metaJson ? JSON.parse(item.metaJson) : null; } catch {}
-    return (
-      <View
-        style={[
-          styles.logItem,
-          { borderColor: Colors[colorScheme].border, backgroundColor: Colors[colorScheme].backgroundCard },
-        ]}
-      >
-        <View style={styles.logHeader}>
-          <View style={styles.levelBadgeContainer}>
-            <View style={[styles.levelBadge, { backgroundColor: levelToColor[item.level] }]} />
-            <ThemedText style={styles.levelText}>{item.level.toUpperCase()}</ThemedText>
-          </View>
-          <ThemedText style={styles.dateText}>
-            {new Date(item.timestamp).toLocaleString()}
-          </ThemedText>
-        </View>
-        {!!item.tag && (
-          <View style={styles.metaRow}>
-            <ThemedText style={styles.metaLabel}>tag:</ThemedText>
-            <ThemedText style={styles.metaValue}>{item.tag}</ThemedText>
-          </View>
-        )}
-        <View style={styles.metaRow}>
-          <ThemedText style={styles.metaLabel}>message:</ThemedText>
-          <ThemedText style={styles.metaValue}>{item.message}</ThemedText>
-        </View>
-        {!!meta && (
-          <View style={styles.metaRow}>
-            <ThemedText style={styles.metaLabel}>meta:</ThemedText>
-            <ThemedText style={styles.metaValue}>
-              {truncate(JSON.stringify(meta))}
+  const renderItem = useCallback(
+    ({ item }: { item: AppLog }) => {
+      let meta: any = null;
+      try {
+        meta = item.metaJson ? JSON.parse(item.metaJson) : null;
+      } catch {}
+      return (
+        <View
+          style={[
+            styles.logItem,
+            {
+              borderColor: Colors[colorScheme].border,
+              backgroundColor: Colors[colorScheme].backgroundCard,
+            },
+          ]}
+        >
+          <View style={styles.logHeader}>
+            <View style={styles.levelBadgeContainer}>
+              <View
+                style={[
+                  styles.levelBadge,
+                  { backgroundColor: levelToColor[item.level] },
+                ]}
+              />
+              <ThemedText style={styles.levelText}>
+                {item.level.toUpperCase()}
+              </ThemedText>
+            </View>
+            <ThemedText style={styles.dateText}>
+              {new Date(item.timestamp).toLocaleString()}
             </ThemedText>
           </View>
-        )}
-      </View>
-    );
-  }, [colorScheme, levelToColor]);
+          {!!item.tag && (
+            <View style={styles.metaRow}>
+              <ThemedText style={styles.metaLabel}>tag:</ThemedText>
+              <ThemedText style={styles.metaValue}>{item.tag}</ThemedText>
+            </View>
+          )}
+          <View style={styles.metaRow}>
+            <ThemedText style={styles.metaLabel}>message:</ThemedText>
+            <ThemedText style={styles.metaValue}>{item.message}</ThemedText>
+          </View>
+          {!!meta && (
+            <View style={styles.metaRow}>
+              <ThemedText style={styles.metaLabel}>meta:</ThemedText>
+              <ThemedText style={styles.metaValue}>
+                {truncate(JSON.stringify(meta))}
+              </ThemedText>
+            </View>
+          )}
+        </View>
+      );
+    },
+    [colorScheme, levelToColor]
+  );
 
   const filteredLogs = useMemo(() => {
     if (!query) return logs;
@@ -156,7 +171,9 @@ export default function AppLogsScreen() {
           t("appSettings.logs.exportCompleteMessage", { path: destPath })
         );
       }
-      try { file.delete(); } catch {}
+      try {
+        file.delete();
+      } catch {}
     } catch (error) {
       console.error("Error exporting logs:", error);
       Alert.alert(t("appSettings.logs.exportError"));
@@ -165,15 +182,20 @@ export default function AppLogsScreen() {
     }
   }, [t]);
 
-  const content = (
-    <SafeAreaView edges={["left", "right", "bottom"]} style={[styles.safe, { backgroundColor: Colors[colorScheme].background }]}> 
+  return (
+    <SafeAreaView
+      edges={["left", "right", "bottom"]}
+      style={[styles.safe, { backgroundColor: Colors[colorScheme].background }]}
+    >
       <ThemedView style={styles.container}>
         <View style={styles.header}>
-          <ThemedText style={styles.title}>{t("appLogs.title")}</ThemedText>
           <TouchableOpacity
             style={[
               styles.exportButton,
-              { borderColor: Colors[colorScheme].border, backgroundColor: Colors[colorScheme].backgroundCard },
+              {
+                borderColor: Colors[colorScheme].border,
+                backgroundColor: Colors[colorScheme].backgroundCard,
+              },
             ]}
             onPress={handleExportLogs}
             activeOpacity={0.8}
@@ -184,14 +206,19 @@ export default function AppLogsScreen() {
             ) : (
               <Icon name="share" size="sm" color="primary" />
             )}
-            <ThemedText style={styles.exportText}>{t("appSettings.logs.exportButton")}</ThemedText>
+            <ThemedText style={styles.exportText}>
+              {t("appSettings.logs.exportButton")}
+            </ThemedText>
           </TouchableOpacity>
         </View>
 
         <ThemedView
           style={[
             styles.searchContainer,
-            { backgroundColor: Colors[colorScheme].inputBackground, borderColor: Colors[colorScheme].border },
+            {
+              backgroundColor: Colors[colorScheme].inputBackground,
+              borderColor: Colors[colorScheme].border,
+            },
           ]}
         >
           <Icon name="search" size="sm" color="secondary" />
@@ -235,24 +262,6 @@ export default function AppLogsScreen() {
       </ThemedView>
     </SafeAreaView>
   );
-
-  // Per mobile, mostra con header di Expo Router
-  if (isMobile) {
-    return (
-      <>
-        <Stack.Screen 
-          options={{ 
-            title: "Application Logs",
-            headerShown: true,
-          }} 
-        />
-        {content}
-      </>
-    );
-  }
-
-  // Per desktop, mostra solo il contenuto
-  return content;
 }
 
 function truncate(text: string, max: number = 300): string {
@@ -272,13 +281,9 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     alignItems: "center",
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
+    marginBottom: 12,
   },
   exportButton: {
     flexDirection: "row",
@@ -373,3 +378,5 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
 });
+
+
