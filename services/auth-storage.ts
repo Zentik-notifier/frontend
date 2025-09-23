@@ -176,7 +176,7 @@ clearPushNotificationsInitialized = async () => {
 
 
 // Public key - use keychain for iOS (more secure), AsyncStorage for Android
-if (Platform.OS === 'ios') {
+if (Platform.OS === 'ios' || Platform.OS === 'macos') {
   savePublicKey = async (publicKey: string) => {
     try {
       const options: Keychain.SetOptions = Device.isDevice

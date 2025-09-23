@@ -38,7 +38,7 @@ export async function saveMediaToGallery(
 
 		const asset = await MediaLibrary.createAssetAsync(localPath);
 		try {
-			const albumName = Platform.OS === 'ios' ? 'Zentik' : 'Zentik';
+			const albumName = 'Zentik';
 			let album = await MediaLibrary.getAlbumAsync(albumName);
 			if (!album) {
 				album = await MediaLibrary.createAlbumAsync(albumName, asset, false);

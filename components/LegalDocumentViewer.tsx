@@ -1,21 +1,24 @@
-import { Colors } from '@/constants/Colors';
-import { useI18n } from '@/hooks/useI18n';
-import { useColorScheme } from '@/hooks/useTheme';
-import { getLegalDocumentContent, type LegalDocument } from '@/services/legal-documents';
-import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { Colors } from "@/constants/Colors";
+import { useI18n } from "@/hooks/useI18n";
+import { useColorScheme } from "@/hooks/useTheme";
 import {
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Markdown from 'react-native-markdown-display';
-import { ThemedText } from './ThemedText';
-import { Button } from './ui';
+  getLegalDocumentContent,
+  type LegalDocument,
+} from "@/services/legal-documents";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import {
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Markdown from "react-native-markdown-display";
+import { ThemedText } from "./ThemedText";
+import { Button } from "./ui";
 
 interface LegalDocumentViewerProps {
   document: LegalDocument;
@@ -30,7 +33,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
 }) => {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
-  const [content, setContent] = useState<string>('');
+  const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
@@ -45,7 +48,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
       const documentContent = await getLegalDocumentContent(document.fileName);
       setContent(documentContent);
     } catch (error) {
-      console.error('Error loading document:', error);
+      console.error("Error loading document:", error);
       setContent(`# Error\n\nCould not load ${document.title}`);
     } finally {
       setLoading(false);
@@ -61,13 +64,13 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
     heading1: {
       color: Colors[colorScheme].text,
       fontSize: 24,
-      fontWeight: 'bold' as const,
+      fontWeight: "bold" as const,
       marginBottom: 16,
     },
     heading2: {
       color: Colors[colorScheme].text,
       fontSize: 20,
-      fontWeight: 'bold' as const,
+      fontWeight: "bold" as const,
       marginBottom: 12,
       marginTop: 24,
     },
@@ -77,7 +80,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
     },
     strong: {
       color: Colors[colorScheme].text,
-      fontWeight: 'bold' as const,
+      fontWeight: "bold" as const,
     },
     list_item: {
       color: Colors[colorScheme].text,
@@ -89,7 +92,11 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
+      presentationStyle={
+        Platform.OS === "ios" || Platform.OS === "macos"
+          ? "pageSheet"
+          : "fullScreen"
+      }
     >
       <SafeAreaView
         style={[
@@ -105,11 +112,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
         >
           <ThemedText style={styles.title}>{document.title}</ThemedText>
           <Pressable onPress={onClose} style={styles.closeButton}>
-            <Ionicons
-              name="close"
-              size={24}
-              color={Colors[colorScheme].text}
-            />
+            <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
           </Pressable>
         </View>
 
@@ -120,7 +123,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
         >
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ThemedText>{t('common.loading')}</ThemedText>
+              <ThemedText>{t("common.loading")}</ThemedText>
             </View>
           ) : (
             <Markdown style={markdownStyles}>{content}</Markdown>
@@ -134,7 +137,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
           ]}
         >
           <Button
-            title={t('common.close')}
+            title={t("common.close")}
             onPress={onClose}
             variant="outline"
             size="large"
@@ -150,16 +153,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
   title: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     flex: 1,
   },
   closeButton: {
@@ -174,8 +177,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 32,
   },
   footer: {

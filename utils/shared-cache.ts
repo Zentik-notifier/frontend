@@ -24,7 +24,7 @@ export async function getSharedMediaCacheDirectoryAsync(): Promise<string> {
     return dir.uri;
   }
 
-  if (Platform.OS === 'ios') {
+  if (Platform.OS === 'ios' || Platform.OS === 'macos') {
     // 1) Try native module (matches the same App Group logic as extensions)
     try {
       const nativePath: string | undefined = await NativeModules?.SharedContainer?.getSharedMediaCacheDirectory?.();

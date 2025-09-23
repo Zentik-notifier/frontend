@@ -1,18 +1,18 @@
 import { Colors } from "@/constants/Colors";
 import { useI18n, useLanguageSync, useLocaleOptions } from "@/hooks";
 import { useColorScheme } from "@/hooks/useTheme";
-import { Locale } from '@/types/i18n';
+import { Locale } from "@/types/i18n";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
-    FlatList,
-    Modal,
-    Platform,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
-    ViewStyle
+  FlatList,
+  Modal,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+  ViewStyle,
 } from "react-native";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
@@ -24,19 +24,22 @@ interface LanguageSettingsProps {
 export function LanguageSettings({ style }: LanguageSettingsProps) {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-  const { currentLocale, setLocale, availableLocales, getLocaleDisplayName } = useLanguageSync();
+  const { currentLocale, setLocale, availableLocales, getLocaleDisplayName } =
+    useLanguageSync();
   // Note: useLocaleOptions() hook provides the same locale data for consistency
   const localeOptions = useLocaleOptions();
   const [showModal, setShowModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Use useMemo to avoid re-filtering on every render
   const filteredLocales = useMemo(() => {
     if (!searchQuery.trim()) {
       return availableLocales;
     }
-    return availableLocales.filter(locale =>
-      getLocaleDisplayName(locale).toLowerCase().includes(searchQuery.toLowerCase().trim())
+    return availableLocales.filter((locale) =>
+      getLocaleDisplayName(locale)
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase().trim())
     );
   }, [searchQuery, availableLocales, getLocaleDisplayName]);
 
@@ -44,9 +47,9 @@ export function LanguageSettings({ style }: LanguageSettingsProps) {
     try {
       await setLocale(locale);
       setShowModal(false);
-      setSearchQuery('');
+      setSearchQuery("");
     } catch (error) {
-      console.error('Failed to change language:', error);
+      console.error("Failed to change language:", error);
     }
   };
 
@@ -60,8 +63,8 @@ export function LanguageSettings({ style }: LanguageSettingsProps) {
         styles.languageItem,
         { backgroundColor: Colors[colorScheme].backgroundCard },
         item === currentLocale && {
-          backgroundColor: Colors[colorScheme].tint + '20'
-        }
+          backgroundColor: Colors[colorScheme].tint + "20",
+        },
       ]}
       onPress={() => handleLanguageSelect(item)}
       activeOpacity={0.7}
@@ -72,11 +75,7 @@ export function LanguageSettings({ style }: LanguageSettingsProps) {
         </ThemedText>
       </View>
       {item === currentLocale && (
-        <Ionicons 
-          name="checkmark" 
-          size={20} 
-          color={Colors[colorScheme].tint} 
-        />
+        <Ionicons name="checkmark" size={20} color={Colors[colorScheme].tint} />
       )}
     </TouchableOpacity>
   );
@@ -84,68 +83,101 @@ export function LanguageSettings({ style }: LanguageSettingsProps) {
   return (
     <View style={style}>
       <TouchableOpacity
-        style={[styles.settingRow, { backgroundColor: Colors[colorScheme].backgroundCard }]}
+        style={[
+          styles.settingRow,
+          { backgroundColor: Colors[colorScheme].backgroundCard },
+        ]}
         onPress={() => setShowModal(true)}
         activeOpacity={0.7}
       >
         <View style={styles.settingInfo}>
-          <Ionicons 
-            name="language-outline" 
-            size={20} 
-            color={Colors[colorScheme].textSecondary} 
+          <Ionicons
+            name="language-outline"
+            size={20}
+            color={Colors[colorScheme].textSecondary}
             style={styles.settingIcon}
           />
           <View style={styles.settingTextContainer}>
             <ThemedText style={styles.settingTitle}>
-              {t('appSettings.language.title')}
+              {t("appSettings.language.title")}
             </ThemedText>
-            <ThemedText style={[styles.settingDescription, { color: Colors[colorScheme].textSecondary }]}>
-              {t('appSettings.language.description')}
+            <ThemedText
+              style={[
+                styles.settingDescription,
+                { color: Colors[colorScheme].textSecondary },
+              ]}
+            >
+              {t("appSettings.language.description")}
             </ThemedText>
-            <ThemedText style={[styles.settingValue, { color: Colors[colorScheme].tint }]}>
+            <ThemedText
+              style={[styles.settingValue, { color: Colors[colorScheme].tint }]}
+            >
               {getCurrentLanguageDisplayName()}
             </ThemedText>
           </View>
         </View>
-        <Ionicons 
-          name="chevron-forward" 
-          size={16} 
-          color={Colors[colorScheme].textSecondary} 
+        <Ionicons
+          name="chevron-forward"
+          size={16}
+          color={Colors[colorScheme].textSecondary}
         />
       </TouchableOpacity>
 
       <Modal
         visible={showModal}
         animationType="slide"
-        presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
+        presentationStyle={
+          Platform.OS === "ios" || Platform.OS === "macos"
+            ? "pageSheet"
+            : "fullScreen"
+        }
         onRequestClose={() => setShowModal(false)}
       >
-        <ThemedView style={[styles.modalContainer, { backgroundColor: Colors[colorScheme].background }]}>
+        <ThemedView
+          style={[
+            styles.modalContainer,
+            { backgroundColor: Colors[colorScheme].background },
+          ]}
+        >
           {/* Header */}
-          <View style={[styles.modalHeader, { borderBottomColor: Colors[colorScheme].border }]}>
+          <View
+            style={[
+              styles.modalHeader,
+              { borderBottomColor: Colors[colorScheme].border },
+            ]}
+          >
             <TouchableOpacity
               onPress={() => setShowModal(false)}
               style={styles.closeButton}
             >
-              <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
+              <Ionicons
+                name="close"
+                size={24}
+                color={Colors[colorScheme].text}
+              />
             </TouchableOpacity>
             <ThemedText style={styles.modalTitle}>
-              {t('appSettings.language.selectLanguage')}
+              {t("appSettings.language.selectLanguage")}
             </ThemedText>
             <View style={styles.closeButton} />
           </View>
 
           {/* Search */}
-          <View style={[styles.searchContainer, { backgroundColor: Colors[colorScheme].backgroundCard }]}>
-            <Ionicons 
-              name="search" 
-              size={20} 
-              color={Colors[colorScheme].textSecondary} 
+          <View
+            style={[
+              styles.searchContainer,
+              { backgroundColor: Colors[colorScheme].backgroundCard },
+            ]}
+          >
+            <Ionicons
+              name="search"
+              size={20}
+              color={Colors[colorScheme].textSecondary}
               style={styles.searchIcon}
             />
             <TextInput
               style={[styles.searchInput, { color: Colors[colorScheme].text }]}
-              placeholder={t('appSettings.language.searchLanguage')}
+              placeholder={t("appSettings.language.searchLanguage")}
               placeholderTextColor={Colors[colorScheme].textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -154,13 +186,13 @@ export function LanguageSettings({ style }: LanguageSettingsProps) {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity
-                onPress={() => setSearchQuery('')}
+                onPress={() => setSearchQuery("")}
                 style={styles.clearButton}
               >
-                <Ionicons 
-                  name="close-circle" 
-                  size={20} 
-                  color={Colors[colorScheme].textSecondary} 
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={Colors[colorScheme].textSecondary}
                 />
               </TouchableOpacity>
             )}
@@ -170,11 +202,16 @@ export function LanguageSettings({ style }: LanguageSettingsProps) {
           <FlatList
             data={filteredLocales}
             renderItem={renderLanguageItem}
-            keyExtractor={item => item}
+            keyExtractor={(item) => item}
             style={styles.languageList}
             showsVerticalScrollIndicator={false}
             ItemSeparatorComponent={() => (
-              <View style={[styles.separator, { backgroundColor: Colors[colorScheme].border }]} />
+              <View
+                style={[
+                  styles.separator,
+                  { backgroundColor: Colors[colorScheme].border },
+                ]}
+              />
             )}
           />
         </ThemedView>
@@ -224,9 +261,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -234,16 +271,16 @@ const styles = StyleSheet.create({
   closeButton: {
     width: 24,
     height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginHorizontal: 16,
     marginVertical: 16,
     paddingHorizontal: 12,
@@ -265,9 +302,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   languageItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
   },

@@ -1,30 +1,30 @@
-import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Markdown from 'react-native-markdown-display';
-import { Colors } from '../constants/Colors';
-import { useI18n } from '../hooks/useI18n';
-import { useColorScheme } from '../hooks/useTheme';
+  ActivityIndicator,
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Markdown from "react-native-markdown-display";
+import { Colors } from "../constants/Colors";
+import { useI18n } from "../hooks/useI18n";
+import { useColorScheme } from "../hooks/useTheme";
 import {
-    acceptTerms,
-    getCurrentTermsVersion,
-    hasAcceptedTerms,
-} from '../services/auth-storage';
+  acceptTerms,
+  getCurrentTermsVersion,
+  hasAcceptedTerms,
+} from "../services/auth-storage";
 import {
-    getLegalDocumentContent,
-    LEGAL_DOCUMENTS,
-    LegalDocument,
-} from '../services/legal-documents';
+  getLegalDocumentContent,
+  LEGAL_DOCUMENTS,
+  LegalDocument,
+} from "../services/legal-documents";
 
 interface TermsAcceptanceScreenProps {
   onAccepted: () => void;
@@ -37,14 +37,20 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
 }) => {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
-  const [currentDocument, setCurrentDocument] = useState<LegalDocument | null>(null);
-  const [content, setContent] = useState<string>('');
+  const [currentDocument, setCurrentDocument] = useState<LegalDocument | null>(
+    null
+  );
+  const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
-  const [documentsAccepted, setDocumentsAccepted] = useState<Set<string>>(new Set());
+  const [documentsAccepted, setDocumentsAccepted] = useState<Set<string>>(
+    new Set()
+  );
 
   const currentVersion = getCurrentTermsVersion();
-  const requiredDocuments = LEGAL_DOCUMENTS.filter(doc => doc.fileName === 'terms-of-service');
+  const requiredDocuments = LEGAL_DOCUMENTS.filter(
+    (doc) => doc.fileName === "terms-of-service"
+  );
 
   useEffect(() => {
     checkExistingAcceptance();
@@ -58,12 +64,14 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
         onAccepted();
       }
     } catch (error) {
-      console.error('Error checking terms acceptance:', error);
+      console.error("Error checking terms acceptance:", error);
     }
   };
 
   const loadInitialDocument = async () => {
-    const termsDocument = LEGAL_DOCUMENTS.find(doc => doc.fileName === 'terms-of-service');
+    const termsDocument = LEGAL_DOCUMENTS.find(
+      (doc) => doc.fileName === "terms-of-service"
+    );
     if (termsDocument) {
       setCurrentDocument(termsDocument);
       await loadDocumentContent(termsDocument);
@@ -76,8 +84,10 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
       const documentContent = await getLegalDocumentContent(document.fileName);
       setContent(documentContent);
     } catch (error) {
-      console.error('Error loading document:', error);
-      setContent(`# ${t('legal.errorLoading')}\n\n${t('legal.errorLoadingDescription')}`);
+      console.error("Error loading document:", error);
+      setContent(
+        `# ${t("legal.errorLoading")}\n\n${t("legal.errorLoadingDescription")}`
+      );
     }
   };
 
@@ -87,33 +97,27 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
       await acceptTerms();
       onAccepted();
     } catch (error) {
-      console.error('Error accepting terms:', error);
-      Alert.alert(
-        t('legal.errorTitle'),
-        t('legal.errorAcceptingTerms'),
-        [{ text: t('common.ok') }]
-      );
+      console.error("Error accepting terms:", error);
+      Alert.alert(t("legal.errorTitle"), t("legal.errorAcceptingTerms"), [
+        { text: t("common.ok") },
+      ]);
     } finally {
       setAccepting(false);
     }
   };
 
   const handleDecline = () => {
-    Alert.alert(
-      t('legal.declineTermsTitle'),
-      t('legal.declineTermsMessage'),
-      [
-        {
-          text: t('legal.reviewAgain'),
-          style: 'default',
-        },
-        {
-          text: t('legal.exitApp'),
-          style: 'destructive',
-          onPress: onDeclined,
-        },
-      ]
-    );
+    Alert.alert(t("legal.declineTermsTitle"), t("legal.declineTermsMessage"), [
+      {
+        text: t("legal.reviewAgain"),
+        style: "default",
+      },
+      {
+        text: t("legal.exitApp"),
+        style: "destructive",
+        onPress: onDeclined,
+      },
+    ]);
   };
 
   const viewOtherDocument = (document: LegalDocument) => {
@@ -130,21 +134,21 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
     heading1: {
       color: Colors[colorScheme].text,
       fontSize: 24,
-      fontWeight: 'bold' as const,
+      fontWeight: "bold" as const,
       marginBottom: 16,
       marginTop: 20,
     },
     heading2: {
       color: Colors[colorScheme].text,
       fontSize: 20,
-      fontWeight: 'bold' as const,
+      fontWeight: "bold" as const,
       marginBottom: 12,
       marginTop: 16,
     },
     heading3: {
       color: Colors[colorScheme].text,
       fontSize: 16,
-      fontWeight: 'bold' as const,
+      fontWeight: "bold" as const,
       marginBottom: 8,
       marginTop: 12,
     },
@@ -156,11 +160,11 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
     },
     strong: {
       color: Colors[colorScheme].text,
-      fontWeight: 'bold' as const,
+      fontWeight: "bold" as const,
     },
     em: {
       color: Colors[colorScheme].text,
-      fontStyle: 'italic' as const,
+      fontStyle: "italic" as const,
     },
     list: {
       marginBottom: 8,
@@ -174,7 +178,10 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
       backgroundColor: Colors[colorScheme].backgroundSecondary,
       color: Colors[colorScheme].tint,
       fontSize: 12,
-      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+      fontFamily:
+        Platform.OS === "ios" || Platform.OS === "macos"
+          ? "Menlo"
+          : "monospace",
       paddingHorizontal: 4,
       paddingVertical: 2,
       borderRadius: 4,
@@ -191,11 +198,21 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
+      <SafeAreaView
+        style={[
+          styles.container,
+          { backgroundColor: Colors[colorScheme].background },
+        ]}
+      >
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
-          <Text style={[styles.loadingText, { color: Colors[colorScheme].textSecondary }]}>
-            {t('legal.loading')}
+          <Text
+            style={[
+              styles.loadingText,
+              { color: Colors[colorScheme].textSecondary },
+            ]}
+          >
+            {t("legal.loading")}
           </Text>
         </View>
       </SafeAreaView>
@@ -203,23 +220,49 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: Colors[colorScheme].background },
+      ]}
+    >
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: Colors[colorScheme].border }]}>
+      <View
+        style={[
+          styles.header,
+          { borderBottomColor: Colors[colorScheme].border },
+        ]}
+      >
         <View style={styles.headerContent}>
-          <Text style={[styles.headerTitle, { color: Colors[colorScheme].text }]}>
-            {t('legal.acceptanceRequired')}
+          <Text
+            style={[styles.headerTitle, { color: Colors[colorScheme].text }]}
+          >
+            {t("legal.acceptanceRequired")}
           </Text>
-          <Text style={[styles.headerSubtitle, { color: Colors[colorScheme].textSecondary }]}>
-            {t('legal.acceptanceDescription')}
+          <Text
+            style={[
+              styles.headerSubtitle,
+              { color: Colors[colorScheme].textSecondary },
+            ]}
+          >
+            {t("legal.acceptanceDescription")}
           </Text>
         </View>
       </View>
 
       {/* Document Navigation */}
       {LEGAL_DOCUMENTS.length > 1 && (
-        <View style={[styles.navigationContainer, { borderBottomColor: Colors[colorScheme].border }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.navigationContent}>
+        <View
+          style={[
+            styles.navigationContainer,
+            { borderBottomColor: Colors[colorScheme].border },
+          ]}
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.navigationContent}
+          >
             {LEGAL_DOCUMENTS.map((document) => (
               <TouchableOpacity
                 key={document.fileName}
@@ -262,15 +305,34 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
 
       {/* Current Document */}
       {currentDocument && (
-        <View style={[styles.documentHeader, { borderBottomColor: Colors[colorScheme].border }]}>
+        <View
+          style={[
+            styles.documentHeader,
+            { borderBottomColor: Colors[colorScheme].border },
+          ]}
+        >
           <View style={styles.documentInfo}>
-            <Ionicons name={currentDocument.icon} size={20} color={Colors[colorScheme].tint} />
-            <Text style={[styles.documentTitle, { color: Colors[colorScheme].text }]}>
+            <Ionicons
+              name={currentDocument.icon}
+              size={20}
+              color={Colors[colorScheme].tint}
+            />
+            <Text
+              style={[
+                styles.documentTitle,
+                { color: Colors[colorScheme].text },
+              ]}
+            >
               {currentDocument.title}
             </Text>
           </View>
-          <Text style={[styles.documentVersion, { color: Colors[colorScheme].textSecondary }]}>
-            {t('legal.version', { version: currentVersion })}
+          <Text
+            style={[
+              styles.documentVersion,
+              { color: Colors[colorScheme].textSecondary },
+            ]}
+          >
+            {t("legal.version", { version: currentVersion })}
           </Text>
         </View>
       )}
@@ -281,38 +343,62 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={true}
       >
-        <Markdown style={markdownStyle}>
-          {content}
-        </Markdown>
+        <Markdown style={markdownStyle}>{content}</Markdown>
       </ScrollView>
 
       {/* Acceptance Footer */}
-      <View style={[styles.footer, { borderTopColor: Colors[colorScheme].border }]}>
-        <Text style={[styles.footerText, { color: Colors[colorScheme].textSecondary }]}>
-          {t('legal.acceptanceFooterText')}
+      <View
+        style={[styles.footer, { borderTopColor: Colors[colorScheme].border }]}
+      >
+        <Text
+          style={[
+            styles.footerText,
+            { color: Colors[colorScheme].textSecondary },
+          ]}
+        >
+          {t("legal.acceptanceFooterText")}
         </Text>
-        
+
         <View style={styles.buttonsContainer}>
           <TouchableOpacity
-            style={[styles.declineButton, { borderColor: Colors[colorScheme].border }]}
+            style={[
+              styles.declineButton,
+              { borderColor: Colors[colorScheme].border },
+            ]}
             onPress={handleDecline}
             disabled={accepting}
           >
-            <Text style={[styles.declineButtonText, { color: Colors[colorScheme].textSecondary }]}>
-              {t('legal.declineTerms')}
+            <Text
+              style={[
+                styles.declineButtonText,
+                { color: Colors[colorScheme].textSecondary },
+              ]}
+            >
+              {t("legal.declineTerms")}
             </Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
-            style={[styles.acceptButton, { backgroundColor: Colors[colorScheme].tint }]}
+            style={[
+              styles.acceptButton,
+              { backgroundColor: Colors[colorScheme].tint },
+            ]}
             onPress={handleAccept}
             disabled={accepting}
           >
             {accepting ? (
-              <ActivityIndicator size="small" color={Colors[colorScheme].background} />
+              <ActivityIndicator
+                size="small"
+                color={Colors[colorScheme].background}
+              />
             ) : (
-              <Text style={[styles.acceptButtonText, { color: Colors[colorScheme].background }]}>
-                {t('legal.acceptTerms')}
+              <Text
+                style={[
+                  styles.acceptButtonText,
+                  { color: Colors[colorScheme].background },
+                ]}
+              >
+                {t("legal.acceptTerms")}
               </Text>
             )}
           </TouchableOpacity>
@@ -328,8 +414,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 32,
   },
   loadingText: {
@@ -342,16 +428,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerContent: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 18,
   },
   navigationContainer: {
@@ -363,8 +449,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   navigationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
@@ -373,24 +459,24 @@ const styles = StyleSheet.create({
   },
   navigationButtonText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   documentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
   documentInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   documentTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   documentVersion: {
     fontSize: 12,
@@ -408,12 +494,12 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 16,
     lineHeight: 16,
   },
   buttonsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   declineButton: {
@@ -422,23 +508,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   declineButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   acceptButton: {
     flex: 2,
     borderRadius: 8,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: 50,
   },
   acceptButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
