@@ -17,17 +17,16 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
+import SettingsScrollView from "./SettingsScrollView";
 
 interface UserDetailsProps {
   userId: string;
-  showHeader?: boolean;
 }
 
-export default function UserDetails({ userId, showHeader }: UserDetailsProps) {
+export default function UserDetails({ userId }: UserDetailsProps) {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const [refreshing, setRefreshing] = useState(false);
@@ -190,17 +189,9 @@ export default function UserDetails({ userId, showHeader }: UserDetailsProps) {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView
-        style={styles.content}
+      <SettingsScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[Colors[colorScheme ?? "light"].tint]}
-            tintColor={Colors[colorScheme ?? "light"].tint}
-          />
-        }
+        onRefresh={onRefresh}
       >
         {/* User Info Section */}
         <ThemedView
@@ -209,11 +200,6 @@ export default function UserDetails({ userId, showHeader }: UserDetailsProps) {
             { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
           ]}
         >
-          {showHeader && (
-            <ThemedText style={styles.sectionTitle}>
-              {t("administration.userDetails")}
-            </ThemedText>
-          )}
           {/* User Details */}
           <View style={styles.userDetails}>
             <View style={styles.detailRow}>
@@ -379,7 +365,7 @@ export default function UserDetails({ userId, showHeader }: UserDetailsProps) {
             </ThemedText>
           )}
         </ThemedView>
-      </ScrollView>
+      </SettingsScrollView>
     </ThemedView>
   );
 }

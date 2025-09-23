@@ -16,25 +16,19 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
+ 
 import { AppLoader } from "./ui/AppLoader";
-
-interface UserManagementProps {
-  refreshing?: boolean;
-}
 
 interface UserListItemProps {
   user: UserFragment;
   colorScheme: "light" | "dark";
 }
 
-const UserListItem: React.FC<UserListItemProps> = ({
-  user,
-  colorScheme,
-}) => {
+const UserListItem: React.FC<UserListItemProps> = ({ user, colorScheme }) => {
   const { t } = useI18n();
   const { navigateToUserDetails } = useNavigationUtils();
 
@@ -80,11 +74,9 @@ const UserListItem: React.FC<UserListItemProps> = ({
           <ThemedText style={styles.userName}>
             {user.username || user.email || user.id}
           </ThemedText>
-          <ThemedText style={styles.userEmail}>
-            {user.email}
-          </ThemedText>
+          <ThemedText style={styles.userEmail}>{user.email}</ThemedText>
         </View>
-        
+
         <View style={styles.userActions}>
           <View
             style={[
@@ -119,9 +111,7 @@ const UserListItem: React.FC<UserListItemProps> = ({
   );
 };
 
-export default function UserManagement({
-  refreshing: externalRefreshing,
-}: UserManagementProps) {
+export default function UserManagement() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
@@ -136,12 +126,6 @@ export default function UserManagement({
   useEffect(() => setMainLoading(loading), [loading]);
 
   const users = data?.users || [];
-
-  useEffect(() => {
-    if (externalRefreshing) {
-      refetch();
-    }
-  }, [externalRefreshing, refetch]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -163,10 +147,7 @@ export default function UserManagement({
   });
 
   const renderUserItem = ({ item }: { item: UserFragment }) => (
-    <UserListItem
-      user={item}
-      colorScheme={colorScheme ?? "light"}
-    />
+    <UserListItem user={item} colorScheme={colorScheme ?? "light"} />
   );
 
   if (loading) {
@@ -176,7 +157,11 @@ export default function UserManagement({
   if (error) {
     return (
       <ThemedView style={styles.errorContainer}>
-        <Ionicons name="alert-circle" size={64} color={Colors[colorScheme ?? "light"].icon} />
+        <Ionicons
+          name="alert-circle"
+          size={64}
+          color={Colors[colorScheme ?? "light"].icon}
+        />
         <ThemedText style={styles.errorTitle}>
           {t("administration.errorLoadingUsers")}
         </ThemedText>
@@ -189,24 +174,19 @@ export default function UserManagement({
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>
-          {t("administration.userManagement")}
-        </ThemedText>
-        <View style={styles.statsContainer}>
+      <View style={styles.pageContent}>
+        <View style={styles.headerRow}>
           <ThemedText style={styles.statsText}>
             {t("administration.totalUsers")}: {users.length}
           </ThemedText>
         </View>
-      </View>
-
-      {/* Search Filter */}
-      <ThemedView
-        style={[
-          styles.searchContainer,
-          { backgroundColor: Colors[colorScheme ?? "light"].inputBackground },
-        ]}
-      >
+        {/* Search Filter */}
+        <ThemedView
+          style={[
+            styles.searchContainer,
+            { backgroundColor: Colors[colorScheme ?? "light"].inputBackground },
+          ]}
+        >
         <Ionicons
           name="search"
           size={18}
@@ -214,7 +194,10 @@ export default function UserManagement({
           style={styles.searchIcon}
         />
         <TextInput
-          style={[styles.searchInput, { color: Colors[colorScheme ?? "light"].text }]}
+          style={[
+            styles.searchInput,
+            { color: Colors[colorScheme ?? "light"].text },
+          ]}
           placeholder={t("administration.searchUsers")}
           placeholderTextColor={Colors[colorScheme ?? "light"].inputPlaceholder}
           value={searchQuery}
@@ -232,38 +215,43 @@ export default function UserManagement({
             />
           </TouchableOpacity>
         )}
-      </ThemedView>
+        </ThemedView>
 
-      {filteredUsers.length === 0 ? (
-        <ThemedView style={styles.emptyState}>
+        {filteredUsers.length === 0 ? (
+          <ThemedView style={styles.emptyState}>
           <Ionicons
             name="people-outline"
             size={64}
             color={Colors[colorScheme ?? "light"].icon}
           />
           <ThemedText style={styles.emptyText}>
-            {searchQuery ? t("administration.noUsersFound") : t("administration.noUsers")}
+            {searchQuery
+              ? t("administration.noUsersFound")
+              : t("administration.noUsers")}
           </ThemedText>
           <ThemedText style={styles.emptySubtext}>
-            {searchQuery ? t("administration.tryDifferentSearch") : t("administration.noUsersSubtext")}
+            {searchQuery
+              ? t("administration.tryDifferentSearch")
+              : t("administration.noUsersSubtext")}
           </ThemedText>
-        </ThemedView>
-      ) : (
-        <FlatList
-          data={filteredUsers}
-          renderItem={renderUserItem}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.usersList}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={Colors[colorScheme ?? "light"].tint}
-            />
-          }
-        />
-      )}
+          </ThemedView>
+        ) : (
+          <FlatList
+            data={filteredUsers}
+            renderItem={renderUserItem}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.usersList}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={Colors[colorScheme ?? "light"].tint}
+              />
+            }
+          />
+        )}
+      </View>
     </ThemedView>
   );
 }
@@ -272,18 +260,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-  },
-  statsContainer: {
-    alignItems: "flex-end",
   },
   statsText: {
     fontSize: 14,
@@ -321,6 +300,18 @@ const styles = StyleSheet.create({
   },
   usersList: {
     paddingBottom: 20,
+  },
+  pageContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    marginBottom: 8,
   },
   userCard: {
     padding: 16,

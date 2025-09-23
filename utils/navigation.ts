@@ -165,39 +165,75 @@ export function useNavigationUtils() {
         },
 
         navigateToAdmin: () => {
-            router.push(`/admin`);
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)`);
+            } else {
+                router.push(`/(tablet)/(admin)/user-management/list`);
+            }
         },
 
         navigateToUserManagement: () => {
-            router.push(`/(admin)/user-management`);
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)/user-management/list`);
+            } else {
+                router.push(`/(tablet)/(admin)/user-management/list`);
+            }
         },
 
-        navigateToOAuthProviders: () => {
-            router.push(`/(admin)/oauth-providers`);
+        navigateToOauthProviders: () => {
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)/oauth-providers/list`);
+            } else {
+                router.push(`/(tablet)/(admin)/oauth-providers/list`);
+            }
         },
 
         navigateToSystemAccessTokens: () => {
-            router.push(`/(admin)/system-acces-token`);
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)/system-access-tokens/list`);
+            } else {
+                router.push(`/(tablet)/(admin)/system-access-tokens/list`);
+            }
         },
 
         navigateToEventsReview: () => {
-            router.push(`/(admin)/events-review`);
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)/events-review`);
+            } else {
+                router.push(`/(tablet)/(admin)/events-review`);
+            }
         },
 
         navigateToCreateOAuthProvider: () => {
-            router.push(`/(admin)/create-oauth-provider`);
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)/oauth-providers/create`);
+            } else {
+                router.push(`/(tablet)/(admin)/oauth-providers/create`);
+            }
         },
 
         navigateToEditOAuthProvider: (providerId: string) => {
-            router.push(`/(admin)/edit-oauth-provider/${providerId}`);
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)/oauth-providers/${providerId}`);
+            } else {
+                router.push(`/(tablet)/(admin)/oauth-providers/${providerId}`);
+            }
         },
 
         navigateToCreateSystemAccessToken: () => {
-            router.push("/(admin)/create-system-access-token");
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)/system-access-tokens/create`);
+            } else {
+                router.push(`/(tablet)/(admin)/system-access-tokens/create`);
+            }
         },
 
         navigateToUserDetails: (userId: string) => {
-            router.push("/(admin)/user-details/${userId}");
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)/user-management/${userId}`);
+            } else {
+                router.push(`/(tablet)/(admin)/user-management/${userId}`);
+            }
         },
 
         navigateToHome: () => {

@@ -24,6 +24,12 @@ export default function TabletLayout() {
         }}
       />
       <Stack.Screen
+        name="(mobile)/(admin)/index"
+        options={{
+          headerTitle: t("administration.title"),
+        }}
+      />
+      <Stack.Screen
         name="(mobile)/(home)/notification/[id]"
         options={{
           headerTitle: "",

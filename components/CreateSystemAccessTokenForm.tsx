@@ -22,14 +22,9 @@ import {
 } from "react-native";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
+import SettingsScrollView from "./SettingsScrollView";
 
-interface CreateSystemAccessTokenFormProps {
-  showTitle?: boolean;
-}
-
-export default function CreateSystemAccessTokenForm({
-  showTitle,
-}: CreateSystemAccessTokenFormProps) {
+export default function CreateSystemAccessTokenForm() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
@@ -46,7 +41,11 @@ export default function CreateSystemAccessTokenForm({
 
   const [createSystemToken] = useCreateSystemAccessTokenMutation();
 
-  const { data: usersData, loading: usersLoading } = useGetAllUsersQuery();
+  const {
+    data: usersData,
+    loading: usersLoading,
+    refetch: refetchUsers,
+  } = useGetAllUsersQuery();
   const users = usersData?.users || [];
 
   const createToken = async () => {
@@ -119,334 +118,330 @@ export default function CreateSystemAccessTokenForm({
   const isFormValid = !isNaN(parseFloat(maxCalls || "0"));
 
   return (
-    <ThemedView style={styles.container}>
-      {showTitle && (
-        <View style={styles.header}>
-          <Ionicons
-            name="key-outline"
-            size={48}
-            color={Colors[colorScheme ?? "light"].tint}
-          />
-          <ThemedText style={styles.title}>
-            {t("systemAccessTokens.form.title")}
-          </ThemedText>
-          <ThemedText style={styles.description}>
-            {t("systemAccessTokens.form.description")}
-          </ThemedText>
-        </View>
-      )}
-
-      <ThemedView
-        style={[
-          styles.formContainer,
-          { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
-        ]}
-      >
-        <View style={styles.inputGroup}>
-          <ThemedText style={styles.inputLabel}>
-            {t("systemAccessTokens.form.maxCalls")}
-          </ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: Colors[colorScheme ?? "light"].background,
-                borderColor: Colors[colorScheme ?? "light"].border,
-                color: Colors[colorScheme ?? "light"].text,
-              },
-            ]}
-            value={maxCalls}
-            onChangeText={setMaxCalls}
-            placeholder={t("systemAccessTokens.form.maxCallsPlaceholder")}
-            placeholderTextColor={Colors[colorScheme ?? "light"].tabIconDefault}
-            keyboardType="numeric"
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <ThemedText style={styles.inputLabel}>
-            {t("systemAccessTokens.form.expiration")}
-          </ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: Colors[colorScheme ?? "light"].background,
-                borderColor: Colors[colorScheme ?? "light"].border,
-                color: Colors[colorScheme ?? "light"].text,
-              },
-            ]}
-            value={expirationDays}
-            onChangeText={setExpirationDays}
-            placeholder={t("systemAccessTokens.form.expirationPlaceholder")}
-            placeholderTextColor={Colors[colorScheme ?? "light"].tabIconDefault}
-            keyboardType="numeric"
-          />
-          <ThemedText style={styles.inputHint}>
-            {t("systemAccessTokens.form.expirationHint")}
-          </ThemedText>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <ThemedText style={styles.inputLabel}>
-            {t("systemAccessTokens.form.requester")}
-          </ThemedText>
-          <TouchableOpacity
-            style={[
-              styles.userSelectorButton,
-              {
-                backgroundColor: Colors[colorScheme ?? "light"].background,
-                borderColor: Colors[colorScheme ?? "light"].border,
-              },
-            ]}
-            onPress={() => setShowUserSelector(true)}
-          >
-            <ThemedText
+    <SettingsScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      onRefresh={refetchUsers}
+    >
+      <ThemedView>
+        <ThemedView
+          style={[
+            styles.formContainer,
+            { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
+          ]}
+        >
+          <View style={styles.inputGroup}>
+            <ThemedText style={styles.inputLabel}>
+              {t("systemAccessTokens.form.maxCalls")}
+            </ThemedText>
+            <TextInput
               style={[
-                styles.userSelectorText,
+                styles.input,
                 {
-                  color: requesterId
-                    ? Colors[colorScheme ?? "light"].text
-                    : Colors[colorScheme ?? "light"].tabIconDefault,
+                  backgroundColor: Colors[colorScheme ?? "light"].background,
+                  borderColor: Colors[colorScheme ?? "light"].border,
+                  color: Colors[colorScheme ?? "light"].text,
                 },
               ]}
-            >
-              {requesterId
-                ? users.find((u) => u.id === requesterId)?.username ||
-                  users.find((u) => u.id === requesterId)?.email ||
-                  requesterId
-                : t("systemAccessTokens.form.requesterPlaceholder")}
-            </ThemedText>
-            <Ionicons
-              name="chevron-down"
-              size={20}
-              color={Colors[colorScheme ?? "light"].tabIconDefault}
+              value={maxCalls}
+              onChangeText={setMaxCalls}
+              placeholder={t("systemAccessTokens.form.maxCallsPlaceholder")}
+              placeholderTextColor={
+                Colors[colorScheme ?? "light"].tabIconDefault
+              }
+              keyboardType="numeric"
             />
-          </TouchableOpacity>
-          <ThemedText style={styles.inputHint}>
-            {t("systemAccessTokens.form.requesterHint")}
-          </ThemedText>
-        </View>
+          </View>
 
-        <View style={styles.inputGroup}>
-          <ThemedText style={styles.inputLabel}>
-            {t("systemAccessTokens.form.description")}
-          </ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: Colors[colorScheme ?? "light"].background,
-                borderColor: Colors[colorScheme ?? "light"].border,
-                color: Colors[colorScheme ?? "light"].text,
-              },
-            ]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder={t("systemAccessTokens.form.descriptionPlaceholder")}
-            placeholderTextColor={Colors[colorScheme ?? "light"].tabIconDefault}
-          />
-        </View>
-
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[
-              styles.button,
-              styles.createButton,
-              { backgroundColor: Colors[colorScheme ?? "light"].tint },
-              (!isFormValid || creating) && styles.buttonDisabled,
-            ]}
-            onPress={createToken}
-            disabled={!isFormValid || creating}
-          >
-            <ThemedText style={styles.createButtonText}>
-              {creating
-                ? t("systemAccessTokens.form.creating")
-                : t("systemAccessTokens.form.createButton")}
+          <View style={styles.inputGroup}>
+            <ThemedText style={styles.inputLabel}>
+              {t("systemAccessTokens.form.expiration")}
             </ThemedText>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.button,
-              styles.resetButton,
-              { borderColor: Colors[colorScheme ?? "light"].tint },
-            ]}
-            onPress={resetForm}
-            disabled={creating}
-          >
-            <ThemedText
+            <TextInput
               style={[
-                styles.resetButtonText,
-                { color: Colors[colorScheme ?? "light"].tint },
-              ]}
-            >
-              {t("common.reset")}
-            </ThemedText>
-          </TouchableOpacity>
-        </View>
-      </ThemedView>
-
-      <Modal
-        visible={showTokenModal}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setShowTokenModal(false)}
-      >
-        <View style={styles.tokenModalOverlay}>
-          <ThemedView style={styles.tokenModalContainer}>
-            <View style={styles.tokenModalHeader}>
-              <Ionicons
-                name="checkmark-circle"
-                size={48}
-                color={Colors[colorScheme ?? "light"].tint}
-              />
-              <ThemedText style={styles.tokenModalTitle}>
-                {t("systemAccessTokens.form.tokenCreatedTitle")}
-              </ThemedText>
-              <ThemedText style={styles.tokenModalSubtitle}>
-                {t("systemAccessTokens.form.tokenCreatedSubtitle")}
-              </ThemedText>
-            </View>
-
-            <View
-              style={[
-                styles.tokenContainer,
+                styles.input,
                 {
-                  backgroundColor:
-                    Colors[colorScheme ?? "light"].backgroundSecondary,
+                  backgroundColor: Colors[colorScheme ?? "light"].background,
+                  borderColor: Colors[colorScheme ?? "light"].border,
+                  color: Colors[colorScheme ?? "light"].text,
                 },
               ]}
+              value={expirationDays}
+              onChangeText={setExpirationDays}
+              placeholder={t("systemAccessTokens.form.expirationPlaceholder")}
+              placeholderTextColor={
+                Colors[colorScheme ?? "light"].tabIconDefault
+              }
+              keyboardType="numeric"
+            />
+            <ThemedText style={styles.inputHint}>
+              {t("systemAccessTokens.form.expirationHint")}
+            </ThemedText>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <ThemedText style={styles.inputLabel}>
+              {t("systemAccessTokens.form.requester")}
+            </ThemedText>
+            <TouchableOpacity
+              style={[
+                styles.userSelectorButton,
+                {
+                  backgroundColor: Colors[colorScheme ?? "light"].background,
+                  borderColor: Colors[colorScheme ?? "light"].border,
+                },
+              ]}
+              onPress={() => setShowUserSelector(true)}
             >
-              <Text
+              <ThemedText
                 style={[
-                  styles.tokenText,
-                  { color: Colors[colorScheme ?? "light"].text },
+                  styles.userSelectorText,
+                  {
+                    color: requesterId
+                      ? Colors[colorScheme ?? "light"].text
+                      : Colors[colorScheme ?? "light"].tabIconDefault,
+                  },
                 ]}
               >
-                {newToken}
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.copyButton,
-                  { backgroundColor: Colors[colorScheme ?? "light"].tint },
-                ]}
-                onPress={() => copyToClipboard(newToken)}
-              >
-                <Ionicons name="copy" size={20} color="white" />
-                <Text style={styles.copyButtonText}>
-                  {t("systemAccessTokens.form.copy")}
-                </Text>
-              </TouchableOpacity>
-            </View>
+                {requesterId
+                  ? users.find((u) => u.id === requesterId)?.username ||
+                    users.find((u) => u.id === requesterId)?.email ||
+                    requesterId
+                  : t("systemAccessTokens.form.requesterPlaceholder")}
+              </ThemedText>
+              <Ionicons
+                name="chevron-down"
+                size={20}
+                color={Colors[colorScheme ?? "light"].tabIconDefault}
+              />
+            </TouchableOpacity>
+            <ThemedText style={styles.inputHint}>
+              {t("systemAccessTokens.form.requesterHint")}
+            </ThemedText>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <ThemedText style={styles.inputLabel}>
+              {t("systemAccessTokens.form.description")}
+            </ThemedText>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: Colors[colorScheme ?? "light"].background,
+                  borderColor: Colors[colorScheme ?? "light"].border,
+                  color: Colors[colorScheme ?? "light"].text,
+                },
+              ]}
+              value={description}
+              onChangeText={setDescription}
+              placeholder={t("systemAccessTokens.form.descriptionPlaceholder")}
+              placeholderTextColor={
+                Colors[colorScheme ?? "light"].tabIconDefault
+              }
+            />
+          </View>
+
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[
+                styles.button,
+                styles.createButton,
+                { backgroundColor: Colors[colorScheme ?? "light"].tint },
+                (!isFormValid || creating) && styles.buttonDisabled,
+              ]}
+              onPress={createToken}
+              disabled={!isFormValid || creating}
+            >
+              <ThemedText style={styles.createButtonText}>
+                {creating
+                  ? t("systemAccessTokens.form.creating")
+                  : t("systemAccessTokens.form.createButton")}
+              </ThemedText>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[
-                styles.doneButton,
-                { backgroundColor: Colors[colorScheme ?? "light"].tint },
+                styles.button,
+                styles.resetButton,
+                { borderColor: Colors[colorScheme ?? "light"].tint },
               ]}
-              onPress={() => {
-                setShowTokenModal(false);
-                router.back();
-              }}
+              onPress={resetForm}
+              disabled={creating}
             >
-              <ThemedText style={styles.doneButtonText}>
-                {t("systemAccessTokens.form.done")}
+              <ThemedText
+                style={[
+                  styles.resetButtonText,
+                  { color: Colors[colorScheme ?? "light"].tint },
+                ]}
+              >
+                {t("common.reset")}
               </ThemedText>
             </TouchableOpacity>
-          </ThemedView>
-        </View>
-      </Modal>
+          </View>
+        </ThemedView>
 
-      {/* User Selector Modal */}
-      <Modal
-        visible={showUserSelector}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowUserSelector(false)}
-      >
-        <View style={styles.userSelectorOverlay}>
-          <ThemedView style={styles.userSelectorContainer}>
-            <View style={styles.userSelectorHeader}>
-              <ThemedText style={styles.userSelectorTitle}>
-                {t("systemAccessTokens.form.selectUser")}
-              </ThemedText>
-              <TouchableOpacity onPress={() => setShowUserSelector(false)}>
+        <Modal
+          visible={showTokenModal}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setShowTokenModal(false)}
+        >
+          <View style={styles.tokenModalOverlay}>
+            <ThemedView style={styles.tokenModalContainer}>
+              <View style={styles.tokenModalHeader}>
                 <Ionicons
-                  name="close"
-                  size={24}
-                  color={Colors[colorScheme ?? "light"].text}
+                  name="checkmark-circle"
+                  size={48}
+                  color={Colors[colorScheme ?? "light"].tint}
                 />
-              </TouchableOpacity>
-            </View>
+                <ThemedText style={styles.tokenModalTitle}>
+                  {t("systemAccessTokens.form.tokenCreatedTitle")}
+                </ThemedText>
+                <ThemedText style={styles.tokenModalSubtitle}>
+                  {t("systemAccessTokens.form.tokenCreatedSubtitle")}
+                </ThemedText>
+              </View>
 
-            <ScrollView style={styles.userList}>
-              {usersLoading ? (
-                <ThemedText style={styles.loadingText}>
-                  {t("common.loading")}
+              <View
+                style={[
+                  styles.tokenContainer,
+                  {
+                    backgroundColor:
+                      Colors[colorScheme ?? "light"].backgroundSecondary,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.tokenText,
+                    { color: Colors[colorScheme ?? "light"].text },
+                  ]}
+                >
+                  {newToken}
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.copyButton,
+                    { backgroundColor: Colors[colorScheme ?? "light"].tint },
+                  ]}
+                  onPress={() => copyToClipboard(newToken)}
+                >
+                  <Ionicons name="copy" size={20} color="white" />
+                  <Text style={styles.copyButtonText}>
+                    {t("systemAccessTokens.form.copy")}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.doneButton,
+                  { backgroundColor: Colors[colorScheme ?? "light"].tint },
+                ]}
+                onPress={() => {
+                  setShowTokenModal(false);
+                  router.back();
+                }}
+              >
+                <ThemedText style={styles.doneButtonText}>
+                  {t("systemAccessTokens.form.done")}
                 </ThemedText>
-              ) : users.length === 0 ? (
-                <ThemedText style={styles.noUsersText}>
-                  {t("systemAccessTokens.form.noUsers")}
+              </TouchableOpacity>
+            </ThemedView>
+          </View>
+        </Modal>
+
+        {/* User Selector Modal */}
+        <Modal
+          visible={showUserSelector}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setShowUserSelector(false)}
+        >
+          <View style={styles.userSelectorOverlay}>
+            <ThemedView style={styles.userSelectorContainer}>
+              <View style={styles.userSelectorHeader}>
+                <ThemedText style={styles.userSelectorTitle}>
+                  {t("systemAccessTokens.form.selectUser")}
                 </ThemedText>
-              ) : (
-                users.map((user) => (
-                  <TouchableOpacity
-                    key={user.id}
-                    style={[
-                      styles.userItem,
-                      {
-                        backgroundColor:
-                          Colors[colorScheme ?? "light"].background,
-                      },
-                      requesterId === user.id && {
-                        backgroundColor:
-                          Colors[colorScheme ?? "light"].tint + "20",
-                      },
-                    ]}
-                    onPress={() => {
-                      setRequesterId(user.id);
-                      setShowUserSelector(false);
-                    }}
-                  >
-                    <View style={styles.userInfo}>
-                      <ThemedText
-                        style={[
-                          styles.userName,
-                          { color: Colors[colorScheme ?? "light"].text },
-                        ]}
-                      >
-                        {user.username || user.email}
-                      </ThemedText>
-                      {user.firstName && user.lastName && (
+                <TouchableOpacity onPress={() => setShowUserSelector(false)}>
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={Colors[colorScheme ?? "light"].text}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.userList}>
+                {usersLoading ? (
+                  <ThemedText style={styles.loadingText}>
+                    {t("common.loading")}
+                  </ThemedText>
+                ) : users.length === 0 ? (
+                  <ThemedText style={styles.noUsersText}>
+                    {t("systemAccessTokens.form.noUsers")}
+                  </ThemedText>
+                ) : (
+                  users.map((user) => (
+                    <TouchableOpacity
+                      key={user.id}
+                      style={[
+                        styles.userItem,
+                        {
+                          backgroundColor:
+                            Colors[colorScheme ?? "light"].background,
+                        },
+                        requesterId === user.id && {
+                          backgroundColor:
+                            Colors[colorScheme ?? "light"].tint + "20",
+                        },
+                      ]}
+                      onPress={() => {
+                        setRequesterId(user.id);
+                        setShowUserSelector(false);
+                      }}
+                    >
+                      <View style={styles.userInfo}>
                         <ThemedText
                           style={[
-                            styles.userFullName,
-                            {
-                              color:
-                                Colors[colorScheme ?? "light"].textSecondary,
-                            },
+                            styles.userName,
+                            { color: Colors[colorScheme ?? "light"].text },
                           ]}
                         >
-                          {user.firstName} {user.lastName}
+                          {user.username || user.email}
                         </ThemedText>
+                        {user.firstName && user.lastName && (
+                          <ThemedText
+                            style={[
+                              styles.userFullName,
+                              {
+                                color:
+                                  Colors[colorScheme ?? "light"].textSecondary,
+                              },
+                            ]}
+                          >
+                            {user.firstName} {user.lastName}
+                          </ThemedText>
+                        )}
+                      </View>
+                      {requesterId === user.id && (
+                        <Ionicons
+                          name="checkmark"
+                          size={20}
+                          color={Colors[colorScheme ?? "light"].tint}
+                        />
                       )}
-                    </View>
-                    {requesterId === user.id && (
-                      <Ionicons
-                        name="checkmark"
-                        size={20}
-                        color={Colors[colorScheme ?? "light"].tint}
-                      />
-                    )}
-                  </TouchableOpacity>
-                ))
-              )}
-            </ScrollView>
-          </ThemedView>
-        </View>
-      </Modal>
-    </ThemedView>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </ScrollView>
+            </ThemedView>
+          </View>
+        </Modal>
+      </ThemedView>
+    </SettingsScrollView>
   );
 }
 

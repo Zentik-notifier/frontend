@@ -22,14 +22,13 @@ import {
 } from "react-native";
 import ColorPicker, { ColorPickerRef } from "./ColorPicker";
 import { ThemedText } from "./ThemedText";
+import SettingsScrollView from "./SettingsScrollView";
 
 interface CreateOAuthProviderFormProps {
-  showTitle?: boolean;
   providerId?: string;
 }
 
 export default function CreateOAuthProviderForm({
-  showTitle,
   providerId,
 }: CreateOAuthProviderFormProps) {
   const router = useRouter();
@@ -37,7 +36,11 @@ export default function CreateOAuthProviderForm({
   const { t } = useI18n();
 
   // Load provider data if editing
-  const { data: providerData, loading: loadingProvider } = useOAuthProviderQuery({
+  const {
+    data: providerData,
+    loading: loadingProvider,
+    refetch,
+  } = useOAuthProviderQuery({
     variables: { id: providerId || "" },
     skip: !providerId,
   });
@@ -182,7 +185,10 @@ export default function CreateOAuthProviderForm({
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={Colors[colorScheme ?? "light"].tint} />
+        <ActivityIndicator
+          size="large"
+          color={Colors[colorScheme ?? "light"].tint}
+        />
         <ThemedText style={styles.loadingText}>
           {t("common.loading")}
         </ThemedText>
@@ -191,19 +197,13 @@ export default function CreateOAuthProviderForm({
   }
 
   return (
-    <View style={styles.container}>
-      {showTitle && (
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>
-            {isEditing
-              ? t("administration.oauthProviderForm.editTitle")
-              : t("administration.oauthProviderForm.createTitle")}
-          </ThemedText>
-          <View style={styles.saveButton} />
-        </View>
-      )}
-
-      <View style={styles.content}>
+		<SettingsScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      onRefresh={isEditing ? refetch : undefined}
+    >
+      <View>
         {isCustomProvider && (
           <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>
@@ -507,7 +507,8 @@ export default function CreateOAuthProviderForm({
                     },
                   ]}
                 >
-                  {formData.color || t("administration.oauthProviderForm.colorPlaceholder")}
+                  {formData.color ||
+                    t("administration.oauthProviderForm.colorPlaceholder")}
                 </ThemedText>
               </TouchableOpacity>
             </View>
@@ -542,7 +543,8 @@ export default function CreateOAuthProviderForm({
                     },
                   ]}
                 >
-                  {formData.textColor || t("administration.oauthProviderForm.textColorPlaceholder")}
+                  {formData.textColor ||
+                    t("administration.oauthProviderForm.textColorPlaceholder")}
                 </ThemedText>
               </TouchableOpacity>
             </View>
@@ -592,7 +594,7 @@ export default function CreateOAuthProviderForm({
         {/* Add minimal bottom padding */}
         <View style={{ height: 8 }} />
       </View>
-    </View>
+    </SettingsScrollView>
   );
 }
 

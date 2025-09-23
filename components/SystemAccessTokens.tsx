@@ -9,25 +9,17 @@ import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { useNavigationUtils } from "@/utils/navigation";
+import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect } from "react";
 import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
+import SettingsScrollView from "./SettingsScrollView";
 import SwipeableItem from "./SwipeableItem";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
-import { AppLoader } from "./ui/AppLoader";
 
-interface SystemAccessTokensProps {
-  refreshing?: boolean;
-}
-
-export default function SystemAccessTokens({
-  refreshing,
-}: SystemAccessTokensProps) {
+export default function SystemAccessTokens() {
   const colorScheme = useColorScheme();
-  const router = useRouter();
   const { navigateToCreateSystemAccessToken } = useNavigationUtils();
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
@@ -44,13 +36,6 @@ export default function SystemAccessTokens({
 
   const tokens = data?.listSystemTokens || [];
   const sortedTokens = useEntitySorting(tokens, "desc");
-
-  useEffect(() => {
-    if (refreshing) {
-      console.log("SystemAccessTokens: Refreshing data...");
-    }
-    refetch();
-  }, [refreshing, refetch]);
 
   const deleteToken = async (id: string) => {
     try {
@@ -164,11 +149,11 @@ export default function SystemAccessTokens({
   const disabledAdd = disabledActions;
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>
-          {t("systemAccessTokens.title")}
-        </ThemedText>
+    <SettingsScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      onRefresh={refetch}
+      headerActions={
         <TouchableOpacity
           style={[
             styles.createButton,
@@ -178,9 +163,7 @@ export default function SystemAccessTokens({
                 : Colors[colorScheme ?? "light"].tint,
             },
           ]}
-          onPress={() =>
-            navigateToCreateSystemAccessToken()
-          }
+          onPress={() => navigateToCreateSystemAccessToken()}
           disabled={disabledAdd}
         >
           <Ionicons
@@ -193,32 +176,30 @@ export default function SystemAccessTokens({
             }
           />
         </TouchableOpacity>
-      </View>
-
-      <ThemedText style={styles.description}>
-        {t("systemAccessTokens.description")}
-      </ThemedText>
-
-      {sortedTokens.length === 0 ? (
-        <ThemedView style={styles.emptyState}>
-          <Ionicons
-            name="key-outline"
-            size={64}
-            color={Colors[colorScheme ?? "light"].icon}
-          />
-          <ThemedText style={styles.emptyText}>
-            {t("systemAccessTokens.noTokensTitle")}
-          </ThemedText>
-          <ThemedText style={styles.emptySubtext}>
-            {t("systemAccessTokens.noTokensSubtext")}
-          </ThemedText>
-        </ThemedView>
-      ) : (
-        <View style={styles.tokensContainer}>
-          {sortedTokens.map((item) => renderTokenItem(item))}
-        </View>
-      )}
-    </ThemedView>
+      }
+    >
+      <ThemedView>
+        {sortedTokens.length === 0 ? (
+          <ThemedView style={styles.emptyState}>
+            <Ionicons
+              name="key-outline"
+              size={64}
+              color={Colors[colorScheme ?? "light"].icon}
+            />
+            <ThemedText style={styles.emptyText}>
+              {t("systemAccessTokens.noTokensTitle")}
+            </ThemedText>
+            <ThemedText style={styles.emptySubtext}>
+              {t("systemAccessTokens.noTokensSubtext")}
+            </ThemedText>
+          </ThemedView>
+        ) : (
+          <View style={styles.tokensContainer}>
+            {sortedTokens.map((item) => renderTokenItem(item))}
+          </View>
+        )}
+      </ThemedView>
+    </SettingsScrollView>
   );
 }
 

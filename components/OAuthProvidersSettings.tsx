@@ -19,12 +19,8 @@ import {
 } from "react-native";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
-import { AppLoader } from "./ui/AppLoader";
 import { useAppContext } from "@/services/app-context";
-
-interface OAuthProvidersSettingsProps {
-  refreshing?: boolean;
-}
+import SettingsScrollView from "./SettingsScrollView";
 
 function OAuthProviderItem({
   provider,
@@ -134,11 +130,9 @@ function OAuthProviderItem({
   );
 }
 
-export default function OAuthProvidersSettings({
-  refreshing: externalRefreshing,
-}: OAuthProvidersSettingsProps) {
-  const router = useRouter();
-  const { navigateToCreateOAuthProvider, navigateToEditOAuthProvider } = useNavigationUtils();
+export default function OAuthProvidersSettings() {
+  const { navigateToCreateOAuthProvider, navigateToEditOAuthProvider } =
+    useNavigationUtils();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
   const [togglingProviderId, setTogglingProviderId] = useState<string | null>(
@@ -151,12 +145,6 @@ export default function OAuthProvidersSettings({
   useEffect(() => setMainLoading(loading), [loading]);
 
   const allProviders = data?.allOAuthProviders || [];
-
-  useEffect(() => {
-    if (externalRefreshing) {
-      refetch();
-    }
-  }, [externalRefreshing, refetch]);
 
   const handleCreateProvider = () => {
     navigateToCreateOAuthProvider();
@@ -222,11 +210,11 @@ export default function OAuthProvidersSettings({
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>
-          {t("administration.oauthProviders")}
-        </ThemedText>
+    <SettingsScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      onRefresh={refetch}
+      headerActions={
         <TouchableOpacity
           style={[
             styles.createButton,
@@ -236,32 +224,30 @@ export default function OAuthProvidersSettings({
         >
           <Ionicons name="add" size={24} color="white" />
         </TouchableOpacity>
-      </View>
-
-      <ThemedText style={styles.description}>
-        {t("administration.oauthProvidersDescription")}
-      </ThemedText>
-
-      {allProviders.length === 0 ? (
-        <ThemedView style={styles.emptyState}>
-          <Ionicons
-            name="folder-outline"
-            size={64}
-            color={Colors[colorScheme ?? "light"].icon}
-          />
-          <ThemedText style={styles.emptyText}>
-            {t("administration.noOAuthProviders")}
-          </ThemedText>
-          <ThemedText style={styles.emptySubtext}>
-            {t("administration.noOAuthProvidersDescription")}
-          </ThemedText>
-        </ThemedView>
-      ) : (
-        <View style={styles.container}>
-          {allProviders.map((item) => renderProviderItem({ item }))}
-        </View>
-      )}
-    </ThemedView>
+      }
+    >
+      <ThemedView>
+        {allProviders.length === 0 ? (
+          <ThemedView style={styles.emptyState}>
+            <Ionicons
+              name="folder-outline"
+              size={64}
+              color={Colors[colorScheme ?? "light"].icon}
+            />
+            <ThemedText style={styles.emptyText}>
+              {t("administration.noOAuthProviders")}
+            </ThemedText>
+            <ThemedText style={styles.emptySubtext}>
+              {t("administration.noOAuthProvidersDescription")}
+            </ThemedText>
+          </ThemedView>
+        ) : (
+          <View style={styles.container}>
+            {allProviders.map((item) => renderProviderItem({ item }))}
+          </View>
+        )}
+      </ThemedView>
+    </SettingsScrollView>
   );
 }
 
