@@ -78,7 +78,7 @@ export default function Header() {
           </View>
         )}
 
-        {hasUnreadNotifications && (
+        {hasUnreadNotifications && loadedFromPersistedCache && (
           <View style={styles.markAllButtonContainer}>
             <TouchableOpacity
               style={[
