@@ -3,13 +3,12 @@ import { ThemedView } from "@/components/ThemedView";
 import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
-import { Href, useRouter } from "expo-router";
+import { Href, useRouter, useSegments } from "expo-router";
 import React from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-
 import Icon from "@/components/ui/Icon";
 import { IconName } from "@/constants/Icons";
-import { useAppContext } from "@/services/app-context";
+import { useDeviceType } from "@/hooks/useDeviceType";
 
 interface SettingsOption {
   id: string;
@@ -18,17 +17,15 @@ interface SettingsOption {
   icon: IconName;
   iconColor: string;
   route: Href;
+  selectionSegment: string;
 }
 
-export default function SettingsLanding() {
-  const { userId } = useAppContext();
+export default function SettingsSidebar() {
   const router = useRouter();
+  const segments = useSegments();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-
-  if (!userId) {
-    return null;
-  }
+  const { isMobile, isDesktop } = useDeviceType();
 
   const settingsOptions: SettingsOption[] = [
     {
@@ -37,7 +34,8 @@ export default function SettingsLanding() {
       description: t("userProfile.description"),
       icon: "user",
       iconColor: "#4F46E5", // Indigo
-      route: "/settings/user-profile",
+      route: "/(settings)/user-profile",
+      selectionSegment: "user-profile",
     },
     {
       id: "app-settings",
@@ -45,7 +43,8 @@ export default function SettingsLanding() {
       description: t("appSettings.description"),
       icon: "settings",
       iconColor: "#F59E0B", // Amber
-      route: "/settings/app-settings",
+      route: "/(settings)/app-settings",
+      selectionSegment: "app-settings",
     },
     {
       id: "buckets-settings",
@@ -53,7 +52,8 @@ export default function SettingsLanding() {
       description: t("buckets.description"),
       icon: "folder",
       iconColor: "#059669", // Emerald
-      route: "/settings/bucket/list",
+      route: "/(settings)/bucket/list",
+      selectionSegment: "bucket",
     },
     {
       id: "access-tokens-settings",
@@ -61,7 +61,8 @@ export default function SettingsLanding() {
       description: t("accessTokens.description"),
       icon: "key",
       iconColor: "#0891B2", // Cyan
-      route: "/settings/access-token/list",
+      route: "/(settings)/access-token/list",
+      selectionSegment: "access-token",
     },
     {
       id: "webhooks-settings",
@@ -69,7 +70,8 @@ export default function SettingsLanding() {
       description: t("webhooks.description"),
       icon: "webhook",
       iconColor: "#10B981", // Green
-      route: "/settings/webhook/list",
+      route: "/(settings)/webhook/list",
+      selectionSegment: "webhook",
     },
     {
       id: "devices-settings",
@@ -77,7 +79,8 @@ export default function SettingsLanding() {
       description: t("devices.description"),
       icon: "device",
       iconColor: "#DC2626", // Red
-      route: "/settings/devices",
+      route: "/(settings)/devices",
+      selectionSegment: "devices",
     },
     {
       id: "user-sessions-settings",
@@ -85,7 +88,8 @@ export default function SettingsLanding() {
       description: t("userSessions.description"),
       icon: "notebook",
       iconColor: "#2563EB", // Notebook blue
-      route: "/settings/user-sessions",
+      route: "/(settings)/user-sessions",
+      selectionSegment: "user-sessions",
     },
     {
       id: "notifications-settings",
@@ -93,7 +97,8 @@ export default function SettingsLanding() {
       description: t("notifications.description"),
       icon: "notification",
       iconColor: "#7C3AED", // Violet
-      route: "/settings/notifications",
+      route: "/(settings)/notifications",
+      selectionSegment: "notifications",
     },
     {
       id: "app-logs",
@@ -101,9 +106,70 @@ export default function SettingsLanding() {
       description: "View and refresh local application logs stored on device.",
       icon: "notebook",
       iconColor: "#0EA5E9", // Sky
-      route: "/settings/logs",
+      route: "/(settings)/logs",
+      selectionSegment: "logs",
     },
   ];
+
+  if (!isMobile) {
+    return (
+      <ScrollView
+        style={{
+          backgroundColor: Colors[colorScheme ?? "light"].background,
+          flexGrow: 0,
+          flexShrink: 0,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[{ width: isDesktop ? 320 : 250 }]}>
+          {settingsOptions.map((option) => {
+            const isSelected = segments.some(
+              (segment) => segment === option.selectionSegment
+            );
+            return (
+              <TouchableOpacity
+                key={option.id}
+                style={[
+                  styles.sidebarItem,
+                  {
+                    borderLeftWidth: 0,
+                    borderLeftColor: "transparent",
+                    backgroundColor: isSelected
+                      ? Colors[colorScheme ?? "light"].tint + "20"
+                      : "transparent",
+                  },
+                ]}
+                onPress={() => router.push(option.route)}
+              >
+                <Icon
+                  name={option.icon}
+                  size="md"
+                  color={
+                    option.iconColor ||
+                    Colors[colorScheme ?? "light"].textSecondary
+                  }
+                />
+                <ThemedText
+                  style={[
+                    styles.sidebarItemText,
+                    {
+                      color: isSelected
+                        ? Colors[colorScheme ?? "light"].tint
+                        : Colors[colorScheme ?? "light"].textSecondary,
+                      fontSize: isDesktop ? 20 : 18,
+                      fontWeight: isSelected ? "600" : "400",
+                    },
+                  ]}
+                >
+                  {option.title}
+                </ThemedText>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </ScrollView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -112,11 +178,6 @@ export default function SettingsLanding() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.titleContainer}>
-          <Icon name="wrench" size="lg" color="#8B5CF6" />
-          <ThemedText style={styles.title}>{t("common.settings")}</ThemedText>
-        </View>
-
         <View style={styles.optionsContainer}>
           {settingsOptions.map((option) => (
             <TouchableOpacity
@@ -135,7 +196,7 @@ export default function SettingsLanding() {
               <View
                 style={[
                   styles.optionIconContainer,
-                  { backgroundColor: `${option.iconColor}15` }, // 15 = ~8% opacity
+                  { backgroundColor: `${option.iconColor}15` },
                 ]}
               >
                 <Icon
@@ -150,9 +211,11 @@ export default function SettingsLanding() {
                 <ThemedText style={styles.optionTitle}>
                   {option.title}
                 </ThemedText>
-                <ThemedText style={styles.optionDescription}>
-                  {option.description}
-                </ThemedText>
+                {isMobile && (
+                  <ThemedText style={styles.optionDescription}>
+                    {option.description}
+                  </ThemedText>
+                )}
               </View>
               <Icon name="chevron" size="md" color="secondary" />
             </TouchableOpacity>
@@ -164,6 +227,24 @@ export default function SettingsLanding() {
 }
 
 const styles = StyleSheet.create({
+  sidebarScroll: {
+    flex: 1,
+  },
+  sidebarItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    marginHorizontal: 8,
+    borderLeftWidth: 3,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  sidebarItemText: {
+    marginLeft: 12,
+    fontSize: 14,
+    flex: 1,
+  },
   container: {
     flex: 1,
   },

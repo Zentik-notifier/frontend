@@ -5,6 +5,7 @@ import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
+import { Stack } from "expo-router";
 import React from "react";
 import {
   KeyboardAvoidingView,
@@ -14,7 +15,10 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 export default function ForgotPasswordScreen() {
   const { t } = useI18n();
@@ -33,6 +37,7 @@ export default function ForgotPasswordScreen() {
         { backgroundColor: Colors[colorScheme].background },
       ]}
     >
+      <Stack.Screen options={{ headerShown: false }} />
       <StatusBar
         barStyle={colorScheme === "dark" ? "light-content" : "dark-content"}
       />

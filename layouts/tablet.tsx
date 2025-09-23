@@ -1,69 +1,46 @@
 import Header from "@/components/Header";
+import HomeSidebar from "@/components/HomeSidebar";
+import SettingsSidebar from "@/components/SettingsSidebar";
 import UserDropdown from "@/components/UserDropdown";
 import { useI18n } from "@/hooks";
-import { Stack } from "expo-router";
+import { Slot, Stack, useSegments } from "expo-router";
+import { View } from "react-native";
 
 export default function TabletLayout() {
   const { t } = useI18n();
+  const segments = useSegments();
+  const segments1 = segments[1];
+
+  // if (segments1 === "(home)") {
+  //   return (
+  //     <View style={{ flex: 1, flexDirection: "row" }}>
+  //       <HomeSidebar />
+  //       <View
+  //         style={{
+  //           flexGrow: 1,
+  //           flexShrink: 1,
+  //           flexBasis: 0,
+  //           overflow: "hidden",
+  //         }}
+  //       >
+  //         {/* <Slot /> */}
+  //         <Stack
+  //           screenOptions={{
+  //             headerShown: true,
+  //             headerTitle: t("common.settings"),
+  //           }}
+  //         ></Stack>
+  //       </View>
+  //     </View>
+  //   );
+  // }
 
   return (
     <Stack>
       <Stack.Screen
-        name="(home)/(stack)"
+        name="(tablet)/(home)"
         options={{
-          headerShown: true,
-          headerBackTitle: "",
-          headerTitle: "Home",
-          headerRight: () => <UserDropdown />,
-          headerLeft: () => <Header />,
-        }}
-      />
-      <Stack.Screen
-        name="(home)/(stack)/notification/[id]"
-        options={{
-          headerTitle: "",
-          headerShown: false,
-          presentation: "modal",
-          gestureEnabled: true,
-          gestureDirection: "vertical",
-          animationTypeForReplace: "push",
-          animation: "slide_from_bottom",
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/login"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/oauth"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/forgot-password"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/register"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/confirm-email"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/email-confirmation"
-        options={{
-          headerShown: false,
+          header: () => <Header />,
         }}
       />
     </Stack>

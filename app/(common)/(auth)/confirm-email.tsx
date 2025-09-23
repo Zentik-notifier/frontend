@@ -1,5 +1,5 @@
 import { useNavigationUtils } from "@/utils/navigation";
-import { useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect } from "react";
 
 export default function ConfirmEmailRedirect() {
@@ -14,5 +14,5 @@ export default function ConfirmEmailRedirect() {
     }
   }, [code]);
 
-  return null;
+  return <Stack.Screen options={{ headerShown: false }} />;
 }

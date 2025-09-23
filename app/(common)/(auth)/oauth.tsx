@@ -1,5 +1,5 @@
 import { useAppContext } from "@/services/app-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
 
@@ -81,9 +81,5 @@ export default function OAuthCallbackPage() {
     handleOAuthCallback();
   }, [searchParams, refreshUserData, setUserId]);
 
-  // Return an empty view - this page is just for handling the callback
-  return null;
-}
-function handleUserChange(newUserId: string) {
-  throw new Error("Function not implemented.");
+  return <Stack.Screen options={{ headerShown: false }} />;
 }

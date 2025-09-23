@@ -10,13 +10,10 @@ import { Stack } from "expo-router";
 export default function UserProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const colorScheme = useColorScheme();
-  const { isMobile } = useDeviceType();
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      console.debug("Refreshing user profile");
-      // Add a delay to allow components to complete their refresh
       await new Promise((resolve) => setTimeout(resolve, 200));
     } catch (error) {
       console.error("Error refreshing user profile:", error);
@@ -25,7 +22,7 @@ export default function UserProfileScreen() {
     }
   };
 
-  const content = (
+  return (
     <ScrollView
       style={styles.content}
       showsVerticalScrollIndicator={false}
@@ -33,37 +30,13 @@ export default function UserProfileScreen() {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          colors={[Colors[colorScheme ?? 'light'].tint]} // Android
-          tintColor={Colors[colorScheme ?? 'light'].tint} // iOS
+          colors={[Colors[colorScheme ?? "light"].tint]} // Android
+          tintColor={Colors[colorScheme ?? "light"].tint} // iOS
         />
       }
     >
       <UserSection refreshing={refreshing} />
     </ScrollView>
-  );
-
-  // Per mobile, mostra con header di Expo Router
-  if (isMobile) {
-    return (
-      <>
-        <Stack.Screen 
-          options={{ 
-            title: "User Profile",
-            headerShown: true,
-          }} 
-        />
-        <ThemedView style={styles.container}>
-          {content}
-        </ThemedView>
-      </>
-    );
-  }
-
-  // Per desktop, mostra solo il contenuto
-  return (
-    <ThemedView style={styles.container}>
-      {content}
-    </ThemedView>
   );
 }
 

@@ -1,6 +1,8 @@
 import { UserRole, useGetMeQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { Colors } from "@/constants/Colors";
 import { useTheme } from "@/hooks/useTheme";
+import { useColorScheme } from "@/hooks/useTheme";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useAppContext } from "@/services/app-context";
@@ -34,6 +36,7 @@ export default function UserDropdown() {
   const [showInitialsSmall, setShowInitialsSmall] = useState(false);
   const buttonRef = useRef<View>(null);
   const { themeMode, setThemeMode, isDark } = useTheme();
+  const colorScheme = useColorScheme();
   const { t } = useI18n();
   const { navigateToSettings, navigateToAdmin } = useNavigationUtils();
 
@@ -224,32 +227,32 @@ export default function UserDropdown() {
     dropdown: [
       styles.dropdown,
       {
-        backgroundColor: isDark ? "#2c2c2e" : "#ffffff",
-        borderColor: isDark ? "#3c3c3e" : "#e5e5e7",
+        backgroundColor: Colors[colorScheme].backgroundCard,
+        borderColor: Colors[colorScheme].border,
       },
     ],
     userInfo: [
       styles.userInfo,
       {
-        borderBottomColor: isDark ? "#3c3c3e" : "#e5e5e7",
+        borderBottomColor: Colors[colorScheme].border,
       },
     ],
     userDisplayName: [
       styles.userDisplayName,
-      { color: isDark ? "#ffffff" : "#000000" },
+      { color: Colors[colorScheme].text },
     ],
-    userEmail: [styles.userEmail, { color: isDark ? "#a0a0a0" : "#666666" }],
+    userEmail: [styles.userEmail, { color: Colors[colorScheme].textSecondary }],
     item: [
       styles.item,
       {
-        borderBottomColor: isDark ? "#3c3c3e" : "#e5e5e7",
+        borderBottomColor: Colors[colorScheme].border,
       },
     ],
-    itemText: [styles.itemText, { color: isDark ? "#ffffff" : "#000000" }],
+    itemText: [styles.itemText, { color: Colors[colorScheme].text }],
     destructiveText: [styles.itemText, { color: "#ff3b30" }],
     overlay: [
       styles.overlay,
-      { backgroundColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.3)" },
+      { backgroundColor: colorScheme === "dark" ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.3)" },
     ],
   };
 
@@ -259,13 +262,23 @@ export default function UserDropdown() {
         ref={buttonRef}
         onPress={showDropdown}
         activeOpacity={0.7}
-        style={[styles.avatarButton]}
+        style={[
+          styles.avatarButton,
+          {
+            backgroundColor: colorScheme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+            borderRadius: 20,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderWidth: 1,
+            borderColor: Colors[colorScheme].border,
+          },
+        ]}
       >
         {renderMainAvatar()}
         <Ionicons
           name="chevron-down"
           size={14}
-          color={isDark ? "#ffffff" : "#666666"}
+          color={Colors[colorScheme].icon}
           style={styles.dropdownIcon}
         />
       </TouchableOpacity>
@@ -315,9 +328,7 @@ export default function UserDropdown() {
                     color={
                       item.type === "destructive"
                         ? "#ff3b30"
-                        : isDark
-                        ? "#ffffff"
-                        : "#000000"
+                        : Colors[colorScheme].icon
                     }
                     style={styles.itemIcon}
                   />

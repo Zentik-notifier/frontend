@@ -1,100 +1,167 @@
 import { useDeviceType } from "@/hooks/useDeviceType";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 
 export function useNavigationUtils() {
     const { isMobile } = useDeviceType();
+    const router = useRouter();
 
     return {
+        navigateBack: () => {
+            router.back();
+        },
+
         navigateToNotificationDetail: (notificationId: string) => {
             if (isMobile) {
-                router.push(`/(home)/notification-standalone/${notificationId}`);
+                router.push(`/(mobile)/(home)/notification/${notificationId}`);
             } else {
-                router.push(`/(home)/(stack)/notification/${notificationId}`);
+                router.push(`/(tablet)/(home)/notification/${notificationId}`);
             }
         },
 
         navigateToBucketDetail: (bucketId: string) => {
             if (isMobile) {
-                router.push(`/(home)/bucket-standalone/${bucketId}`);
+                router.push(`/(mobile)/(home)/bucket/${bucketId}`);
             } else {
-                router.push(`/(home)/(stack)/bucket/${bucketId}`);
+                router.push(`/(tablet)/(home)/bucket/${bucketId}`);
             }
         },
 
         navigateToEditBucket: (bucketId: string, fromHome: boolean) => {
             if (fromHome) {
                 if (isMobile) {
-                    router.push(`/(home)/bucket-setting-standalone/${bucketId}`);
+                    router.push(`/(mobile)/(home)/bucket/settings/${bucketId}`);
                 } else {
-                    router.push(`/(home)/(stack)/bucket-setting/${bucketId}`);
+                    router.push(`/(tablet)/(home)/bucket/settings/${bucketId}`);
                 }
             } else {
-                router.push(`/(home)/(stack)/bucket/${bucketId}`);
+                if (isMobile) {
+                    router.push(`/(mobile)/(settings)/bucket/${bucketId}`);
+                } else {
+                    router.push(`/(tablet)/(settings)/bucket/${bucketId}`);
+                }
             }
         },
 
         navigateToCreateBucket: (fromHome: boolean) => {
             if (fromHome) {
                 if (isMobile) {
-                    router.push(`/(home)/bucket-setting-standalone/create`);
+                    router.push(`/(mobile)/(home)/bucket/settings/create`);
                 } else {
                     router.push(`/(home)/(stack)/bucket-setting/create`);
                 }
             } else {
-                router.push(`/(settings)/bucket/create`);
+                if (isMobile) {
+                    router.push(`/(mobile)/(settings)/bucket/create`);
+                } else {
+                    router.push(`/(tablet)/(settings)/bucket/create`);
+                }
             }
         },
 
         navigateToCreateAccessToken: () => {
-            router.push(`/(settings)/access-token/create`);
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/access-token/create`);
+            } else {
+                router.push(`/(tablet)/(settings)/access-token/create`);
+            }
         },
 
         navigateToCreateWebhook: () => {
-            router.push(`/(settings)/webhook/create`);
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/webhook/create`);
+            } else {
+                router.push(`/(tablet)/(settings)/webhook/create`);
+            }
         },
 
         navigateToEditWebhook: (webhookId: string) => {
-            router.push(`/(settings)/webhook/${webhookId}`);
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/webhook/${webhookId}`);
+            } else {
+                router.push(`/(tablet)/(settings)/webhook/${webhookId}`);
+            }
         },
 
         navigateToSettings: () => {
-            router.push(`/(settings)`);
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)`);
+            } else {
+                router.push(`/(tablet)/(settings)/user-profile`);
+            }
         },
 
         navigateToAppSettings: () => {
-            router.push(`/(settings)/app-settings`);
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/app-settings`);
+            } else {
+                router.push(`/(tablet)/(settings)/app-settings`);
+            }
         },
 
         navigateToUserProfile: () => {
-            router.push(`/(settings)/user-profile`);
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/user-profile`);
+            } else {
+                router.push(`/(tablet)/(settings)/user-profile`);
+            }
         },
 
         navigateToBucketsSettings: (danglingBucketId?: string) => {
-            router.push({ pathname: `/(settings)/bucket/list`, params: danglingBucketId ? { danglingBucketId } : undefined });
+            const params = danglingBucketId ? { danglingBucketId } : undefined;
+
+            if (isMobile) {
+                router.push({ pathname: `/(mobile)/(settings)/bucket/list`, params });
+            } else {
+                router.push({ pathname: `/(tablet)/(settings)/bucket/list`, params });
+            }
         },
 
         navigateToAccessTokensSettings: () => {
-            router.push(`/(settings)/access-token/list`);
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/access-token/list`);
+            } else {
+                router.push(`/(tablet)/(settings)/access-token/list`);
+            }
         },
 
         navigateToWebhooksSettings: () => {
-            router.push(`/(settings)/webhook/list`);
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/webhook/list`);
+            } else {
+                router.push(`/(tablet)/(settings)/webhook/list`);
+            }
         },
 
         navigateToDevicesSettings: () => {
-            router.push(`/(settings)/devices`);
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/devices`);
+            } else {
+                router.push(`/(tablet)/(settings)/devices`);
+            }
         },
 
         navigateToNotificationsSettings: () => {
-            router.push(`/(settings)/notifications`);
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/notifications`);
+            } else {
+                router.push(`/(tablet)/(settings)/notifications`);
+            }
         },
 
         navigateToUserSessionsSettings: () => {
-            router.push(`/(settings)/user-sessions`);
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/user-sessions`);
+            } else {
+                router.push(`/(tablet)/(settings)/user-sessions`);
+            }
         },
 
         navigateToLogs: () => {
-            router.push(`/(settings)/logs`);
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/logs`);
+            } else {
+                router.push(`/(tablet)/(settings)/logs`);
+            }
         },
 
         navigateToAdmin: () => {
@@ -135,43 +202,48 @@ export function useNavigationUtils() {
 
         navigateToHome: () => {
             if (isMobile) {
-                router.push("/(home)/(tabs)/notifications");
+                router.push("/(mobile)/(home)/(tabs)/notifications");
             } else {
-                router.push("/(home)/(stack)/notifications");
+                router.push("/(tablet)/(home)/notifications");
             }
         },
 
         navigateToGallery: () => {
             if (isMobile) {
-                router.push("/(home)/(tabs)/gallery");
+                router.push("/(mobile)/(home)/(tabs)/gallery");
             } else {
-                router.push("/(home)/(stack)/gallery");
+                router.push("/(tablet)/(home)/gallery");
             }
         },
 
         navigateToBuckets: () => {
-            router.push("/(home)/(tabs)/buckets");
+            router.push("/(mobile)/(home)/(tabs)/buckets");
         },
 
         navigateToLogin: (email?: string) => {
-            router.push({ pathname: `/(auth)/login`, params: email ? { email } : undefined });
+            router.push({ pathname: `/(common)/(auth)/login`, params: email ? { email } : undefined });
         },
 
         navigateToEmailConfirmation: (props: { email?: string, code?: string }) => {
             const { code, email } = props;
-            router.push({ pathname: `/(auth)/email-confirmation`, params: { code, email } });
+            router.push({ pathname: `/(common)/(auth)/email-confirmation`, params: { code, email } });
         },
 
         navigateToRegister: (email?: string) => {
-            router.push({ pathname: `/(auth)/register`, params: email ? { email } : undefined });
+            router.push({ pathname: `/(common)/(auth)/register`, params: email ? { email } : undefined });
         },
 
         navigateToForgotPassword: (email?: string) => {
-            router.push({ pathname: `/(auth)/forgot-password`, params: email ? { email } : undefined });
+            router.push({ pathname: `/(common)/(auth)/forgot-password`, params: email ? { email } : undefined });
+        },
+
+        navigateToOAuth: (params: string) => {
+            router.push(`/(common)/(auth)/oauth?${params}`);
         },
 
         navigateToChangePassword: () => {
             router.push(`/(settings)/change-password`);
         },
+
     };
 }

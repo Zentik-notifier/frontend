@@ -8,7 +8,7 @@ import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Ionicons } from "@expo/vector-icons";
-import { router, usePathname } from "expo-router";
+import { useLocalSearchParams, usePathname, useSegments } from "expo-router";
 import React, { useMemo } from "react";
 import {
   ScrollView,
@@ -37,18 +37,20 @@ export default function HomeSidebar() {
     return pathname === route;
   };
 
-  const isBucketSelected = (bucketId: string) => {
-    return pathname === `/bucket/${bucketId}`;
-  };
+  const { bucketStats, notificationToBucketMap } = useMemo(() => {
+    const notificationToBucketMap = new Map<string, string>();
+    if (!bucketsData?.buckets)
+      return { bucketStats: [], notificationToBucketMap };
 
-  const bucketStats = useMemo(() => {
-    if (!bucketsData?.buckets) return [];
-
-    return bucketsData.buckets
+    const bucketStats = bucketsData.buckets
       .map((bucket) => {
         const bucketNotifications = notifications.filter(
           (notification) => notification.message?.bucket?.id === bucket.id
         );
+
+        bucketNotifications.forEach((notification) => {
+          notificationToBucketMap.set(notification.id, bucket.id);
+        });
 
         const unreadCount = bucketNotifications.filter(
           (notification) => !notification.readAt
@@ -80,7 +82,23 @@ export default function HomeSidebar() {
           new Date(a.lastNotificationAt).getTime()
         );
       });
+
+    return { bucketStats, notificationToBucketMap };
   }, [bucketsData?.buckets, notifications]);
+
+  const isBucketSelected = (bucketId: string) => {
+    if (pathname.includes("notification/")) {
+      const notificationId = pathname.split("/").pop();
+      if (notificationId) {
+        const notificationBucketId =
+          notificationToBucketMap.get(notificationId);
+        if (notificationBucketId) {
+          return notificationBucketId === bucketId;
+        }
+      }
+    }
+    return pathname.includes(bucketId);
+  };
 
   const sidebarItems = [
     {

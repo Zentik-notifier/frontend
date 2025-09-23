@@ -26,6 +26,7 @@ import { ApiConfigService } from "../services/api-config";
 import { AppProvider, useAppContext } from "../services/app-context";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb } from "../services/media-cache-db";
+import { useNavigationUtils } from "@/utils/navigation";
 
 type AlertButton = {
   text?: string;
@@ -54,6 +55,7 @@ function ThemedLayout({ children }: { children: React.ReactNode }) {
 
 function DeepLinkHandler() {
   const { refreshUserData } = useAppContext();
+  const { navigateToOAuth } = useNavigationUtils();
 
   useEffect(() => {
     const subscription = Linking.addEventListener("url", async ({ url }) => {
@@ -73,7 +75,7 @@ function DeepLinkHandler() {
           if (refreshToken) oauthParams.set("refreshToken", refreshToken);
           if (connected) oauthParams.set("connected", connected);
           if (provider) oauthParams.set("provider", provider);
-          router.push(`/(auth)/oauth?${oauthParams.toString()}`);
+          navigateToOAuth(oauthParams.toString());
           return;
         }
       } catch (e) {

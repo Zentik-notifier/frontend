@@ -10,7 +10,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { navigateToHome, navigateToLogin } = useNavigationUtils();
 
   useEffect(() => {
-    const isPublic = segments[0] === "(auth)";
+    const isPublic = segments[0] === "(common)";
     const isPrivate = !isPublic;
     const isHome = segments[0] === "(home)";
 

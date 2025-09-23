@@ -8,7 +8,7 @@ export default function NotFoundScreen() {
   const pathname = usePathname();
   return (
     <>
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ headerShown: false }} />
       <ThemedView style={styles.container}>
         <ThemedText type="title">
           This screen does not exist. {pathname}

@@ -5,6 +5,8 @@ import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
+  RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -28,13 +30,7 @@ import { ThemedView } from "./ThemedView";
 import IconButton from "./ui/IconButton";
 import { useNavigationUtils } from "@/utils/navigation";
 
-interface UserSectionProps {
-  refreshing?: boolean;
-}
-
-export default function UserSection({
-  refreshing: externalRefreshing,
-}: UserSectionProps) {
+export default function UserSection() {
   const {
     logout,
     setMainLoading,
@@ -47,8 +43,20 @@ export default function UserSection({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [avatar, setAvatar] = useState("");
-  const { navigateToChangePassword } =
-    useNavigationUtils();
+  const { navigateToChangePassword } = useNavigationUtils();
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    } catch (error) {
+      console.error("Error refreshing user profile:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const [updateProfileMutation, { loading: savingProfile }] =
     useUpdateProfileMutation({
@@ -102,12 +110,6 @@ export default function UserSection({
         (el) => el.providerId === currentSession.loginProvider
       )
     : undefined;
-
-  useEffect(() => {
-    if (externalRefreshing) {
-      refetch();
-    }
-  }, [externalRefreshing, refetch]);
 
   useEffect(() => {
     if (user) {
@@ -215,279 +217,280 @@ export default function UserSection({
   }
 
   return (
-    <View style={styles.section}>
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>{t("userProfile.title")}</ThemedText>
-      </View>
-
-      <ThemedView
-        style={[
-          styles.profileContainer,
-          { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
-        ]}
-      >
-        <View style={styles.field}>
-          <ThemedText style={styles.label}>
-            {t("userProfile.username")}:
-          </ThemedText>
-          <ThemedText style={styles.value}>
-            {user.username || t("userProfile.notAvailable")}
-          </ThemedText>
-        </View>
-
-        <View style={styles.field}>
-          <ThemedText style={styles.label}>
-            {t("userProfile.email")}:
-          </ThemedText>
-          <ThemedText style={styles.value}>
-            {user.email || t("userProfile.notAvailable")}
-          </ThemedText>
-        </View>
-
-        <View style={styles.field}>
-          <ThemedText style={styles.label}>
-            {t("userProfile.firstName")}:
-          </ThemedText>
-          {editing ? (
-            <TextInput
-              style={[
-                styles.textInput,
-                {
-                  backgroundColor:
-                    Colors[colorScheme ?? "light"].inputBackground,
-                  borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                  color: Colors[colorScheme ?? "light"].text,
-                },
-              ]}
-              value={firstName}
-              onChangeText={setFirstName}
-              placeholder={t("userProfile.firstNamePlaceholder")}
-              placeholderTextColor={
-                Colors[colorScheme ?? "light"].inputPlaceholder
-              }
-            />
-          ) : (
-            <ThemedText style={styles.value}>
-              {user.firstName || t("userProfile.notSet")}
-            </ThemedText>
-          )}
-        </View>
-
-        <View style={styles.field}>
-          <ThemedText style={styles.label}>
-            {t("userProfile.lastName")}:
-          </ThemedText>
-          {editing ? (
-            <TextInput
-              style={[
-                styles.textInput,
-                {
-                  backgroundColor:
-                    Colors[colorScheme ?? "light"].inputBackground,
-                  borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                  color: Colors[colorScheme ?? "light"].text,
-                },
-              ]}
-              value={lastName}
-              onChangeText={setLastName}
-              placeholder={t("userProfile.lastNamePlaceholder")}
-              placeholderTextColor={
-                Colors[colorScheme ?? "light"].inputPlaceholder
-              }
-            />
-          ) : (
-            <ThemedText style={styles.value}>
-              {user.lastName || t("userProfile.notSet")}
-            </ThemedText>
-          )}
-        </View>
-
-        <View style={styles.field}>
-          <ThemedText style={styles.label}>
-            {t("userProfile.avatar")}:
-          </ThemedText>
-          {editing ? (
-            <TextInput
-              style={[
-                styles.textInput,
-                {
-                  backgroundColor:
-                    Colors[colorScheme ?? "light"].inputBackground,
-                  borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                  color: Colors[colorScheme ?? "light"].text,
-                },
-              ]}
-              value={avatar}
-              onChangeText={setAvatar}
-              placeholder={t("userProfile.avatarPlaceholder")}
-              placeholderTextColor={
-                Colors[colorScheme ?? "light"].inputPlaceholder
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-          ) : (
-            <View style={styles.avatarPreviewContainer}>
-              {user.avatar ? (
-                <View style={styles.avatarPreview}>
-                  <Image
-                    source={{ uri: user.avatar }}
-                    style={styles.avatarPreviewImage}
-                    onError={() => console.warn("Failed to load avatar image")}
-                  />
-                  <ThemedText style={styles.avatarUrl} numberOfLines={1}>
-                    {user.avatar}
-                  </ThemedText>
-                </View>
-              ) : (
-                <ThemedText style={styles.value}>
-                  {t("userProfile.notSet")}
-                </ThemedText>
-              )}
-            </View>
-          )}
-        </View>
-
-        {/* Show current session provider */}
-        {currentSession?.loginProvider && (
+    <ScrollView
+      style={styles.content}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[Colors[colorScheme ?? "light"].tint]} // Android
+          tintColor={Colors[colorScheme ?? "light"].tint} // iOS
+        />
+      }
+    >
+      <View style={styles.section}>
+        <ThemedView
+          style={[
+            styles.profileContainer,
+            { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
+          ]}
+        >
           <View style={styles.field}>
             <ThemedText style={styles.label}>
-              {t("userProfile.currentSessionProvider")}:
+              {t("userProfile.username")}:
             </ThemedText>
-            <View style={styles.providerInfo}>
-              {provider && (
-                <Image
-                  source={{ uri: provider?.iconUrl! }}
-                  style={[styles.providerIconImage]}
-                />
-              )}
-              <ThemedText style={styles.value}>
-                {provider ? provider.name : t("userProfile.localUser")}
-              </ThemedText>
-            </View>
+            <ThemedText style={styles.value}>
+              {user.username || t("userProfile.notAvailable")}
+            </ThemedText>
           </View>
-        )}
 
-        {/* Profile Action Buttons */}
-        <View style={styles.profileActionButtons}>
-          {editing ? (
-            <View style={styles.editButtonsRow}>
-              <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
-                onPress={handleCancel}
-              >
-                <Text style={styles.buttonText}>{t("common.cancel")}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+          <View style={styles.field}>
+            <ThemedText style={styles.label}>
+              {t("userProfile.email")}:
+            </ThemedText>
+            <ThemedText style={styles.value}>
+              {user.email || t("userProfile.notAvailable")}
+            </ThemedText>
+          </View>
+
+          <View style={styles.field}>
+            <ThemedText style={styles.label}>
+              {t("userProfile.firstName")}:
+            </ThemedText>
+            {editing ? (
+              <TextInput
                 style={[
-                  styles.button,
-                  styles.saveButton,
-                  (savingProfile || isOfflineAuth || isBackendUnreachable) &&
-                    styles.buttonDisabled,
+                  styles.textInput,
+                  {
+                    backgroundColor:
+                      Colors[colorScheme ?? "light"].inputBackground,
+                    borderColor: Colors[colorScheme ?? "light"].inputBorder,
+                    color: Colors[colorScheme ?? "light"].text,
+                  },
                 ]}
-                onPress={handleSave}
-                disabled={
-                  savingProfile || isOfflineAuth || isBackendUnreachable
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder={t("userProfile.firstNamePlaceholder")}
+                placeholderTextColor={
+                  Colors[colorScheme ?? "light"].inputPlaceholder
                 }
-              >
-                <Text style={styles.buttonText}>
-                  {savingProfile
-                    ? t("userProfile.saving")
-                    : t("userProfile.save")}
-                </Text>
-              </TouchableOpacity>
+              />
+            ) : (
+              <ThemedText style={styles.value}>
+                {user.firstName || t("userProfile.notSet")}
+              </ThemedText>
+            )}
+          </View>
+
+          <View style={styles.field}>
+            <ThemedText style={styles.label}>
+              {t("userProfile.lastName")}:
+            </ThemedText>
+            {editing ? (
+              <TextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor:
+                      Colors[colorScheme ?? "light"].inputBackground,
+                    borderColor: Colors[colorScheme ?? "light"].inputBorder,
+                    color: Colors[colorScheme ?? "light"].text,
+                  },
+                ]}
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder={t("userProfile.lastNamePlaceholder")}
+                placeholderTextColor={
+                  Colors[colorScheme ?? "light"].inputPlaceholder
+                }
+              />
+            ) : (
+              <ThemedText style={styles.value}>
+                {user.lastName || t("userProfile.notSet")}
+              </ThemedText>
+            )}
+          </View>
+
+          <View style={styles.field}>
+            <ThemedText style={styles.label}>
+              {t("userProfile.avatar")}:
+            </ThemedText>
+            {editing ? (
+              <TextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor:
+                      Colors[colorScheme ?? "light"].inputBackground,
+                    borderColor: Colors[colorScheme ?? "light"].inputBorder,
+                    color: Colors[colorScheme ?? "light"].text,
+                  },
+                ]}
+                value={avatar}
+                onChangeText={setAvatar}
+                placeholder={t("userProfile.avatarPlaceholder")}
+                placeholderTextColor={
+                  Colors[colorScheme ?? "light"].inputPlaceholder
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+              />
+            ) : (
+              <View style={styles.avatarPreviewContainer}>
+                {user.avatar ? (
+                  <View style={styles.avatarPreview}>
+                    <Image
+                      source={{ uri: user.avatar }}
+                      style={styles.avatarPreviewImage}
+                      onError={() =>
+                        console.warn("Failed to load avatar image")
+                      }
+                    />
+                    <ThemedText style={styles.avatarUrl} numberOfLines={1}>
+                      {user.avatar}
+                    </ThemedText>
+                  </View>
+                ) : (
+                  <ThemedText style={styles.value}>
+                    {t("userProfile.notSet")}
+                  </ThemedText>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Show current session provider */}
+          {currentSession?.loginProvider && (
+            <View style={styles.field}>
+              <ThemedText style={styles.label}>
+                {t("userProfile.currentSessionProvider")}:
+              </ThemedText>
+              <View style={styles.providerInfo}>
+                {provider && (
+                  <Image
+                    source={{ uri: provider?.iconUrl! }}
+                    style={[styles.providerIconImage]}
+                  />
+                )}
+                <ThemedText style={styles.value}>
+                  {provider ? provider.name : t("userProfile.localUser")}
+                </ThemedText>
+              </View>
             </View>
-          ) : (
-            <IconButton
-              title={t("userProfile.editProfile")}
-              iconName="edit"
-              onPress={() => setEditing(true)}
-              variant="secondary"
-              size="md"
-              disabled={isOfflineAuth || isBackendUnreachable}
-            />
           )}
+
+          {/* Profile Action Buttons */}
+          <View style={styles.profileActionButtons}>
+            {editing ? (
+              <View style={styles.editButtonsRow}>
+                <TouchableOpacity
+                  style={[styles.button, styles.cancelButton]}
+                  onPress={handleCancel}
+                >
+                  <Text style={styles.buttonText}>{t("common.cancel")}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.button,
+                    styles.saveButton,
+                    (savingProfile || isOfflineAuth || isBackendUnreachable) &&
+                      styles.buttonDisabled,
+                  ]}
+                  onPress={handleSave}
+                  disabled={
+                    savingProfile || isOfflineAuth || isBackendUnreachable
+                  }
+                >
+                  <Text style={styles.buttonText}>
+                    {savingProfile
+                      ? t("userProfile.saving")
+                      : t("userProfile.save")}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <IconButton
+                title={t("userProfile.editProfile")}
+                iconName="edit"
+                onPress={() => setEditing(true)}
+                variant="secondary"
+                size="md"
+                disabled={isOfflineAuth || isBackendUnreachable}
+              />
+            )}
+          </View>
+        </ThemedView>
+
+        {/* OAuth Connections Section */}
+        <OAuthConnections identities={user.identities} />
+
+        {/* Notification Statistics Section */}
+        <NotificationStats refreshing={refreshing} />
+
+        {/* User ID Section */}
+        <ThemedView
+          style={[
+            styles.userIdContainer,
+            { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
+          ]}
+        >
+          <IdWithCopyButton
+            id={user.id}
+            label={t("userProfile.userId")}
+            copyMessage={t("userProfile.userIdCopied")}
+          />
+        </ThemedView>
+
+        <View style={styles.buttonContainer}>
+          <IconButton
+            title={
+              user.hasPassword
+                ? t("userProfile.changePassword")
+                : t("setPassword.title")
+            }
+            iconName="password"
+            onPress={handleChangePassword}
+            variant="secondary"
+            size="md"
+            disabled={isOfflineAuth || isBackendUnreachable}
+          />
+
+          <IconButton
+            title={
+              deletingAccount
+                ? t("userProfile.deletingAccount")
+                : t("userProfile.deleteAccount")
+            }
+            iconName="delete"
+            onPress={handleDeleteAccount}
+            variant="danger"
+            size="md"
+            disabled={deletingAccount || isOfflineAuth || isBackendUnreachable}
+          />
+
+          <IconButton
+            title={t("userProfile.logout")}
+            iconName="logout"
+            onPress={logout}
+            variant="danger"
+            size="md"
+          />
         </View>
-      </ThemedView>
-
-      {/* OAuth Connections Section */}
-      <OAuthConnections identities={user.identities} />
-
-      {/* Notification Statistics Section */}
-      <NotificationStats refreshing={externalRefreshing} />
-
-      {/* User ID Section */}
-      <ThemedView
-        style={[
-          styles.userIdContainer,
-          { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
-        ]}
-      >
-        <IdWithCopyButton
-          id={user.id}
-          label={t("userProfile.userId")}
-          copyMessage={t("userProfile.userIdCopied")}
-        />
-      </ThemedView>
-
-      <View style={styles.buttonContainer}>
-        <IconButton
-          title={
-            user.hasPassword
-              ? t("userProfile.changePassword")
-              : t("setPassword.title")
-          }
-          iconName="password"
-          onPress={handleChangePassword}
-          variant="secondary"
-          size="md"
-          disabled={isOfflineAuth || isBackendUnreachable}
-        />
-
-        <IconButton
-          title={
-            deletingAccount
-              ? t("userProfile.deletingAccount")
-              : t("userProfile.deleteAccount")
-          }
-          iconName="delete"
-          onPress={handleDeleteAccount}
-          variant="danger"
-          size="md"
-          disabled={deletingAccount || isOfflineAuth || isBackendUnreachable}
-        />
-
-        <IconButton
-          title={t("userProfile.logout")}
-          iconName="logout"
-          onPress={logout}
-          variant="danger"
-          size="md"
-        />
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  content: {
+    flex: 1,
+    padding: 20,
+    paddingTop: 30,
+  },
   section: {
     marginBottom: 30,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 20,
   },
   loadingText: {
     textAlign: "center",
@@ -515,12 +518,6 @@ const styles = StyleSheet.create({
   },
   value: {
     fontSize: 16,
-  },
-  idValue: {
-    fontSize: 12,
-    opacity: 0.7,
-    fontFamily: "monospace",
-    flex: 1,
   },
   textInput: {
     fontSize: 16,

@@ -7,6 +7,7 @@ import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Ionicons } from "@expo/vector-icons";
+import { Stack } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
@@ -131,6 +132,7 @@ export default function RegisterScreen() {
         { backgroundColor: Colors[colorScheme].background },
       ]}
     >
+      <Stack.Screen options={{ headerShown: false }} />
       <StatusBar
         barStyle={colorScheme === "dark" ? "light-content" : "dark-content"}
       />

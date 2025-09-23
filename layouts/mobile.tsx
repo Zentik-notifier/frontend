@@ -1,26 +1,30 @@
-import { StatusBadge } from "@/components";
+import CloseHeader from "@/components/CloseHeader";
 import Header from "@/components/Header";
-import UserDropdown from "@/components/UserDropdown";
 import { useI18n } from "@/hooks";
+import { useNavigationUtils } from "@/utils/navigation";
 import { Stack } from "expo-router";
 
-export default function MobileLayout() {
+export default function TabletLayout() {
   const { t } = useI18n();
+  const { navigateToHome } = useNavigationUtils();
 
   return (
     <Stack>
       <Stack.Screen
-        name="(home)/(tabs)"
+        name="(mobile)/(home)/(tabs)"
         options={{
-          headerShown: true,
-          headerBackTitle: "",
-          headerTitle: "Home",
-          headerRight: () => <UserDropdown />,
-          headerLeft: () => <Header />,
+          headerTitle: "",
+          header: () => <Header />,
         }}
       />
       <Stack.Screen
-        name="(home)/notification-standalone/[id]"
+        name="(mobile)/(settings)/index"
+        options={{
+          headerTitle: t("common.settings"),
+        }}
+      />
+      <Stack.Screen
+        name="(mobile)/(home)/notification/[id]"
         options={{
           headerTitle: "",
           headerShown: false,
@@ -29,42 +33,6 @@ export default function MobileLayout() {
           gestureDirection: "vertical",
           animationTypeForReplace: "push",
           animation: "slide_from_bottom",
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/login"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/oauth"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/forgot-password"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/register"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/confirm-email"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(auth)/email-confirmation"
-        options={{
-          headerShown: false,
         }}
       />
     </Stack>

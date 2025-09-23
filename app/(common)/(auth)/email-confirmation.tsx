@@ -10,7 +10,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useLanguageSync } from "@/hooks/useLanguageSync";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
-import { useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -214,6 +214,7 @@ export default function EmailConfirmationScreen() {
 
     return (
       <View style={styles.contentContainer}>
+        <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.iconContainer}>
           <Text style={[styles.emailIcon, { color: Colors[colorScheme].tint }]}>
             ✉️
