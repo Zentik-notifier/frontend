@@ -28,9 +28,9 @@ class FirebasePushNotificationService {
      * Initialize Firebase push notifications
      * Request permissions and get FCM token
      */
-    async initialize(callbacks: NotificationActionCallbacks): Promise<RegisterDeviceDto | null> {
+    async initialize(callbacks: NotificationActionCallbacks): Promise<{ deviceInfo: RegisterDeviceDto | null; hasPermissionError: boolean }> {
         if (this.isInitialized) {
-            return this.getDeviceInfo();
+            return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false };
         }
 
         this.messaging = getMessaging();
@@ -44,8 +44,8 @@ class FirebasePushNotificationService {
                 authStatus === AuthorizationStatus.PROVISIONAL;
 
             if (!enabled) {
-                console.warn('📱 Firebase Push notification permissions not granted');
-                return null;
+                console.error('PUSH_PERMISSION_DENIED: Firebase notification permissions not granted');
+                return { deviceInfo: null, hasPermissionError: true };
             }
 
             // Get FCM token
@@ -56,10 +56,10 @@ class FirebasePushNotificationService {
 
             this.setupNotificationListeners();
 
-            return this.getDeviceInfo();
+            return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false };
         } catch (error) {
             console.error('❌ Error initializing Firebase push notifications:', error);
-            return null;
+            return { deviceInfo: null, hasPermissionError: false };
         }
     }
 

@@ -20,15 +20,22 @@ class WebPushNotificationService {
   private callbacks: NotificationActionCallbacks | null = null;
   private listenerAttached = false;
 
-  async initialize(callbacks: NotificationActionCallbacks) {
-    if (typeof window === 'undefined') return null;
+  async initialize(callbacks: NotificationActionCallbacks): Promise<{ deviceInfo: RegisterDeviceDto | null; hasPermissionError: boolean }> {
+    if (typeof window === 'undefined') return { deviceInfo: null, hasPermissionError: false };
 
     try {
       this.callbacks = callbacks;
       // Request Notification permission
       if ('Notification' in window) {
         if (Notification.permission === 'default') {
-          await Notification.requestPermission();
+          const res = await Notification.requestPermission();
+          if (res !== 'granted') {
+            console.error('PUSH_PERMISSION_DENIED: Web notification permission not granted');
+            return { deviceInfo: null, hasPermissionError: true };
+          }
+        } else if (Notification.permission !== 'granted') {
+          console.error('PUSH_PERMISSION_DENIED: Web notification permission not granted');
+          return { deviceInfo: null, hasPermissionError: true };
         }
       }
 
@@ -44,11 +51,11 @@ class WebPushNotificationService {
         this.attachServiceWorkerActionListener();
       }
       this.ready = true;
-      return this.getDeviceInfo();
+      return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false };
     } catch (e) {
       this.ready = false;
       console.error('❌ Web Push initialization failed:', e);
-      return null;
+      return { deviceInfo: null, hasPermissionError: false };
     }
   }
 
@@ -64,7 +71,7 @@ class WebPushNotificationService {
     return this.pushSubscription?.unsubscribe();
   }
 
-  async registerDevice(device: UserDeviceFragment) {
+  async registerDevice(device: UserDeviceFragment): Promise<{ deviceToken: string | null; hasPermissionError: boolean }> {
     const publicKey = device.publicKey;
 
     if (this.pushSubscription) {
@@ -91,8 +98,10 @@ class WebPushNotificationService {
         });
       }
 
-      return this.pushSubscription.endpoint;
+      return { deviceToken: this.pushSubscription.endpoint, hasPermissionError: false };
     }
+    
+    return { deviceToken: null, hasPermissionError: false };
   }
 
   getDeviceInfo(): RegisterDeviceDto | null {

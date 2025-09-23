@@ -16,7 +16,10 @@ import {
   useSaveNotificationsToStorage,
 } from "@/hooks/useNotifications";
 import { usePendingNotifications } from "@/hooks/usePendingNotifications";
-import { usePushNotifications } from "@/hooks/usePushNotifications";
+import {
+  UsePushNotifications,
+  usePushNotifications,
+} from "@/hooks/usePushNotifications";
 import React, {
   createContext,
   ReactNode,
@@ -25,11 +28,9 @@ import React, {
   useState,
 } from "react";
 import {
-  ActivityIndicator,
   Alert,
   AppState,
   StyleSheet,
-  View,
 } from "react-native";
 import OnboardingModal from "../components/OnboardingModal";
 import {
@@ -76,6 +77,7 @@ interface AppContextProps {
   notifications: NotificationFragment[];
   notificationsLoading: boolean;
   isInitializing: boolean;
+  push: UsePushNotifications;
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -91,7 +93,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
 
-  const connectionStatus = useConnectionStatus(!userId);
+  const connectionStatus = useConnectionStatus(!userId, push);
   const userSettings = useUserSettings();
 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -440,6 +442,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         notificationsLoading,
         isInitializing,
         lastUserId,
+        push,
       }}
     >
       {children}
@@ -448,12 +451,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         onClose={() => setIsOnboardingOpen(false)}
       />
 
-      {/* Global Loading Indicator - Bottom Left */}
-      {isMainLoading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="small" color="#0a7ea4" />
-        </View>
-      )}
     </AppContext.Provider>
   );
 }
@@ -464,21 +461,4 @@ export function useAppContext() {
   return ctx;
 }
 
-const styles = StyleSheet.create({
-  loadingOverlay: {
-    position: "absolute",
-    bottom: 20,
-    left: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderRadius: 20,
-    padding: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-});
+const styles = StyleSheet.create({});

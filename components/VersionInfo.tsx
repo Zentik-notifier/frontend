@@ -1,6 +1,5 @@
 import { Colors } from "@/constants/Colors";
 import { useGetBackendVersionQuery } from "@/generated/gql-operations-generated";
-import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,6 +10,7 @@ import React, { useEffect } from "react";
 import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import packageJson from "../package.json";
 import { ThemedText } from "./ThemedText";
+import { useAppContext } from "@/services/app-context";
 
 interface VersionInfoProps {
   style?: any;
@@ -22,11 +22,13 @@ export function VersionInfo({ style }: VersionInfoProps) {
   const { data, loading, refetch, error } = useGetBackendVersionQuery();
   const backendVersion = data?.getBackendVersion || "...";
   const {
-    checkForUpdates,
-    hasUpdateAvailable,
-    isCheckingUpdate,
-    isOtaUpdatesEnabled,
-  } = useConnectionStatus();
+    connectionStatus: {
+      checkForUpdates,
+      hasUpdateAvailable,
+      isCheckingUpdate,
+      isOtaUpdatesEnabled,
+    },
+  } = useAppContext();
 
   const refreshData = async () => {
     await refetch();

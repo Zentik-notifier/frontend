@@ -1,8 +1,8 @@
 import { NotificationFragmentDoc, GetNotificationsDocument } from '@/generated/gql-operations-generated';
 import { InMemoryCache } from '@apollo/client';
 
-const BATCH_SIZE = 300;
-const BATCH_DELAY = 300;
+const BATCH_SIZE = 100;
+const BATCH_DELAY = 100;
 
 /**
  * Estrae tutte le entità da un oggetto e le restituisce come mappa

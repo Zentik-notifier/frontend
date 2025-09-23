@@ -593,6 +593,9 @@ export interface TranslationKey {
     success: string;
     unableToShare: string;
     updateAvailable: string;
+    notificationsDisabled: string;
+    pushPermissionsHint: string;
+    notice: string;
   };
   compose: {
     messageBuilder: {

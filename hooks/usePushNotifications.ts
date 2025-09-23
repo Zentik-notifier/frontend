@@ -30,6 +30,7 @@ const NOTIFICATION_REFRESH_TASK = 'zentik-notifications-refresh';
 
 export function usePushNotifications() {
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
+  const [pushPermissionError, setPushPermissionError] = useState<boolean>(false);
   const callbacks = useNotificationActions();
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export function usePushNotifications() {
   const [getPushTypes] = useGetNotificationServicesLazyQuery();
 
   const initialize = async () => {
+
     const pushTypes = await getPushTypes({ fetchPolicy: 'network-only' });
     const pushType = pushTypes.data?.notificationServices?.find(
       (service) => service?.devicePlatform === (
@@ -62,12 +64,18 @@ export function usePushNotifications() {
     if (pushType?.service) {
       if (pushType.service === NotificationServiceType.Push) {
         console.log("🔄 Initializing push notifications...");
+        let result;
         if (isWeb) {
-          await webPushNotificationService.initialize(callbacks);
+          result = await webPushNotificationService.initialize(callbacks);
         } else if (isAndroid) {
-          await firebasePushNotificationService.initialize(callbacks);
+          result = await firebasePushNotificationService.initialize(callbacks);
         } else if (isIOS) {
-          await iosNativePushNotificationService.initialize(callbacks);
+          result = await iosNativePushNotificationService.initialize(callbacks);
+        }
+        if (result?.hasPermissionError) {
+          setPushPermissionError(true);
+        } else if (isReady()) {
+          setPushPermissionError(false);
         }
       } else if (pushType.service === NotificationServiceType.Local) {
         console.log("🔄 Initializing local notifications...");
@@ -131,7 +139,13 @@ export function usePushNotifications() {
     let tokenToStore: string | null = null;
 
     if (isIOS) {
-      tokenToStore = await iosNativePushNotificationService.registerDevice();
+      const result = await iosNativePushNotificationService.registerDevice();
+      if (result?.hasPermissionError) {
+        setPushPermissionError(true);
+        return false;
+      }
+      tokenToStore = result?.deviceToken || null;
+      if (tokenToStore) setPushPermissionError(false);
     }
 
     const info = await getDeviceInfo();
@@ -150,13 +164,19 @@ export function usePushNotifications() {
         }
 
         if (isWeb) {
-          const token = await webPushNotificationService.registerDevice(res.data.registerDevice);
-          if (token) {
-            tokenToStore = token;
+          const result = await webPushNotificationService.registerDevice(res.data.registerDevice);
+          if (result?.hasPermissionError) {
+            setPushPermissionError(true);
+            return false;
+          }
+          if (result?.deviceToken) {
+            tokenToStore = result.deviceToken;
+            setPushPermissionError(false);
           }
         } else {
           if (info.deviceToken) {
             tokenToStore = info.deviceToken;
+            setPushPermissionError(false);
           }
         }
 
@@ -277,6 +297,9 @@ export function usePushNotifications() {
     getBasicDeviceInfo,
     setBadgeCount,
     clearBadge,
-    deviceToken
+    deviceToken,
+    pushPermissionError
   };
 }
+
+export type UsePushNotifications = ReturnType<typeof usePushNotifications>;

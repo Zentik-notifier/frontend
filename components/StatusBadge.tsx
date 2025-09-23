@@ -3,15 +3,16 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useAppContext } from "@/services/app-context";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
+import { Alert } from "react-native";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export function StatusBadge() {
   const {
     openLoginModal,
+    push,
     connectionStatus: { getPriorityStatus, isUpdating, isCheckingUpdate },
   } = useAppContext();
   const { t } = useI18n();
-  const { registerDevice } = usePushNotifications();
   const [isRegistering, setIsRegistering] = useState(false);
 
   const status = getPriorityStatus();
@@ -24,17 +25,17 @@ export function StatusBadge() {
     if (status.type === "push-notifications") {
       setIsRegistering(true);
       try {
-        await registerDevice();
+        await push.registerDevice();
       } catch (error) {
         console.error("Error registering device:", error);
       } finally {
         setIsRegistering(false);
       }
+    } else if (status.type === "push-permissions") {
+      Alert.alert(t("common.notice"), t("common.pushPermissionsHint"));
     } else if (status.type === "offline") {
-      // Apre il modal di login per la modalità offline
       openLoginModal();
     } else if (status.type === "update" && status.action) {
-      // Applica l'aggiornamento
       status.action();
     }
   };
@@ -47,6 +48,8 @@ export function StatusBadge() {
           : t("common.deviceNotRegistered");
       case "update":
         return t("common.updateAvailable");
+      case "push-permissions":
+        return t("common.notificationsDisabled");
       case "offline":
         return t("common.offline");
       case "backend":
@@ -70,7 +73,8 @@ export function StatusBadge() {
   const isClickable =
     status.type === "offline" ||
     (status.type === "update" && status.action) ||
-    (status.type === "push-notifications" && !isRegistering);
+    (status.type === "push-notifications" && !isRegistering) ||
+    status.type === "push-permissions";
 
   return (
     <TouchableOpacity

@@ -24,6 +24,12 @@ export default function TabletLayout() {
           headerTitle: t("common.settings"),
         }}
       />
+      <Stack.Screen
+        name="(tablet)/(admin)"
+        options={{
+          headerTitle: t("administration.title"),
+        }}
+      />
     </Stack>
   );
 }

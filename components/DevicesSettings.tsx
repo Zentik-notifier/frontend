@@ -16,9 +16,8 @@ import Icon from "./ui/Icon";
 export default function DevicesSettings() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-  const push = usePushNotifications();
   const [managingDevice, setManagingDevice] = useState(false);
-  const { deviceToken } = useAppContext();
+  const { deviceToken, push } = useAppContext();
 
   const { data: userDevicesData, loading, refetch } = useGetUserDevicesQuery();
   const {
@@ -106,7 +105,8 @@ export default function DevicesSettings() {
               managingDevice ||
               !push.isReady() ||
               isOfflineAuth ||
-              isBackendUnreachable;
+              isBackendUnreachable ||
+              push.pushPermissionError;
             return (
               <TouchableOpacity
                 style={[
@@ -131,8 +131,20 @@ export default function DevicesSettings() {
           })()}
 
           {(() => {
+            const disabledRegister =
+              managingDevice ||
+              !push.isReady() ||
+              isOfflineAuth ||
+              isBackendUnreachable;
+            const isCurrentRegistered = sortedDevices.some(
+              (device) => device.deviceToken === deviceToken
+            );
             const disabledUnregister =
-              managingDevice || isOfflineAuth || isBackendUnreachable;
+              managingDevice ||
+              isOfflineAuth ||
+              isBackendUnreachable ||
+              disabledRegister ||
+              !isCurrentRegistered;
             return (
               <TouchableOpacity
                 style={[
@@ -166,6 +178,13 @@ export default function DevicesSettings() {
             );
           })()}
         </View>
+
+        {/* Messaggio di errore per permessi push */}
+        {push.pushPermissionError && (
+          <ThemedText style={styles.errorMessage}>
+            {t("common.pushPermissionsHint")}
+          </ThemedText>
+        )}
 
         {sortedDevices.length === 0 ? (
           <ThemedView style={styles.emptyState}>
@@ -224,6 +243,14 @@ const styles = StyleSheet.create({
   unregisterButtonText: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  errorMessage: {
+    color: "#FF3B30",
+    fontSize: 14,
+    textAlign: "center",
+    fontWeight: "500",
+    marginBottom: 16,
+    paddingHorizontal: 16,
   },
   emptyState: {
     flex: 1,

@@ -25,12 +25,12 @@ class IOSNativePushNotificationService {
         this.actionCallbacks = callbacks;
     }
 
-    async registerDevice(): Promise<string | null> {
+    async registerDevice(): Promise<{ deviceToken: string | null; hasPermissionError: boolean }> {
         const token = await Notifications.getDevicePushTokenAsync();
         if (token) {
             this.deviceToken = token.data;
         }
-        return this.deviceToken;
+        return { deviceToken: this.deviceToken, hasPermissionError: false };
     }
 
     /**
@@ -38,11 +38,11 @@ class IOSNativePushNotificationService {
      * Request permissions and register device token
      * Swift handles action buttons, React Native handles action responses
      */
-    async initialize(callbacks: NotificationActionCallbacks): Promise<RegisterDeviceDto | null> {
+    async initialize(callbacks: NotificationActionCallbacks): Promise<{ deviceInfo: RegisterDeviceDto | null; hasPermissionError: boolean }> {
         if (this.isInitialized) {
             // Check for pending intents even if already initialized
             await this.processPendingIntents();
-            return this.getDeviceInfo();
+            return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false };
         }
 
         this.actionCallbacks = callbacks;
@@ -51,7 +51,7 @@ class IOSNativePushNotificationService {
             // Initialize API config to ensure endpoint is saved to keychain for NSE access
             await ApiConfigService.initialize();
 
-            const { status: existingStatus } = await Notifications.getPermissionsAsync();
+            const { status: existingStatus, ios } = await Notifications.getPermissionsAsync();
             let finalStatus = existingStatus;
 
             if (existingStatus !== 'granted') {
@@ -60,8 +60,8 @@ class IOSNativePushNotificationService {
             }
 
             if (finalStatus !== 'granted') {
-                console.warn('📱 iOS Push notification permissions not granted');
-                return null;
+                console.error('PUSH_PERMISSION_DENIED: iOS notification permissions not granted', finalStatus, JSON.stringify(ios));
+                return { deviceInfo: null, hasPermissionError: true };
             }
 
             const token = await Notifications.getDevicePushTokenAsync();
@@ -78,10 +78,10 @@ class IOSNativePushNotificationService {
                 await this.processPendingIntents();
             }, 500);
 
-            return this.getDeviceInfo();
+            return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false };
         } catch (error) {
             console.error('❌ Error initializing iOS native push notifications:', error);
-            return null;
+            return { deviceInfo: null, hasPermissionError: false };
         }
     }
 

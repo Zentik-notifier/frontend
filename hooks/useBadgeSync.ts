@@ -11,8 +11,7 @@ import { usePushNotifications } from './usePushNotifications';
  */
 export function useBadgeSync() {
     const { t } = useI18n();
-    const { notifications } = useAppContext();
-    const push = usePushNotifications();
+    const { notifications, push } = useAppContext();
     const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false);
 
     const { markAllAsRead, loading } =

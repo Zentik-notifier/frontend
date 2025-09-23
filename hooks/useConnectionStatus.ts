@@ -3,10 +3,12 @@ import NetInfo from '@react-native-community/netinfo';
 import * as Updates from 'expo-updates';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDeviceRegistrationStatus } from './useDeviceRegistrationStatus';
+import { UsePushNotifications, usePushNotifications } from './usePushNotifications';
+import { useAppContext } from '@/services/app-context';
 
 
 export type GetPriorityStatus = () => {
-  type: 'update' | 'offline' | 'backend' | 'network' | 'push-notifications' | 'none';
+  type: 'update' | 'offline' | 'backend' | 'network' | 'push-notifications' | 'push-permissions' | 'none';
   icon: string;
   label: string;
   action: (() => void) | null;
@@ -23,7 +25,7 @@ export interface ConnectionStatus {
   isDeviceRegistered: boolean;
 }
 
-export function useConnectionStatus(skip?: boolean) {
+export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications) {
   const {
     isRegistered: isDeviceRegistered,
     isLoading: isDeviceRegistrationLoading,
@@ -163,7 +165,6 @@ export function useConnectionStatus(skip?: boolean) {
     checkForUpdates().catch(console.error);
   }, [checkForUpdates]);
 
-  // Applica l'aggiornamento disponibile
   const applyUpdate = async () => {
     if (!hasUpdateAvailable || isUpdating) return;
 
@@ -177,6 +178,15 @@ export function useConnectionStatus(skip?: boolean) {
   };
 
   const getPriorityStatus: GetPriorityStatus = () => {
+    if (push?.pushPermissionError) {
+      return {
+        type: 'push-permissions',
+        icon: 'notifications-outline',
+        label: 'Notifiche disabilitate',
+        action: null,
+        color: '#FF3B30'
+      };
+    }
     if (isDeviceRegistered === false && !isDeviceRegistrationLoading) {
       return {
         type: 'push-notifications',

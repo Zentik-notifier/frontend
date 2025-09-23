@@ -33,6 +33,7 @@ import {
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { Icon } from "./ui";
+import { useAppContext } from "@/services/app-context";
 
 interface OnboardingModalProps {
   visible: boolean;
@@ -53,7 +54,7 @@ export default function OnboardingModal({
 }: OnboardingModalProps) {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
-  const { registerDevice } = usePushNotifications();
+  const { push } = useAppContext();
   const { completeOnboarding } = useUserSettings();
   const [currentStep, setCurrentStep] = useState(0);
   const [bucketName, setBucketName] = useState("My First Bucket");
@@ -231,7 +232,7 @@ export default function OnboardingModal({
 
     try {
       // Register device before sending notification
-      await registerDevice();
+      await push.registerDevice();
 
       const messageData: CreateMessageDto = {
         title: notificationTitle.trim(),

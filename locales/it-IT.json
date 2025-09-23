@@ -742,7 +742,10 @@
     "results": "risultati",
     "page": "Pagina",
     "loadMore": "Carica Altri",
-    "endOfResults": "Fine dei risultati"
+    "endOfResults": "Fine dei risultati",
+    "notificationsDisabled": "Notifiche disabilitate",
+    "pushPermissionsHint": "Controlla le impostazioni notifiche per Zentik e abilita gli avvisi",
+    "notice": "Attenzione"
   },
   "notificationDetail": {
     "loading": "Caricamento notifica...",

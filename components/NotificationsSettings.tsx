@@ -40,12 +40,11 @@ import NotificationTapActionSelector from "./NotificationTapActionSelector";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { Icon, IconButton, InlinePicker, InlinePickerOption } from "./ui";
-import { AppLoader } from "./ui/AppLoader";
 
 export default function NotificationsSettings() {
-  const push = usePushNotifications();
   const {
     setMainLoading,
+    push,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const { t } = useI18n();

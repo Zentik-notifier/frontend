@@ -2,9 +2,10 @@ import { useBadgeSync } from "@/hooks";
 import { useDownloadQueue } from "@/hooks/useMediaCache";
 import { useAppContext } from "@/services/app-context";
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Platform,
   StyleSheet,
   Text,
@@ -25,9 +26,36 @@ export default function Header() {
     unreadCount,
     isMarkingAllAsRead,
   } = useBadgeSync();
-  const { isLoginModalOpen, closeLoginModal } = useAppContext();
+  const { isLoginModalOpen, closeLoginModal, isMainLoading } = useAppContext();
   const { itemsInQueue, inProcessing } = useDownloadQueue();
   const colorScheme = useColorScheme();
+  
+  // Animazione per l'icona download che lampeggia
+  const downloadBlinkAnim = useRef(new Animated.Value(1)).current;
+  
+  useEffect(() => {
+    if (inProcessing) {
+      const blinkAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(downloadBlinkAnim, {
+            toValue: 0.3,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(downloadBlinkAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      blinkAnimation.start();
+      
+      return () => blinkAnimation.stop();
+    } else {
+      downloadBlinkAnim.setValue(1);
+    }
+  }, [inProcessing, downloadBlinkAnim]);
 
   return (
     <>
@@ -38,6 +66,15 @@ export default function Header() {
         ]}
         edges={["top"]}
       >
+        {/* Main Loading Indicator */}
+        {isMainLoading && (
+          <View style={styles.mainLoadingContainer}>
+            <View style={styles.mainLoadingButton}>
+              <ActivityIndicator size="small" color="#fff" />
+            </View>
+          </View>
+        )}
+
         {hasUnreadNotifications && (
           <View style={styles.markAllButtonContainer}>
             <TouchableOpacity
@@ -77,7 +114,9 @@ export default function Header() {
               ]}
               activeOpacity={0.7}
             >
-              <ActivityIndicator size="small" color="#fff" />
+              <Animated.View style={{ opacity: downloadBlinkAnim }}>
+                <Ionicons name="download" size={18} color="#fff" />
+              </Animated.View>
             </TouchableOpacity>
             <View style={styles.downloadQueueBadge}>
               <Text style={styles.downloadQueueBadgeText}>
@@ -181,6 +220,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
     textAlign: "center",
+  },
+  mainLoadingContainer: {
+    position: "relative",
+    marginRight: 10,
+  },
+  mainLoadingButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0a7ea4",
   },
   spacer: {
     flex: 1,
