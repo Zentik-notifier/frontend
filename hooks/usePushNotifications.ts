@@ -23,7 +23,7 @@ import * as BackgroundFetch from 'expo-background-task';
 
 const isWeb = Platform.OS === 'web';
 const isAndroid = Platform.OS === 'android';
-const isIOS = Platform.OS === 'ios';
+const isIOS = Platform.OS === 'ios' || Platform.OS === 'macos';
 const isSimulator = !Device.isDevice;
 
 const NOTIFICATION_REFRESH_TASK = 'zentik-notifications-refresh';
