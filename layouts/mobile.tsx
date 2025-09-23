@@ -13,7 +13,7 @@ export default function TabletLayout() {
       <Stack.Screen
         name="(mobile)/(home)/(tabs)"
         options={{
-          headerTitle: "",
+          headerTitle: t("common.home"),
           header: () => <Header />,
         }}
       />

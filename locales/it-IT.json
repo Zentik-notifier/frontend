@@ -695,6 +695,7 @@
     "undefined": "Others"
   },
   "common": {
+    "home": "Homepage",
     "cancel": "Annulla",
     "importing": "Importo...",
     "save": "Salva",

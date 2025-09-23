@@ -28,6 +28,7 @@ import IdWithCopyButton from "./IdWithCopyButton";
 import SnoozeSchedulesManager from "./SnoozeSchedulesManager";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
+import SettingsScrollView from "@/components/SettingsScrollView";
 
 const defaultColor = "#0a7ea4";
 
@@ -178,7 +179,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <SettingsScrollView style={styles.container}>
       <ThemedView
         style={[
           styles.formContainer,
@@ -438,7 +439,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           onClose={handleCloseIconEditor}
         />
       )}
-    </ThemedView>
+    </SettingsScrollView>
   );
 }
 

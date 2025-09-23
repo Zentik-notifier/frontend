@@ -8,7 +8,7 @@ export default function CreateWebhookScreen() {
   return (
     <>
       <Stack.Screen options={{ title: t("webhooks.create") }} />
-      <CreateWebhookForm showTitle={false} />
+      <CreateWebhookForm />
     </>
   );
 }

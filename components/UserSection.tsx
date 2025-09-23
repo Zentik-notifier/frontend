@@ -2,7 +2,16 @@ import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import React, { useEffect, useState } from "react";
-import { Alert, Image, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  Image,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import SettingsScrollView from "@/components/SettingsScrollView";
 import {
   GetMeDocument,
@@ -211,14 +220,7 @@ export default function UserSection() {
     <SettingsScrollView
       style={styles.content}
       showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={[Colors[colorScheme ?? "light"].tint]}
-          tintColor={Colors[colorScheme ?? "light"].tint}
-        />
-      }
+      onRefresh={onRefresh}
     >
       <View style={styles.section}>
         <ThemedView

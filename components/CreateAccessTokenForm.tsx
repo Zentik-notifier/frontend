@@ -21,14 +21,9 @@ import {
 } from "react-native";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
+import SettingsScrollView from "@/components/SettingsScrollView";
 
-interface CreateAccessTokenFormProps {
-  showTitle?: boolean;
-}
-
-export default function CreateAccessTokenForm({
-  showTitle,
-}: CreateAccessTokenFormProps) {
+export default function CreateAccessTokenForm() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const { t } = useI18n();
@@ -97,23 +92,7 @@ export default function CreateAccessTokenForm({
   const isFormValid = newTokenName.trim();
 
   return (
-    <ThemedView style={styles.container}>
-      {showTitle && (
-        <View style={styles.header}>
-          <Ionicons
-            name="key-outline"
-            size={48}
-            color={Colors[colorScheme ?? "light"].tint}
-          />
-          <ThemedText style={styles.title}>
-            {t("accessTokens.form.title")}
-          </ThemedText>
-          <ThemedText style={styles.description}>
-            {t("accessTokens.form.description")}
-          </ThemedText>
-        </View>
-      )}
-
+    <SettingsScrollView style={styles.container}>
       <ThemedView
         style={[
           styles.formContainer,
@@ -275,29 +254,13 @@ export default function CreateAccessTokenForm({
           </ThemedView>
         </View>
       </Modal>
-    </ThemedView>
+    </SettingsScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginTop: 12,
-    textAlign: "center",
-  },
-  description: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginTop: 8,
-    textAlign: "center",
   },
   formContainer: {
     padding: 20,

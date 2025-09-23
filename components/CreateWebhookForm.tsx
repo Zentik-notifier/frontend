@@ -18,14 +18,8 @@ import { getHttpMethodColor } from "@/utils/webhookUtils";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
+import SettingsScrollView from "@/components/SettingsScrollView";
 import IdWithCopyButton from "./IdWithCopyButton";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
@@ -40,12 +34,10 @@ const httpMethods = [
 ];
 
 interface CreateWebhookFormProps {
-  showTitle?: boolean;
   webhookId?: string;
 }
 
 export default function CreateWebhookForm({
-  showTitle,
   webhookId,
 }: CreateWebhookFormProps) {
   const router = useRouter();
@@ -282,30 +274,11 @@ export default function CreateWebhookForm({
   };
 
   return (
-    <ScrollView
+    <SettingsScrollView
       style={styles.container}
-      showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
-      bounces={false}
-      automaticallyAdjustKeyboardInsets={false}
     >
-      {showTitle && (
-        <View style={styles.header}>
-          <Ionicons
-            name={isEditing ? "create-outline" : "link-outline"}
-            size={48}
-            color={Colors[colorScheme ?? "light"].tint}
-          />
-          <ThemedText style={styles.title}>
-            {isEditing ? t("webhooks.edit") : t("webhooks.create")}
-          </ThemedText>
-          <ThemedText style={styles.description}>
-            {t("webhooks.description")}
-          </ThemedText>
-        </View>
-      )}
-
       <ThemedView
         style={[
           styles.formContainer,
@@ -570,7 +543,7 @@ export default function CreateWebhookForm({
           )}
         </ThemedView>
       )}
-    </ScrollView>
+    </SettingsScrollView>
   );
 }
 
@@ -580,16 +553,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 20,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginTop: 12,
-    textAlign: "center",
   },
   description: {
     fontSize: 14,

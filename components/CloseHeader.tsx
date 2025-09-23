@@ -2,7 +2,6 @@ import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { HeaderBackButton } from "@react-navigation/elements";
-import { useLocalSearchParams } from "expo-router";
 import React from "react";
 import { StyleSheet, View } from "react-native";
 
@@ -11,13 +10,8 @@ interface CloseHeaderProps {
 }
 
 export default function CloseHeader({ onClose }: CloseHeaderProps) {
-  const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useI18n();
   const colorScheme = useColorScheme();
-
-  if (!id) {
-    return null;
-  }
 
   return (
     <View

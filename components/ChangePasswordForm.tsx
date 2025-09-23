@@ -1,33 +1,37 @@
-import { Colors } from '@/constants/Colors';
-import { useChangePasswordMutation, useSetPasswordMutation } from '@/generated/gql-operations-generated';
-import { useI18n } from '@/hooks/useI18n';
-import { useColorScheme } from '@/hooks/useTheme';
-import React, { useState } from 'react';
-import { Alert, StyleSheet, TextInput, View } from 'react-native';
-import SettingsScrollView from '@/components/SettingsScrollView';
-import { ThemedText } from './ThemedText';
-import { ThemedView } from './ThemedView';
-import { Button } from './ui/Button';
+import { Colors } from "@/constants/Colors";
+import {
+  useChangePasswordMutation,
+  useGetMeQuery,
+  useSetPasswordMutation,
+} from "@/generated/gql-operations-generated";
+import { useI18n } from "@/hooks/useI18n";
+import { useColorScheme } from "@/hooks/useTheme";
+import React, { useState } from "react";
+import { Alert, StyleSheet, TextInput, View } from "react-native";
+import SettingsScrollView from "@/components/SettingsScrollView";
+import { ThemedText } from "./ThemedText";
+import { ThemedView } from "./ThemedView";
+import { Button } from "./ui/Button";
+import { useNavigationUtils } from "@/utils/navigation";
 
-interface ChangePasswordFormProps {
-  hasPassword: boolean;
-  onSuccess?: () => void;
-}
-
-export function ChangePasswordForm({ hasPassword, onSuccess }: ChangePasswordFormProps) {
+export function ChangePasswordForm() {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
-  
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const { data: meData, refetch } = useGetMeQuery();
+  const hasPassword = meData?.me?.hasPassword ?? false;
+  const { navigateBack } = useNavigationUtils();
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [changePassword, { loading: changingPassword }] = useChangePasswordMutation({
-    refetchQueries: ['GetMe', 'GetUserSessions'],
-  });
+  const [changePassword, { loading: changingPassword }] =
+    useChangePasswordMutation({
+      refetchQueries: ["GetMe", "GetUserSessions"],
+    });
   const [setPassword, { loading: settingPassword }] = useSetPasswordMutation({
-    refetchQueries: ['GetMe', 'GetUserSessions'],
+    refetchQueries: ["GetMe", "GetUserSessions"],
   });
 
   const loading = changingPassword || settingPassword;
@@ -37,35 +41,51 @@ export function ChangePasswordForm({ hasPassword, onSuccess }: ChangePasswordFor
 
     // Validazione password attuale (solo se l'utente ha già una password)
     if (hasPassword && !currentPassword.trim()) {
-      newErrors.currentPassword = t('changePassword.validation.currentPasswordRequired') as string;
+      newErrors.currentPassword = t(
+        "changePassword.validation.currentPasswordRequired"
+      ) as string;
     }
 
     // Validazione nuova password
     if (!newPassword.trim()) {
-      newErrors.newPassword = (hasPassword 
-        ? t('changePassword.validation.newPasswordRequired')
-        : t('setPassword.validation.newPasswordRequired')) as string;
+      newErrors.newPassword = (
+        hasPassword
+          ? t("changePassword.validation.newPasswordRequired")
+          : t("setPassword.validation.newPasswordRequired")
+      ) as string;
     } else if (newPassword.length < 8) {
-      newErrors.newPassword = (hasPassword
-        ? t('changePassword.validation.newPasswordMinLength')
-        : t('setPassword.validation.newPasswordMinLength')) as string;
+      newErrors.newPassword = (
+        hasPassword
+          ? t("changePassword.validation.newPasswordMinLength")
+          : t("setPassword.validation.newPasswordMinLength")
+      ) as string;
     }
 
     // Validazione conferma password
     if (!confirmPassword.trim()) {
-      newErrors.confirmPassword = (hasPassword
-        ? t('changePassword.validation.passwordsDoNotMatch')
-        : t('setPassword.validation.passwordsDoNotMatch')) as string;
+      newErrors.confirmPassword = (
+        hasPassword
+          ? t("changePassword.validation.passwordsDoNotMatch")
+          : t("setPassword.validation.passwordsDoNotMatch")
+      ) as string;
     } else if (newPassword !== confirmPassword) {
-      newErrors.confirmPassword = (hasPassword
-        ? t('changePassword.validation.passwordsDoNotMatch')
-        : t('setPassword.validation.passwordsDoNotMatch')) as string;
+      newErrors.confirmPassword = (
+        hasPassword
+          ? t("changePassword.validation.passwordsDoNotMatch")
+          : t("setPassword.validation.passwordsDoNotMatch")
+      ) as string;
     }
 
     // Validazione password diversa (solo se entrambe le password sono valide e coincidono)
-    if (newPassword.trim() && confirmPassword.trim() && newPassword === confirmPassword) {
+    if (
+      newPassword.trim() &&
+      confirmPassword.trim() &&
+      newPassword === confirmPassword
+    ) {
       if (hasPassword && currentPassword === newPassword) {
-        newErrors.newPassword = t('changePassword.validation.samePassword') as string;
+        newErrors.newPassword = t(
+          "changePassword.validation.samePassword"
+        ) as string;
       }
     }
 
@@ -73,11 +93,16 @@ export function ChangePasswordForm({ hasPassword, onSuccess }: ChangePasswordFor
     return Object.keys(newErrors).length === 0;
   };
 
+  const effectiveHasPassword =
+    typeof hasPassword === "boolean"
+      ? hasPassword
+      : meData?.me?.hasPassword ?? false;
+
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
     try {
-      if (hasPassword) {
+      if (effectiveHasPassword) {
         await changePassword({
           variables: {
             input: {
@@ -87,36 +112,56 @@ export function ChangePasswordForm({ hasPassword, onSuccess }: ChangePasswordFor
           },
         });
         Alert.alert(
-          t('changePassword.success.title'),
-          t('changePassword.success.message'),
-          [{ text: t('common.ok'), onPress: onSuccess }]
+          t("changePassword.success.title"),
+          t("changePassword.success.message"),
+          [
+            {
+              text: t("common.ok"),
+              onPress: async () => {
+                navigateBack?.();
+                await refetch();
+              },
+            },
+          ]
         );
       } else {
         await setPassword({
           variables: {
             input: {
-              currentPassword: '', // Richiesto dal tipo attuale ma non utilizzato dal backend
+              currentPassword: "", // Richiesto dal tipo attuale ma non utilizzato dal backend
               newPassword,
             },
           },
         });
         Alert.alert(
-          t('setPassword.success.title'),
-          t('setPassword.success.message'),
-          [{ text: t('common.ok'), onPress: onSuccess }]
+          t("setPassword.success.title"),
+          t("setPassword.success.message"),
+          [
+            {
+              text: t("common.ok"),
+              onPress: async () => {
+                navigateBack();
+                await refetch();
+              },
+            },
+          ]
         );
       }
 
       // Reset form
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
       setErrors({});
     } catch (error) {
-      console.error('Password operation failed:', error);
+      console.error("Password operation failed:", error);
       Alert.alert(
-        hasPassword ? t('changePassword.errors.title') : t('setPassword.errors.title'),
-        hasPassword ? t('changePassword.errors.unknown') : t('setPassword.errors.unknown')
+        hasPassword
+          ? t("changePassword.errors.title")
+          : t("setPassword.errors.title"),
+        hasPassword
+          ? t("changePassword.errors.unknown")
+          : t("setPassword.errors.unknown")
       );
     }
   };
@@ -124,102 +169,146 @@ export function ChangePasswordForm({ hasPassword, onSuccess }: ChangePasswordFor
   return (
     <SettingsScrollView>
       <ThemedView style={styles.container}>
-      {hasPassword && (
+        {effectiveHasPassword && (
+          <View style={styles.inputContainer}>
+            <ThemedText
+              style={[
+                styles.label,
+                { color: Colors[colorScheme ?? "light"].text },
+              ]}
+            >
+              {t("changePassword.currentPassword")}
+            </ThemedText>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor:
+                    Colors[colorScheme ?? "light"].inputBackground ||
+                    Colors[colorScheme ?? "light"].background,
+                  borderColor: errors.currentPassword
+                    ? "#FF3B30"
+                    : Colors[colorScheme ?? "light"].border,
+                  color: Colors[colorScheme ?? "light"].text,
+                },
+              ]}
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              placeholder={t("changePassword.currentPasswordPlaceholder")}
+              placeholderTextColor={
+                Colors[colorScheme ?? "light"].textSecondary
+              }
+              secureTextEntry
+            />
+            {errors.currentPassword && (
+              <ThemedText style={styles.errorText}>
+                {errors.currentPassword}
+              </ThemedText>
+            )}
+          </View>
+        )}
+
         <View style={styles.inputContainer}>
-          <ThemedText style={[styles.label, { color: Colors[colorScheme ?? 'light'].text }]}>
-            {t('changePassword.currentPassword')}
+          <ThemedText
+            style={[
+              styles.label,
+              { color: Colors[colorScheme ?? "light"].text },
+            ]}
+          >
+            {t("changePassword.newPassword")}
           </ThemedText>
           <TextInput
             style={[
               styles.input,
               {
-                backgroundColor: Colors[colorScheme ?? 'light'].inputBackground || Colors[colorScheme ?? 'light'].background,
-                borderColor: errors.currentPassword ? '#FF3B30' : Colors[colorScheme ?? 'light'].border,
-                color: Colors[colorScheme ?? 'light'].text,
+                backgroundColor:
+                  Colors[colorScheme ?? "light"].inputBackground ||
+                  Colors[colorScheme ?? "light"].background,
+                borderColor: errors.newPassword
+                  ? "#FF3B30"
+                  : Colors[colorScheme ?? "light"].border,
+                color: Colors[colorScheme ?? "light"].text,
               },
             ]}
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            placeholder={t('changePassword.currentPasswordPlaceholder')}
-            placeholderTextColor={Colors[colorScheme ?? 'light'].textSecondary}
+            placeholder={
+              effectiveHasPassword
+                ? t("changePassword.newPasswordPlaceholder")
+                : t("setPassword.newPasswordPlaceholder")
+            }
+            placeholderTextColor={Colors[colorScheme ?? "light"].textSecondary}
+            value={newPassword}
+            onChangeText={setNewPassword}
+            secureTextEntry
+            returnKeyType="next"
+            onSubmitEditing={() => {
+              // confirmPasswordRef.current?.focus(); // This line was removed as per the edit hint
+            }}
+          />
+          {errors.newPassword && (
+            <ThemedText style={styles.errorText}>
+              {errors.newPassword}
+            </ThemedText>
+          )}
+          <ThemedText style={styles.helperText}>
+            {hasPassword
+              ? t("changePassword.validation.newPasswordMinLength")
+              : t("setPassword.validation.newPasswordMinLength")}
+          </ThemedText>
+        </View>
+
+        <View style={styles.inputContainer}>
+          <ThemedText
+            style={[
+              styles.label,
+              { color: Colors[colorScheme ?? "light"].text },
+            ]}
+          >
+            {t("changePassword.confirmPassword")}
+          </ThemedText>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor:
+                  Colors[colorScheme ?? "light"].inputBackground ||
+                  Colors[colorScheme ?? "light"].background,
+                borderColor: errors.confirmPassword
+                  ? "#FF3B30"
+                  : Colors[colorScheme ?? "light"].border,
+                color: Colors[colorScheme ?? "light"].text,
+              },
+            ]}
+            placeholder={
+              effectiveHasPassword
+                ? t("changePassword.confirmPasswordPlaceholder")
+                : t("setPassword.confirmPasswordPlaceholder")
+            }
+            placeholderTextColor={Colors[colorScheme ?? "light"].textSecondary}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
             secureTextEntry
           />
-          {errors.currentPassword && (
-            <ThemedText style={styles.errorText}>{errors.currentPassword}</ThemedText>
+          {errors.confirmPassword && (
+            <ThemedText style={styles.errorText}>
+              {errors.confirmPassword}
+            </ThemedText>
           )}
         </View>
-      )}
 
-      <View style={styles.inputContainer}>
-        <ThemedText style={[styles.label, { color: Colors[colorScheme ?? 'light'].text }]}>
-          {t('changePassword.newPassword')}
-        </ThemedText>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: Colors[colorScheme ?? 'light'].inputBackground || Colors[colorScheme ?? 'light'].background,
-              borderColor: errors.newPassword ? '#FF3B30' : Colors[colorScheme ?? 'light'].border,
-              color: Colors[colorScheme ?? 'light'].text,
-            },
-          ]}
-          placeholder={hasPassword 
-            ? t('changePassword.newPasswordPlaceholder')
-            : t('setPassword.newPasswordPlaceholder')
+        <Button
+          title={
+            effectiveHasPassword
+              ? loading
+                ? t("changePassword.changing")
+                : t("changePassword.changeButton")
+              : loading
+              ? t("setPassword.setting")
+              : t("setPassword.setButton")
           }
-          placeholderTextColor={Colors[colorScheme ?? 'light'].textSecondary}
-          value={newPassword}
-          onChangeText={setNewPassword}
-          secureTextEntry
-          returnKeyType="next"
-          onSubmitEditing={() => {
-            // confirmPasswordRef.current?.focus(); // This line was removed as per the edit hint
-          }}
+          onPress={handleSubmit}
+          disabled={loading}
+          style={styles.button}
         />
-        {errors.newPassword && (
-          <ThemedText style={styles.errorText}>{errors.newPassword}</ThemedText>
-        )}
-        <ThemedText style={styles.helperText}>
-          {hasPassword ? t('changePassword.validation.newPasswordMinLength') : t('setPassword.validation.newPasswordMinLength')}
-        </ThemedText>
-      </View>
-
-      <View style={styles.inputContainer}>
-        <ThemedText style={[styles.label, { color: Colors[colorScheme ?? 'light'].text }]}>
-          {t('changePassword.confirmPassword')}
-        </ThemedText>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: Colors[colorScheme ?? 'light'].inputBackground || Colors[colorScheme ?? 'light'].background,
-              borderColor: errors.confirmPassword ? '#FF3B30' : Colors[colorScheme ?? 'light'].border,
-              color: Colors[colorScheme ?? 'light'].text,
-            },
-          ]}
-          placeholder={hasPassword
-            ? t('changePassword.confirmPasswordPlaceholder')
-            : t('setPassword.confirmPasswordPlaceholder')
-          }
-          placeholderTextColor={Colors[colorScheme ?? 'light'].textSecondary}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-        />
-        {errors.confirmPassword && (
-          <ThemedText style={styles.errorText}>{errors.confirmPassword}</ThemedText>
-        )}
-      </View>
-
-      <Button
-        title={hasPassword 
-          ? (loading ? t('changePassword.changing') : t('changePassword.changeButton'))
-          : (loading ? t('setPassword.setting') : t('setPassword.setButton'))
-        }
-        onPress={handleSubmit}
-        disabled={loading}
-        style={styles.button}
-      />
       </ThemedView>
     </SettingsScrollView>
   );
@@ -234,7 +323,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 8,
   },
   input: {
@@ -245,7 +334,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   errorText: {
-    color: '#FF3B30',
+    color: "#FF3B30",
     fontSize: 14,
     marginTop: 4,
   },

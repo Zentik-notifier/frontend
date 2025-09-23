@@ -8,39 +8,20 @@ import { View } from "react-native";
 
 export default function TabletLayout() {
   const { t } = useI18n();
-  const segments = useSegments();
-  const segments1 = segments[1];
-
-  // if (segments1 === "(home)") {
-  //   return (
-  //     <View style={{ flex: 1, flexDirection: "row" }}>
-  //       <HomeSidebar />
-  //       <View
-  //         style={{
-  //           flexGrow: 1,
-  //           flexShrink: 1,
-  //           flexBasis: 0,
-  //           overflow: "hidden",
-  //         }}
-  //       >
-  //         {/* <Slot /> */}
-  //         <Stack
-  //           screenOptions={{
-  //             headerShown: true,
-  //             headerTitle: t("common.settings"),
-  //           }}
-  //         ></Stack>
-  //       </View>
-  //     </View>
-  //   );
-  // }
 
   return (
     <Stack>
       <Stack.Screen
         name="(tablet)/(home)"
         options={{
+          headerTitle: t("common.home"),
           header: () => <Header />,
+        }}
+      />
+      <Stack.Screen
+        name="(tablet)/(settings)"
+        options={{
+          headerTitle: t("common.settings"),
         }}
       />
     </Stack>

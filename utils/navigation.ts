@@ -47,7 +47,7 @@ export function useNavigationUtils() {
                 if (isMobile) {
                     router.push(`/(mobile)/(home)/bucket/settings/create`);
                 } else {
-                    router.push(`/(home)/(stack)/bucket-setting/create`);
+                    router.push(`/(tablet)/(home)/bucket/settings/create`);
                 }
             } else {
                 if (isMobile) {
@@ -242,7 +242,11 @@ export function useNavigationUtils() {
         },
 
         navigateToChangePassword: () => {
-            router.push(`/(settings)/change-password`);
+            if (isMobile) {
+                router.push("/(mobile)/(settings)/change-password");
+            } else {
+                router.push("/(tablet)/(settings)/change-password");
+            }
         },
 
     };

@@ -1,14 +1,14 @@
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
-import { useI18n } from "@/hooks/useI18n";
+import CloseHeader from "@/components/CloseHeader";
+import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
-import { Stack } from "expo-router";
 
 export default function ChangePasswordPage() {
-  const { t } = useI18n();
+  const { navigateBack } = useNavigationUtils();
 
   return (
     <>
-      <Stack.Screen options={{ title: t("changePassword.title") }} />
+      <CloseHeader onClose={navigateBack} />
       <ChangePasswordForm />
     </>
   );

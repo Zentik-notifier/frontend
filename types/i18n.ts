@@ -545,6 +545,7 @@ export interface TranslationKey {
     };
   };
   common: {
+    home: string;
     actionError: string;
     actionFailed: string;
     all: string;
