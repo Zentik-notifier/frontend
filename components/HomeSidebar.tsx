@@ -1,5 +1,6 @@
 import BucketIcon from "@/components/BucketIcon";
 import { Colors } from "@/constants/Colors";
+import { loadedFromPersistedCacheVar } from "@/config/apollo-client";
 import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { useI18n } from "@/hooks/useI18n";
@@ -10,7 +11,9 @@ import { useNavigationUtils } from "@/utils/navigation";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, usePathname, useSegments } from "expo-router";
 import React, { useMemo } from "react";
+import { useReactiveVar } from "@apollo/client";
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,6 +31,7 @@ export default function HomeSidebar() {
   const { navigateToHome, navigateToGallery, navigateToBucketDetail } =
     useNavigationUtils();
   const { isDesktop } = useDeviceType();
+  const loadedFromPersistedCache = useReactiveVar(loadedFromPersistedCacheVar);
 
   const notifCount = notifications.length;
   const galleryCount = cacheStats?.totalItems ?? 0;
@@ -176,7 +180,11 @@ export default function HomeSidebar() {
                     { backgroundColor: Colors[colorScheme].tint },
                   ]}
                 >
-                  <Text style={styles.badgeText}>{item.count}</Text>
+                  {item.id === "notifications" && !loadedFromPersistedCache ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.badgeText}>{item.count}</Text>
+                  )}
                 </View>
               )}
             </TouchableOpacity>

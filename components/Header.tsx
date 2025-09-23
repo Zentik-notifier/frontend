@@ -1,8 +1,10 @@
 import { useBadgeSync } from "@/hooks";
 import { useDownloadQueue } from "@/hooks/useMediaCache";
 import { useAppContext } from "@/services/app-context";
+import { loadedFromPersistedCacheVar } from "@/config/apollo-client";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef } from "react";
+import { useReactiveVar } from "@apollo/client";
 import {
   ActivityIndicator,
   Animated,
@@ -29,6 +31,7 @@ export default function Header() {
   const { isLoginModalOpen, closeLoginModal, isMainLoading } = useAppContext();
   const { itemsInQueue, inProcessing } = useDownloadQueue();
   const colorScheme = useColorScheme();
+  const loadedFromPersistedCache = useReactiveVar(loadedFromPersistedCacheVar);
   
   // Animazione per l'icona download che lampeggia
   const downloadBlinkAnim = useRef(new Animated.Value(1)).current;
@@ -67,7 +70,7 @@ export default function Header() {
         edges={["top"]}
       >
         {/* Main Loading Indicator */}
-        {isMainLoading && (
+        {(isMainLoading || !loadedFromPersistedCache) && (
           <View style={styles.mainLoadingContainer}>
             <View style={styles.mainLoadingButton}>
               <ActivityIndicator size="small" color="#fff" />
@@ -96,9 +99,13 @@ export default function Header() {
             </TouchableOpacity>
             {unreadCount > 0 && (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {unreadCount > 99 ? "99+" : unreadCount.toString()}
-                </Text>
+                {!loadedFromPersistedCache ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? "99+" : unreadCount.toString()}
+                  </Text>
+                )}
               </View>
             )}
           </View>
