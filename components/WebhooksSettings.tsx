@@ -57,8 +57,9 @@ export default function WebhooksSettings({
 
   return (
     <ThemedView style={styles.container}>
-      <SettingsScrollView onRefresh={handleRefresh}>
-        <View style={styles.header}>
+      <SettingsScrollView
+        onRefresh={handleRefresh}
+        headerActions={
           <TouchableOpacity
             style={[
               styles.addButton,
@@ -73,8 +74,8 @@ export default function WebhooksSettings({
           >
             <Icon name="add" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-        </View>
-
+        }
+      >
         {webhooks.length === 0 ? (
           <ThemedView style={styles.emptyState}>
             <Icon
@@ -104,12 +105,6 @@ export default function WebhooksSettings({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
   },
   title: {
     fontSize: 24,

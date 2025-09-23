@@ -180,7 +180,10 @@ export function AppSettings() {
         <View
           style={[
             styles.settingRow,
-            { backgroundColor: Colors[colorScheme].backgroundCard },
+            {
+              backgroundColor: Colors[colorScheme].backgroundCard,
+              borderColor: Colors[colorScheme].border,
+            },
           ]}
         >
           <View style={styles.settingInfo}>
@@ -332,8 +335,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(0,0,0,0.1)",
+    borderWidth: 1,
+    borderRadius: 12,
   },
   settingInfo: {
     flexDirection: "row",

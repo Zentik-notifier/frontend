@@ -1,8 +1,9 @@
 import React, { PropsWithChildren } from "react";
-import { StyleSheet, ViewStyle, ScrollViewProps } from "react-native";
+import { StyleSheet, View, ViewStyle, ScrollViewProps } from "react-native";
 import RefreshableScrollView from "@/components/RefreshableScrollView";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useTheme";
+import { ThemedText } from "@/components/ThemedText";
 
 type SettingsScrollViewProps = PropsWithChildren<
   {
@@ -10,6 +11,8 @@ type SettingsScrollViewProps = PropsWithChildren<
     contentContainerStyle?: ViewStyle | ViewStyle[];
     onRefresh?: () => Promise<any>;
     children: React.ReactNode | ((refreshing: boolean) => React.ReactNode);
+    descriptionText?: string;
+    headerActions?: React.ReactNode;
   } & Pick<
     ScrollViewProps,
     | "showsVerticalScrollIndicator"
@@ -25,6 +28,8 @@ export default function SettingsScrollView({
   contentContainerStyle,
   showsVerticalScrollIndicator = false,
   onRefresh,
+  descriptionText,
+  headerActions,
   ...rest
 }: SettingsScrollViewProps) {
   const colorScheme = useColorScheme();
@@ -40,7 +45,23 @@ export default function SettingsScrollView({
       onRefresh={onRefresh}
       {...rest}
     >
-      {children}
+      {(refreshing: boolean) => (
+        <>
+          {(descriptionText || headerActions) && (
+            <View style={styles.headerRow}>
+              {!!descriptionText && (
+                <View style={styles.headerLeft}>
+                  <ThemedText style={styles.descriptionText}>
+                    {descriptionText}
+                  </ThemedText>
+                </View>
+              )}
+              <View style={styles.headerRight}>{headerActions}</View>
+            </View>
+          )}
+          {typeof children === "function" ? children(refreshing) : children}
+        </>
+      )}
     </RefreshableScrollView>
   );
 }
@@ -51,5 +72,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 16,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  headerLeft: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginLeft: "auto",
+  },
+  descriptionText: {
+    fontSize: 14,
+    opacity: 0.7,
   },
 });

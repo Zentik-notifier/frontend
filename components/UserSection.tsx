@@ -224,7 +224,10 @@ export default function UserSection() {
         <ThemedView
           style={[
             styles.profileContainer,
-            { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
+            {
+              backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
+              borderColor: Colors[colorScheme ?? "light"].border,
+            },
           ]}
         >
           <View style={styles.field}>
@@ -424,7 +427,10 @@ export default function UserSection() {
         <ThemedView
           style={[
             styles.userIdContainer,
-            { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
+            {
+              backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
+              borderColor: Colors[colorScheme ?? "light"].border,
+            },
           ]}
         >
           <IdWithCopyButton

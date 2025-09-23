@@ -363,358 +363,365 @@ export default function BucketsSettings() {
 
   return (
     <ThemedView style={styles.container}>
-      <SettingsScrollView>
-      <View style={styles.header}>
-        <View style={styles.headerButtons}>
-          {danglingBuckets.length > 0 && (
+      <SettingsScrollView
+        onRefresh={refetch}
+        headerActions={
+          <>
+            {danglingBuckets.length > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.danglingButton,
+                  {
+                    backgroundColor: showDanglingBuckets
+                      ? Colors[colorScheme ?? "light"].tint
+                      : Colors[colorScheme ?? "light"].backgroundCard,
+                    borderColor: Colors[colorScheme ?? "light"].tint,
+                  },
+                ]}
+                onPress={() => setShowDanglingBuckets(!showDanglingBuckets)}
+              >
+                <Ionicons
+                  name="warning-outline"
+                  size={20}
+                  color={
+                    showDanglingBuckets
+                      ? "white"
+                      : Colors[colorScheme ?? "light"].tint
+                  }
+                />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[
-                styles.danglingButton,
+                styles.createButton,
                 {
-                  backgroundColor: showDanglingBuckets
-                    ? Colors[colorScheme ?? "light"].tint
-                    : Colors[colorScheme ?? "light"].backgroundCard,
-                  borderColor: Colors[colorScheme ?? "light"].tint,
+                  backgroundColor:
+                    isOfflineAuth || isBackendUnreachable
+                      ? Colors[colorScheme ?? "light"].buttonDisabled
+                      : Colors[colorScheme ?? "light"].tint,
                 },
               ]}
-              onPress={() => setShowDanglingBuckets(!showDanglingBuckets)}
+              onPress={() => navigateToCreateBucket(false)}
+              disabled={isOfflineAuth || isBackendUnreachable}
             >
-              <Ionicons
-                name="warning-outline"
-                size={20}
-                color={
-                  showDanglingBuckets
-                    ? "white"
-                    : Colors[colorScheme ?? "light"].tint
-                }
-              />
+              <Ionicons name="add" size={24} color="white" />
             </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={[
-              styles.createButton,
-              {
-                backgroundColor:
-                  isOfflineAuth || isBackendUnreachable
-                    ? Colors[colorScheme ?? "light"].buttonDisabled
-                    : Colors[colorScheme ?? "light"].tint,
-              },
-            ]}
-            onPress={() => navigateToCreateBucket(false)}
-            disabled={isOfflineAuth || isBackendUnreachable}
-          >
-            <Ionicons name="add" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-      </View>
+          </>
+        }
+      >
+        {/* Sezione Dangling Buckets */}
+        {showDanglingBuckets && (
+          <View style={styles.danglingSection}>
+            <ThemedText
+              style={[
+                styles.danglingTitle,
+                { color: Colors[colorScheme ?? "light"].tint },
+              ]}
+            >
+              {t("buckets.danglingBuckets")}
+            </ThemedText>
+            <ThemedText
+              style={[
+                styles.danglingDescription,
+                { color: Colors[colorScheme ?? "light"].textSecondary },
+              ]}
+            >
+              {t("buckets.danglingBucketsDescription")}
+            </ThemedText>
 
-      {/* Sezione Dangling Buckets */}
-      {showDanglingBuckets && (
-        <View style={styles.danglingSection}>
-          <ThemedText
-            style={[
-              styles.danglingTitle,
-              { color: Colors[colorScheme ?? "light"].tint },
-            ]}
-          >
-            {t("buckets.danglingBuckets")}
-          </ThemedText>
-          <ThemedText
-            style={[
-              styles.danglingDescription,
-              { color: Colors[colorScheme ?? "light"].textSecondary },
-            ]}
-          >
-            {t("buckets.danglingBucketsDescription")}
-          </ThemedText>
+            {danglingBuckets.length === 0 ? (
+              <View style={styles.emptyDanglingState}>
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={48}
+                  color={Colors[colorScheme ?? "light"].icon}
+                />
+                <ThemedText
+                  style={[
+                    styles.emptyDanglingText,
+                    { color: Colors[colorScheme ?? "light"].textSecondary },
+                  ]}
+                >
+                  {t("buckets.noDanglingBuckets")}
+                </ThemedText>
+              </View>
+            ) : (
+              <View style={styles.danglingBucketsContainer}>
+                {danglingBuckets.map((item) => (
+                  <TouchableOpacity
+                    key={item.bucket.id}
+                    style={[
+                      styles.danglingBucketItem,
+                      {
+                        backgroundColor:
+                          Colors[colorScheme ?? "light"].backgroundCard,
+                      },
+                    ]}
+                    onPress={() => handleDanglingBucketPress(item)}
+                  >
+                    <View style={styles.danglingBucketInfo}>
+                      <Ionicons
+                        name="warning"
+                        size={16}
+                        color={Colors[colorScheme ?? "light"].warning}
+                      />
+                      <View style={styles.danglingBucketDetails}>
+                        <ThemedText
+                          style={[
+                            styles.danglingBucketName,
+                            { color: Colors[colorScheme ?? "light"].text },
+                          ]}
+                        >
+                          {item.bucket.name ||
+                            `Bucket ${item.bucket.id.slice(0, 8)}`}
+                        </ThemedText>
+                        <ThemedText
+                          style={[
+                            styles.danglingBucketCount,
+                            {
+                              color:
+                                Colors[colorScheme ?? "light"].textSecondary,
+                            },
+                          ]}
+                        >
+                          {t("buckets.danglingBucketItem", {
+                            count: item.count,
+                          })}
+                        </ThemedText>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={14}
+                        color={Colors[colorScheme ?? "light"].textSecondary}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
 
-          {danglingBuckets.length === 0 ? (
-            <View style={styles.emptyDanglingState}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={48}
-                color={Colors[colorScheme ?? "light"].icon}
+        {buckets.length === 0 ? (
+          <ThemedView style={styles.emptyState}>
+            <Ionicons
+              name="folder-outline"
+              size={64}
+              color={Colors[colorScheme ?? "light"].icon}
+            />
+            <ThemedText style={styles.emptyText}>
+              {t("buckets.noBucketsYet")}
+            </ThemedText>
+            <ThemedText style={styles.emptySubtext}>
+              {t("buckets.createFirstBucket")}
+            </ThemedText>
+          </ThemedView>
+        ) : (
+          <View style={styles.bucketsContainer}>
+            {sortedBuckets.map((item) => (
+              <SwipeableBucketItem
+                bucketDeleted={() => refetch()}
+                onSharingRevoked={() => refetch()}
+                key={item.id}
+                bucket={item}
               />
+            ))}
+          </View>
+        )}
+
+        {/* Modal per gestire i dangling buckets */}
+        <Modal
+          visible={showDanglingBucketModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => {
+            if (!isMigrating) {
+              setShowDanglingBucketModal(false);
+              // Pulisce il parametro URL se presente
+              if (danglingBucketId) {
+                navigateToBucketsSettings();
+              }
+            }
+          }}
+        >
+          <ThemedView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
               <ThemedText
                 style={[
-                  styles.emptyDanglingText,
-                  { color: Colors[colorScheme ?? "light"].textSecondary },
+                  styles.modalTitle,
+                  { color: Colors[colorScheme ?? "light"].text },
                 ]}
               >
-                {t("buckets.noDanglingBuckets")}
+                {isMigrating
+                  ? creatingBucket
+                    ? t("buckets.creatingBucket")
+                    : t("buckets.migrating")
+                  : t("buckets.danglingBucketAction")}
               </ThemedText>
+              <TouchableOpacity
+                style={[
+                  styles.modalCloseButton,
+                  { opacity: isMigrating ? 0.5 : 1 },
+                ]}
+                onPress={() => {
+                  if (!isMigrating) {
+                    setShowDanglingBucketModal(false);
+                    // Pulisce il parametro URL se presente
+                    if (danglingBucketId) {
+                      navigateToBucketsSettings();
+                    }
+                  }
+                }}
+                disabled={isMigrating}
+              >
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={Colors[colorScheme ?? "light"].text}
+                />
+              </TouchableOpacity>
             </View>
-          ) : (
-            <View style={styles.danglingBucketsContainer}>
-              {danglingBuckets.map((item) => (
-                <TouchableOpacity
-                  key={item.bucket.id}
+
+            {selectedDanglingBucket && (
+              <>
+                <View
                   style={[
-                    styles.danglingBucketItem,
-                    {
-                      backgroundColor:
-                        Colors[colorScheme ?? "light"].backgroundCard,
-                    },
+                    styles.modalContent,
+                    { opacity: isMigrating ? 0.6 : 1 },
                   ]}
-                  onPress={() => handleDanglingBucketPress(item)}
                 >
-                  <View style={styles.danglingBucketInfo}>
-                    <Ionicons
-                      name="warning"
-                      size={16}
-                      color={Colors[colorScheme ?? "light"].warning}
-                    />
-                    <View style={styles.danglingBucketDetails}>
+                  {/* Dangling Bucket Info */}
+                  <View
+                    style={[
+                      styles.danglingBucketInfo,
+                      { borderColor: Colors[colorScheme ?? "light"].border },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.bucketIconContainer,
+                        {
+                          backgroundColor:
+                            Colors[colorScheme ?? "light"].border,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="folder-outline"
+                        size={24}
+                        color={Colors[colorScheme ?? "light"].text}
+                      />
+                    </View>
+                    <View style={styles.bucketInfo}>
                       <ThemedText
                         style={[
-                          styles.danglingBucketName,
+                          styles.bucketName,
                           { color: Colors[colorScheme ?? "light"].text },
                         ]}
                       >
-                        {item.bucket.name ||
-                          `Bucket ${item.bucket.id.slice(0, 8)}`}
+                        {selectedDanglingBucket.bucket.name}
                       </ThemedText>
                       <ThemedText
                         style={[
-                          styles.danglingBucketCount,
+                          styles.bucketCount,
                           {
                             color: Colors[colorScheme ?? "light"].textSecondary,
                           },
                         ]}
                       >
-                        {t("buckets.danglingBucketItem", { count: item.count })}
+                        {selectedDanglingBucket.count}{" "}
+                        {selectedDanglingBucket.count === 1
+                          ? t("buckets.notification")
+                          : t("buckets.notifications")}
                       </ThemedText>
                     </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={14}
-                      color={Colors[colorScheme ?? "light"].textSecondary}
-                    />
                   </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
-      )}
 
-      {buckets.length === 0 ? (
-        <ThemedView style={styles.emptyState}>
-          <Ionicons
-            name="folder-outline"
-            size={64}
-            color={Colors[colorScheme ?? "light"].icon}
-          />
-          <ThemedText style={styles.emptyText}>
-            {t("buckets.noBucketsYet")}
-          </ThemedText>
-          <ThemedText style={styles.emptySubtext}>
-            {t("buckets.createFirstBucket")}
-          </ThemedText>
-        </ThemedView>
-      ) : (
-        <View style={styles.bucketsContainer}>
-          {sortedBuckets.map((item) => (
-            <SwipeableBucketItem
-              bucketDeleted={() => refetch()}
-              onSharingRevoked={() => refetch()}
-              key={item.id}
-              bucket={item}
-            />
-          ))}
-        </View>
-      )}
+                  <ThemedText
+                    style={[
+                      styles.modalDescription,
+                      { color: Colors[colorScheme ?? "light"].textSecondary },
+                    ]}
+                  >
+                    {isMigrating
+                      ? creatingBucket
+                        ? t("buckets.creatingBucketDescription")
+                        : t("buckets.migratingDescription")
+                      : t("buckets.danglingBucketActionDescription", {
+                          count: selectedDanglingBucket.count,
+                        })}
+                  </ThemedText>
 
-      {/* Modal per gestire i dangling buckets */}
-      <Modal
-        visible={showDanglingBucketModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => {
-          if (!isMigrating) {
-            setShowDanglingBucketModal(false);
-            // Pulisce il parametro URL se presente
-            if (danglingBucketId) {
-              navigateToBucketsSettings();
-            }
-          }
-        }}
-      >
-        <ThemedView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <ThemedText
-              style={[
-                styles.modalTitle,
-                { color: Colors[colorScheme ?? "light"].text },
-              ]}
-            >
-              {isMigrating
-                ? creatingBucket
-                  ? t("buckets.creatingBucket")
-                  : t("buckets.migrating")
-                : t("buckets.danglingBucketAction")}
-            </ThemedText>
-            <TouchableOpacity
-              style={[
-                styles.modalCloseButton,
-                { opacity: isMigrating ? 0.5 : 1 },
-              ]}
-              onPress={() => {
-                if (!isMigrating) {
-                  setShowDanglingBucketModal(false);
-                  // Pulisce il parametro URL se presente
-                  if (danglingBucketId) {
-                    navigateToBucketsSettings();
-                  }
-                }
-              }}
-              disabled={isMigrating}
-            >
-              <Ionicons
-                name="close"
-                size={24}
-                color={Colors[colorScheme ?? "light"].text}
-              />
-            </TouchableOpacity>
-          </View>
+                  {!isMigrating && (
+                    <>
+                      <View style={styles.modalSection}>
+                        <ThemedText
+                          style={[
+                            styles.modalSectionTitle,
+                            { color: Colors[colorScheme ?? "light"].text },
+                          ]}
+                        >
+                          {t("buckets.migrateToExisting")}
+                        </ThemedText>
+                        <BucketSelector
+                          selectedBucketId={null}
+                          onBucketChange={handleMigrateToExisting}
+                          buckets={buckets}
+                          placeholder={t("bucketSelector.selectBucket")}
+                          searchable={true}
+                        />
+                      </View>
 
-          {selectedDanglingBucket && (
-            <>
-              <View
-                style={[
-                  styles.modalContent,
-                  { opacity: isMigrating ? 0.6 : 1 },
-                ]}
-              >
-                {/* Dangling Bucket Info */}
-                <View
-                  style={[
-                    styles.danglingBucketInfo,
-                    { borderColor: Colors[colorScheme ?? "light"].border },
-                  ]}
-                >
+                      <View style={styles.modalSection}>
+                        <TouchableOpacity
+                          style={[
+                            styles.createNewButton,
+                            {
+                              backgroundColor:
+                                Colors[colorScheme ?? "light"].tint,
+                            },
+                          ]}
+                          onPress={handleCreateNewBucket}
+                        >
+                          <Ionicons name="add-circle" size={20} color="white" />
+                          <ThemedText style={styles.createNewButtonText}>
+                            {t("buckets.createNewBucket")}
+                          </ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
+                </View>
+
+                {/* Loading overlay */}
+                {isMigrating && (
                   <View
                     style={[
-                      styles.bucketIconContainer,
+                      styles.loadingOverlay,
                       {
-                        backgroundColor: Colors[colorScheme ?? "light"].border,
+                        backgroundColor:
+                          Colors[colorScheme ?? "light"].background + "E6",
                       },
                     ]}
                   >
-                    <Ionicons
-                      name="folder-outline"
-                      size={24}
-                      color={Colors[colorScheme ?? "light"].text}
+                    <ActivityIndicator
+                      size="large"
+                      color={Colors[colorScheme ?? "light"].tint}
                     />
-                  </View>
-                  <View style={styles.bucketInfo}>
                     <ThemedText
                       style={[
-                        styles.bucketName,
+                        styles.loadingText,
                         { color: Colors[colorScheme ?? "light"].text },
                       ]}
                     >
-                      {selectedDanglingBucket.bucket.name}
-                    </ThemedText>
-                    <ThemedText
-                      style={[
-                        styles.bucketCount,
-                        { color: Colors[colorScheme ?? "light"].textSecondary },
-                      ]}
-                    >
-                      {selectedDanglingBucket.count}{" "}
-                      {selectedDanglingBucket.count === 1
-                        ? t("buckets.notification")
-                        : t("buckets.notifications")}
+                      {t("buckets.migrating")}
                     </ThemedText>
                   </View>
-                </View>
-
-                <ThemedText
-                  style={[
-                    styles.modalDescription,
-                    { color: Colors[colorScheme ?? "light"].textSecondary },
-                  ]}
-                >
-                  {isMigrating
-                    ? creatingBucket
-                      ? t("buckets.creatingBucketDescription")
-                      : t("buckets.migratingDescription")
-                    : t("buckets.danglingBucketActionDescription", {
-                        count: selectedDanglingBucket.count,
-                      })}
-                </ThemedText>
-
-                {!isMigrating && (
-                  <>
-                    <View style={styles.modalSection}>
-                      <ThemedText
-                        style={[
-                          styles.modalSectionTitle,
-                          { color: Colors[colorScheme ?? "light"].text },
-                        ]}
-                      >
-                        {t("buckets.migrateToExisting")}
-                      </ThemedText>
-                      <BucketSelector
-                        selectedBucketId={null}
-                        onBucketChange={handleMigrateToExisting}
-                        buckets={buckets}
-                        placeholder={t("bucketSelector.selectBucket")}
-                        searchable={true}
-                      />
-                    </View>
-
-                    <View style={styles.modalSection}>
-                      <TouchableOpacity
-                        style={[
-                          styles.createNewButton,
-                          {
-                            backgroundColor:
-                              Colors[colorScheme ?? "light"].tint,
-                          },
-                        ]}
-                        onPress={handleCreateNewBucket}
-                      >
-                        <Ionicons name="add-circle" size={20} color="white" />
-                        <ThemedText style={styles.createNewButtonText}>
-                          {t("buckets.createNewBucket")}
-                        </ThemedText>
-                      </TouchableOpacity>
-                    </View>
-                  </>
                 )}
-              </View>
-
-              {/* Loading overlay */}
-              {isMigrating && (
-                <View
-                  style={[
-                    styles.loadingOverlay,
-                    {
-                      backgroundColor:
-                        Colors[colorScheme ?? "light"].background + "E6",
-                    },
-                  ]}
-                >
-                  <ActivityIndicator
-                    size="large"
-                    color={Colors[colorScheme ?? "light"].tint}
-                  />
-                  <ThemedText
-                    style={[
-                      styles.loadingText,
-                      { color: Colors[colorScheme ?? "light"].text },
-                    ]}
-                  >
-                    {t("buckets.migrating")}
-                  </ThemedText>
-                </View>
-              )}
-            </>
-          )}
-        </ThemedView>
-      </Modal>
+              </>
+            )}
+          </ThemedView>
+        </Modal>
       </SettingsScrollView>
     </ThemedView>
   );
@@ -723,12 +730,6 @@ export default function BucketsSettings() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
   },
   title: {
     fontSize: 24,
@@ -761,11 +762,6 @@ const styles = StyleSheet.create({
   },
   bucketsContainer: {
     flex: 1,
-  },
-  headerButtons: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
   },
   danglingButton: {
     width: 44,
