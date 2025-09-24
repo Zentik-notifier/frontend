@@ -1,10 +1,12 @@
 import Header from "@/components/Header";
 import { useI18n } from "@/hooks";
+import { useDeviceType } from "@/hooks/useDeviceType";
 import { Stack } from "expo-router";
 import { Platform, StyleSheet, View } from "react-native";
 
 export default function TabletLayout() {
   const { t } = useI18n();
+  const { isDesktop } = useDeviceType();
 
   const content = (
     <Stack>
@@ -30,13 +32,10 @@ export default function TabletLayout() {
     </Stack>
   );
 
-  // For web, wrap content with max-width constraint
-  if (Platform.OS === 'web') {
+  if (isDesktop) {
     return (
       <View style={styles.webContainer}>
-        <View style={styles.webContentWrapper}>
-          {content}
-        </View>
+        <View style={styles.webContentWrapper}>{content}</View>
       </View>
     );
   }
@@ -47,16 +46,16 @@ export default function TabletLayout() {
 const styles = StyleSheet.create({
   webContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#f5f5f5",
+    alignItems: "center",
+    justifyContent: "center",
   },
   webContentWrapper: {
-    width: '100%',
+    width: "100%",
     maxWidth: 800, // Maximum width for chat app (similar to WhatsApp Web)
-    height: '100%',
-    backgroundColor: 'white',
-    shadowColor: '#000',
+    height: "100%",
+    backgroundColor: "white",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
