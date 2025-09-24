@@ -1,11 +1,17 @@
 import { useDeviceType } from "@/hooks/useDeviceType";
-import { useRouter } from "expo-router";
+import { Href, useRouter } from "expo-router";
 
 export function useNavigationUtils() {
     const { isMobile } = useDeviceType();
     const router = useRouter();
 
+    const homeRoute: Href =
+        isMobile ?
+            "/(mobile)/(home)/(tabs)/notifications" :
+            "/(tablet)/(home)/notifications";
+
     return {
+        homeRoute,
         navigateBack: () => {
             router.back();
         },
@@ -237,11 +243,7 @@ export function useNavigationUtils() {
         },
 
         navigateToHome: () => {
-            if (isMobile) {
-                router.push("/(mobile)/(home)/(tabs)/notifications");
-            } else {
-                router.push("/(tablet)/(home)/notifications");
-            }
+            router.push(homeRoute);
         },
 
         navigateToGallery: () => {

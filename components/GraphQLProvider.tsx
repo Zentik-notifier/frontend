@@ -18,15 +18,14 @@ interface GraphQLProviderProps {
 export const GraphQLProvider: React.FC<GraphQLProviderProps> = ({
   children,
 }) => {
-  const { processAllPending } = usePendingIntents();
+  const { processPendingNotificationIntents } = usePendingIntents();
   const [client, setClient] = React.useState<ApolloClient<any> | null>(null);
 
   useEffect(() => {
     (async () => {
-      await ApiConfigService.initialize();
       const apolloClient = await initApolloClient();
       setClient(apolloClient);
-      await processAllPending(apolloClient);
+      await processPendingNotificationIntents(apolloClient);
       await loadNotificationsFromPersistedCache();
     })();
   }, []);

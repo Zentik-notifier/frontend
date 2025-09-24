@@ -27,6 +27,7 @@ import { AppProvider, useAppContext } from "../services/app-context";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb } from "../services/media-cache-db";
 import { useNavigationUtils } from "@/utils/navigation";
+import { usePendingIntents } from "@/hooks/usePendingNotifications";
 
 type AlertButton = {
   text?: string;
@@ -137,6 +138,8 @@ export default function RootLayout() {
   const [webAlert, setWebAlert] = useState<WebAlertState>({ visible: false });
   const originalAlertRef = useRef<typeof Alert.alert>(null);
   const { isMobile } = useDeviceType();
+  const { processPendingNavigationIntent } = usePendingIntents();
+
   useEffect(() => {
     console.log("🔄 [RootLayout] Loaded");
   }, []);
@@ -199,12 +202,16 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
-      installConsoleLoggerBridge();
-      console.log("🔄 [LayoutInit] Console logger bridge installed");
-      ApiConfigService.initialize().catch();
-      console.log("🔄 [LayoutInit] App config initialized");
-      openSharedCacheDb().catch();
-      console.log("🔄 [LayoutInit] Shared cache DB opened");
+      (async () => {
+        installConsoleLoggerBridge();
+        console.log("🔄 [LayoutInit] Console logger bridge installed");
+        ApiConfigService.initialize().catch();
+        console.log("🔄 [LayoutInit] App config initialized");
+        openSharedCacheDb().catch();
+        console.log("🔄 [LayoutInit] Shared cache DB opened");
+        await processPendingNavigationIntent();
+        console.log("🔄 [LayoutInit] Pending navigation intent processed");
+      })();
     }
   }, [loaded]);
 

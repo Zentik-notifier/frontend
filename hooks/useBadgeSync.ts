@@ -11,7 +11,7 @@ import { usePushNotifications } from './usePushNotifications';
  */
 export function useBadgeSync() {
     const { t } = useI18n();
-    const { notifications, push } = useAppContext();
+    const { notifications, push, isLoadingGqlData } = useAppContext();
     const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false);
 
     const { markAllAsRead, loading } =
@@ -25,7 +25,7 @@ export function useBadgeSync() {
 
     useEffect(() => {
         const exec = async () => {
-            if (!isMarkingAllAsRead) {
+            if (!isMarkingAllAsRead && !isLoadingGqlData) {
                 push.setBadgeCount(unreadCount);
                 await saveBadgeCount(unreadCount);
                 console.log(`📱 Badge count synced: ${unreadCount}`);
@@ -33,7 +33,7 @@ export function useBadgeSync() {
         }
 
         exec();
-    }, [unreadCount, isMarkingAllAsRead]);
+    }, [unreadCount, isMarkingAllAsRead, isLoadingGqlData]);
 
     // Return a function to manually clear the badge
     const clearBadge = async () => {
