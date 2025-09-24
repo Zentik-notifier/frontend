@@ -537,7 +537,6 @@ export default function BucketsSettings() {
           onRequestClose={() => {
             if (!isMigrating) {
               setShowDanglingBucketModal(false);
-              // Pulisce il parametro URL se presente
               if (danglingBucketId) {
                 navigateToBucketsSettings();
               }
@@ -673,21 +672,28 @@ export default function BucketsSettings() {
                       </View>
 
                       <View style={styles.modalSection}>
-                        <TouchableOpacity
-                          style={[
-                            styles.createNewButton,
-                            {
-                              backgroundColor:
-                                Colors[colorScheme ?? "light"].tint,
-                            },
-                          ]}
-                          onPress={handleCreateNewBucket}
-                        >
-                          <Ionicons name="add-circle" size={20} color="white" />
-                          <ThemedText style={styles.createNewButtonText}>
-                            {t("buckets.createNewBucket")}
-                          </ThemedText>
-                        </TouchableOpacity>
+                        {isMigrating ? (
+                          <ActivityIndicator
+                            size="small"
+                            color={Colors[colorScheme ?? "light"].tint}
+                          />
+                        ) : (
+                          <TouchableOpacity
+                            style={[
+                              styles.createNewButton,
+                              {
+                                backgroundColor:
+                                  Colors[colorScheme ?? "light"].tint,
+                              },
+                            ]}
+                            onPress={handleCreateNewBucket}
+                          >
+                            <Ionicons name="add-circle" size={20} color="white" />
+                            <ThemedText style={styles.createNewButtonText}>
+                              {t("buckets.createNewBucket")}
+                            </ThemedText>
+                          </TouchableOpacity>
+                        )}
                       </View>
                     </>
                   )}

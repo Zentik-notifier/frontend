@@ -9,7 +9,7 @@ import { useNavigationUtils } from "@/utils/navigation";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { Stack } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -33,7 +33,8 @@ interface BucketDetailProps {
 export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
-  const { navigateToEditBucket } = useNavigationUtils();
+  const { navigateToEditBucket, navigateToBucketsSettings } =
+    useNavigationUtils();
   const [isMessageBuilderVisible, setIsMessageBuilderVisible] = useState(false);
   const { massMarkAsRead, loading: markAllAsReadLoading } =
     useMassMarkNotificationsAsRead();
@@ -42,7 +43,15 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const {
     settings: { notificationFilters },
   } = useUserSettings();
-  const { bucket } = useGetBucketData(bucketId);
+  const { bucket, error } = useGetBucketData(bucketId);
+
+  const isOrphaned = error && error.message.includes("Bucket not found");
+
+  useEffect(() => {
+    if (isOrphaned) {
+      navigateToBucketsSettings(bucketId);
+    }
+  }, [bucketId, isOrphaned]);
 
   // Filter notifications for this bucket
   const bucketNotifications = useMemo(() => {

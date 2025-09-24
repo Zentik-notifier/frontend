@@ -124,7 +124,7 @@ export const getBucketStats = (buckets: BucketFragment[], notifications: Notific
     const bucketsById = keyBy(buckets, "id");
     const notificationToBucketMap = new Map<string, string>();
 
-    buckets.forEach((bucket) => {
+    const checkBucketsData = (bucket: BucketFragment) => {
         const bucketId = bucket.id;
         if (!bucketData[bucketId]) {
             bucketData[bucketId] = {
@@ -138,11 +138,15 @@ export const getBucketStats = (buckets: BucketFragment[], notifications: Notific
                 lastNotificationAt: null,
             };
         }
-    });
+    }
+
+    buckets.forEach(checkBucketsData);
 
     notifications.forEach((notification) => {
-        const bucketId = notification.message?.bucket?.id;
+        const bucket = notification.message?.bucket;
+        const bucketId = bucket?.id;
         if (bucketId) {
+            checkBucketsData(bucket)
             notificationToBucketMap.set(notification.id, bucketId);
             bucketData[bucketId].totalMessages++;
             if (!notification.readAt) {
@@ -159,13 +163,20 @@ export const getBucketStats = (buckets: BucketFragment[], notifications: Notific
     });
 
     const bucketStats = Object.values(bucketData).sort((a, b) => {
-        if (!a.lastNotificationAt && !b.lastNotificationAt) return 0;
-        if (!a.lastNotificationAt) return 1;
-        if (!b.lastNotificationAt) return -1;
-        return (
-            new Date(b.lastNotificationAt).getTime() -
-            new Date(a.lastNotificationAt).getTime()
-        );
+        // 1) unreadCount desc
+        if (a.unreadCount !== b.unreadCount) {
+            return b.unreadCount - a.unreadCount;
+        }
+        // 2) lastNotificationAt desc (nulls last)
+        const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
+        const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
+        if (aTime !== bTime) {
+            return bTime - aTime;
+        }
+        // 3) name asc (fallback empty string)
+        const aName = a.name || '';
+        const bName = b.name || '';
+        return aName.localeCompare(bName);
     });
 
     return {
