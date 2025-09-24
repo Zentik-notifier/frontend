@@ -64,10 +64,10 @@ export function usePendingIntents() {
             bucket: pending.bucketId ? {
               __typename: 'Bucket' as const,
               id: pending.bucketId,
-              name: 'Loading...',
+              name: pending.bucketName || 'Loading...',
               description: null,
               color: null,
-              icon: null,
+              icon: pending.bucketIconUrl || null,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
               isProtected: null,
@@ -93,11 +93,12 @@ export function usePendingIntents() {
               title: action.title || ''
             })) : [],
             attachments: pending.attachmentData ? pending.attachmentData.map((attachment: any) => ({
-              __typename: 'NotificationAttachment',
-              id: `attachment-${Date.now()}-${Math.random()}`,
-              url: attachment.url || '',
-              mediaType: attachment.mediaType || 'IMAGE',
-              fileName: attachment.fileName || null
+              __typename: 'MessageAttachment' as const,
+              url: attachment.url ?? null,
+              mediaType: attachment.mediaType,
+              name: attachment.name ?? null,
+              attachmentUuid: null,
+              saveOnServer: null,
             })) : [],
             tapAction: pending.tapAction ? {
               __typename: 'NotificationAction',

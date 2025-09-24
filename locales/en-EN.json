@@ -102,6 +102,8 @@
       "description": "Local storage and preferences for notifications",
       "maxStoredTitle": "Max notifications to keep",
       "maxStoredDescription": "Keep at most this number of notifications locally",
+      "showAppIconOnBucketIconMissing": "Show app icon when bucket icon is missing",
+      "showAppIconOnBucketIconMissingDescription": "If enabled, the Zentik app icon will be used when a bucket has no icon. If disabled, an avatar based on bucket initials will be generated.",
       "unencryptOnBigPayload": "Don't encrypt large payloads",
       "unencryptOnBigPayloadDescription": "Send payloads unencrypted when they exceed a certain size",
       "markAsReadOnView": "Mark as read on view",

@@ -32,6 +32,7 @@ export default function UnifiedCacheSettings() {
     settings,
     setUnencryptOnBigPayload,
     setMarkAsReadOnView,
+    setShowAppIconOnBucketIconMissing,
   } = useUserSettings();
   const [showResetModal, setShowResetModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -102,6 +103,7 @@ export default function UnifiedCacheSettings() {
       setMaxCachedNotificationsDay,
       settings: {
         mediaCache: { downloadSettings },
+        notificationsPreferences,
       },
     },
   } = useAppContext();
@@ -781,6 +783,45 @@ export default function UnifiedCacheSettings() {
           trackColor={{
             false: Colors[colorScheme].border,
             true: Colors[colorScheme].tint + "40",
+          }}
+        />
+      </View>
+
+      {/* Show app icon when bucket icon missing */}
+      <View
+        style={[
+          styles.settingRow,
+          { backgroundColor: Colors[colorScheme].backgroundCard },
+        ]}
+      >
+        <View style={styles.settingInfo}>
+          <View style={styles.settingTextContainer}>
+            <ThemedText
+              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
+            >
+              {t('appSettings.notifications.showAppIconOnBucketIconMissing')}
+            </ThemedText>
+            <ThemedText
+              style={[
+                styles.settingDescription,
+                { color: Colors[colorScheme].textSecondary },
+              ]}
+            >
+              {t('appSettings.notifications.showAppIconOnBucketIconMissingDescription')}
+            </ThemedText>
+          </View>
+        </View>
+        <Switch
+          value={!!notificationsPreferences?.showAppIconOnBucketIconMissing}
+          onValueChange={setShowAppIconOnBucketIconMissing}
+          thumbColor={
+            !!notificationsPreferences?.showAppIconOnBucketIconMissing
+              ? Colors[colorScheme].tint
+              : Colors[colorScheme].textSecondary
+          }
+          trackColor={{
+            false: Colors[colorScheme].border,
+            true: Colors[colorScheme].tint + '40',
           }}
         />
       </View>

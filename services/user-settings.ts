@@ -90,6 +90,7 @@ export interface UserSettings {
   notificationsPreferences?: {
     unencryptOnBigPayload: boolean;
     markAsReadOnView?: boolean;
+    showAppIconOnBucketIconMissing?: boolean;
   };
 
   // Gallery settings
@@ -147,6 +148,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   notificationsPreferences: {
     unencryptOnBigPayload: false,
     markAsReadOnView: true,
+    showAppIconOnBucketIconMissing: true,
   },
   gallery: {
     autoPlay: true,
@@ -664,6 +666,8 @@ class UserSettingsService {
           stored.notificationsPreferences?.unencryptOnBigPayload ?? DEFAULT_SETTINGS.notificationsPreferences!.unencryptOnBigPayload,
         markAsReadOnView:
           stored.notificationsPreferences?.markAsReadOnView ?? DEFAULT_SETTINGS.notificationsPreferences!.markAsReadOnView,
+        showAppIconOnBucketIconMissing:
+          stored.notificationsPreferences?.showAppIconOnBucketIconMissing ?? DEFAULT_SETTINGS.notificationsPreferences!.showAppIconOnBucketIconMissing,
       },
       gallery: {
         ...DEFAULT_SETTINGS.gallery,
@@ -932,11 +936,15 @@ export function useUserSettings() {
     setMaxCachedNotifications: userSettings.setMaxCachedNotifications.bind(userSettings),
     setMaxCachedNotificationsDay: userSettings.setMaxCachedNotificationsDay.bind(userSettings),
     setMarkAsReadOnView: async (v: boolean) => {
-      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { unencryptOnBigPayload: false, markAsReadOnView: false }), markAsReadOnView: v } });
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), markAsReadOnView: v } });
     },
     setUnencryptOnBigPayload: async (v: boolean) => {
-      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { unencryptOnBigPayload: false }), unencryptOnBigPayload: v } });
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), unencryptOnBigPayload: v } });
       try { await upsertUserSetting({ variables: { input: { configType: UserSettingType.UnencryptOnBigPayload, valueBool: v } } }); } catch { }
+    },
+    setShowAppIconOnBucketIconMissing: async (v: boolean) => {
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), showAppIconOnBucketIconMissing: v } });
+      try { const { saveNseShowAppIconOnBucketIconMissing } = await import('./auth-storage'); await saveNseShowAppIconOnBucketIconMissing(v); } catch { }
     },
     resetSettings: userSettings.resetSettings.bind(userSettings),
     resetSection: userSettings.resetSection.bind(userSettings),

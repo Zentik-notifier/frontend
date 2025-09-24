@@ -130,10 +130,6 @@ class IOSNativePushNotificationService {
             this.handleNotificationResponse(response);
         });
 
-        this.notificationResponseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
-            this.handleNotificationResponse(response);
-        });
-
         this.listenersSetup = true;
         console.debug("✅ iOS notification listeners setup complete");
     }

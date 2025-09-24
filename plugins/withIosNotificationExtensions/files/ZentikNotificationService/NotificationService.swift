@@ -117,17 +117,20 @@ class NotificationService: UNNotificationServiceExtension {
       print("📱 [NotificationService] 🎭 ✅ Successfully loaded sender image from URL")
     }
     
-    // If no image data available, check shared cache first, then generate placeholder
+    // If no image data available, check shared cache first, then possibly generate placeholder
     if senderAvatarImageData == nil {
       print("📱 [NotificationService] 🎭 ⚠️ Sender image not available, checking shared cache...")
-      
+
       // Try to get placeholder from shared cache first
       if let bucketId = senderId, let bucketName = chatRoomName ?? senderDisplayName {
         senderAvatarImageData = getPlaceholderFromSharedCache(bucketId: bucketId, bucketName: bucketName)
       }
-      
-      // If still no image data, generate new placeholder
-      if senderAvatarImageData == nil {
+
+      // Read UI preference: show app icon when bucket icon missing (skip custom avatar)
+      let showAppIcon = readBoolFromKeychain(service: "zentik-setting-show-app-icon-missing") ?? true
+
+      // If still no image data, generate new placeholder ONLY if preference is disabled
+      if senderAvatarImageData == nil && showAppIcon == false {
         print("📱 [NotificationService] 🎭 No cached placeholder found, generating new one")
         senderAvatarImageData = generateAvatarPlaceholder(
           name: chatRoomName ?? senderDisplayName ?? "Zentik",
@@ -193,7 +196,10 @@ class NotificationService: UNNotificationServiceExtension {
       attachments: []
     )
 
-    incomingMessagingIntent.setImage(senderAvatar, forParameterNamed: \.sender)
+    // Apply image only if we have one (if preference forces app icon, we leave it nil)
+    if let senderAvatar = senderAvatar {
+      incomingMessagingIntent.setImage(senderAvatar, forParameterNamed: \.sender)
+    }
 
     let interaction = INInteraction(intent: incomingMessagingIntent, response: nil)
 
@@ -2022,6 +2028,14 @@ class NotificationService: UNNotificationServiceExtension {
     // Extract bucket ID
     if let bucketId = userInfo["bucketId"] as? String {
       notificationData["bucketId"] = bucketId
+    }
+
+    // Extract bucket display info
+    if let bucketName = userInfo["bucketName"] as? String, !bucketName.isEmpty {
+      notificationData["bucketName"] = bucketName
+    }
+    if let bucketIconUrl = userInfo["bucketIconUrl"] as? String, !bucketIconUrl.isEmpty {
+      notificationData["bucketIconUrl"] = bucketIconUrl
     }
 
     // Extract actions

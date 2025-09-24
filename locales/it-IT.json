@@ -102,6 +102,8 @@
       "description": "Impostazioni di memorizzazione locale e preferenze per le notifiche",
       "maxStoredTitle": "Notifiche massime da conservare",
       "maxStoredDescription": "Mantieni al massimo questo numero di notifiche in locale",
+      "showAppIconOnBucketIconMissing": "Mostra icona app se il bucket non ha icona",
+      "showAppIconOnBucketIconMissingDescription": "Se abilitato, verrà usata l'icona di Zentik quando il bucket non ha un'icona. Se disabilitato, verrà generato un avatar basato sulle iniziali del bucket.",
       "unencryptOnBigPayload": "Non cifrare payload grandi",
       "unencryptOnBigPayloadDescription": "Invia payload non cifrati quando superano una certa dimensione",
       "markAsReadOnView": "Segna come letta alla visualizzazione",
