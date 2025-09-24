@@ -230,7 +230,6 @@ const createCacheDynamic = () => new InMemoryCache({
 
             const limited = max > 0 ? arrayForSort.slice(0, max) : arrayForSort;
 
-            // console.log(`📊 [Apollo] Filtered notifications: ${byId.size} -> ${filteredArray.length} (removed ${byId.size - filteredArray.length} dangling), limited to ${limited.length}`);
             return limited;
           },
         },

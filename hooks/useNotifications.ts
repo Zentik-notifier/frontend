@@ -53,52 +53,19 @@ function useNotificationCacheUpdater() {
 	}, [apollo]);
 }
 
-export function useNotificationById(id?: string) {
-	const apollo = useApolloClient();
-	const [localNotification, setLocalNotification] = useState<NotificationFragment | null>(null);
-	const [fetchOne, { data, loading, error }] = useGetNotificationLazyQuery();
+export function useNotificationById(id?: string, forceFetch?: boolean) {
+	const { data, loading, error } = useGetNotificationQuery({
+		variables: { id: id! },
+		fetchPolicy: !forceFetch ? 'cache-first' : 'cache-and-network',
+		errorPolicy: 'ignore'
+	});
 
-	useEffect(() => {
-		if (id) {
-			const fetchLocal = async () => {
-				const local = await readLocal(id);
-				setLocalNotification(local);
-
-				if (!local) {
-					console.log(`📡 [useNotificationById] Notification ${id} not found locally, fetching from server...`);
-					try {
-						await fetchOne({ variables: { id } });
-					} catch (error) {
-						console.error(`❌ [useNotificationById] Failed to fetch notification ${id}:`, error);
-					}
-				}
-			};
-			fetchLocal();
-		}
-	}, [id]);
-
-	const readLocal = useCallback(async (nid?: string) => {
-		if (!nid) return null;
-		try {
-			const entity = apollo.readFragment({ id: `Notification:${nid}`, fragment: NotificationFragmentDoc, fragmentName: 'NotificationFragment' });
-			if (entity) return entity as any;
-		} catch { }
-		try {
-			const cached: any = apollo.readQuery({
-				query: GetNotificationsDocument,
-			});
-			return cached?.notifications?.find((n: any) => n?.id === nid) ?? null;
-		} catch { }
-		return null;
-	}, [apollo]);
-
-	const notification = localNotification ?? data?.notification ?? null;
+	const notification = data?.notification ?? null;
 	const effectiveLoading = !!id && !notification ? loading : false;
 
 	const effectiveError = !loading && !notification && id ? (error ?? new Error('Notification not found')) : null;
-	const source = data?.notification ? 'remote' as const : (localNotification ? 'local' as const : null);
 
-	return { notification, loading: effectiveLoading, error: effectiveError, source };
+	return { notification, loading: effectiveLoading, error: effectiveError };
 }
 
 export function useFetchNotifications(onlyCache?: boolean) {
@@ -305,7 +272,6 @@ export function useMarkAllNotificationsAsRead() {
 }
 
 export function useMarkNotificationRead() {
-	const apollo = useApolloClient();
 	const [markReadMutation] = useMarkNotificationAsReadMutation();
 	const applyLocal = useNotificationCacheUpdater();
 

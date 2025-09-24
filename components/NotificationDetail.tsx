@@ -39,11 +39,13 @@ import {
 
 interface NotificationDetailProps {
   notificationId: string;
+  forceFetch?: boolean;
   onBack?: () => void;
 }
 
 export default function NotificationDetail({
   notificationId,
+  forceFetch,
   onBack,
 }: NotificationDetailProps) {
   const colorScheme = useColorScheme();
@@ -56,7 +58,10 @@ export default function NotificationDetail({
   const markAsRead = useMarkNotificationRead();
   const deleteNotification = useDeleteNotification();
 
-  const { notification, loading, error } = useNotificationById(notificationId);
+  const { notification, loading, error } = useNotificationById(
+    notificationId,
+    forceFetch
+  );
 
   const handleMediaPress = (imageUri: string) => {
     const attachments = notification?.message?.attachments || [];
@@ -210,7 +215,6 @@ export default function NotificationDetail({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.notificationContainer}>
-
           {/* Header with two columns: left (bucket info) and right (actions + timestamps) */}
           <View style={styles.headerRow}>
             {/* Left side: Bucket info */}
@@ -222,7 +226,9 @@ export default function NotificationDetail({
                   noRouting
                 />
                 <View style={styles.bucketInfo}>
-                  <ThemedText style={styles.bucketName}>{bucketName}</ThemedText>
+                  <ThemedText style={styles.bucketName}>
+                    {bucketName}
+                  </ThemedText>
                 </View>
               </View>
             </View>
@@ -292,7 +298,7 @@ export default function NotificationDetail({
                   </View>
                 )}
               </View>
-              
+
               {/* Timestamps */}
               <View style={styles.timestampsContainer}>
                 {notification.sentAt && (

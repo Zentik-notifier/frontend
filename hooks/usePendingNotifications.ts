@@ -19,6 +19,9 @@ export function usePendingIntents() {
       }
 
       console.log(`[PendingIntents] 📱 Found ${pendingNotifications.length} pending notifications`);
+      if (pendingNotifications.length === 1) {
+        console.log(JSON.stringify(pendingNotifications[0]));
+      }
 
       // Read current cache
       let currentCache: GetNotificationsQuery | null = null;
@@ -160,7 +163,7 @@ export function usePendingIntents() {
         if (intent.type === 'OPEN_NOTIFICATION') {
           console.log('[PendingIntents] 📂 Opening notification detail for ID:', intent.value);
           try {
-            navigateToNotificationDetail(intent.value);
+            navigateToNotificationDetail(intent.value, true);
           } catch (e) {
             console.warn('[PendingIntents] ⚠️ Failed to navigate via router, falling back to deep link');
             await Linking.openURL(`zentik://notifications/${intent.value}`);

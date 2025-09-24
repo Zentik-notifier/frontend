@@ -356,6 +356,8 @@ class MediaCacheService {
     }
 
     async getCachedItem(url: string, mediaType: MediaType): Promise<CacheItem | undefined> {
+        if (!url) return undefined;
+
         const key = this.generateCacheKey(url, mediaType);
         let cachedItem: CacheItem | undefined = this.metadata[key];
 
@@ -434,6 +436,8 @@ class MediaCacheService {
     ): Promise<void> {
         const { url, mediaType, force, notificationDate } = props;
         await this.initialize();
+
+        if (!url || !mediaType) return;
 
         let cachedItem = await this.getCachedItem(url, mediaType);
         const key = this.generateCacheKey(url, mediaType);

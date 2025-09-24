@@ -1,33 +1,20 @@
 import { Platform, useWindowDimensions } from "react-native";
+import * as Device from 'expo-device';
 
-export type DeviceType = "mobile" | "tablet" | "desktop";
-
-export function useDeviceType(): {
-  deviceType: DeviceType;
-  isTablet: boolean;
-  isDesktop: boolean;
-  isMobile: boolean;
-  isReady: boolean;
-} {
+export function useDeviceType() {
   const { width } = useWindowDimensions();
 
-  // Consideriamo il dispositivo "pronto" quando abbiamo una larghezza valida
   const isReady = width > 0;
-  const isPad = Platform.OS === "ios" && (Platform as any).isPad;
-  // Conservative breakpoints: avoid classifying large phones as tablet
-  const deviceType: DeviceType = isPad
-    ? "tablet"
-    : width >= 1200
-      ? "desktop"
-      : width >= 900
-        ? "tablet"
-        : "mobile";
+  const deviceType = Device.deviceType;
+  const isTablet = deviceType === Device.DeviceType.TABLET;
+  const isMobile = deviceType === Device.DeviceType.PHONE;
+  const isDesktop = deviceType === Device.DeviceType.DESKTOP;
 
   return {
     deviceType,
-    isTablet: deviceType === "tablet",
-    isDesktop: deviceType === "desktop",
-    isMobile: deviceType === "mobile",
+    isTablet,
+    isDesktop,
+    isMobile,
     isReady,
   };
 }
