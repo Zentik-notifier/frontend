@@ -62,6 +62,8 @@
       "notificationsCount": "Notifiche salvate",
       "maxStoredTitle": "Notifiche massime da conservare",
       "maxStoredDescription": "Mantieni al massimo questo numero di notifiche nella cache locale",
+      "maxStoredDaysTitle": "Giorni massimi da conservare",
+      "maxStoredDaysDescription": "Elimina le notifiche in cache più vecchie di questo numero di giorni",
       "importExport": {
         "title": "Avanzate",
         "description": "Strumenti avanzati e utilità",

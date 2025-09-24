@@ -66,6 +66,8 @@ export interface UserSettings {
   isCompactMode: boolean;
   // GraphQL cache settings
   maxCachedNotifications?: number;
+  /** Number of days to keep notifications in cache */
+  maxCachedNotificationsDay?: number;
 
   // Media cache settings
   mediaCache: {
@@ -121,6 +123,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   },
   isCompactMode: true,
   maxCachedNotifications: 1500,
+  maxCachedNotificationsDay: 14,
   mediaCache: {
     retentionPolicies: {
       maxCacheSizeMB: undefined,
@@ -362,6 +365,22 @@ class UserSettingsService {
    */
   async setMaxCachedNotifications(max: number | undefined): Promise<void> {
     this.settings.maxCachedNotifications = max;
+    await this.saveSettings();
+    this.notifyListeners();
+  }
+
+  /**
+   * Get max cached notifications days setting
+   */
+  getMaxCachedNotificationsDay(): number | undefined {
+    return this.settings.maxCachedNotificationsDay;
+  }
+
+  /**
+   * Set max cached notifications days setting
+   */
+  async setMaxCachedNotificationsDay(days: number | undefined): Promise<void> {
+    this.settings.maxCachedNotificationsDay = days;
     await this.saveSettings();
     this.notifyListeners();
   }
@@ -633,6 +652,7 @@ class UserSettingsService {
       dateFormat: stored.dateFormat || DEFAULT_SETTINGS.dateFormat,
       isCompactMode: stored.isCompactMode !== undefined ? stored.isCompactMode : DEFAULT_SETTINGS.isCompactMode,
       maxCachedNotifications: typeof stored.maxCachedNotifications === 'number' ? stored.maxCachedNotifications : DEFAULT_SETTINGS.maxCachedNotifications,
+      maxCachedNotificationsDay: typeof (stored as any).maxCachedNotificationsDay === 'number' ? (stored as any).maxCachedNotificationsDay : DEFAULT_SETTINGS.maxCachedNotificationsDay,
       mediaCache: {
         retentionPolicies: stored.mediaCache?.retentionPolicies || DEFAULT_SETTINGS.mediaCache.retentionPolicies,
         downloadSettings: stored.mediaCache?.downloadSettings || DEFAULT_SETTINGS.mediaCache.downloadSettings,
@@ -910,6 +930,7 @@ export function useUserSettings() {
     setIsCompactMode: userSettings.setIsCompactMode.bind(userSettings),
     setNotificationFilters: userSettings.setNotificationFilters.bind(userSettings),
     setMaxCachedNotifications: userSettings.setMaxCachedNotifications.bind(userSettings),
+    setMaxCachedNotificationsDay: userSettings.setMaxCachedNotificationsDay.bind(userSettings),
     setMarkAsReadOnView: async (v: boolean) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences || { unencryptOnBigPayload: false, markAsReadOnView: false }), markAsReadOnView: v } });
     },

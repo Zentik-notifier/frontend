@@ -62,6 +62,8 @@
       "notificationsCount": "Saved notifications",
       "maxStoredTitle": "Max notifications to keep",
       "maxStoredDescription": "Keep at most this number of notifications in the local cache",
+      "maxStoredDaysTitle": "Max days to keep",
+      "maxStoredDaysDescription": "Delete cached notifications older than this number of days",
       "importExport": {
         "title": "Advanced",
         "description": "Advanced tools and utilities",

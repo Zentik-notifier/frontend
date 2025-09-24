@@ -47,6 +47,9 @@ export default function UnifiedCacheSettings() {
   const [localMaxNotifications, setLocalMaxNotifications] = useState<string>(
     (settings.maxCachedNotifications ?? 500).toString()
   );
+  const [localMaxNotificationsDays, setLocalMaxNotificationsDays] = useState<string>(
+    (settings.maxCachedNotificationsDay ?? 14).toString()
+  );
 
   // Sync when settings change externally
   useEffect(() => {
@@ -59,10 +62,14 @@ export default function UnifiedCacheSettings() {
     setLocalMaxNotifications(
       (settings.maxCachedNotifications ?? 500).toString()
     );
+    setLocalMaxNotificationsDays(
+      (settings.maxCachedNotificationsDay ?? 14).toString()
+    );
   }, [
     settings.mediaCache.retentionPolicies?.maxCacheSizeMB,
     settings.mediaCache.retentionPolicies?.maxCageAgeDays,
     settings.maxCachedNotifications,
+    settings.maxCachedNotificationsDay,
   ]);
 
   const { cacheStats } = useGetCacheStats();
@@ -84,6 +91,7 @@ export default function UnifiedCacheSettings() {
       updateMediaCacheDownloadSettings,
       updateMediaCacheRetentionPolicies,
       setMaxCachedNotifications,
+      setMaxCachedNotificationsDay,
       settings: {
         mediaCache: { downloadSettings },
       },
@@ -629,6 +637,55 @@ export default function UnifiedCacheSettings() {
           }}
           keyboardType="numeric"
           maxLength={6}
+        />
+      </View>
+
+      <View
+        style={[
+          styles.settingRow,
+          { backgroundColor: Colors[colorScheme].backgroundCard },
+        ]}
+      >
+        <View style={styles.settingInfo}>
+          <View style={styles.settingTextContainer}>
+            <ThemedText
+              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
+            >
+              {t("appSettings.gqlCache.maxStoredDaysTitle")}
+            </ThemedText>
+            <ThemedText
+              style={[
+                styles.settingDescription,
+                { color: Colors[colorScheme].textSecondary },
+              ]}
+            >
+              {t("appSettings.gqlCache.maxStoredDaysDescription")}
+            </ThemedText>
+          </View>
+        </View>
+        <TextInput
+          style={[
+            styles.settingInput,
+            {
+              color: Colors[colorScheme].text,
+              backgroundColor: Colors[colorScheme].background,
+              borderColor: Colors[colorScheme].border,
+            },
+          ]}
+          value={localMaxNotificationsDays}
+          onChangeText={async (text) => {
+            setLocalMaxNotificationsDays(text);
+            if (text.trim() === "") {
+              await setMaxCachedNotificationsDay(undefined);
+              return;
+            }
+            const parsed = parseInt(text, 10);
+            if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 3650) {
+              await setMaxCachedNotificationsDay(parsed);
+            }
+          }}
+          keyboardType="numeric"
+          maxLength={4}
         />
       </View>
 

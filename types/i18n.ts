@@ -264,6 +264,8 @@ export interface TranslationKey {
         noNotificationsToExport: string;
         title: string;
       };
+      maxStoredDaysDescription: string;
+      maxStoredDaysTitle: string;
       maxStoredDescription: string;
       maxStoredTitle: string;
       notificationsCount: string;

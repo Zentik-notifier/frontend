@@ -204,8 +204,23 @@ const createCacheDynamic = () => new InMemoryCache({
             // Compose merged array and sort by createdAt desc
             const mergedArray = filteredArray;
             const max = userSettings.getMaxCachedNotifications?.() ?? 500;
+            const maxDays = userSettings.getMaxCachedNotificationsDay?.();
 
-            mergedArray.sort((a, b) => {
+            const arrayForSort = (typeof maxDays === 'number' && maxDays > 0)
+              ? mergedArray.filter((n) => {
+                  const createdAt = readField<string>('createdAt', n);
+                  const createdTime = createdAt ? Date.parse(createdAt) : 0;
+                  const cutoff = Date.now() - maxDays * 24 * 60 * 60 * 1000;
+                  return createdTime >= cutoff;
+                })
+              : mergedArray;
+
+            if (typeof maxDays === 'number' && maxDays > 0 && arrayForSort.length < mergedArray.length) {
+              const removed = mergedArray.length - arrayForSort.length;
+              console.log(`🧹 [Apollo] Filtered ${removed} notifications older than ${maxDays} days`);
+            }
+
+            arrayForSort.sort((a, b) => {
               const aCreated = readField<string>('createdAt', a);
               const bCreated = readField<string>('createdAt', b);
               const aTime = aCreated ? Date.parse(aCreated) : 0;
@@ -213,7 +228,7 @@ const createCacheDynamic = () => new InMemoryCache({
               return bTime - aTime;
             });
 
-            const limited = max > 0 ? mergedArray.slice(0, max) : mergedArray;
+            const limited = max > 0 ? arrayForSort.slice(0, max) : arrayForSort;
 
             // console.log(`📊 [Apollo] Filtered notifications: ${byId.size} -> ${filteredArray.length} (removed ${byId.size - filteredArray.length} dangling), limited to ${limited.length}`);
             return limited;
