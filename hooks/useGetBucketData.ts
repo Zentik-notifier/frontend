@@ -1,5 +1,6 @@
-import { Permission, useGetBucketQuery } from '@/generated/gql-operations-generated';
+import { BucketFragment, NotificationFragment, Permission, useGetBucketQuery } from '@/generated/gql-operations-generated';
 import { useAppContext } from '@/services/app-context';
+import { keyBy } from 'lodash';
 import { useMemo } from 'react';
 
 export function useGetBucketData(bucketId?: string) {
@@ -106,3 +107,69 @@ export function useGetBucketData(bucketId?: string) {
         };
     }, [userId, bucket, bucketId, loading]);
 }
+
+interface BucketStats {
+    id: string;
+    name: string;
+    description: string | null;
+    color: string | null;
+    icon: string | null;
+    totalMessages: number;
+    unreadCount: number;
+    lastNotificationAt: string | null;
+}
+
+export const getBucketStats = (buckets: BucketFragment[], notifications: NotificationFragment[]) => {
+    const bucketData: Record<string, BucketStats> = {};
+    const bucketsById = keyBy(buckets, "id");
+    const notificationToBucketMap = new Map<string, string>();
+
+    buckets.forEach((bucket) => {
+        const bucketId = bucket.id;
+        if (!bucketData[bucketId]) {
+            bucketData[bucketId] = {
+                color: bucket?.color,
+                icon: bucket?.icon,
+                name: bucket?.name,
+                description: bucket?.description,
+                id: bucketId,
+                totalMessages: 0,
+                unreadCount: 0,
+                lastNotificationAt: null,
+            };
+        }
+    });
+
+    notifications.forEach((notification) => {
+        const bucketId = notification.message?.bucket?.id;
+        if (bucketId) {
+            notificationToBucketMap.set(notification.id, bucketId);
+            bucketData[bucketId].totalMessages++;
+            if (!notification.readAt) {
+                bucketData[bucketId].unreadCount++;
+            }
+            if (
+                !bucketData[bucketId].lastNotificationAt ||
+                new Date(notification.createdAt).getTime() >
+                new Date(bucketData[bucketId].lastNotificationAt).getTime()
+            ) {
+                bucketData[bucketId].lastNotificationAt = notification.createdAt;
+            }
+        }
+    });
+
+    const bucketStats = Object.values(bucketData).sort((a, b) => {
+        if (!a.lastNotificationAt && !b.lastNotificationAt) return 0;
+        if (!a.lastNotificationAt) return 1;
+        if (!b.lastNotificationAt) return -1;
+        return (
+            new Date(b.lastNotificationAt).getTime() -
+            new Date(a.lastNotificationAt).getTime()
+        );
+    });
+
+    return {
+        bucketStats,
+        notificationToBucketMap,
+    }
+};

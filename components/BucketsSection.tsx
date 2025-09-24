@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/Colors";
 import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
+import { getBucketStats } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
@@ -18,17 +19,6 @@ import NotificationSnoozeButton from "./NotificationSnoozeButton";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import Icon from "./ui/Icon";
-
-interface BucketStats {
-  id: string;
-  name: string;
-  description: string | null;
-  color: string | null;
-  icon: string | null;
-  totalMessages: number;
-  unreadCount: number;
-  lastNotificationAt: string | null;
-}
 
 const BucketsSection: React.FC = () => {
   const { t } = useI18n();
@@ -52,45 +42,10 @@ const BucketsSection: React.FC = () => {
 
   useEffect(() => setMainLoading(loading), [loading]);
 
-  const bucketStats = useMemo((): BucketStats[] => {
-    return buckets
-      .map((bucket) => {
-        const bucketNotifications = notifications.filter(
-          (notification) => notification.message?.bucket?.id === bucket.id
-        );
-
-        const totalMessages = bucketNotifications.length;
-        const unreadCount = bucketNotifications.filter(
-          (notification) => !notification.readAt
-        ).length;
-
-        const lastNotification = bucketNotifications.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        )[0];
-
-        return {
-          id: bucket.id,
-          name: bucket.name,
-          description: bucket.description,
-          color: bucket.color,
-          icon: bucket.icon,
-          totalMessages,
-          unreadCount,
-          lastNotificationAt: lastNotification?.createdAt || null,
-        };
-      })
-      .sort((a, b) => {
-        // Ordina per ultima notifica ricevuta (più recenti prima)
-        if (!a.lastNotificationAt && !b.lastNotificationAt) return 0;
-        if (!a.lastNotificationAt) return 1;
-        if (!b.lastNotificationAt) return -1;
-        return (
-          new Date(b.lastNotificationAt).getTime() -
-          new Date(a.lastNotificationAt).getTime()
-        );
-      });
-  }, [buckets, notifications]);
+  const { bucketStats } = useMemo(
+    () => getBucketStats(buckets, notifications),
+    [buckets, notifications]
+  );
 
   const handleBucketPress = (bucketId: string) => {
     navigateToBucketDetail(bucketId);

@@ -1,17 +1,16 @@
 import BucketIcon from "@/components/BucketIcon";
 import { Colors } from "@/constants/Colors";
-import { loadedFromPersistedCacheVar } from "@/config/apollo-client";
 import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { useDeviceType } from "@/hooks/useDeviceType";
+import { getBucketStats } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, usePathname, useSegments } from "expo-router";
+import { usePathname } from "expo-router";
 import React, { useMemo } from "react";
-import { useReactiveVar } from "@apollo/client";
 import {
   ActivityIndicator,
   ScrollView,
@@ -35,59 +34,14 @@ export default function HomeSidebar() {
   const notifCount = notifications.length;
   const galleryCount = cacheStats?.totalItems ?? 0;
 
-  // Helper functions per determinare se un elemento è selezionato
   const isSectionSelected = (route: string) => {
     return pathname === route;
   };
 
-  const { bucketStats, notificationToBucketMap } = useMemo(() => {
-    const notificationToBucketMap = new Map<string, string>();
-    if (!bucketsData?.buckets)
-      return { bucketStats: [], notificationToBucketMap };
-
-    const bucketStats = bucketsData.buckets
-      .map((bucket) => {
-        const bucketNotifications = notifications.filter(
-          (notification) => notification.message?.bucket?.id === bucket.id
-        );
-
-        bucketNotifications.forEach((notification) => {
-          notificationToBucketMap.set(notification.id, bucket.id);
-        });
-
-        const unreadCount = bucketNotifications.filter(
-          (notification) => !notification.readAt
-        ).length;
-
-        const lastNotification = bucketNotifications.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        )[0];
-
-        return {
-          ...bucket,
-          unreadCount,
-          lastNotificationAt: lastNotification?.createdAt || null,
-        };
-      })
-      .sort((a, b) => {
-        // Prima i bucket con notifiche non lette, poi per data ultima notifica
-        if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
-        if (a.unreadCount === 0 && b.unreadCount > 0) return 1;
-
-        // Se entrambi hanno o non hanno notifiche non lette, ordina per data
-        if (!a.lastNotificationAt && !b.lastNotificationAt) return 0;
-        if (!a.lastNotificationAt) return 1;
-        if (!b.lastNotificationAt) return -1;
-
-        return (
-          new Date(b.lastNotificationAt).getTime() -
-          new Date(a.lastNotificationAt).getTime()
-        );
-      });
-
-    return { bucketStats, notificationToBucketMap };
-  }, [bucketsData?.buckets, notifications]);
+  const { bucketStats, notificationToBucketMap } = useMemo(
+    () => getBucketStats(bucketsData?.buckets ?? [], notifications),
+    [bucketsData, notifications]
+  );
 
   const isBucketSelected = (bucketId: string) => {
     if (pathname.includes("notification/")) {
@@ -110,7 +64,7 @@ export default function HomeSidebar() {
       icon: "notifications-outline",
       count: notifCount,
       route: "/notifications",
-      onPress: () => navigateToHome(),
+      onPress: navigateToHome,
     },
     {
       id: "gallery",
@@ -118,7 +72,7 @@ export default function HomeSidebar() {
       icon: "images-outline",
       count: galleryCount,
       route: "/gallery",
-      onPress: () => navigateToGallery(),
+      onPress: navigateToGallery,
     },
   ];
 
