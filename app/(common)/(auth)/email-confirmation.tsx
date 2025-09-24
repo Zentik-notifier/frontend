@@ -531,6 +531,8 @@ const styles = StyleSheet.create({
   },
   codeInputContainer: {
     width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
     marginTop: 20,
     alignItems: "center",
   },
@@ -542,6 +544,8 @@ const styles = StyleSheet.create({
   },
   emailInputContainer: {
     width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
     marginTop: 20,
     alignItems: "center",
   },
@@ -553,6 +557,8 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
     marginBottom: 16,
   },
   label: {

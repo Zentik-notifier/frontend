@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { Colors } from '@/constants/Colors';
 import { useResetPasswordMutation } from '@/generated/gql-operations-generated';
 import { useI18n } from '@/hooks/useI18n';
@@ -178,27 +179,14 @@ export function NewPasswordStep({ resetToken, onPasswordReset, onBack }: NewPass
         </View>
 
         {/* Reset Button */}
-        <TouchableOpacity
-          style={[
-            styles.resetButton,
-            {
-              backgroundColor: Colors[colorScheme].tint,
-              opacity: isResetting ? 0.6 : 1,
-            },
-          ]}
+        <Button
+          title={isResetting ? t('auth.forgotPassword.resetting') : t('auth.forgotPassword.resetPassword')}
           onPress={handleResetPassword}
+          loading={isResetting}
           disabled={isResetting}
-          activeOpacity={0.8}
-        >
-          <ThemedText style={styles.resetButtonText}>
-            {isResetting
-              ? t('auth.forgotPassword.resetting')
-              : t('auth.forgotPassword.resetPassword')}
-          </ThemedText>
-          {isResetting && (
-            <Ionicons name="hourglass" size={20} color="#fff" style={styles.loadingIcon} />
-          )}
-        </TouchableOpacity>
+          size="large"
+          style={styles.resetButton}
+        />
 
         {/* Back Button */}
         <TouchableOpacity
@@ -226,6 +214,9 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   inputContainer: {
+    width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
     marginBottom: 24,
   },
   inputLabel: {
@@ -251,20 +242,10 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   resetButton: {
-    height: 50,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
+    width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
     marginBottom: 24,
-  },
-  resetButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loadingIcon: {
-    marginLeft: 8,
   },
   backButton: {
     alignItems: 'center',

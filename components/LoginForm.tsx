@@ -1,3 +1,4 @@
+import { OAuthSelector } from "@/components/OAuthSelector";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/ui";
 import { Colors } from "@/constants/Colors";
@@ -12,7 +13,6 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
-  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -43,10 +43,6 @@ export default function LoginForm({
   const { login } = useAppContext();
   const colorScheme = useColorScheme();
   const { navigateToEmailConfirmation } = useNavigationUtils();
-
-  const { data: providersData, loading: providersLoading } =
-    usePublicAppConfigQuery({ fetchPolicy: "network-only" });
-  const enabledProviders = providersData?.publicAppConfig.oauthProviders || [];
 
   const validateForm = () => {
     const newErrors: { emailOrUsername?: string; password?: string } = {};
@@ -176,54 +172,22 @@ export default function LoginForm({
         )}
       </View>
 
-      <Button
-        title={isLoading ? t("login.loggingIn") : t("login.loginButton")}
-        onPress={handleLogin}
-        loading={isLoading}
-        disabled={isLoading}
-        size="large"
-      />
-      {enabledProviders.length > 0 && (
-        <View style={{ marginTop: 24 }}>
-          <ThemedText style={{ textAlign: "center", marginBottom: 12 }}>
-            {t("login.orContinueWith")}
-          </ThemedText>
-          <View
-            style={{
-              flexDirection: "row",
-              gap: 12,
-              justifyContent: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            {enabledProviders.map((provider) => (
-              <TouchableOpacity
-                key={provider.id}
-                style={[
-                  styles.providerButton,
-                  { backgroundColor: provider.color! },
-                ]}
-                onPress={() => openProviderLogin(provider.providerId)}
-                disabled={isLoading || providersLoading}
-              >
-                <Image
-                  source={{ uri: provider.iconUrl! }}
-                  style={styles.providerIconImage}
-                  resizeMode="contain"
-                />
-                <Text
-                  style={[
-                    styles.providerButtonText,
-                    { color: provider.textColor || "#fff" },
-                  ]}
-                >
-                  {provider.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
+      <View style={styles.buttonsContainer}>
+        <Button
+          title={isLoading ? t("login.loggingIn") : t("login.loginButton")}
+          onPress={handleLogin}
+          loading={isLoading}
+          disabled={isLoading}
+          size="large"
+          style={styles.loginButton}
+        />
+
+        <OAuthSelector
+          onProviderSelect={openProviderLogin}
+          disabled={isLoading}
+          style={styles.oauthButton}
+        />
+      </View>
       {onCancel && (
         <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
           <Text style={{ color: Colors[colorScheme].tint }}>
@@ -239,9 +203,13 @@ const styles = StyleSheet.create({
   formContainer: {
     width: "100%",
     gap: 12,
+    alignItems: "center", // Center all form elements
   },
   inputContainer: {
     marginBottom: 16,
+    width: "100%",
+    maxWidth: 500, // Increased width for better text spacing
+    alignSelf: "center", // Center the input container
   },
   label: {
     fontSize: 16,
@@ -254,35 +222,25 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     minHeight: 48,
+    width: "100%",
+  },
+  buttonsContainer: {
+    flexDirection: "row",
+    gap: 8,
+    width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
+  },
+  loginButton: {
+    flex: 1,
+  },
+  oauthButton: {
+    flex: 1,
   },
   errorText: {
     color: "#FF3B30",
     fontSize: 14,
     marginTop: 4,
-  },
-  providerButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    minWidth: 120,
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  providerIconImage: {
-    width: 20,
-    height: 20,
-    backgroundColor: "transparent",
-    marginRight: 8,
-  },
-  providerButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
   },
   cancelBtn: {
     marginTop: 12,

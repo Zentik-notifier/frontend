@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { Colors } from '@/constants/Colors';
 import { useRequestPasswordResetMutation } from '@/generated/gql-operations-generated';
 import { useI18n } from '@/hooks/useI18n';
@@ -94,27 +95,14 @@ export function ForgotPasswordForm({ onResetRequested, onBackToLogin }: ForgotPa
         </View>
 
         {/* Submit Button */}
-        <TouchableOpacity
-          style={[
-            styles.submitButton,
-            {
-              backgroundColor: Colors[colorScheme].tint,
-              opacity: isSubmitting ? 0.6 : 1,
-            },
-          ]}
+        <Button
+          title={isSubmitting ? t('auth.forgotPassword.sending') : t('auth.forgotPassword.sendResetEmail')}
           onPress={handleSubmit}
+          loading={isSubmitting}
           disabled={isSubmitting}
-          activeOpacity={0.8}
-        >
-          <ThemedText style={styles.submitButtonText}>
-            {isSubmitting
-              ? t('auth.forgotPassword.sending')
-              : t('auth.forgotPassword.sendResetEmail')}
-          </ThemedText>
-          {isSubmitting && (
-            <Ionicons name="hourglass" size={20} color="#fff" style={styles.loadingIcon} />
-          )}
-        </TouchableOpacity>
+          size="large"
+          style={styles.submitButton}
+        />
 
         {/* Back to Login Button */}
         <TouchableOpacity
@@ -142,6 +130,9 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   inputContainer: {
+    width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
     marginBottom: 24,
   },
   inputLabel: {
@@ -157,20 +148,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   submitButton: {
-    height: 50,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
+    width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
     marginBottom: 24,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loadingIcon: {
-    marginLeft: 8,
   },
   backToLoginButton: {
     alignItems: 'center',

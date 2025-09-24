@@ -110,8 +110,8 @@ const styles = StyleSheet.create({
   },
   largeButton: {
     paddingHorizontal: 32,
-    paddingVertical: 16,
-    minHeight: 56,
+    paddingVertical: 10,
+    minHeight: 40,
   },
   
   // Text styles

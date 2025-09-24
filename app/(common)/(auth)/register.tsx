@@ -372,7 +372,8 @@ export default function RegisterScreen() {
             onPress={handleRegister}
             loading={isLoading}
             disabled={isLoading}
-            style={{ marginTop: 24 }}
+            size="large"
+            style={styles.registerButton}
           />
           <View style={styles.loginContainer}>
             <ThemedText style={styles.loginText}>
@@ -402,6 +403,7 @@ const styles = StyleSheet.create({
   container: {
     minHeight: "100%", // Ensure full height
     padding: 24,
+    alignItems: "center", // Center all form elements
     // paddingTop: 100, // Now dynamic based on safe area
   },
   title: {
@@ -414,6 +416,9 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginBottom: 16,
+    width: "100%",
+    maxWidth: 500, // Increased width for better text spacing
+    alignSelf: "center", // Center the input container
   },
   label: {
     fontSize: 16,
@@ -426,6 +431,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     minHeight: 48,
+    width: "100%",
   },
   passwordContainer: {
     position: "relative",
@@ -448,6 +454,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
     opacity: 0.7,
+  },
+  registerButton: {
+    width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
+    marginTop: 24,
   },
   loginContainer: {
     flexDirection: "row",
