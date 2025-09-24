@@ -41,7 +41,6 @@ type Bucket {
   id: ID!
   isProtected: Boolean
   isPublic: Boolean
-  isSnoozed: Boolean!
   messages: [Message!]
   name: String!
   permissions: [EntityPermission!]!
@@ -546,7 +545,6 @@ type Query {
   getUserAccessTokens: [AccessTokenListDto!]!
   getUserSessions: [SessionInfoDto!]!
   healthcheck: String!
-  isBucketSnoozed(bucketId: String!): Boolean! @deprecated(reason: "Usa field Bucket.isSnoozed")
   listSystemTokens: [SystemAccessTokenDto!]!
   me: User!
   notification(id: String!): Notification!

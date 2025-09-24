@@ -1,10 +1,6 @@
 import Header from "@/components/Header";
-import HomeSidebar from "@/components/HomeSidebar";
-import SettingsSidebar from "@/components/SettingsSidebar";
-import UserDropdown from "@/components/UserDropdown";
 import { useI18n } from "@/hooks";
-import { Slot, Stack, useSegments } from "expo-router";
-import { View } from "react-native";
+import { Stack } from "expo-router";
 
 export default function TabletLayout() {
   const { t } = useI18n();

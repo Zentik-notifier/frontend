@@ -28,7 +28,6 @@ interface BucketStats {
   totalMessages: number;
   unreadCount: number;
   lastNotificationAt: string | null;
-  isSnoozed?: boolean;
 }
 
 const BucketsSection: React.FC = () => {
@@ -79,7 +78,6 @@ const BucketsSection: React.FC = () => {
           totalMessages,
           unreadCount,
           lastNotificationAt: lastNotification?.createdAt || null,
-          isSnoozed: bucket.isSnoozed ?? false,
         };
       })
       .sort((a, b) => {
@@ -224,21 +222,6 @@ const BucketsSection: React.FC = () => {
                   variant="swipeable"
                   showText
                 />
-
-                {/* {bucket.isSnoozed && (
-                  <View
-                    style={[
-                      styles.snoozePill,
-                      {
-                        backgroundColor:
-                          Colors[colorScheme].backgroundSecondary,
-                        borderColor: Colors[colorScheme].border,
-                      },
-                    ]}
-                  >
-                    <Icon name="snooze" size="xs" color="secondary" />
-                  </View>
-                )} */}
 
                 {/* Badge per notifiche non lette */}
                 {bucket.unreadCount > 0 && (

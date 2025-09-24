@@ -10,7 +10,7 @@ import { Platform } from "react-native";
 export default function TabsLayout() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-  const { notifications } = useAppContext();
+  const { notifications, isLoadingGqlData } = useAppContext();
   const { data: bucketsData } = useGetBucketsQuery();
   const { cacheStats } = useGetCacheStats();
 
@@ -65,7 +65,11 @@ export default function TabsLayout() {
               color={color}
             />
           ),
-          tabBarBadge: notifCount > 0 ? notifCount : undefined,
+          tabBarBadge: isLoadingGqlData
+            ? "..."
+            : notifCount > 0
+            ? notifCount
+            : undefined,
           tabBarBadgeStyle: {
             backgroundColor: Colors[colorScheme].tint,
             color: "#ffffff",

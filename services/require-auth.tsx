@@ -12,7 +12,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const isPublic = segments[0] === "(common)";
     const isPrivate = !isPublic;
-    const isHome = segments[0] === "(home)";
+    const isHome = segments[1] === "(home)";
 
     if (!showPrivateRoutes && isPrivate && !isInitializing) {
       navigateToLogin();

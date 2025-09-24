@@ -5,26 +5,26 @@ import { useMassMarkNotificationsAsRead } from "@/hooks/useNotifications";
 import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { useUserSettings, userSettings } from "@/services/user-settings";
-import { Ionicons } from "@expo/vector-icons";
-import { Stack, useRouter } from "expo-router";
 import { useNavigationUtils } from "@/utils/navigation";
+import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
+import { Stack } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
-  Alert,
 } from "react-native";
 import BucketIcon from "./BucketIcon";
 import MessageBuilder from "./MessageBuilder";
 import NotificationsList from "./NotificationsList";
+import NotificationSnoozeButton from "./NotificationSnoozeButton";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import Icon from "./ui/Icon";
-import NotificationSnoozeButton from "./NotificationSnoozeButton";
 
 interface BucketDetailProps {
   bucketId: string;

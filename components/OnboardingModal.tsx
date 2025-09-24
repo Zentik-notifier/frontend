@@ -33,7 +33,6 @@ import {
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { Icon } from "./ui";
-import { useAppContext } from "@/services/app-context";
 
 interface OnboardingModalProps {
   visible: boolean;
@@ -54,7 +53,6 @@ export default function OnboardingModal({
 }: OnboardingModalProps) {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
-  const { push } = useAppContext();
   const { completeOnboarding } = useUserSettings();
   const [currentStep, setCurrentStep] = useState(0);
   const [bucketName, setBucketName] = useState("My First Bucket");
@@ -66,10 +64,15 @@ export default function OnboardingModal({
   );
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+  const push = usePushNotifications();
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_evt: GestureResponderEvent, gestureState: PanResponderGestureState) => {
-        const horizontalMove = Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      onMoveShouldSetPanResponder: (
+        _evt: GestureResponderEvent,
+        gestureState: PanResponderGestureState
+      ) => {
+        const horizontalMove =
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
         return horizontalMove && Math.abs(gestureState.dx) > 12;
       },
       onPanResponderRelease: (_evt, gestureState) => {

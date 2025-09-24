@@ -339,7 +339,23 @@ export const initApolloClient = async () => {
     },
   });
 
-  checkAndCleanOrphanedNotifications(apolloClient);
+  // Initialize GetNotifications query in cache to an empty array (if missing)
+  try {
+    const existing = apolloClient.cache.readQuery<GetNotificationsQuery>({
+      query: GetNotificationsDocument,
+    });
+    if (!existing || !Array.isArray(existing.notifications)) {
+      apolloClient.cache.writeQuery<GetNotificationsQuery>({
+        query: GetNotificationsDocument,
+        data: { __typename: 'Query', notifications: [] },
+      });
+    }
+  } catch {
+    apolloClient.cache.writeQuery<GetNotificationsQuery>({
+      query: GetNotificationsDocument,
+      data: { __typename: 'Query', notifications: [] },
+    });
+  }
 
   return apolloClient;
 }
@@ -449,6 +465,8 @@ export const reinitializeApolloClient = async () => {
 
   try {
     await ApiConfigService.initialize();
+
+    checkAndCleanOrphanedNotifications(apolloClient);
 
     console.log('🔄 Reinitializing Apollo Client with new API URL:', ApiConfigService.getApiUrlSync());
 

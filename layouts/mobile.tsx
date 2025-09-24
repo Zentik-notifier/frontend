@@ -1,12 +1,9 @@
-import CloseHeader from "@/components/CloseHeader";
 import Header from "@/components/Header";
 import { useI18n } from "@/hooks";
-import { useNavigationUtils } from "@/utils/navigation";
 import { Stack } from "expo-router";
 
 export default function TabletLayout() {
   const { t } = useI18n();
-  const { navigateToHome } = useNavigationUtils();
 
   return (
     <Stack>

@@ -626,7 +626,7 @@
       "noNotifications": "No notifications found"
     },
     "search": {
-      "placeholder": "Search notifications... ({{count}})"
+      "placeholder": "Search notifications..."
     }
   },
   "iconEditor": {

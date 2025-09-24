@@ -7,7 +7,6 @@ import { useGetBucketData } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
 import { TranslationKeyPath } from "@/utils";
-import { useApolloClient } from "@apollo/client";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import React, { useMemo, useState } from "react";

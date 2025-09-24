@@ -137,6 +137,9 @@ export default function RootLayout() {
   const [webAlert, setWebAlert] = useState<WebAlertState>({ visible: false });
   const originalAlertRef = useRef<typeof Alert.alert>(null);
   const { isMobile } = useDeviceType();
+  useEffect(() => {
+    console.log("🔄 [RootLayout] Loaded");
+  }, []);
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
@@ -195,13 +198,15 @@ export default function RootLayout() {
   const handleCloseAlert = () => setWebAlert((s) => ({ ...s, visible: false }));
 
   useEffect(() => {
-    installConsoleLoggerBridge();
-    console.log("🔄 [LayoutInit] Console logger bridge installed");
-    ApiConfigService.initialize().catch();
-    console.log("🔄 [LayoutInit] App config initialized");
-    openSharedCacheDb().catch();
-    console.log("🔄 [LayoutInit] Shared cache DB opened");
-  }, []);
+    if (loaded) {
+      installConsoleLoggerBridge();
+      console.log("🔄 [LayoutInit] Console logger bridge installed");
+      ApiConfigService.initialize().catch();
+      console.log("🔄 [LayoutInit] App config initialized");
+      openSharedCacheDb().catch();
+      console.log("🔄 [LayoutInit] Shared cache DB opened");
+    }
+  }, [loaded]);
 
   if (!loaded) {
     return null;

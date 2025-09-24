@@ -28,14 +28,14 @@ export default function Header() {
     unreadCount,
     isMarkingAllAsRead,
   } = useBadgeSync();
-  const { isLoginModalOpen, closeLoginModal, isMainLoading } = useAppContext();
+  const { isLoginModalOpen, closeLoginModal, isMainLoading, isLoadingGqlData } =
+    useAppContext();
   const { itemsInQueue, inProcessing } = useDownloadQueue();
   const colorScheme = useColorScheme();
-  const loadedFromPersistedCache = useReactiveVar(loadedFromPersistedCacheVar);
-  
+
   // Animazione per l'icona download che lampeggia
   const downloadBlinkAnim = useRef(new Animated.Value(1)).current;
-  
+
   useEffect(() => {
     if (inProcessing) {
       const blinkAnimation = Animated.loop(
@@ -53,7 +53,7 @@ export default function Header() {
         ])
       );
       blinkAnimation.start();
-      
+
       return () => blinkAnimation.stop();
     } else {
       downloadBlinkAnim.setValue(1);
@@ -70,7 +70,7 @@ export default function Header() {
         edges={["top"]}
       >
         {/* Main Loading Indicator */}
-        {(isMainLoading || !loadedFromPersistedCache) && (
+        {(isMainLoading || isLoadingGqlData) && (
           <View style={styles.mainLoadingContainer}>
             <View style={styles.mainLoadingButton}>
               <ActivityIndicator size="small" color="#fff" />
@@ -78,7 +78,7 @@ export default function Header() {
           </View>
         )}
 
-        {hasUnreadNotifications && loadedFromPersistedCache && (
+        {hasUnreadNotifications && !isLoadingGqlData && (
           <View style={styles.markAllButtonContainer}>
             <TouchableOpacity
               style={[
@@ -99,7 +99,7 @@ export default function Header() {
             </TouchableOpacity>
             {unreadCount > 0 && (
               <View style={styles.badge}>
-                {!loadedFromPersistedCache ? (
+                {isLoadingGqlData ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text style={styles.badgeText}>

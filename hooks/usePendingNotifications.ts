@@ -1,22 +1,24 @@
-import { useApolloClient } from '@apollo/client';
-import { useCallback, useEffect } from 'react';
+import { ApolloClient } from '@apollo/client';
+import { useCallback } from 'react';
 import { GetNotificationsDocument, GetNotificationsQuery, NotificationFragment, NotificationDeliveryType } from '../generated/gql-operations-generated';
-import { clearPendingNotifications, getPendingNotifications } from '../services/auth-storage';
+import { clearPendingNavigationIntent, clearPendingNotifications, getPendingNavigationIntent, getPendingNotifications } from '../services/auth-storage';
+import { Linking } from 'react-native';
+import { useNavigationUtils } from '@/utils/navigation';
 
-export function usePendingNotifications() {
-  const apolloClient = useApolloClient();
+export function usePendingIntents() {
+  const { navigateToNotificationDetail } = useNavigationUtils();
 
-  const processPendingNotifications = useCallback(async () => {
+  const processPendingNotificationIntents = useCallback(async (apolloClient: ApolloClient) => {
     try {
-      console.log('📱 Processing pending notifications from NSE...');
-      
+      console.log('[PendingIntents] 📱 Processing pending notifications');
+
       const pendingNotifications = await getPendingNotifications();
       if (pendingNotifications.length === 0) {
-        console.log('📱 No pending notifications found');
+        console.log('[PendingIntents] 📱 No pending notifications found');
         return;
       }
 
-      console.log(`📱 Found ${pendingNotifications.length} pending notifications`);
+      console.log(`[PendingIntents] 📱 Found ${pendingNotifications.length} pending notifications`);
 
       // Read current cache
       let currentCache: GetNotificationsQuery | null = null;
@@ -25,11 +27,11 @@ export function usePendingNotifications() {
           query: GetNotificationsDocument
         });
       } catch (error) {
-        console.log('📱 Cache not found, will skip pending notifications processing');
+        console.log('[PendingIntents] 📱 Cache not found, will skip pending notifications processing');
       }
 
       if (!currentCache) {
-        console.log('📱 No notifications cache found, skipping pending notifications');
+        console.log('[PendingIntents] 📱 No notifications cache found, skipping pending notifications');
         return;
       }
 
@@ -44,9 +46,6 @@ export function usePendingNotifications() {
           readAt: null,
           receivedAt: pending.timestamp || new Date().toISOString(),
           sentAt: pending.timestamp || new Date().toISOString(),
-          userId: 'unknown',
-          userDeviceId: null,
-          userDevice: null,
           message: {
             __typename: 'Message',
             id: `message-${pending.notificationId || Date.now()}`,
@@ -68,7 +67,6 @@ export function usePendingNotifications() {
               icon: null,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
-              isSnoozed: false,
               isProtected: null,
               isPublic: null
             } : {
@@ -80,7 +78,6 @@ export function usePendingNotifications() {
               icon: null,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
-              isSnoozed: false,
               isProtected: null,
               isPublic: null
             },
@@ -118,12 +115,12 @@ export function usePendingNotifications() {
       const uniqueNewNotifications = newNotifications.filter(n => !existingIds.has(n.id));
 
       if (uniqueNewNotifications.length === 0) {
-        console.log('📱 All pending notifications already exist in cache');
+        console.log('[PendingIntents] 📱 All pending notifications already exist in cache');
         await clearPendingNotifications();
         return;
       }
 
-      console.log(`📱 Adding ${uniqueNewNotifications.length} new notifications to cache`);
+      console.log(`[PendingIntents] 📱 Adding ${uniqueNewNotifications.length} new notifications to cache`);
 
       // Update cache with new notifications (prepend to show newest first)
       const updatedNotifications = [
@@ -141,20 +138,62 @@ export function usePendingNotifications() {
 
       // Clear processed notifications
       await clearPendingNotifications();
-      console.log('✅ Pending notifications processed and cache updated');
+      console.log('[PendingIntents] ✅ Pending notifications processed and cache updated');
 
     } catch (error) {
-      console.error('❌ Error processing pending notifications:', error);
+      console.error('[PendingIntents] ❌ Error processing pending notifications:', error);
     }
-  }, [apolloClient]);
+  }, []);
 
-  useEffect(() => {
-    // Process pending notifications only at app startup (from killed state)
-    console.log('📱 App startup - checking for pending notifications from NSE...');
-    processPendingNotifications();
-  }, [processPendingNotifications]);
+  const processPendingNavigationIntent = useCallback(async () => {
+    try {
+      const intent = await getPendingNavigationIntent();
+      if (intent) {
+        console.log(`[PendingIntents] ✅ Pending navigation intent found: ${JSON.stringify(intent)}`);
+      } else {
+        console.log('[PendingIntents] No Pending navigation intent found');
+        return false;
+      }
+
+      // Expecting format: { type: 'NAVIGATE' | 'OPEN_NOTIFICATION', value: string }
+      if (typeof intent?.value === 'string' && intent.value.length > 0) {
+        if (intent.type === 'OPEN_NOTIFICATION') {
+          console.log('[PendingIntents] 📂 Opening notification detail for ID:', intent.value);
+          try {
+            navigateToNotificationDetail(intent.value);
+          } catch (e) {
+            console.warn('[PendingIntents] ⚠️ Failed to navigate via router, falling back to deep link');
+            await Linking.openURL(`zentik://notifications/${intent.value}`);
+          }
+        } else if (intent.type === 'NAVIGATE') {
+          console.log('[PendingIntents] 🧭 Opening deep link for pending intent:', intent.value);
+          await Linking.openURL(intent.value);
+        } else {
+          console.log('[PendingIntents] ⚠️ Unknown intent type, ignoring:', intent.type);
+        }
+      } else {
+        console.log('[PendingIntents] ⚠️ Intent value missing or invalid');
+      }
+
+      await clearPendingNavigationIntent();
+      console.log('[PendingIntents] 🧭 Pending navigation intent processed and cleared');
+      return true;
+    } catch (error) {
+      console.error('[PendingIntents] ❌ Error processing pending navigation intent:', error);
+      return false;
+    }
+  }, []);
+
+  const processAllPending = useCallback(async (apolloClient: ApolloClient) => {
+    console.log('[PendingIntents] 🔄 Processing all pending (notifications + navigation intent)');
+    await processPendingNotificationIntents(apolloClient);
+    await processPendingNavigationIntent();
+    console.log('[PendingIntents] ✅ Completed processing all pending');
+  }, [processPendingNavigationIntent, processPendingNotificationIntents]);
 
   return {
-    processPendingNotifications
+    processPendingNotificationIntents,
+    processPendingNavigationIntent,
+    processAllPending,
   };
 }

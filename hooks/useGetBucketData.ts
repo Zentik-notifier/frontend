@@ -6,18 +6,23 @@ export function useGetBucketData(bucketId?: string) {
     const { userId } = useAppContext();
 
     const bucketSrcData = useGetBucketQuery({
-        fetchPolicy: 'cache-first',
+        fetchPolicy: 'cache-and-network',
         variables: { id: bucketId || '' },
         skip: !bucketId,
     });
     const { data, loading, error } = bucketSrcData;
     const bucket = data?.bucket;
-    const bucketData = {
-        ...bucketSrcData,
-        bucket
-    }
 
     return useMemo(() => {
+        const isSnoozed = bucket?.userBucket?.snoozeUntil ?
+            new Date().getTime() < new Date(bucket.userBucket.snoozeUntil).getTime() :
+            false;
+        const bucketData = {
+            ...bucketSrcData,
+            bucket,
+            isSnoozed,
+        }
+
         if (!userId || !bucketId) {
             return {
                 canDelete: false,

@@ -497,7 +497,6 @@ export default function NotificationsList({
           onToggleMultiSelection={handleToggleMultiSelection}
           selectedCount={selectedItems.size}
           isMultiSelectionMode={selectionMode}
-          notificationsCount={filteredNotifications.length}
         />
       )}
 

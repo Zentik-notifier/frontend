@@ -1,4 +1,7 @@
-import { subscriptionsEnabledVar } from "@/config/apollo-client";
+import {
+  loadedFromPersistedCacheVar,
+  subscriptionsEnabledVar,
+} from "@/config/apollo-client";
 import {
   DeviceInfoDto,
   LoginDto,
@@ -15,7 +18,7 @@ import {
   useFetchNotifications,
   useSaveNotificationsToStorage,
 } from "@/hooks/useNotifications";
-import { usePendingNotifications } from "@/hooks/usePendingNotifications";
+import { usePendingIntents } from "@/hooks/usePendingNotifications";
 import {
   UsePushNotifications,
   usePushNotifications,
@@ -27,11 +30,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import {
-  Alert,
-  AppState,
-  StyleSheet,
-} from "react-native";
+import { Alert, AppState, StyleSheet } from "react-native";
 import OnboardingModal from "../components/OnboardingModal";
 import {
   clearLastUserId,
@@ -45,6 +44,7 @@ import {
 } from "./auth-storage";
 import { mediaCache } from "./media-cache";
 import { useUserSettings } from "./user-settings";
+import { useReactiveVar } from "@apollo/client";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -67,6 +67,7 @@ interface AppContextProps {
   closeLoginModal: () => void;
   showOnboarding: () => void;
   isOnboardingOpen: boolean;
+  isLoadingGqlData: boolean;
   hideOnboarding: () => void;
   setMainLoading: (loading: boolean) => void;
   isMainLoading: boolean;
@@ -92,7 +93,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [logoutMutation] = useLogoutMutation();
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
-
+  const loadedFromPersistedCache = useReactiveVar(loadedFromPersistedCacheVar);
   const connectionStatus = useConnectionStatus(!userId, push);
   const userSettings = useUserSettings();
 
@@ -332,7 +333,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     notifications,
     loading: notificationsLoading,
   } = useFetchNotifications();
-  usePendingNotifications();
   useSaveNotificationsToStorage();
 
   useEffect(() => {
@@ -420,6 +420,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         logout,
+        isLoadingGqlData: !loadedFromPersistedCache,
         login,
         completeAuth,
         register,
@@ -450,7 +451,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         visible={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
       />
-
     </AppContext.Provider>
   );
 }

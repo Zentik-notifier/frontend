@@ -24,14 +24,13 @@ import {
 export default function HomeSidebar() {
   const colorScheme = useColorScheme();
   const { t } = useI18n();
-  const { notifications } = useAppContext();
+  const { notifications, isLoadingGqlData } = useAppContext();
   const { data: bucketsData } = useGetBucketsQuery();
   const { cacheStats } = useGetCacheStats();
   const pathname = usePathname();
   const { navigateToHome, navigateToGallery, navigateToBucketDetail } =
     useNavigationUtils();
   const { isDesktop } = useDeviceType();
-  const loadedFromPersistedCache = useReactiveVar(loadedFromPersistedCacheVar);
 
   const notifCount = notifications.length;
   const galleryCount = cacheStats?.totalItems ?? 0;
@@ -180,7 +179,7 @@ export default function HomeSidebar() {
                     { backgroundColor: Colors[colorScheme].tint },
                   ]}
                 >
-                  {item.id === "notifications" && !loadedFromPersistedCache ? (
+                  {item.id === "notifications" && isLoadingGqlData ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
                     <Text style={styles.badgeText}>{item.count}</Text>

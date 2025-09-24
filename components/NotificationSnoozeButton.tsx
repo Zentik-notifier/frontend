@@ -51,12 +51,11 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   const { t } = useI18n();
   const { formatDate } = useDateFormat();
 
-  const { bucket, refetch } = useGetBucketData(bucketId);
+  const { bucket, isSnoozed } = useGetBucketData(bucketId);
 
   const snoozeUntil = bucket?.userBucket?.snoozeUntil
     ? new Date(bucket.userBucket.snoozeUntil)
     : null;
-  const isSnoozed = snoozeUntil ? new Date() < snoozeUntil : false;
 
   const shouldShow = variant === "detail" || isSnoozed;
 
@@ -67,8 +66,8 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
 
   const [setBucketSnooze, { loading: settingSnooze }] =
     useSetBucketSnoozeMutation({
-      refetchQueries: [GetNotificationsDocument],
-      awaitRefetchQueries: true,
+      // refetchQueries: [GetNotificationsDocument],
+      // awaitRefetchQueries: true,
     });
 
   const quickSnoozeOptions: QuickSnoozeOption[] = useMemo(
@@ -138,7 +137,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
         variables: { bucketId, snoozeUntil: snoozeUntilISO },
       });
       setShowModal(false);
-      refetch();
+      // refetch();
     } catch (error) {
       Alert.alert("Error", t("notificationDetail.snooze.errorSetting"));
     }
@@ -150,7 +149,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
       setRemovingSnooze(true);
       await setBucketSnooze({ variables: { bucketId, snoozeUntil: null } });
       setShowModal(false);
-      refetch();
+      // refetch();
     } catch (error) {
       Alert.alert("Error", t("notificationDetail.snooze.errorRemoving"));
     } finally {

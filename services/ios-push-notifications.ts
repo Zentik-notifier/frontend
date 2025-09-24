@@ -40,8 +40,6 @@ class IOSNativePushNotificationService {
      */
     async initialize(callbacks: NotificationActionCallbacks): Promise<{ deviceInfo: RegisterDeviceDto | null; hasPermissionError: boolean }> {
         if (this.isInitialized) {
-            // Check for pending intents even if already initialized
-            await this.processPendingIntents();
             return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false };
         }
 
@@ -72,11 +70,6 @@ class IOSNativePushNotificationService {
             console.debug(`✅ iOS push notifications initialized successfully`);
 
             this.setupNotificationListeners();
-
-            // Process any pending intents from NSE actions with small delay for router initialization
-            setTimeout(async () => {
-                await this.processPendingIntents();
-            }, 500);
 
             return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false };
         } catch (error) {
@@ -137,7 +130,9 @@ class IOSNativePushNotificationService {
             this.handleNotificationResponse(response);
         });
 
-
+        this.notificationResponseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+            this.handleNotificationResponse(response);
+        });
 
         this.listenersSetup = true;
         console.debug("✅ iOS notification listeners setup complete");

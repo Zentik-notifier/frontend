@@ -5,6 +5,7 @@ import {
   loadNotificationsFromPersistedCache,
 } from "../config/apollo-client";
 import { ApiConfigService } from "../services/api-config";
+import { usePendingIntents } from "@/hooks/usePendingNotifications";
 
 interface GraphQLProviderProps {
   children: React.ReactNode;
@@ -17,6 +18,7 @@ interface GraphQLProviderProps {
 export const GraphQLProvider: React.FC<GraphQLProviderProps> = ({
   children,
 }) => {
+  const { processAllPending } = usePendingIntents();
   const [client, setClient] = React.useState<ApolloClient<any> | null>(null);
 
   useEffect(() => {
@@ -24,7 +26,7 @@ export const GraphQLProvider: React.FC<GraphQLProviderProps> = ({
       await ApiConfigService.initialize();
       const apolloClient = await initApolloClient();
       setClient(apolloClient);
-
+      await processAllPending(apolloClient);
       await loadNotificationsFromPersistedCache();
     })();
   }, []);

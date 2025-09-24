@@ -1,4 +1,4 @@
-import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetNotificationLazyQuery, useGetNotificationsLazyQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation, MediaType, useGetNotificationQuery, useGetNotificationsQuery } from '@/generated/gql-operations-generated';
+import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetNotificationLazyQuery, useGetNotificationsLazyQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation, MediaType, useGetNotificationQuery, useGetNotificationsQuery, useGetBucketsQuery } from '@/generated/gql-operations-generated';
 import { saveNotificationsToPersistedCache } from '@/config/apollo-client';
 import { mediaCache } from '@/services/media-cache';
 import { Reference, useApolloClient } from '@apollo/client';
@@ -108,6 +108,7 @@ export function useFetchNotifications(onlyCache?: boolean) {
 		fetchPolicy: onlyCache ? 'cache-first' : 'cache-and-network',
 		errorPolicy: 'ignore'
 	});
+	const { refetch: refetchBuckets } = useGetBucketsQuery({ fetchPolicy: 'cache-and-network' });
 
 	const notifications = data?.notifications ?? [];
 
@@ -115,23 +116,12 @@ export function useFetchNotifications(onlyCache?: boolean) {
 		if (refetching) return;
 		setRefetching(true);
 		console.log('🔄 Fetching notifications started');
-		const newData = await refetch();
+		const res = await Promise.all([refetchBuckets(), refetch()]);
+		const newData = res[1];
 		console.log('🔄 Fetching notifications finished: ', newData.data?.notifications?.length);
 		await updateReceivedNotifications();
 		setRefetching(false);
 	}, [refetch, updateReceivedNotifications, refetching]);
-
-	// Fetch iniziale se la cache è vuota (con debounce per evitare chiamate multiple)
-	// useEffect(() => {
-	// 	if (!loading && notifications.length === 0) {
-	// 		const timeoutId = setTimeout(() => {
-	// 			console.log('📥 Cache empty, performing initial fetch...');
-	// 			fetchNotifications();
-	// 		}, 200); // Piccolo delay per evitare fetch multipli simultanei
-
-	// 		return () => clearTimeout(timeoutId);
-	// 	}
-	// }, [loading, notifications.length, fetchNotifications]);
 
 	return { fetchNotifications, notifications, loading };
 }
