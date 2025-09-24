@@ -45,11 +45,13 @@ export default function UnifiedCacheSettings() {
     settings.mediaCache.retentionPolicies?.maxCageAgeDays?.toString() || ""
   );
   const [localMaxNotifications, setLocalMaxNotifications] = useState<string>(
-    (settings.maxCachedNotifications ?? 500).toString()
+    settings.maxCachedNotifications !== undefined ? String(settings.maxCachedNotifications) : ""
   );
   const [localMaxNotificationsDays, setLocalMaxNotificationsDays] = useState<string>(
-    (settings.maxCachedNotificationsDay ?? 14).toString()
+    settings.maxCachedNotificationsDay !== undefined ? String(settings.maxCachedNotificationsDay) : ""
   );
+  const [isEditingMaxNotifications, setIsEditingMaxNotifications] = useState(false);
+  const [isEditingMaxNotificationsDays, setIsEditingMaxNotificationsDays] = useState(false);
 
   // Sync when settings change externally
   useEffect(() => {
@@ -59,17 +61,23 @@ export default function UnifiedCacheSettings() {
     setLocalMaxCacheAgeDays(
       settings.mediaCache.retentionPolicies?.maxCageAgeDays?.toString() || ""
     );
-    setLocalMaxNotifications(
-      (settings.maxCachedNotifications ?? 500).toString()
-    );
-    setLocalMaxNotificationsDays(
-      (settings.maxCachedNotificationsDay ?? 14).toString()
-    );
+    if (!isEditingMaxNotifications) {
+      setLocalMaxNotifications(
+        settings.maxCachedNotifications !== undefined ? String(settings.maxCachedNotifications) : ""
+      );
+    }
+    if (!isEditingMaxNotificationsDays) {
+      setLocalMaxNotificationsDays(
+        settings.maxCachedNotificationsDay !== undefined ? String(settings.maxCachedNotificationsDay) : ""
+      );
+    }
   }, [
     settings.mediaCache.retentionPolicies?.maxCacheSizeMB,
     settings.mediaCache.retentionPolicies?.maxCageAgeDays,
     settings.maxCachedNotifications,
     settings.maxCachedNotificationsDay,
+    isEditingMaxNotifications,
+    isEditingMaxNotificationsDays,
   ]);
 
   const { cacheStats } = useGetCacheStats();
@@ -624,16 +632,21 @@ export default function UnifiedCacheSettings() {
             },
           ]}
           value={localMaxNotifications}
-          onChangeText={async (text) => {
-            setLocalMaxNotifications(text);
+          onFocus={() => setIsEditingMaxNotifications(true)}
+          onBlur={async () => {
+            const text = localMaxNotifications;
             if (text.trim() === "") {
               await setMaxCachedNotifications(undefined);
-              return;
+            } else {
+              const parsed = parseInt(text, 10);
+              if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 100000) {
+                await setMaxCachedNotifications(parsed);
+              }
             }
-            const parsed = parseInt(text, 10);
-            if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 100000) {
-              await setMaxCachedNotifications(parsed);
-            }
+            setIsEditingMaxNotifications(false);
+          }}
+          onChangeText={(text) => {
+            setLocalMaxNotifications(text);
           }}
           keyboardType="numeric"
           maxLength={6}
@@ -673,16 +686,21 @@ export default function UnifiedCacheSettings() {
             },
           ]}
           value={localMaxNotificationsDays}
-          onChangeText={async (text) => {
-            setLocalMaxNotificationsDays(text);
+          onFocus={() => setIsEditingMaxNotificationsDays(true)}
+          onBlur={async () => {
+            const text = localMaxNotificationsDays;
             if (text.trim() === "") {
               await setMaxCachedNotificationsDay(undefined);
-              return;
+            } else {
+              const parsed = parseInt(text, 10);
+              if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 3650) {
+                await setMaxCachedNotificationsDay(parsed);
+              }
             }
-            const parsed = parseInt(text, 10);
-            if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 3650) {
-              await setMaxCachedNotificationsDay(parsed);
-            }
+            setIsEditingMaxNotificationsDays(false);
+          }}
+          onChangeText={(text) => {
+            setLocalMaxNotificationsDays(text);
           }}
           keyboardType="numeric"
           maxLength={4}
