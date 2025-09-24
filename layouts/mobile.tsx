@@ -1,13 +1,14 @@
-import { ThemedText } from "@/components";
 import Header from "@/components/Header";
-import { useI18n } from "@/hooks";
+import { Colors } from "@/constants/Colors";
+import { useColorScheme, useI18n } from "@/hooks";
 import { useNavigationUtils } from "@/utils/navigation";
-import { Stack, useNavigation } from "expo-router";
+import { HeaderBackButton } from "@react-navigation/elements";
+import { Stack } from "expo-router";
 import { useLocalSearchParams } from "expo-router/build/hooks";
-import { Pressable } from "react-native";
 
 export default function TabletLayout() {
   const { t } = useI18n();
+  const colorScheme = useColorScheme();
   const { navigateToHome } = useNavigationUtils();
   const { forceFetch } = useLocalSearchParams();
 
@@ -36,18 +37,15 @@ export default function TabletLayout() {
         name="(mobile)/(home)/notification/[id]"
         options={{
           headerTitle: "",
-          headerLeft: () =>
+          headerLeft: (props) =>
             forceFetch ? (
-              <Pressable onPress={navigateToHome}>
-                <ThemedText>{t("common.home")}</ThemedText>
-              </Pressable>
+              <HeaderBackButton
+                {...props}
+                tintColor={Colors[colorScheme].text}
+                label={t("common.home")} // testo accanto all’icona
+                onPress={navigateToHome}
+              />
             ) : undefined,
-          // headerShown: false,
-          // presentation: "modal",
-          // gestureEnabled: true,
-          // gestureDirection: "vertical",
-          // animationTypeForReplace: "push",
-          // animation: "slide_from_bottom",
         }}
       />
       <Stack.Screen

@@ -148,7 +148,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   notificationsPreferences: {
     unencryptOnBigPayload: false,
     markAsReadOnView: true,
-    showAppIconOnBucketIconMissing: true,
+    showAppIconOnBucketIconMissing: false,
   },
   gallery: {
     autoPlay: true,

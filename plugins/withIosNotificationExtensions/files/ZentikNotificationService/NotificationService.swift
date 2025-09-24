@@ -40,6 +40,9 @@ class NotificationService: UNNotificationServiceExtension {
 
       // Save the notification content
       self.savePendingNotification(content: bestAttemptContent)
+      
+      // Store navigation intent for tap action
+      self.storeNavigationIntentFromNotification(content: bestAttemptContent)
 
       // Setup custom actions in a synchronized manner
       setupNotificationActions(content: bestAttemptContent) { [weak self] in
@@ -140,13 +143,8 @@ class NotificationService: UNNotificationServiceExtension {
       }
     }
     
-    guard let finalImageData = senderAvatarImageData else {
-      print("📱 [NotificationService] 🎭 ❌ Failed to generate sender image")
-      return
-    }
-
     // profile picture that will be displayed in the notification (left side)
-    let senderAvatar: INImage = INImage(imageData: finalImageData)
+    let senderAvatar: INImage? = senderAvatarImageData.map { INImage(imageData: $0) }
 
     var personNameComponents = PersonNameComponents()
     personNameComponents.nickname = senderDisplayName
@@ -2213,6 +2211,100 @@ class NotificationService: UNNotificationServiceExtension {
     } catch {
       print("📱 [NotificationService] ❌ Failed to save placeholder to shared cache: \(error)")
       return nil
+    }
+  }
+  
+  // MARK: - Keychain Helper Methods
+  
+  private func readBoolFromKeychain(service: String) -> Bool? {
+    let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationService", with: "") ?? "{{MAIN_BUNDLE_ID}}"
+    let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+    
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: service,
+      kSecAttrAccessGroup as String: accessGroup,
+      kSecReturnData as String: true,
+    ]
+    
+    var result: AnyObject?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    
+    if status == errSecSuccess, let data = result as? Data, let value = String(data: data, encoding: .utf8) {
+      return value == "true"
+    }
+    
+    return nil
+  }
+  
+  // MARK: - Navigation Intent Storage
+  
+  private func storeNavigationIntentFromNotification(content: UNMutableNotificationContent) {
+    print("📱 [NotificationService] 📂 Storing navigation intent from notification...")
+    
+    let userInfo = content.userInfo
+    
+    // Extract notification ID
+    guard let notificationId = userInfo["notificationId"] as? String else {
+      print("📱 [NotificationService] ❌ No notificationId found in userInfo")
+      return
+    }
+    
+    // Determine tap action
+    var tapAction: [String: Any]
+    if let existingTapAction = userInfo["tapAction"] as? [String: Any] {
+      tapAction = existingTapAction
+      print("📱 [NotificationService] 📂 Using existing tapAction: \(tapAction)")
+    } else {
+      // Default to OPEN_NOTIFICATION with notificationId
+      tapAction = [
+        "type": "OPEN_NOTIFICATION",
+        "value": notificationId
+      ]
+      print("📱 [NotificationService] 📂 Using default tapAction: \(tapAction)")
+    }
+    
+    // Create navigation data
+    let navigationData = [
+      "type": tapAction["type"] as? String ?? "OPEN_NOTIFICATION",
+      "value": tapAction["value"] as? String ?? notificationId,
+      "timestamp": ISO8601DateFormatter().string(from: Date())
+    ]
+    
+    // Store in keychain
+    do {
+      try storeIntentInKeychain(data: navigationData, service: "zentik-pending-navigation")
+      print("📱 [NotificationService] 💾 Stored navigation intent in keychain: \(navigationData)")
+    } catch {
+      print("📱 [NotificationService] ❌ Failed to store navigation intent in keychain: \(error)")
+    }
+  }
+  
+  private func storeIntentInKeychain(data: [String: Any], service: String) throws {
+    let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationService", with: "") ?? "{{MAIN_BUNDLE_ID}}"
+    let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+    
+    let jsonData = try JSONSerialization.data(withJSONObject: data)
+    
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: service,
+      kSecAttrAccessGroup as String: accessGroup,
+      kSecValueData as String: jsonData,
+    ]
+    
+    // Delete existing entry first
+    let deleteQuery: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: service,
+      kSecAttrAccessGroup as String: accessGroup,
+    ]
+    SecItemDelete(deleteQuery as CFDictionary)
+    
+    // Add the new item
+    let status = SecItemAdd(query as CFDictionary, nil)
+    if status != errSecSuccess {
+      throw NSError(domain: "KeychainError", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "Failed to store intent in keychain"])
     }
   }
 }

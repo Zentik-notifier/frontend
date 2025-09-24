@@ -113,9 +113,9 @@ export const getNotificationTestData = (t: any) => ({
   // Enhanced tap action - now optional
   tapAction: {
     type: NotificationActionType.Navigate,
-    value: '/notifications/details',
+    value: 'https://notifier-docs.zentik.app',
     destructive: false,
     icon: 'sfsymbols:info.circle.fill',
-    title: 'View Details'
+    title: 'Zentik Docs'
   }
 });
