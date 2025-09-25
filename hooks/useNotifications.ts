@@ -96,9 +96,8 @@ export function useNotificationById(id?: string, forceFetch?: boolean) {
 	const effectiveLoading = !!id && !notification ? loading : false;
 
 	const effectiveError = !loading && !notification && id ? (error ?? new Error('Notification not found')) : null;
-	const source = data?.notification ? 'remote' as const : (localNotification ? 'local' as const : null);
 
-	return { notification, loading: effectiveLoading, error: effectiveError, source };
+	return { notification, loading: effectiveLoading, error: effectiveError };
 }
 
 // export function useNotificationById(id?: string, forceFetch?: boolean) {
