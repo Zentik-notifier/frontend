@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   },
   webContentWrapper: {
     width: "100%",
-    maxWidth: 800, // Maximum width for chat app (similar to WhatsApp Web)
+    maxWidth: 1200,
     height: "100%",
     backgroundColor: "white",
     shadowColor: "#000",

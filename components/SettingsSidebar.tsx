@@ -123,7 +123,7 @@ export default function SettingsSidebar() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[{ width: isDesktop ? 320 : 250 }]}>
+        <View style={[{ width: isDesktop ? 300 : 250 }]}>
           {settingsOptions.map((option) => {
             const isSelected = segments.some(
               (segment) => segment === option.selectionSegment

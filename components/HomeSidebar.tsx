@@ -81,7 +81,7 @@ export default function HomeSidebar() {
       style={[
         {
           backgroundColor: Colors[colorScheme].background,
-          width: isDesktop ? 450 : 300,
+          width: isDesktop ? 350 : 300,
         },
       ]}
     >
