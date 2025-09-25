@@ -1,9 +1,6 @@
 import { ForgotPasswordFlow } from "@/components/ForgotPasswordFlow";
-import { ThemedText } from "@/components/ThemedText";
 import UnauthenticatedHeader from "@/components/UnauthenticatedHeader";
-import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Stack } from "expo-router";
 import React from "react";
@@ -19,10 +16,10 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+import { Text } from "react-native-paper";
 
 export default function ForgotPasswordScreen() {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const { navigateToLogin } = useNavigationUtils();
 
@@ -31,16 +28,9 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={[
-        styles.safeArea,
-        { backgroundColor: Colors[colorScheme].background },
-      ]}
-    >
+    <SafeAreaView style={styles.safeArea}>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar
-        barStyle={colorScheme === "dark" ? "light-content" : "dark-content"}
-      />
+      <StatusBar barStyle="default" />
       <UnauthenticatedHeader />
       <KeyboardAvoidingView
         style={styles.container}
@@ -57,17 +47,12 @@ export default function ForgotPasswordScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerContainer}>
-            <ThemedText style={styles.title}>
+            <Text variant="headlineMedium" style={styles.title}>
               {t("auth.forgotPassword.title")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.subtitle,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
+            </Text>
+            <Text variant="bodyLarge" style={styles.subtitle}>
               {t("auth.forgotPassword.description")}
-            </ThemedText>
+            </Text>
           </View>
 
           <ForgotPasswordFlow onBackToLogin={handleBackToLogin} />
@@ -95,17 +80,13 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   title: {
-    fontSize: 28,
     fontWeight: "bold",
     letterSpacing: 1,
-    lineHeight: 36,
     marginBottom: 16,
     textAlign: "center",
   },
   subtitle: {
-    fontSize: 18,
     opacity: 0.7,
-    lineHeight: 24,
     textAlign: "center",
   },
 });

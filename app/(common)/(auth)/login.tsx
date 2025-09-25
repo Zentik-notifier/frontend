@@ -1,10 +1,7 @@
 import LoginForm from "@/components/LoginForm";
-import { ThemedText } from "@/components/ThemedText";
 import UnauthenticatedHeader from "@/components/UnauthenticatedHeader";
-import { Colors } from "@/constants/Colors";
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Stack, useLocalSearchParams } from "expo-router";
 import React from "react";
@@ -15,16 +12,14 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Text, Button } from "react-native-paper";
 
 export default function LoginScreen() {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const { data } = usePublicAppConfigQuery();
   const emailEnabled = data?.publicAppConfig.emailEnabled;
@@ -41,16 +36,9 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={[
-        styles.safeArea,
-        { backgroundColor: Colors[colorScheme].background },
-      ]}
-    >
+    <SafeAreaView style={styles.safeArea}>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar
-        barStyle={colorScheme === "dark" ? "light-content" : "dark-content"}
-      />
+      <StatusBar barStyle="default" />
       <UnauthenticatedHeader />
       <KeyboardAvoidingView
         style={styles.container}
@@ -61,14 +49,16 @@ export default function LoginScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContainer,
-            { paddingTop: Math.max(80, insets.top) }, // Dynamic padding based on safe area
+            { paddingTop: Math.max(80, insets.top) },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.logoContainer}>
-            <ThemedText style={styles.appName}>Zentik</ThemedText>
-            <View style={[styles.logoPlaceholder]}>
+            <Text variant="headlineLarge" style={styles.appName}>
+              Zentik
+            </Text>
+            <View style={styles.logoPlaceholder}>
               <View style={styles.logoImageWrapper}>
                 <Image
                   source={require("../../../assets/icons/icon-512x512.png")}
@@ -77,9 +67,9 @@ export default function LoginScreen() {
                 />
               </View>
             </View>
-            <ThemedText style={styles.subtitle}>
+            <Text variant="titleMedium" style={styles.subtitle}>
               {t("login.welcomeBack")}
-            </ThemedText>
+            </Text>
           </View>
 
           <LoginForm
@@ -88,33 +78,27 @@ export default function LoginScreen() {
           />
 
           <View style={styles.registerContainer}>
-            <ThemedText style={styles.registerText}>
+            <Text variant="bodyLarge" style={styles.registerText}>
               {t("login.noAccount")}
-            </ThemedText>
-            <TouchableOpacity onPress={goToRegister}>
-              <Text
-                style={[
-                  styles.registerLink,
-                  { color: Colors[colorScheme].tint },
-                ]}
-              >
-                {t("login.signUp")}
-              </Text>
-            </TouchableOpacity>
+            </Text>
+            <Button
+              mode="text"
+              onPress={goToRegister}
+              style={styles.registerButton}
+            >
+              {t("login.signUp")}
+            </Button>
           </View>
 
           {emailEnabled && (
             <View style={styles.forgotPasswordContainer}>
-              <TouchableOpacity onPress={() => navigateToForgotPassword()}>
-                <Text
-                  style={[
-                    styles.forgotPasswordText,
-                    { color: Colors[colorScheme].tint },
-                  ]}
-                >
-                  {t("login.forgotPassword")}
-                </Text>
-              </TouchableOpacity>
+              <Button
+                mode="text"
+                onPress={() => navigateToForgotPassword()}
+                style={styles.forgotPasswordButton}
+              >
+                {t("login.forgotPassword")}
+              </Button>
             </View>
           )}
         </ScrollView>
@@ -131,22 +115,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
-    minHeight: "100%", // Ensure full height
+    minHeight: "100%",
     paddingHorizontal: 24,
     paddingVertical: 32,
-    // paddingTop: 100, // Now dynamic based on safe area
   },
   logoContainer: {
     alignItems: "center",
     marginBottom: 10,
-    marginTop: 0, // Extra margin top for title
+    marginTop: 0,
   },
   appName: {
-    fontSize: 32,
     fontWeight: "bold",
     letterSpacing: 1,
-    lineHeight: 40, // Increased line height to prevent cutting
     marginBottom: 16,
+    textAlign: "center",
   },
   logoPlaceholder: {
     width: 144,
@@ -154,7 +136,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
-    elevation: 8,
   },
   logoImageWrapper: {
     width: 144,
@@ -169,32 +150,27 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   subtitle: {
-    fontSize: 18,
     opacity: 0.7,
     textAlign: "center",
-  },
-  formContainer: {
-    width: "100%",
   },
   registerContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     marginTop: 24,
+    gap: 8,
   },
   registerText: {
-    fontSize: 16,
+    textAlign: "center",
   },
-  registerLink: {
-    fontSize: 16,
-    fontWeight: "600",
+  registerButton: {
+    marginLeft: 4,
   },
   forgotPasswordContainer: {
     alignItems: "center",
     marginTop: 16,
   },
-  forgotPasswordText: {
-    fontSize: 14,
-    fontWeight: "500",
+  forgotPasswordButton: {
+    marginTop: 8,
   },
 });

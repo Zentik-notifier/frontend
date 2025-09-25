@@ -1,18 +1,12 @@
-import { Button } from "@/components/ui";
-import { Colors } from '@/constants/Colors';
 import { useValidateResetTokenMutation } from '@/generated/gql-operations-generated';
 import { useI18n } from '@/hooks/useI18n';
-import { useColorScheme } from '@/hooks/useTheme';
-import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
     Alert,
     StyleSheet,
-    TextInput,
-    TouchableOpacity,
     View,
 } from 'react-native';
-import { ThemedText } from './ThemedText';
+import { TextInput, Button, Text } from 'react-native-paper';
 
 interface ResetCodeStepProps {
   email: string;
@@ -21,7 +15,6 @@ interface ResetCodeStepProps {
 }
 
 export function ResetCodeStep({ email, onCodeVerified, onBack }: ResetCodeStepProps) {
-  const colorScheme = useColorScheme();
   const { t } = useI18n();
   const [code, setCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
@@ -70,65 +63,49 @@ export function ResetCodeStep({ email, onCodeVerified, onBack }: ResetCodeStepPr
   return (
     <View style={styles.container}>
       <View style={styles.formContainer}>
-        {/* Email Display */}
         <View style={styles.emailContainer}>
-          <ThemedText style={[styles.emailLabel, { color: Colors[colorScheme].textSecondary }]}>
+          <Text variant="bodyMedium" style={styles.emailLabel}>
             {t('auth.forgotPassword.emailLabel')}
-          </ThemedText>
-          <ThemedText style={[styles.emailText, { color: Colors[colorScheme].text }]}>
+          </Text>
+          <Text variant="titleMedium" style={styles.emailText}>
             {email}
-          </ThemedText>
+          </Text>
         </View>
 
-        {/* Code Input */}
-        <View style={styles.inputContainer}>
-          <ThemedText style={[styles.inputLabel, { color: Colors[colorScheme].text }]}>
-            {t('auth.forgotPassword.codeLabel')}
-          </ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                color: Colors[colorScheme].text,
-                backgroundColor: Colors[colorScheme].backgroundCard,
-                borderColor: Colors[colorScheme].border,
-              },
-            ]}
-            placeholder={t('auth.forgotPassword.codePlaceholder')}
-            placeholderTextColor={Colors[colorScheme].textSecondary}
-            value={code}
-            onChangeText={setCode}
-            keyboardType="default"
-            autoCapitalize="characters"
-            autoCorrect={false}
-            maxLength={6}
-            editable={!isVerifying}
-            returnKeyType="done"
-            onSubmitEditing={handleVerifyCode}
-          />
-        </View>
+        <TextInput
+          label={t('auth.forgotPassword.codeLabel')}
+          placeholder={t('auth.forgotPassword.codePlaceholder')}
+          value={code}
+          onChangeText={setCode}
+          keyboardType="default"
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={6}
+          editable={!isVerifying}
+          returnKeyType="done"
+          onSubmitEditing={handleVerifyCode}
+          mode="outlined"
+          style={styles.input}
+        />
 
-        {/* Verify Button */}
         <Button
-          title={isVerifying ? t('auth.forgotPassword.verifying') : t('auth.forgotPassword.verifyCode')}
+          mode="contained"
           onPress={handleVerifyCode}
           loading={isVerifying}
           disabled={isVerifying}
-          size="large"
           style={styles.verifyButton}
-        />
+        >
+          {isVerifying ? t('auth.forgotPassword.verifying') : t('auth.forgotPassword.verifyCode')}
+        </Button>
 
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
+        <Button
+          mode="text"
           onPress={onBack}
           disabled={isVerifying}
-          activeOpacity={0.7}
+          style={styles.backButton}
         >
-          <ThemedText style={[styles.backButtonText, { color: Colors[colorScheme].tint }]}>
-            {t('common.back')}
-          </ThemedText>
-        </TouchableOpacity>
+          {t('common.back')}
+        </Button>
       </View>
     </View>
   );
@@ -137,58 +114,35 @@ export function ResetCodeStep({ email, onCodeVerified, onBack }: ResetCodeStepPr
 const styles = StyleSheet.create({
   container: {
     width: "100%",
+    alignItems: "center",
   },
   formContainer: {
     width: "100%",
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+    maxWidth: 500,
+    alignItems: "center",
   },
   emailContainer: {
     marginBottom: 24,
     alignItems: 'center',
   },
   emailLabel: {
-    fontSize: 14,
     marginBottom: 4,
   },
   emailText: {
-    fontSize: 16,
     fontWeight: '600',
-  },
-  inputContainer: {
-    width: "100%",
-    maxWidth: 500,
-    alignSelf: "center",
-    marginBottom: 24,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
   },
   input: {
-    height: 50,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 18,
+    width: "100%",
+    marginBottom: 24,
     textAlign: 'center',
     letterSpacing: 2,
     fontWeight: '600',
   },
   verifyButton: {
     width: "100%",
-    maxWidth: 500,
-    alignSelf: "center",
-    marginBottom: 24,
+    marginBottom: 16,
   },
   backButton: {
-    alignItems: 'center',
-    padding: 16,
     marginTop: 8,
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
   },
 });

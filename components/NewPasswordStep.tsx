@@ -1,18 +1,12 @@
-import { Button } from "@/components/ui";
-import { Colors } from '@/constants/Colors';
 import { useResetPasswordMutation } from '@/generated/gql-operations-generated';
 import { useI18n } from '@/hooks/useI18n';
-import { useColorScheme } from '@/hooks/useTheme';
-import { Ionicons } from '@expo/vector-icons';
-import React, { useRef, useState } from 'react';
+import React, { Ref, useRef, useState } from 'react';
 import {
     Alert,
     StyleSheet,
-    TextInput,
-    TouchableOpacity,
     View,
 } from 'react-native';
-import { ThemedText } from './ThemedText';
+import { TextInput, Button, Text, HelperText } from 'react-native-paper';
 
 interface NewPasswordStepProps {
   resetToken: string;
@@ -21,38 +15,44 @@ interface NewPasswordStepProps {
 }
 
 export function NewPasswordStep({ resetToken, onPasswordReset, onBack }: NewPasswordStepProps) {
-  const colorScheme = useColorScheme();
   const { t } = useI18n();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  const confirmPasswordRef = useRef<TextInput>(null);
+  const [errors, setErrors] = useState<{
+    newPassword?: string;
+    confirmPassword?: string;
+  }>({});
+  const confirmPasswordRef = useRef<any>(null);
 
   const [resetPassword] = useResetPasswordMutation();
 
-  const handleResetPassword = async () => {
+  const validateForm = () => {
+    const newErrors: { newPassword?: string; confirmPassword?: string } = {};
+    
     if (!newPassword.trim()) {
-      Alert.alert(t('common.error'), t('auth.forgotPassword.passwordRequired'));
-      return;
+      newErrors.newPassword = t('auth.forgotPassword.passwordRequired');
+    } else if (newPassword.length < 6) {
+      newErrors.newPassword = "La password deve essere di almeno 6 caratteri";
+    } else if (newPassword.length > 100) {
+      newErrors.newPassword = "La password non può superare 100 caratteri";
     }
-
+    
     if (!confirmPassword.trim()) {
-      Alert.alert(t('common.error'), t('auth.forgotPassword.confirmPasswordRequired'));
-      return;
+      newErrors.confirmPassword = t('auth.forgotPassword.confirmPasswordRequired');
+    } else if (newPassword && newPassword !== confirmPassword) {
+      newErrors.confirmPassword = t('auth.forgotPassword.passwordsMismatch');
     }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-    if (newPassword !== confirmPassword) {
-      Alert.alert(t('common.error'), t('auth.forgotPassword.passwordsMismatch'));
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      Alert.alert(t('common.error'), t('auth.forgotPassword.passwordTooShort'));
-      return;
-    }
-
+  const handleResetPassword = async () => {
+    if (!validateForm()) return;
+    
     setIsResetting(true);
     try {
       const result = await resetPassword({
@@ -95,110 +95,77 @@ export function NewPasswordStep({ resetToken, onPasswordReset, onBack }: NewPass
   return (
     <View style={styles.container}>
       <View style={styles.formContainer}>
-        {/* New Password Input */}
-        <View style={styles.inputContainer}>
-          <ThemedText style={[styles.inputLabel, { color: Colors[colorScheme].text }]}>
-            {t('auth.forgotPassword.newPasswordLabel')}
-          </ThemedText>
-          <View style={styles.passwordInputContainer}>
-            <TextInput
-              style={[
-                styles.passwordInput,
-                {
-                  color: Colors[colorScheme].text,
-                  backgroundColor: Colors[colorScheme].backgroundCard,
-                  borderColor: Colors[colorScheme].border,
-                },
-              ]}
-              placeholder={t('auth.forgotPassword.newPasswordPlaceholder')}
-              placeholderTextColor={Colors[colorScheme].textSecondary}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isResetting}
-              returnKeyType="next"
-              onSubmitEditing={() => {
-                confirmPasswordRef.current?.focus();
-              }}
-            />
-            <TouchableOpacity
-              style={styles.eyeButton}
+        <TextInput
+          label={t('auth.forgotPassword.newPasswordLabel')}
+          placeholder={t('auth.forgotPassword.newPasswordPlaceholder')}
+          value={newPassword}
+          onChangeText={setNewPassword}
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!isResetting}
+          returnKeyType="next"
+          onSubmitEditing={() => {
+            confirmPasswordRef.current?.focus();
+          }}
+          mode="outlined"
+          error={!!errors.newPassword}
+          style={styles.input}
+          right={
+            <TextInput.Icon
+              icon={showPassword ? "eye-off" : "eye"}
               onPress={() => setShowPassword(!showPassword)}
-              disabled={isResetting}
-            >
-              <Ionicons
-                name={showPassword ? 'eye-off' : 'eye'}
-                size={20}
-                color={Colors[colorScheme].textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Confirm Password Input */}
-        <View style={styles.inputContainer}>
-          <ThemedText style={[styles.inputLabel, { color: Colors[colorScheme].text }]}>
-            {t('auth.forgotPassword.confirmPasswordLabel')}
-          </ThemedText>
-          <View style={styles.passwordInputContainer}>
-            <TextInput
-              ref={confirmPasswordRef}
-              style={[
-                styles.passwordInput,
-                {
-                  color: Colors[colorScheme].text,
-                  backgroundColor: Colors[colorScheme].backgroundCard,
-                  borderColor: Colors[colorScheme].border,
-                },
-              ]}
-              placeholder={t('auth.forgotPassword.confirmPasswordPlaceholder')}
-              placeholderTextColor={Colors[colorScheme].textSecondary}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirmPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isResetting}
-              returnKeyType="done"
-              onSubmitEditing={handleResetPassword}
             />
-            <TouchableOpacity
-              style={styles.eyeButton}
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              disabled={isResetting}
-            >
-              <Ionicons
-                name={showConfirmPassword ? 'eye-off' : 'eye'}
-                size={20}
-                color={Colors[colorScheme].textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
+          }
+        />
+        <HelperText type="error" visible={!!errors.newPassword}>
+          {errors.newPassword}
+        </HelperText>
 
-        {/* Reset Button */}
+        <TextInput
+          ref={confirmPasswordRef}
+          label={t('auth.forgotPassword.confirmPasswordLabel')}
+          placeholder={t('auth.forgotPassword.confirmPasswordPlaceholder')}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry={!showConfirmPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!isResetting}
+          returnKeyType="done"
+          onSubmitEditing={handleResetPassword}
+          mode="outlined"
+          error={!!errors.confirmPassword}
+          style={styles.input}
+          right={
+            <TextInput.Icon
+              icon={showConfirmPassword ? "eye-off" : "eye"}
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+            />
+          }
+        />
+        <HelperText type="error" visible={!!errors.confirmPassword}>
+          {errors.confirmPassword}
+        </HelperText>
+
         <Button
-          title={isResetting ? t('auth.forgotPassword.resetting') : t('auth.forgotPassword.resetPassword')}
+          mode="contained"
           onPress={handleResetPassword}
           loading={isResetting}
           disabled={isResetting}
-          size="large"
           style={styles.resetButton}
-        />
+        >
+          {isResetting ? t('auth.forgotPassword.resetting') : t('auth.forgotPassword.resetPassword')}
+        </Button>
 
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
+        <Button
+          mode="text"
           onPress={onBack}
           disabled={isResetting}
-          activeOpacity={0.7}
+          style={styles.backButton}
         >
-          <ThemedText style={[styles.backButtonText, { color: Colors[colorScheme].tint }]}>
-            {t('common.back')}
-          </ThemedText>
-        </TouchableOpacity>
+          {t('common.back')}
+        </Button>
       </View>
     </View>
   );
@@ -207,53 +174,21 @@ export function NewPasswordStep({ resetToken, onPasswordReset, onBack }: NewPass
 const styles = StyleSheet.create({
   container: {
     width: "100%",
+    alignItems: "center",
   },
   formContainer: {
     width: "100%",
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  inputContainer: {
-    width: "100%",
     maxWidth: 500,
-    alignSelf: "center",
-    marginBottom: 24,
+    alignItems: "center",
   },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  passwordInputContainer: {
-    position: 'relative',
-  },
-  passwordInput: {
-    height: 50,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingRight: 50,
-    fontSize: 16,
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: 16,
-    top: 15,
-    padding: 5,
+  input: {
+    width: "100%",
   },
   resetButton: {
     width: "100%",
-    maxWidth: 500,
-    alignSelf: "center",
-    marginBottom: 24,
+    marginTop: 16,
   },
   backButton: {
-    alignItems: 'center',
-    padding: 16,
     marginTop: 8,
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
   },
 });

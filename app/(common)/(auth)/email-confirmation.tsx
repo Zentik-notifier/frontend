@@ -1,14 +1,10 @@
-import { ThemedText } from "@/components/ThemedText";
 import UnauthenticatedHeader from "@/components/UnauthenticatedHeader";
-import { Button } from "@/components/ui";
-import { Colors } from "@/constants/Colors";
 import {
   useConfirmEmailMutation,
   useRequestEmailConfirmationMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useLanguageSync } from "@/hooks/useLanguageSync";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Stack, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -19,13 +15,13 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Button, Text, TextInput, Icon } from "react-native-paper";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 export default function EmailConfirmationScreen() {
   const { t } = useI18n();
@@ -46,7 +42,6 @@ export default function EmailConfirmationScreen() {
   const [showEmailInput, setShowEmailInput] = useState(!initialEmail);
   const { navigateToLogin } = useNavigationUtils();
 
-  const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
 
   const [confirmEmailMutation] = useConfirmEmailMutation();
@@ -155,32 +150,24 @@ export default function EmailConfirmationScreen() {
       return (
         <View style={styles.contentContainer}>
           <View style={styles.iconContainer}>
-            <Text
-              style={[
-                styles.successIcon,
-                { color: Colors[colorScheme].success },
-              ]}
-            >
-              ✓
-            </Text>
+            <Icon source="check-circle" size={40} />
           </View>
-          <ThemedText
-            style={[styles.title, { color: Colors[colorScheme].success }]}
-          >
+          <Text variant="headlineMedium" style={styles.title}>
             {t("auth.emailConfirmation.success")}
-          </ThemedText>
-          <ThemedText style={styles.description}>
+          </Text>
+          <Text variant="bodyLarge" style={styles.description}>
             {t("auth.emailConfirmation.successMessage")}
-          </ThemedText>
-          <ThemedText style={styles.redirectText}>
+          </Text>
+          <Text variant="bodyMedium" style={styles.redirectText}>
             {t("common.loading")}
-          </ThemedText>
+          </Text>
           <Button
-            title={t("auth.emailConfirmation.backToLogin")}
+            mode="outlined"
             onPress={() => navigateToLogin(email)}
-            style={{ marginTop: 20 }}
-            variant="outline"
-          />
+            style={styles.actionButton}
+          >
+            {t("auth.emailConfirmation.backToLogin")}
+          </Button>
         </View>
       );
     }
@@ -189,25 +176,21 @@ export default function EmailConfirmationScreen() {
       return (
         <View style={styles.contentContainer}>
           <View style={styles.iconContainer}>
-            <Text
-              style={[styles.errorIcon, { color: Colors[colorScheme].error }]}
-            >
-              ✗
-            </Text>
+            <Icon source="alert-circle" size={40} />
           </View>
-          <ThemedText
-            style={[styles.title, { color: Colors[colorScheme].error }]}
-          >
+          <Text variant="headlineMedium" style={styles.title}>
             {t("auth.emailConfirmation.error")}
-          </ThemedText>
-          <ThemedText style={styles.description}>
+          </Text>
+          <Text variant="bodyLarge" style={styles.description}>
             {t("auth.emailConfirmation.errorMessage")}
-          </ThemedText>
+          </Text>
           <Button
-            title={t("auth.emailConfirmation.backToLogin")}
+            mode="contained"
             onPress={() => navigateToLogin(email)}
-            style={{ marginTop: 20 }}
-          />
+            style={styles.actionButton}
+          >
+            {t("auth.emailConfirmation.backToLogin")}
+          </Button>
         </View>
       );
     }
@@ -216,183 +199,133 @@ export default function EmailConfirmationScreen() {
       <View style={styles.contentContainer}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.iconContainer}>
-          <Text style={[styles.emailIcon, { color: Colors[colorScheme].tint }]}>
-            ✉️
-          </Text>
+          <Icon source="email" size={40} />
         </View>
-        <ThemedText style={[styles.title, { color: Colors[colorScheme].tint }]}>
+        <Text variant="headlineMedium" style={styles.title}>
           {t("register.emailConfirmation.title")}
-        </ThemedText>
-        <ThemedText style={styles.description}>
+        </Text>
+        <Text variant="bodyLarge" style={styles.description}>
           {t("register.emailConfirmation.description")}
-        </ThemedText>
+        </Text>
 
         {showEmailInput && (
-          <View style={styles.emailInputContainer}>
-            <ThemedText style={styles.emailInputLabel}>
+          <View style={styles.inputContainer}>
+            <Text variant="titleMedium" style={styles.emailInputLabel}>
               {t("auth.emailConfirmation.title")}
-            </ThemedText>
-            <ThemedText style={styles.description}>
+            </Text>
+            <Text variant="bodyMedium" style={styles.description}>
               {t("auth.emailConfirmation.description")}
-            </ThemedText>
-            <View style={styles.inputContainer}>
-              <ThemedText
-                style={[styles.label, { color: Colors[colorScheme].text }]}
-              >
-                {t("login.emailOrUsername")}
-              </ThemedText>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme].inputBackground ||
-                      Colors[colorScheme].background,
-                    borderColor: Colors[colorScheme].border,
-                    color: Colors[colorScheme].text,
-                  },
-                ]}
-                placeholder={t("login.emailOrUsernamePlaceholder")}
-                placeholderTextColor={Colors[colorScheme].textSecondary}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
+            </Text>
+            <TextInput
+              label={t("login.emailOrUsername")}
+              placeholder={t("login.emailOrUsernamePlaceholder")}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              mode="outlined"
+              style={styles.input}
+            />
             <Button
-              title={
-                isResending
-                  ? t("auth.emailConfirmation.resending")
-                  : t("auth.emailConfirmation.resendEmail")
-              }
+              mode="contained"
               onPress={handleRequestEmailConfirmation}
               loading={isResending}
               disabled={isResending || !email || !email.includes("@")}
-              style={{ marginTop: 16 }}
-            />
-            <TouchableOpacity
-              style={styles.backToLoginButton}
-              onPress={() => navigateToLogin(email)}
+              style={styles.actionButton}
             >
-              <Text
-                style={[
-                  styles.backToLoginText,
-                  { color: Colors[colorScheme].tint },
-                ]}
-              >
-                {t("auth.emailConfirmation.backToLogin")}
-              </Text>
-            </TouchableOpacity>
+              {isResending
+                ? t("auth.emailConfirmation.resending")
+                : t("auth.emailConfirmation.resendEmail")}
+            </Button>
+            <Button
+              mode="text"
+              onPress={() => navigateToLogin(email)}
+              style={styles.backToLoginButton}
+            >
+              {t("auth.emailConfirmation.backToLogin")}
+            </Button>
           </View>
         )}
 
         {email && !showEmailInput && (
           <>
             <View style={styles.emailInfo}>
-              <ThemedText style={styles.emailLabel}>
+              <Text variant="bodyLarge" style={styles.emailLabel}>
                 {t("register.emailConfirmation.checkEmail")}
-              </ThemedText>
-              <ThemedText
-                style={[styles.emailText, { color: Colors[colorScheme].tint }]}
-              >
+              </Text>
+              <Text variant="titleMedium" style={styles.emailText}>
                 {email}
-              </ThemedText>
+              </Text>
             </View>
             <View style={styles.helpSection}>
-              <ThemedText style={styles.helpTitle}>
+              <Text variant="titleSmall" style={styles.helpTitle}>
                 {t("register.emailConfirmation.notReceived")}
-              </ThemedText>
-              <ThemedText style={styles.helpText}>
+              </Text>
+              <Text variant="bodyMedium" style={styles.helpText}>
                 {t("register.emailConfirmation.spamFolder")}
-              </ThemedText>
+              </Text>
             </View>
             {emailSent && (
-              <ThemedText
-                style={[
-                  styles.successMessage,
-                  { color: Colors[colorScheme].success },
-                ]}
-              >
+              <Text variant="bodyMedium" style={styles.successMessage}>
                 {t("register.emailConfirmation.emailSentMessage")}
-              </ThemedText>
+              </Text>
             )}
           </>
         )}
 
         {showCodeInput && (
           <View style={styles.codeInputContainer}>
-            <ThemedText style={styles.codeInputLabel}>
+            <Text variant="titleMedium" style={styles.codeInputLabel}>
               {t("auth.emailConfirmation.enterCode")}
-            </ThemedText>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme].inputBackground ||
-                      Colors[colorScheme].background,
-                    borderColor: Colors[colorScheme].border,
-                    color: Colors[colorScheme].text,
-                  },
-                ]}
-                placeholder={t("auth.emailConfirmation.codePlaceholder")}
-                placeholderTextColor={Colors[colorScheme].textSecondary}
-                value={confirmationCode}
-                onChangeText={(v) => {
-                  const normalized = v
-                    .replace(/[^a-zA-Z0-9]/g, "")
-                    .toUpperCase();
-                  setConfirmationCode(normalized);
-                }}
-                keyboardType="default"
-                autoCorrect={false}
-                maxLength={6}
-                autoCapitalize="characters"
-                returnKeyType="done"
-                onSubmitEditing={handleManualConfirmation}
-              />
-            </View>
+            </Text>
+            <TextInput
+              placeholder={t("auth.emailConfirmation.codePlaceholder")}
+              value={confirmationCode}
+              onChangeText={(v) => {
+                const normalized = v.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+                setConfirmationCode(normalized);
+              }}
+              keyboardType="default"
+              autoCorrect={false}
+              maxLength={6}
+              autoCapitalize="characters"
+              returnKeyType="done"
+              onSubmitEditing={handleManualConfirmation}
+              mode="outlined"
+              style={styles.codeInput}
+            />
             <View style={styles.buttonRow}>
               <Button
-                title={
-                  isResending
-                    ? t("register.emailConfirmation.resending")
-                    : t("register.emailConfirmation.resendEmail")
-                }
+                mode="contained-tonal"
                 onPress={handleResendEmail}
                 loading={isResending}
                 disabled={isResending}
-                style={{ flex: 1 }}
-                variant="outline"
-              />
+                style={styles.halfButton}
+              >
+                {isResending
+                  ? t("register.emailConfirmation.resending")
+                  : t("register.emailConfirmation.resendEmail")}
+              </Button>
               <Button
-                title={
-                  isLoading
-                    ? t("auth.emailConfirmation.verifying")
-                    : t("auth.emailConfirmation.verifyCode")
-                }
+                mode="contained"
                 onPress={handleManualConfirmation}
                 loading={isLoading}
                 disabled={isLoading || confirmationCode.length !== 6}
-                style={{ flex: 1 }}
-              />
-            </View>
-            <TouchableOpacity
-              style={styles.backToLoginButton}
-              onPress={() => navigateToLogin(email)}
-            >
-              <Text
-                style={[
-                  styles.backToLoginText,
-                  { color: Colors[colorScheme].tint },
-                ]}
+                style={styles.halfButton}
               >
-                {t("auth.emailConfirmation.backToLogin")}
-              </Text>
-            </TouchableOpacity>
+                {isLoading
+                  ? t("auth.emailConfirmation.verifying")
+                  : t("auth.emailConfirmation.verifyCode")}
+              </Button>
+            </View>
+            <Button
+              mode="text"
+              onPress={() => navigateToLogin(email)}
+              style={styles.backToLoginButton}
+            >
+              {t("auth.emailConfirmation.backToLogin")}
+            </Button>
           </View>
         )}
       </View>
@@ -400,15 +333,8 @@ export default function EmailConfirmationScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={[
-        styles.safeArea,
-        { backgroundColor: Colors[colorScheme].background },
-      ]}
-    >
-      <StatusBar
-        barStyle={colorScheme === "dark" ? "light-content" : "dark-content"}
-      />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="default" />
       <UnauthenticatedHeader />
       <KeyboardAvoidingView
         style={styles.keyboardView}
@@ -452,27 +378,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
-  successIcon: {
-    fontSize: 40,
-    fontWeight: "bold",
-  },
-  errorIcon: {
-    fontSize: 40,
-    fontWeight: "bold",
-  },
-  emailIcon: {
-    fontSize: 40,
-  },
   title: {
-    fontSize: 26,
     fontWeight: "bold",
-    lineHeight: 32,
     marginBottom: 12,
     textAlign: "center",
   },
   description: {
-    fontSize: 16,
-    lineHeight: 24,
     textAlign: "center",
     marginBottom: 24,
     opacity: 0.8,
@@ -483,13 +394,11 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   emailLabel: {
-    fontSize: 16,
     marginBottom: 6,
     opacity: 0.7,
     textAlign: "center",
   },
   emailText: {
-    fontSize: 18,
     fontWeight: "600",
     textAlign: "center",
   },
@@ -499,32 +408,22 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   helpTitle: {
-    fontSize: 16,
     fontWeight: "600",
     marginBottom: 8,
     textAlign: "center",
   },
   helpText: {
-    fontSize: 14,
     opacity: 0.7,
     textAlign: "center",
   },
   redirectText: {
-    fontSize: 14,
     opacity: 0.6,
     marginTop: 16,
   },
   backToLoginButton: {
     marginTop: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  backToLoginText: {
-    fontSize: 16,
-    fontWeight: "600",
   },
   successMessage: {
-    fontSize: 14,
     textAlign: "center",
     marginTop: 12,
     opacity: 0.8,
@@ -537,20 +436,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   codeInputLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  emailInputContainer: {
-    width: "100%",
-    maxWidth: 500,
-    alignSelf: "center",
-    marginTop: 20,
-    alignItems: "center",
-  },
-  emailInputLabel: {
-    fontSize: 16,
     fontWeight: "600",
     marginBottom: 10,
     textAlign: "center",
@@ -559,21 +444,23 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 500,
     alignSelf: "center",
-    marginBottom: 16,
+    marginTop: 20,
+    alignItems: "center",
   },
-  label: {
-    fontSize: 16,
-    fontWeight: "500",
-    marginBottom: 8,
+  emailInputLabel: {
+    fontWeight: "600",
+    marginBottom: 10,
+    textAlign: "center",
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 48,
+    width: "100%",
+    marginBottom: 16,
+  },
+  codeInput: {
+    width: "100%",
     textAlign: "center",
     letterSpacing: 2,
+    marginBottom: 20,
   },
   buttonRow: {
     flexDirection: "row",
@@ -581,5 +468,11 @@ const styles = StyleSheet.create({
     width: "100%",
     marginTop: 20,
     gap: 12,
+  },
+  halfButton: {
+    flex: 1,
+  },
+  actionButton: {
+    marginTop: 20,
   },
 });

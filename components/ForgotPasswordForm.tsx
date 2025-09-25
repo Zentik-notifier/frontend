@@ -1,19 +1,14 @@
-import { Button } from "@/components/ui";
-import { Colors } from '@/constants/Colors';
 import { useRequestPasswordResetMutation } from '@/generated/gql-operations-generated';
 import { useI18n } from '@/hooks/useI18n';
 import { useLanguageSync } from '@/hooks/useLanguageSync';
-import { useColorScheme } from '@/hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
     Alert,
     StyleSheet,
-    TextInput,
-    TouchableOpacity,
     View,
 } from 'react-native';
-import { ThemedText } from './ThemedText';
+import { TextInput, Button, HelperText } from 'react-native-paper';
 
 interface ForgotPasswordFormProps {
   onResetRequested: (email: string) => void;
@@ -21,7 +16,6 @@ interface ForgotPasswordFormProps {
 }
 
 export function ForgotPasswordForm({ onResetRequested, onBackToLogin }: ForgotPasswordFormProps) {
-  const colorScheme = useColorScheme();
   const { t } = useI18n();
   const { currentLocale } = useLanguageSync();
   const [email, setEmail] = useState('');
@@ -65,56 +59,40 @@ export function ForgotPasswordForm({ onResetRequested, onBackToLogin }: ForgotPa
   return (
     <View style={styles.container}>
       <View style={styles.formContainer}>
+        <TextInput
+          label={t('auth.forgotPassword.emailLabel')}
+          placeholder={t('auth.forgotPassword.emailPlaceholder')}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          editable={!isSubmitting}
+          returnKeyType="done"
+          onSubmitEditing={handleSubmit}
+          mode="outlined"
+          style={styles.input}
+        />
 
-        {/* Email Input */}
-        <View style={styles.inputContainer}>
-          <ThemedText style={[styles.inputLabel, { color: Colors[colorScheme].text }]}>
-            {t('auth.forgotPassword.emailLabel')}
-          </ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                color: Colors[colorScheme].text,
-                backgroundColor: Colors[colorScheme].backgroundCard,
-                borderColor: Colors[colorScheme].border,
-              },
-            ]}
-            placeholder={t('auth.forgotPassword.emailPlaceholder')}
-            placeholderTextColor={Colors[colorScheme].textSecondary}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            editable={!isSubmitting}
-            returnKeyType="done"
-            onSubmitEditing={handleSubmit}
-          />
-        </View>
-
-        {/* Submit Button */}
         <Button
-          title={isSubmitting ? t('auth.forgotPassword.sending') : t('auth.forgotPassword.sendResetEmail')}
+          mode="contained"
           onPress={handleSubmit}
           loading={isSubmitting}
           disabled={isSubmitting}
-          size="large"
           style={styles.submitButton}
-        />
+        >
+          {isSubmitting ? t('auth.forgotPassword.sending') : t('auth.forgotPassword.sendResetEmail')}
+        </Button>
 
-        {/* Back to Login Button */}
-        <TouchableOpacity
-          style={styles.backToLoginButton}
+        <Button
+          mode="text"
           onPress={onBackToLogin}
           disabled={isSubmitting}
-          activeOpacity={0.7}
+          style={styles.backToLoginButton}
         >
-          <ThemedText style={[styles.backToLoginText, { color: Colors[colorScheme].tint }]}>
-            {t('auth.forgotPassword.backToLogin')}
-          </ThemedText>
-        </TouchableOpacity>
+          {t('auth.forgotPassword.backToLogin')}
+        </Button>
       </View>
     </View>
   );
@@ -123,43 +101,22 @@ export function ForgotPasswordForm({ onResetRequested, onBackToLogin }: ForgotPa
 const styles = StyleSheet.create({
   container: {
     width: "100%",
+    alignItems: "center",
   },
   formContainer: {
     width: "100%",
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  inputContainer: {
-    width: "100%",
     maxWidth: 500,
-    alignSelf: "center",
-    marginBottom: 24,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
+    alignItems: "center",
   },
   input: {
-    height: 50,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
+    width: "100%",
+    marginBottom: 24,
   },
   submitButton: {
     width: "100%",
-    maxWidth: 500,
-    alignSelf: "center",
-    marginBottom: 24,
+    marginBottom: 16,
   },
   backToLoginButton: {
-    alignItems: 'center',
-    padding: 16,
     marginTop: 8,
-  },
-  backToLoginText: {
-    fontSize: 16,
-    fontWeight: '500',
   },
 });

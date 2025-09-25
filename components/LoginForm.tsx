@@ -1,11 +1,7 @@
 import { OAuthSelector } from "@/components/OAuthSelector";
-import { ThemedText } from "@/components/ThemedText";
-import { Button } from "@/components/ui";
-import { Colors } from "@/constants/Colors";
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useLanguageSync } from "@/hooks/useLanguageSync";
-import { useColorScheme } from "@/hooks/useTheme";
 import { ApiConfigService } from "@/services/api-config";
 import { useAppContext } from "@/services/app-context";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -14,11 +10,9 @@ import React, { useState } from "react";
 import {
   Alert,
   StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
+import { Button, TextInput, HelperText } from "react-native-paper";
 
 type Props = {
   onSuccess?: () => void;
@@ -41,7 +35,6 @@ export default function LoginForm({
     password?: string;
   }>({});
   const { login } = useAppContext();
-  const colorScheme = useColorScheme();
   const { navigateToEmailConfirmation } = useNavigationUtils();
 
   const validateForm = () => {
@@ -108,79 +101,50 @@ export default function LoginForm({
 
   return (
     <View style={styles.formContainer}>
-      <View style={styles.inputContainer}>
-        <ThemedText style={[styles.label, { color: Colors[colorScheme].text }]}>
-          {t("login.emailOrUsername")} *
-        </ThemedText>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor:
-                Colors[colorScheme].inputBackground ||
-                Colors[colorScheme].background,
-              borderColor: errors.emailOrUsername
-                ? "#FF3B30"
-                : Colors[colorScheme].border,
-              color: Colors[colorScheme].text,
-            },
-          ]}
-          placeholder={t("login.emailOrUsernamePlaceholder")}
-          placeholderTextColor={Colors[colorScheme].textSecondary}
-          value={emailOrUsername}
-          onChangeText={setEmailOrUsername}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        {errors.emailOrUsername && (
-          <ThemedText style={styles.errorText}>
-            {errors.emailOrUsername}
-          </ThemedText>
-        )}
-      </View>
+      <TextInput
+        label={`${t("login.emailOrUsername")} *`}
+        placeholder={t("login.emailOrUsernamePlaceholder")}
+        value={emailOrUsername}
+        onChangeText={setEmailOrUsername}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        mode="outlined"
+        error={!!errors.emailOrUsername}
+        style={styles.input}
+      />
+      <HelperText type="error" visible={!!errors.emailOrUsername}>
+        {errors.emailOrUsername}
+      </HelperText>
 
-      <View style={styles.inputContainer}>
-        <ThemedText style={[styles.label, { color: Colors[colorScheme].text }]}>
-          {t("login.password")} *
-        </ThemedText>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor:
-                Colors[colorScheme].inputBackground ||
-                Colors[colorScheme].background,
-              borderColor: errors.password
-                ? "#FF3B30"
-                : Colors[colorScheme].border,
-              color: Colors[colorScheme].text,
-            },
-          ]}
-          placeholder={t("login.passwordPlaceholder")}
-          placeholderTextColor={Colors[colorScheme].textSecondary}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-          onSubmitEditing={handleLogin}
-          returnKeyType="done"
-        />
-        {errors.password && (
-          <ThemedText style={styles.errorText}>{errors.password}</ThemedText>
-        )}
-      </View>
+      <TextInput
+        label={`${t("login.password")} *`}
+        placeholder={t("login.passwordPlaceholder")}
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
+        onSubmitEditing={handleLogin}
+        returnKeyType="done"
+        mode="outlined"
+        error={!!errors.password}
+        style={styles.input}
+      />
+      <HelperText type="error" visible={!!errors.password}>
+        {errors.password}
+      </HelperText>
 
       <View style={styles.buttonsContainer}>
         <Button
-          title={isLoading ? t("login.loggingIn") : t("login.loginButton")}
+          mode="contained"
           onPress={handleLogin}
           loading={isLoading}
           disabled={isLoading}
-          size="large"
           style={styles.loginButton}
-        />
+        >
+          {isLoading ? t("login.loggingIn") : t("login.loginButton")}
+        </Button>
 
         <OAuthSelector
           onProviderSelect={openProviderLogin}
@@ -188,12 +152,15 @@ export default function LoginForm({
           style={styles.oauthButton}
         />
       </View>
+      
       {onCancel && (
-        <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-          <Text style={{ color: Colors[colorScheme].tint }}>
-            {t("common.cancel")}
-          </Text>
-        </TouchableOpacity>
+        <Button
+          mode="text"
+          onPress={onCancel}
+          style={styles.cancelBtn}
+        >
+          {t("common.cancel")}
+        </Button>
       )}
     </View>
   );
@@ -203,26 +170,12 @@ const styles = StyleSheet.create({
   formContainer: {
     width: "100%",
     gap: 12,
-    alignItems: "center", // Center all form elements
-  },
-  inputContainer: {
-    marginBottom: 16,
-    width: "100%",
-    maxWidth: 500, // Increased width for better text spacing
-    alignSelf: "center", // Center the input container
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "500",
-    marginBottom: 8,
+    alignItems: "center",
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 48,
     width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
   },
   buttonsContainer: {
     flexDirection: "row",
@@ -232,15 +185,10 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   loginButton: {
-    flex: 1,
+    width: 200,
   },
   oauthButton: {
     flex: 1,
-  },
-  errorText: {
-    color: "#FF3B30",
-    fontSize: 14,
-    marginTop: 4,
   },
   cancelBtn: {
     marginTop: 12,

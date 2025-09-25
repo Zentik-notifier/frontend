@@ -1,12 +1,7 @@
-import { ThemedText } from "@/components/ThemedText";
 import UnauthenticatedHeader from "@/components/UnauthenticatedHeader";
-import { Button } from "@/components/ui";
-import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { useNavigationUtils } from "@/utils/navigation";
-import { Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -16,13 +11,11 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Text, TextInput, Button, HelperText } from "react-native-paper";
 
 export default function RegisterScreen() {
   const { t } = useI18n();
@@ -42,7 +35,6 @@ export default function RegisterScreen() {
     confirmPassword?: string;
   }>({});
   const { register } = useAppContext();
-  const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const { navigateToHome, navigateToLogin, navigateToEmailConfirmation } =
     useNavigationUtils();
@@ -126,16 +118,9 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={[
-        styles.safeArea,
-        { backgroundColor: Colors[colorScheme].background },
-      ]}
-    >
+    <SafeAreaView style={styles.safeArea}>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar
-        barStyle={colorScheme === "dark" ? "light-content" : "dark-content"}
-      />
+      <StatusBar barStyle="default" />
       <UnauthenticatedHeader />
       <KeyboardAvoidingView
         style={styles.keyboardView}
@@ -144,248 +129,147 @@ export default function RegisterScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.container,
-            { paddingTop: Math.max(100, insets.top + 50) }, // Dynamic padding based on safe area
+            { paddingTop: Math.max(100, insets.top + 50) },
           ]}
           keyboardShouldPersistTaps="handled"
         >
-          <ThemedText
-            style={[styles.title, { color: Colors[colorScheme].tint }]}
-          >
-            {t("register.title")}
-          </ThemedText>
+          <View style={styles.titleContainer}>
+            <Text variant="headlineMedium" style={styles.title}>
+              {t("register.title")}
+            </Text>
+          </View>
 
-          <View style={styles.inputContainer}>
-            <ThemedText
-              style={[styles.label, { color: Colors[colorScheme].text }]}
-            >
-              {t("register.firstName")} *
-            </ThemedText>
+          <View style={styles.formContainer}>
             <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor:
-                    Colors[colorScheme].inputBackground ||
-                    Colors[colorScheme].background,
-                  borderColor: errors.firstName
-                    ? "#FF3B30"
-                    : Colors[colorScheme].border,
-                  color: Colors[colorScheme].text,
-                },
-              ]}
+              label={`${t("register.firstName")} *`}
               value={firstName}
               onChangeText={setFirstName}
               placeholder={t("register.firstNamePlaceholder")}
-              placeholderTextColor={Colors[colorScheme].textSecondary}
               autoCapitalize="words"
               returnKeyType="next"
               textContentType="givenName"
               autoComplete="name-given"
               importantForAutofill="yes"
+              mode="outlined"
+              error={!!errors.firstName}
+              style={styles.input}
             />
-            {errors.firstName && (
-              <ThemedText style={styles.errorText}>
-                {errors.firstName}
-              </ThemedText>
-            )}
-          </View>
+            <HelperText type="error" visible={!!errors.firstName}>
+              {errors.firstName}
+            </HelperText>
 
-          <View style={styles.inputContainer}>
-            <ThemedText
-              style={[styles.label, { color: Colors[colorScheme].text }]}
-            >
-              {t("register.lastName")} *
-            </ThemedText>
             <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor:
-                    Colors[colorScheme].inputBackground ||
-                    Colors[colorScheme].background,
-                  borderColor: errors.lastName
-                    ? "#FF3B30"
-                    : Colors[colorScheme].border,
-                  color: Colors[colorScheme].text,
-                },
-              ]}
+              label={`${t("register.lastName")} *`}
               value={lastName}
               onChangeText={setLastName}
               placeholder={t("register.lastNamePlaceholder")}
-              placeholderTextColor={Colors[colorScheme].textSecondary}
               autoCapitalize="words"
               returnKeyType="next"
               textContentType="familyName"
               autoComplete="name-family"
               importantForAutofill="yes"
+              mode="outlined"
+              error={!!errors.lastName}
+              style={styles.input}
             />
-            {errors.lastName && (
-              <ThemedText style={styles.errorText}>
-                {errors.lastName}
-              </ThemedText>
-            )}
-          </View>
+            <HelperText type="error" visible={!!errors.lastName}>
+              {errors.lastName}
+            </HelperText>
 
-          <View style={styles.inputContainer}>
-            <ThemedText
-              style={[styles.label, { color: Colors[colorScheme].text }]}
-            >
-              {t("register.email")} *
-            </ThemedText>
             <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor:
-                    Colors[colorScheme].inputBackground ||
-                    Colors[colorScheme].background,
-                  borderColor: errors.email
-                    ? "#FF3B30"
-                    : Colors[colorScheme].border,
-                  color: Colors[colorScheme].text,
-                },
-              ]}
+              label={`${t("register.email")} *`}
               value={email}
               onChangeText={setEmail}
               placeholder={t("register.emailPlaceholder")}
-              placeholderTextColor={Colors[colorScheme].textSecondary}
               autoCapitalize="none"
               keyboardType="email-address"
               returnKeyType="next"
               textContentType="emailAddress"
               autoComplete="email"
               importantForAutofill="yes"
+              mode="outlined"
+              error={!!errors.email}
+              style={styles.input}
             />
-            {errors.email && (
-              <ThemedText style={styles.errorText}>{errors.email}</ThemedText>
-            )}
-          </View>
+            <HelperText type="error" visible={!!errors.email}>
+              {errors.email}
+            </HelperText>
 
-          <View style={styles.inputContainer}>
-            <ThemedText
-              style={[styles.label, { color: Colors[colorScheme].text }]}
-            >
-              {t("register.password")} *
-            </ThemedText>
             <View style={styles.passwordContainer}>
               <TextInput
-                style={[
-                  styles.input,
-                  styles.passwordInput,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme].inputBackground ||
-                      Colors[colorScheme].background,
-                    borderColor: errors.password
-                      ? "#FF3B30"
-                      : Colors[colorScheme].border,
-                    color: Colors[colorScheme].text,
-                  },
-                ]}
+                label={`${t("register.password")} *`}
                 value={password}
                 onChangeText={setPassword}
                 placeholder={t("register.passwordPlaceholder")}
-                placeholderTextColor={Colors[colorScheme].textSecondary}
                 secureTextEntry={!showPassword}
                 returnKeyType="next"
                 textContentType="newPassword"
                 autoComplete="password-new"
                 importantForAutofill="yes"
+                mode="outlined"
+                error={!!errors.password}
+                style={styles.input}
+                right={
+                  <TextInput.Icon
+                    icon={showPassword ? "eye-off" : "eye"}
+                    onPress={() => setShowPassword(!showPassword)}
+                  />
+                }
               />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Ionicons
-                  name={showPassword ? "eye-off" : "eye"}
-                  size={20}
-                  color={Colors[colorScheme].textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-            {errors.password && (
-              <ThemedText style={styles.errorText}>
+              <HelperText type="error" visible={!!errors.password}>
                 {errors.password}
-              </ThemedText>
-            )}
-            <ThemedText style={styles.helperText}>
-              Minimo 6 caratteri, massimo 100
-            </ThemedText>
-          </View>
+              </HelperText>
+            </View>
 
-          <View style={styles.inputContainer}>
-            <ThemedText
-              style={[styles.label, { color: Colors[colorScheme].text }]}
-            >
-              {t("register.confirmPassword")} *
-            </ThemedText>
             <View style={styles.passwordContainer}>
               <TextInput
-                style={[
-                  styles.input,
-                  styles.passwordInput,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme].inputBackground ||
-                      Colors[colorScheme].background,
-                    borderColor: errors.confirmPassword
-                      ? "#FF3B30"
-                      : Colors[colorScheme].border,
-                    color: Colors[colorScheme].text,
-                  },
-                ]}
+                label={`${t("register.confirmPassword")} *`}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 placeholder={t("register.confirmPasswordPlaceholder")}
-                placeholderTextColor={Colors[colorScheme].textSecondary}
                 secureTextEntry={!showConfirmPassword}
                 returnKeyType="done"
                 onSubmitEditing={handleRegister}
                 textContentType="newPassword"
                 autoComplete="password-new"
                 importantForAutofill="yes"
+                mode="outlined"
+                error={!!errors.confirmPassword}
+                style={styles.input}
+                right={
+                  <TextInput.Icon
+                    icon={showConfirmPassword ? "eye-off" : "eye"}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  />
+                }
               />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                <Ionicons
-                  name={showConfirmPassword ? "eye-off" : "eye"}
-                  size={20}
-                  color={Colors[colorScheme].textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-            {errors.confirmPassword && (
-              <ThemedText style={styles.errorText}>
+              <HelperText type="error" visible={!!errors.confirmPassword}>
                 {errors.confirmPassword}
-              </ThemedText>
-            )}
+              </HelperText>
+            </View>
+
+            <Button
+              mode="contained"
+              onPress={handleRegister}
+              loading={isLoading}
+              disabled={isLoading}
+              style={styles.registerButton}
+            >
+              {isLoading ? t("register.registering") : t("register.registerButton")}
+            </Button>
           </View>
 
-          <Button
-            title={
-              isLoading
-                ? t("register.registering")
-                : t("register.registerButton")
-            }
-            onPress={handleRegister}
-            loading={isLoading}
-            disabled={isLoading}
-            size="large"
-            style={styles.registerButton}
-          />
           <View style={styles.loginContainer}>
-            <ThemedText style={styles.loginText}>
+            <Text variant="bodyLarge" style={styles.loginText}>
               {t("register.haveAccount")}
-            </ThemedText>
-            <TouchableOpacity onPress={() => navigateToLogin()}>
-              <Text
-                style={[styles.loginLink, { color: Colors[colorScheme].tint }]}
-              >
-                {t("register.login")}
-              </Text>
-            </TouchableOpacity>
+            </Text>
+            <Button
+              mode="text"
+              onPress={() => navigateToLogin()}
+              style={styles.loginButton}
+            >
+              {t("register.login")}
+            </Button>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -401,76 +285,44 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    minHeight: "100%", // Ensure full height
+    minHeight: "100%",
     padding: 24,
-    alignItems: "center", // Center all form elements
-    // paddingTop: 100, // Now dynamic based on safe area
+    alignItems: "center",
+  },
+  titleContainer: {
+    alignItems: "center",
+    marginBottom: 32,
+    marginTop: 20,
   },
   title: {
-    fontSize: 28,
     fontWeight: "bold",
-    lineHeight: 36, // Increased line height to prevent cutting
-    marginBottom: 32,
-    marginTop: 20, // Extra margin top for title
     textAlign: "center",
   },
-  inputContainer: {
-    marginBottom: 16,
+  formContainer: {
     width: "100%",
-    maxWidth: 500, // Increased width for better text spacing
-    alignSelf: "center", // Center the input container
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "500",
-    marginBottom: 8,
+    maxWidth: 500,
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 48,
     width: "100%",
   },
   passwordContainer: {
-    position: "relative",
-  },
-  passwordInput: {
-    paddingRight: 50, // Make space for eye icon
-  },
-  eyeButton: {
-    position: "absolute",
-    right: 12,
-    top: 14,
-    padding: 4,
-  },
-  errorText: {
-    color: "#FF3B30",
-    fontSize: 14,
-    marginTop: 4,
-  },
-  helperText: {
-    fontSize: 14,
-    marginTop: 4,
-    opacity: 0.7,
+    width: "100%",
   },
   registerButton: {
+    marginTop: 16,
     width: "100%",
-    maxWidth: 500,
-    alignSelf: "center",
-    marginTop: 24,
   },
   loginContainer: {
     flexDirection: "row",
     justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
     marginTop: 24,
   },
   loginText: {
-    fontSize: 16,
+    textAlign: "center",
   },
-  loginLink: {
-    fontSize: 16,
-    fontWeight: "bold",
+  loginButton: {
+    marginLeft: 4,
   },
 });

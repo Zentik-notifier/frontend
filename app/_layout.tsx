@@ -1,4 +1,4 @@
-import { AlertModal } from "@/components/AlertModal";
+import { AlertDialog } from "@/components/ui/AlertDialog";
 import { GraphQLProvider } from "@/components/GraphQLProvider";
 import { I18nProvider } from "@/components/I18nProvider";
 import { TermsAcceptanceScreen } from "@/components/TermsAcceptanceScreen";
@@ -10,15 +10,20 @@ import { RequireAuth } from "@/services/require-auth";
 import { useUserSettings } from "@/services/user-settings";
 import {
   DarkTheme,
-  DefaultTheme,
+  DefaultTheme as NavigationDefaultTheme,
   ThemeProvider as NavigationThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import * as Linking from "expo-linking";
-import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, BackHandler, Platform, StyleSheet } from "react-native";
+import {
+  Alert,
+  BackHandler,
+  Platform,
+  StyleSheet,
+  useColorScheme,
+} from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -28,6 +33,8 @@ import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb } from "../services/media-cache-db";
 import { useNavigationUtils } from "@/utils/navigation";
 import { usePendingIntents } from "@/hooks/usePendingNotifications";
+import { DefaultTheme, PaperProvider } from "react-native-paper";
+import { ThemeProp } from "react-native-paper/lib/typescript/types";
 
 type AlertButton = {
   text?: string;
@@ -40,6 +47,7 @@ type WebAlertState = {
   title?: string;
   message?: string;
   buttons?: AlertButton[];
+  type?: 'info' | 'error' | 'success' | 'warning';
 };
 
 function ThemedLayout({ children }: { children: React.ReactNode }) {
@@ -47,7 +55,7 @@ function ThemedLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <NavigationThemeProvider
-      value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+      value={colorScheme === "dark" ? DarkTheme : NavigationDefaultTheme}
     >
       {children}
     </NavigationThemeProvider>
@@ -139,6 +147,17 @@ export default function RootLayout() {
   const originalAlertRef = useRef<typeof Alert.alert>(null);
   const { isMobile } = useDeviceType();
   const { processPendingNavigationIntent } = usePendingIntents();
+  const colorScheme = useColorScheme();
+
+  const theme: ThemeProp = {
+    ...DefaultTheme,
+    dark: colorScheme === "dark",
+    colors: {
+      ...DefaultTheme.colors,
+      // primary: "tomato",
+      // secondary: "yellow",
+    },
+  };
 
   useEffect(() => {
     console.log("🔄 [RootLayout] Loaded");
@@ -151,9 +170,13 @@ export default function RootLayout() {
       originalAlertRef.current = Alert.alert;
     }
 
-    const isErrorTitle = (title?: string) => {
-      if (!title) return false;
-      return /(error|errore|failed|fail|unable|impossibile)/i.test(title);
+    const getDialogType = (title?: string): 'info' | 'error' | 'success' | 'warning' => {
+      if (!title) return 'info';
+      const titleLower = title.toLowerCase();
+      if (/(error|errore|failed|fail|unable|impossibile)/i.test(titleLower)) return 'error';
+      if (/(success|successo|completed|completato)/i.test(titleLower)) return 'success';
+      if (/(warning|avviso|attenzione)/i.test(titleLower)) return 'warning';
+      return 'info';
     };
 
     Alert.alert = (
@@ -161,26 +184,13 @@ export default function RootLayout() {
       message?: string,
       buttons?: AlertButton[]
     ) => {
-      const looksLikeError = isErrorTitle(title);
+      const dialogType = getDialogType(title);
 
       let normalizedButtons: AlertButton[];
       if (buttons && buttons.length > 0) {
         normalizedButtons = [...buttons];
-        if (looksLikeError) {
-          // Se non è specificato alcuno style, marca l'ultimo bottone come distruttivo
-          const anyStyle = normalizedButtons.some((b) => b.style);
-          if (!anyStyle) {
-            const lastIdx = normalizedButtons.length - 1;
-            normalizedButtons[lastIdx] = {
-              ...normalizedButtons[lastIdx],
-              style: "destructive",
-            };
-          }
-        }
       } else {
-        normalizedButtons = looksLikeError
-          ? [{ text: "OK", style: "destructive" }]
-          : [{ text: "OK" }];
+        normalizedButtons = [{ text: "OK" }];
       }
 
       setWebAlert({
@@ -188,6 +198,7 @@ export default function RootLayout() {
         title,
         message,
         buttons: normalizedButtons,
+        type: dialogType,
       });
     };
 
@@ -199,6 +210,11 @@ export default function RootLayout() {
   }, []);
 
   const handleCloseAlert = () => setWebAlert((s) => ({ ...s, visible: false }));
+
+  const handleButtonPress = (button: AlertButton) => {
+    button.onPress?.();
+    handleCloseAlert();
+  };
 
   useEffect(() => {
     if (loaded) {
@@ -223,33 +239,45 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <I18nProvider>
-            <GraphQLProvider>
-              <TermsGuard>
-                <AppProvider>
-                  <DeepLinkHandler />
-                  <RequireAuth>
-                    <ThemedLayout>
-                      {isMobile ? <MobileLayout /> : <TabletLayout />}
-                      <StatusBar
-                        style="auto"
-                        backgroundColor="transparent"
-                        translucent={Platform.OS === "android"}
-                      />
+          <PaperProvider theme={theme}>
+            <I18nProvider>
+              <GraphQLProvider>
+                <TermsGuard>
+                  <AppProvider>
+                    <DeepLinkHandler />
+                    <RequireAuth>
+                      <ThemedLayout>
+                        {isMobile ? <MobileLayout /> : <TabletLayout />}
+                        <StatusBar
+                          style="auto"
+                          backgroundColor="transparent"
+                          translucent={Platform.OS === "android"}
+                        />
 
-                      <AlertModal
-                        visible={webAlert.visible}
-                        title={webAlert.title}
-                        message={webAlert.message}
-                        buttons={webAlert.buttons}
-                        onClose={handleCloseAlert}
-                      />
-                    </ThemedLayout>
-                  </RequireAuth>
-                </AppProvider>
-              </TermsGuard>
-            </GraphQLProvider>
-          </I18nProvider>
+                        <AlertDialog
+                          visible={webAlert.visible}
+                          title={webAlert.title || ''}
+                          message={webAlert.message || ''}
+                          onDismiss={handleCloseAlert}
+                          confirmText={webAlert.buttons?.[webAlert.buttons.length - 1]?.text || 'OK'}
+                          onConfirm={() => {
+                            const lastButton = webAlert.buttons?.[webAlert.buttons.length - 1];
+                            if (lastButton) handleButtonPress(lastButton);
+                          }}
+                          cancelText={webAlert.buttons?.length === 2 ? webAlert.buttons[0]?.text : undefined}
+                          onCancel={webAlert.buttons?.length === 2 ? () => {
+                            const firstButton = webAlert.buttons?.[0];
+                            if (firstButton) handleButtonPress(firstButton);
+                          } : undefined}
+                          type={webAlert.type || 'info'}
+                        />
+                      </ThemedLayout>
+                    </RequireAuth>
+                  </AppProvider>
+                </TermsGuard>
+              </GraphQLProvider>
+            </I18nProvider>
+          </PaperProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
