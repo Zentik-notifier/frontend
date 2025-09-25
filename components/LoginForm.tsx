@@ -113,7 +113,7 @@ export default function LoginForm({
         error={!!errors.emailOrUsername}
         style={styles.input}
       />
-      <HelperText type="error" visible={!!errors.emailOrUsername}>
+      <HelperText type="error" visible={!!errors.emailOrUsername} style={styles.errorText}>
         {errors.emailOrUsername}
       </HelperText>
 
@@ -131,7 +131,7 @@ export default function LoginForm({
         error={!!errors.password}
         style={styles.input}
       />
-      <HelperText type="error" visible={!!errors.password}>
+      <HelperText type="error" visible={!!errors.password} style={styles.errorText}>
         {errors.password}
       </HelperText>
 
@@ -149,7 +149,6 @@ export default function LoginForm({
         <OAuthSelector
           onProviderSelect={openProviderLogin}
           disabled={isLoading}
-          style={styles.oauthButton}
         />
       </View>
       
@@ -169,20 +168,23 @@ export default function LoginForm({
 const styles = StyleSheet.create({
   formContainer: {
     width: "100%",
-    gap: 12,
     alignItems: "center",
   },
   input: {
     width: "100%",
     maxWidth: 500,
-    alignSelf: "center",
+  },
+  errorText: {
+    width: "100%",
+    maxWidth: 500,
+    textAlign: "left",
   },
   buttonsContainer: {
     flexDirection: "row",
     gap: 8,
     width: "100%",
     maxWidth: 500,
-    alignSelf: "center",
+    marginTop: 16,
   },
   loginButton: {
     width: 200,
@@ -192,6 +194,5 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     marginTop: 12,
-    alignSelf: "center",
   },
 });

@@ -9,13 +9,11 @@ import { Image } from "expo-image";
 interface OAuthSelectorProps {
   onProviderSelect: (providerId: string) => void;
   disabled?: boolean;
-  style?: ViewStyle;
 }
 
 export function OAuthSelector({
   onProviderSelect,
   disabled: disabledParent,
-  style,
 }: OAuthSelectorProps) {
   const { data: providersData, loading: providersLoading } =
     usePublicAppConfigQuery({ fetchPolicy: "network-only" });
@@ -33,7 +31,7 @@ export function OAuthSelector({
   if (providers.length === 0) return null;
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container]}>
       <Menu
         visible={isOpen}
         onDismiss={() => setIsOpen(false)}
