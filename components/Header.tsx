@@ -1,24 +1,17 @@
 import { useBadgeSync } from "@/hooks";
 import { useDownloadQueue } from "@/hooks/useMediaCache";
+import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/services/app-context";
-import { loadedFromPersistedCacheVar } from "@/config/apollo-client";
-import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useRef } from "react";
-import { useReactiveVar } from "@apollo/client";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Animated,
   Platform,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
 } from "react-native";
+import { ActivityIndicator, Button, Surface, Text, Icon } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useColorScheme } from "@/hooks/useTheme";
-import { Colors } from "@/constants/Colors";
 import { LoginModal } from "./LoginModal";
-import { StatusBadge } from "./StatusBadge";
 import UserDropdown from "./UserDropdown";
 
 export default function Header() {
@@ -28,13 +21,73 @@ export default function Header() {
     unreadCount,
     isMarkingAllAsRead,
   } = useBadgeSync();
-  const { isLoginModalOpen, closeLoginModal, isMainLoading, isLoadingGqlData } =
+  const { isLoginModalOpen, closeLoginModal, isMainLoading, isLoadingGqlData, openLoginModal } =
     useAppContext();
   const { itemsInQueue, inProcessing } = useDownloadQueue();
-  const colorScheme = useColorScheme();
+  const { t } = useI18n();
+  const { push, connectionStatus: { getPriorityStatus, isUpdating, isCheckingUpdate } } = useAppContext();
+  const [isRegistering, setIsRegistering] = useState(false);
 
-  // Animazione per l'icona download che lampeggia
   const downloadBlinkAnim = useRef(new Animated.Value(1)).current;
+
+  // Status badge logic
+  const status = getPriorityStatus();
+
+  const handleStatusPress = async () => {
+    if (status.type === "push-notifications") {
+      setIsRegistering(true);
+      try {
+        await push.registerDevice();
+      } catch (error) {
+        console.error("Error registering device:", error);
+      } finally {
+        setIsRegistering(false);
+      }
+    } else if (status.type === "push-permissions") {
+      // Alert will be handled by the global wrapper
+      console.log("Push permissions needed");
+    } else if (status.type === "offline") {
+      openLoginModal();
+    } else if (status.type === "update" && status.action) {
+      status.action();
+    }
+  };
+
+  const getStatusLabel = () => {
+    switch (status.type) {
+      case "push-notifications":
+        return isRegistering
+          ? t("common.loading")
+          : t("common.deviceNotRegistered");
+      case "update":
+        return t("common.updateAvailable");
+      case "push-permissions":
+        return t("common.notificationsDisabled");
+      case "offline":
+        return t("common.offline");
+      case "backend":
+        return t("common.backendUnreachable");
+      case "network":
+        return t("common.noConnection");
+      default:
+        return "";
+    }
+  };
+
+  const getStatusIcon = () => {
+    if (status.type === "update") {
+      if (isUpdating) return "hourglass";
+      if (isCheckingUpdate) return "sync";
+      return status.icon;
+    }
+    return status.icon;
+  };
+
+  const isStatusClickable =
+    status.type === "offline" ||
+    (status.type === "update" && status.action) ||
+    (status.type === "push-notifications" && !isRegistering) ||
+    status.type === "push-permissions";
 
   useEffect(() => {
     if (inProcessing) {
@@ -62,80 +115,124 @@ export default function Header() {
 
   return (
     <>
-      <SafeAreaView
-        style={[
-          styles.headerContainer,
-          { backgroundColor: Colors[colorScheme ?? "light"].background },
-        ]}
-        edges={["top"]}
-      >
-        {/* Main Loading Indicator */}
-        {(isMainLoading || isLoadingGqlData) && (
-          <View style={styles.mainLoadingContainer}>
-            <View style={styles.mainLoadingButton}>
-              <ActivityIndicator size="small" color="#fff" />
-            </View>
-          </View>
-        )}
-
-        {hasUnreadNotifications && !isLoadingGqlData && (
-          <View style={styles.markAllButtonContainer}>
-            <TouchableOpacity
-              style={[
-                styles.markAllButton,
-                hasUnreadNotifications
-                  ? styles.markAllButtonActive
-                  : styles.markAllButtonInactive,
-              ]}
-              onPress={handleMarkAllAsRead}
-              disabled={!hasUnreadNotifications || isMarkingAllAsRead}
-              activeOpacity={0.7}
-            >
-              {isMarkingAllAsRead ? (
+      <SafeAreaView edges={["top"]}>
+        <Surface
+          style={styles.headerContainer}
+          elevation={2}
+        >
+          {/* Main Loading Indicator */}
+          {(isMainLoading || isLoadingGqlData) && (
+            <View style={styles.mainLoadingContainer}>
+              <Button
+                mode="contained"
+                style={styles.mainLoadingButton}
+                contentStyle={styles.buttonContent}
+                disabled
+              >
                 <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Ionicons name="checkmark-done" size={18} color="#fff" />
-              )}
-            </TouchableOpacity>
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                {isLoadingGqlData ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.badgeText}>
-                    {unreadCount > 99 ? "99+" : unreadCount.toString()}
-                  </Text>
-                )}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Download Queue Progress Icon */}
-        {inProcessing && (
-          <View style={styles.downloadQueueContainer}>
-            <TouchableOpacity
-              style={[
-                styles.downloadQueueButton,
-                styles.downloadQueueButtonActive,
-              ]}
-              activeOpacity={0.7}
-            >
-              <Animated.View style={{ opacity: downloadBlinkAnim }}>
-                <Ionicons name="download" size={18} color="#fff" />
-              </Animated.View>
-            </TouchableOpacity>
-            <View style={styles.downloadQueueBadge}>
-              <Text style={styles.downloadQueueBadgeText}>
-                {itemsInQueue > 99 ? "99+" : itemsInQueue.toString()}
-              </Text>
+              </Button>
             </View>
-          </View>
-        )}
+          )}
 
-        <StatusBadge />
-        <View style={styles.spacer} />
-        <UserDropdown />
+          {hasUnreadNotifications && !isLoadingGqlData && (
+            <View style={styles.markAllButtonContainer}>
+              <Button
+                mode="contained"
+                onPress={handleMarkAllAsRead}
+                disabled={!hasUnreadNotifications || isMarkingAllAsRead}
+                style={[
+                  styles.markAllButton,
+                  hasUnreadNotifications
+                    ? styles.markAllButtonActive
+                    : styles.markAllButtonInactive,
+                ]}
+                contentStyle={styles.buttonContent}
+              >
+                {isMarkingAllAsRead ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Icon source="check-all" size={18} color="#fff" />
+                    )}
+              </Button>
+              {unreadCount > 0 && (
+                <Surface style={styles.badge} elevation={3}>
+                  {isLoadingGqlData ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text variant="labelSmall" style={styles.badgeText}>
+                      {unreadCount > 99 ? "99+" : unreadCount.toString()}
+                    </Text>
+                  )}
+                </Surface>
+              )}
+            </View>
+          )}
+
+          {/* Download Queue Progress Icon */}
+          {inProcessing && (
+            <View style={styles.downloadQueueContainer}>
+              <Button
+                mode="contained"
+                style={[
+                  styles.downloadQueueButton,
+                  styles.downloadQueueButtonActive,
+                ]}
+                contentStyle={styles.buttonContent}
+                disabled
+              >
+                    <Animated.View style={{ opacity: downloadBlinkAnim }}>
+                      <Icon source="download" size={18} color="#fff" />
+                    </Animated.View>
+              </Button>
+              <Surface style={styles.downloadQueueBadge} elevation={3}>
+                <Text variant="labelSmall" style={styles.downloadQueueBadgeText}>
+                  {itemsInQueue > 99 ? "99+" : itemsInQueue.toString()}
+                </Text>
+              </Surface>
+            </View>
+          )}
+
+          {/* Status Badge */}
+          {status.type !== "none" && (
+            <Button
+              mode="contained"
+              onPress={handleStatusPress}
+              disabled={!isStatusClickable}
+              style={[
+                styles.statusBadge,
+                { backgroundColor: status.color },
+                !isStatusClickable && styles.statusBadgeNonClickable,
+              ]}
+              contentStyle={styles.statusBadgeContent}
+            >
+              <Icon source={getStatusIcon() as any} size={16} color="#fff" />
+              <Text variant="labelSmall" style={styles.statusText}>
+                {getStatusLabel()}
+              </Text>
+
+              {/* Indicatore di loading per aggiornamenti */}
+              {status.type === "update" && (isCheckingUpdate || isUpdating) && (
+                <View style={styles.loadingIndicator}>
+                  <Icon source="dots-horizontal" size={12} color="#fff" />
+                </View>
+              )}
+
+              {/* Indicatore per dispositivo non registrato */}
+              {status.type === "push-notifications" && (
+                <View style={styles.loadingIndicator}>
+                  <Icon
+                    source={isRegistering ? "clock" : "alert"}
+                    size={12}
+                    color="#fff"
+                  />
+                </View>
+              )}
+            </Button>
+          )}
+
+          <View style={styles.spacer} />
+          <UserDropdown />
+        </Surface>
       </SafeAreaView>
 
       <LoginModal visible={isLoginModalOpen} onClose={closeLoginModal} />
@@ -152,7 +249,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     paddingVertical: 8,
   },
-
+  buttonContent: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
   markAllButtonContainer: {
     position: "relative",
     marginRight: 10,
@@ -161,8 +262,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
   },
   markAllButtonActive: {
     backgroundColor: "#0a7ea4",
@@ -187,7 +286,6 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: "#fff",
-    fontSize: 12,
     fontWeight: "bold",
     textAlign: "center",
   },
@@ -199,8 +297,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
   },
   downloadQueueButtonActive: {
     backgroundColor: "#28a745",
@@ -224,7 +320,6 @@ const styles = StyleSheet.create({
   },
   downloadQueueBadgeText: {
     color: "#000",
-    fontSize: 12,
     fontWeight: "bold",
     textAlign: "center",
   },
@@ -236,9 +331,29 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
     backgroundColor: "#0a7ea4",
+  },
+  statusBadge: {
+    marginRight: 8,
+    minHeight: 28,
+  },
+  statusBadgeContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusBadgeNonClickable: {
+    opacity: 0.9,
+  },
+  statusText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  loadingIndicator: {
+    marginLeft: 4,
   },
   spacer: {
     flex: 1,
