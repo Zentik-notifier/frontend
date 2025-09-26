@@ -28,12 +28,8 @@ export default function GalleryFiltersModal() {
     handleHideFiltersModal,
   } = useGallery();
 
-  // Default gallery settings
-  const gallerySettings = {
-    autoPlay: false,
-    showFaultyMedias: false,
-    gridSize: 3,
-  };
+  // Get gallery settings from user settings
+  const gallerySettings = userSettings.getGallerySettings();
 
   const toggleMediaType = (mediaType: MediaType) => {
     const newSelectedTypes = new Set(selectedMediaTypes);
@@ -56,24 +52,26 @@ export default function GalleryFiltersModal() {
   const isAllSelected = selectedMediaTypes.size === availableMediaTypes.length;
   const isNoneSelected = selectedMediaTypes.size === 0;
 
-  const handleAutoPlayChange = (autoPlay: boolean) => {
-    // TODO: Implement gallery settings persistence
-    console.log('Auto play changed:', autoPlay);
+  const handleAutoPlayChange = async (autoPlay: boolean) => {
+    await userSettings.updateGallerySettings({ autoPlay });
   };
 
-  const handleShowFaultyMediasChange = (showFaultyMedias: boolean) => {
-    // TODO: Implement gallery settings persistence
-    console.log('Show faulty medias changed:', showFaultyMedias);
+  const handleShowFaultyMediasChange = async (showFaultyMedias: boolean) => {
+    await userSettings.updateGallerySettings({ showFaultyMedias });
   };
 
-  const handleGridSizeChange = (gridSize: number) => {
-    // TODO: Implement gallery settings persistence
-    console.log('Grid size changed:', gridSize);
+  const handleGridSizeChange = async (gridSize: number) => {
+    await userSettings.updateGallerySettings({ gridSize });
   };
 
-  const clearAllFilters = () => {
+  const clearAllFilters = async () => {
     handleMediaTypesChange(new Set());
-    // TODO: Reset gallery settings
+    // Reset gallery settings to defaults
+    await userSettings.updateGallerySettings({
+      autoPlay: false,
+      showFaultyMedias: false,
+      gridSize: 3,
+    });
   };
 
   const hasActiveFilters =
@@ -387,12 +385,12 @@ export default function GalleryFiltersModal() {
                       { color: theme.colors.onSurface },
                     ]}
                   >
-                    {getActiveFiltersCount() === 1
+                    {getActiveFiltersCount(selectedMediaTypes, gallerySettings) === 1
                       ? t("filters.activeFilters", {
-                          count: getActiveFiltersCount(),
+                          count: getActiveFiltersCount(selectedMediaTypes, gallerySettings),
                         })
                       : t("filters.activeFiltersPlural", {
-                          count: getActiveFiltersCount(),
+                          count: getActiveFiltersCount(selectedMediaTypes, gallerySettings),
                         })}
                   </Text>
                 </View>
@@ -405,9 +403,20 @@ export default function GalleryFiltersModal() {
   );
 }
 
-function getActiveFiltersCount(): number {
+function getActiveFiltersCount(
+  selectedMediaTypes: Set<MediaType>,
+  gallerySettings: { autoPlay: boolean; showFaultyMedias: boolean; gridSize: number }
+): number {
   let count = 0;
-  // This would need access to the current state, but for now return 0
+  
+  // Count selected media types
+  count += selectedMediaTypes.size;
+  
+  // Count non-default gallery settings
+  if (gallerySettings.autoPlay) count++;
+  if (gallerySettings.showFaultyMedias) count++;
+  if (gallerySettings.gridSize !== 3) count++;
+  
   return count;
 }
 

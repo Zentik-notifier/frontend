@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import {
   StyleSheet,
   TextInput,
@@ -66,6 +66,7 @@ export default function InlineMenu({
     height: 0,
   });
   const anchorRef = useRef<View>(null);
+  const menuRef = useRef<View>(null);
   const theme = useTheme();
   const screenDimensions = Dimensions.get("window");
 
@@ -95,6 +96,7 @@ export default function InlineMenu({
     setSearchQuery("");
     onClose?.();
   };
+
 
   const getMenuPosition = () => {
     const menuWidth = 250;
@@ -254,25 +256,28 @@ export default function InlineMenu({
       {/* Menu */}
       {isOpen && (
         <Portal>
-          {/* Overlay */}
-          <TouchableWithoutFeedback onPress={handleClose}>
-            <View style={styles.overlay} />
-          </TouchableWithoutFeedback>
+          {/* Overlay trasparente */}
+          <View style={styles.overlay}>
+            {/* Backdrop che intercetta touch esterni */}
+            <TouchableWithoutFeedback onPress={handleClose}>
+              <View style={styles.backdrop} />
+            </TouchableWithoutFeedback>
 
-          {/* Menu */}
-          <Surface
-            style={[
-              styles.menuContainer,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outline,
-                maxHeight,
-                top: menuPosition.top,
-                left: menuPosition.left,
-              },
-            ]}
-            elevation={3}
-          >
+            {/* Menu */}
+            <Surface
+              ref={menuRef}
+              style={[
+                styles.menuContainer,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.outline,
+                  maxHeight,
+                  top: menuPosition.top,
+                  left: menuPosition.left,
+                },
+              ]}
+              elevation={3}
+            >
             {/* Header */}
             {header && (
               <>
@@ -360,7 +365,8 @@ export default function InlineMenu({
                 </React.Fragment>
               ))}
             </View>
-          </Surface>
+            </Surface>
+          </View>
         </Portal>
       )}
     </>
@@ -376,6 +382,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 1000,
   },
+  backdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000,
+  },
   menuContainer: {
     position: "absolute",
     minWidth: 200,
@@ -383,7 +397,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     zIndex: 1001,
-    overflow: "hidden",
   },
   headerContainer: {
     padding: 8,
