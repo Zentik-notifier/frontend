@@ -1,13 +1,9 @@
-import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
-import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { Badge, Icon, Surface, TextInput, TouchableRipple, useTheme } from "react-native-paper";
 import NotificationFiltersModal from "./NotificationFiltersModal";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
 
 interface NotificationFiltersProps {
   onToggleCompactMode: () => void;
@@ -26,8 +22,8 @@ export default function NotificationFilters({
   selectedCount,
   isMultiSelectionMode,
 }: NotificationFiltersProps) {
-  const colorScheme = useColorScheme();
   const { t } = useI18n();
+  const theme = useTheme();
   const {
     userSettings: { settings, setNotificationFilters },
   } = useAppContext();
@@ -89,130 +85,102 @@ export default function NotificationFilters({
     <>
       <View style={styles.container}>
         {/* Search Input */}
-        <ThemedView
-          style={[
-            styles.searchContainer,
-            { backgroundColor: Colors[colorScheme].inputBackground },
-          ]}
-        >
-          <Ionicons
-            name="search"
-            size={18}
-            color={Colors[colorScheme].textSecondary}
-            style={styles.searchIcon}
-          />
+        <Surface style={[styles.searchContainer]} elevation={0}>
           <TextInput
-            style={[styles.searchInput, { color: Colors[colorScheme].text }]}
+            mode="outlined"
+            style={[styles.searchInput, { height: 44 }]}
+            contentStyle={{ height: 44, paddingVertical: 0 }}
+            textColor={theme.colors.onSurface}
             placeholder={t("home.search.placeholder")}
             value={internalSearchQuery}
             onChangeText={handleSearchChange}
-            placeholderTextColor={Colors[colorScheme].inputPlaceholder}
-          />
-          {internalSearchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => handleSearchChange("")}
-              style={styles.clearButton}
-            >
-              <Ionicons
-                name="close-circle"
-                size={18}
-                color={Colors[colorScheme].textSecondary}
+            placeholderTextColor={theme.colors.onSurfaceVariant}
+            underlineColor="transparent"
+            activeUnderlineColor="transparent"
+            left={
+              <TextInput.Icon
+                icon="magnify"
+                color={theme.colors.onSurfaceVariant}
               />
-            </TouchableOpacity>
-          )}
-        </ThemedView>
+            }
+            right={
+              internalSearchQuery.length > 0 ? (
+                <TextInput.Icon
+                  icon="close-circle"
+                  onPress={() => handleSearchChange("")}
+                  forceTextInputFocus={false}
+                  color={theme.colors.onSurfaceVariant}
+                />
+              ) : undefined
+            }
+            outlineStyle={{ borderRadius: 8, borderWidth: 1, borderColor: theme.colors.outline }}
+          />
+        </Surface>
 
         {/* Compact Mode Toggle */}
-        <TouchableOpacity
+        <TouchableRipple
           style={[
             styles.compactToggle,
             {
-              borderColor: Colors[colorScheme].border,
-              backgroundColor: Colors[colorScheme].inputBackground,
+              borderColor: theme.colors.outline,
+              backgroundColor: theme.colors.surfaceVariant,
             },
           ]}
           onPress={onToggleCompactMode}
-          activeOpacity={0.7}
         >
-          <Ionicons
-            name={isCompactMode ? "list-outline" : "grid-outline"}
-            size={16}
-            color={Colors[colorScheme].textSecondary}
-          />
-        </TouchableOpacity>
+          <Icon source={isCompactMode ? "view-list-outline" : "view-grid-outline"} size={18} color={theme.colors.onSurfaceVariant} />
+        </TouchableRipple>
 
         {/* Multi-Selection Toggle Button (seguendo pattern gallery) */}
-        <TouchableOpacity
+        <TouchableRipple
           style={[
             styles.multiSelectionToggle,
             {
-              borderColor: Colors[colorScheme].border,
+              borderColor: theme.colors.outline,
               backgroundColor: isMultiSelectionMode
-                ? Colors[colorScheme].tint
-                : Colors[colorScheme].background,
+                ? theme.colors.primary
+                : theme.colors.surface,
             },
           ]}
           onPress={onToggleMultiSelection}
-          activeOpacity={0.7}
         >
-          <Ionicons
-            name={isMultiSelectionMode ? "close" : "checkmark-circle-outline"}
-            size={16}
-            color={
-              isMultiSelectionMode ? "white" : Colors[colorScheme].textSecondary
-            }
-          />
-          {isMultiSelectionMode && selectedCount > 0 && (
-            <View style={[styles.selectionBadge, { backgroundColor: "white" }]}>
-              <ThemedText
-                style={[
-                  styles.selectionBadgeText,
-                  { color: Colors[colorScheme].tint },
-                ]}
-              >
-                {selectedCount}
-              </ThemedText>
-            </View>
-          )}
-        </TouchableOpacity>
+          <View>
+            <Icon
+              source={isMultiSelectionMode ? "close" : "check-circle-outline"}
+              size={18}
+              color={isMultiSelectionMode ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
+            />
+            {isMultiSelectionMode && selectedCount > 0 && (
+              <Badge style={styles.selectionBadge}>{selectedCount}</Badge>
+            )}
+          </View>
+        </TouchableRipple>
 
         {/* Filters Button */}
-        <TouchableOpacity
+        <TouchableRipple
           style={[
             styles.filtersButton,
             {
-              borderColor: Colors[colorScheme].border,
+              borderColor: theme.colors.outline,
               backgroundColor:
                 activeFiltersCount > 0
-                  ? Colors[colorScheme].selected
-                  : Colors[colorScheme].inputBackground,
+                  ? theme.colors.secondaryContainer
+                  : theme.colors.surfaceVariant,
             },
           ]}
           onPress={() => setShowFiltersModal(true)}
-          activeOpacity={0.7}
         >
-          <Ionicons
-            name="filter"
-            size={16}
-            color={
-              activeFiltersCount > 0
-                ? Colors[colorScheme].tint
-                : Colors[colorScheme].textSecondary
-            }
-          />
-          {activeFiltersCount > 0 && (
-            <ThemedView
-              style={[
-                styles.filtersBadge,
-                { backgroundColor: Colors[colorScheme].tint },
-              ]}
-            >
-              <ThemedText style={styles.filtersBadgeText}>
-                {activeFiltersCount}
-              </ThemedText>
-            </ThemedView>
-          )}
-        </TouchableOpacity>
+          <View>
+            <Icon
+              source="filter"
+              size={18}
+              color={activeFiltersCount > 0 ? theme.colors.primary : theme.colors.onSurfaceVariant}
+            />
+            {activeFiltersCount > 0 && (
+              <Badge style={[styles.filtersBadge]}>{activeFiltersCount}</Badge>
+            )}
+          </View>
+        </TouchableRipple>
       </View>
 
       {/* Filters Modal */}
@@ -240,11 +208,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     height: 44,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
   },
   searchIcon: {
     marginRight: 8,
@@ -278,7 +241,6 @@ const styles = StyleSheet.create({
   filtersBadgeText: {
     fontSize: 10,
     fontWeight: "600",
-    color: "white",
   },
   compactToggle: {
     width: 44,

@@ -14,6 +14,7 @@ export default function TabletLayout() {
 
   return (
     <Stack>
+    {/* <Stack screenOptions={{ header: () => <Header /> }}> */}
       <Stack.Screen
         name="(mobile)/(home)/(tabs)"
         options={{

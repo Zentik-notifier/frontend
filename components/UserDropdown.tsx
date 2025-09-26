@@ -2,26 +2,31 @@ import { UserRole, useGetMeQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/services/app-context";
 import { useNavigationUtils } from "@/utils/navigation";
-import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
   Image,
+  Pressable,
   StyleSheet,
-  View
+  TouchableOpacity,
+  View,
 } from "react-native";
 import {
-  Button,
+  Avatar,
   Divider,
+  Icon,
   Menu,
+  Portal,
   Surface,
   Text,
-  useTheme
+  useTheme,
 } from "react-native-paper";
+import { useTheme as useAppTheme } from "@/hooks/useTheme";
+import { IconSource } from "react-native-paper/lib/typescript/components/Icon";
 
 interface DropdownItem {
   id: string;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconSource;
   onPress: () => void;
   type?: "normal" | "destructive";
 }
@@ -32,18 +37,14 @@ export default function UserDropdown() {
   const [showInitials, setShowInitials] = useState(false);
   const [showInitialsSmall, setShowInitialsSmall] = useState(false);
   const theme = useTheme();
+  const { themeMode, setThemeMode } = useAppTheme();
   const { t } = useI18n();
   const { navigateToSettings, navigateToAdmin } = useNavigationUtils();
 
   const { data: userData } = useGetMeQuery();
   const user = userData?.me;
 
-  // Theme management using react-native-paper
   const [isDarkMode, setIsDarkMode] = useState(theme.dark);
-  
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-  };
 
   // Update initials state when avatar changes
   useEffect(() => {
@@ -106,12 +107,25 @@ export default function UserDropdown() {
     return t("userDropdown.unknownUser");
   }
 
-  function getThemeLabel() {
-    return isDarkMode ? t("userDropdown.themes.dark") : t("userDropdown.themes.light");
+  function getNextThemeMode(): "system" | "light" | "dark" {
+    // ciclo: System -> Light -> Dark -> System
+    if (themeMode === "system") return "light";
+    if (themeMode === "light") return "dark";
+    return "system";
   }
 
-  function getThemeIcon(): keyof typeof Ionicons.glyphMap {
-    return isDarkMode ? "moon" : "sunny";
+  function getThemeCycleLabel() {
+    const next = getNextThemeMode();
+    if (next === "system") return t("userDropdown.themes.system");
+    if (next === "light") return t("userDropdown.themes.light");
+    return t("userDropdown.themes.dark");
+  }
+
+  function getThemeCycleIcon(): string {
+    const next = getNextThemeMode();
+    if (next === "system") return "theme-light-dark";
+    if (next === "light") return "white-balance-sunny";
+    return "weather-night";
   }
 
   function showDropdown() {
@@ -126,24 +140,22 @@ export default function UserDropdown() {
     {
       id: "gettingStarted",
       label: t("userDropdown.gettingStarted"),
-      icon: "help-circle",
+      icon: "help-circle-outline",
       onPress: () => {
         showOnboarding();
         hideDropdown();
       },
     },
     {
-      id: "theme",
-      label: getThemeLabel(),
-      icon: getThemeIcon(),
-      onPress: () => {
-        toggleTheme();
-      },
+      id: "themeToggle",
+      label: getThemeCycleLabel(),
+      icon: getThemeCycleIcon(),
+      onPress: () => setThemeMode(getNextThemeMode()),
     },
     {
       id: "settings",
       label: t("userDropdown.settings"),
-      icon: "settings",
+      icon: "cog",
       onPress: () => {
         navigateToSettings();
         hideDropdown();
@@ -154,7 +166,7 @@ export default function UserDropdown() {
           {
             id: "administration",
             label: t("userDropdown.administration"),
-            icon: "shield" as keyof typeof Ionicons.glyphMap,
+            icon: "shield-outline",
             onPress: () => {
               navigateToAdmin();
               hideDropdown();
@@ -165,7 +177,7 @@ export default function UserDropdown() {
     {
       id: "logout",
       label: t("userDropdown.logout"),
-      icon: "log-out",
+      icon: "logout",
       onPress: () => {
         logout();
         hideDropdown();
@@ -175,62 +187,89 @@ export default function UserDropdown() {
   ];
 
   return (
-    <Menu
-      visible={isVisible}
-      onDismiss={hideDropdown}
-      anchor={
-        <Button
-          mode="contained"
-          onPress={showDropdown}
-          style={styles.avatarButton}
-          contentStyle={styles.avatarButtonContent}
-        >
-          {renderMainAvatar()}
-          <Ionicons
-            name="chevron-down"
-            size={14}
-            color={theme.colors.onSurface}
-            style={styles.dropdownIcon}
-          />
-        </Button>
-      }
-      contentStyle={styles.menuContent}
-    >
-      {/* User Info Header */}
-      <Surface style={styles.userInfo}>
-        {renderSmallAvatar()}
-        <View style={styles.userDetails}>
-          <Text variant="titleMedium" style={styles.userDisplayName} numberOfLines={1}>
-            {getUserDisplayName()}
-          </Text>
-          <Text variant="bodySmall" style={styles.userEmail} numberOfLines={1}>
-            {user?.email || t("userDropdown.offlineMode")}
-          </Text>
-        </View>
-      </Surface>
-      
-      <Divider />
+    <>
+      {isVisible && (
+        <Portal>
+          <Pressable style={styles.overlay} onPress={hideDropdown} />
+        </Portal>
+      )}
+      <Menu
+        visible={isVisible}
+        onDismiss={hideDropdown}
+        anchor={
+          <TouchableOpacity
+            onPress={showDropdown}
+            activeOpacity={0.7}
+            style={styles.avatarButton}
+          >
+            {user?.avatar && !showInitials ? (
+              <Avatar.Image source={{ uri: user.avatar }} size={36} />
+            ) : (
+              <Avatar.Text label={getInitials()} size={36} />
+            )}
+            <View style={styles.dropdownIcon}>
+              <Icon
+                source="chevron-down"
+                size={16}
+                color={theme.colors.onSurface}
+              />
+            </View>
+          </TouchableOpacity>
+        }
+        anchorPosition="bottom"
+        contentStyle={styles.menuContent}
+      >
+        {/* User Info Header */}
+        <Surface style={styles.userInfo}>
+          {renderSmallAvatar()}
+          <View style={styles.userDetails}>
+            <Text
+              variant="titleMedium"
+              style={styles.userDisplayName}
+              numberOfLines={1}
+            >
+              {getUserDisplayName()}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={styles.userEmail}
+              numberOfLines={1}
+            >
+              {user?.email || t("userDropdown.offlineMode")}
+            </Text>
+          </View>
+        </Surface>
 
-      {/* Dropdown Items */}
-      {dropdownItems.map((item, index) => (
-        <Menu.Item
-          key={item.id}
-          onPress={() => {
-            item.onPress();
-            if (item.id !== "theme") {
+        <Divider />
+
+        {/* Dropdown Items */}
+        {dropdownItems.map((item) => (
+          <Menu.Item
+            key={item.id}
+            onPress={() => {
+              item.onPress();
               hideDropdown();
+            }}
+            title={item.label}
+            leadingIcon={item.icon}
+            titleStyle={
+              item.type === "destructive" ? styles.destructiveText : undefined
             }
-          }}
-          title={item.label}
-          leadingIcon={item.icon}
-          titleStyle={item.type === "destructive" ? styles.destructiveText : undefined}
-        />
-      ))}
-    </Menu>
+          />
+        ))}
+      </Menu>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
   avatarButton: {
     borderRadius: 20,
     paddingHorizontal: 8,

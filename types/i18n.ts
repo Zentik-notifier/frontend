@@ -857,6 +857,7 @@ export interface TranslationKey {
         "1week": string;
         "3days": string;
         "4hours": string;
+        "2weeks": string;
       };
       remaining: string;
       removeSnooze: string;

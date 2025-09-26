@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useColorScheme as useSystemColorScheme } from "react-native";
-import { userSettings } from '../services/user-settings';
+import { userSettings } from "../services/user-settings";
+import { MD3DarkTheme, MD3LightTheme, PaperProvider } from "react-native-paper";
 
 export type ThemeMode = "light" | "dark" | "system";
 export type ColorScheme = "light" | "dark";
@@ -21,7 +22,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Determine actual color scheme based on theme mode
   const colorScheme: ColorScheme =
-    themeMode === "system" ? (systemColorScheme ?? "light") : themeMode;
+    themeMode === "system" ? systemColorScheme ?? "light" : themeMode;
 
   const isDark = colorScheme === "dark";
   const isLight = colorScheme === "light";
@@ -37,7 +38,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // Subscribe to settings changes
     const unsubscribe = userSettings.subscribe((settings) => {
       if (mounted) {
         setThemeModeState(settings.themeMode);
@@ -55,9 +55,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       await userSettings.setThemeMode(mode);
       console.debug("Theme changed to:", mode);
     } catch (error) {
-      console.error('Error saving theme preference:', error);
+      console.error("Error saving theme preference:", error);
     }
   };
+
+  const theme = colorScheme === "dark" ? MD3DarkTheme : MD3LightTheme;
 
   return (
     <ThemeContext.Provider
@@ -69,7 +71,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         isLight,
       }}
     >
-      {children}
+      <PaperProvider theme={theme}>{children}</PaperProvider>
     </ThemeContext.Provider>
   );
 }

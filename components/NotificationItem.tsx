@@ -1,4 +1,3 @@
-import { Colors } from "@/constants/Colors";
 import {
   MediaType,
   NotificationDeliveryType,
@@ -6,39 +5,34 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
+import { useNotificationActions } from "@/hooks/useNotificationActions";
 import {
   useDeleteNotification,
   useMarkNotificationRead,
   useMarkNotificationUnread,
 } from "@/hooks/useNotifications";
-import { useColorScheme } from "@/hooks/useTheme";
+import { useNotificationUtils } from "@/hooks/useNotificationUtils";
 import { useAppContext } from "@/services/app-context";
 import { mediaCache } from "@/services/media-cache";
-import { Ionicons } from "@expo/vector-icons";
 import { useNavigationUtils } from "@/utils/navigation";
+import { useRecyclingState } from "@shopify/flash-list";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  Dimensions,
-  Modal,
   StyleSheet,
-  TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
+  View
 } from "react-native";
-import { useRecyclingState } from "@shopify/flash-list";
+import { Divider, IconButton, Menu, Icon as PaperIcon, TouchableRipple, useTheme, Surface, Text } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
 import { MediaTypeIcon } from "./MediaTypeIcon";
 import { filteredActions } from "./NotificationActionsButton";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
-import { Icon, SmartTextRenderer } from "./ui";
 import SwipeableItem from "./SwipeableItem";
-import { useNotificationActions } from "@/hooks/useNotificationActions";
-import { useNotificationUtils } from "@/hooks/useNotificationUtils";
+// Replaced ThemedText/ThemedView with Paper Text/Surface
+import { Icon, SmartTextRenderer } from "./ui";
 
 // Dynamic height calculator to keep FlashList and item in sync
 export function getNotificationItemHeight(
@@ -121,7 +115,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   isItemVisible,
   onToggleSelection,
 }) => {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
+  const mediaPressRef = useRef(false);
   const { navigateToNotificationDetail } = useNavigationUtils();
   const { t } = useI18n();
   const { formatRelativeTime } = useDateFormat();
@@ -178,6 +173,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
   const handlePress = () => {
     if (swipeActive) return;
+    if (mediaPressRef.current) {
+      mediaPressRef.current = false;
+      return;
+    }
     if (isMultiSelectionMode) {
       onToggleSelection?.();
     } else {
@@ -222,25 +221,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const { getActionTypeIcon } = useNotificationUtils();
 
   const [isActionsMenuVisible, setIsActionsMenuVisible] = useState(false);
-  const [menuPosition, setMenuPosition] = useState<"above" | "below">("above");
-  const actionButtonRef = useRef<View | null>(null);
-
-  const openActionsMenu = () => {
-    try {
-      const windowHeight = Dimensions.get("window").height;
-      actionButtonRef.current?.measure?.(
-        (x, y, width, height, pageX, pageY) => {
-          const spaceAbove = pageY;
-          const spaceBelow = windowHeight - (pageY + height);
-          setMenuPosition(spaceBelow >= spaceAbove ? "below" : "above");
-          setIsActionsMenuVisible(true);
-        }
-      );
-    } catch {
-      setMenuPosition("above");
-      setIsActionsMenuVisible(true);
-    }
-  };
 
   // const itemHeight = getNotificationItemHeight(notification, isCompactMode);
   const bodyMaxLines = isCompactMode
@@ -305,19 +285,18 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         borderRadius={8}
       >
         <TouchableWithoutFeedback onPress={handlePress}>
-          <ThemedView
+          <Surface
             onStartShouldSetResponder={() => true}
+            elevation={0}
             style={[
               styles.itemCard,
               { height: "100%" },
               {
                 backgroundColor:
                   isMultiSelectionMode && isSelected
-                    ? Colors[colorScheme].selected
-                    : isRead
-                    ? Colors[colorScheme].backgroundCard
-                    : Colors[colorScheme].selected,
-                borderColor: Colors[colorScheme].border,
+                    ? theme.colors.secondaryContainer
+                    : theme.colors.elevation?.level1 || theme.colors.surface,
+                borderColor: theme.colors.outline,
               },
               // Priority border
               (notification.message?.deliveryType ===
@@ -328,8 +307,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 borderColor:
                   notification.message?.deliveryType ===
                   NotificationDeliveryType.Critical
-                    ? Colors[colorScheme].error
-                    : Colors[colorScheme].textSecondary,
+                    ? theme.colors.error
+                    : theme.colors.secondary,
               },
             ]}
           >
@@ -337,46 +316,45 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               NotificationDeliveryType.Critical ||
               notification.message?.deliveryType ===
                 NotificationDeliveryType.Silent) && (
-              <View
+              <Surface
                 style={[
                   styles.priorityBackground,
                   {
                     backgroundColor:
                       notification.message?.deliveryType ===
                       NotificationDeliveryType.Critical
-                        ? Colors[colorScheme].error
-                        : Colors[colorScheme].textSecondary,
+                        ? theme.colors.error
+                        : theme.colors.secondary,
                   },
                 ]}
-              />
+              >
+                <></>
+              </Surface>
             )}
 
             {/* First row */}
-            <ThemedView
-              style={[styles.firstRow, { backgroundColor: "transparent" }]}
+            <Surface
+                style={[styles.firstRow]}
+              elevation={0}
             >
               {isMultiSelectionMode ? (
-                <TouchableOpacity
-                  style={styles.checkboxContainer}
-                  onPress={onToggleSelection}
-                  activeOpacity={0.7}
-                >
-                  <ThemedView
+                <TouchableRipple onPress={onToggleSelection} borderless style={styles.checkboxContainer}>
+                  <Surface
                     style={[
                       styles.checkbox,
                       {
                         backgroundColor: isSelected
-                          ? Colors[colorScheme].tint
+                          ? theme.colors.primary
                           : "transparent",
-                        borderColor: Colors[colorScheme].border,
+                        borderColor: theme.colors.outline,
                       },
                     ]}
                   >
                     {isSelected && (
-                      <Ionicons name="checkmark" size={16} color="white" />
+                      <PaperIcon source="check" size={16} color={"#fff"} />
                     )}
-                  </ThemedView>
-                </TouchableOpacity>
+                  </Surface>
+                </TouchableRipple>
               ) : (
                 <View style={styles.leftColumn}>
                   <View
@@ -394,19 +372,20 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               )}
 
               {/* Text content */}
-              <ThemedView
-                style={[styles.textContent, { backgroundColor: "transparent" }]}
+              <Surface
+                style={[styles.textContent]}
+                elevation={0}
               >
                 <View style={styles.titleAndDateRow}>
                   <View style={styles.titleSection}>
                     {!hideBucketInfo && (
-                      <ThemedText
+                      <Text
                         style={styles.bucketName}
                         numberOfLines={1}
                         ellipsizeMode="tail"
                       >
                         {bucketName}
-                      </ThemedText>
+                      </Text>
                     )}
                     <SmartTextRenderer
                       content={notification.message?.title}
@@ -415,9 +394,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                     />
                   </View>
                   <View style={styles.rightMeta}>
-                    <ThemedText style={styles.date}>
+                    <Text style={styles.date}>
                       {formatRelativeTime(notification.createdAt)}
-                    </ThemedText>
+                    </Text>
                     <NotificationSnoozeButton
                       bucketId={notification.message?.bucket?.id}
                       variant="inline"
@@ -441,31 +420,30 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                     style={styles.body}
                   />
                 )}
-              </ThemedView>
+              </Surface>
 
               {!isMultiSelectionMode && !isRead && (
-                <ThemedView
+                <Surface
                   style={[
                     styles.unreadIndicator,
-                    { backgroundColor: Colors[colorScheme].tint },
+                    { backgroundColor: theme.colors.primary },
                   ]}
-                />
+                >
+                  <></>
+                </Surface>
               )}
-            </ThemedView>
+            </Surface>
 
             {!!visibleAttachment && (
-              <ThemedView
-                style={[
-                  styles.mediaPreviewRow,
-                  { backgroundColor: "transparent" },
-                ]}
+              <Surface
+                style={[styles.mediaPreviewRow]}
+                elevation={0}
               >
                 {attachments.map((attachment, index) => {
                   const isPreviewSelected = index === selectedPreviewIndex;
                   return (
-                    <TouchableOpacity
+                    <View
                       key={`${attachment.url}-${index}`}
-                      activeOpacity={0.8}
                       style={[
                         isPreviewSelected
                           ? styles.expandedImage
@@ -497,38 +475,40 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                             showControls: false,
                           }}
                           audioProps={{ shouldPlay: false, showControls: true }}
-                          onPress={() => handleVisualPress(attachment.url!)}
+                          onPress={() => {
+                            mediaPressRef.current = true;
+                            handleVisualPress(attachment.url!);
+                          }}
                         />
                       )}
-                    </TouchableOpacity>
+                    </View>
                   );
                 })}
-              </ThemedView>
+              </Surface>
             )}
 
-            <ThemedView
-              style={[styles.bottomRow, { backgroundColor: "transparent" }]}
+            <Surface
+              style={[styles.bottomRow]}
+              elevation={0}
             >
-              <ThemedView
-                style={[
-                  styles.mediaIndicators,
-                  { backgroundColor: "transparent" },
-                ]}
+              <Surface
+                style={[styles.mediaIndicators]}
+                elevation={0}
               >
                 {attachments.length > 0 &&
                   (isCompactMode ? (
                     <View style={styles.inlinePillsRow}>
-                      <ThemedView
+                      <Surface
                         style={[
                           styles.mediaIndicator,
                           {
-                            backgroundColor:
-                              Colors[colorScheme].backgroundSecondary,
+                            backgroundColor: theme.colors.secondaryContainer,
                           },
                         ]}
+                        elevation={0}
                       >
                         <Icon name="image" size="xs" color="secondary" />
-                        <ThemedText
+                        <Text
                           style={styles.mediaText}
                           numberOfLines={1}
                           ellipsizeMode="tail"
@@ -536,26 +516,26 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                           {t("attachmentGallery.attachments", {
                             count: attachments.length,
                           })}
-                        </ThemedText>
-                      </ThemedView>
+                        </Text>
+                      </Surface>
                     </View>
                   ) : (
                     attachments.map((attachment, index) => {
                       const isPreviewSelected = index === selectedPreviewIndex;
                       const pill = (
-                        <ThemedView
+                        <Surface
                           key={index}
                           style={[
                             styles.mediaIndicator,
                             {
-                              backgroundColor:
-                                Colors[colorScheme].backgroundSecondary,
+                              backgroundColor: theme.colors.secondaryContainer,
                               borderWidth: isPreviewSelected ? 1.5 : 0,
                               borderColor: isPreviewSelected
-                                ? Colors[colorScheme].tint
+                                ? theme.colors.primary
                                 : "transparent",
                             },
                           ]}
+                          elevation={0}
                         >
                           <MediaTypeIcon
                             mediaType={attachment.mediaType}
@@ -564,47 +544,81 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                             showLabel
                             label={attachment.name}
                           />
-                        </ThemedView>
+                        </Surface>
                       );
 
                       return (
-                        <TouchableOpacity
+                        <TouchableRipple
                           key={index}
-                          activeOpacity={0.8}
-                          onPress={(e) => {
-                            e.stopPropagation();
+                          onPress={() => {
                             if (index >= 0) setSelectedPreviewIndex(index);
                           }}
+                          borderless
                         >
                           {pill}
-                        </TouchableOpacity>
+                        </TouchableRipple>
                       );
                     })
                   ))}
-              </ThemedView>
+              </Surface>
               <View style={styles.bottomRightActions}>
-                <TouchableOpacity
-                  ref={(r) => {
-                    actionButtonRef.current = r;
-                  }}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    openActionsMenu();
-                  }}
-                  activeOpacity={0.8}
-                  style={[
-                    styles.actionsFab,
-                    {
-                      borderColor: Colors[colorScheme].border,
-                      backgroundColor: Colors[colorScheme].background,
-                    },
-                  ]}
+                <Menu
+                  visible={isActionsMenuVisible}
+                  onDismiss={() => setIsActionsMenuVisible(false)}
+                  anchor={
+                    <IconButton
+                      icon="dots-vertical"
+                      size={18}
+                      onPress={() => setIsActionsMenuVisible(true)}
+                      containerColor={theme.colors.surface}
+                      style={styles.actionsFab}
+                    />
+                  }
+                  contentStyle={{ backgroundColor: theme.colors.surface }}
                 >
-                  <Icon name="more" size="sm" color="primary" />
-                </TouchableOpacity>
+                  <Menu.Item
+                    onPress={() => {
+                      setIsActionsMenuVisible(false);
+                      isRead ? handleMarkAsUnread() : handleMarkAsRead();
+                    }}
+                    title={isRead ? t("swipeActions.markAsUnread.label") : t("swipeActions.markAsRead.label")}
+                    leadingIcon={() => (
+                      <Icon name={isRead ? "view" : "view-off"} size="sm" color="secondary" />
+                    )}
+                  />
+                  <Divider />
+                  <Menu.Item
+                    onPress={() => {
+                      setIsActionsMenuVisible(false);
+                      handleDelete();
+                    }}
+                    title={t("swipeActions.delete.label")}
+                    leadingIcon={() => <Icon name="delete" size="sm" color="error" />}
+                    titleStyle={{ color: theme.colors.error }}
+                  />
+                  {hasActions && <Divider />}
+                  {hasActions &&
+                    actions.map((action, index) => (
+                      <Menu.Item
+                        key={index}
+                        onPress={() => {
+                          setIsActionsMenuVisible(false);
+                          executeAction(notification.id!, action);
+                        }}
+                        title={action.title || action.value?.slice(0, 50)}
+                        leadingIcon={() => (
+                          <Icon
+                            name={getActionTypeIcon(action.type) as any}
+                            size="sm"
+                            color={action.destructive ? "error" : "secondary"}
+                          />
+                        )}
+                      />
+                    ))}
+                </Menu>
               </View>
-            </ThemedView>
-          </ThemedView>
+            </Surface>
+          </Surface>
         </TouchableWithoutFeedback>
 
         {fullScreenIndex >= 0 && attachments[fullScreenIndex] && (
@@ -630,96 +644,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           />
         )}
       </SwipeableItem>
-      <Modal
-        visible={isActionsMenuVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsActionsMenuVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.actionsMenuOverlay}
-          activeOpacity={1}
-          onPress={() => setIsActionsMenuVisible(false)}
-        >
-          <ThemedView
-            style={[
-              styles.actionsMenu,
-              menuPosition === "above" ? styles.menuAbove : styles.menuBelow,
-              {
-                borderColor: Colors[colorScheme].border,
-                backgroundColor: Colors[colorScheme].background,
-              },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => {
-                setIsActionsMenuVisible(false);
-                isRead ? handleMarkAsUnread() : handleMarkAsRead();
-              }}
-              style={[
-                styles.menuItem,
-                { borderColor: Colors[colorScheme].borderLight },
-              ]}
-            >
-              <Icon
-                name={isRead ? "view" : "view-off"}
-                size="sm"
-                color="secondary"
-              />
-              <ThemedText style={styles.menuItemText}>
-                {isRead
-                  ? t("swipeActions.markAsUnread.label")
-                  : t("swipeActions.markAsRead.label")}
-              </ThemedText>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => {
-                setIsActionsMenuVisible(false);
-                handleDelete();
-              }}
-              style={[
-                styles.menuItem,
-                { borderColor: Colors[colorScheme].borderLight },
-              ]}
-            >
-              <Icon name="delete" size="sm" color="error" />
-              <ThemedText
-                style={[
-                  styles.menuItemText,
-                  { color: Colors[colorScheme].error },
-                ]}
-              >
-                {t("swipeActions.delete.label")}
-              </ThemedText>
-            </TouchableOpacity>
-
-            {hasActions &&
-              actions.map((action, index) => (
-                <TouchableOpacity
-                  key={index}
-                  onPress={() => {
-                    setIsActionsMenuVisible(false);
-                    executeAction(notification.id!, action);
-                  }}
-                  style={[
-                    styles.menuItem,
-                    { borderColor: Colors[colorScheme].borderLight },
-                  ]}
-                >
-                  <Icon
-                    name={getActionTypeIcon(action.type) as any}
-                    size="sm"
-                    color={action.destructive ? "error" : "secondary"}
-                  />
-                  <ThemedText style={styles.menuItemText}>
-                    {action.title || action.value?.slice(0, 50)}
-                  </ThemedText>
-                </TouchableOpacity>
-              ))}
-          </ThemedView>
-        </TouchableOpacity>
-      </Modal>
+      {/* Menu gestito da react-native-paper al posto del Modal personalizzato */}
     </View>
   );
 };
@@ -732,11 +657,11 @@ const styles = StyleSheet.create({
   itemCard: {
     borderRadius: 8,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
+    shadowColor: "transparent",
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
     borderWidth: 1,
   },
   firstRow: {
@@ -887,46 +812,14 @@ const styles = StyleSheet.create({
     marginLeft: 3,
     fontWeight: "500",
   },
-  actionsMenuOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.25)",
-    justifyContent: "flex-end",
-  },
-  actionsMenu: {
-    marginHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  menuAbove: {
-    marginBottom: 56,
-  },
-  menuBelow: {
-    marginBottom: 12,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-  },
-  menuItemText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  menuSeparator: {
-    height: 1,
-    marginVertical: 4,
-  },
+  // Paper Menu styles no longer needed
   priorityBackground: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    opacity: 0.12,
+    opacity: 0.06,
   },
   checkboxContainer: {
     width: 40,

@@ -1,29 +1,20 @@
-import { AlertDialog } from "@/components/ui/AlertDialog";
 import { GraphQLProvider } from "@/components/GraphQLProvider";
 import { I18nProvider } from "@/components/I18nProvider";
 import { TermsAcceptanceScreen } from "@/components/TermsAcceptanceScreen";
+import { AlertDialog } from "@/components/ui/AlertDialog";
 import { useDeviceType } from "@/hooks/useDeviceType";
-import { ThemeProvider, useTheme } from "@/hooks/useTheme";
+import { usePendingIntents } from "@/hooks/usePendingNotifications";
+import { ThemeProvider } from "@/hooks/useTheme";
 import MobileLayout from "@/layouts/mobile";
 import TabletLayout from "@/layouts/tablet";
 import { RequireAuth } from "@/services/require-auth";
 import { useUserSettings } from "@/services/user-settings";
-import {
-  DarkTheme,
-  DefaultTheme as NavigationDefaultTheme,
-  ThemeProvider as NavigationThemeProvider,
-} from "@react-navigation/native";
+import { useNavigationUtils } from "@/utils/navigation";
 import { useFonts } from "expo-font";
 import * as Linking from "expo-linking";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Alert,
-  BackHandler,
-  Platform,
-  StyleSheet,
-  useColorScheme,
-} from "react-native";
+import { Alert, BackHandler, Platform, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -31,10 +22,6 @@ import { ApiConfigService } from "../services/api-config";
 import { AppProvider, useAppContext } from "../services/app-context";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb } from "../services/media-cache-db";
-import { useNavigationUtils } from "@/utils/navigation";
-import { usePendingIntents } from "@/hooks/usePendingNotifications";
-import { DefaultTheme, PaperProvider } from "react-native-paper";
-import { ThemeProp } from "react-native-paper/lib/typescript/types";
 
 type AlertButton = {
   text?: string;
@@ -47,20 +34,8 @@ type WebAlertState = {
   title?: string;
   message?: string;
   buttons?: AlertButton[];
-  type?: 'info' | 'error' | 'success' | 'warning';
+  type?: "info" | "error" | "success" | "warning";
 };
-
-function ThemedLayout({ children }: { children: React.ReactNode }) {
-  const { colorScheme } = useTheme();
-
-  return (
-    <NavigationThemeProvider
-      value={colorScheme === "dark" ? DarkTheme : NavigationDefaultTheme}
-    >
-      {children}
-    </NavigationThemeProvider>
-  );
-}
 
 function DeepLinkHandler() {
   const { refreshUserData } = useAppContext();
@@ -147,17 +122,6 @@ export default function RootLayout() {
   const originalAlertRef = useRef<typeof Alert.alert>(null);
   const { isMobile } = useDeviceType();
   const { processPendingNavigationIntent } = usePendingIntents();
-  const colorScheme = useColorScheme();
-
-  const theme: ThemeProp = {
-    ...DefaultTheme,
-    dark: colorScheme === "dark",
-    colors: {
-      ...DefaultTheme.colors,
-      // primary: "tomato",
-      // secondary: "yellow",
-    },
-  };
 
   useEffect(() => {
     console.log("🔄 [RootLayout] Loaded");
@@ -170,13 +134,17 @@ export default function RootLayout() {
       originalAlertRef.current = Alert.alert;
     }
 
-    const getDialogType = (title?: string): 'info' | 'error' | 'success' | 'warning' => {
-      if (!title) return 'info';
+    const getDialogType = (
+      title?: string
+    ): "info" | "error" | "success" | "warning" => {
+      if (!title) return "info";
       const titleLower = title.toLowerCase();
-      if (/(error|errore|failed|fail|unable|impossibile)/i.test(titleLower)) return 'error';
-      if (/(success|successo|completed|completato)/i.test(titleLower)) return 'success';
-      if (/(warning|avviso|attenzione)/i.test(titleLower)) return 'warning';
-      return 'info';
+      if (/(error|errore|failed|fail|unable|impossibile)/i.test(titleLower))
+        return "error";
+      if (/(success|successo|completed|completato)/i.test(titleLower))
+        return "success";
+      if (/(warning|avviso|attenzione)/i.test(titleLower)) return "warning";
+      return "info";
     };
 
     Alert.alert = (
@@ -239,45 +207,48 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <PaperProvider theme={theme}>
-            <I18nProvider>
-              <GraphQLProvider>
-                <TermsGuard>
-                  <AppProvider>
-                    <DeepLinkHandler />
-                    <RequireAuth>
-                      <ThemedLayout>
-                        {isMobile ? <MobileLayout /> : <TabletLayout />}
-                        <StatusBar
-                          style="auto"
-                          backgroundColor="transparent"
-                          translucent={Platform.OS === "android"}
-                        />
+          <I18nProvider>
+            <GraphQLProvider>
+              <TermsGuard>
+                <AppProvider>
+                  <DeepLinkHandler />
+                  <RequireAuth>
+                    {isMobile ? <MobileLayout /> : <TabletLayout />}
 
-                        <AlertDialog
-                          visible={webAlert.visible}
-                          title={webAlert.title || ''}
-                          message={webAlert.message || ''}
-                          onDismiss={handleCloseAlert}
-                          confirmText={webAlert.buttons?.[webAlert.buttons.length - 1]?.text || 'OK'}
-                          onConfirm={() => {
-                            const lastButton = webAlert.buttons?.[webAlert.buttons.length - 1];
-                            if (lastButton) handleButtonPress(lastButton);
-                          }}
-                          cancelText={webAlert.buttons?.length === 2 ? webAlert.buttons[0]?.text : undefined}
-                          onCancel={webAlert.buttons?.length === 2 ? () => {
-                            const firstButton = webAlert.buttons?.[0];
-                            if (firstButton) handleButtonPress(firstButton);
-                          } : undefined}
-                          type={webAlert.type || 'info'}
-                        />
-                      </ThemedLayout>
-                    </RequireAuth>
-                  </AppProvider>
-                </TermsGuard>
-              </GraphQLProvider>
-            </I18nProvider>
-          </PaperProvider>
+                    <AlertDialog
+                      visible={webAlert.visible}
+                      title={webAlert.title || ""}
+                      message={webAlert.message || ""}
+                      onDismiss={handleCloseAlert}
+                      confirmText={
+                        webAlert.buttons?.[webAlert.buttons.length - 1]?.text ||
+                        "OK"
+                      }
+                      onConfirm={() => {
+                        const lastButton =
+                          webAlert.buttons?.[webAlert.buttons.length - 1];
+                        if (lastButton) handleButtonPress(lastButton);
+                      }}
+                      cancelText={
+                        webAlert.buttons?.length === 2
+                          ? webAlert.buttons[0]?.text
+                          : undefined
+                      }
+                      onCancel={
+                        webAlert.buttons?.length === 2
+                          ? () => {
+                              const firstButton = webAlert.buttons?.[0];
+                              if (firstButton) handleButtonPress(firstButton);
+                            }
+                          : undefined
+                      }
+                      type={webAlert.type || "info"}
+                    />
+                  </RequireAuth>
+                </AppProvider>
+              </TermsGuard>
+            </GraphQLProvider>
+          </I18nProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

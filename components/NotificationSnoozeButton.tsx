@@ -1,31 +1,30 @@
-import { Colors } from "@/constants/Colors";
-import {
-  GetNotificationsDocument,
-  NotificationFragment,
-  useSetBucketSnoozeMutation,
-} from "@/generated/gql-operations-generated";
+import { useSetBucketSnoozeMutation } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
-import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
+  Dimensions,
   Modal,
   Platform,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
-  ActivityIndicator,
 } from "react-native";
+
+const { width: screenWidth } = Dimensions.get("window");
+const isTablet = screenWidth >= 768;
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
-import { Button } from "./ui/Button";
-import { Icon } from "./ui";
+import {
+  ActivityIndicator,
+  Button as PaperButton,
+  Icon,
+  Text,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 
 interface QuickSnoozeOption {
   label: string;
@@ -47,7 +46,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   fullWidth = false,
   onPress,
 }) => {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const { formatDate } = useDateFormat();
 
@@ -79,9 +78,18 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
       { label: t("notificationDetail.snooze.quickTimes.1day"), value: 1440 },
       { label: t("notificationDetail.snooze.quickTimes.3days"), value: 4320 },
       { label: t("notificationDetail.snooze.quickTimes.1week"), value: 10080 },
+      { label: t("notificationDetail.snooze.quickTimes.2weeks"), value: 20160 },
     ],
     [t]
   );
+
+  const extendedOptions = useMemo(() => {
+    const arr = [...quickSnoozeOptions];
+    if (arr.length % 2 === 1) {
+      arr.push({ label: "", value: -1 });
+    }
+    return arr;
+  }, [quickSnoozeOptions]);
 
   if (!shouldShow || !bucketId) {
     return null;
@@ -190,14 +198,14 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
 
   return (
     <>
-      <TouchableOpacity
+      <TouchableRipple
         style={
           variant === "inline"
             ? [
                 styles.inlinePill,
                 {
                   backgroundColor:
-                    Colors[colorScheme ?? "light"].backgroundSecondary,
+                    theme.colors.elevation?.level1 || theme.colors.surface,
                 },
               ]
             : [
@@ -207,30 +215,36 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
                 fullWidth ? { width: "100%" } : null,
                 {
                   backgroundColor:
-                    Colors[colorScheme ?? "light"].backgroundSecondary,
-                  borderColor: Colors[colorScheme ?? "light"].border,
+                    theme.colors.elevation?.level1 || theme.colors.surface,
+                  borderColor: theme.colors.outline,
                 },
               ]
         }
         onPress={handlePress}
         disabled={settingSnooze}
       >
-        <Icon name="snooze" size="xs" color="secondary" />
-        {showText && (
-          <ThemedText
-            style={[
-              variant === "swipeable"
-                ? styles.swipeableText
-                : variant === "inline"
-                ? styles.inlineText
-                : styles.detailText,
-              { color: Colors[colorScheme ?? "light"].text },
-            ]}
-          >
-            {buttonText}
-          </ThemedText>
-        )}
-      </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Icon
+            source="sleep"
+            size={16}
+            color={theme.colors.onSurfaceVariant}
+          />
+          {showText && (
+            <Text
+              style={[
+                variant === "swipeable"
+                  ? styles.swipeableText
+                  : variant === "inline"
+                  ? styles.inlineText
+                  : styles.detailText,
+                { color: theme.colors.onSurface },
+              ]}
+            >
+              {buttonText}
+            </Text>
+          )}
+        </View>
+      </TouchableRipple>
 
       {/* Modal completo per lo snooze */}
       <Modal
@@ -242,205 +256,229 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
         <SafeAreaView
           style={[
             styles.modalContainer,
-            { backgroundColor: Colors[colorScheme].background },
+            { backgroundColor: theme.colors.background },
           ]}
         >
           <View
-            style={[
-              styles.header,
-              { borderBottomColor: Colors[colorScheme].border },
-            ]}
+            style={[styles.header, { borderBottomColor: theme.colors.outline }]}
           >
             <View style={styles.headerLeft}>
-              <Ionicons
-                name="time"
+              <Icon
+                source="clock-outline"
                 size={24}
-                color={Colors[colorScheme].tint}
+                color={theme.colors.primary}
               />
-              <ThemedText
-                style={[
-                  styles.headerTitle,
-                  { color: Colors[colorScheme].text },
-                ]}
+              <Text
+                style={[styles.headerTitle, { color: theme.colors.onSurface }]}
               >
                 {t("notificationDetail.snooze.title")}
-              </ThemedText>
+              </Text>
             </View>
             <View style={styles.headerRight}>
               {isSnoozed && (
-                <TouchableOpacity
+                <TouchableRipple
                   style={[
                     styles.clearAllButton,
                     {
-                      backgroundColor: Colors[colorScheme].error,
+                      backgroundColor: theme.colors.error,
                       opacity: removingSnooze ? 0.8 : 1,
                     },
                   ]}
                   onPress={handleRemoveSnooze}
-                  activeOpacity={0.7}
                   disabled={removingSnooze}
                 >
-                  {removingSnooze ? (
-                    <ActivityIndicator color="white" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons name="refresh" size={16} color="white" />
-                      <ThemedText style={styles.clearAllText}>
-                        {t("notificationDetail.snooze.removeSnooze")}
-                      </ThemedText>
-                    </>
-                  )}
-                </TouchableOpacity>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    {removingSnooze ? (
+                      <ActivityIndicator
+                        color={theme.colors.onPrimary}
+                        size="small"
+                      />
+                    ) : (
+                      <>
+                        <Icon
+                          source="refresh"
+                          size={16}
+                          color={theme.colors.onPrimary}
+                        />
+                        <Text style={styles.clearAllText}>
+                          {t("notificationDetail.snooze.removeSnooze")}
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                </TouchableRipple>
               )}
-              <TouchableOpacity
+              <TouchableRipple
                 style={[
                   styles.closeButton,
-                  { backgroundColor: Colors[colorScheme].backgroundSecondary },
+                  {
+                    backgroundColor:
+                      theme.colors.elevation?.level1 || theme.colors.surface,
+                  },
                 ]}
                 onPress={() => setShowModal(false)}
-                activeOpacity={0.7}
               >
-                <Ionicons
-                  name="close"
-                  size={20}
-                  color={Colors[colorScheme].text}
-                />
-              </TouchableOpacity>
+                <Icon source="close" size={20} color={theme.colors.onSurface} />
+              </TouchableRipple>
             </View>
           </View>
 
           <ScrollView
             style={styles.content}
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 16, alignItems: "center" }}
           >
             {isSnoozed && snoozeUntil && (
-              <ThemedView style={styles.section}>
-                <ThemedText
+              <View style={styles.section}>
+                <Text
                   style={[
                     styles.sectionTitle,
-                    { color: Colors[colorScheme].text },
+                    { color: theme.colors.onSurface },
                   ]}
                 >
                   {t("notificationDetail.snooze.snoozedUntil")}
-                </ThemedText>
-                <ThemedView
+                </Text>
+                <View
                   style={[
                     styles.currentSnoozeCard,
                     {
-                      borderColor: Colors[colorScheme].borderLight,
-                      backgroundColor: Colors[colorScheme].backgroundSecondary,
+                      borderColor:
+                        theme.colors.outlineVariant || theme.colors.outline,
+                      backgroundColor:
+                        theme.colors.elevation?.level1 || theme.colors.surface,
                     },
                   ]}
                 >
-                  <Ionicons
-                    name="time-outline"
+                  <Icon
+                    source="clock-outline"
                     size={18}
-                    color={Colors[colorScheme].tint}
+                    color={theme.colors.onSurfaceVariant}
                   />
                   <View style={{ flex: 1 }}>
-                    <ThemedText
+                    <Text
                       style={[
                         styles.currentSnoozeTime,
-                        { color: Colors[colorScheme].text },
+                        { color: theme.colors.onSurface },
                       ]}
                     >
                       {formatDate(snoozeUntil)}
-                    </ThemedText>
-                    <ThemedText
+                    </Text>
+                    <Text
                       style={[
                         styles.currentSnoozeRemaining,
-                        { color: Colors[colorScheme].textSecondary },
+                        { color: theme.colors.onSurfaceVariant },
                       ]}
                     >
-                      {getRemainingTime()}{" "}
+                      {getRemainingTime()} {""}
                       {t("notificationDetail.snooze.remaining")}
-                    </ThemedText>
+                    </Text>
                   </View>
-                </ThemedView>
-              </ThemedView>
+                </View>
+              </View>
             )}
 
-            <ThemedView style={styles.section}>
-              <ThemedText
-                style={[
-                  styles.sectionTitle,
-                  { color: Colors[colorScheme].text },
-                ]}
+            <View style={styles.section}>
+              <Text
+                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
               >
                 {t("notificationDetail.snooze.quickOptions")}
-              </ThemedText>
-              <ThemedView style={styles.sortButtons}>
-                {quickSnoozeOptions.map(({ value, label }) => (
-                  <TouchableOpacity
+              </Text>
+              <View style={styles.sortButtons}>
+                {extendedOptions.map(({ value, label }) => (
+                  <TouchableRipple
                     key={value}
                     style={[
                       styles.sortButton,
                       {
-                        borderColor: Colors[colorScheme].border,
-                        backgroundColor: Colors[colorScheme].backgroundCard,
+                        borderColor: theme.colors.outline,
+                        backgroundColor:
+                          theme.colors.elevation?.level1 ||
+                          theme.colors.surface,
                         opacity:
+                          value === -1 ||
                           settingSnooze ||
                           (quickLoading !== null && quickLoading !== value)
                             ? 0.6
                             : 1,
                       },
                     ]}
-                    onPress={() => handleQuickSnooze(value)}
-                    activeOpacity={0.7}
-                    disabled={settingSnooze || quickLoading !== null}
+                    onPress={() => value !== -1 && handleQuickSnooze(value)}
+                    disabled={
+                      value === -1 || settingSnooze || quickLoading !== null
+                    }
                   >
-                    {quickLoading === value ? (
-                      <ActivityIndicator
-                        color={Colors[colorScheme].textSecondary}
-                        size="small"
-                      />
-                    ) : (
-                      <Ionicons
-                        name="time-outline"
-                        size={18}
-                        color={Colors[colorScheme].textSecondary}
-                      />
-                    )}
-                    <ThemedText
-                      style={[
-                        styles.sortButtonText,
-                        { color: Colors[colorScheme].text },
-                      ]}
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        justifyContent: "center",
+                      }}
                     >
-                      {label}
-                    </ThemedText>
-                  </TouchableOpacity>
+                      {value !== -1 && quickLoading === value ? (
+                        <ActivityIndicator
+                          color={theme.colors.onSurfaceVariant}
+                          size="small"
+                        />
+                      ) : value !== -1 ? (
+                        <Icon
+                          source="clock-outline"
+                          size={18}
+                          color={theme.colors.onSurfaceVariant}
+                        />
+                      ) : (
+                        <View />
+                      )}
+                      {value !== -1 && (
+                        <Text
+                          style={[
+                            styles.sortButtonText,
+                            { color: theme.colors.onSurface },
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableRipple>
                 ))}
-              </ThemedView>
-            </ThemedView>
+              </View>
+            </View>
 
-            <ThemedView style={styles.section}>
-              <ThemedText
-                style={[
-                  styles.sectionTitle,
-                  { color: Colors[colorScheme].text },
-                ]}
+            <View style={styles.section}>
+              <Text
+                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
               >
                 {t("notificationDetail.snooze.customDateTime")}
-              </ThemedText>
+              </Text>
               {Platform.OS === "ios" ? (
-                <DateTimePicker
-                  value={selectedDate}
-                  mode="datetime"
-                  display="spinner"
-                  onChange={handleIOSDateTimeChange}
-                  minimumDate={new Date()}
-                  themeVariant={colorScheme === "dark" ? "dark" : "light"}
-                />
+                <View style={{ alignItems: "center" }}>
+                  <DateTimePicker
+                    value={selectedDate}
+                    mode="datetime"
+                    display="spinner"
+                    onChange={handleIOSDateTimeChange}
+                    minimumDate={new Date()}
+                    themeVariant={theme.dark ? "dark" : "light"}
+                  />
+                </View>
               ) : (
                 <>
                   <View
                     style={{
-                      backgroundColor: Colors[colorScheme].background,
+                      backgroundColor: theme.colors.background,
                       borderRadius: 12,
                       borderWidth: 1,
-                      borderColor: Colors[colorScheme].borderLight,
+                      borderColor:
+                        theme.colors.outlineVariant || theme.colors.outline,
                       paddingVertical: 4,
+                      alignItems: "center",
                     }}
                   >
                     <DateTimePicker
@@ -449,17 +487,19 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
                       display="spinner"
                       onChange={handleAndroidDateChange}
                       minimumDate={new Date()}
-                      themeVariant={colorScheme === "dark" ? "dark" : "light"}
+                      themeVariant={theme.dark ? "dark" : "light"}
                     />
                   </View>
                   <View style={{ height: 8 }} />
                   <View
                     style={{
-                      backgroundColor: Colors[colorScheme].background,
+                      backgroundColor: theme.colors.background,
                       borderRadius: 12,
                       borderWidth: 1,
-                      borderColor: Colors[colorScheme].borderLight,
+                      borderColor:
+                        theme.colors.outlineVariant || theme.colors.outline,
                       paddingVertical: 4,
+                      alignItems: "center",
                     }}
                   >
                     <DateTimePicker
@@ -467,19 +507,21 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
                       mode="time"
                       display="spinner"
                       onChange={handleAndroidTimeChange}
-                      themeVariant={colorScheme === "dark" ? "dark" : "light"}
+                      themeVariant={theme.dark ? "dark" : "light"}
                     />
                   </View>
                 </>
               )}
-              <Button
-                title={t("notificationDetail.snooze.confirm")}
+              <PaperButton
+                mode="contained"
                 onPress={() => handleSetSnooze(selectedDate)}
                 style={styles.customButton}
                 disabled={settingSnooze}
                 loading={settingSnooze}
-              />
-            </ThemedView>
+              >
+                {t("notificationDetail.snooze.confirm")}
+              </PaperButton>
+            </View>
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -588,6 +630,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sortButtons: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     gap: 8,
   },
   sortButton: {
@@ -598,6 +643,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     gap: 12,
+    width: "48%",
   },
   sortButtonText: {
     fontSize: 16,

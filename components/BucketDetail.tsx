@@ -1,30 +1,18 @@
-import { Colors } from "@/constants/Colors";
 import { useGetBucketData } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
 import { useMassMarkNotificationsAsRead } from "@/hooks/useNotifications";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { useUserSettings, userSettings } from "@/services/user-settings";
 import { useNavigationUtils } from "@/utils/navigation";
-import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { Stack } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Badge, Button, Icon, IconButton, Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import MessageBuilder from "./MessageBuilder";
 import NotificationsList from "./NotificationsList";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
-import Icon from "./ui/Icon";
 
 interface BucketDetailProps {
   bucketId: string;
@@ -32,7 +20,7 @@ interface BucketDetailProps {
 
 export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { navigateToEditBucket, navigateToBucketsSettings } =
     useNavigationUtils();
   const [isMessageBuilderVisible, setIsMessageBuilderVisible] = useState(false);
@@ -106,44 +94,27 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   };
 
   const renderBucketHeader = () => (
-    <View
-      style={[
-        styles.bucketHeader,
-        { backgroundColor: Colors[colorScheme].background },
-      ]}
-    >
+    <Surface style={styles.bucketHeader} elevation={0}>
       <View style={styles.bucketInfo}>
         <BucketIcon bucketId={bucketId} size="xl" noRouting />
 
         <View style={styles.bucketDetails}>
-          <ThemedText
-            style={[styles.bucketName, { color: Colors[colorScheme].text }]}
-          >
+          <Text style={[styles.bucketName, { color: theme.colors.onSurface }]}>
             {bucket?.name}
-          </ThemedText>
+          </Text>
           {bucket?.description && (
-            <ThemedText
-              style={[
-                styles.bucketDescription,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
+            <Text style={[styles.bucketDescription, { color: theme.colors.onSurfaceVariant }]}>
               {bucket.description}
-            </ThemedText>
+            </Text>
           )}
 
           {/* Statistics */}
           <View style={styles.bucketStats}>
             <View style={styles.statItem}>
-              <Icon name="notifications" size="xs" color="secondary" />
-              <ThemedText
-                style={[
-                  styles.statText,
-                  { color: Colors[colorScheme].textSecondary },
-                ]}
-              >
+              <Icon source="bell-outline" size={16} color={theme.colors.onSurfaceVariant} />
+              <Text style={[styles.statText, { color: theme.colors.onSurfaceVariant }]}>
                 {bucketNotifications.length} {t("buckets.item.messages")}
-              </ThemedText>
+              </Text>
             </View>
           </View>
         </View>
@@ -152,85 +123,41 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
       {/* Action Block (Top row: mark/edit/copy; Bottom row: snooze) */}
       <View style={styles.actionBlock}>
         <View style={styles.actionTopRow}>
-          {/* Mark All as Read Button */}
-          <TouchableOpacity
-            style={[
-              styles.markAllButton,
-              {
-                backgroundColor:
-                  unreadNotifications.length > 0
-                    ? "#0a7ea4"
-                    : Colors[colorScheme].backgroundSecondary,
-              },
-            ]}
-            onPress={handleMarkAllAsRead}
-            disabled={unreadNotifications.length === 0 || markAllAsReadLoading}
-            activeOpacity={0.7}
-          >
-            <View style={styles.markAllButtonContent}>
-              {markAllAsReadLoading ? (
-                <ActivityIndicator
-                  size="small"
-                  color={
-                    unreadNotifications.length > 0
-                      ? "#fff"
-                      : Colors[colorScheme].tabIconDefault
-                  }
-                />
-              ) : (
-                <>
-                  <Ionicons
-                    name="checkmark-done"
-                    size={16}
-                    color={
-                      unreadNotifications.length > 0
-                        ? "#fff"
-                        : Colors[colorScheme].tabIconDefault
-                    }
-                  />
-                  {unreadNotifications.length > 0 && (
-                    <ThemedText style={styles.markAllButtonText}>
-                      {unreadNotifications.length}
-                    </ThemedText>
-                  )}
-                </>
-              )}
-            </View>
-          </TouchableOpacity>
+          {/* Mark All as Read - round icon button with badge */}
+          <View style={{ position: "relative" }}>
+            <IconButton
+              mode={unreadNotifications.length > 0 ? "contained" : "outlined"}
+              icon="check-all"
+              size={18}
+              onPress={handleMarkAllAsRead}
+              disabled={unreadNotifications.length === 0 || markAllAsReadLoading}
+              // iconColor={unreadNotifications.length > 0 ? theme.colors.onPrimary : theme.colors.onSurface}
+            />
+            {unreadNotifications.length > 0 && (
+              <Badge
+                size={16}
+                style={{ position: "absolute", top: -2, right: -2 }}
+              >
+                {unreadNotifications.length}
+              </Badge>
+            )}
+          </View>
 
           {/* Edit Button */}
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              {
-                backgroundColor: Colors[colorScheme].backgroundSecondary,
-              },
-            ]}
+          <IconButton
+            mode="outlined"
+            icon="pencil"
+            size={18}
             onPress={() => navigateToEditBucket(bucketId, true)}
-          >
-            <Ionicons
-              name="pencil"
-              size={16}
-              color={Colors[colorScheme].tabIconDefault}
-            />
-          </TouchableOpacity>
+          />
 
           {/* Copy Bucket ID Button */}
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              {
-                backgroundColor: Colors[colorScheme].backgroundSecondary,
-              },
-            ]}
+          <IconButton
+            mode="outlined"
+            icon="content-copy"
+            size={18}
             onPress={handleCopyBucketId}
-          >
-            <Ionicons
-              name="copy"
-              size={16}
-              color={Colors[colorScheme].tabIconDefault}
-            />
-          </TouchableOpacity>
+          />
         </View>
 
         {/* Snooze Button - bottom row */}
@@ -242,45 +169,31 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
           />
         </View>
       </View>
-    </View>
+    </Surface>
   );
 
   const renderMessageBuilderToggle = () => (
-    <View
-      style={[
-        styles.messageBuilderToggleContainer,
-        { backgroundColor: Colors[colorScheme].background },
-      ]}
-    >
-      <TouchableOpacity
+    <View style={[styles.messageBuilderToggleContainer, { backgroundColor: theme.colors.background }]}>
+      <TouchableRipple
         style={[
           styles.messageBuilderToggleButton,
-          {
-            backgroundColor: Colors[colorScheme].backgroundCard,
-            borderColor: Colors[colorScheme].border,
-          },
+          { backgroundColor: theme.colors.elevation?.level1 || theme.colors.surface,
+            borderColor: theme.colors.outline }
         ]}
         onPress={() => setIsMessageBuilderVisible(!isMessageBuilderVisible)}
       >
-        <Ionicons
-          name="add-circle-outline"
-          size={24}
-          color={Colors[colorScheme].tint}
-        />
-        <ThemedText
-          style={[
-            styles.messageBuilderToggleText,
-            { color: Colors[colorScheme].text },
-          ]}
-        >
-          {t("buckets.composeMessage")}
-        </ThemedText>
-        <Ionicons
-          name={isMessageBuilderVisible ? "chevron-up" : "chevron-down"}
-          size={20}
-          color={Colors[colorScheme].textSecondary}
-        />
-      </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <Icon source="plus-circle-outline" size={24} color={theme.colors.primary} />
+          <Text style={[styles.messageBuilderToggleText, { color: theme.colors.onSurface }]}>
+            {t("buckets.composeMessage")}
+          </Text>
+          <Icon
+            source={isMessageBuilderVisible ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={theme.colors.onSurfaceVariant}
+          />
+        </View>
+      </TouchableRipple>
     </View>
   );
 
@@ -289,7 +202,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <Surface style={[styles.container, { backgroundColor: theme.colors.background }]} elevation={0}>
       <Stack.Screen
         options={{
           title: bucket?.name,
@@ -297,20 +210,13 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
         }}
       />
       {/* Sticky Header with Bucket Info */}
-      <View style={styles.stickyHeader}>{renderBucketHeader()}</View>
+      <View style={[styles.stickyHeader, { backgroundColor: theme.colors.background }]}>{renderBucketHeader()}</View>
 
       {/* Notifications List */}
       <NotificationsList
         notifications={filteredNotifications}
         hideBucketInfo
-        customHeader={
-          <View
-            style={[
-              styles.filtersContainer,
-              { backgroundColor: Colors[colorScheme].background },
-            ]}
-          />
-        }
+        customHeader={<View style={[styles.filtersContainer]} />}
       />
 
       {/* Message Builder Toggle */}
@@ -318,30 +224,16 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
 
       {/* Message Builder */}
       {isMessageBuilderVisible && (
-        <View
-          style={[
-            styles.messageBuilderContainer,
-            { backgroundColor: Colors[colorScheme].background },
-          ]}
-        >
+        <Surface style={[styles.messageBuilderContainer]} elevation={2}>
           {/* Header del MessageBuilder con indicatore di chiusura */}
           <View
             style={[
               styles.messageBuilderHeader,
-              { borderBottomColor: Colors[colorScheme].border },
+              { borderBottomColor: theme.colors.outline },
             ]}
           >
             <View style={styles.messageBuilderDragHandle} />
-            <TouchableOpacity
-              style={styles.messageBuilderCloseButton}
-              onPress={() => setIsMessageBuilderVisible(false)}
-            >
-              <Ionicons
-                name="close"
-                size={24}
-                color={Colors[colorScheme].textSecondary}
-              />
-            </TouchableOpacity>
+            <IconButton icon="close" onPress={() => setIsMessageBuilderVisible(false)} />
           </View>
 
           <ScrollView
@@ -356,9 +248,9 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
               compact={true}
             />
           </ScrollView>
-        </View>
+        </Surface>
       )}
-    </ThemedView>
+    </Surface>
   );
 }
 

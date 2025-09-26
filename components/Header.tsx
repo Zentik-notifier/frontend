@@ -9,7 +9,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { ActivityIndicator, Button, Surface, Text, Icon } from "react-native-paper";
+import { ActivityIndicator, Button, Surface, Text, Icon, Appbar } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LoginModal } from "./LoginModal";
 import UserDropdown from "./UserDropdown";
@@ -29,6 +29,7 @@ export default function Header() {
   const [isRegistering, setIsRegistering] = useState(false);
 
   const downloadBlinkAnim = useRef(new Animated.Value(1)).current;
+  const markBlinkAnim = useRef(new Animated.Value(1)).current;
 
   // Status badge logic
   const status = getPriorityStatus();
@@ -113,48 +114,60 @@ export default function Header() {
     }
   }, [inProcessing, downloadBlinkAnim]);
 
+  useEffect(() => {
+    if (hasUnreadNotifications && !isMarkingAllAsRead) {
+      const blinkAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(markBlinkAnim, {
+            toValue: 0.7,
+            duration: 900,
+            useNativeDriver: true,
+          }),
+          Animated.timing(markBlinkAnim, {
+            toValue: 1,
+            duration: 900,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      blinkAnimation.start();
+      return () => blinkAnimation.stop();
+    } else {
+      markBlinkAnim.setValue(1);
+    }
+  }, [hasUnreadNotifications, isMarkingAllAsRead, markBlinkAnim]);
+
+
   return (
     <>
       <SafeAreaView edges={["top"]}>
-        <Surface
-          style={styles.headerContainer}
-          elevation={2}
-        >
+        <Appbar.Header mode="small" elevated statusBarHeight={0} style={styles.appbar}>
           {/* Main Loading Indicator */}
           {(isMainLoading || isLoadingGqlData) && (
             <View style={styles.mainLoadingContainer}>
-              <Button
-                mode="contained"
-                style={styles.mainLoadingButton}
-                contentStyle={styles.buttonContent}
-                disabled
-              >
+              <Appbar.Action icon={() => (
                 <ActivityIndicator size="small" color="#fff" />
-              </Button>
+              )} disabled style={styles.loadingIcon} />
             </View>
           )}
 
-          {hasUnreadNotifications && !isLoadingGqlData && (
+          {(hasUnreadNotifications && !isLoadingGqlData) && (
             <View style={styles.markAllButtonContainer}>
-              <Button
-                mode="contained"
-                onPress={handleMarkAllAsRead}
-                disabled={!hasUnreadNotifications || isMarkingAllAsRead}
-                style={[
-                  styles.markAllButton,
-                  hasUnreadNotifications
-                    ? styles.markAllButtonActive
-                    : styles.markAllButtonInactive,
-                ]}
-                contentStyle={styles.buttonContent}
-              >
-                {isMarkingAllAsRead ? (
-                  <ActivityIndicator size="small" color="#fff" />
+              <Animated.View style={{ opacity: markBlinkAnim }}>
+                <Appbar.Action
+                  onPress={handleMarkAllAsRead}
+                  disabled={!hasUnreadNotifications || isMarkingAllAsRead}
+                  icon={() => (
+                    isMarkingAllAsRead ? (
+                      <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Icon source="check-all" size={18} color="#fff" />
-                    )}
-              </Button>
-              {unreadCount > 0 && (
+                      <Icon source="check-all" size={20} color="#fff" />
+                    )
+                  )}
+                  style={styles.markAllIcon}
+                />
+              </Animated.View>
+              {(unreadCount > 0) && (
                 <Surface style={styles.badge} elevation={3}>
                   {isLoadingGqlData ? (
                     <ActivityIndicator size="small" color="#fff" />
@@ -171,19 +184,15 @@ export default function Header() {
           {/* Download Queue Progress Icon */}
           {inProcessing && (
             <View style={styles.downloadQueueContainer}>
-              <Button
-                mode="contained"
-                style={[
-                  styles.downloadQueueButton,
-                  styles.downloadQueueButtonActive,
-                ]}
-                contentStyle={styles.buttonContent}
+              <Appbar.Action
+                icon={() => (
+                  <Animated.View style={{ opacity: downloadBlinkAnim }}>
+                    <Icon source="download" size={20} color="#fff" />
+                  </Animated.View>
+                )}
                 disabled
-              >
-                    <Animated.View style={{ opacity: downloadBlinkAnim }}>
-                      <Icon source="download" size={18} color="#fff" />
-                    </Animated.View>
-              </Button>
+                style={styles.downloadIcon}
+              />
               <Surface style={styles.downloadQueueBadge} elevation={3}>
                 <Text variant="labelSmall" style={styles.downloadQueueBadgeText}>
                   {itemsInQueue > 99 ? "99+" : itemsInQueue.toString()}
@@ -192,7 +201,7 @@ export default function Header() {
             </View>
           )}
 
-          {/* Status Badge */}
+          {/* Status Badge reale */}
           {status.type !== "none" && (
             <Button
               mode="contained"
@@ -232,7 +241,7 @@ export default function Header() {
 
           <View style={styles.spacer} />
           <UserDropdown />
-        </Surface>
+        </Appbar.Header>
       </SafeAreaView>
 
       <LoginModal visible={isLoginModalOpen} onClose={closeLoginModal} />
@@ -241,6 +250,10 @@ export default function Header() {
 }
 
 const styles = StyleSheet.create({
+      appbar: {
+        paddingVertical: 0,
+        minHeight: 48,
+      },
   headerContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -332,6 +345,38 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     backgroundColor: "#0a7ea4",
+  },
+  roundIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#0a7ea4",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#f4b400",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  markAllIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#0a7ea4",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  downloadIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#28a745",
+    alignItems: "center",
+    justifyContent: "center",
   },
   statusBadge: {
     marginRight: 8,

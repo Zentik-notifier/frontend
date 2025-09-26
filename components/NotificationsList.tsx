@@ -1,4 +1,3 @@
-import { Colors } from "@/constants/Colors";
 import {
   MediaType,
   NotificationFragment,
@@ -9,28 +8,30 @@ import {
   useMassMarkNotificationsAsRead,
   useMassMarkNotificationsAsUnread,
 } from "@/hooks/useNotifications";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { userSettings } from "@/services/user-settings";
-import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   RefreshControl,
   StyleSheet,
-  TouchableOpacity,
   View,
   ViewToken,
 } from "react-native";
+import {
+  Surface,
+  Text,
+  useTheme,
+  ActivityIndicator,
+  TouchableRipple,
+  Icon,
+} from "react-native-paper";
 import NotificationFilters from "./NotificationFilters";
 import NotificationItem, {
   getNotificationItemHeight,
 } from "./NotificationItem";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
 import { FlashList } from "@shopify/flash-list";
-import { Icon } from "./ui";
+// Using Paper Icon instead of custom ui/Icon
 
 interface NotificationsListProps {
   notifications: NotificationFragment[];
@@ -51,7 +52,7 @@ export default function NotificationsList({
   contentContainerStyle,
   listStyle,
 }: NotificationsListProps) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const { refetchNotifications } = useAppContext();
   const {
@@ -281,42 +282,43 @@ export default function NotificationsList({
   const keyExtractor = useCallback((item: NotificationFragment) => item.id, []);
 
   const renderSelectionBar = () => (
-    <View
+    <Surface
       style={[
         styles.selectionBar,
         {
-          borderBottomColor: Colors[colorScheme].border,
-          backgroundColor: Colors[colorScheme].background,
+          borderBottomColor: theme.colors.outline,
+          backgroundColor: theme.colors.surface,
         },
       ]}
     >
       <View style={styles.leftControls}>
-        <TouchableOpacity
+        <TouchableRipple
           style={[
             styles.selectionButton,
             {
-              borderColor: Colors[colorScheme].border,
-              backgroundColor: Colors[colorScheme].backgroundCard,
+              borderColor: theme.colors.outline,
+              backgroundColor:
+                theme.colors.elevation?.level1 || theme.colors.surface,
             },
           ]}
           onPress={handleCloseSelectionMode}
         >
-          <ThemedText
+          <Text
             style={[
               styles.selectionCountText,
-              { color: Colors[colorScheme].text },
+              { color: theme.colors.onSurface },
             ]}
           >
             {t("common.cancel")}
-          </ThemedText>
-        </TouchableOpacity>
+          </Text>
+        </TouchableRipple>
 
-        <TouchableOpacity
+        <TouchableRipple
           style={[
             styles.selectionCountBadge,
             {
-              borderColor: Colors[colorScheme].border,
-              backgroundColor: Colors[colorScheme].tint,
+              borderColor: theme.colors.outline,
+              backgroundColor: theme.colors.primary,
             },
           ]}
           onPress={
@@ -325,45 +327,47 @@ export default function NotificationsList({
               : handleSelectAll
           }
         >
-          <ThemedText
-            style={[
-              styles.selectionCountText,
-              { color: Colors[colorScheme].background },
-            ]}
-          >
-            {selectedItems.size}
-          </ThemedText>
-          <ThemedText
-            style={[
-              styles.selectionCountText,
-              {
-                color: Colors[colorScheme].background,
-                fontSize: 12,
-                marginLeft: 4,
-                opacity: 0.9,
-              },
-            ]}
-          >
-            {selectedItems.size === filteredNotifications.length
-              ? t("notifications.deselectAll")
-              : t("notifications.selectAll")}
-          </ThemedText>
-        </TouchableOpacity>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text
+              style={[
+                styles.selectionCountText,
+                { color: theme.colors.onPrimary },
+              ]}
+            >
+              {selectedItems.size}
+            </Text>
+            <Text
+              style={[
+                styles.selectionCountText,
+                {
+                  color: theme.colors.onPrimary,
+                  fontSize: 12,
+                  marginLeft: 4,
+                  opacity: 0.9,
+                },
+              ]}
+            >
+              {selectedItems.size === filteredNotifications.length
+                ? t("notifications.deselectAll")
+                : t("notifications.selectAll")}
+            </Text>
+          </View>
+        </TouchableRipple>
       </View>
 
       <View style={styles.rightControls}>
-        <TouchableOpacity
+        <TouchableRipple
           style={[
             styles.selectionButton,
             {
               borderColor:
                 selectedItems.size === 0
-                  ? Colors[colorScheme].borderLight
-                  : Colors[colorScheme].border,
+                  ? theme.colors.outlineVariant || theme.colors.outline
+                  : theme.colors.outline,
               backgroundColor:
                 selectedItems.size === 0
-                  ? Colors[colorScheme].backgroundSecondary
-                  : Colors[colorScheme].backgroundCard,
+                  ? theme.colors.surfaceVariant
+                  : theme.colors.elevation?.level1 || theme.colors.surface,
               opacity: selectedItems.size === 0 ? 0.5 : 1,
             },
           ]}
@@ -373,7 +377,7 @@ export default function NotificationsList({
           }
         >
           {markAsReadLoading || markAsUnreadLoading ? (
-            <ActivityIndicator size="small" color={Colors[colorScheme].text} />
+            <ActivityIndicator size={16} color={theme.colors.onSurface} />
           ) : (
             (() => {
               const selectedNotifications = filteredNotifications.filter((n) =>
@@ -383,44 +387,42 @@ export default function NotificationsList({
                 (n) => !n.readAt
               );
               return hasUnreadNotifications ? (
-                // Icona per "segna come letto" - doppio checkmark verde
-                <Ionicons
-                  name="checkmark-done"
+                <Icon
+                  source="check-all"
                   size={20}
                   color={
                     selectedItems.size === 0
-                      ? Colors[colorScheme].textMuted
-                      : Colors[colorScheme].success
+                      ? theme.colors.onSurfaceVariant
+                      : theme.colors.secondary
                   }
                 />
               ) : (
-                // Icona per "segna come non letto" - doppio checkmark rosso
-                <Ionicons
-                  name="checkmark-done"
+                <Icon
+                  source="check-all"
                   size={20}
                   color={
                     selectedItems.size === 0
-                      ? Colors[colorScheme].textMuted
-                      : Colors[colorScheme].error
+                      ? theme.colors.onSurfaceVariant
+                      : theme.colors.error
                   }
                 />
               );
             })()
           )}
-        </TouchableOpacity>
+        </TouchableRipple>
 
-        <TouchableOpacity
+        <TouchableRipple
           style={[
             styles.selectionButton,
             {
               borderColor:
                 selectedItems.size === 0
-                  ? Colors[colorScheme].borderLight
-                  : Colors[colorScheme].border,
+                  ? theme.colors.outlineVariant || theme.colors.outline
+                  : theme.colors.outline,
               backgroundColor:
                 selectedItems.size === 0
-                  ? Colors[colorScheme].backgroundSecondary
-                  : Colors[colorScheme].backgroundCard,
+                  ? theme.colors.surfaceVariant
+                  : theme.colors.elevation?.level1 || theme.colors.surface,
               opacity: selectedItems.size === 0 ? 0.5 : 1,
             },
           ]}
@@ -428,46 +430,53 @@ export default function NotificationsList({
           disabled={selectedItems.size === 0 || deleteLoading}
         >
           {deleteLoading ? (
-            <ActivityIndicator size="small" color={Colors[colorScheme].text} />
+            <ActivityIndicator size={16} color={theme.colors.onSurface} />
           ) : (
-            <Ionicons
-              name="trash-outline"
+            <Icon
+              source="trash-can-outline"
               size={20}
               color={
                 selectedItems.size === 0
-                  ? Colors[colorScheme].textSecondary
-                  : Colors[colorScheme].error
+                  ? theme.colors.onSurfaceVariant
+                  : theme.colors.error
               }
             />
           )}
-        </TouchableOpacity>
+        </TouchableRipple>
       </View>
-    </View>
+    </Surface>
   );
 
   const renderEmptyState = () => (
-    <ThemedView style={styles.emptyState}>
-      <ThemedText style={styles.emptyText}>
+    <Surface style={[styles.emptyState, { backgroundColor: theme.colors.background }]} elevation={0}>
+      <Text
+        style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}
+      >
         {emptyStateMessage || t("home.emptyState.noNotifications")}
-      </ThemedText>
+      </Text>
       {emptyStateSubtitle && (
-        <ThemedText style={styles.emptySubtitle}>
+        <Text
+          style={[
+            styles.emptySubtitle,
+            { color: theme.colors.onSurfaceVariant },
+          ]}
+        >
           {emptyStateSubtitle}
-        </ThemedText>
+        </Text>
       )}
-    </ThemedView>
+    </Surface>
   );
 
   const renderListFooter = () => (
     <View style={styles.listFooter}>
-      <ThemedText
+      <Text
         style={[
           styles.listFooterText,
-          { color: Colors[colorScheme].textSecondary },
+          { color: theme.colors.onSurfaceVariant },
         ]}
       >
         {t("notifications.endOfList")}
-      </ThemedText>
+      </Text>
     </View>
   );
 
@@ -486,18 +495,20 @@ export default function NotificationsList({
   // );
 
   return (
-    <ThemedView style={[styles.container, listStyle]}>
+    <Surface style={[styles.container, { backgroundColor: theme.colors.background }, listStyle]} elevation={0}>
       {selectionMode && renderSelectionBar()}
 
       {!selectionMode && (
-        <NotificationFilters
-          onToggleCompactMode={handleToggleCompactMode}
-          isCompactMode={isCompactMode}
-          hideBucketSelector={hideBucketInfo}
-          onToggleMultiSelection={handleToggleMultiSelection}
-          selectedCount={selectedItems.size}
-          isMultiSelectionMode={selectionMode}
-        />
+        <View style={styles.filtersWrapper}>
+          <NotificationFilters
+            onToggleCompactMode={handleToggleCompactMode}
+            isCompactMode={isCompactMode}
+            hideBucketSelector={hideBucketInfo}
+            onToggleMultiSelection={handleToggleMultiSelection}
+            selectedCount={selectedItems.size}
+            isMultiSelectionMode={selectionMode}
+          />
+        </View>
       )}
 
       {customHeader}
@@ -517,8 +528,8 @@ export default function NotificationsList({
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={[Colors[colorScheme ?? "light"].tint]}
-            tintColor={Colors[colorScheme ?? "light"].tint}
+            colors={[theme.colors.primary] as any}
+            tintColor={theme.colors.primary as any}
           />
         }
         showsVerticalScrollIndicator
@@ -527,25 +538,23 @@ export default function NotificationsList({
       />
 
       {showScrollTop && (
-        <TouchableOpacity
+        <TouchableRipple
           onPress={() => {
             try {
               listRef.current?.scrollToOffset({ offset: 0, animated: true });
             } catch {}
           }}
-          activeOpacity={0.8}
           style={[
             styles.scrollTopFab,
             {
-              backgroundColor: Colors[colorScheme].tint,
-              shadowColor: "#000",
+              backgroundColor: theme.colors.elevation?.level2 || theme.colors.surface,
             },
           ]}
         >
-          <Icon name="expand" size="md" color="white" />
-        </TouchableOpacity>
+          <Icon source="arrow-up" size={20} color={theme.colors.onSurface} />
+        </TouchableRipple>
       )}
-    </ThemedView>
+    </Surface>
   );
 }
 
@@ -647,5 +656,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
+  },
+  filtersWrapper: {
+    marginBottom: 8,
   },
 });

@@ -776,7 +776,8 @@
         "12hours": "12 ore",
         "1day": "1 giorno",
         "3days": "3 giorni",
-        "1week": "1 settimana"
+        "1week": "1 settimana",
+        "2weeks": "2 settimane"
       }
     },
     "deliveryTypes": {
