@@ -2,17 +2,34 @@ import { useBadgeSync } from "@/hooks";
 import { useDownloadQueue } from "@/hooks/useMediaCache";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/services/app-context";
+import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useRef, useState } from "react";
+import { Animated, Platform, StyleSheet, View } from "react-native";
 import {
-  Animated,
-  Platform,
-  StyleSheet,
-  View,
-} from "react-native";
-import { ActivityIndicator, Button, Surface, Text, Icon, Appbar } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
+  ActivityIndicator,
+  Button,
+  Surface,
+  Text,
+  Icon,
+  Appbar,
+  useTheme,
+} from "react-native-paper";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { Href, useSegments } from "expo-router";
 import { LoginModal } from "./LoginModal";
 import UserDropdown from "./UserDropdown";
+
+// Routes that should show home button instead of back button
+const HOME_ROUTES: Href[] = [
+  "/(mobile)/(home)/bucket/[id]",
+  "/(mobile)/(home)/notification/[id]",
+];
+
+// Routes that should show back button
+const BACK_ROUTES: Href[] = [];
 
 export default function Header() {
   const {
@@ -21,15 +38,37 @@ export default function Header() {
     unreadCount,
     isMarkingAllAsRead,
   } = useBadgeSync();
-  const { isLoginModalOpen, closeLoginModal, isMainLoading, isLoadingGqlData, openLoginModal } =
-    useAppContext();
+  const {
+    isLoginModalOpen,
+    closeLoginModal,
+    isMainLoading,
+    isLoadingGqlData,
+    openLoginModal,
+  } = useAppContext();
   const { itemsInQueue, inProcessing } = useDownloadQueue();
   const { t } = useI18n();
-  const { push, connectionStatus: { getPriorityStatus, isUpdating, isCheckingUpdate } } = useAppContext();
+  const {
+    push,
+    connectionStatus: { getPriorityStatus, isUpdating, isCheckingUpdate },
+  } = useAppContext();
+  const { navigateToHome, navigateBack } = useNavigationUtils();
+  const segments = useSegments();
+  const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const [isRegistering, setIsRegistering] = useState(false);
+
+  // Determine current route
+  const currentRoute = `/${segments.join("/")}`;
+  const shouldShowHomeButton = HOME_ROUTES.some(
+    (route) => currentRoute === route
+  );
+  const shouldShowBackButton = BACK_ROUTES.some(
+    (route) => currentRoute === route
+  );
 
   const downloadBlinkAnim = useRef(new Animated.Value(1)).current;
   const markBlinkAnim = useRef(new Animated.Value(1)).current;
+  // console.log("currentRoute", currentRoute);
 
   // Status badge logic
   const status = getPriorityStatus();
@@ -137,37 +176,60 @@ export default function Header() {
     }
   }, [hasUnreadNotifications, isMarkingAllAsRead, markBlinkAnim]);
 
-
   return (
     <>
-      <SafeAreaView edges={["top"]}>
-        <Appbar.Header mode="small" elevated statusBarHeight={0} style={styles.appbar}>
+      <View
+        style={[
+          styles.safeArea,
+          { paddingTop: insets.top, backgroundColor: theme.colors.primary },
+        ]}
+      >
+        <Appbar.Header
+          mode="small"
+          elevated
+          statusBarHeight={0}
+          style={styles.appbar}
+        >
+          {/* Navigation Button */}
+          {shouldShowBackButton && (
+            <Appbar.BackAction onPress={navigateBack} mode="contained" />
+          )}
+          {shouldShowHomeButton && (
+            <Appbar.Action
+              icon="home"
+              onPress={navigateToHome}
+              mode="contained"
+            />
+          )}
+
           {/* Main Loading Indicator */}
           {(isMainLoading || isLoadingGqlData) && (
             <View style={styles.mainLoadingContainer}>
-              <Appbar.Action icon={() => (
-                <ActivityIndicator size="small" color="#fff" />
-              )} disabled style={styles.loadingIcon} />
+              <Appbar.Action
+                icon={() => <ActivityIndicator size="small" color="#fff" />}
+                disabled
+                style={styles.loadingIcon}
+              />
             </View>
           )}
 
-          {(hasUnreadNotifications && !isLoadingGqlData) && (
+          {hasUnreadNotifications && !isLoadingGqlData && (
             <View style={styles.markAllButtonContainer}>
               <Animated.View style={{ opacity: markBlinkAnim }}>
                 <Appbar.Action
                   onPress={handleMarkAllAsRead}
                   disabled={!hasUnreadNotifications || isMarkingAllAsRead}
-                  icon={() => (
+                  icon={() =>
                     isMarkingAllAsRead ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
                       <Icon source="check-all" size={20} color="#fff" />
                     )
-                  )}
+                  }
                   style={styles.markAllIcon}
                 />
               </Animated.View>
-              {(unreadCount > 0) && (
+              {unreadCount > 0 && (
                 <Surface style={styles.badge} elevation={3}>
                   {isLoadingGqlData ? (
                     <ActivityIndicator size="small" color="#fff" />
@@ -194,7 +256,10 @@ export default function Header() {
                 style={styles.downloadIcon}
               />
               <Surface style={styles.downloadQueueBadge} elevation={3}>
-                <Text variant="labelSmall" style={styles.downloadQueueBadgeText}>
+                <Text
+                  variant="labelSmall"
+                  style={styles.downloadQueueBadgeText}
+                >
                   {itemsInQueue > 99 ? "99+" : itemsInQueue.toString()}
                 </Text>
               </Surface>
@@ -242,7 +307,7 @@ export default function Header() {
           <View style={styles.spacer} />
           <UserDropdown />
         </Appbar.Header>
-      </SafeAreaView>
+      </View>
 
       <LoginModal visible={isLoginModalOpen} onClose={closeLoginModal} />
     </>
@@ -250,10 +315,19 @@ export default function Header() {
 }
 
 const styles = StyleSheet.create({
-      appbar: {
-        paddingVertical: 0,
-        minHeight: 48,
-      },
+  safeArea: {
+    zIndex: 1000,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  appbar: {
+    paddingVertical: 0,
+    paddingHorizontal: 15,
+    minHeight: 48,
+    backgroundColor: "transparent", // Trasparente perché il colore è nel container
+  },
   headerContainer: {
     flexDirection: "row",
     alignItems: "center",

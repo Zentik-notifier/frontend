@@ -1,14 +1,12 @@
 import BucketDeleteModal from "@/components/BucketDeleteModal";
 import BucketSharingSection from "@/components/BucketSharingSection";
 import CreateBucketForm from "@/components/CreateBucketForm";
-import RefreshableScrollView from "@/components/RefreshableScrollView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import IconButton from "@/components/ui/IconButton";
 import { Colors } from "@/constants/Colors";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
-import { Stack } from "expo-router";
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 
@@ -67,12 +65,6 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   return (
     <ScrollView>
       <ThemedView style={styles.container}>
-        <Stack.Screen
-          options={{
-            title: t("buckets.form.editTitle", { name: bucket?.name! }),
-            headerShown: true,
-          }}
-        />
         <View style={styles.content}>
           <CreateBucketForm bucketId={bucketId} />
 

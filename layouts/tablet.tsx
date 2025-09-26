@@ -3,33 +3,48 @@ import { useI18n } from "@/hooks";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { Stack } from "expo-router";
 import { Platform, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabletLayout() {
   const { t } = useI18n();
   const { isDesktop } = useDeviceType();
+  const insets = useSafeAreaInsets();
+
+  // Calcola l'altezza totale dell'header (safe area + appbar)
+  const headerHeight = insets.top + 64; // 48 è l'altezza dell'Appbar
 
   const content = (
-    <Stack>
-      <Stack.Screen
-        name="(tablet)/(home)"
-        options={{
-          headerTitle: t("common.home"),
-          header: () => <Header />,
-        }}
-      />
-      <Stack.Screen
-        name="(tablet)/(settings)"
-        options={{
-          headerTitle: t("common.settings"),
-        }}
-      />
-      <Stack.Screen
-        name="(tablet)/(admin)"
-        options={{
-          headerTitle: t("administration.title"),
-        }}
-      />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Header />
+      <View style={{ flex: 1, paddingTop: headerHeight }}>
+        <Stack 
+          screenOptions={{ 
+            headerShown: false, // Header custom, non mostrare quello di default
+            animation: 'slide_from_right',
+            animationDuration: 200,
+          }}
+        >
+          <Stack.Screen
+            name="(tablet)/(home)"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="(tablet)/(settings)"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="(tablet)/(admin)"
+            options={{
+              headerShown: false,
+            }}
+          />
+        </Stack>
+      </View>
+    </View>
   );
 
   if (isDesktop) {

@@ -5,10 +5,17 @@ import { useAppContext } from "@/services/app-context";
 import { useUserSettings, userSettings } from "@/services/user-settings";
 import { useNavigationUtils } from "@/utils/navigation";
 import * as Clipboard from "expo-clipboard";
-import { Stack } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
-import { Badge, Button, Icon, IconButton, Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
+import {
+  Badge,
+  Icon,
+  IconButton,
+  Surface,
+  Text,
+  TouchableRipple,
+  useTheme
+} from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import MessageBuilder from "./MessageBuilder";
 import NotificationsList from "./NotificationsList";
@@ -103,7 +110,12 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
             {bucket?.name}
           </Text>
           {bucket?.description && (
-            <Text style={[styles.bucketDescription, { color: theme.colors.onSurfaceVariant }]}>
+            <Text
+              style={[
+                styles.bucketDescription,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
               {bucket.description}
             </Text>
           )}
@@ -111,8 +123,17 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
           {/* Statistics */}
           <View style={styles.bucketStats}>
             <View style={styles.statItem}>
-              <Icon source="bell-outline" size={16} color={theme.colors.onSurfaceVariant} />
-              <Text style={[styles.statText, { color: theme.colors.onSurfaceVariant }]}>
+              <Icon
+                source="bell-outline"
+                size={16}
+                color={theme.colors.onSurfaceVariant}
+              />
+              <Text
+                style={[
+                  styles.statText,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
                 {bucketNotifications.length} {t("buckets.item.messages")}
               </Text>
             </View>
@@ -130,7 +151,9 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
               icon="check-all"
               size={18}
               onPress={handleMarkAllAsRead}
-              disabled={unreadNotifications.length === 0 || markAllAsReadLoading}
+              disabled={
+                unreadNotifications.length === 0 || markAllAsReadLoading
+              }
               // iconColor={unreadNotifications.length > 0 ? theme.colors.onPrimary : theme.colors.onSurface}
             />
             {unreadNotifications.length > 0 && (
@@ -173,18 +196,42 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   );
 
   const renderMessageBuilderToggle = () => (
-    <View style={[styles.messageBuilderToggleContainer, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[
+        styles.messageBuilderToggleContainer,
+        { backgroundColor: theme.colors.background },
+      ]}
+    >
       <TouchableRipple
         style={[
           styles.messageBuilderToggleButton,
-          { backgroundColor: theme.colors.elevation?.level1 || theme.colors.surface,
-            borderColor: theme.colors.outline }
+          {
+            backgroundColor:
+              theme.colors.elevation?.level1 || theme.colors.surface,
+            borderColor: theme.colors.outline,
+          },
         ]}
         onPress={() => setIsMessageBuilderVisible(!isMessageBuilderVisible)}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <Icon source="plus-circle-outline" size={24} color={theme.colors.primary} />
-          <Text style={[styles.messageBuilderToggleText, { color: theme.colors.onSurface }]}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          <Icon
+            source="plus-circle-outline"
+            size={24}
+            color={theme.colors.primary}
+          />
+          <Text
+            style={[
+              styles.messageBuilderToggleText,
+              { color: theme.colors.onSurface },
+            ]}
+          >
             {t("buckets.composeMessage")}
           </Text>
           <Icon
@@ -202,15 +249,19 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   }
 
   return (
-    <Surface style={[styles.container, { backgroundColor: theme.colors.background }]} elevation={0}>
-      <Stack.Screen
-        options={{
-          title: bucket?.name,
-          headerShown: true,
-        }}
-      />
+    <Surface
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      elevation={0}
+    >
       {/* Sticky Header with Bucket Info */}
-      <View style={[styles.stickyHeader, { backgroundColor: theme.colors.background }]}>{renderBucketHeader()}</View>
+      <View
+        style={[
+          styles.stickyHeader,
+          { backgroundColor: theme.colors.background },
+        ]}
+      >
+        {renderBucketHeader()}
+      </View>
 
       {/* Notifications List */}
       <NotificationsList
@@ -233,7 +284,10 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
             ]}
           >
             <View style={styles.messageBuilderDragHandle} />
-            <IconButton icon="close" onPress={() => setIsMessageBuilderVisible(false)} />
+            <IconButton
+              icon="close"
+              onPress={() => setIsMessageBuilderVisible(false)}
+            />
           </View>
 
           <ScrollView
