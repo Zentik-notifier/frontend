@@ -1,6 +1,5 @@
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useNotificationUtils } from "@/hooks/useNotificationUtils";
-import { useColorScheme } from "@/hooks/useTheme";
 import React from "react";
 import {
   StyleProp,
@@ -10,8 +9,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { Colors } from "../constants/Colors";
-import Icon from "./ui/Icon";
+import { Icon, useTheme } from "react-native-paper";
 
 interface MediaTypeIconProps {
   mediaType: MediaType;
@@ -34,7 +32,7 @@ export const MediaTypeIcon: React.FC<MediaTypeIconProps> = ({
   base,
   label,
 }) => {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { getMediaTypeIcon, getMediaTypeFriendlyName, getMediaTypeColor } =
     useNotificationUtils();
 
@@ -44,8 +42,8 @@ export const MediaTypeIcon: React.FC<MediaTypeIconProps> = ({
 
   // Determine colors based on props and theme
   const iconColor =
-    base || secondary ? Colors[colorScheme].text : mediaTypeColor;
-  const textColor = base ? Colors[colorScheme].text : mediaTypeColor;
+    base || secondary ? theme.colors.onSurface : mediaTypeColor;
+  const textColor = base ? theme.colors.onSurface : mediaTypeColor;
 
   return (
     <View style={[styles.container, style]}>
@@ -55,7 +53,7 @@ export const MediaTypeIcon: React.FC<MediaTypeIconProps> = ({
           secondary && { backgroundColor: mediaTypeColor },
         ]}
       >
-        <Icon name={iconName} size={size} color={iconColor} />
+        <Icon source={iconName} size={size} color={iconColor} />
       </View>
       {showLabel && (
         <Text style={[styles.label, { color: textColor }, textStyle]}>

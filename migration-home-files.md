@@ -1,10 +1,5 @@
 # Home module - Lista file da migrare a react-native-paper
 
-TODO:
-- InlineMenu dovrebbe aprirsi di lato all' anchor e non sotto/sopra
-- L'header del menu in UserDropdown ha fin troppo padding, dovrebbe essere molto meno
-- In galleryFilters, stats info dovrebbe essere un inlineMenu senza click actions
-
 Ordine consigliato (dalle entrypoint ai componenti annidati):
 
 1. app/_layout.tsx

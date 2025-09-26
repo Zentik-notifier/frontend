@@ -9,6 +9,7 @@ import React, {
   useReducer,
   ReactNode,
   useMemo,
+  useEffect,
 } from "react";
 
 // Types
@@ -99,18 +100,18 @@ interface GalleryContextType {
   state: GalleryState;
   dispatch: React.Dispatch<GalleryAction>;
   // Helper functions
+  handleSetFilteredMedia: (media: CacheItem[]) => void;
+  handleSetSections: (sections: GallerySection[]) => void;
+  handleSetFlatOrder: (flatOrder: CacheItem[]) => void;
   handleToggleMultiSelection: () => void;
   handleToggleItemSelection: (itemId: string) => void;
-  handleSelectAll: (mediaItems: any[]) => void;
+  handleSelectAll: () => void;
   handleDeselectAll: () => void;
   handleCloseSelectionMode: () => void;
   handleMediaTypesChange: (types: Set<MediaType>) => void;
   handleShowFiltersModal: () => void;
   handleHideFiltersModal: () => void;
   handleDeleteSelected: () => Promise<void>;
-  filteredMedia: CacheItem[];
-  sections: GallerySection[];
-  flatOrder: CacheItem[];
 }
 
 const GalleryContext = createContext<GalleryContextType | undefined>(undefined);
@@ -127,6 +128,18 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
   const { userSettings } = useAppContext();
   const numColumns = userSettings.settings.gallery.gridSize;
 
+  const handleSetFilteredMedia = (media: CacheItem[]) => {
+    dispatch({ type: "SET_FILTERED_MEDIA", payload: media });
+  };
+
+  const handleSetSections = (sections: GallerySection[]) => {
+    dispatch({ type: "SET_SECTIONS", payload: sections });
+  };
+
+  const handleSetFlatOrder = (flatOrder: CacheItem[]) => {
+    dispatch({ type: "SET_FLAT_ORDER", payload: flatOrder });
+  };
+
   const handleToggleMultiSelection = () => {
     dispatch({ type: "SET_SELECTION_MODE", payload: !state.selectionMode });
   };
@@ -135,8 +148,8 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
     dispatch({ type: "TOGGLE_ITEM_SELECTION", payload: itemId });
   };
 
-  const handleSelectAll = (mediaItems: any[]) => {
-    const allIds = new Set(mediaItems.map((item) => item.key));
+  const handleSelectAll = () => {
+    const allIds = new Set(state.filteredMedia.map((item) => item.key));
     dispatch({ type: "SET_SELECTED_ITEMS", payload: allIds });
   };
 
@@ -179,7 +192,24 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
     }
   };
 
-  const { filteredMedia, sections, flatOrder } = useMemo(() => {
+  const value: GalleryContextType = {
+    state,
+    dispatch,
+    handleSetFilteredMedia,
+    handleSetSections,
+    handleSetFlatOrder,
+    handleToggleMultiSelection,
+    handleToggleItemSelection,
+    handleSelectAll,
+    handleDeselectAll,
+    handleCloseSelectionMode,
+    handleMediaTypesChange,
+    handleShowFiltersModal,
+    handleHideFiltersModal,
+    handleDeleteSelected,
+  };
+
+  useEffect(() => {
     const allWithIds = cachedItems.map((item) => ({
       ...item,
       notificationDate: item.notificationDate || item.downloadedAt,
@@ -262,7 +292,9 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
       ...older,
     ];
 
-    return { filteredMedia, sections, flatOrder };
+    handleSetFilteredMedia(filteredMedia);
+    handleSetSections(sections);
+    handleSetFlatOrder(flatOrder);
   }, [
     cachedItems,
     state.selectedMediaTypes,
@@ -270,24 +302,6 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
     numColumns,
     t,
   ]);
-  console.log("sections", sections);
-
-  const value: GalleryContextType = {
-    state,
-    dispatch,
-    handleToggleMultiSelection,
-    handleToggleItemSelection,
-    handleSelectAll,
-    handleDeselectAll,
-    handleCloseSelectionMode,
-    handleMediaTypesChange,
-    handleShowFiltersModal,
-    handleHideFiltersModal,
-    handleDeleteSelected,
-    filteredMedia,
-    sections,
-    flatOrder,
-  };
 
   return (
     <GalleryContext.Provider value={value}>{children}</GalleryContext.Provider>

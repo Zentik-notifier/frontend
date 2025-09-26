@@ -3,6 +3,7 @@ import React, { createContext, useContext, useReducer, ReactNode } from "react";
 
 // Types
 interface NotificationsState {
+  allNotifications: NotificationFragment[];
   selectionMode: boolean;
   selectedItems: Set<string>;
   isCompactMode: boolean;
@@ -14,6 +15,7 @@ interface NotificationsState {
 }
 
 type NotificationsAction =
+  | { type: "SET_ALL_NOTIFICATIONS"; payload: NotificationFragment[] }
   | { type: "SET_SELECTION_MODE"; payload: boolean }
   | { type: "SET_SELECTED_ITEMS"; payload: Set<string> }
   | { type: "TOGGLE_ITEM_SELECTION"; payload: string }
@@ -27,6 +29,7 @@ type NotificationsAction =
 
 // Initial state
 const initialState: NotificationsState = {
+  allNotifications: [],
   selectionMode: false,
   selectedItems: new Set(),
   isCompactMode: false,
@@ -43,6 +46,8 @@ function notificationsReducer(
   action: NotificationsAction
 ): NotificationsState {
   switch (action.type) {
+    case "SET_ALL_NOTIFICATIONS":
+      return { ...state, allNotifications: action.payload };
     case "SET_SELECTION_MODE":
       return {
         ...state,
@@ -83,9 +88,10 @@ interface NotificationsContextType {
   state: NotificationsState;
   dispatch: React.Dispatch<NotificationsAction>;
   // Helper functions
+  handleSetAllNotifications: (notifications: NotificationFragment[]) => void;
   handleToggleMultiSelection: () => void;
   handleToggleItemSelection: (itemId: string) => void;
-  handleSelectAll: (notifications: NotificationFragment[]) => void;
+  handleSelectAll: () => void;
   handleDeselectAll: () => void;
   handleCloseSelectionMode: () => void;
   handleToggleCompactMode: () => void;
@@ -93,17 +99,25 @@ interface NotificationsContextType {
   handleHideFiltersModal: () => void;
 }
 
-const NotificationsContext = createContext<NotificationsContextType | undefined>(
-  undefined
-);
+const NotificationsContext = createContext<
+  NotificationsContextType | undefined
+>(undefined);
 
 // Provider
 interface NotificationsProviderProps {
   children: ReactNode;
 }
 
-export function NotificationsProvider({ children }: NotificationsProviderProps) {
-  const [state, dispatch] = useReducer(notificationsReducer, initialState);
+export function NotificationsProvider({
+  children,
+}: NotificationsProviderProps) {
+  const [state, dispatch] = useReducer(notificationsReducer, {
+    ...initialState,
+  });
+
+  const handleSetAllNotifications = (notifications: NotificationFragment[]) => {
+    dispatch({ type: "SET_ALL_NOTIFICATIONS", payload: notifications });
+  };
 
   const handleToggleMultiSelection = () => {
     dispatch({ type: "SET_SELECTION_MODE", payload: !state.selectionMode });
@@ -113,8 +127,9 @@ export function NotificationsProvider({ children }: NotificationsProviderProps) 
     dispatch({ type: "TOGGLE_ITEM_SELECTION", payload: itemId });
   };
 
-  const handleSelectAll = (notifications: NotificationFragment[]) => {
-    const allIds = new Set(notifications.map((n) => n.id));
+  const handleSelectAll = () => {
+    console.log("handleSelectAll", state.allNotifications);
+    const allIds = new Set(state.allNotifications.map((n) => n.id));
     dispatch({ type: "SET_SELECTED_ITEMS", payload: allIds });
   };
 
@@ -141,6 +156,7 @@ export function NotificationsProvider({ children }: NotificationsProviderProps) 
   const value: NotificationsContextType = {
     state,
     dispatch,
+    handleSetAllNotifications,
     handleToggleMultiSelection,
     handleToggleItemSelection,
     handleSelectAll,
@@ -162,7 +178,9 @@ export function NotificationsProvider({ children }: NotificationsProviderProps) 
 export function useNotifications() {
   const context = useContext(NotificationsContext);
   if (context === undefined) {
-    throw new Error("useNotifications must be used within a NotificationsProvider");
+    throw new Error(
+      "useNotifications must be used within a NotificationsProvider"
+    );
   }
   return context;
 }

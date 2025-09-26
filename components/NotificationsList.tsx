@@ -15,7 +15,13 @@ import {
 import { useAppContext } from "@/services/app-context";
 import { userSettings } from "@/services/user-settings";
 import { FlashList } from "@shopify/flash-list";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Alert,
   RefreshControl,
@@ -74,29 +80,20 @@ export default function NotificationsList({
   const [visibleItems, setVisibileItems] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Use notifications context
   const {
-    state: {
-      selectionMode,
-      selectedItems,
-      isCompactMode,
-      markAsReadLoading,
-      markAsUnreadLoading,
-      deleteLoading,
-    },
-    handleToggleMultiSelection,
-    handleToggleItemSelection,
-    handleSelectAll,
-    handleDeselectAll,
+    state: { selectionMode, selectedItems, isCompactMode },
     handleCloseSelectionMode,
-    handleToggleCompactMode,
+    handleSetAllNotifications,
     dispatch,
   } = useNotifications();
+
+  useEffect(() => {
+    handleSetAllNotifications(notifications);
+  }, [notifications]);
 
   const {
     userSettings: {
       settings: { notificationFilters },
-      setIsCompactMode,
     },
   } = useAppContext();
 

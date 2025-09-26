@@ -680,6 +680,7 @@ export interface TranslationKey {
     today: string;
     yesterday: string;
     cachedItems: string;
+    statsByType: string;
   };
   gallerySettings: {
     autoPlay: string;

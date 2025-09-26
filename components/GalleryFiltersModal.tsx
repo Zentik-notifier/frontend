@@ -3,7 +3,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/services/app-context";
 import { useGallery } from "@/contexts/GalleryContext";
 import React from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { StyleSheet, View, ScrollView, Dimensions } from "react-native";
 import {
   Button,
   Icon,
@@ -13,14 +13,11 @@ import {
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
-import SimpleSlider from "./SimpleSlider";
 import { MediaTypeIcon } from "./MediaTypeIcon";
 
 const availableMediaTypes = Object.values(MediaType);
 
 export default function GalleryFiltersModal() {
-  const theme = useTheme();
   const { t } = useI18n();
   const { userSettings } = useAppContext();
 
@@ -30,6 +27,13 @@ export default function GalleryFiltersModal() {
     handleMediaTypesChange,
     handleHideFiltersModal,
   } = useGallery();
+
+  // Default gallery settings
+  const gallerySettings = {
+    autoPlay: false,
+    showFaultyMedias: false,
+    gridSize: 3,
+  };
 
   const toggleMediaType = (mediaType: MediaType) => {
     const newSelectedTypes = new Set(selectedMediaTypes);
@@ -52,36 +56,80 @@ export default function GalleryFiltersModal() {
   const isAllSelected = selectedMediaTypes.size === availableMediaTypes.length;
   const isNoneSelected = selectedMediaTypes.size === 0;
 
+  const handleAutoPlayChange = (autoPlay: boolean) => {
+    // TODO: Implement gallery settings persistence
+    console.log('Auto play changed:', autoPlay);
+  };
+
+  const handleShowFaultyMediasChange = (showFaultyMedias: boolean) => {
+    // TODO: Implement gallery settings persistence
+    console.log('Show faulty medias changed:', showFaultyMedias);
+  };
+
+  const handleGridSizeChange = (gridSize: number) => {
+    // TODO: Implement gallery settings persistence
+    console.log('Grid size changed:', gridSize);
+  };
+
+  const clearAllFilters = () => {
+    handleMediaTypesChange(new Set());
+    // TODO: Reset gallery settings
+  };
+
+  const hasActiveFilters =
+    selectedMediaTypes.size > 0 ||
+    gallerySettings.autoPlay ||
+    gallerySettings.showFaultyMedias ||
+    gallerySettings.gridSize !== 3;
+
+  const theme = useTheme();
+
+  const deviceHeight = Dimensions.get("window").height;
+  const containerStyle = {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    overflow: "hidden",
+    marginHorizontal: 16,
+    marginVertical: 24,
+    maxHeight: deviceHeight * 0.8,
+  } as const;
+
   return (
-    <Portal>
-      <Modal
-        visible={showFiltersModal}
-        onDismiss={handleHideFiltersModal}
-        contentContainerStyle={[
-          styles.modalContainer,
-          { backgroundColor: theme.colors.surface },
-        ]}
-      >
-        <SafeAreaView style={styles.safeArea}>
-          {/* Header */}
+    <>
+      <Portal>
+        <Modal
+          visible={showFiltersModal}
+          onDismiss={handleHideFiltersModal}
+          contentContainerStyle={containerStyle}
+          dismissableBackButton
+        >
           <View
-            style={[styles.header, { borderBottomColor: theme.colors.outline }]}
+            style={[
+              styles.header,
+              {
+                borderBottomColor: theme.colors.outline,
+                backgroundColor: "transparent",
+              },
+            ]}
           >
             <View style={styles.headerLeft}>
               <Icon source="filter" size={24} color={theme.colors.primary} />
-              <Text
-                style={[styles.headerTitle, { color: theme.colors.onSurface }]}
-              >
-                {t("filters.title")}
-              </Text>
+              <Text style={styles.headerTitle}>{t("gallerySettings.title")}</Text>
             </View>
             <View style={styles.headerRight}>
+              {hasActiveFilters && (
+                <Button
+                  mode="contained-tonal"
+                  onPress={clearAllFilters}
+                  icon="refresh"
+                >
+                  {t("filters.clearAll")}
+                </Button>
+              )}
               <TouchableRipple
-                style={[
-                  styles.closeButton,
-                  { backgroundColor: theme.colors.surfaceVariant },
-                ]}
+                style={[styles.closeButton]}
                 onPress={handleHideFiltersModal}
+                borderless
               >
                 <Icon source="close" size={20} color={theme.colors.onSurface} />
               </TouchableRipple>
@@ -89,10 +137,11 @@ export default function GalleryFiltersModal() {
           </View>
 
           <ScrollView
-            style={styles.content}
-            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              padding: 20,
+            }}
           >
-            {/* Media Types Section */}
+            {/* Media Types */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text
@@ -101,7 +150,7 @@ export default function GalleryFiltersModal() {
                     { color: theme.colors.onSurface },
                   ]}
                 >
-                  {t("medias.filters.selectMediaTypes")}
+                  Media Types
                 </Text>
                 <TouchableRipple
                   style={[
@@ -110,226 +159,265 @@ export default function GalleryFiltersModal() {
                       borderColor: theme.colors.outline,
                       backgroundColor: isAllSelected
                         ? theme.colors.primary
-                        : theme.colors.surface,
+                        : theme.colors.elevation?.level1 || theme.colors.surface,
                     },
                   ]}
-                  onPress={
-                    isAllSelected ? deselectAllMediaTypes : selectAllMediaTypes
-                  }
+                  onPress={isAllSelected ? deselectAllMediaTypes : selectAllMediaTypes}
                 >
-                  <View>
-                    <Icon
-                      source={isAllSelected ? "close" : "check-all"}
-                      size={18}
-                      color={
-                        isAllSelected
-                          ? theme.colors.onPrimary
-                          : theme.colors.onSurfaceVariant
-                      }
-                    />
-                  </View>
+                  <Icon
+                    source={isAllSelected ? "close" : "check"}
+                    size={20}
+                    color={
+                      isAllSelected
+                        ? theme.colors.onPrimary
+                        : theme.colors.onSurfaceVariant
+                    }
+                  />
                 </TouchableRipple>
               </View>
-
-              {/* Media Type Options */}
-              {availableMediaTypes.map((mediaType) => (
-                <TouchableRipple
-                  key={mediaType}
-                  style={[
-                    styles.optionItem,
-                    { borderBottomColor: theme.colors.outline },
-                  ]}
-                  onPress={() => toggleMediaType(mediaType)}
-                >
-                  <View style={styles.optionContent}>
-                    <View style={styles.optionLeft}>
+              <View style={styles.mediaTypesGrid}>
+                {availableMediaTypes.map((mediaType) => (
+                  <TouchableRipple
+                    key={mediaType}
+                    style={[
+                      styles.mediaTypeItem,
+                      {
+                        borderColor: theme.colors.outline,
+                        backgroundColor: selectedMediaTypes.has(mediaType)
+                          ? theme.colors.secondaryContainer
+                          : theme.colors.elevation?.level1 || theme.colors.surface,
+                      },
+                    ]}
+                    onPress={() => toggleMediaType(mediaType)}
+                  >
+                    <View style={styles.mediaTypeContent}>
                       <MediaTypeIcon
                         mediaType={mediaType}
-                        size={18}
-                        showLabel
-                        textStyle={{ fontSize: 14 }}
+                        size={20}
+                        showLabel={false}
                       />
-                    </View>
-
-                    <View
-                      style={[
-                        styles.checkbox,
-                        { borderColor: theme.colors.outline },
-                        selectedMediaTypes.has(mediaType) && [
-                          styles.checkboxSelected,
+                      <Text
+                        style={[
+                          styles.mediaTypeText,
                           {
-                            backgroundColor: theme.colors.primary,
-                            borderColor: theme.colors.primary,
+                            color: selectedMediaTypes.has(mediaType)
+                              ? theme.colors.primary
+                              : theme.colors.onSurface,
                           },
-                        ],
+                        ]}
+                      >
+                        {mediaType}
+                      </Text>
+                    </View>
+                  </TouchableRipple>
+                ))}
+              </View>
+            </View>
+
+            {/* Auto Play Setting */}
+            <View style={styles.section}>
+              <Text
+                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
+              >
+                {t("gallerySettings.autoPlay")}
+              </Text>
+              <TouchableRipple
+                style={[
+                  styles.settingItem,
+                  {
+                    borderColor: theme.colors.outline,
+                    backgroundColor: gallerySettings.autoPlay
+                      ? theme.colors.secondaryContainer
+                      : theme.colors.elevation?.level1 || theme.colors.surface,
+                  },
+                ]}
+                onPress={() => handleAutoPlayChange(!gallerySettings.autoPlay)}
+              >
+                <View style={styles.settingItemContent}>
+                  <Icon
+                    source="play"
+                    size={20}
+                    color={
+                      gallerySettings.autoPlay
+                        ? theme.colors.primary
+                        : theme.colors.onSurfaceVariant
+                    }
+                  />
+                  <View style={styles.settingItemTextContainer}>
+                    <Text
+                      style={[
+                        styles.settingItemText,
+                        {
+                          color: gallerySettings.autoPlay
+                            ? theme.colors.primary
+                            : theme.colors.onSurface,
+                        },
                       ]}
                     >
-                      {selectedMediaTypes.has(mediaType) && (
-                        <Icon
-                          source="check"
-                          size={14}
-                          color={theme.colors.onPrimary}
-                        />
-                      )}
-                    </View>
+                      {t("gallerySettings.autoPlay")}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.settingItemDescription,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {t("gallerySettings.autoPlayDescription")}
+                    </Text>
                   </View>
-                </TouchableRipple>
-              ))}
-            </View>
-
-            {/* Gallery Settings Section */}
-            {/* Auto Play Setting */}
-            <TouchableRipple
-              style={styles.settingItem}
-              onPress={() => {
-                userSettings.updateGallerySettings({
-                  autoPlay: !userSettings.settings.gallery.autoPlay,
-                });
-              }}
-            >
-              <View style={styles.settingItemContent}>
-                <View style={styles.settingContent}>
-                  <Text
-                    style={[
-                      styles.settingLabel,
-                      { color: theme.colors.onSurface },
-                    ]}
-                  >
-                    {t("gallerySettings.autoPlay")}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.settingDescription,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
-                  >
-                    {t("gallerySettings.autoPlayDescription")}
-                  </Text>
                 </View>
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: userSettings.settings.gallery.autoPlay
-                        ? theme.colors.primary
-                        : theme.colors.surfaceVariant,
-                      borderColor: theme.colors.outline,
-                    },
-                  ]}
-                >
-                  {userSettings.settings.gallery.autoPlay && (
-                    <Icon
-                      source="check"
-                      size={14}
-                      color={theme.colors.onPrimary}
-                    />
-                  )}
-                </View>
-              </View>
-            </TouchableRipple>
-
-            {/* Grid Size Slider */}
-            <View style={styles.settingItem}>
-              <View style={styles.settingContent}>
-                <Text
-                  style={[
-                    styles.settingLabel,
-                    { color: theme.colors.onSurface },
-                  ]}
-                >
-                  {t("gallerySettings.gridSize")}
-                </Text>
-                <Text
-                  style={[
-                    styles.settingDescription,
-                    { color: theme.colors.onSurfaceVariant },
-                  ]}
-                >
-                  {t("gallerySettings.gridSizeDescription")}
-                </Text>
-              </View>
+              </TouchableRipple>
             </View>
-            <SimpleSlider
-              value={userSettings.settings.gallery.gridSize}
-              min={2}
-              max={5}
-              step={1}
-              onChange={(v) => userSettings.setGalleryGridSize?.(v)}
-            />
 
             {/* Show Faulty Medias Setting */}
-            <TouchableRipple
-              style={styles.settingItem}
-              onPress={() => {
-                userSettings.updateGallerySettings({
-                  showFaultyMedias:
-                    !userSettings.settings.gallery.showFaultyMedias,
-                });
-              }}
-            >
-              <View style={styles.settingItemContent}>
-                <View style={styles.settingContent}>
+            <View style={styles.section}>
+              <Text
+                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
+              >
+                {t("gallerySettings.showFaultyMedias")}
+              </Text>
+              <TouchableRipple
+                style={[
+                  styles.settingItem,
+                  {
+                    borderColor: theme.colors.outline,
+                    backgroundColor: gallerySettings.showFaultyMedias
+                      ? theme.colors.secondaryContainer
+                      : theme.colors.elevation?.level1 || theme.colors.surface,
+                  },
+                ]}
+                onPress={() =>
+                  handleShowFaultyMediasChange(!gallerySettings.showFaultyMedias)
+                }
+              >
+                <View style={styles.settingItemContent}>
+                  <Icon
+                    source="alert-circle"
+                    size={20}
+                    color={
+                      gallerySettings.showFaultyMedias
+                        ? theme.colors.primary
+                        : theme.colors.onSurfaceVariant
+                    }
+                  />
+                  <View style={styles.settingItemTextContainer}>
+                    <Text
+                      style={[
+                        styles.settingItemText,
+                        {
+                          color: gallerySettings.showFaultyMedias
+                            ? theme.colors.primary
+                            : theme.colors.onSurface,
+                        },
+                      ]}
+                    >
+                      {t("gallerySettings.showFaultyMedias")}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.settingItemDescription,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {t("gallerySettings.showFaultyMediasDescription")}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableRipple>
+            </View>
+
+            {/* Grid Size */}
+            <View style={styles.section}>
+              <Text
+                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
+              >
+                {t("gallerySettings.gridSize")}
+              </Text>
+              <View style={styles.gridSizeButtons}>
+                {[2, 3, 4, 5].map((size) => (
+                  <TouchableRipple
+                    key={size}
+                    style={[
+                      styles.gridSizeButton,
+                      {
+                        borderColor: theme.colors.outline,
+                        backgroundColor:
+                          gallerySettings.gridSize === size
+                            ? theme.colors.primary
+                            : theme.colors.elevation?.level1 ||
+                              theme.colors.surface,
+                      },
+                    ]}
+                    onPress={() => handleGridSizeChange(size)}
+                  >
+                    <Text
+                      style={[
+                        styles.gridSizeButtonText,
+                        {
+                          color:
+                            gallerySettings.gridSize === size
+                              ? theme.colors.onPrimary
+                              : theme.colors.onSurface,
+                        },
+                      ]}
+                    >
+                      {size}
+                    </Text>
+                  </TouchableRipple>
+                ))}
+              </View>
+            </View>
+
+            {hasActiveFilters && (
+              <View
+                style={[
+                  styles.footer,
+                  { borderTopColor: theme.colors.outline },
+                ]}
+              >
+                <View style={styles.footerContent}>
+                  <Icon
+                    source="filter"
+                    size={16}
+                    color={theme.colors.primary}
+                  />
                   <Text
                     style={[
-                      styles.settingLabel,
+                      styles.footerText,
                       { color: theme.colors.onSurface },
                     ]}
                   >
-                    {t("gallerySettings.showFaultyMedias")}
+                    {getActiveFiltersCount() === 1
+                      ? t("filters.activeFilters", {
+                          count: getActiveFiltersCount(),
+                        })
+                      : t("filters.activeFiltersPlural", {
+                          count: getActiveFiltersCount(),
+                        })}
                   </Text>
-                  <Text
-                    style={[
-                      styles.settingDescription,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
-                  >
-                    {t("gallerySettings.showFaultyMediasDescription")}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: userSettings.settings.gallery
-                        .showFaultyMedias
-                        ? theme.colors.primary
-                        : theme.colors.surfaceVariant,
-                      borderColor: theme.colors.outline,
-                    },
-                  ]}
-                >
-                  {userSettings.settings.gallery.showFaultyMedias && (
-                    <Icon
-                      source="check"
-                      size={14}
-                      color={theme.colors.onPrimary}
-                    />
-                  )}
                 </View>
               </View>
-            </TouchableRipple>
+            )}
           </ScrollView>
-        </SafeAreaView>
-      </Modal>
-    </Portal>
+        </Modal>
+      </Portal>
+    </>
   );
 }
 
+function getActiveFiltersCount(): number {
+  let count = 0;
+  // This would need access to the current state, but for now return 0
+  return count;
+}
+
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    margin: 20,
-    borderRadius: 12,
-  },
-  safeArea: {
-    flex: 1,
-  },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    height: 60,
     borderBottomWidth: 1,
   },
   headerLeft: {
@@ -346,6 +434,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
+  clearAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  clearAllText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "white",
+  },
   closeButton: {
     width: 32,
     height: 32,
@@ -358,7 +459,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   section: {
-    marginVertical: 16,
+    marginBottom: 15,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -380,54 +481,79 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     position: "relative",
   },
-  optionItem: {
-    paddingVertical: 10,
-    borderBottomWidth: 1,
+  mediaTypesGrid: {
+    gap: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
   },
-  optionContent: {
+  mediaTypeItem: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexBasis: "48%",
+  },
+  mediaTypeContent: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 12,
   },
-  optionLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    flex: 1,
+  mediaTypeText: {
+    fontSize: 16,
+    fontWeight: "500",
   },
   settingItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "transparent",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   settingItemContent: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
   },
-  settingContent: {
+  settingItemTextContainer: {
     flex: 1,
-    marginRight: 12,
+    gap: 4,
   },
-  settingLabel: {
+  settingItemText: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  settingItemDescription: {
     fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 4,
+    lineHeight: 18,
   },
-  settingDescription: {
-    fontSize: 12,
-    lineHeight: 16,
-    opacity: 0.7,
+  gridSizeButtons: {
+    gap: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
   },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    borderWidth: 2,
+  gridSizeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexBasis: "22%",
     alignItems: "center",
     justifyContent: "center",
   },
-  checkboxSelected: {
-    // Stile gestito dinamicamente
+  gridSizeButtonText: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  footer: {
+    borderTopWidth: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  footerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  footerText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
 });

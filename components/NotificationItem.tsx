@@ -21,9 +21,17 @@ import {
   Alert,
   StyleSheet,
   TouchableWithoutFeedback,
-  View
+  View,
 } from "react-native";
-import { Divider, IconButton, Icon as PaperIcon, TouchableRipple, useTheme, Surface, Text } from "react-native-paper";
+import {
+  Divider,
+  IconButton,
+  Icon as PaperIcon,
+  TouchableRipple,
+  useTheme,
+  Surface,
+  Text,
+} from "react-native-paper";
 import InlineMenu, { InlineMenuItem } from "./ui/InlineMenu";
 import BucketIcon from "./BucketIcon";
 import { CachedMedia } from "./CachedMedia";
@@ -33,7 +41,8 @@ import { filteredActions } from "./NotificationActionsButton";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
 import SwipeableItem from "./SwipeableItem";
 // Replaced ThemedText/ThemedView with Paper Text/Surface
-import { Icon, SmartTextRenderer } from "./ui";
+import { SmartTextRenderer } from "./ui";
+import { Icon } from "react-native-paper";
 
 // Dynamic height calculator to keep FlashList and item in sync
 export function getNotificationItemHeight(
@@ -225,8 +234,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     const items: InlineMenuItem[] = [
       {
         id: "toggleRead",
-        label: isRead ? t("swipeActions.markAsUnread.label") : t("swipeActions.markAsRead.label"),
-        icon: isRead ? "view" : "view-off",
+        label: isRead
+          ? t("swipeActions.markAsUnread.label")
+          : t("swipeActions.markAsRead.label"),
+        icon: isRead ? "eye-off" : "eye",
         onPress: () => {
           isRead ? handleMarkAsUnread() : handleMarkAsRead();
         },
@@ -257,7 +268,16 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     }
 
     return items;
-  }, [isRead, t, handleMarkAsUnread, handleMarkAsRead, handleDelete, hasActions, actions, getActionTypeIcon, executeAction, notification.id]);
+  }, [
+    isRead,
+    t,
+    handleDelete,
+    hasActions,
+    actions,
+    getActionTypeIcon,
+    executeAction,
+    notification.id,
+  ]);
 
   // const itemHeight = getNotificationItemHeight(notification, isCompactMode);
   const bodyMaxLines = isCompactMode
@@ -370,12 +390,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             )}
 
             {/* First row */}
-            <Surface
-                style={[styles.firstRow]}
-              elevation={0}
-            >
+            <Surface style={[styles.firstRow]} elevation={0}>
               {isMultiSelectionMode ? (
-                <TouchableRipple onPress={onToggleSelection} borderless style={styles.checkboxContainer}>
+                <TouchableRipple
+                  onPress={onToggleSelection}
+                  borderless
+                  style={styles.checkboxContainer}
+                >
                   <Surface
                     style={[
                       styles.checkbox,
@@ -409,10 +430,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               )}
 
               {/* Text content */}
-              <Surface
-                style={[styles.textContent]}
-                elevation={0}
-              >
+              <Surface style={[styles.textContent]} elevation={0}>
                 <View style={styles.titleAndDateRow}>
                   <View style={styles.titleSection}>
                     {!hideBucketInfo && (
@@ -472,10 +490,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             </Surface>
 
             {!!visibleAttachment && (
-              <Surface
-                style={[styles.mediaPreviewRow]}
-                elevation={0}
-              >
+              <Surface style={[styles.mediaPreviewRow]} elevation={0}>
                 {attachments.map((attachment, index) => {
                   const isPreviewSelected = index === selectedPreviewIndex;
                   return (
@@ -524,14 +539,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               </Surface>
             )}
 
-            <Surface
-              style={[styles.bottomRow]}
-              elevation={0}
-            >
-              <Surface
-                style={[styles.mediaIndicators]}
-                elevation={0}
-              >
+            <Surface style={[styles.bottomRow]} elevation={0}>
+              <Surface style={[styles.mediaIndicators]} elevation={0}>
                 {attachments.length > 0 &&
                   (isCompactMode ? (
                     <View style={styles.inlinePillsRow}>
@@ -544,7 +553,11 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                         ]}
                         elevation={0}
                       >
-                        <Icon name="image" size="xs" color="secondary" />
+                        <Icon
+                          source="image"
+                          size={16}
+                          color={theme.colors.onSurfaceVariant}
+                        />
                         <Text
                           style={styles.mediaText}
                           numberOfLines={1}
@@ -601,12 +614,18 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               <View style={styles.bottomRightActions}>
                 <InlineMenu
                   anchor={
-                    <IconButton
-                      icon="dots-vertical"
-                      size={18}
-                      containerColor={theme.colors.surface}
-                      style={styles.actionsFab}
-                    />
+                    <View
+                      style={[
+                        styles.actionsFab,
+                        { backgroundColor: theme.colors.surface },
+                      ]}
+                    >
+                      <Icon
+                        source="dots-vertical"
+                        size={18}
+                        color={theme.colors.onSurface}
+                      />
+                    </View>
                   }
                   items={menuItems}
                   anchorPosition="bottom"

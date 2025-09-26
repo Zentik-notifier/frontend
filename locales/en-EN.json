@@ -1267,7 +1267,8 @@
     "thisMonth": "This month",
     "older": "Older",
     "cachedOn": "Cached on",
-    "cachedItems": "{{count}} items"
+    "cachedItems": "{{count}} items",
+    "statsByType": "Statistics by Type"
   },
   "gallerySettings": {
     "title": "Gallery Settings",

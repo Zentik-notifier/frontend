@@ -44,9 +44,8 @@ export default function GallerySection() {
 
   const {
     state: { selectionMode, selectedItems, filteredMedia, sections, flatOrder },
-    dispatch,
+    handleSetSections,
   } = useGallery();
-  console.log("sections", sections);
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const { updateStats, cacheStats } = useGetCacheStats();
   const numColumns = userSettings.settings.gallery.gridSize;
@@ -72,221 +71,7 @@ export default function GallerySection() {
     } else {
       newSelection.add(itemId);
     }
-    dispatch({ type: "SET_SELECTED_ITEMS", payload: newSelection });
-  };
-
-  const renderStatsCard = () => {
-    if (!cacheStats) return null;
-
-    return (
-      <Surface
-        style={[
-          styles.statsCard,
-          {
-            backgroundColor: theme.colors.surface,
-          },
-        ]}
-        elevation={2}
-      >
-        <View style={styles.statsHeader}>
-          <Icon source="chart-line" size={24} color={theme.colors.primary} />
-          <Text style={[styles.statsTitle, { color: theme.colors.onSurface }]}>
-            {t("medias.stats.title")}
-          </Text>
-        </View>
-
-        <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.primary }]}>
-              {cacheStats.totalItems}
-            </Text>
-            <Text
-              style={[
-                styles.statLabel,
-                { color: theme.colors.onSurfaceVariant },
-              ]}
-            >
-              {t("medias.stats.totalItems")}
-            </Text>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.primary }]}>
-              {formatFileSize(cacheStats.totalSize)}
-            </Text>
-            <Text
-              style={[
-                styles.statLabel,
-                { color: theme.colors.onSurfaceVariant },
-              ]}
-            >
-              {t("medias.stats.totalSize")}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.statsContent}>
-          <View style={styles.statsLeftColumn}>
-            {Object.keys(cacheStats.itemsByType).length > 0 && (
-              <View
-                style={[
-                  styles.typeBreakdown,
-                  { borderTopColor: theme.colors.outline },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.typeBreakdownTitle,
-                    { color: theme.colors.onSurface },
-                  ]}
-                >
-                  {t("medias.stats.byType")}
-                </Text>
-                <View style={styles.typeList}>
-                  {Object.entries(cacheStats.itemsByType).map(
-                    ([type, count]) => (
-                      <View key={type} style={styles.typeItem}>
-                        <MediaTypeIcon
-                          mediaType={type as MediaType}
-                          style={styles.typeLabel}
-                          showLabel
-                        />
-                        <Text
-                          style={[
-                            styles.typeCount,
-                            { color: theme.colors.onSurfaceVariant },
-                          ]}
-                        >
-                          {count}
-                        </Text>
-                      </View>
-                    )
-                  )}
-                </View>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.statsRightColumn}>
-            <View
-              style={[
-                styles.gallerySettings,
-                { borderTopColor: theme.colors.outline },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.typeBreakdownTitle,
-                  { color: theme.colors.onSurface },
-                ]}
-              >
-                {t("gallerySettings.title")}
-              </Text>
-
-              <TouchableRipple
-                style={styles.settingItem}
-                onPress={() => {
-                  userSettings.updateGallerySettings({
-                    autoPlay: !userSettings.settings.gallery.autoPlay,
-                  });
-                }}
-              >
-                <View>
-                  <View style={styles.settingContent}>
-                    <Text
-                      style={[
-                        styles.settingLabel,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      {t("gallerySettings.autoPlay")}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.settingDescription,
-                        { color: theme.colors.onSurfaceVariant },
-                      ]}
-                    >
-                      {t("gallerySettings.autoPlayDescription")}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.checkbox,
-                      {
-                        backgroundColor: userSettings.settings.gallery.autoPlay
-                          ? theme.colors.primary
-                          : theme.colors.surfaceVariant,
-                        borderColor: theme.colors.outline,
-                      },
-                    ]}
-                  >
-                    {userSettings.settings.gallery.autoPlay && (
-                      <Icon
-                        source="check"
-                        size={16}
-                        color={theme.colors.onPrimary}
-                      />
-                    )}
-                  </View>
-                </View>
-              </TouchableRipple>
-
-              <TouchableRipple
-                style={styles.settingItem}
-                onPress={() => {
-                  userSettings.updateGallerySettings({
-                    showFaultyMedias:
-                      !userSettings.settings.gallery.showFaultyMedias,
-                  });
-                }}
-              >
-                <View>
-                  <View style={styles.settingContent}>
-                    <Text
-                      style={[
-                        styles.settingLabel,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      {t("gallerySettings.showFaultyMedias")}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.settingDescription,
-                        { color: theme.colors.onSurfaceVariant },
-                      ]}
-                    >
-                      {t("gallerySettings.showFaultyMediasDescription")}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.checkbox,
-                      {
-                        backgroundColor: userSettings.settings.gallery
-                          .showFaultyMedias
-                          ? theme.colors.primary
-                          : theme.colors.surfaceVariant,
-                        borderColor: theme.colors.outline,
-                      },
-                    ]}
-                  >
-                    {userSettings.settings.gallery.showFaultyMedias && (
-                      <Icon
-                        source="check"
-                        size={16}
-                        color={theme.colors.onPrimary}
-                      />
-                    )}
-                  </View>
-                </View>
-              </TouchableRipple>
-            </View>
-          </View>
-        </View>
-      </Surface>
-    );
+    handleSetSections(sections);
   };
 
   const renderMediaRow = ({ item }: { item: CacheItem[] }) => {
@@ -299,7 +84,6 @@ export default function GallerySection() {
             <Pressable
               key={mediaItem.key}
               style={[
-                styles.gridItem,
                 { width: itemWidth, height: itemWidth },
                 isSelected && [
                   styles.gridItemSelected,
@@ -500,9 +284,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
   },
   gridItemContainer: {},
-  gridItem: {
-    overflow: "hidden",
-  },
   gridItemSelected: {
     borderWidth: 2,
   },

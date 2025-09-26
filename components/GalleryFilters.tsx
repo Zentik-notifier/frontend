@@ -5,7 +5,7 @@ import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useAppContext } from "@/services/app-context";
 import { formatFileSize } from "@/utils";
 import React, { useEffect, useState } from "react";
-import { Modal, Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Badge,
@@ -17,6 +17,7 @@ import {
 } from "react-native-paper";
 import GalleryFiltersModal from "./GalleryFiltersModal";
 import { MediaTypeIcon } from "./MediaTypeIcon";
+import InlineMenu from "./ui/InlineMenu";
 
 const availableMediaTypes = Object.values(MediaType);
 
@@ -30,7 +31,6 @@ export default function GalleryFilters() {
   const theme = useTheme();
   const { userSettings } = useAppContext();
   const { t } = useI18n();
-  const [showStatsTooltip, setShowStatsTooltip] = useState(false);
   const { cacheStats, updateStats } = useGetCacheStats();
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export default function GalleryFilters() {
     handleShowFiltersModal,
     handleDeleteSelected,
   } = useGallery();
-  const totalItems = filteredMedia.length;
+  const totalItems = filteredMedia?.length ?? 0;
 
   const getActiveFiltersCount = (): number => {
     let count = 0;
@@ -110,7 +110,7 @@ export default function GalleryFilters() {
           onPress={
             selectedItems.size === totalItems
               ? handleDeselectAll
-              : () => handleSelectAll([]) // Will be overridden by parent
+              : handleSelectAll
           }
         >
           <View style={styles.selectionBadgeContent}>
@@ -178,52 +178,59 @@ export default function GalleryFilters() {
     </Surface>
   );
 
-  const renderStatsTooltip = () => {
-    if (!cacheStats || !showStatsTooltip) return null;
+  const renderStatsMenu = () => {
+    if (!cacheStats) return null;
+
+    const statsItems = Object.entries(cacheStats.itemsByType).map(
+      ([type, count]) => {
+        // Get appropriate icon for media type
+        let iconName = "image"; // default
+        switch (type) {
+          case "IMAGE":
+            iconName = "image";
+            break;
+          case "GIF":
+            iconName = "gif";
+            break;
+          case "VIDEO":
+            iconName = "video";
+            break;
+          case "AUDIO":
+            iconName = "music";
+            break;
+          case "ICON":
+            iconName = "star";
+            break;
+        }
+
+        return {
+          id: type,
+          label: `${type}: ${count}`,
+          icon: iconName,
+          onPress: () => {}, // No action needed
+          disabled: true, // Make it non-clickable
+        };
+      }
+    );
 
     return (
-      <Modal
-        visible={showStatsTooltip}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowStatsTooltip(false)}
-      >
-        <Pressable
-          style={styles.tooltipOverlay}
-          onPress={() => setShowStatsTooltip(false)}
-        >
-          <View
-            style={[
-              styles.tooltipContainer,
-              { backgroundColor: theme.colors.surface },
-            ]}
-          >
-            <Text
-              style={[styles.tooltipTitle, { color: theme.colors.onSurface }]}
-            >
-              Statistiche per Tipo
-            </Text>
-            {Object.entries(cacheStats.itemsByType).map(([type, count]) => (
-              <View key={type} style={styles.tooltipItem}>
-                <MediaTypeIcon
-                  mediaType={type as MediaType}
-                  size={20}
-                  showLabel
-                  textStyle={{ fontSize: 14 }}
-                />
-                <Text
-                  style={[
-                    styles.tooltipCount,
-                    { color: theme.colors.onSurface },
-                  ]}
-                >
-                  {count}
-                </Text>
-              </View>
-            ))}
+      <InlineMenu
+        anchor={
+          <View style={styles.infoButton}>
+            <Icon source="information" size={20} color={theme.colors.primary} />
           </View>
-        </Pressable>
-      </Modal>
+        }
+        items={statsItems}
+        header={
+          <View style={styles.statsHeader}>
+            <Text
+              style={[styles.statsTitle, { color: theme.colors.onSurface }]}
+            >
+              {t("gallery.statsByType")}
+            </Text>
+          </View>
+        }
+      />
     );
   };
 
@@ -276,16 +283,7 @@ export default function GalleryFilters() {
                     {formatFileSize(cacheStats.totalSize)}
                   </Text>
                 </View>
-                <TouchableRipple
-                  style={styles.infoButton}
-                  onPress={() => setShowStatsTooltip(true)}
-                >
-                  <Icon
-                    source="information"
-                    size={20}
-                    color={theme.colors.primary}
-                  />
-                </TouchableRipple>
+                {renderStatsMenu()}
               </View>
             </Surface>
           )}
@@ -358,10 +356,8 @@ export default function GalleryFilters() {
         </View>
       )}
 
-      {renderStatsTooltip()}
-
       {/* Filters Modal */}
-      {/* <GalleryFiltersModal /> */}
+      <GalleryFiltersModal />
     </>
   );
 }
@@ -438,42 +434,14 @@ const styles = StyleSheet.create({
     top: -6,
     right: -6,
   },
-  // Tooltip styles
-  tooltipOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
+  // Stats menu styles
+  statsHeader: {
+    padding: 8,
   },
-  tooltipContainer: {
-    borderRadius: 12,
-    padding: 16,
-    minWidth: 200,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  tooltipTitle: {
+  statsTitle: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 12,
     textAlign: "center",
-  },
-  tooltipItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-  },
-  tooltipCount: {
-    fontSize: 14,
-    fontWeight: "500",
   },
   // Selection bar styles
   selectionBar: {

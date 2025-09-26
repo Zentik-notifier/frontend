@@ -37,9 +37,6 @@ export default function HomeSidebar() {
 
   const { bucketStats, notificationToBucketMap } = useMemo(() => {
     const result = getBucketStats(bucketsData?.buckets ?? [], notifications);
-    console.log("HomeSidebar - bucketsData:", bucketsData);
-    console.log("HomeSidebar - bucketStats:", result.bucketStats);
-    console.log("HomeSidebar - notifications:", notifications.length);
     return result;
   }, [bucketsData, notifications]);
 

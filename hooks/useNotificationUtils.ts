@@ -33,28 +33,28 @@ export const useNotificationUtils = () => {
   };
 
 
-  const getActionTypeIcon = (actionType: NotificationActionType): keyof typeof AppIcons => {
+  const getActionTypeIcon = (actionType: NotificationActionType): string => {
     switch (actionType) {
       case NotificationActionType.Navigate:
-        return "navigate";
+        return "navigation";
       case NotificationActionType.Webhook:
-        return "webhook";
+        return "web";
       case NotificationActionType.BackgroundCall:
-        return "send";
+        return "phone";
       case NotificationActionType.Snooze:
-        return "loading";
+        return "clock";
       case NotificationActionType.MarkAsRead:
-        return "confirm";
+        return "check";
       case NotificationActionType.OpenNotification:
-        return "view";
+        return "eye";
       case NotificationActionType.Delete:
-        return "remove";
+        return "delete";
       default:
-        return "action";
+        return "cog";
     }
   };
 
-  const getMediaTypeIcon = (mediaType: MediaType): keyof typeof AppIcons => {
+  const getMediaTypeIcon = (mediaType: MediaType): string => {
     switch (mediaType) {
       case MediaType.Image:
         return "image";
@@ -63,9 +63,9 @@ export const useNotificationUtils = () => {
       case MediaType.Video:
         return "video";
       case MediaType.Audio:
-        return "sound";
+        return "music";
       case MediaType.Icon:
-        return "icon";
+        return "star";
       default:
         return "image";
     }

@@ -3,6 +3,7 @@ import {
   StyleSheet,
   TextInput,
   TouchableWithoutFeedback,
+  TouchableOpacity,
   View,
   Dimensions,
 } from "react-native";
@@ -28,6 +29,7 @@ export interface InlineMenuItem {
   onPress: () => void;
   type?: "normal" | "destructive";
   disabled?: boolean;
+  keepOpen?: boolean; // Don't close menu automatically on press
 }
 
 interface InlineMenuProps {
@@ -37,6 +39,7 @@ interface InlineMenuProps {
   searchPlaceholder?: string;
   maxHeight?: number;
   anchorPosition?: "top" | "bottom";
+  position?: "horizontally" | "vertically";
   header?: React.ReactNode;
   onOpen?: () => void;
   onClose?: () => void;
@@ -49,6 +52,7 @@ export default function InlineMenu({
   searchPlaceholder = "Search items...",
   maxHeight = 300,
   anchorPosition = "bottom",
+  position = "horizontally",
   header,
   onOpen,
   onClose,
@@ -96,34 +100,89 @@ export default function InlineMenu({
     const menuWidth = 250;
     const menuHeight = Math.min(
       maxHeight,
-      filteredItems.length * 48 + (searchable ? 60 : 0)
+      filteredItems.length * 48 + (searchable ? 60 : 0) + (header ? 60 : 0)
     );
 
     let top = anchorLayout.y;
     let left = anchorLayout.x;
 
-    // Adjust position based on anchorPosition with smaller gap
-    if (anchorPosition === "bottom") {
-      top = anchorLayout.y + anchorLayout.height + 4;
+    if (position === "horizontally") {
+      // Calculate available space above and below the anchor
+      const spaceAbove = anchorLayout.y;
+      const spaceBelow = screenDimensions.height - (anchorLayout.y + anchorLayout.height);
+      
+      // Determine if menu should open above or below based on available space
+      const shouldOpenAbove = spaceAbove > spaceBelow && spaceAbove >= menuHeight;
+      const shouldOpenBelow = spaceBelow >= menuHeight || !shouldOpenAbove;
+
+      if (shouldOpenAbove) {
+        // Open above the anchor: align bottom edge of menu with bottom edge of anchor
+        top = anchorLayout.y + anchorLayout.height - menuHeight;
+      } else {
+        // Open below the anchor: align top edge of menu with top edge of anchor
+        top = anchorLayout.y;
+      }
+
+      // Align horizontally with the anchor's left edge
+      left = anchorLayout.x;
+
+      // Ensure menu stays within screen bounds
+      if (left + menuWidth > screenDimensions.width) {
+        // If doesn't fit, align with the right edge of the anchor
+        left = anchorLayout.x + anchorLayout.width - menuWidth;
+      }
+      if (left < 16) {
+        // If still doesn't fit, position at screen edge
+        left = 16;
+      }
+      if (left + menuWidth > screenDimensions.width) {
+        // Final fallback
+        left = screenDimensions.width - menuWidth - 16;
+      }
+      
+      // Vertical bounds - ensure menu doesn't go off screen
+      if (top < 16) {
+        top = 16;
+      }
+      if (top + menuHeight > screenDimensions.height - 16) {
+        top = screenDimensions.height - menuHeight - 16;
+      }
     } else {
-      top = anchorLayout.y - menuHeight - 4;
-    }
+      // position === "vertically"
+      // Calculate available space above and below the anchor
+      const spaceAbove = anchorLayout.y;
+      const spaceBelow = screenDimensions.height - (anchorLayout.y + anchorLayout.height);
+      
+      // Determine if menu should open above or below based on available space
+      const shouldOpenAbove = spaceAbove > spaceBelow && spaceAbove >= menuHeight;
+      const shouldOpenBelow = spaceBelow >= menuHeight || !shouldOpenAbove;
 
-    // Center horizontally relative to anchor
-    left = anchorLayout.x + (anchorLayout.width - menuWidth) / 2;
+      if (shouldOpenAbove) {
+        // Open above the anchor: align bottom edge of menu with top edge of anchor
+        top = anchorLayout.y - menuHeight;
+      } else {
+        // Open below the anchor: align top edge of menu with bottom edge of anchor
+        top = anchorLayout.y + anchorLayout.height;
+      }
 
-    // Ensure menu stays within screen bounds
-    if (left + menuWidth > screenDimensions.width) {
-      left = screenDimensions.width - menuWidth - 16;
-    }
-    if (left < 16) {
-      left = 16;
-    }
-    if (top < 16) {
-      top = 16;
-    }
-    if (top + menuHeight > screenDimensions.height - 16) {
-      top = screenDimensions.height - menuHeight - 16;
+      // Align right edge of menu with right edge of anchor
+      left = anchorLayout.x + anchorLayout.width - menuWidth;
+
+      // Ensure menu stays within screen bounds
+      if (top < 16) {
+        top = 16;
+      }
+      if (top + menuHeight > screenDimensions.height - 16) {
+        top = screenDimensions.height - menuHeight - 16;
+      }
+      
+      // Horizontal bounds - ensure menu doesn't go off screen
+      if (left < 16) {
+        left = 16;
+      }
+      if (left + menuWidth > screenDimensions.width - 16) {
+        left = screenDimensions.width - menuWidth - 16;
+      }
     }
 
     return { top, left };
@@ -132,7 +191,9 @@ export default function InlineMenu({
   const handleItemPress = (item: InlineMenuItem) => {
     if (!item.disabled) {
       item.onPress();
-      handleClose();
+      if (!item.keepOpen) {
+        handleClose();
+      }
     }
   };
 
@@ -248,7 +309,7 @@ export default function InlineMenu({
             <View style={styles.itemsContainer}>
               {filteredItems.map((item, index) => (
                 <React.Fragment key={item.id}>
-                  <TouchableRipple
+                  <TouchableOpacity
                     onPress={() => handleItemPress(item)}
                     disabled={item.disabled}
                     style={[
@@ -294,7 +355,7 @@ export default function InlineMenu({
                         )}
                       </View>
                     </View>
-                  </TouchableRipple>
+                  </TouchableOpacity>
                   {index < filteredItems.length - 1 && <Divider />}
                 </React.Fragment>
               ))}
@@ -325,7 +386,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   headerContainer: {
-    padding: 16,
+    padding: 8,
   },
   searchContainer: {
     padding: 12,

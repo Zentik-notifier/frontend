@@ -4,18 +4,8 @@ import { useTheme as useAppTheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  Image,
-  StyleSheet,
-  TouchableOpacity,
-  View
-} from "react-native";
-import {
-  Avatar,
-  Icon,
-  Text,
-  useTheme
-} from "react-native-paper";
+import { Image, StyleSheet, View } from "react-native";
+import { Avatar, Icon, Text, useTheme } from "react-native-paper";
 import InlineMenu, { InlineMenuItem } from "./ui/InlineMenu";
 
 export default function UserDropdown() {
@@ -124,65 +114,77 @@ export default function UserDropdown() {
         >
           {getUserDisplayName()}
         </Text>
-        <Text
-          variant="bodySmall"
-          style={styles.userEmail}
-          numberOfLines={1}
-        >
+        <Text variant="bodySmall" style={styles.userEmail} numberOfLines={1}>
           {user?.email || t("userDropdown.offlineMode")}
         </Text>
       </View>
     </View>
   );
 
-  const menuItems: InlineMenuItem[] = useMemo(() => [
-    {
-      id: "gettingStarted",
-      label: t("userDropdown.gettingStarted"),
-      icon: "help-circle-outline",
-      onPress: () => {
-        showOnboarding();
+  const menuItems: InlineMenuItem[] = useMemo(
+    () => [
+      {
+        id: "gettingStarted",
+        label: t("userDropdown.gettingStarted"),
+        icon: "help-circle-outline",
+        onPress: () => {
+          showOnboarding();
+        },
       },
-    },
-    {
-      id: "themeToggle",
-      label: getThemeCycleLabel(),
-      icon: getThemeCycleIcon(),
-      onPress: () => setThemeMode(getNextThemeMode()),
-    },
-    {
-      id: "settings",
-      label: t("userDropdown.settings"),
-      icon: "cog",
-      onPress: () => {
-        navigateToSettings();
+      {
+        id: "themeToggle",
+        label: getThemeCycleLabel(),
+        icon: getThemeCycleIcon(),
+        onPress: () => setThemeMode(getNextThemeMode()),
+        keepOpen: true,
       },
-    },
-    ...(user?.role === UserRole.Admin
-      ? [
-          {
-            id: "administration",
-            label: t("userDropdown.administration"),
-            icon: "shield-outline",
-            onPress: () => {
-              navigateToAdmin();
+      {
+        id: "settings",
+        label: t("userDropdown.settings"),
+        icon: "cog",
+        onPress: () => {
+          navigateToSettings();
+        },
+      },
+      ...(user?.role === UserRole.Admin
+        ? [
+            {
+              id: "administration",
+              label: t("userDropdown.administration"),
+              icon: "shield-outline",
+              onPress: () => {
+                navigateToAdmin();
+              },
             },
-          },
-        ]
-      : []),
-    {
-      id: "logout",
-      label: t("userDropdown.logout"),
-      icon: "logout",
-      onPress: () => {
-        logout();
+          ]
+        : []),
+      {
+        id: "logout",
+        label: t("userDropdown.logout"),
+        icon: "logout",
+        onPress: () => {
+          logout();
+        },
+        type: "destructive",
       },
-      type: "destructive",
-    },
-  ], [t, getThemeCycleLabel, getThemeCycleIcon, setThemeMode, getNextThemeMode, navigateToSettings, user?.role, navigateToAdmin, logout, showOnboarding]);
+    ],
+    [
+      t,
+      getThemeCycleLabel,
+      getThemeCycleIcon,
+      setThemeMode,
+      getNextThemeMode,
+      navigateToSettings,
+      user?.role,
+      navigateToAdmin,
+      logout,
+      showOnboarding,
+    ]
+  );
 
   return (
     <InlineMenu
+      position="vertically"
       anchor={
         <View style={styles.avatarButton}>
           {user?.avatar && !showInitials ? (

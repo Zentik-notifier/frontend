@@ -49,7 +49,6 @@ export default function NotificationFilters({
     handleSelectAll,
     handleDeselectAll,
     handleShowFiltersModal,
-    handleHideFiltersModal,
   } = useNotifications();
   const [internalSearchQuery, setInternalSearchQuery] = useState(
     filters.searchQuery || ""
@@ -144,7 +143,7 @@ export default function NotificationFilters({
           onPress={
             selectedItems.size === totalNotifications
               ? handleDeselectAll
-              : () => handleSelectAll([]) // Will be overridden by parent
+              : handleSelectAll
           }
         >
           <View style={{ flexDirection: "row", alignItems: "center" }}>
