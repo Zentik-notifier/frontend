@@ -1,10 +1,11 @@
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, View, ViewStyle } from "react-native";
-import { Button, Menu, Text } from "react-native-paper";
+import { Button, Text } from "react-native-paper";
 import { Image } from "expo-image";
+import InlineMenu, { InlineMenuItem } from "./ui/InlineMenu";
 
 interface OAuthSelectorProps {
   onProviderSelect: (providerId: string) => void;
@@ -21,24 +22,24 @@ export function OAuthSelector({
   const disabled = disabledParent || providersLoading;
 
   const { t } = useI18n();
-  const [isOpen, setIsOpen] = useState(false);
 
-  const handleProviderSelect = (providerId: string) => {
-    onProviderSelect(providerId);
-    setIsOpen(false);
-  };
+  const menuItems: InlineMenuItem[] = useMemo(() => {
+    return providers.map((provider) => ({
+      id: provider.id,
+      label: provider.name,
+      imageUrl: provider.iconUrl || undefined,
+      onPress: () => onProviderSelect(provider.providerId),
+    }));
+  }, [providers, onProviderSelect]);
 
   if (providers.length === 0) return null;
 
   return (
     <View style={[styles.container]}>
-      <Menu
-        visible={isOpen}
-        onDismiss={() => setIsOpen(false)}
+      <InlineMenu
         anchor={
           <Button
             mode="outlined"
-            onPress={() => setIsOpen(true)}
             disabled={disabled}
             style={styles.selectorButton}
             contentStyle={styles.buttonContent}
@@ -49,28 +50,9 @@ export function OAuthSelector({
             {t("login.orContinueWith")}
           </Button>
         }
-        style={styles.menu}
-      >
-        {providers.map((provider) => (
-          <Menu.Item
-            key={provider.id}
-            onPress={() => handleProviderSelect(provider.providerId)}
-            title={
-              <View style={styles.providerInfo}>
-                <Image
-                  source={{ uri: provider.iconUrl! }}
-                  style={styles.providerIcon}
-                  contentFit="contain"
-                  cachePolicy="memory-disk"
-                />
-                <Text variant="bodyMedium" style={styles.providerName}>
-                  {provider.name}
-                </Text>
-              </View>
-            }
-          />
-        ))}
-      </Menu>
+        items={menuItems}
+        maxHeight={250}
+      />
     </View>
   );
 }

@@ -1,22 +1,22 @@
-import { Colors } from "@/constants/Colors";
+import { useGallery } from "@/contexts/GalleryContext";
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
+import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useAppContext } from "@/services/app-context";
 import { formatFileSize } from "@/utils";
-import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { Modal, Pressable, StyleSheet, View } from "react-native";
 import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from "react-native";
+  ActivityIndicator,
+  Badge,
+  Icon,
+  Surface,
+  Text,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 import GalleryFiltersModal from "./GalleryFiltersModal";
 import { MediaTypeIcon } from "./MediaTypeIcon";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
 
 const availableMediaTypes = Object.values(MediaType);
 
@@ -26,28 +26,33 @@ interface CacheStats {
   itemsByType: Record<string, number>;
 }
 
-interface GalleryFiltersProps {
-  selectedMediaTypes: Set<MediaType>;
-  onMediaTypesChange: (types: Set<MediaType>) => void;
-  onToggleMultiSelection: () => void;
-  selectedCount: number;
-  isMultiSelectionMode: boolean;
-  cacheStats: CacheStats | null;
-}
-
-export default function GalleryFilters({
-  selectedMediaTypes,
-  onMediaTypesChange,
-  onToggleMultiSelection,
-  selectedCount,
-  isMultiSelectionMode,
-  cacheStats,
-}: GalleryFiltersProps) {
-  const colorScheme = useColorScheme();
+export default function GalleryFilters() {
+  const theme = useTheme();
   const { userSettings } = useAppContext();
   const { t } = useI18n();
-  const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [showStatsTooltip, setShowStatsTooltip] = useState(false);
+  const { cacheStats, updateStats } = useGetCacheStats();
+
+  useEffect(() => {
+    updateStats();
+  }, []);
+
+  const {
+    state: {
+      selectionMode,
+      selectedItems,
+      selectedMediaTypes,
+      deleteLoading,
+      filteredMedia,
+    },
+    handleToggleMultiSelection,
+    handleCloseSelectionMode,
+    handleSelectAll,
+    handleDeselectAll,
+    handleShowFiltersModal,
+    handleDeleteSelected,
+  } = useGallery();
+  const totalItems = filteredMedia.length;
 
   const getActiveFiltersCount = (): number => {
     let count = 0;
@@ -62,6 +67,116 @@ export default function GalleryFilters({
   };
 
   const activeFiltersCount = getActiveFiltersCount();
+
+  const renderSelectionBar = () => (
+    <Surface
+      style={[
+        styles.selectionBar,
+        {
+          backgroundColor: theme.colors.surface,
+        },
+      ]}
+    >
+      <View style={styles.leftControls}>
+        <TouchableRipple
+          style={[
+            styles.selectionButton,
+            {
+              borderColor: theme.colors.outline,
+              backgroundColor:
+                theme.colors.elevation?.level1 || theme.colors.surface,
+            },
+          ]}
+          onPress={handleCloseSelectionMode}
+        >
+          <Text
+            style={[
+              styles.selectionCountText,
+              { color: theme.colors.onSurface },
+            ]}
+          >
+            {t("common.cancel")}
+          </Text>
+        </TouchableRipple>
+
+        <TouchableRipple
+          style={[
+            styles.selectionCountBadge,
+            {
+              borderColor: theme.colors.outline,
+              backgroundColor: theme.colors.primary,
+            },
+          ]}
+          onPress={
+            selectedItems.size === totalItems
+              ? handleDeselectAll
+              : () => handleSelectAll([]) // Will be overridden by parent
+          }
+        >
+          <View style={styles.selectionBadgeContent}>
+            <Text
+              style={[
+                styles.selectionCountText,
+                { color: theme.colors.onPrimary },
+              ]}
+            >
+              {selectedItems.size}
+            </Text>
+            <Text
+              style={[
+                styles.selectionCountText,
+                {
+                  color: theme.colors.onPrimary,
+                  fontSize: 12,
+                  marginLeft: 4,
+                  opacity: 0.9,
+                },
+              ]}
+            >
+              {selectedItems.size === totalItems
+                ? t("notifications.deselectAll")
+                : t("notifications.selectAll")}
+            </Text>
+          </View>
+        </TouchableRipple>
+      </View>
+
+      <View style={styles.rightControls}>
+        <TouchableRipple
+          style={[
+            styles.selectionButton,
+            {
+              borderColor:
+                selectedItems.size === 0
+                  ? theme.colors.outlineVariant || theme.colors.outline
+                  : theme.colors.outline,
+              backgroundColor:
+                selectedItems.size === 0
+                  ? theme.colors.surfaceVariant
+                  : theme.colors.elevation?.level1 || theme.colors.surface,
+              opacity: selectedItems.size === 0 ? 0.5 : 1,
+            },
+          ]}
+          onPress={handleDeleteSelected}
+          disabled={selectedItems.size === 0 || deleteLoading}
+        >
+          {deleteLoading ? (
+            <ActivityIndicator size={16} color={theme.colors.onSurface} />
+          ) : (
+            <Icon
+              source="trash-can-outline"
+              size={20}
+              color={
+                selectedItems.size === 0
+                  ? theme.colors.onSurfaceVariant
+                  : theme.colors.error
+              }
+            />
+          )}
+        </TouchableRipple>
+      </View>
+    </Surface>
+  );
 
   const renderStatsTooltip = () => {
     if (!cacheStats || !showStatsTooltip) return null;
@@ -80,12 +195,14 @@ export default function GalleryFilters({
           <View
             style={[
               styles.tooltipContainer,
-              { backgroundColor: Colors[colorScheme].backgroundCard },
+              { backgroundColor: theme.colors.surface },
             ]}
           >
-            <ThemedText style={styles.tooltipTitle}>
+            <Text
+              style={[styles.tooltipTitle, { color: theme.colors.onSurface }]}
+            >
               Statistiche per Tipo
-            </ThemedText>
+            </Text>
             {Object.entries(cacheStats.itemsByType).map(([type, count]) => (
               <View key={type} style={styles.tooltipItem}>
                 <MediaTypeIcon
@@ -94,7 +211,14 @@ export default function GalleryFilters({
                   showLabel
                   textStyle={{ fontSize: 14 }}
                 />
-                <ThemedText style={styles.tooltipCount}>{count}</ThemedText>
+                <Text
+                  style={[
+                    styles.tooltipCount,
+                    { color: theme.colors.onSurface },
+                  ]}
+                >
+                  {count}
+                </Text>
               </View>
             ))}
           </View>
@@ -105,144 +229,139 @@ export default function GalleryFilters({
 
   return (
     <>
-      <View style={styles.container}>
-        {/* Cache Stats */}
-        {cacheStats && (
-          <View
-            style={[
-              styles.statsContainer,
-              {
-                borderColor: Colors[colorScheme].border,
-                backgroundColor: Colors[colorScheme].backgroundCard,
-              },
-            ]}
-          >
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Ionicons
-                  name="folder-outline"
-                  size={18}
-                  color={Colors[colorScheme].textSecondary}
-                />
-                <ThemedText style={styles.statsText}>
-                  {t("gallery.cachedItems", { count: cacheStats.totalItems })}
-                </ThemedText>
-              </View>
-              <View style={styles.statItem}>
-                <Ionicons
-                  name="hardware-chip-outline"
-                  size={18}
-                  color={Colors[colorScheme].textSecondary}
-                />
-                <ThemedText style={styles.statsText}>
-                  {formatFileSize(cacheStats.totalSize)}
-                </ThemedText>
-              </View>
-              <TouchableOpacity
-                style={styles.infoButton}
-                onPress={() => setShowStatsTooltip(true)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="information-circle-outline"
-                  size={20}
-                  color={Colors[colorScheme].tint}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Right controls */}
-        <View style={styles.rightControls}>
-          {/* Multi-Selection Toggle */}
-          <TouchableOpacity
-            style={[
-              styles.multiSelectionToggle,
-              {
-                borderColor: Colors[colorScheme].border,
-                backgroundColor: isMultiSelectionMode
-                  ? Colors[colorScheme].tint
-                  : Colors[colorScheme].background,
-              },
-            ]}
-            onPress={onToggleMultiSelection}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={isMultiSelectionMode ? "close" : "checkmark-circle-outline"}
-              size={16}
-              color={
-                isMultiSelectionMode
-                  ? "white"
-                  : Colors[colorScheme].textSecondary
-              }
-            />
-            {isMultiSelectionMode && selectedCount > 0 && (
-              <View
-                style={[styles.selectionBadge, { backgroundColor: "white" }]}
-              >
-                <ThemedText
-                  style={[
-                    styles.selectionBadgeText,
-                    { color: Colors[colorScheme].tint },
-                  ]}
+      {selectionMode ? (
+        renderSelectionBar()
+      ) : (
+        <View style={styles.container}>
+          {/* Cache Stats */}
+          {cacheStats && (
+            <Surface
+              style={[
+                styles.statsContainer,
+                {
+                  borderColor: theme.colors.outline,
+                  backgroundColor: theme.colors.surface,
+                },
+              ]}
+              elevation={0}
+            >
+              <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                  <Icon
+                    source="folder-outline"
+                    size={18}
+                    color={theme.colors.onSurfaceVariant}
+                  />
+                  <Text
+                    style={[
+                      styles.statsText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {t("gallery.cachedItems", { count: cacheStats.totalItems })}
+                  </Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Icon
+                    source="chip"
+                    size={18}
+                    color={theme.colors.onSurfaceVariant}
+                  />
+                  <Text
+                    style={[
+                      styles.statsText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {formatFileSize(cacheStats.totalSize)}
+                  </Text>
+                </View>
+                <TouchableRipple
+                  style={styles.infoButton}
+                  onPress={() => setShowStatsTooltip(true)}
                 >
-                  {selectedCount}
-                </ThemedText>
+                  <Icon
+                    source="information"
+                    size={20}
+                    color={theme.colors.primary}
+                  />
+                </TouchableRipple>
               </View>
-            )}
-          </TouchableOpacity>
+            </Surface>
+          )}
 
-          {/* Filters Button */}
-          <TouchableOpacity
-            style={[
-              styles.filtersButton,
-              {
-                borderColor: Colors[colorScheme].border,
-                backgroundColor:
-                  activeFiltersCount > 0
-                    ? Colors[colorScheme].selected
-                    : Colors[colorScheme].background,
-              },
-            ]}
-            onPress={() => setShowFiltersModal(true)}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name="filter-outline"
-              size={16}
-              color={
-                activeFiltersCount > 0
-                  ? Colors[colorScheme].tint
-                  : Colors[colorScheme].textSecondary
-              }
-            />
-            {activeFiltersCount > 0 && (
-              <ThemedView
-                style={[
-                  styles.filtersBadge,
-                  { backgroundColor: Colors[colorScheme].tint },
-                ]}
-              >
-                <ThemedText style={styles.filtersBadgeText}>
-                  {activeFiltersCount}
-                </ThemedText>
-              </ThemedView>
-            )}
-          </TouchableOpacity>
+          {/* Right controls */}
+          <View style={styles.rightControls}>
+            {/* Multi-Selection Toggle */}
+            <TouchableRipple
+              style={[
+                styles.multiSelectionToggle,
+                {
+                  borderColor: theme.colors.outline,
+                  backgroundColor: selectionMode
+                    ? theme.colors.primary
+                    : theme.colors.surface,
+                },
+              ]}
+              onPress={handleToggleMultiSelection}
+            >
+              <View>
+                <Icon
+                  source={selectionMode ? "close" : "check-circle-outline"}
+                  size={18}
+                  color={
+                    selectionMode
+                      ? theme.colors.onPrimary
+                      : theme.colors.onSurfaceVariant
+                  }
+                />
+                {selectionMode && selectedItems.size > 0 && (
+                  <Badge style={styles.selectionBadge}>
+                    {selectedItems.size}
+                  </Badge>
+                )}
+              </View>
+            </TouchableRipple>
+
+            {/* Filters Button */}
+            <TouchableRipple
+              style={[
+                styles.filtersButton,
+                {
+                  borderColor: theme.colors.outline,
+                  backgroundColor:
+                    activeFiltersCount > 0
+                      ? theme.colors.primary
+                      : theme.colors.surface,
+                },
+              ]}
+              onPress={handleShowFiltersModal}
+            >
+              <View>
+                <Icon
+                  source="filter"
+                  size={18}
+                  color={
+                    activeFiltersCount > 0
+                      ? theme.colors.onPrimary
+                      : theme.colors.onSurfaceVariant
+                  }
+                />
+                {activeFiltersCount > 0 && (
+                  <Badge style={styles.filtersBadge}>
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+              </View>
+            </TouchableRipple>
+          </View>
         </View>
-      </View>
+      )}
 
       {renderStatsTooltip()}
 
       {/* Filters Modal */}
-      <GalleryFiltersModal
-        visible={showFiltersModal}
-        onClose={() => setShowFiltersModal(false)}
-        selectedMediaTypes={selectedMediaTypes}
-        onMediaTypesChange={onMediaTypesChange}
-      />
+      {/* <GalleryFiltersModal /> */}
     </>
   );
 }
@@ -255,6 +374,7 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingHorizontal: 16,
     paddingTop: 12,
+    minHeight: 60,
   },
   statsContainer: {
     flex: 1,
@@ -301,18 +421,8 @@ const styles = StyleSheet.create({
   },
   filtersBadge: {
     position: "absolute",
-    top: -6,
-    right: -6,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  filtersBadgeText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "white",
+    top: -12,
+    right: -16,
   },
   multiSelectionToggle: {
     width: 44,
@@ -327,15 +437,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -6,
     right: -6,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  selectionBadgeText: {
-    fontSize: 10,
-    fontWeight: "600",
   },
   // Tooltip styles
   tooltipOverlay: {
@@ -373,5 +474,45 @@ const styles = StyleSheet.create({
   tooltipCount: {
     fontSize: 14,
     fontWeight: "500",
+  },
+  // Selection bar styles
+  selectionBar: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 60,
+  },
+  leftControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  selectionCountBadge: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 44,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  selectionBadgeContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  selectionCountText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  selectionButton: {
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

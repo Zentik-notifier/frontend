@@ -1,21 +1,17 @@
-import { Colors } from "@/constants/Colors";
 import {
   MediaType,
   NotificationAttachmentDto,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import React, { useRef, useState } from "react";
 import {
   FlatList,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from "react-native";
+import { Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
 import { CachedMedia } from "./CachedMedia";
 import { MediaTypeIcon } from "./MediaTypeIcon";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
 
 interface AttachmentGalleryProps {
   attachments: NotificationAttachmentDto[];
@@ -104,9 +100,9 @@ const AttachmentItem: React.FC<AttachmentItemProps> = ({
     <View style={itemContainerStyle}>
       {renderContent()}
       {attachment.name && (
-        <ThemedText style={styles.attachmentName} numberOfLines={2}>
+        <Text style={styles.attachmentName} numberOfLines={2}>
           {attachment.name}
-        </ThemedText>
+        </Text>
       )}
     </View>
   );
@@ -117,7 +113,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   onMediaPress,
   notificationDate,
 }) => {
-  const colorScheme = useColorScheme() ?? "light";
+  const theme = useTheme();
   const { t } = useI18n();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [containerWidth, setContainerWidth] = useState<number>(0);
@@ -190,17 +186,17 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   );
 
   return (
-    <ThemedView 
-      style={styles.container}
+    <Surface 
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
       onLayout={(event) => {
         const { width } = event.nativeEvent.layout;
         setContainerWidth(width);
       }}
     >
       <View style={styles.headerContainer}>
-        <ThemedText style={styles.sectionTitle}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
           {t("attachmentGallery.attachments", { count: attachments.length })}
-        </ThemedText>
+        </Text>
       </View>
 
       {/* Attachment Selector */}
@@ -211,28 +207,30 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
               const isActive = currentIndex !== -1 && index === currentIndex;
 
               return (
-                <TouchableOpacity
+                <TouchableRipple
                   key={`${attachment.url}-${index}`}
                   style={[
                     styles.selectorButton,
                     {
-                      backgroundColor: Colors[colorScheme].backgroundSecondary,
+                      backgroundColor: theme.colors.surfaceVariant,
                       borderWidth: isActive ? 1.5 : 0,
                       borderColor: isActive
-                        ? Colors[colorScheme].tint
+                        ? theme.colors.primary
                         : "transparent",
                     },
                   ]}
                   onPress={() => handleSelectorPress(index)}
                 >
-                  <MediaTypeIcon
-                    mediaType={attachment.mediaType}
-                    size={16}
-                    base
-                    showLabel
-                    label={attachment.name}
-                  />
-                </TouchableOpacity>
+                  <View>
+                    <MediaTypeIcon
+                      mediaType={attachment.mediaType}
+                      size={16}
+                      base
+                      showLabel
+                      label={attachment.name}
+                    />
+                  </View>
+                </TouchableRipple>
               );
             })}
           </View>
@@ -275,8 +273,8 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
                 {
                   backgroundColor:
                     index === currentIndex
-                      ? Colors[colorScheme].tint
-                      : Colors[colorScheme].iconSecondary,
+                      ? theme.colors.primary
+                      : theme.colors.outline,
                   opacity:
                     currentIndex === -1
                       ? 0.3
@@ -289,7 +287,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           ))}
         </View>
       )}
-    </ThemedView>
+    </Surface>
   );
 };
 

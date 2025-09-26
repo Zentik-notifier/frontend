@@ -1,17 +1,18 @@
-import { Colors } from "@/constants/Colors";
 import { AppIcons } from "@/constants/Icons";
-import { useColorScheme } from "@/hooks/useTheme";
 import React, { useMemo, useState } from "react";
 import {
   Image,
   StyleSheet,
-  Text,
   TextInput,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import Icon from "./Icon";
+import {
+  Text,
+  TouchableRipple,
+  useTheme
+} from "react-native-paper";
+import CustomIcon from "./Icon";
 
 export interface InlinePickerOption<T = string> {
   value: T;
@@ -46,7 +47,7 @@ export default function InlinePicker<T = string>({
 }: InlinePickerProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
 
   const selectedOption = options.find(
     (option) => option.value === selectedValue
@@ -83,7 +84,7 @@ export default function InlinePicker<T = string>({
     <>
       <View style={styles.container}>
         {label && (
-          <Text style={[styles.label, { color: Colors[colorScheme].text }]}>
+          <Text style={[styles.label, { color: theme.colors.onSurface }]}>
             {label}
           </Text>
         )}
@@ -91,63 +92,65 @@ export default function InlinePicker<T = string>({
         <View
           style={[styles.pickerWrapper, isOpen && styles.pickerWrapperOpen]}
         >
-          <TouchableOpacity
+          <TouchableRipple
             style={[
               styles.pickerTouchable,
               {
-                borderColor: Colors[colorScheme].border,
-                backgroundColor: Colors[colorScheme].inputBackground,
+                borderColor: theme.colors.outline,
+                backgroundColor: theme.colors.surface,
               },
               disabled && styles.pickerDisabled,
             ]}
             onPress={togglePicker}
             disabled={disabled}
           >
-            <View style={styles.selectedOptionContainer}>
-              {selectedOption?.icon ? (
-                <Icon
-                  name={selectedOption.icon}
-                  size="sm"
-                  color="secondary"
-                  style={styles.selectedOptionIcon}
-                />
-              ) : selectedOption?.imageUrl ? (
-                <Image
-                  source={{ uri: selectedOption.imageUrl }}
-                  style={styles.selectedOptionImage}
-                  resizeMode="contain"
-                />
-              ) : selectedOption?.emoji ? (
-                <Text style={styles.selectedOptionEmoji}>
-                  {selectedOption.emoji}
-                </Text>
-              ) : selectedOption?.color ? (
-                <View
+            <View style={styles.pickerContent}>
+              <View style={styles.selectedOptionContainer}>
+                {selectedOption?.icon ? (
+                  <CustomIcon
+                    name={selectedOption.icon}
+                    size="sm"
+                    color="secondary"
+                    style={styles.selectedOptionIcon}
+                  />
+                ) : selectedOption?.imageUrl ? (
+                  <Image
+                    source={{ uri: selectedOption.imageUrl }}
+                    style={styles.selectedOptionImage}
+                    resizeMode="contain"
+                  />
+                ) : selectedOption?.emoji ? (
+                  <Text style={styles.selectedOptionEmoji}>
+                    {selectedOption.emoji}
+                  </Text>
+                ) : selectedOption?.color ? (
+                  <View
+                    style={[
+                      styles.colorCircle,
+                      { backgroundColor: selectedOption.color },
+                    ]}
+                  />
+                ) : null}
+                <Text
                   style={[
-                    styles.colorCircle,
-                    { backgroundColor: selectedOption.color },
+                    styles.pickerText,
+                    { color: theme.colors.onSurface },
+                    !selectedOption && {
+                      color: theme.colors.onSurfaceVariant,
+                    },
+                    disabled && { color: theme.colors.onSurfaceVariant },
                   ]}
-                />
-              ) : null}
-              <Text
-                style={[
-                  styles.pickerText,
-                  { color: Colors[colorScheme].text },
-                  !selectedOption && {
-                    color: Colors[colorScheme].inputPlaceholder,
-                  },
-                  disabled && { color: Colors[colorScheme].textSecondary },
-                ]}
-              >
-                {displayText}
-              </Text>
+                >
+                  {displayText}
+                </Text>
+              </View>
+              <CustomIcon
+                name={isOpen ? "collapse" : "dropdown"}
+                size="sm"
+                color={disabled ? "disabled" : "secondary"}
+              />
             </View>
-            <Icon
-              name={isOpen ? "collapse" : "dropdown"}
-              size="sm"
-              color={disabled ? "disabled" : "secondary"}
-            />
-          </TouchableOpacity>
+          </TouchableRipple>
 
           {/* Overlay Options - positioned absolutely */}
           {isOpen && (
@@ -155,8 +158,8 @@ export default function InlinePicker<T = string>({
               style={[
                 styles.optionsList,
                 {
-                  borderColor: Colors[colorScheme].border,
-                  backgroundColor: Colors[colorScheme].backgroundCard,
+                  borderColor: theme.colors.outline,
+                  backgroundColor: theme.colors.surface,
                 },
               ]}
             >
@@ -166,12 +169,12 @@ export default function InlinePicker<T = string>({
                   style={[
                     styles.searchContainer,
                     {
-                      borderBottomColor: Colors[colorScheme].border,
-                      backgroundColor: Colors[colorScheme].backgroundSecondary,
+                      borderBottomColor: theme.colors.outline,
+                      backgroundColor: theme.colors.surfaceVariant,
                     },
                   ]}
                 >
-                  <Icon
+                  <CustomIcon
                     name="search"
                     size="sm"
                     color="secondary"
@@ -180,21 +183,21 @@ export default function InlinePicker<T = string>({
                   <TextInput
                     style={[
                       styles.searchInput,
-                      { color: Colors[colorScheme].text },
+                      { color: theme.colors.onSurface },
                     ]}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     placeholder={searchPlaceholder}
-                    placeholderTextColor={Colors[colorScheme].inputPlaceholder}
+                    placeholderTextColor={theme.colors.onSurfaceVariant}
                     autoFocus={false}
                   />
                   {searchQuery.length > 0 && (
-                    <TouchableOpacity
+                    <TouchableRipple
                       onPress={() => setSearchQuery("")}
                       style={styles.clearSearchButton}
                     >
-                      <Icon name="cancel" size="xs" color="secondary" />
-                    </TouchableOpacity>
+                      <CustomIcon name="cancel" size="xs" color="secondary" />
+                    </TouchableRipple>
                   )}
                 </View>
               )}
@@ -202,15 +205,15 @@ export default function InlinePicker<T = string>({
               {/* Options List */}
               {filteredOptions.length > 0 ? (
                 filteredOptions.map((option, index) => (
-                  <TouchableOpacity
+                  <TouchableRipple
                     key={`${option.value}`}
                     style={[
                       styles.option,
                       {
-                        borderBottomColor: Colors[colorScheme].border,
+                        borderBottomColor: theme.colors.outline,
                         backgroundColor:
                           selectedValue === option.value
-                            ? Colors[colorScheme].selected
+                            ? theme.colors.primaryContainer
                             : "transparent",
                       },
                       index === filteredOptions.length - 1 && {
@@ -219,74 +222,76 @@ export default function InlinePicker<T = string>({
                     ]}
                     onPress={() => handleOptionSelect(option.value)}
                   >
-                    <View style={styles.optionContent}>
-                      {option.icon ? (
-                        <Icon
-                          name={option.icon}
-                          size="sm"
-                          color={
-                            selectedValue === option.value
-                              ? "primary"
-                              : "secondary"
-                          }
-                          style={styles.optionIcon}
-                        />
-                      ) : option.imageUrl ? (
-                        <Image
-                          source={{ uri: option.imageUrl }}
-                          style={styles.optionImage}
-                          resizeMode="contain"
-                        />
-                      ) : option.emoji ? (
-                        <Text style={styles.optionEmoji}>{option.emoji}</Text>
-                      ) : option.color ? (
-                        <View
-                          style={[
-                            styles.colorCircle,
-                            { backgroundColor: option.color },
-                          ]}
-                        />
-                      ) : null}
-                      <View style={styles.optionTextContainer}>
-                        <Text
-                          style={[
-                            styles.optionText,
-                            { color: Colors[colorScheme].text },
-                            selectedValue === option.value && {
-                              color: Colors[colorScheme].tint,
-                              fontWeight: "600",
-                            },
-                          ]}
-                        >
-                          {option.label}
-                        </Text>
-                        {option.subtitle && (
+                    <View style={styles.optionWrapper}>
+                      <View style={styles.optionContent}>
+                        {option.icon ? (
+                          <CustomIcon
+                            name={option.icon}
+                            size="sm"
+                            color={
+                              selectedValue === option.value
+                                ? "primary"
+                                : "secondary"
+                            }
+                            style={styles.optionIcon}
+                          />
+                        ) : option.imageUrl ? (
+                          <Image
+                            source={{ uri: option.imageUrl }}
+                            style={styles.optionImage}
+                            resizeMode="contain"
+                          />
+                        ) : option.emoji ? (
+                          <Text style={styles.optionEmoji}>{option.emoji}</Text>
+                        ) : option.color ? (
+                          <View
+                            style={[
+                              styles.colorCircle,
+                              { backgroundColor: option.color },
+                            ]}
+                          />
+                        ) : null}
+                        <View style={styles.optionTextContainer}>
                           <Text
                             style={[
-                              styles.optionSubtitle,
-                              { color: Colors[colorScheme].textSecondary },
+                              styles.optionText,
+                              { color: theme.colors.onSurface },
                               selectedValue === option.value && {
-                                color: Colors[colorScheme].tint,
+                                color: theme.colors.primary,
+                                fontWeight: "600",
                               },
                             ]}
                           >
-                            {option.subtitle}
+                            {option.label}
                           </Text>
-                        )}
+                          {option.subtitle && (
+                            <Text
+                              style={[
+                                styles.optionSubtitle,
+                                { color: theme.colors.onSurfaceVariant },
+                                selectedValue === option.value && {
+                                  color: theme.colors.primary,
+                                },
+                              ]}
+                            >
+                              {option.subtitle}
+                            </Text>
+                          )}
+                        </View>
                       </View>
+                      {selectedValue === option.value && (
+                        <CustomIcon name="confirm" size="sm" color="primary" />
+                      )}
                     </View>
-                    {selectedValue === option.value && (
-                      <Icon name="confirm" size="sm" color="primary" />
-                    )}
-                  </TouchableOpacity>
+                  </TouchableRipple>
                 ))
               ) : (
                 <View style={styles.noResultsContainer}>
-                  <Icon name="search" size="md" color="disabled" />
+                  <CustomIcon name="search" size="md" color="disabled" />
                   <Text
                     style={[
                       styles.noResultsText,
-                      { color: Colors[colorScheme].textSecondary },
+                      { color: theme.colors.onSurfaceVariant },
                     ]}
                   >
                     No options found for "{searchQuery}"
@@ -328,10 +333,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 6,
     padding: 12,
+    minHeight: 50,
+  },
+  pickerContent: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    minHeight: 50,
+    flex: 1,
   },
   pickerDisabled: {
     opacity: 0.6,
@@ -398,10 +406,12 @@ const styles = StyleSheet.create({
   },
   option: {
     padding: 15,
+    borderBottomWidth: 1,
+  },
+  optionWrapper: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    borderBottomWidth: 1,
   },
   optionContent: {
     flexDirection: "row",

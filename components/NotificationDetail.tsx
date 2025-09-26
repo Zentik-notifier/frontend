@@ -6,9 +6,6 @@ import NotificationActionsButton, {
   filteredActions,
 } from "@/components/NotificationActionsButton";
 import NotificationSnoozeButton from "@/components/NotificationSnoozeButton";
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
-import { Colors } from "@/constants/Colors";
 import {
   MediaType,
   NotificationDeliveryType,
@@ -21,8 +18,6 @@ import {
   useNotificationById,
 } from "@/hooks/useNotifications";
 import { useNotificationUtils } from "@/hooks/useNotificationUtils";
-import { useColorScheme } from "@/hooks/useTheme";
-import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { Paths, File } from "expo-file-system";
 import * as Sharing from "expo-sharing";
@@ -32,10 +27,15 @@ import {
   Alert,
   ScrollView,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
 } from "react-native";
+import {
+  Surface,
+  Text,
+  TouchableRipple,
+  Icon,
+  useTheme,
+} from "react-native-paper";
 
 interface NotificationDetailProps {
   notificationId: string;
@@ -48,7 +48,7 @@ export default function NotificationDetail({
   forceFetch,
   onBack,
 }: NotificationDetailProps) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const { formatDate } = useDateFormat();
   const [fullScreenImageVisible, setFullScreenImageVisible] = useState(false);
@@ -80,30 +80,30 @@ export default function NotificationDetail({
 
   if (loading || (!notification && !error)) {
     return (
-      <ThemedView style={styles.container}>
+      <Surface style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator
             size="large"
-            color={Colors[colorScheme ?? "light"].tint}
+            color={theme.colors.primary}
           />
-          <ThemedText style={styles.loadingText}>
+          <Text style={[styles.loadingText, { color: theme.colors.onBackground }]}>
             {t("notificationDetail.loading")}
-          </ThemedText>
+          </Text>
         </View>
-      </ThemedView>
+      </Surface>
     );
   }
 
   if (error || !notification) {
     return (
-      <ThemedView style={styles.container}>
+      <Surface style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={48} color="#ff4444" />
-          <ThemedText style={styles.errorText}>
+          <Icon source="alert-circle" size={48} color={theme.colors.error} />
+          <Text style={[styles.errorText, { color: theme.colors.error }]}>
             {t("notificationDetail.notFound")}
-          </ThemedText>
+          </Text>
         </View>
-      </ThemedView>
+      </Surface>
     );
   }
 
@@ -208,7 +208,7 @@ export default function NotificationDetail({
   const actions = message?.actions ? filteredActions(notification) : [];
 
   return (
-    <ThemedView style={styles.container}>
+    <Surface style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -226,9 +226,9 @@ export default function NotificationDetail({
                   noRouting
                 />
                 <View style={styles.bucketInfo}>
-                  <ThemedText style={styles.bucketName}>
+                  <Text style={[styles.bucketName, { color: theme.colors.onBackground }]}>
                     {bucketName}
-                  </ThemedText>
+                  </Text>
                 </View>
               </View>
             </View>
@@ -237,50 +237,56 @@ export default function NotificationDetail({
             <View style={styles.headerRight}>
               {/* Actions */}
               <View style={styles.actionsContainer}>
-                <TouchableOpacity
+                <TouchableRipple
                   style={[
                     styles.actionButton,
                     {
-                      backgroundColor: Colors[colorScheme].backgroundSecondary,
+                      backgroundColor: theme.colors.surfaceVariant,
                     },
                   ]}
                   onPress={copyNotificationToClipboard}
                 >
-                  <Ionicons
-                    name="copy"
-                    size={16}
-                    color={Colors[colorScheme].tabIconDefault}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity
+                  <View>
+                    <Icon
+                      source="content-copy"
+                      size={16}
+                      color={theme.colors.onSurfaceVariant}
+                    />
+                  </View>
+                </TouchableRipple>
+                <TouchableRipple
                   style={[
                     styles.actionButton,
                     {
-                      backgroundColor: Colors[colorScheme].backgroundSecondary,
+                      backgroundColor: theme.colors.surfaceVariant,
                     },
                   ]}
                   onPress={shareNotification}
                 >
-                  <Ionicons
-                    name="share"
-                    size={16}
-                    color={Colors[colorScheme].tabIconDefault}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity
+                  <View>
+                    <Icon
+                      source="share"
+                      size={16}
+                      color={theme.colors.onSurfaceVariant}
+                    />
+                  </View>
+                </TouchableRipple>
+                <TouchableRipple
                   style={[
                     styles.actionButton,
                     {
-                      backgroundColor: Colors[colorScheme].error,
+                      backgroundColor: theme.colors.error,
                     },
                   ]}
                   onPress={handleDeleteNotification}
                 >
-                  <Ionicons name="trash" size={16} color="white" />
-                </TouchableOpacity>
+                  <View>
+                    <Icon source="delete" size={16} color={theme.colors.onError} />
+                  </View>
+                </TouchableRipple>
 
                 {message?.deliveryType !== NotificationDeliveryType.Normal && (
-                  <View
+                  <TouchableRipple
                     style={[
                       styles.actionButton,
                       {
@@ -289,29 +295,32 @@ export default function NotificationDetail({
                         ),
                       },
                     ]}
+                    disabled
                   >
-                    <Text style={styles.statusText}>
-                      {getDeliveryTypeFriendlyName(
-                        message?.deliveryType as NotificationDeliveryType
-                      )}
-                    </Text>
-                  </View>
+                    <View>
+                      <Text style={[styles.statusText, { color: theme.colors.onPrimary }]}>
+                        {getDeliveryTypeFriendlyName(
+                          message?.deliveryType as NotificationDeliveryType
+                        )}
+                      </Text>
+                    </View>
+                  </TouchableRipple>
                 )}
               </View>
 
               {/* Timestamps */}
               <View style={styles.timestampsContainer}>
                 {notification.sentAt && (
-                  <ThemedText style={styles.timestampText}>
+                  <Text style={[styles.timestampText, { color: theme.colors.onBackground }]}>
                     {t("notificationDetail.sent")}{" "}
                     {formatDate(notification.sentAt, true)}
-                  </ThemedText>
+                  </Text>
                 )}
                 {notification.readAt && (
-                  <ThemedText style={styles.timestampText}>
+                  <Text style={[styles.timestampText, { color: theme.colors.onBackground }]}>
                     {t("notificationDetail.read")}{" "}
                     {formatDate(notification.readAt, true)}
-                  </ThemedText>
+                  </Text>
                 )}
               </View>
             </View>
@@ -387,7 +396,7 @@ export default function NotificationDetail({
             : undefined
         }
       />
-    </ThemedView>
+    </Surface>
   );
 }
 
@@ -414,7 +423,6 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#ff4444",
     marginTop: 16,
     textAlign: "center",
   },
@@ -487,7 +495,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: "500",
-    color: "white",
   },
   timestampsContainer: {
     flexDirection: "column",

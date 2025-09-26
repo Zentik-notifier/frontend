@@ -1,5 +1,10 @@
 # Home module - Lista file da migrare a react-native-paper
 
+TODO:
+- InlineMenu dovrebbe aprirsi di lato all' anchor e non sotto/sopra
+- L'header del menu in UserDropdown ha fin troppo padding, dovrebbe essere molto meno
+- In galleryFilters, stats info dovrebbe essere un inlineMenu senza click actions
+
 Ordine consigliato (dalle entrypoint ai componenti annidati):
 
 1. app/_layout.tsx
@@ -24,7 +29,9 @@ Note:
 - Includere eventuali sotto-componenti usati da questi file (modali, badge, bottoni swipe) durante la migrazione.
 - Non utilizzare componenti in `components/ui/*`: sostituirli con equivalenti di react-native-paper dove possibile.
 - Migrare quanti più componenti possibili a react-native-paper (Text, Surface, Button, IconButton, Menu, Dialog, Snackbar, ecc.).
-- Utilizzare solo icone di Paper (MaterialCommunityIcons via `react-native-paper`), evitando set di icone custom.
+- **IMPORTANTE**: Utilizzare SOLO icone di Paper (MaterialCommunityIcons via `react-native-paper`), evitando set di icone custom.
+- **NON utilizzare MAI** il componente `Icon` da `components/ui/Icon.tsx` - tutte le icone devono venire da `react-native-paper`.
+- Usare `Icon` da `react-native-paper` con `source` prop (es: `source="home"`, `source="settings"`).
 - Ridurre al minimo lo styling custom: preferire colori e tipografia da `theme.colors`/`MD3` e component props di Paper; evitare shadow/ombre custom.
 - Evitare modifiche dirette a ios/android; usare solo componenti Paper e hook tema.
 

@@ -1,39 +1,25 @@
 import { UserRole, useGetMeQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { useTheme as useAppTheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Image,
-  Pressable,
   StyleSheet,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import {
   Avatar,
-  Divider,
   Icon,
-  Menu,
-  Portal,
-  Surface,
   Text,
-  useTheme,
+  useTheme
 } from "react-native-paper";
-import { useTheme as useAppTheme } from "@/hooks/useTheme";
-import { IconSource } from "react-native-paper/lib/typescript/components/Icon";
-
-interface DropdownItem {
-  id: string;
-  label: string;
-  icon: IconSource;
-  onPress: () => void;
-  type?: "normal" | "destructive";
-}
+import InlineMenu, { InlineMenuItem } from "./ui/InlineMenu";
 
 export default function UserDropdown() {
   const { logout, showOnboarding } = useAppContext();
-  const [isVisible, setIsVisible] = useState(false);
   const [showInitials, setShowInitials] = useState(false);
   const [showInitialsSmall, setShowInitialsSmall] = useState(false);
   const theme = useTheme();
@@ -70,24 +56,6 @@ export default function UserDropdown() {
     );
   }
 
-  function renderSmallAvatar() {
-    if (user?.avatar && !showInitialsSmall) {
-      return (
-        <Image
-          source={{ uri: user.avatar }}
-          style={styles.avatarSmallImage}
-          onError={() => setShowInitialsSmall(true)}
-        />
-      );
-    }
-
-    return (
-      <View style={styles.avatarSmall}>
-        <Text style={styles.initialsSmallText}>{getInitials()}</Text>
-      </View>
-    );
-  }
-
   function getInitials() {
     if (!user) return "?";
     if (user.firstName && user.lastName)
@@ -95,16 +63,6 @@ export default function UserDropdown() {
     if (user.username) return user.username.slice(0, 2).toUpperCase();
     if (user.email) return user.email[0].toUpperCase();
     return "?";
-  }
-
-  function getUserDisplayName() {
-    if (!user) return t("userDropdown.unknownUser");
-    if (user.firstName && user.lastName) {
-      return `${user.firstName} ${user.lastName}`;
-    }
-    if (user.username) return user.username;
-    if (user.email) return user.email;
-    return t("userDropdown.unknownUser");
   }
 
   function getNextThemeMode(): "system" | "light" | "dark" {
@@ -128,22 +86,62 @@ export default function UserDropdown() {
     return "weather-night";
   }
 
-  function showDropdown() {
-    setIsVisible(true);
+  function renderSmallAvatar() {
+    if (user?.avatar && !showInitialsSmall) {
+      return (
+        <Image
+          source={{ uri: user.avatar }}
+          style={styles.avatarImage}
+          onError={() => setShowInitialsSmall(true)}
+        />
+      );
+    }
+
+    return (
+      <View style={styles.avatarContainer}>
+        <Text style={styles.initialsSmallText}>{getInitials()}</Text>
+      </View>
+    );
   }
 
-  function hideDropdown() {
-    setIsVisible(false);
+  function getUserDisplayName() {
+    if (!user) return t("userDropdown.offlineMode");
+    if (user.firstName && user.lastName)
+      return `${user.firstName} ${user.lastName}`;
+    if (user.username) return user.username;
+    if (user.email) return user.email;
+    return t("userDropdown.offlineMode");
   }
 
-  const dropdownItems: DropdownItem[] = [
+  const userHeader = (
+    <View style={styles.userInfo}>
+      {renderSmallAvatar()}
+      <View style={styles.userDetails}>
+        <Text
+          variant="titleMedium"
+          style={styles.userDisplayName}
+          numberOfLines={1}
+        >
+          {getUserDisplayName()}
+        </Text>
+        <Text
+          variant="bodySmall"
+          style={styles.userEmail}
+          numberOfLines={1}
+        >
+          {user?.email || t("userDropdown.offlineMode")}
+        </Text>
+      </View>
+    </View>
+  );
+
+  const menuItems: InlineMenuItem[] = useMemo(() => [
     {
       id: "gettingStarted",
       label: t("userDropdown.gettingStarted"),
       icon: "help-circle-outline",
       onPress: () => {
         showOnboarding();
-        hideDropdown();
       },
     },
     {
@@ -158,7 +156,6 @@ export default function UserDropdown() {
       icon: "cog",
       onPress: () => {
         navigateToSettings();
-        hideDropdown();
       },
     },
     ...(user?.role === UserRole.Admin
@@ -169,7 +166,6 @@ export default function UserDropdown() {
             icon: "shield-outline",
             onPress: () => {
               navigateToAdmin();
-              hideDropdown();
             },
           },
         ]
@@ -180,85 +176,34 @@ export default function UserDropdown() {
       icon: "logout",
       onPress: () => {
         logout();
-        hideDropdown();
       },
       type: "destructive",
     },
-  ];
+  ], [t, getThemeCycleLabel, getThemeCycleIcon, setThemeMode, getNextThemeMode, navigateToSettings, user?.role, navigateToAdmin, logout, showOnboarding]);
 
   return (
-    <>
-      {isVisible && (
-        <Portal>
-          <Pressable style={styles.overlay} onPress={hideDropdown} />
-        </Portal>
-      )}
-      <Menu
-        visible={isVisible}
-        onDismiss={hideDropdown}
-        anchor={
-          <TouchableOpacity
-            onPress={showDropdown}
-            activeOpacity={0.7}
-            style={styles.avatarButton}
-          >
-            {user?.avatar && !showInitials ? (
-              <Avatar.Image source={{ uri: user.avatar }} size={36} />
-            ) : (
-              <Avatar.Text label={getInitials()} size={36} />
-            )}
-            <View style={styles.dropdownIcon}>
-              <Icon
-                source="chevron-down"
-                size={16}
-                color={theme.colors.onSurface}
-              />
-            </View>
-          </TouchableOpacity>
-        }
-        anchorPosition="bottom"
-        contentStyle={styles.menuContent}
-      >
-        {/* User Info Header */}
-        <Surface style={styles.userInfo}>
-          {renderSmallAvatar()}
-          <View style={styles.userDetails}>
-            <Text
-              variant="titleMedium"
-              style={styles.userDisplayName}
-              numberOfLines={1}
-            >
-              {getUserDisplayName()}
-            </Text>
-            <Text
-              variant="bodySmall"
-              style={styles.userEmail}
-              numberOfLines={1}
-            >
-              {user?.email || t("userDropdown.offlineMode")}
-            </Text>
+    <InlineMenu
+      anchor={
+        <View style={styles.avatarButton}>
+          {user?.avatar && !showInitials ? (
+            <Avatar.Image source={{ uri: user.avatar }} size={36} />
+          ) : (
+            <Avatar.Text label={getInitials()} size={36} />
+          )}
+          <View style={styles.dropdownIcon}>
+            <Icon
+              source="chevron-down"
+              size={16}
+              color={theme.colors.onSurface}
+            />
           </View>
-        </Surface>
-
-        <Divider />
-
-        {/* Dropdown Items */}
-        {dropdownItems.map((item) => (
-          <Menu.Item
-            key={item.id}
-            onPress={() => {
-              item.onPress();
-              hideDropdown();
-            }}
-            title={item.label}
-            leadingIcon={item.icon}
-            titleStyle={
-              item.type === "destructive" ? styles.destructiveText : undefined
-            }
-          />
-        ))}
-      </Menu>
-    </>
+        </View>
+      }
+      items={menuItems}
+      anchorPosition="bottom"
+      maxHeight={400}
+      header={userHeader}
+    />
   );
 }
 
@@ -307,20 +252,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-  },
-  avatarSmall: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  avatarSmallImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 12,
   },
   initialsSmallText: {
     color: "#fff",

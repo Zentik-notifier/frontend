@@ -1,6 +1,6 @@
+import { GallerySectionWithContext } from "@/components/GallerySection";
 import React from "react";
-import GallerySection from "@/components/GallerySection";
 
 export default function GalleryPage() {
-  return <GallerySection />;
+  return <GallerySectionWithContext />;
 }

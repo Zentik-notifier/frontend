@@ -18,7 +18,7 @@ import {
 } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import MessageBuilder from "./MessageBuilder";
-import NotificationsList from "./NotificationsList";
+import { NotificationsListWithContext } from "./NotificationsList";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
 
 interface BucketDetailProps {
@@ -144,18 +144,32 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
       {/* Action Block (Top row: mark/edit/copy; Bottom row: snooze) */}
       <View style={styles.actionBlock}>
         <View style={styles.actionTopRow}>
-          {/* Mark All as Read - round icon button with badge */}
+          {/* Mark All as Read - rectangular button with badge */}
           <View style={{ position: "relative" }}>
-            <IconButton
-              mode={unreadNotifications.length > 0 ? "contained" : "outlined"}
-              icon="check-all"
-              size={18}
+            <TouchableRipple
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: unreadNotifications.length > 0 
+                    ? theme.colors.primary 
+                    : theme.colors.surfaceVariant,
+                },
+              ]}
               onPress={handleMarkAllAsRead}
               disabled={
                 unreadNotifications.length === 0 || markAllAsReadLoading
               }
-              // iconColor={unreadNotifications.length > 0 ? theme.colors.onPrimary : theme.colors.onSurface}
-            />
+            >
+              <View>
+                <Icon
+                  source="check-all"
+                  size={16}
+                  color={unreadNotifications.length > 0 
+                    ? theme.colors.onPrimary 
+                    : theme.colors.onSurfaceVariant}
+                />
+              </View>
+            </TouchableRipple>
             {unreadNotifications.length > 0 && (
               <Badge
                 size={16}
@@ -167,28 +181,48 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
           </View>
 
           {/* Edit Button */}
-          <IconButton
-            mode="outlined"
-            icon="pencil"
-            size={18}
+          <TouchableRipple
+            style={[
+              styles.actionButton,
+              {
+                backgroundColor: theme.colors.surfaceVariant,
+              },
+            ]}
             onPress={() => navigateToEditBucket(bucketId, true)}
-          />
+          >
+            <View>
+              <Icon
+                source="pencil"
+                size={16}
+                color={theme.colors.onSurfaceVariant}
+              />
+            </View>
+          </TouchableRipple>
 
           {/* Copy Bucket ID Button */}
-          <IconButton
-            mode="outlined"
-            icon="content-copy"
-            size={18}
+          <TouchableRipple
+            style={[
+              styles.actionButton,
+              {
+                backgroundColor: theme.colors.surfaceVariant,
+              },
+            ]}
             onPress={handleCopyBucketId}
-          />
-        </View>
+          >
+            <View>
+              <Icon
+                source="content-copy"
+                size={16}
+                color={theme.colors.onSurfaceVariant}
+              />
+            </View>
+          </TouchableRipple>
 
-        {/* Snooze Button - bottom row */}
-        <View style={styles.actionBottomRow}>
+          {/* Snooze Button */}
           <NotificationSnoozeButton
             bucketId={bucketId}
             variant="detail"
-            showText
+            showText={false}
           />
         </View>
       </View>
@@ -264,7 +298,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
       </View>
 
       {/* Notifications List */}
-      <NotificationsList
+      <NotificationsListWithContext
         notifications={filteredNotifications}
         hideBucketInfo
         customHeader={<View style={[styles.filtersContainer]} />}
@@ -444,9 +478,11 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: "flex-end",
   },
-  actionBottomRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
+  actionButton: {
+    padding: 8,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
   },
   markAllButton: {
     padding: 8,
@@ -464,9 +500,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#fff",
-  },
-  actionButton: {
-    padding: 8,
-    borderRadius: 6,
   },
 });

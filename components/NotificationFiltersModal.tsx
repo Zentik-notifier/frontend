@@ -2,6 +2,7 @@ import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/services/app-context";
 import { NotificationFilters } from "@/services/user-settings";
+import { useNotifications } from "@/contexts/NotificationsContext";
 import React from "react";
 import { StyleSheet, View, ScrollView, Dimensions } from "react-native";
 import {
@@ -14,27 +15,21 @@ import {
   useTheme,
 } from "react-native-paper";
 import BucketSelector from "./BucketSelector";
-import { SafeAreaView } from "react-native-safe-area-context";
 
-interface NotificationFiltersModalProps {
-  visible: boolean;
-  hideBucketSelector?: boolean;
-  onClose: () => void;
-}
-
-export default function NotificationFiltersModal({
-  visible,
-  hideBucketSelector = false,
-  onClose,
-}: NotificationFiltersModalProps) {
+export default function NotificationFiltersModal() {
   const { data: bucketsData } = useGetBucketsQuery();
   const buckets = bucketsData?.buckets ?? [];
-  // no-op
   const { t } = useI18n();
   const {
     userSettings: { settings, setNotificationFilters },
   } = useAppContext();
   const filters = settings.notificationFilters;
+
+  // Use notifications context
+  const {
+    state: { showFiltersModal, hideBucketSelector },
+    handleHideFiltersModal,
+  } = useNotifications();
 
   const handleBucketChange = (bucketId: string | null) => {
     if (bucketId === null) {
@@ -100,117 +95,109 @@ export default function NotificationFiltersModal({
     <>
       <Portal>
         <Modal
-          visible={visible}
-          onDismiss={onClose}
+          visible={showFiltersModal}
+          onDismiss={handleHideFiltersModal}
           contentContainerStyle={containerStyle}
           dismissableBackButton
         >
           {/* <SafeAreaView edges={["left", "right", "bottom"]}> */}
-            <View
-              style={[
-                styles.header,
-                {
-                  borderBottomColor: theme.colors.outline,
-                  backgroundColor: "transparent",
-                },
-              ]}
-            >
-              <View style={styles.headerLeft}>
-                <Icon source="filter" size={24} color={theme.colors.primary} />
-                <Text style={styles.headerTitle}>{t("filters.title")}</Text>
-              </View>
-              <View style={styles.headerRight}>
-                {hasActiveFilters && (
-                  <Button
-                    mode="contained-tonal"
-                    onPress={clearAllFilters}
-                    icon="refresh"
-                  >
-                    {t("filters.clearAll")}
-                  </Button>
-                )}
-                <TouchableRipple
-                  style={[styles.closeButton]}
-                  onPress={onClose}
-                  borderless
-                >
-                  <Icon
-                    source="close"
-                    size={20}
-                    color={theme.colors.onSurface}
-                  />
-                </TouchableRipple>
-              </View>
+          <View
+            style={[
+              styles.header,
+              {
+                borderBottomColor: theme.colors.outline,
+                backgroundColor: "transparent",
+              },
+            ]}
+          >
+            <View style={styles.headerLeft}>
+              <Icon source="filter" size={24} color={theme.colors.primary} />
+              <Text style={styles.headerTitle}>{t("filters.title")}</Text>
             </View>
-
-            <ScrollView
-              contentContainerStyle={{
-                padding: 20,
-              }}
-            >
-              {!hideBucketSelector && (
-                <View style={[styles.section, { marginBottom: 8 }]}>
-                  <Text
-                    style={[
-                      styles.sectionTitle,
-                      { color: theme.colors.onSurface },
-                    ]}
-                  >
-                    {t("filters.bucket")}
-                  </Text>
-                  <BucketSelector
-                    selectedBucketId={
-                      filters.selectedBucketIds.length === 0
-                        ? null
-                        : filters.selectedBucketIds[0] === ""
-                        ? ""
-                        : filters.selectedBucketIds[0]
-                    }
-                    onBucketChange={handleBucketChange}
-                    buckets={buckets}
-                    includeAllOption
-                    searchable
-                  />
-                </View>
+            <View style={styles.headerRight}>
+              {hasActiveFilters && (
+                <Button
+                  mode="contained-tonal"
+                  onPress={clearAllFilters}
+                  icon="refresh"
+                >
+                  {t("filters.clearAll")}
+                </Button>
               )}
+              <TouchableRipple
+                style={[styles.closeButton]}
+                onPress={handleHideFiltersModal}
+                borderless
+              >
+                <Icon source="close" size={20} color={theme.colors.onSurface} />
+              </TouchableRipple>
+            </View>
+          </View>
 
-              {/* Quick Filters */}
-              <View style={styles.section}>
+          <ScrollView
+            contentContainerStyle={{
+              padding: 20,
+            }}
+          >
+            {!hideBucketSelector && (
+              <View style={[styles.section, { marginBottom: 8 }]}>
                 <Text
                   style={[
                     styles.sectionTitle,
                     { color: theme.colors.onSurface },
                   ]}
                 >
-                  {t("filters.quickFilters")}
+                  {t("filters.bucket")}
                 </Text>
-                <View style={styles.quickFiltersGrid}>
-                  {/* Hide Read */}
-                  <TouchableRipple
-                    style={[
-                      styles.quickFilter,
-                      {
-                        borderColor: theme.colors.outline,
-                        backgroundColor: filters.hideRead
-                          ? theme.colors.secondaryContainer
-                          : theme.colors.elevation?.level1 ||
-                            theme.colors.surface,
-                      },
-                    ]}
-                    onPress={() => handleHideReadChange(!filters.hideRead)}
-                  >
-                    <View>
-                      <Icon
-                        source={
-                          filters.hideRead ? "eye-off" : "eye-off-outline"
-                        }
-                        size={20}
-                        color={
-                          filters.hideRead
-                            ? theme.colors.primary
-                            : theme.colors.onSurfaceVariant
-                        }
-                      />
+                <BucketSelector
+                  selectedBucketId={
+                    filters.selectedBucketIds.length === 0
+                      ? null
+                      : filters.selectedBucketIds[0] === ""
+                      ? ""
+                      : filters.selectedBucketIds[0]
+                  }
+                  onBucketChange={handleBucketChange}
+                  buckets={buckets}
+                  includeAllOption
+                  searchable
+                />
+              </View>
+            )}
+
+            {/* Quick Filters */}
+            <View style={styles.section}>
+              <Text
+                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
+              >
+                {t("filters.quickFilters")}
+              </Text>
+              <View style={styles.quickFiltersGrid}>
+                {/* Hide Read */}
+                <TouchableRipple
+                  style={[
+                    styles.quickFilter,
+                    {
+                      borderColor: theme.colors.outline,
+                      backgroundColor: filters.hideRead
+                        ? theme.colors.secondaryContainer
+                        : theme.colors.elevation?.level1 ||
+                          theme.colors.surface,
+                    },
+                  ]}
+                  onPress={() => handleHideReadChange(!filters.hideRead)}
+                >
+                  <View style={styles.quickFilterContent}>
+                    <Icon
+                      source={filters.hideRead ? "eye-off" : "eye-off-outline"}
+                      size={20}
+                      color={
+                        filters.hideRead
+                          ? theme.colors.primary
+                          : theme.colors.onSurfaceVariant
+                      }
+                    />
+                    <View style={styles.quickFilterTextContainer}>
                       <Text
                         style={[
                           styles.quickFilterText,
@@ -232,36 +219,38 @@ export default function NotificationFiltersModal({
                         {t("filters.hideReadDescription")}
                       </Text>
                     </View>
-                  </TouchableRipple>
+                  </View>
+                </TouchableRipple>
 
-                  {/* Attachments Only */}
-                  <TouchableRipple
-                    style={[
-                      styles.quickFilter,
-                      {
-                        borderColor: theme.colors.outline,
-                        backgroundColor: filters.showOnlyWithAttachments
-                          ? theme.colors.secondaryContainer
-                          : theme.colors.elevation?.level1 ||
-                            theme.colors.surface,
-                      },
-                    ]}
-                    onPress={() =>
-                      handleAttachmentsOnlyChange(
-                        !filters.showOnlyWithAttachments
-                      )
-                    }
-                  >
-                    <View>
-                      <Icon
-                        source="paperclip"
-                        size={20}
-                        color={
-                          filters.showOnlyWithAttachments
-                            ? theme.colors.primary
-                            : theme.colors.onSurfaceVariant
-                        }
-                      />
+                {/* Attachments Only */}
+                <TouchableRipple
+                  style={[
+                    styles.quickFilter,
+                    {
+                      borderColor: theme.colors.outline,
+                      backgroundColor: filters.showOnlyWithAttachments
+                        ? theme.colors.secondaryContainer
+                        : theme.colors.elevation?.level1 ||
+                          theme.colors.surface,
+                    },
+                  ]}
+                  onPress={() =>
+                    handleAttachmentsOnlyChange(
+                      !filters.showOnlyWithAttachments
+                    )
+                  }
+                >
+                  <View style={styles.quickFilterContent}>
+                    <Icon
+                      source="paperclip"
+                      size={20}
+                      color={
+                        filters.showOnlyWithAttachments
+                          ? theme.colors.primary
+                          : theme.colors.onSurfaceVariant
+                      }
+                    />
+                    <View style={styles.quickFilterTextContainer}>
                       <Text
                         style={[
                           styles.quickFilterText,
@@ -283,192 +272,184 @@ export default function NotificationFiltersModal({
                         {t("filters.withMediaDescription")}
                       </Text>
                     </View>
+                  </View>
+                </TouchableRipple>
+              </View>
+            </View>
+
+            {/* Sort Options */}
+            <View style={styles.section}>
+              <Text
+                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
+              >
+                {t("filters.sortBy")}
+              </Text>
+              <View style={styles.sortButtons}>
+                {[
+                  {
+                    value: "newest",
+                    label: t("filters.newestFirst"),
+                    icon: "arrow-down",
+                  },
+                  {
+                    value: "oldest",
+                    label: t("filters.oldestFirst"),
+                    icon: "arrow-up",
+                  },
+                  // { value: "priority", label: t("filters.priority"), icon: "star" },
+                ].map(({ value, label, icon }) => (
+                  <TouchableRipple
+                    key={value}
+                    style={[
+                      styles.sortButton,
+                      {
+                        borderColor: theme.colors.outline,
+                        backgroundColor:
+                          filters.sortBy === value
+                            ? theme.colors.primary
+                            : theme.colors.elevation?.level1 ||
+                              theme.colors.surface,
+                      },
+                    ]}
+                    onPress={() => handleSortByChange(value as any)}
+                  >
+                    <View style={styles.sortButtonContent}>
+                      <Icon
+                        source={icon as any}
+                        size={18}
+                        color={
+                          filters.sortBy === value
+                            ? theme.colors.onPrimary
+                            : theme.colors.onSurfaceVariant
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.sortButtonText,
+                          {
+                            color:
+                              filters.sortBy === value
+                                ? theme.colors.onPrimary
+                                : theme.colors.onSurface,
+                          },
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </View>
                   </TouchableRipple>
-                </View>
+                ))}
               </View>
+            </View>
 
-              {/* Sort Options */}
-              <View style={styles.section}>
-                <Text
-                  style={[
-                    styles.sectionTitle,
-                    { color: theme.colors.onSurface },
-                  ]}
-                >
-                  {t("filters.sortBy")}
-                </Text>
-                <View style={styles.sortButtons}>
-                  {[
-                    {
-                      value: "newest",
-                      label: t("filters.newestFirst"),
-                      icon: "arrow-down",
-                    },
-                    {
-                      value: "oldest",
-                      label: t("filters.oldestFirst"),
-                      icon: "arrow-up",
-                    },
-                    // { value: "priority", label: t("filters.priority"), icon: "star" },
-                  ].map(({ value, label, icon }) => (
-                    <TouchableRipple
-                      key={value}
-                      style={[
-                        styles.sortButton,
-                        {
-                          borderColor: theme.colors.outline,
-                          backgroundColor:
-                            filters.sortBy === value
-                              ? theme.colors.primary
-                              : theme.colors.elevation?.level1 ||
-                                theme.colors.surface,
-                        },
-                      ]}
-                      onPress={() => handleSortByChange(value as any)}
-                    >
-                      <View>
-                        <Icon
-                          source={icon as any}
-                          size={18}
-                          color={
-                            filters.sortBy === value
-                              ? theme.colors.onPrimary
-                              : theme.colors.onSurfaceVariant
-                          }
-                        />
-                        <Text
-                          style={[
-                            styles.sortButtonText,
-                            {
-                              color:
-                                filters.sortBy === value
-                                  ? theme.colors.onPrimary
-                                  : theme.colors.onSurface,
-                            },
-                          ]}
-                        >
-                          {label}
-                        </Text>
-                      </View>
-                    </TouchableRipple>
-                  ))}
-                </View>
+            {/* Hide Older Than */}
+            <View style={styles.section}>
+              <Text
+                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
+              >
+                {t("filters.hideOlderThan")}
+              </Text>
+              <View style={styles.sortButtons}>
+                {[
+                  {
+                    value: "none",
+                    label: t("filters.showAll"),
+                    icon: "all-inclusive",
+                  },
+                  {
+                    value: "1day",
+                    label: t("filters.oneDay"),
+                    icon: "calendar",
+                  },
+                  {
+                    value: "1week",
+                    label: t("filters.oneWeek"),
+                    icon: "calendar",
+                  },
+                  {
+                    value: "1month",
+                    label: t("filters.oneMonth"),
+                    icon: "calendar",
+                  },
+                ].map(({ value, label, icon }) => (
+                  <TouchableRipple
+                    key={value}
+                    style={[
+                      styles.sortButton,
+                      {
+                        borderColor: theme.colors.outline,
+                        backgroundColor:
+                          filters.hideOlderThan === value
+                            ? theme.colors.primary
+                            : theme.colors.elevation?.level1 ||
+                              theme.colors.surface,
+                      },
+                    ]}
+                    onPress={() => handleHideOlderThanChange(value as any)}
+                  >
+                    <View style={styles.sortButtonContent}>
+                      <Icon
+                        source={icon as any}
+                        size={18}
+                        color={
+                          filters.hideOlderThan === value
+                            ? theme.colors.onPrimary
+                            : theme.colors.onSurfaceVariant
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.sortButtonText,
+                          {
+                            color:
+                              filters.hideOlderThan === value
+                                ? theme.colors.onPrimary
+                                : theme.colors.onSurface,
+                          },
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </View>
+                  </TouchableRipple>
+                ))}
               </View>
+            </View>
 
-              {/* Hide Older Than */}
-              <View style={styles.section}>
-                <Text
-                  style={[
-                    styles.sectionTitle,
-                    { color: theme.colors.onSurface },
-                  ]}
-                >
-                  {t("filters.hideOlderThan")}
-                </Text>
-                <View style={styles.sortButtons}>
-                  {[
-                    {
-                      value: "none",
-                      label: t("filters.showAll"),
-                      icon: "infinite",
-                    },
-                    {
-                      value: "1day",
-                      label: t("filters.oneDay"),
-                      icon: "calendar",
-                    },
-                    {
-                      value: "1week",
-                      label: t("filters.oneWeek"),
-                      icon: "calendar",
-                    },
-                    {
-                      value: "1month",
-                      label: t("filters.oneMonth"),
-                      icon: "calendar",
-                    },
-                  ].map(({ value, label, icon }) => (
-                    <TouchableRipple
-                      key={value}
-                      style={[
-                        styles.sortButton,
-                        {
-                          borderColor: theme.colors.outline,
-                          backgroundColor:
-                            filters.hideOlderThan === value
-                              ? theme.colors.primary
-                              : theme.colors.elevation?.level1 ||
-                                theme.colors.surface,
-                        },
-                      ]}
-                      onPress={() => handleHideOlderThanChange(value as any)}
-                    >
-                      <View>
-                        <Icon
-                          source={icon as any}
-                          size={18}
-                          color={
-                            filters.hideOlderThan === value
-                              ? theme.colors.onPrimary
-                              : theme.colors.onSurfaceVariant
-                          }
-                        />
-                        <Text
-                          style={[
-                            styles.sortButtonText,
-                            {
-                              color:
-                                filters.hideOlderThan === value
-                                  ? theme.colors.onPrimary
-                                  : theme.colors.onSurface,
-                            },
-                          ]}
-                        >
-                          {label}
-                        </Text>
-                      </View>
-                    </TouchableRipple>
-                  ))}
-                </View>
-              </View>
-
-              {/* Performance */}
-              <View style={styles.section}>
-                <Text
-                  style={[
-                    styles.sectionTitle,
-                    { color: theme.colors.onSurface },
-                  ]}
-                >
-                  {t("filters.performance")}
-                </Text>
-                <TouchableRipple
-                  style={[
-                    styles.quickFilter,
-                    {
-                      borderColor: theme.colors.outline,
-                      backgroundColor: filters.loadOnlyVisible
-                        ? theme.colors.secondaryContainer
-                        : theme.colors.elevation?.level1 ||
-                          theme.colors.surface,
-                    },
-                  ]}
-                  onPress={() =>
-                    setNotificationFilters({
-                      loadOnlyVisible: !filters.loadOnlyVisible,
-                    })
-                  }
-                >
-                  <View>
-                    <Icon
-                      source="speedometer"
-                      size={20}
-                      color={
-                        filters.loadOnlyVisible
-                          ? theme.colors.primary
-                          : theme.colors.onSurfaceVariant
-                      }
-                    />
+            {/* Performance */}
+            <View style={styles.section}>
+              <Text
+                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
+              >
+                {t("filters.performance")}
+              </Text>
+              <TouchableRipple
+                style={[
+                  styles.quickFilter,
+                  {
+                    borderColor: theme.colors.outline,
+                    backgroundColor: filters.loadOnlyVisible
+                      ? theme.colors.secondaryContainer
+                      : theme.colors.elevation?.level1 || theme.colors.surface,
+                  },
+                ]}
+                onPress={() =>
+                  setNotificationFilters({
+                    loadOnlyVisible: !filters.loadOnlyVisible,
+                  })
+                }
+              >
+                <View style={styles.quickFilterContent}>
+                  <Icon
+                    source="speedometer"
+                    size={20}
+                    color={
+                      filters.loadOnlyVisible
+                        ? theme.colors.primary
+                        : theme.colors.onSurfaceVariant
+                    }
+                  />
+                  <View style={styles.quickFilterTextContainer}>
                     <Text
                       style={[
                         styles.quickFilterText,
@@ -490,40 +471,41 @@ export default function NotificationFiltersModal({
                       {t("filters.loadOnlyVisibleDescription")}
                     </Text>
                   </View>
-                </TouchableRipple>
-              </View>
-
-              {hasActiveFilters && (
-                <View
-                  style={[
-                    styles.footer,
-                    { borderTopColor: theme.colors.outline },
-                  ]}
-                >
-                  <View style={styles.footerContent}>
-                    <Icon
-                      source="filter"
-                      size={16}
-                      color={theme.colors.primary}
-                    />
-                    <Text
-                      style={[
-                        styles.footerText,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      {getActiveFiltersCount(filters) === 1
-                        ? t("filters.activeFilters", {
-                            count: getActiveFiltersCount(filters),
-                          })
-                        : t("filters.activeFiltersPlural", {
-                            count: getActiveFiltersCount(filters),
-                          })}
-                    </Text>
-                  </View>
                 </View>
-              )}
-            </ScrollView>
+              </TouchableRipple>
+            </View>
+
+            {hasActiveFilters && (
+              <View
+                style={[
+                  styles.footer,
+                  { borderTopColor: theme.colors.outline },
+                ]}
+              >
+                <View style={styles.footerContent}>
+                  <Icon
+                    source="filter"
+                    size={16}
+                    color={theme.colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.footerText,
+                      { color: theme.colors.onSurface },
+                    ]}
+                  >
+                    {getActiveFiltersCount(filters) === 1
+                      ? t("filters.activeFilters", {
+                          count: getActiveFiltersCount(filters),
+                        })
+                      : t("filters.activeFiltersPlural", {
+                          count: getActiveFiltersCount(filters),
+                        })}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </ScrollView>
           {/* </SafeAreaView> */}
         </Modal>
       </Portal>
@@ -608,8 +590,16 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    gap: 8,
     flexBasis: "48%",
+  },
+  quickFilterContent: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  quickFilterTextContainer: {
+    flex: 1,
+    gap: 4,
   },
   quickFilterText: {
     fontSize: 16,
@@ -625,14 +615,16 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   sortButton: {
-    flexDirection: "row",
-    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    gap: 12,
     flexBasis: "48%",
+  },
+  sortButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   sortButtonText: {
     fontSize: 16,

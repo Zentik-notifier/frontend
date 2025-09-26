@@ -214,8 +214,9 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
                   : styles.detailButton,
                 fullWidth ? { width: "100%" } : null,
                 {
-                  backgroundColor:
-                    theme.colors.elevation?.level1 || theme.colors.surface,
+                  backgroundColor: isSnoozed
+                    ? theme.colors.secondaryContainer
+                    : theme.colors.surfaceVariant,
                   borderColor: theme.colors.outline,
                 },
               ]
@@ -223,11 +224,13 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
         onPress={handlePress}
         disabled={settingSnooze}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+        <View>
           <Icon
             source="sleep"
             size={16}
-            color={theme.colors.onSurfaceVariant}
+            color={isSnoozed
+              ? theme.colors.primary
+              : theme.colors.onSurfaceVariant}
           />
           {showText && (
             <Text
@@ -541,13 +544,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   detailButton: {
-    flexDirection: "row",
+    padding: 8,
+    borderRadius: 6,
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 4,
+    justifyContent: "center",
   },
   swipeableText: {
     fontSize: 12,

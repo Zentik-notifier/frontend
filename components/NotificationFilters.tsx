@@ -1,26 +1,30 @@
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/services/app-context";
+import { useNotifications } from "@/contexts/NotificationsContext";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Badge, Icon, Surface, TextInput, TouchableRipple, useTheme } from "react-native-paper";
+import {
+  ActivityIndicator,
+  Badge,
+  Icon,
+  Surface,
+  Text,
+  TextInput,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 import NotificationFiltersModal from "./NotificationFiltersModal";
 
 interface NotificationFiltersProps {
-  onToggleCompactMode: () => void;
-  isCompactMode: boolean;
-  hideBucketSelector?: boolean;
-  onToggleMultiSelection: () => void;
-  selectedCount: number;
-  isMultiSelectionMode: boolean;
+  totalNotifications?: number;
+  onToggleReadStatus?: () => void;
+  onDeleteSelected?: () => void;
 }
 
 export default function NotificationFilters({
-  onToggleCompactMode,
-  isCompactMode,
-  hideBucketSelector = false,
-  onToggleMultiSelection,
-  selectedCount,
-  isMultiSelectionMode,
+  totalNotifications = 0,
+  onToggleReadStatus,
+  onDeleteSelected,
 }: NotificationFiltersProps) {
   const { t } = useI18n();
   const theme = useTheme();
@@ -29,7 +33,24 @@ export default function NotificationFilters({
   } = useAppContext();
   const filters = settings.notificationFilters;
 
-  const [showFiltersModal, setShowFiltersModal] = useState(false);
+  // Use notifications context
+  const {
+    state: {
+      selectionMode,
+      selectedItems,
+      isCompactMode,
+      markAsReadLoading,
+      markAsUnreadLoading,
+      deleteLoading,
+    },
+    handleToggleMultiSelection,
+    handleToggleCompactMode,
+    handleCloseSelectionMode,
+    handleSelectAll,
+    handleDeselectAll,
+    handleShowFiltersModal,
+    handleHideFiltersModal,
+  } = useNotifications();
   const [internalSearchQuery, setInternalSearchQuery] = useState(
     filters.searchQuery || ""
   );
@@ -81,114 +102,279 @@ export default function NotificationFilters({
 
   const activeFiltersCount = getActiveFiltersCount();
 
-  return (
-    <>
-      <View style={styles.container}>
-        {/* Search Input */}
-        <Surface style={[styles.searchContainer]} elevation={0}>
-          <TextInput
-            mode="outlined"
-            style={[styles.searchInput, { height: 44 }]}
-            contentStyle={{ height: 44, paddingVertical: 0 }}
-            textColor={theme.colors.onSurface}
-            placeholder={t("home.search.placeholder")}
-            value={internalSearchQuery}
-            onChangeText={handleSearchChange}
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-            underlineColor="transparent"
-            activeUnderlineColor="transparent"
-            left={
-              <TextInput.Icon
-                icon="magnify"
-                color={theme.colors.onSurfaceVariant}
-              />
-            }
-            right={
-              internalSearchQuery.length > 0 ? (
-                <TextInput.Icon
-                  icon="close-circle"
-                  onPress={() => handleSearchChange("")}
-                  forceTextInputFocus={false}
-                  color={theme.colors.onSurfaceVariant}
-                />
-              ) : undefined
-            }
-            outlineStyle={{ borderRadius: 8, borderWidth: 1, borderColor: theme.colors.outline }}
-          />
-        </Surface>
-
-        {/* Compact Mode Toggle */}
+  const renderSelectionBar = () => (
+    <Surface
+      style={[
+        styles.selectionBar,
+        {
+          backgroundColor: theme.colors.surface,
+        },
+      ]}
+    >
+      <View style={styles.leftControls}>
         <TouchableRipple
           style={[
-            styles.compactToggle,
-            {
-              borderColor: theme.colors.outline,
-              backgroundColor: theme.colors.surfaceVariant,
-            },
-          ]}
-          onPress={onToggleCompactMode}
-        >
-          <Icon source={isCompactMode ? "view-list-outline" : "view-grid-outline"} size={18} color={theme.colors.onSurfaceVariant} />
-        </TouchableRipple>
-
-        {/* Multi-Selection Toggle Button (seguendo pattern gallery) */}
-        <TouchableRipple
-          style={[
-            styles.multiSelectionToggle,
-            {
-              borderColor: theme.colors.outline,
-              backgroundColor: isMultiSelectionMode
-                ? theme.colors.primary
-                : theme.colors.surface,
-            },
-          ]}
-          onPress={onToggleMultiSelection}
-        >
-          <View>
-            <Icon
-              source={isMultiSelectionMode ? "close" : "check-circle-outline"}
-              size={18}
-              color={isMultiSelectionMode ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
-            />
-            {isMultiSelectionMode && selectedCount > 0 && (
-              <Badge style={styles.selectionBadge}>{selectedCount}</Badge>
-            )}
-          </View>
-        </TouchableRipple>
-
-        {/* Filters Button */}
-        <TouchableRipple
-          style={[
-            styles.filtersButton,
+            styles.selectionButton,
             {
               borderColor: theme.colors.outline,
               backgroundColor:
-                activeFiltersCount > 0
-                  ? theme.colors.secondaryContainer
-                  : theme.colors.surfaceVariant,
+                theme.colors.elevation?.level1 || theme.colors.surface,
             },
           ]}
-          onPress={() => setShowFiltersModal(true)}
+          onPress={handleCloseSelectionMode}
         >
-          <View>
-            <Icon
-              source="filter"
-              size={18}
-              color={activeFiltersCount > 0 ? theme.colors.primary : theme.colors.onSurfaceVariant}
-            />
-            {activeFiltersCount > 0 && (
-              <Badge style={[styles.filtersBadge]}>{activeFiltersCount}</Badge>
-            )}
+          <Text
+            style={[
+              styles.selectionCountText,
+              { color: theme.colors.onSurface },
+            ]}
+          >
+            {t("common.cancel")}
+          </Text>
+        </TouchableRipple>
+
+        <TouchableRipple
+          style={[
+            styles.selectionCountBadge,
+            {
+              borderColor: theme.colors.outline,
+              backgroundColor: theme.colors.primary,
+            },
+          ]}
+          onPress={
+            selectedItems.size === totalNotifications
+              ? handleDeselectAll
+              : () => handleSelectAll([]) // Will be overridden by parent
+          }
+        >
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text
+              style={[
+                styles.selectionCountText,
+                { color: theme.colors.onPrimary },
+              ]}
+            >
+              {selectedItems.size}
+            </Text>
+            <Text
+              style={[
+                styles.selectionCountText,
+                {
+                  color: theme.colors.onPrimary,
+                  fontSize: 12,
+                  marginLeft: 4,
+                  opacity: 0.9,
+                },
+              ]}
+            >
+              {selectedItems.size === totalNotifications
+                ? t("notifications.deselectAll")
+                : t("notifications.selectAll")}
+            </Text>
           </View>
         </TouchableRipple>
       </View>
 
+      <View style={styles.rightControls}>
+        <TouchableRipple
+          style={[
+            styles.selectionButton,
+            {
+              borderColor:
+                selectedItems.size === 0
+                  ? theme.colors.outlineVariant || theme.colors.outline
+                  : theme.colors.outline,
+              backgroundColor:
+                selectedItems.size === 0
+                  ? theme.colors.surfaceVariant
+                  : theme.colors.elevation?.level1 || theme.colors.surface,
+              opacity: selectedItems.size === 0 ? 0.5 : 1,
+            },
+          ]}
+          onPress={onToggleReadStatus}
+          disabled={
+            selectedItems.size === 0 || markAsReadLoading || markAsUnreadLoading
+          }
+        >
+          {markAsReadLoading || markAsUnreadLoading ? (
+            <ActivityIndicator size={16} color={theme.colors.onSurface} />
+          ) : (
+            <Icon
+              source="check-all"
+              size={20}
+              color={
+                selectedItems.size === 0
+                  ? theme.colors.onSurfaceVariant
+                  : theme.colors.secondary
+              }
+            />
+          )}
+        </TouchableRipple>
+
+        <TouchableRipple
+          style={[
+            styles.selectionButton,
+            {
+              borderColor:
+                selectedItems.size === 0
+                  ? theme.colors.outlineVariant || theme.colors.outline
+                  : theme.colors.outline,
+              backgroundColor:
+                selectedItems.size === 0
+                  ? theme.colors.surfaceVariant
+                  : theme.colors.elevation?.level1 || theme.colors.surface,
+              opacity: selectedItems.size === 0 ? 0.5 : 1,
+            },
+          ]}
+          onPress={onDeleteSelected}
+          disabled={selectedItems.size === 0 || deleteLoading}
+        >
+          {deleteLoading ? (
+            <ActivityIndicator size={16} color={theme.colors.onSurface} />
+          ) : (
+            <Icon
+              source="trash-can-outline"
+              size={20}
+              color={
+                selectedItems.size === 0
+                  ? theme.colors.onSurfaceVariant
+                  : theme.colors.error
+              }
+            />
+          )}
+        </TouchableRipple>
+      </View>
+    </Surface>
+  );
+
+  return (
+    <>
+      {selectionMode ? (
+        renderSelectionBar()
+      ) : (
+        <View style={styles.container}>
+          {/* Search Input */}
+          <Surface style={[styles.searchContainer]} elevation={0}>
+            <TextInput
+              mode="outlined"
+              style={[styles.searchInput, { height: 44 }]}
+              contentStyle={{ height: 44, paddingVertical: 0 }}
+              textColor={theme.colors.onSurface}
+              placeholder={t("home.search.placeholder")}
+              value={internalSearchQuery}
+              onChangeText={handleSearchChange}
+              placeholderTextColor={theme.colors.onSurfaceVariant}
+              underlineColor="transparent"
+              activeUnderlineColor="transparent"
+              left={
+                <TextInput.Icon
+                  icon="magnify"
+                  color={theme.colors.onSurfaceVariant}
+                />
+              }
+              right={
+                internalSearchQuery.length > 0 ? (
+                  <TextInput.Icon
+                    icon="close-circle"
+                    onPress={() => handleSearchChange("")}
+                    forceTextInputFocus={false}
+                    color={theme.colors.onSurfaceVariant}
+                  />
+                ) : undefined
+              }
+              outlineStyle={{
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: theme.colors.outline,
+              }}
+            />
+          </Surface>
+
+          {/* Compact Mode Toggle */}
+          <TouchableRipple
+            style={[
+              styles.compactToggle,
+              {
+                borderColor: theme.colors.outline,
+                backgroundColor: theme.colors.surfaceVariant,
+              },
+            ]}
+            onPress={handleToggleCompactMode}
+          >
+            <Icon
+              source={isCompactMode ? "view-list-outline" : "view-grid-outline"}
+              size={18}
+              color={theme.colors.onSurfaceVariant}
+            />
+          </TouchableRipple>
+
+          {/* Multi-Selection Toggle Button (seguendo pattern gallery) */}
+          <TouchableRipple
+            style={[
+              styles.multiSelectionToggle,
+              {
+                borderColor: theme.colors.outline,
+                backgroundColor: selectionMode
+                  ? theme.colors.primary
+                  : theme.colors.surface,
+              },
+            ]}
+            onPress={handleToggleMultiSelection}
+          >
+            <View>
+              <Icon
+                source={selectionMode ? "close" : "check-circle-outline"}
+                size={18}
+                color={
+                  selectionMode
+                    ? theme.colors.onPrimary
+                    : theme.colors.onSurfaceVariant
+                }
+              />
+              {selectionMode && selectedItems.size > 0 && (
+                <Badge style={styles.selectionBadge}>
+                  {selectedItems.size}
+                </Badge>
+              )}
+            </View>
+          </TouchableRipple>
+
+          {/* Filters Button */}
+          <TouchableRipple
+            style={[
+              styles.filtersButton,
+              {
+                borderColor: theme.colors.outline,
+                backgroundColor:
+                  activeFiltersCount > 0
+                    ? theme.colors.secondaryContainer
+                    : theme.colors.surfaceVariant,
+              },
+            ]}
+            onPress={handleShowFiltersModal}
+          >
+            <View>
+              <Icon
+                source="filter"
+                size={18}
+                color={
+                  activeFiltersCount > 0
+                    ? theme.colors.primary
+                    : theme.colors.onSurfaceVariant
+                }
+              />
+              {activeFiltersCount > 0 && (
+                <Badge style={[styles.filtersBadge]}>
+                  {activeFiltersCount}
+                </Badge>
+              )}
+            </View>
+          </TouchableRipple>
+        </View>
+      )}
+
       {/* Filters Modal */}
-      <NotificationFiltersModal
-        visible={showFiltersModal}
-        onClose={() => setShowFiltersModal(false)}
-        hideBucketSelector={hideBucketSelector}
-      />
+      <NotificationFiltersModal />
     </>
   );
 }
@@ -200,6 +386,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    minHeight: 60,
   },
   searchContainer: {
     flex: 1,
@@ -230,8 +417,8 @@ const styles = StyleSheet.create({
   },
   filtersBadge: {
     position: "absolute",
-    top: -6,
-    right: -6,
+    top: -12,
+    right: -16,
     minWidth: 18,
     height: 18,
     borderRadius: 4,
@@ -253,7 +440,7 @@ const styles = StyleSheet.create({
   multiSelectionToggle: {
     width: 44,
     height: 44,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -263,14 +450,50 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -6,
     right: -6,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 4,
-    alignItems: "center",
-    justifyContent: "center",
   },
   selectionBadgeText: {
     fontSize: 10,
     fontWeight: "600",
+  },
+  // Selection bar styles
+  selectionBar: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 60,
+  },
+  leftControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  rightControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  selectionCountBadge: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 44,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  selectionCountText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  selectionButton: {
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

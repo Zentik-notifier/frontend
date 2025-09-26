@@ -1,7 +1,7 @@
-import { useAppContext } from "@/services/app-context";
-import React, { useEffect, useState } from "react";
-import NotificationsList from "./NotificationsList";
 import { NotificationFragment } from "@/generated/gql-operations-generated";
+import { useAppContext } from "@/services/app-context";
+import React, { useEffect } from "react";
+import { NotificationsListWithContext } from "./NotificationsList";
 
 interface NotificationsSectionProps {
   filteredNotifications?: NotificationFragment[];
@@ -17,5 +17,5 @@ export default function NotificationsSection({
 
   const notificationsToShow = filteredNotifications || notifications;
 
-  return <NotificationsList notifications={notificationsToShow} />;
+  return <NotificationsListWithContext notifications={notificationsToShow} />;
 }

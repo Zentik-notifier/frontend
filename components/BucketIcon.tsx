@@ -1,14 +1,11 @@
-import { Colors } from "@/constants/Colors";
 import { AppIcons } from "@/constants/Icons";
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
-import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { Text, TouchableRipple, Icon as PaperIcon, useTheme } from "react-native-paper";
 import { CachedMedia } from "./CachedMedia";
-import { ThemedText } from "./ThemedText";
 import { Icon } from "./ui";
 
 const sizeMap = {
@@ -32,7 +29,7 @@ export default function BucketIcon({
   bucketId,
   noRouting = false,
 }: BucketIconProps) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { bucket, error } = useGetBucketData(bucketId);
   const { color, icon } = bucket || {};
   const { navigateToBucketsSettings, navigateToBucketDetail } =
@@ -41,7 +38,7 @@ export default function BucketIcon({
   const isOrphaned = error && error.message.includes("Bucket not found");
 
   // Default color if none provided
-  const bucketColor = color || Colors[colorScheme].tint;
+  const bucketColor = color || theme.colors.primary;
 
   const currentSize = sizeMap[size];
 
@@ -82,21 +79,23 @@ export default function BucketIcon({
 
       {/* Icon container */}
       {isOrphaned ? (
-        // TouchableOpacity per bucket orfani
-        <TouchableOpacity
+        // TouchableRipple per bucket orfani
+        <TouchableRipple
           style={[
             styles.iconContainer,
             {
               width: currentSize.icon,
               height: currentSize.icon,
               borderRadius: currentSize.icon / 2,
-              backgroundColor: "#ff4444",
+              backgroundColor: theme.colors.error,
             },
           ]}
           onPress={handlePress}
         >
-          <Ionicons name="link" size={currentSize.text} color="#fff" />
-        </TouchableOpacity>
+          <View>
+            <PaperIcon source="link" size={currentSize.text} color={theme.colors.onError} />
+          </View>
+        </TouchableRipple>
       ) : (
         <View
           style={[
@@ -128,17 +127,17 @@ export default function BucketIcon({
             typeof icon === "string" &&
             !icon.startsWith("sfsymbols:") &&
             icon.length <= 2 ? (
-            <ThemedText
+            <Text
               style={[
                 styles.bucketIconText,
                 {
                   fontSize: currentSize.text,
-                  color: "#fff",
+                  color: theme.colors.onPrimary,
                 },
               ]}
             >
               {icon}
-            </ThemedText>
+            </Text>
           ) : (
             <Icon
               name={
@@ -146,7 +145,7 @@ export default function BucketIcon({
                 "bucket"
               }
               size={size}
-              color="#fff"
+              color={theme.colors.onPrimary}
             />
           )}
         </View>

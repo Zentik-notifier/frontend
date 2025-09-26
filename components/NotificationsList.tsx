@@ -1,4 +1,8 @@
 import {
+  NotificationsProvider,
+  useNotifications,
+} from "@/contexts/NotificationsContext";
+import {
   MediaType,
   NotificationFragment,
 } from "@/generated/gql-operations-generated";
@@ -10,6 +14,7 @@ import {
 } from "@/hooks/useNotifications";
 import { useAppContext } from "@/services/app-context";
 import { userSettings } from "@/services/user-settings";
+import { FlashList } from "@shopify/flash-list";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -19,19 +24,16 @@ import {
   ViewToken,
 } from "react-native";
 import {
+  Icon,
   Surface,
   Text,
-  useTheme,
-  ActivityIndicator,
   TouchableRipple,
-  Icon,
+  useTheme,
 } from "react-native-paper";
 import NotificationFilters from "./NotificationFilters";
 import NotificationItem, {
   getNotificationItemHeight,
 } from "./NotificationItem";
-import { FlashList } from "@shopify/flash-list";
-// Using Paper Icon instead of custom ui/Icon
 
 interface NotificationsListProps {
   notifications: NotificationFragment[];
@@ -39,8 +41,15 @@ interface NotificationsListProps {
   emptyStateMessage?: string;
   emptyStateSubtitle?: string;
   customHeader?: React.ReactNode;
-  contentContainerStyle?: any;
   listStyle?: any;
+}
+
+export function NotificationsListWithContext(props: NotificationsListProps) {
+  return (
+    <NotificationsProvider>
+      <NotificationsList {...props} />
+    </NotificationsProvider>
+  );
 }
 
 export default function NotificationsList({
@@ -49,7 +58,6 @@ export default function NotificationsList({
   emptyStateMessage,
   emptyStateSubtitle,
   customHeader,
-  contentContainerStyle,
   listStyle,
 }: NotificationsListProps) {
   const theme = useTheme();
@@ -59,20 +67,35 @@ export default function NotificationsList({
     userSettings: { settings },
   } = useAppContext();
 
-  const { massDelete: massDeleteNotifications, loading: deleteLoading } =
-    useMassDeleteNotifications();
-  const { massMarkAsRead, loading: markAsReadLoading } =
-    useMassMarkNotificationsAsRead();
-  const { massMarkAsUnread, loading: markAsUnreadLoading } =
-    useMassMarkNotificationsAsUnread();
+  const { massDelete: massDeleteNotifications } = useMassDeleteNotifications();
+  const { massMarkAsRead } = useMassMarkNotificationsAsRead();
+  const { massMarkAsUnread } = useMassMarkNotificationsAsUnread();
 
   const [visibleItems, setVisibileItems] = useState<Set<string>>(new Set());
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [selectionMode, setSelectionMode] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Use notifications context
+  const {
+    state: {
+      selectionMode,
+      selectedItems,
+      isCompactMode,
+      markAsReadLoading,
+      markAsUnreadLoading,
+      deleteLoading,
+    },
+    handleToggleMultiSelection,
+    handleToggleItemSelection,
+    handleSelectAll,
+    handleDeselectAll,
+    handleCloseSelectionMode,
+    handleToggleCompactMode,
+    dispatch,
+  } = useNotifications();
+
   const {
     userSettings: {
-      settings: { notificationFilters, isCompactMode },
+      settings: { notificationFilters },
       setIsCompactMode,
     },
   } = useAppContext();
@@ -151,7 +174,7 @@ export default function NotificationsList({
     } else {
       newSelection.add(itemId);
     }
-    setSelectedItems(newSelection);
+    dispatch({ type: "SET_SELECTED_ITEMS", payload: newSelection });
   };
 
   // Funzione per eliminare notifiche selezionate
@@ -200,30 +223,6 @@ export default function NotificationsList({
       console.error("Error toggling read status:", error);
     }
   }, [selectedItems, filteredNotifications, massMarkAsRead, massMarkAsUnread]);
-
-  const handleToggleCompactMode = () => {
-    setIsCompactMode(!isCompactMode);
-  };
-
-  const handleSelectAll = () => {
-    setSelectedItems(new Set(filteredNotifications.map((n) => n.id)));
-  };
-
-  const handleDeselectAll = () => {
-    setSelectedItems(new Set());
-  };
-
-  const handleCloseSelectionMode = () => {
-    setSelectionMode(false);
-    setSelectedItems(new Set());
-  };
-
-  const handleToggleMultiSelection = () => {
-    setSelectionMode(!selectionMode);
-    if (selectionMode) {
-      handleCloseSelectionMode();
-    }
-  };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -281,174 +280,11 @@ export default function NotificationsList({
   // Memoized key extractor
   const keyExtractor = useCallback((item: NotificationFragment) => item.id, []);
 
-  const renderSelectionBar = () => (
-    <Surface
-      style={[
-        styles.selectionBar,
-        {
-          borderBottomColor: theme.colors.outline,
-          backgroundColor: theme.colors.surface,
-        },
-      ]}
-    >
-      <View style={styles.leftControls}>
-        <TouchableRipple
-          style={[
-            styles.selectionButton,
-            {
-              borderColor: theme.colors.outline,
-              backgroundColor:
-                theme.colors.elevation?.level1 || theme.colors.surface,
-            },
-          ]}
-          onPress={handleCloseSelectionMode}
-        >
-          <Text
-            style={[
-              styles.selectionCountText,
-              { color: theme.colors.onSurface },
-            ]}
-          >
-            {t("common.cancel")}
-          </Text>
-        </TouchableRipple>
-
-        <TouchableRipple
-          style={[
-            styles.selectionCountBadge,
-            {
-              borderColor: theme.colors.outline,
-              backgroundColor: theme.colors.primary,
-            },
-          ]}
-          onPress={
-            selectedItems.size === filteredNotifications.length
-              ? handleDeselectAll
-              : handleSelectAll
-          }
-        >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text
-              style={[
-                styles.selectionCountText,
-                { color: theme.colors.onPrimary },
-              ]}
-            >
-              {selectedItems.size}
-            </Text>
-            <Text
-              style={[
-                styles.selectionCountText,
-                {
-                  color: theme.colors.onPrimary,
-                  fontSize: 12,
-                  marginLeft: 4,
-                  opacity: 0.9,
-                },
-              ]}
-            >
-              {selectedItems.size === filteredNotifications.length
-                ? t("notifications.deselectAll")
-                : t("notifications.selectAll")}
-            </Text>
-          </View>
-        </TouchableRipple>
-      </View>
-
-      <View style={styles.rightControls}>
-        <TouchableRipple
-          style={[
-            styles.selectionButton,
-            {
-              borderColor:
-                selectedItems.size === 0
-                  ? theme.colors.outlineVariant || theme.colors.outline
-                  : theme.colors.outline,
-              backgroundColor:
-                selectedItems.size === 0
-                  ? theme.colors.surfaceVariant
-                  : theme.colors.elevation?.level1 || theme.colors.surface,
-              opacity: selectedItems.size === 0 ? 0.5 : 1,
-            },
-          ]}
-          onPress={handleToggleReadStatus}
-          disabled={
-            selectedItems.size === 0 || markAsReadLoading || markAsUnreadLoading
-          }
-        >
-          {markAsReadLoading || markAsUnreadLoading ? (
-            <ActivityIndicator size={16} color={theme.colors.onSurface} />
-          ) : (
-            (() => {
-              const selectedNotifications = filteredNotifications.filter((n) =>
-                selectedItems.has(n.id)
-              );
-              const hasUnreadNotifications = selectedNotifications.some(
-                (n) => !n.readAt
-              );
-              return hasUnreadNotifications ? (
-                <Icon
-                  source="check-all"
-                  size={20}
-                  color={
-                    selectedItems.size === 0
-                      ? theme.colors.onSurfaceVariant
-                      : theme.colors.secondary
-                  }
-                />
-              ) : (
-                <Icon
-                  source="check-all"
-                  size={20}
-                  color={
-                    selectedItems.size === 0
-                      ? theme.colors.onSurfaceVariant
-                      : theme.colors.error
-                  }
-                />
-              );
-            })()
-          )}
-        </TouchableRipple>
-
-        <TouchableRipple
-          style={[
-            styles.selectionButton,
-            {
-              borderColor:
-                selectedItems.size === 0
-                  ? theme.colors.outlineVariant || theme.colors.outline
-                  : theme.colors.outline,
-              backgroundColor:
-                selectedItems.size === 0
-                  ? theme.colors.surfaceVariant
-                  : theme.colors.elevation?.level1 || theme.colors.surface,
-              opacity: selectedItems.size === 0 ? 0.5 : 1,
-            },
-          ]}
-          onPress={handleDeleteSelected}
-          disabled={selectedItems.size === 0 || deleteLoading}
-        >
-          {deleteLoading ? (
-            <ActivityIndicator size={16} color={theme.colors.onSurface} />
-          ) : (
-            <Icon
-              source="trash-can-outline"
-              size={20}
-              color={
-                selectedItems.size === 0
-                  ? theme.colors.onSurfaceVariant
-                  : theme.colors.error
-              }
-            />
-          )}
-        </TouchableRipple>
-      </View>
-    </Surface>
-  );
-
   const renderEmptyState = () => (
-    <Surface style={[styles.emptyState, { backgroundColor: theme.colors.background }]} elevation={0}>
+    <Surface
+      style={[styles.emptyState, { backgroundColor: theme.colors.background }]}
+      elevation={0}
+    >
       <Text
         style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}
       >
@@ -495,21 +331,21 @@ export default function NotificationsList({
   // );
 
   return (
-    <Surface style={[styles.container, { backgroundColor: theme.colors.background }, listStyle]} elevation={0}>
-      {selectionMode && renderSelectionBar()}
-
-      {!selectionMode && (
-        <View style={styles.filtersWrapper}>
-          <NotificationFilters
-            onToggleCompactMode={handleToggleCompactMode}
-            isCompactMode={isCompactMode}
-            hideBucketSelector={hideBucketInfo}
-            onToggleMultiSelection={handleToggleMultiSelection}
-            selectedCount={selectedItems.size}
-            isMultiSelectionMode={selectionMode}
-          />
-        </View>
-      )}
+    <Surface
+      style={[
+        styles.container,
+        { backgroundColor: theme.colors.background },
+        listStyle,
+      ]}
+      elevation={0}
+    >
+      <View style={styles.filtersWrapper}>
+        <NotificationFilters
+          totalNotifications={filteredNotifications.length}
+          onToggleReadStatus={handleToggleReadStatus}
+          onDeleteSelected={handleDeleteSelected}
+        />
+      </View>
 
       {customHeader}
 
@@ -547,7 +383,8 @@ export default function NotificationsList({
           style={[
             styles.scrollTopFab,
             {
-              backgroundColor: theme.colors.elevation?.level2 || theme.colors.surface,
+              backgroundColor:
+                theme.colors.elevation?.level2 || theme.colors.surface,
             },
           ]}
         >
@@ -579,47 +416,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.4,
     marginTop: 8,
-  },
-  // Stili per la barra di selezione
-  selectionBar: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  leftControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    flex: 1,
-  },
-  rightControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  selectionCountBadge: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    height: 44,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  selectionCountText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  selectionButton: {
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
   },
   listFooter: {
     alignItems: "center",

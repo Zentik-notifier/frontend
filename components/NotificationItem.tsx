@@ -23,7 +23,8 @@ import {
   TouchableWithoutFeedback,
   View
 } from "react-native";
-import { Divider, IconButton, Menu, Icon as PaperIcon, TouchableRipple, useTheme, Surface, Text } from "react-native-paper";
+import { Divider, IconButton, Icon as PaperIcon, TouchableRipple, useTheme, Surface, Text } from "react-native-paper";
+import InlineMenu, { InlineMenuItem } from "./ui/InlineMenu";
 import BucketIcon from "./BucketIcon";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
@@ -220,7 +221,43 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const { executeAction } = useNotificationActions();
   const { getActionTypeIcon } = useNotificationUtils();
 
-  const [isActionsMenuVisible, setIsActionsMenuVisible] = useState(false);
+  const menuItems: InlineMenuItem[] = useMemo(() => {
+    const items: InlineMenuItem[] = [
+      {
+        id: "toggleRead",
+        label: isRead ? t("swipeActions.markAsUnread.label") : t("swipeActions.markAsRead.label"),
+        icon: isRead ? "view" : "view-off",
+        onPress: () => {
+          isRead ? handleMarkAsUnread() : handleMarkAsRead();
+        },
+      },
+      {
+        id: "delete",
+        label: t("swipeActions.delete.label"),
+        icon: "delete",
+        onPress: () => {
+          handleDelete();
+        },
+        type: "destructive",
+      },
+    ];
+
+    if (hasActions) {
+      actions.forEach((action, index) => {
+        items.push({
+          id: `action-${index}`,
+          label: action.title || action.value?.slice(0, 50) || "Action",
+          icon: getActionTypeIcon(action.type) as string,
+          onPress: () => {
+            executeAction(notification.id!, action);
+          },
+          type: action.destructive ? "destructive" : "normal",
+        });
+      });
+    }
+
+    return items;
+  }, [isRead, t, handleMarkAsUnread, handleMarkAsRead, handleDelete, hasActions, actions, getActionTypeIcon, executeAction, notification.id]);
 
   // const itemHeight = getNotificationItemHeight(notification, isCompactMode);
   const bodyMaxLines = isCompactMode
@@ -562,60 +599,19 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                   ))}
               </Surface>
               <View style={styles.bottomRightActions}>
-                <Menu
-                  visible={isActionsMenuVisible}
-                  onDismiss={() => setIsActionsMenuVisible(false)}
+                <InlineMenu
                   anchor={
                     <IconButton
                       icon="dots-vertical"
                       size={18}
-                      onPress={() => setIsActionsMenuVisible(true)}
                       containerColor={theme.colors.surface}
                       style={styles.actionsFab}
                     />
                   }
-                  contentStyle={{ backgroundColor: theme.colors.surface }}
-                >
-                  <Menu.Item
-                    onPress={() => {
-                      setIsActionsMenuVisible(false);
-                      isRead ? handleMarkAsUnread() : handleMarkAsRead();
-                    }}
-                    title={isRead ? t("swipeActions.markAsUnread.label") : t("swipeActions.markAsRead.label")}
-                    leadingIcon={() => (
-                      <Icon name={isRead ? "view" : "view-off"} size="sm" color="secondary" />
-                    )}
-                  />
-                  <Divider />
-                  <Menu.Item
-                    onPress={() => {
-                      setIsActionsMenuVisible(false);
-                      handleDelete();
-                    }}
-                    title={t("swipeActions.delete.label")}
-                    leadingIcon={() => <Icon name="delete" size="sm" color="error" />}
-                    titleStyle={{ color: theme.colors.error }}
-                  />
-                  {hasActions && <Divider />}
-                  {hasActions &&
-                    actions.map((action, index) => (
-                      <Menu.Item
-                        key={index}
-                        onPress={() => {
-                          setIsActionsMenuVisible(false);
-                          executeAction(notification.id!, action);
-                        }}
-                        title={action.title || action.value?.slice(0, 50)}
-                        leadingIcon={() => (
-                          <Icon
-                            name={getActionTypeIcon(action.type) as any}
-                            size="sm"
-                            color={action.destructive ? "error" : "secondary"}
-                          />
-                        )}
-                      />
-                    ))}
-                </Menu>
+                  items={menuItems}
+                  anchorPosition="bottom"
+                  maxHeight={300}
+                />
               </View>
             </Surface>
           </Surface>

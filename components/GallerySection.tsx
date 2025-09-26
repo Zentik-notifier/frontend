@@ -1,14 +1,12 @@
-import { Colors } from "@/constants/Colors";
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/services/app-context";
 import { CacheItem, mediaCache } from "@/services/media-cache";
 import { saveMediaToGallery } from "@/services/media-gallery";
 import { formatFileSize } from "@/utils";
-import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import { GalleryProvider, useGallery } from "@/contexts/GalleryContext";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   Alert,
   Dimensions,
@@ -16,29 +14,41 @@ import {
   RefreshControl,
   SectionList,
   StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+  View,
 } from "react-native";
+import {
+  Surface,
+  Text,
+  TouchableRipple,
+  Icon,
+  useTheme,
+} from "react-native-paper";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
 import GalleryFilters from "./GalleryFilters";
 import { MediaTypeIcon } from "./MediaTypeIcon";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
+
+export function GallerySectionWithContext() {
+  return (
+    <GalleryProvider>
+      <GallerySection />
+    </GalleryProvider>
+  );
+}
 
 export default function GallerySection() {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const { userSettings } = useAppContext();
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [selectionMode, setSelectionMode] = useState(false);
   const [fullscreenIndex, setFullscreenIndex] = useState<number>(-1);
+
+  const {
+    state: { selectionMode, selectedItems, filteredMedia, sections, flatOrder },
+    dispatch,
+  } = useGallery();
+  console.log("sections", sections);
   const [containerWidth, setContainerWidth] = useState<number>(0);
-  const { cacheStats, cachedItems, updateStats } = useGetCacheStats();
-  const [selectedMediaTypes, setSelectedMediaTypes] = useState<Set<MediaType>>(
-    new Set([MediaType.Image, MediaType.Video, MediaType.Gif, MediaType.Audio])
-  );
+  const { updateStats, cacheStats } = useGetCacheStats();
   const numColumns = userSettings.settings.gallery.gridSize;
 
   const itemWidth = useMemo(() => {
@@ -49,103 +59,11 @@ export default function GallerySection() {
       const availableWidth = screenWidth - horizontalPadding;
       return availableWidth / numColumns;
     }
-    
+
     const horizontalPadding = 32; // 16px padding on each side
     const availableWidth = containerWidth - horizontalPadding;
     return availableWidth / numColumns;
   }, [numColumns, containerWidth]);
-
-  const { filteredMedia, sections, flatOrder } = useMemo(() => {
-    const allWithIds = cachedItems.map((item, index) => ({
-      ...item,
-      notificationDate: item.notificationDate || item.downloadedAt,
-    }));
-
-    const filteredMedia = allWithIds.filter((item) => {
-      if (!selectedMediaTypes.has(item.mediaType)) return false;
-      if (!userSettings.settings.gallery.showFaultyMedias) {
-        if (item?.isUserDeleted || item?.isPermanentFailure) return false;
-      }
-      return true;
-    });
-
-    const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
-    const startOfYesterday = new Date(startOfToday);
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-    const startOfWeek = new Date(startOfToday);
-    const day = startOfWeek.getDay();
-    const diffToMonday = (day + 6) % 7;
-    startOfWeek.setDate(startOfWeek.getDate() - diffToMonday);
-
-    const today: CacheItem[] = [];
-    const yesterday: CacheItem[] = [];
-    const thisWeek: CacheItem[] = [];
-    const older: CacheItem[] = [];
-
-    for (const media of filteredMedia) {
-      const ts = media.notificationDate || media.downloadedAt || Date.now();
-      if (ts >= startOfToday.getTime()) {
-        today.push(media);
-      } else if (
-        ts >= startOfYesterday.getTime() &&
-        ts < startOfToday.getTime()
-      ) {
-        yesterday.push(media);
-      } else if (ts >= startOfWeek.getTime()) {
-        thisWeek.push(media);
-      } else {
-        older.push(media);
-      }
-    }
-
-    const sortDesc = (a: CacheItem, b: CacheItem) =>
-      (b.notificationDate ?? 0) - (a.notificationDate ?? 0);
-    today.sort(sortDesc);
-    yesterday.sort(sortDesc);
-    thisWeek.sort(sortDesc);
-    older.sort(sortDesc);
-
-    const buildRows = (items: CacheItem[]) => {
-      const rows: CacheItem[][] = [];
-      for (let i = 0; i < items.length; i += numColumns) {
-        rows.push(items.slice(i, i + numColumns));
-      }
-      return rows;
-    };
-
-    const sections = [
-      { title: t("gallery.today"), data: buildRows(today), key: "today" },
-      {
-        title: t("gallery.yesterday"),
-        data: buildRows(yesterday),
-        key: "yesterday",
-      },
-      {
-        title: t("gallery.thisWeek"),
-        data: buildRows(thisWeek),
-        key: "thisWeek",
-      },
-      { title: t("gallery.older"), data: buildRows(older), key: "older" },
-    ].filter((s) => s.data.length > 0);
-
-    // Flat order for fullscreen index mapping
-    const flatOrder: CacheItem[] = [
-      ...today,
-      ...yesterday,
-      ...thisWeek,
-      ...older,
-    ];
-
-    return { filteredMedia, sections, flatOrder };
-  }, [
-    cachedItems,
-    selectedMediaTypes,
-    userSettings.settings.gallery.showFaultyMedias,
-    numColumns,
-    t,
-  ]);
 
   const toggleItemSelection = (itemId: string) => {
     const newSelection = new Set(selectedItems);
@@ -154,233 +72,38 @@ export default function GallerySection() {
     } else {
       newSelection.add(itemId);
     }
-    setSelectedItems(newSelection);
+    dispatch({ type: "SET_SELECTED_ITEMS", payload: newSelection });
   };
-
-  const handleToggleMultiSelection = () => {
-    if (selectionMode) {
-      setSelectionMode(false);
-      setSelectedItems(new Set());
-    } else {
-      setSelectionMode(true);
-    }
-  };
-
-  const renderSelectionBar = () => (
-    <View
-      style={[
-        styles.selectionBar,
-        {
-          borderBottomColor: Colors[colorScheme].border,
-          backgroundColor: Colors[colorScheme].background,
-        },
-      ]}
-    >
-      <View style={styles.leftControls}>
-        <TouchableOpacity
-          style={[
-            styles.selectionButton,
-            {
-              borderColor: Colors[colorScheme].border,
-              backgroundColor: Colors[colorScheme].backgroundCard,
-            },
-          ]}
-          onPress={() => {
-            setSelectedItems(new Set());
-            setSelectionMode(false);
-          }}
-        >
-          <ThemedText
-            style={[
-              styles.selectionCountText,
-              { color: Colors[colorScheme].text },
-            ]}
-          >
-            {t("common.cancel")}
-          </ThemedText>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.selectionCountBadge,
-            {
-              borderColor: Colors[colorScheme].border,
-              backgroundColor: Colors[colorScheme].tint,
-            },
-          ]}
-          onPress={
-            selectedItems.size === filteredMedia.length
-              ? () => setSelectedItems(new Set())
-              : () => setSelectedItems(new Set(filteredMedia.map((m) => m.key)))
-          }
-        >
-          <ThemedText
-            style={[
-              styles.selectionCountText,
-              { color: Colors[colorScheme].background },
-            ]}
-          >
-            {selectedItems.size}
-          </ThemedText>
-          <ThemedText
-            style={[
-              styles.selectionCountText,
-              {
-                color: Colors[colorScheme].background,
-                fontSize: 12,
-                marginLeft: 4,
-                opacity: 0.9,
-              },
-            ]}
-          >
-            {selectedItems.size === filteredMedia.length
-              ? t("medias.filters.deselectAll")
-              : t("medias.filters.selectAll")}
-          </ThemedText>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.rightControls}>
-        <TouchableOpacity
-          style={[
-            styles.selectionButton,
-            {
-              borderColor:
-                selectedItems.size === 0
-                  ? Colors[colorScheme].borderLight
-                  : Colors[colorScheme].border,
-              backgroundColor:
-                selectedItems.size === 0
-                  ? Colors[colorScheme].backgroundSecondary
-                  : Colors[colorScheme].backgroundCard,
-              opacity: selectedItems.size === 0 ? 0.5 : 1,
-            },
-          ]}
-          onPress={async () => {
-            const items = filteredMedia.filter((m) => selectedItems.has(m.key));
-            for (const item of items) {
-              try {
-                await saveMediaToGallery(
-                  item.url,
-                  item.mediaType,
-                  item.originalFileName
-                );
-              } catch (error) {
-                console.error("Failed to save media to gallery:", error);
-              }
-            }
-            setSelectedItems(new Set());
-            setSelectionMode(false);
-          }}
-          disabled={selectedItems.size === 0}
-        >
-          <Ionicons
-            name="download-outline"
-            size={20}
-            color={
-              selectedItems.size === 0
-                ? Colors[colorScheme].textMuted
-                : Colors[colorScheme].tint
-            }
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.selectionButton,
-            {
-              borderColor:
-                selectedItems.size === 0
-                  ? Colors[colorScheme].borderLight
-                  : Colors[colorScheme].border,
-              backgroundColor:
-                selectedItems.size === 0
-                  ? Colors[colorScheme].backgroundSecondary
-                  : Colors[colorScheme].backgroundCard,
-              opacity: selectedItems.size === 0 ? 0.5 : 1,
-            },
-          ]}
-          onPress={async () => {
-            const count = selectedItems.size;
-            if (count === 0) return;
-            Alert.alert(
-              t("medias.deleteItem.title"),
-              t("medias.deleteItem.message"),
-              [
-                { text: t("common.cancel"), style: "cancel" },
-                {
-                  text: t("common.delete"),
-                  style: "destructive",
-                  onPress: async () => {
-                    const items = filteredMedia.filter((m) =>
-                      selectedItems.has(m.key)
-                    );
-                    for (const item of items) {
-                      await mediaCache.deleteCachedMedia(
-                        item.url,
-                        item.mediaType
-                      );
-                    }
-                    setSelectedItems(new Set());
-                    setSelectionMode(false);
-                  },
-                },
-              ]
-            );
-          }}
-          disabled={selectedItems.size === 0}
-        >
-          <Ionicons
-            name="trash-outline"
-            size={20}
-            color={
-              selectedItems.size === 0
-                ? Colors[colorScheme].textSecondary
-                : Colors[colorScheme].error
-            }
-          />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
 
   const renderStatsCard = () => {
     if (!cacheStats) return null;
 
     return (
-      <View
+      <Surface
         style={[
           styles.statsCard,
           {
-            backgroundColor: Colors[colorScheme].backgroundCard,
-            shadowColor: Colors[colorScheme].shadow,
+            backgroundColor: theme.colors.surface,
           },
         ]}
+        elevation={2}
       >
         <View style={styles.statsHeader}>
-          <Ionicons
-            name="analytics-outline"
-            size={24}
-            color={Colors[colorScheme].tint}
-          />
-          <Text
-            style={[styles.statsTitle, { color: Colors[colorScheme].text }]}
-          >
+          <Icon source="chart-line" size={24} color={theme.colors.primary} />
+          <Text style={[styles.statsTitle, { color: theme.colors.onSurface }]}>
             {t("medias.stats.title")}
           </Text>
         </View>
 
         <View style={styles.statsGrid}>
           <View style={styles.statItem}>
-            <Text
-              style={[styles.statValue, { color: Colors[colorScheme].tint }]}
-            >
+            <Text style={[styles.statValue, { color: theme.colors.primary }]}>
               {cacheStats.totalItems}
             </Text>
             <Text
               style={[
                 styles.statLabel,
-                { color: Colors[colorScheme].textSecondary },
+                { color: theme.colors.onSurfaceVariant },
               ]}
             >
               {t("medias.stats.totalItems")}
@@ -388,15 +111,13 @@ export default function GallerySection() {
           </View>
 
           <View style={styles.statItem}>
-            <Text
-              style={[styles.statValue, { color: Colors[colorScheme].tint }]}
-            >
+            <Text style={[styles.statValue, { color: theme.colors.primary }]}>
               {formatFileSize(cacheStats.totalSize)}
             </Text>
             <Text
               style={[
                 styles.statLabel,
-                { color: Colors[colorScheme].textSecondary },
+                { color: theme.colors.onSurfaceVariant },
               ]}
             >
               {t("medias.stats.totalSize")}
@@ -410,13 +131,13 @@ export default function GallerySection() {
               <View
                 style={[
                   styles.typeBreakdown,
-                  { borderTopColor: Colors[colorScheme].borderLight },
+                  { borderTopColor: theme.colors.outline },
                 ]}
               >
                 <Text
                   style={[
                     styles.typeBreakdownTitle,
-                    { color: Colors[colorScheme].text },
+                    { color: theme.colors.onSurface },
                   ]}
                 >
                   {t("medias.stats.byType")}
@@ -433,7 +154,7 @@ export default function GallerySection() {
                         <Text
                           style={[
                             styles.typeCount,
-                            { color: Colors[colorScheme].textSecondary },
+                            { color: theme.colors.onSurfaceVariant },
                           ]}
                         >
                           {count}
@@ -450,19 +171,19 @@ export default function GallerySection() {
             <View
               style={[
                 styles.gallerySettings,
-                { borderTopColor: Colors[colorScheme].borderLight },
+                { borderTopColor: theme.colors.outline },
               ]}
             >
               <Text
                 style={[
                   styles.typeBreakdownTitle,
-                  { color: Colors[colorScheme].text },
+                  { color: theme.colors.onSurface },
                 ]}
               >
                 {t("gallerySettings.title")}
               </Text>
 
-              <TouchableOpacity
+              <TouchableRipple
                 style={styles.settingItem}
                 onPress={() => {
                   userSettings.updateGallerySettings({
@@ -470,42 +191,48 @@ export default function GallerySection() {
                   });
                 }}
               >
-                <View style={styles.settingContent}>
-                  <Text
+                <View>
+                  <View style={styles.settingContent}>
+                    <Text
+                      style={[
+                        styles.settingLabel,
+                        { color: theme.colors.onSurface },
+                      ]}
+                    >
+                      {t("gallerySettings.autoPlay")}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.settingDescription,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {t("gallerySettings.autoPlayDescription")}
+                    </Text>
+                  </View>
+                  <View
                     style={[
-                      styles.settingLabel,
-                      { color: Colors[colorScheme].text },
+                      styles.checkbox,
+                      {
+                        backgroundColor: userSettings.settings.gallery.autoPlay
+                          ? theme.colors.primary
+                          : theme.colors.surfaceVariant,
+                        borderColor: theme.colors.outline,
+                      },
                     ]}
                   >
-                    {t("gallerySettings.autoPlay")}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.settingDescription,
-                      { color: Colors[colorScheme].textSecondary },
-                    ]}
-                  >
-                    {t("gallerySettings.autoPlayDescription")}
-                  </Text>
+                    {userSettings.settings.gallery.autoPlay && (
+                      <Icon
+                        source="check"
+                        size={16}
+                        color={theme.colors.onPrimary}
+                      />
+                    )}
+                  </View>
                 </View>
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: userSettings.settings.gallery.autoPlay
-                        ? Colors[colorScheme].tint
-                        : Colors[colorScheme].backgroundSecondary,
-                      borderColor: Colors[colorScheme].border,
-                    },
-                  ]}
-                >
-                  {userSettings.settings.gallery.autoPlay && (
-                    <Ionicons name="checkmark" size={16} color="white" />
-                  )}
-                </View>
-              </TouchableOpacity>
+              </TouchableRipple>
 
-              <TouchableOpacity
+              <TouchableRipple
                 style={styles.settingItem}
                 onPress={() => {
                   userSettings.updateGallerySettings({
@@ -514,45 +241,51 @@ export default function GallerySection() {
                   });
                 }}
               >
-                <View style={styles.settingContent}>
-                  <Text
+                <View>
+                  <View style={styles.settingContent}>
+                    <Text
+                      style={[
+                        styles.settingLabel,
+                        { color: theme.colors.onSurface },
+                      ]}
+                    >
+                      {t("gallerySettings.showFaultyMedias")}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.settingDescription,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {t("gallerySettings.showFaultyMediasDescription")}
+                    </Text>
+                  </View>
+                  <View
                     style={[
-                      styles.settingLabel,
-                      { color: Colors[colorScheme].text },
+                      styles.checkbox,
+                      {
+                        backgroundColor: userSettings.settings.gallery
+                          .showFaultyMedias
+                          ? theme.colors.primary
+                          : theme.colors.surfaceVariant,
+                        borderColor: theme.colors.outline,
+                      },
                     ]}
                   >
-                    {t("gallerySettings.showFaultyMedias")}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.settingDescription,
-                      { color: Colors[colorScheme].textSecondary },
-                    ]}
-                  >
-                    {t("gallerySettings.showFaultyMediasDescription")}
-                  </Text>
+                    {userSettings.settings.gallery.showFaultyMedias && (
+                      <Icon
+                        source="check"
+                        size={16}
+                        color={theme.colors.onPrimary}
+                      />
+                    )}
+                  </View>
                 </View>
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: userSettings.settings.gallery
-                        .showFaultyMedias
-                        ? Colors[colorScheme].tint
-                        : Colors[colorScheme].backgroundSecondary,
-                      borderColor: Colors[colorScheme].border,
-                    },
-                  ]}
-                >
-                  {userSettings.settings.gallery.showFaultyMedias && (
-                    <Ionicons name="checkmark" size={16} color="white" />
-                  )}
-                </View>
-              </TouchableOpacity>
+              </TouchableRipple>
             </View>
           </View>
         </View>
-      </View>
+      </Surface>
     );
   };
 
@@ -570,7 +303,7 @@ export default function GallerySection() {
                 { width: itemWidth, height: itemWidth },
                 isSelected && [
                   styles.gridItemSelected,
-                  { borderColor: Colors[colorScheme].tint },
+                  { borderColor: theme.colors.primary },
                 ],
               ]}
             >
@@ -606,11 +339,7 @@ export default function GallerySection() {
                   <>
                     <View style={styles.selectedOverlay} pointerEvents="none" />
                     <View style={styles.selectedCenter} pointerEvents="none">
-                      <Ionicons
-                        name="checkmark"
-                        size={checkSize}
-                        color="#ffffff"
-                      />
+                      <Icon source="check" size={checkSize} color="#ffffff" />
                     </View>
                   </>
                 )}
@@ -630,47 +359,51 @@ export default function GallerySection() {
 
   const renderSectionHeader = ({ section }: any) => (
     <View style={styles.dateSection}>
-      <ThemedText style={styles.dateSectionTitle}>{section.title}</ThemedText>
+      <Text
+        style={[styles.dateSectionTitle, { color: theme.colors.onBackground }]}
+      >
+        {section.title}
+      </Text>
     </View>
   );
 
   const renderEmptyState = () => {
     return (
-      <ThemedView style={styles.emptyState}>
-        <Ionicons
-          name="cloud-download-outline"
+      <Surface
+        style={[
+          styles.emptyState,
+          { backgroundColor: theme.colors.background },
+        ]}
+      >
+        <Icon
+          source="cloud-download-outline"
           size={64}
-          color={Colors[colorScheme].textMuted}
+          color={theme.colors.onSurfaceVariant}
         />
-        <ThemedText style={styles.emptyTitle}>
+        <Text style={[styles.emptyTitle, { color: theme.colors.onBackground }]}>
           {t("medias.empty.title")}
-        </ThemedText>
-        <ThemedText style={styles.emptySubtitle}>
+        </Text>
+        <Text
+          style={[
+            styles.emptySubtitle,
+            { color: theme.colors.onSurfaceVariant },
+          ]}
+        >
           {t("medias.empty.message")}
-        </ThemedText>
-      </ThemedView>
+        </Text>
+      </Surface>
     );
   };
 
   return (
-    <ThemedView 
-      style={styles.container}
+    <Surface
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
       onLayout={(event) => {
         const { width } = event.nativeEvent.layout;
         setContainerWidth(width);
       }}
     >
-      {selectionMode && renderSelectionBar()}
-      {!selectionMode && (
-        <GalleryFilters
-          selectedMediaTypes={selectedMediaTypes}
-          onMediaTypesChange={setSelectedMediaTypes}
-          onToggleMultiSelection={handleToggleMultiSelection}
-          selectedCount={selectedItems.size}
-          isMultiSelectionMode={selectionMode}
-          cacheStats={cacheStats}
-        />
-      )}
+      <GalleryFilters />
 
       <SectionList
         sections={sections}
@@ -686,8 +419,8 @@ export default function GallerySection() {
           <RefreshControl
             refreshing={false}
             onRefresh={updateStats}
-            colors={[Colors[colorScheme ?? "light"].tint]}
-            tintColor={Colors[colorScheme ?? "light"].tint}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -722,7 +455,7 @@ export default function GallerySection() {
           currentPosition={`${fullscreenIndex + 1} / ${flatOrder.length}`}
         />
       )}
-    </ThemedView>
+    </Surface>
   );
 }
 
@@ -927,50 +660,6 @@ const styles = StyleSheet.create({
   typeCount: {
     fontSize: 14,
     fontWeight: "500",
-  },
-  selectionBar: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  leftControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    flex: 1,
-  },
-  rightControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  selectionCountBadge: {
-    borderWidth: 1,
-    borderRadius: 12,
-    height: 44,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  selectionCountText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  selectionButton: {
-    borderWidth: 1,
-    borderRadius: 12,
-    height: 44,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  selectionButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
   },
   // Stats card styles (re-added)
   statsCard: {
