@@ -13,18 +13,15 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-
-const { width: screenWidth } = Dimensions.get("window");
-const isTablet = screenWidth >= 768;
-import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
-  Button as PaperButton,
   Icon,
+  Button as PaperButton,
   Text,
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface QuickSnoozeOption {
   label: string;
@@ -66,10 +63,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   const [removingSnooze, setRemovingSnooze] = useState(false);
 
   const [setBucketSnooze, { loading: settingSnooze }] =
-    useSetBucketSnoozeMutation({
-      // refetchQueries: [GetNotificationsDocument],
-      // awaitRefetchQueries: true,
-    });
+    useSetBucketSnoozeMutation();
 
   const quickSnoozeOptions: QuickSnoozeOption[] = useMemo(
     () => [
@@ -227,13 +221,13 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
         onPress={handlePress}
         disabled={settingSnooze}
       >
-        <View>
+        <View style={styles.buttonContent}>
           <Icon
             source="sleep"
             size={16}
-            color={isSnoozed
-              ? theme.colors.primary
-              : theme.colors.onSurfaceVariant}
+            color={
+              isSnoozed ? theme.colors.primary : theme.colors.onSurfaceVariant
+            }
           />
           {showText && (
             <Text
@@ -560,6 +554,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     marginLeft: 4,
+  },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   inlinePill: {
     flexDirection: "row",
