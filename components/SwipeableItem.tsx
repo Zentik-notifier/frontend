@@ -16,6 +16,7 @@ import {
   Dialog,
   Icon,
   Portal,
+  Surface,
   Text,
   useTheme,
 } from "react-native-paper";
@@ -109,6 +110,9 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   } | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(screenWidth);
   const theme = useTheme();
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
+  const burgerButtonRef = useRef<View>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     action: SwipeAction;
@@ -352,15 +356,9 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
             },
           ]}
         >
-          {children}
-        </Animated.View>
-      </PanGestureHandler>
-
-      {/* Popup menu */}
-      <Menu>
-        <MenuTrigger>
-          {(leftAction || rightAction) && withButton ? (
-            <View
+          {(leftAction || rightAction) && withButton && (
+            <TouchableOpacity
+              ref={burgerButtonRef}
               style={[
                 styles.burgerButton,
                 { 
@@ -368,29 +366,74 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
                   borderColor: theme.colors.outlineVariant,
                 }
               ]}
+              onPress={() => {
+                if (burgerButtonRef.current) {
+                  burgerButtonRef.current.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
+                    setMenuPosition({
+                      top: pageY + height + 8, // Sotto il pulsante
+                      right: screenWidth - pageX - width, // Allineato a destra
+                    });
+                    setIsMenuVisible(true);
+                  });
+                }
+              }}
+              activeOpacity={0.7}
             >
               <Icon
                 source="dots-vertical"
                 size={18}
                 color={theme.colors.onSurface}
               />
-            </View>
-          ) : (
-            <View />
+            </TouchableOpacity>
           )}
-        </MenuTrigger>
-        <MenuOptions 
-          optionsContainerStyle={{ 
-            backgroundColor: theme.colors.surface,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: theme.colors.outlineVariant,
-            marginTop: 8,
-          }}
-        >
-          {!!leftAction && (
-            <MenuOption onSelect={() => handleMenuActionPress(leftAction)}>
-              <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
+          {children}
+        </Animated.View>
+      </PanGestureHandler>
+
+      {/* Popup menu */}
+      {(leftAction || rightAction) && withButton && isMenuVisible && (
+        <Portal>
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'transparent',
+            }}
+            onPress={() => setIsMenuVisible(false)}
+            activeOpacity={1}
+          />
+          <Surface
+            style={{
+              position: 'absolute',
+              top: menuPosition.top,
+              right: menuPosition.right,
+              backgroundColor: theme.colors.surface,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: theme.colors.outlineVariant,
+              padding: 8,
+              elevation: 8,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 3.84,
+            }}
+          >
+            {!!leftAction && (
+              <TouchableOpacity
+                style={[
+                  styles.menuItem,
+                  { backgroundColor: theme.colors.surface }
+                ]}
+                onPress={() => {
+                  setIsMenuVisible(false);
+                  handleMenuActionPress(leftAction);
+                }}
+                activeOpacity={0.7}
+              >
                 <Icon
                   source={mapIconToPaper(leftAction.icon)}
                   size={16}
@@ -399,12 +442,20 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
                 <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]} numberOfLines={1}>
                   {leftAction.label}
                 </Text>
-              </View>
-            </MenuOption>
-          )}
-          {!!rightAction && (
-            <MenuOption onSelect={() => handleMenuActionPress(rightAction)}>
-              <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
+              </TouchableOpacity>
+            )}
+            {!!rightAction && (
+              <TouchableOpacity
+                style={[
+                  styles.menuItem,
+                  { backgroundColor: theme.colors.surface }
+                ]}
+                onPress={() => {
+                  setIsMenuVisible(false);
+                  handleMenuActionPress(rightAction);
+                }}
+                activeOpacity={0.7}
+              >
                 <Icon
                   source={mapIconToPaper(rightAction.icon)}
                   size={16}
@@ -413,11 +464,11 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
                 <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]} numberOfLines={1}>
                   {rightAction.label}
                 </Text>
-              </View>
-            </MenuOption>
-          )}
-        </MenuOptions>
-      </Menu>
+              </TouchableOpacity>
+            )}
+          </Surface>
+        </Portal>
+      )}
 
       {/* Confirmation Dialog */}
       <Portal>
