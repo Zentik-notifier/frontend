@@ -152,7 +152,7 @@ export function AppSettings() {
             <Text variant="headlineSmall" style={styles.sectionTitle}>
               {t("appSettings.apiUrl.serverUrl")}
             </Text>
-            <Text variant="bodyMedium" style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
+            <Text variant="bodyMedium" style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 16 }]}>
               {t("appSettings.apiUrl.serverUrlDescription")}
             </Text>
             <TextInput
