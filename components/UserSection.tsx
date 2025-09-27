@@ -1,18 +1,25 @@
-import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
   RefreshControl,
+  ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
-import SettingsScrollView from "@/components/SettingsScrollView";
+import {
+  Button,
+  Card,
+  Divider,
+  Icon,
+  IconButton,
+  List,
+  Surface,
+  Text,
+  TextInput,
+  useTheme,
+} from "react-native-paper";
 import {
   GetMeDocument,
   useDeleteAccountMutation,
@@ -21,13 +28,9 @@ import {
   usePublicAppConfigQuery,
   useUpdateProfileMutation,
 } from "../generated/gql-operations-generated";
-import { useAppContext } from "../services/app-context";
-import IdWithCopyButton from "./IdWithCopyButton";
+import { useAppContext } from "../contexts/AppContext";
 import NotificationStats from "./NotificationStats";
 import OAuthConnections from "./OAuthConnections";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
-import IconButton from "./ui/IconButton";
 import { useNavigationUtils } from "@/utils/navigation";
 
 export default function UserSection() {
@@ -37,7 +40,7 @@ export default function UserSection() {
     refreshUserData,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState("");
@@ -65,7 +68,6 @@ export default function UserSection() {
         setEditing(false);
         // Refresh auth context to update avatar in UserDropdown
         await refreshUserData();
-        Alert.alert(t("common.success"), t("userProfile.profileUpdateSuccess"));
       },
       onError: (error) => {
         console.error("Profile update error:", error);
@@ -198,226 +200,240 @@ export default function UserSection() {
 
   if (error && !user) {
     return (
-      <View style={styles.section}>
-        <ThemedText style={styles.loadingText}>
+      <View style={[styles.section, { backgroundColor: theme.colors.background }]}>
+        <Text style={[styles.loadingText, { color: theme.colors.error }]}>
           {t("userProfile.errorLoadingData")}: {error.message}
-        </ThemedText>
+        </Text>
       </View>
     );
   }
 
   if (!user) {
     return (
-      <View style={styles.section}>
-        <ThemedText style={styles.loadingText}>
+      <View style={[styles.section, { backgroundColor: theme.colors.background }]}>
+        <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
           {t("userProfile.noDataAvailable")}
-        </ThemedText>
+        </Text>
       </View>
     );
   }
 
   return (
-    <SettingsScrollView
-      style={styles.content}
+    <ScrollView
+      style={[styles.content, { backgroundColor: theme.colors.background }]}
       showsVerticalScrollIndicator={false}
-      onRefresh={onRefresh}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
     >
       <View style={styles.section}>
-        <ThemedView
-          style={[
-            styles.profileContainer,
-            {
-              backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
-              borderColor: Colors[colorScheme ?? "light"].border,
-            },
-          ]}
-        >
-          <View style={styles.field}>
-            <ThemedText style={styles.label}>
-              {t("userProfile.username")}:
-            </ThemedText>
-            <ThemedText style={styles.value}>
-              {user.username || t("userProfile.notAvailable")}
-            </ThemedText>
-          </View>
-
-          <View style={styles.field}>
-            <ThemedText style={styles.label}>
-              {t("userProfile.email")}:
-            </ThemedText>
-            <ThemedText style={styles.value}>
-              {user.email || t("userProfile.notAvailable")}
-            </ThemedText>
-          </View>
-
-          <View style={styles.field}>
-            <ThemedText style={styles.label}>
-              {t("userProfile.firstName")}:
-            </ThemedText>
-            {editing ? (
-              <TextInput
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme ?? "light"].inputBackground,
-                    borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                    color: Colors[colorScheme ?? "light"].text,
-                  },
-                ]}
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder={t("userProfile.firstNamePlaceholder")}
-                placeholderTextColor={
-                  Colors[colorScheme ?? "light"].inputPlaceholder
-                }
+        {/* Profile Section with Avatar and Form */}
+        <Card style={styles.profileContainer}>
+          <Card.Content>
+            <View style={styles.profileHeader}>
+              <Text variant="titleMedium" style={{ color: theme.colors.onSurface }}>
+                {t("userProfile.editProfile")}
+              </Text>
+              <IconButton
+                icon={editing ? "close" : "pencil"}
+                onPress={() => setEditing(!editing)}
+                iconColor={theme.colors.primary}
               />
-            ) : (
-              <ThemedText style={styles.value}>
-                {user.firstName || t("userProfile.notSet")}
-              </ThemedText>
-            )}
-          </View>
+            </View>
 
-          <View style={styles.field}>
-            <ThemedText style={styles.label}>
-              {t("userProfile.lastName")}:
-            </ThemedText>
+            {/* Avatar Section */}
             {editing ? (
-              <TextInput
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme ?? "light"].inputBackground,
-                    borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                    color: Colors[colorScheme ?? "light"].text,
-                  },
-                ]}
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder={t("userProfile.lastNamePlaceholder")}
-                placeholderTextColor={
-                  Colors[colorScheme ?? "light"].inputPlaceholder
+              <List.Item
+                title={t("userProfile.avatar")}
+                description={
+                  <TextInput
+                    mode="outlined"
+                    value={avatar}
+                    onChangeText={setAvatar}
+                    placeholder={t("userProfile.avatarPlaceholder")}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    style={styles.inlineInput}
+                  />
                 }
-              />
-            ) : (
-              <ThemedText style={styles.value}>
-                {user.lastName || t("userProfile.notSet")}
-              </ThemedText>
-            )}
-          </View>
-
-          <View style={styles.field}>
-            <ThemedText style={styles.label}>
-              {t("userProfile.avatar")}:
-            </ThemedText>
-            {editing ? (
-              <TextInput
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme ?? "light"].inputBackground,
-                    borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                    color: Colors[colorScheme ?? "light"].text,
-                  },
-                ]}
-                value={avatar}
-                onChangeText={setAvatar}
-                placeholder={t("userProfile.avatarPlaceholder")}
-                placeholderTextColor={
-                  Colors[colorScheme ?? "light"].inputPlaceholder
-                }
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-              />
-            ) : (
-              <View style={styles.avatarPreviewContainer}>
-                {user.avatar ? (
-                  <View style={styles.avatarPreview}>
-                    <Image
-                      source={{ uri: user.avatar }}
-                      style={styles.avatarPreviewImage}
-                      onError={() =>
-                        console.warn("Failed to load avatar image")
-                      }
-                    />
-                    <ThemedText style={styles.avatarUrl} numberOfLines={1}>
-                      {user.avatar}
-                    </ThemedText>
+                left={(props) => (
+                  <View style={styles.avatarIconContainer}>
+                    {user.avatar ? (
+                      <Image
+                        source={{ uri: user.avatar }}
+                        style={styles.avatarIcon}
+                        onError={() =>
+                          console.warn("Failed to load avatar image")
+                        }
+                      />
+                    ) : (
+                      <List.Icon {...props} icon="account-circle" />
+                    )}
                   </View>
-                ) : (
-                  <ThemedText style={styles.value}>
-                    {t("userProfile.notSet")}
-                  </ThemedText>
                 )}
+              />
+            ) : (
+              <View style={styles.avatarSection}>
+                <Text variant="bodyMedium" style={{ color: theme.colors.onSurface, marginBottom: 8 }}>
+                  {t("userProfile.avatar")}
+                </Text>
+                
+                <View style={styles.avatarPreviewContainer}>
+                  {user.avatar ? (
+                    <View style={styles.avatarPreview}>
+                      <Image
+                        source={{ uri: user.avatar }}
+                        style={styles.avatarPreviewImage}
+                        onError={() =>
+                          console.warn("Failed to load avatar image")
+                        }
+                      />
+                      <Text style={[styles.avatarUrl, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+                        {user.avatar}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.value, { color: theme.colors.onSurfaceVariant }]}>
+                      {t("userProfile.notSet")}
+                    </Text>
+                  )}
+                </View>
               </View>
             )}
-          </View>
 
-          {/* Show current session provider */}
-          {currentSession?.loginProvider && (
-            <View style={styles.field}>
-              <ThemedText style={styles.label}>
-                {t("userProfile.currentSessionProvider")}:
-              </ThemedText>
-              <View style={styles.providerInfo}>
-                {provider && (
-                  <Image
-                    source={{ uri: provider?.iconUrl! }}
-                    style={[styles.providerIconImage]}
+            {/* Profile Info */}
+            <View style={styles.profileInfo}>
+              <List.Item
+                title={t("userProfile.username")}
+                description={user.username || t("userProfile.notAvailable")}
+                left={(props) => <List.Icon {...props} icon="account" />}
+              />
+              <Divider />
+              
+              <List.Item
+                title={t("userProfile.email")}
+                description={user.email || t("userProfile.notAvailable")}
+                left={(props) => <List.Icon {...props} icon="email" />}
+              />
+              <Divider />
+              
+              <List.Item
+                title={t("userProfile.firstName")}
+                description={editing ? (
+                  <TextInput
+                    mode="outlined"
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    placeholder={t("userProfile.firstNamePlaceholder")}
+                    style={styles.inlineInput}
+                  />
+                ) : (
+                  user.firstName || t("userProfile.notAvailable")
+                )}
+                left={(props) => <List.Icon {...props} icon="account-details" />}
+              />
+              <Divider />
+              
+              <List.Item
+                title={t("userProfile.lastName")}
+                description={editing ? (
+                  <TextInput
+                    mode="outlined"
+                    value={lastName}
+                    onChangeText={setLastName}
+                    placeholder={t("userProfile.lastNamePlaceholder")}
+                    style={styles.inlineInput}
+                  />
+                ) : (
+                  user.lastName || t("userProfile.notAvailable")
+                )}
+                left={(props) => <List.Icon {...props} icon="account-details" />}
+              />
+              <Divider />
+              
+              <List.Item
+                title="User ID"
+                description={user.id}
+                left={(props) => <List.Icon {...props} icon="identifier" />}
+              />
+            </View>
+
+            {/* Edit Actions */}
+            {editing && (
+              <View style={styles.editActions}>
+                <Button
+                  mode="outlined"
+                  onPress={() => setEditing(false)}
+                  style={styles.editButton}
+                >
+                  {t("common.cancel")}
+                </Button>
+                <Button
+                  mode="contained"
+                  onPress={handleSave}
+                  disabled={savingProfile}
+                  loading={savingProfile}
+                  style={styles.editButton}
+                >
+                  {savingProfile ? t("common.saving") : t("common.save")}
+                </Button>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Session Provider Info */}
+        {currentSession?.loginProvider && (
+          <Card style={styles.providerContainer}>
+            <Card.Content>
+              <List.Item
+                title={t("userProfile.currentSessionProvider")}
+                description={provider ? provider.name : t("userProfile.localUser")}
+                left={(props) => (
+                  <List.Icon 
+                    {...props} 
+                    icon="account-network" 
+                    color={theme.colors.primary}
                   />
                 )}
-                <ThemedText style={styles.value}>
-                  {provider ? provider.name : t("userProfile.localUser")}
-                </ThemedText>
-              </View>
-            </View>
-          )}
-
-          {/* Profile Action Buttons */}
-          <View style={styles.profileActionButtons}>
-            {editing ? (
-              <View style={styles.editButtonsRow}>
-                <TouchableOpacity
-                  style={[styles.button, styles.cancelButton]}
-                  onPress={handleCancel}
-                >
-                  <Text style={styles.buttonText}>{t("common.cancel")}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.button,
-                    styles.saveButton,
-                    (savingProfile || isOfflineAuth || isBackendUnreachable) &&
-                      styles.buttonDisabled,
-                  ]}
-                  onPress={handleSave}
-                  disabled={
-                    savingProfile || isOfflineAuth || isBackendUnreachable
-                  }
-                >
-                  <Text style={styles.buttonText}>
-                    {savingProfile
-                      ? t("userProfile.saving")
-                      : t("userProfile.save")}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <IconButton
-                title={t("userProfile.editProfile")}
-                iconName="edit"
-                onPress={() => setEditing(true)}
-                variant="secondary"
-                size="md"
-                disabled={isOfflineAuth || isBackendUnreachable}
+                right={() => provider && (
+                  <Image
+                    source={{ uri: provider?.iconUrl! }}
+                    style={styles.providerIconImage}
+                  />
+                )}
               />
-            )}
-          </View>
-        </ThemedView>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Action Buttons */}
+        <Card style={styles.actionsContainer}>
+          <Card.Content>
+            <View style={styles.actionButtonsRow}>
+              <Button
+                mode="outlined"
+                onPress={navigateToChangePassword}
+                icon="lock"
+                style={styles.halfWidthButton}
+              >
+                {t("userProfile.changePassword")}
+              </Button>
+              
+              <Button
+                mode="outlined"
+                onPress={logout}
+                icon="logout"
+                style={styles.halfWidthButton}
+                buttonColor={theme.colors.errorContainer}
+                textColor={theme.colors.onErrorContainer}
+              >
+                {t("userProfile.logout")}
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
 
         {/* OAuth Connections Section */}
         <OAuthConnections identities={user.identities} />
@@ -425,71 +441,45 @@ export default function UserSection() {
         {/* Notification Statistics Section */}
         <NotificationStats refreshing={refreshing} />
 
-        {/* User ID Section */}
-        <ThemedView
-          style={[
-            styles.userIdContainer,
-            {
-              backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
-              borderColor: Colors[colorScheme ?? "light"].border,
-            },
-          ]}
-        >
-          <IdWithCopyButton
-            id={user.id}
-            label={t("userProfile.userId")}
-            copyMessage={t("userProfile.userIdCopied")}
-          />
-        </ThemedView>
-
-        <View style={styles.buttonContainer}>
-          <IconButton
-            title={
-              user.hasPassword
-                ? t("userProfile.changePassword")
-                : t("setPassword.title")
-            }
-            iconName="password"
-            onPress={handleChangePassword}
-            variant="secondary"
-            size="md"
-            disabled={isOfflineAuth || isBackendUnreachable}
-          />
-
-          <IconButton
-            title={
-              deletingAccount
-                ? t("userProfile.deletingAccount")
-                : t("userProfile.deleteAccount")
-            }
-            iconName="delete"
-            onPress={handleDeleteAccount}
-            variant="danger"
-            size="md"
-            disabled={deletingAccount || isOfflineAuth || isBackendUnreachable}
-          />
-
-          <IconButton
-            title={t("userProfile.logout")}
-            iconName="logout"
-            onPress={logout}
-            variant="danger"
-            size="md"
-          />
-        </View>
+        {/* Delete Account Section */}
+        <Card style={styles.deleteAccountContainer}>
+          <Card.Content>
+            <View style={styles.deleteAccountContent}>
+              <View style={styles.deleteAccountInfo}>
+                <Text variant="titleMedium" style={{ color: theme.colors.onSurface }}>
+                  {t("userProfile.deleteAccount")}
+                </Text>
+                <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
+                  This action cannot be undone. All your data will be permanently deleted.
+                </Text>
+              </View>
+              <Button
+                mode="outlined"
+                onPress={handleDeleteAccount}
+                icon="delete"
+                disabled={deletingAccount}
+                loading={deletingAccount}
+                buttonColor={theme.colors.errorContainer}
+                textColor={theme.colors.onErrorContainer}
+                style={styles.deleteButton}
+              >
+                {deletingAccount ? t("userProfile.deletingAccount") : t("userProfile.deleteAccount")}
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
       </View>
-    </SettingsScrollView>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
     flex: 1,
-    padding: 20,
-    paddingTop: 30,
+    padding: 16,
   },
   section: {
-    marginBottom: 30,
+    marginBottom: 16,
   },
   loadingText: {
     textAlign: "center",
@@ -498,104 +488,104 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   profileContainer: {
-    padding: 20,
-    borderRadius: 12,
+    marginBottom: 16,
+  },
+  profileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 20,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
-  field: {
-    marginBottom: 15,
+  avatarSection: {
+    marginBottom: 20,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    opacity: 0.7,
-    marginBottom: 5,
+  profileInfo: {
+    marginBottom: 20,
   },
-  value: {
-    fontSize: 16,
+  inlineInput: {
+    marginTop: 8,
+    width: "100%",
   },
-  textInput: {
-    fontSize: 16,
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-  },
-  buttonContainer: {
-    gap: 10,
-  },
-  button: {
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+  avatarIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: "hidden",
     alignItems: "center",
+    justifyContent: "center",
   },
-  saveButton: {
-    backgroundColor: "#28a745",
+  avatarIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  providerContainer: {
+    marginBottom: 16,
+  },
+  actionsContainer: {
+    marginBottom: 16,
+  },
+  actionButtonsRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  halfWidthButton: {
     flex: 1,
   },
-  cancelButton: {
-    backgroundColor: "#6c757d",
+  editActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  editButton: {
     flex: 1,
   },
-  buttonDisabled: {
-    backgroundColor: "#ccc",
+  deleteAccountContainer: {
+    marginBottom: 16,
   },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  editButtonsRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  providerInfo: {
+  deleteAccountContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    justifyContent: "space-between",
+  },
+  deleteAccountInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  deleteButton: {
+    flexShrink: 0,
+  },
+  fullWidthInput: {
+    width: "100%",
   },
   avatarPreviewContainer: {
-    flexDirection: "row",
     alignItems: "center",
   },
   avatarPreview: {
-    flexDirection: "row",
     alignItems: "center",
-    flex: 1,
+    gap: 8,
   },
   avatarPreviewImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 10,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   avatarUrl: {
+    fontSize: 12,
+    textAlign: "center",
+    maxWidth: 200,
+  },
+  value: {
     fontSize: 14,
-    opacity: 0.7,
-    flex: 1,
   },
   providerIconImage: {
     width: 24,
     height: 24,
-    borderRadius: 2,
-  },
-  profileActionButtons: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(0,0,0,0.1)",
-  },
-  userIdContainer: {
-    padding: 20,
     borderRadius: 12,
-    marginBottom: 20,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  },
+  actionButtons: {
+    gap: 12,
+  },
+  actionButton: {
+    marginBottom: 8,
   },
 });

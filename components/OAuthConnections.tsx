@@ -1,27 +1,30 @@
-import { SectionHeader } from "@/components/SectionHeader";
-import { ThemedText } from "@/components/ThemedText";
-import { Colors } from "@/constants/Colors";
 import {
   UserFragment,
   usePublicAppConfigQuery,
 } from "@/generated/gql-operations-generated";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { ApiConfigService } from "@/services/api-config";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { getAccessToken } from "@/services/auth-storage";
-import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
 } from "react-native";
-import { AppLoader } from "./ui/AppLoader";
+import {
+  ActivityIndicator,
+  Button,
+  Card,
+  Chip,
+  Divider,
+  Icon,
+  List,
+  Text,
+  useTheme,
+} from "react-native-paper";
 
 interface OAuthConnectionsProps {
   identities: UserFragment["identities"];
@@ -31,7 +34,7 @@ export default function OAuthConnections({
   identities,
 }: OAuthConnectionsProps) {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const {
     setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
@@ -147,48 +150,62 @@ export default function OAuthConnections({
     }
   };
 
+  if (providersLoading) {
+    return (
+      <Card style={styles.container}>
+        <Card.Content style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
+            {t("common.loading")}
+          </Text>
+        </Card.Content>
+      </Card>
+    );
+  }
+
+  if (availableProviders.length === 0 && sortedOAuthIdentities.length === 0) {
+    return (
+      <Card style={styles.container}>
+        <Card.Content style={styles.emptyState}>
+          <Icon source="link-off" size={32} color={theme.colors.onSurfaceVariant} />
+          <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
+            {t("userProfile.oauthConnections.noConnections")}
+          </Text>
+        </Card.Content>
+      </Card>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <SectionHeader
-        title={t("userProfile.oauthConnections.title")}
-        iconName="connected"
-      />
+    <Card style={styles.container}>
+      <Card.Content>
+        <View style={styles.header}>
+          <Icon source="link" size={24} color={theme.colors.primary} />
+          <Text variant="titleMedium" style={{ color: theme.colors.onSurface }}>
+            {t("userProfile.oauthConnections.title")}
+          </Text>
+        </View>
 
-      {/* Available Providers */}
-      {!providersLoading && availableProviders.length > 0 && (
-        <View
-          style={[
-            styles.connectionsContainer,
-            { backgroundColor: Colors[colorScheme].backgroundCard },
-          ]}
-        >
-          {availableProviders.map((provider, index) => {
-            const connectedIdentity = getProviderConnectionStatus(
-              provider.providerId
-            );
-            const isConnected = !!connectedIdentity;
+        {availableProviders.map((provider, index) => {
+          const connectedIdentity = getProviderConnectionStatus(
+            provider.providerId
+          );
+          const isConnected = !!connectedIdentity;
+          const providerColor = provider.color || "#666666";
 
-            // Use provider data from backend or fallback
-            const providerColor = provider.color || "#666666";
-
-            return (
-              <View
-                key={provider.id}
-                style={[
-                  styles.connectionItem,
-                  index < availableProviders.length - 1 && {
-                    borderBottomWidth: StyleSheet.hairlineWidth,
-                    borderBottomColor: Colors[colorScheme].border,
-                  },
-                ]}
-              >
-                <View style={styles.connectionInfo}>
-                  <View
-                    style={[
-                      styles.iconContainer,
-                      { backgroundColor: providerColor + "15" },
-                    ]}
-                  >
+          return (
+            <View key={provider.id}>
+              <List.Item
+                title={provider.name}
+                description={
+                  isConnected
+                    ? t("userProfile.oauthConnections.connectedAs", {
+                        providerId: connectedIdentity.providerId,
+                      })
+                    : "Available to connect"
+                }
+                left={(props) => (
+                  <View style={[styles.iconContainer, { backgroundColor: providerColor + "15" }]}>
                     {provider.iconUrl ? (
                       <Image
                         source={{ uri: provider.iconUrl }}
@@ -196,146 +213,66 @@ export default function OAuthConnections({
                         resizeMode="contain"
                       />
                     ) : (
-                      <Ionicons name="link" size={20} color={providerColor} />
+                      <Icon source="link" size={20} color={providerColor} />
                     )}
                   </View>
-                  <View style={styles.textContainer}>
-                    <ThemedText
-                      style={[
-                        styles.providerName,
-                        { color: Colors[colorScheme].text },
-                      ]}
-                    >
-                      {provider.name}
-                    </ThemedText>
-                    {isConnected ? (
-                      <Text
-                        style={[
-                          styles.providerId,
-                          { color: Colors[colorScheme].textSecondary },
-                        ]}
-                      >
-                        {t("userProfile.oauthConnections.connectedAs", {
-                          providerId: connectedIdentity.providerId,
-                        })}
-                      </Text>
-                    ) : (
-                      <Text
-                        style={[
-                          styles.providerId,
-                          { color: Colors[colorScheme].textSecondary },
-                        ]}
-                      >
-                        Available to connect
-                      </Text>
-                    )}
-                  </View>
-                </View>
-
-                {/* Connection Status/Action */}
-                {isConnected ? (
-                  <View style={styles.statusContainer}>
-                    <View
-                      style={[styles.statusDot, { backgroundColor: "#10B981" }]}
-                    />
-                    <Text style={[styles.statusText, { color: "#10B981" }]}>
-                      {t("userProfile.oauthConnections.connected")}
-                    </Text>
-                  </View>
-                ) : (
-                  (() => {
-                    const isDisabled =
-                      connectingProvider === provider.providerId ||
-                      isOfflineAuth ||
-                      isBackendUnreachable;
-                    return (
-                      <TouchableOpacity
-                        style={[
-                          styles.connectButton,
-                          {
-                            backgroundColor: isDisabled
-                              ? Colors[colorScheme].buttonDisabled
-                              : Colors[colorScheme].primary + "15",
-                            borderColor: isDisabled
-                              ? Colors[colorScheme].border
-                              : Colors[colorScheme].primary,
-                          },
-                          isDisabled && styles.connectButtonDisabled,
-                        ]}
-                        onPress={() => handleConnect(provider.providerId)}
-                        disabled={isDisabled}
-                      >
-                        <Text
-                          style={[
-                            styles.connectButtonText,
-                            {
-                              color: isDisabled
-                                ? Colors[colorScheme].textSecondary
-                                : Colors[colorScheme].primary,
-                            },
-                          ]}
-                        >
-                          {connectingProvider === provider.providerId
-                            ? t("common.loading")
-                            : t("userProfile.oauthConnections.connect")}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })()
                 )}
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      {/* Empty State */}
-      {!providersLoading &&
-        availableProviders.length === 0 &&
-        sortedOAuthIdentities.length === 0 && (
-          <View
-            style={[
-              styles.emptyState,
-              { backgroundColor: Colors[colorScheme].backgroundCard },
-            ]}
-          >
-            <Ionicons
-              name="link-outline"
-              size={32}
-              color={Colors[colorScheme].icon}
-            />
-            <ThemedText
-              style={[
-                styles.emptyText,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("userProfile.oauthConnections.noConnections")}
-            </ThemedText>
-          </View>
-        )}
-    </View>
+                right={() => (
+                  <View style={styles.rightContent}>
+                    {isConnected ? (
+                      <Chip
+                        mode="flat"
+                        textStyle={{ color: theme.colors.primary }}
+                        style={{ backgroundColor: theme.colors.primaryContainer }}
+                      >
+                        {t("userProfile.oauthConnections.connected")}
+                      </Chip>
+                    ) : (
+                      <Button
+                        mode="outlined"
+                        compact
+                        onPress={() => handleConnect(provider.providerId)}
+                        disabled={
+                          connectingProvider === provider.providerId ||
+                          isOfflineAuth ||
+                          isBackendUnreachable
+                        }
+                        loading={connectingProvider === provider.providerId}
+                      >
+                        {t("userProfile.oauthConnections.connect")}
+                      </Button>
+                    )}
+                  </View>
+                )}
+              />
+              {index < availableProviders.length - 1 && <Divider />}
+            </View>
+          );
+        })}
+      </Card.Content>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
-  connectionsContainer: {
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  connectionItem: {
+  loadingContainer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
+    justifyContent: "center",
+    padding: 20,
+    gap: 12,
   },
-  connectionInfo: {
+  loadingText: {
+    fontSize: 16,
+  },
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
+    marginBottom: 16,
+    gap: 12,
   },
   iconContainer: {
     width: 40,
@@ -345,54 +282,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 12,
   },
-  textContainer: {
-    flex: 1,
-  },
-  providerName: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  providerId: {
-    fontSize: 14,
-  },
-  statusContainer: {
-    flexDirection: "row",
+  rightContent: {
     alignItems: "center",
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  connectButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  connectButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  connectButtonDisabled: {
-    opacity: 0.5,
+    justifyContent: "center",
   },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
     padding: 32,
-    borderRadius: 12,
+    gap: 12,
   },
   emptyText: {
     fontSize: 16,
     textAlign: "center",
-    marginTop: 12,
   },
   providerIcon: {
     width: 20,

@@ -1,7 +1,7 @@
 import { UserRole, useGetMeQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useTheme as useAppTheme } from "@/hooks/useTheme";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";

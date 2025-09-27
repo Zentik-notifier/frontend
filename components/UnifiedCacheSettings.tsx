@@ -4,7 +4,7 @@ import { useGraphQLCacheImportExport } from "@/hooks/useGraphQLCacheImportExport
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useColorScheme } from "@/hooks/useTheme";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { formatFileSize } from "@/utils";
 import { openSharedCacheDb } from "@/services/media-cache-db";
 import { MediaCacheRepository } from "@/services/media-cache-repository";

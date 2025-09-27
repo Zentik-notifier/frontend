@@ -1,7 +1,7 @@
 import { useGetBucketData } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
 import { useMassMarkNotificationsAsRead } from "@/hooks/useNotifications";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { useUserSettings, userSettings } from "@/services/user-settings";
 import { useNavigationUtils } from "@/utils/navigation";
 import * as Clipboard from "expo-clipboard";

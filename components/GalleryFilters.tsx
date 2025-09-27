@@ -1,8 +1,8 @@
-import { useGallery } from "@/contexts/GalleryContext";
+import { useGalleryContext } from "@/contexts/GalleryContext";
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { formatFileSize } from "@/utils";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
@@ -51,7 +51,7 @@ export default function GalleryFilters() {
     handleDeselectAll,
     handleShowFiltersModal,
     handleDeleteSelected,
-  } = useGallery();
+  } = useGalleryContext();
   const totalItems = filteredMedia?.length ?? 0;
 
   const getActiveFiltersCount = (): number => {

@@ -1,7 +1,7 @@
 import { useNavigationUtils } from "@/utils/navigation";
 import { useSegments } from "expo-router";
 import { useEffect } from "react";
-import { useAppContext } from "../services/app-context";
+import { useAppContext } from "../contexts/AppContext";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { lastUserId, isInitializing } = useAppContext();

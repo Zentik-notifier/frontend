@@ -1,8 +1,8 @@
 import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { NotificationFilters } from "@/services/user-settings";
-import { useNotifications } from "@/contexts/NotificationsContext";
+import { useNotificationsContext } from "@/contexts/NotificationsContext";
 import React from "react";
 import { StyleSheet, View, ScrollView, Dimensions } from "react-native";
 import {
@@ -29,7 +29,7 @@ export default function NotificationFiltersModal() {
   const {
     state: { showFiltersModal, hideBucketSelector },
     handleHideFiltersModal,
-  } = useNotifications();
+  } = useNotificationsContext();
 
   const handleBucketChange = (bucketId: string | null) => {
     if (bucketId === null) {

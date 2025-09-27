@@ -10,7 +10,7 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect } from "react";
 import { Alert, Image, StyleSheet, TouchableOpacity, View } from "react-native";

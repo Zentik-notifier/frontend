@@ -3,7 +3,7 @@ import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useLanguageSync } from "@/hooks/useLanguageSync";
 import { ApiConfigService } from "@/services/api-config";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
 import { router } from "expo-router";
 import React, { useState } from "react";

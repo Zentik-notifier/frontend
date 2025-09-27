@@ -1,11 +1,11 @@
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { CacheItem, mediaCache } from "@/services/media-cache";
 import { saveMediaToGallery } from "@/services/media-gallery";
 import { formatFileSize } from "@/utils";
-import { GalleryProvider, useGallery } from "@/contexts/GalleryContext";
+import { GalleryProvider, useGalleryContext } from "@/contexts/GalleryContext";
 import React, { useMemo, useState, useEffect } from "react";
 import {
   Alert,
@@ -45,7 +45,7 @@ export default function GallerySection() {
   const {
     state: { selectionMode, selectedItems, filteredMedia, sections, flatOrder },
     handleSetSections,
-  } = useGallery();
+  } = useGalleryContext();
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const { updateStats, cacheStats } = useGetCacheStats();
   const numColumns = userSettings.settings.gallery.gridSize;

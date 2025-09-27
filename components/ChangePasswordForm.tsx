@@ -1,22 +1,23 @@
-import { Colors } from "@/constants/Colors";
 import {
   useChangePasswordMutation,
   useGetMeQuery,
   useSetPasswordMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import React, { useState } from "react";
-import { Alert, StyleSheet, TextInput, View } from "react-native";
-import SettingsScrollView from "@/components/SettingsScrollView";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
-import { Button } from "./ui/Button";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Button,
+  Card,
+  Text,
+  TextInput,
+  useTheme,
+} from "react-native-paper";
 import { useNavigationUtils } from "@/utils/navigation";
 
 export function ChangePasswordForm() {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { data: meData, refetch } = useGetMeQuery();
   const hasPassword = meData?.me?.hasPassword ?? false;
   const { navigateBack } = useNavigationUtils();
@@ -111,19 +112,13 @@ export function ChangePasswordForm() {
             },
           },
         });
-        Alert.alert(
-          t("changePassword.success.title"),
-          t("changePassword.success.message"),
-          [
-            {
-              text: t("common.ok"),
-              onPress: async () => {
-                navigateBack?.();
-                await refetch();
-              },
-            },
-          ]
-        );
+        // Reset form and navigate back
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setErrors({});
+        navigateBack?.();
+        await refetch();
       } else {
         await setPassword({
           variables: {
@@ -133,26 +128,14 @@ export function ChangePasswordForm() {
             },
           },
         });
-        Alert.alert(
-          t("setPassword.success.title"),
-          t("setPassword.success.message"),
-          [
-            {
-              text: t("common.ok"),
-              onPress: async () => {
-                navigateBack();
-                await refetch();
-              },
-            },
-          ]
-        );
+        // Reset form and navigate back
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setErrors({});
+        navigateBack();
+        await refetch();
       }
-
-      // Reset form
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      setErrors({});
     } catch (error) {
       console.error("Password operation failed:", error);
       Alert.alert(
@@ -167,183 +150,133 @@ export function ChangePasswordForm() {
   };
 
   return (
-    <SettingsScrollView>
-      <ThemedView style={styles.container}>
-        {effectiveHasPassword && (
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      contentContainerStyle={styles.contentContainer}
+    >
+      <Card>
+        <Card.Content>
+          <View style={styles.header}>
+            <Text variant="titleMedium" style={{ color: theme.colors.onSurface }}>
+              {effectiveHasPassword
+                ? t("changePassword.title")
+                : t("setPassword.title")}
+            </Text>
+          </View>
+
+          {effectiveHasPassword && (
+            <View style={styles.inputContainer}>
+              <TextInput
+                mode="outlined"
+                label={t("changePassword.currentPassword")}
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                placeholder={t("changePassword.currentPasswordPlaceholder")}
+                secureTextEntry
+                error={!!errors.currentPassword}
+                style={styles.input}
+              />
+              {errors.currentPassword && (
+                <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                  {errors.currentPassword}
+                </Text>
+              )}
+            </View>
+          )}
+
           <View style={styles.inputContainer}>
-            <ThemedText
-              style={[
-                styles.label,
-                { color: Colors[colorScheme ?? "light"].text },
-              ]}
-            >
-              {t("changePassword.currentPassword")}
-            </ThemedText>
             <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor:
-                    Colors[colorScheme ?? "light"].inputBackground ||
-                    Colors[colorScheme ?? "light"].background,
-                  borderColor: errors.currentPassword
-                    ? "#FF3B30"
-                    : Colors[colorScheme ?? "light"].border,
-                  color: Colors[colorScheme ?? "light"].text,
-                },
-              ]}
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              placeholder={t("changePassword.currentPasswordPlaceholder")}
-              placeholderTextColor={
-                Colors[colorScheme ?? "light"].textSecondary
+              mode="outlined"
+              label={t("changePassword.newPassword")}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder={
+                effectiveHasPassword
+                  ? t("changePassword.newPasswordPlaceholder")
+                  : t("setPassword.newPasswordPlaceholder")
               }
               secureTextEntry
+              error={!!errors.newPassword}
+              style={styles.input}
             />
-            {errors.currentPassword && (
-              <ThemedText style={styles.errorText}>
-                {errors.currentPassword}
-              </ThemedText>
+            {errors.newPassword && (
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                {errors.newPassword}
+              </Text>
+            )}
+            <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+              {hasPassword
+                ? t("changePassword.validation.newPasswordMinLength")
+                : t("setPassword.validation.newPasswordMinLength")}
+            </Text>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <TextInput
+              mode="outlined"
+              label={t("changePassword.confirmPassword")}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder={
+                effectiveHasPassword
+                  ? t("changePassword.confirmPasswordPlaceholder")
+                  : t("setPassword.confirmPasswordPlaceholder")
+              }
+              secureTextEntry
+              error={!!errors.confirmPassword}
+              style={styles.input}
+            />
+            {errors.confirmPassword && (
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                {errors.confirmPassword}
+              </Text>
             )}
           </View>
-        )}
 
-        <View style={styles.inputContainer}>
-          <ThemedText
-            style={[
-              styles.label,
-              { color: Colors[colorScheme ?? "light"].text },
-            ]}
+          <Button
+            mode="contained"
+            onPress={handleSubmit}
+            disabled={loading}
+            loading={loading}
+            style={styles.button}
           >
-            {t("changePassword.newPassword")}
-          </ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor:
-                  Colors[colorScheme ?? "light"].inputBackground ||
-                  Colors[colorScheme ?? "light"].background,
-                borderColor: errors.newPassword
-                  ? "#FF3B30"
-                  : Colors[colorScheme ?? "light"].border,
-                color: Colors[colorScheme ?? "light"].text,
-              },
-            ]}
-            placeholder={
-              effectiveHasPassword
-                ? t("changePassword.newPasswordPlaceholder")
-                : t("setPassword.newPasswordPlaceholder")
-            }
-            placeholderTextColor={Colors[colorScheme ?? "light"].textSecondary}
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secureTextEntry
-            returnKeyType="next"
-            onSubmitEditing={() => {
-              // confirmPasswordRef.current?.focus(); // This line was removed as per the edit hint
-            }}
-          />
-          {errors.newPassword && (
-            <ThemedText style={styles.errorText}>
-              {errors.newPassword}
-            </ThemedText>
-          )}
-          <ThemedText style={styles.helperText}>
-            {hasPassword
-              ? t("changePassword.validation.newPasswordMinLength")
-              : t("setPassword.validation.newPasswordMinLength")}
-          </ThemedText>
-        </View>
-
-        <View style={styles.inputContainer}>
-          <ThemedText
-            style={[
-              styles.label,
-              { color: Colors[colorScheme ?? "light"].text },
-            ]}
-          >
-            {t("changePassword.confirmPassword")}
-          </ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor:
-                  Colors[colorScheme ?? "light"].inputBackground ||
-                  Colors[colorScheme ?? "light"].background,
-                borderColor: errors.confirmPassword
-                  ? "#FF3B30"
-                  : Colors[colorScheme ?? "light"].border,
-                color: Colors[colorScheme ?? "light"].text,
-              },
-            ]}
-            placeholder={
-              effectiveHasPassword
-                ? t("changePassword.confirmPasswordPlaceholder")
-                : t("setPassword.confirmPasswordPlaceholder")
-            }
-            placeholderTextColor={Colors[colorScheme ?? "light"].textSecondary}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-          {errors.confirmPassword && (
-            <ThemedText style={styles.errorText}>
-              {errors.confirmPassword}
-            </ThemedText>
-          )}
-        </View>
-
-        <Button
-          title={
-            effectiveHasPassword
-              ? loading
-                ? t("changePassword.changing")
-                : t("changePassword.changeButton")
-              : loading
-              ? t("setPassword.setting")
-              : t("setPassword.setButton")
-          }
-          onPress={handleSubmit}
-          disabled={loading}
-          style={styles.button}
-        />
-      </ThemedView>
-    </SettingsScrollView>
+            {effectiveHasPassword
+              ? t("changePassword.changeButton")
+              : t("setPassword.setButton")}
+          </Button>
+        </Card.Content>
+      </Card>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  contentContainer: {
     padding: 16,
+  },
+  header: {
+    marginBottom: 24,
   },
   inputContainer: {
     marginBottom: 16,
   },
-  label: {
-    fontSize: 16,
-    fontWeight: "500",
-    marginBottom: 8,
-  },
   input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 48,
+    marginBottom: 4,
   },
   errorText: {
-    color: "#FF3B30",
-    fontSize: 14,
+    fontSize: 12,
     marginTop: 4,
+    marginLeft: 12,
   },
   helperText: {
-    fontSize: 14,
+    fontSize: 12,
     marginTop: 4,
-    opacity: 0.7,
+    marginLeft: 12,
   },
   button: {
-    marginTop: 8,
+    marginTop: 16,
   },
 });

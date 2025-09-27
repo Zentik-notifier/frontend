@@ -15,7 +15,7 @@ import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useColorScheme } from "@/hooks/useTheme";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import {
   getNotificationTestData,
   notificationFormDefaults,

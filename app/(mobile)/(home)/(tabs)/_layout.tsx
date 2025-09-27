@@ -1,7 +1,7 @@
 import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { Tabs } from "expo-router";
 import { Platform } from "react-native";
 import { Icon, useTheme } from "react-native-paper";

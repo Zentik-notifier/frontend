@@ -10,7 +10,7 @@ import React, { useEffect } from "react";
 import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import packageJson from "../package.json";
 import { ThemedText } from "./ThemedText";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 
 interface VersionInfoProps {
   style?: any;

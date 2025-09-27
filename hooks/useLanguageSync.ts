@@ -1,4 +1,4 @@
-import { useAppContext } from '@/services/app-context';
+import { useAppContext } from '@/contexts/AppContext';
 import { i18nService } from '@/services/i18n';
 import { Locale } from '@/types/i18n';
 import React from 'react';

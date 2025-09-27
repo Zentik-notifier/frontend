@@ -164,7 +164,7 @@ export function NotificationsProvider({
 }
 
 // Hook
-export function useNotifications() {
+export function useNotificationsContext() {
   const context = useContext(NotificationsContext);
   if (context === undefined) {
     throw new Error(

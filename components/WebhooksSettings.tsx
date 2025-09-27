@@ -2,7 +2,7 @@ import { Colors } from "@/constants/Colors";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import React, { useEffect } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import SettingsScrollView from "@/components/SettingsScrollView";

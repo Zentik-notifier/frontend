@@ -1,15 +1,11 @@
-import { Colors } from "@/constants/Colors";
-import { useColorScheme } from "@/hooks/useTheme";
 import * as Clipboard from 'expo-clipboard';
 import React from "react";
 import {
     Alert,
     StyleSheet,
-    TouchableOpacity,
+    View,
 } from "react-native";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
-import Icon from "./ui/Icon";
+import { Card, IconButton, Text, useTheme } from "react-native-paper";
 
 interface IdWithCopyButtonProps {
   id: string;
@@ -26,7 +22,7 @@ export default function IdWithCopyButton({
   style,
   valueStyle,
 }: IdWithCopyButtonProps) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   
   const copyIdToClipboard = async () => {
     if (id && id !== "N/A") {
@@ -36,34 +32,34 @@ export default function IdWithCopyButton({
   };
 
   return (
-    <ThemedView style={[
-      styles.field, 
-      { backgroundColor: Colors[colorScheme].backgroundCard },
-      style
-    ]}>
-      <ThemedView style={[
-        styles.idRow,
-        { backgroundColor: 'transparent' }
-      ]}>
-        <ThemedText style={styles.label}>{label}:</ThemedText>
-        <ThemedText style={[styles.idValue, valueStyle]}>{id || "N/A"}</ThemedText>
-        <TouchableOpacity
-          style={[
-            styles.copyButton,
-            { backgroundColor: Colors[colorScheme].backgroundSecondary }
-          ]}
-          onPress={copyIdToClipboard}
-        >
-          <Icon name="copy" size="sm" color={Colors[colorScheme].tabIconDefault} />
-        </TouchableOpacity>
-      </ThemedView>
-    </ThemedView>
+    <Card style={[styles.container, style]}>
+      <Card.Content style={styles.content}>
+        <View style={styles.idRow}>
+          <Text style={[styles.label, { color: theme.colors.onSurface }]}>
+            {label}:
+          </Text>
+          <Text style={[styles.idValue, { color: theme.colors.onSurfaceVariant }, valueStyle]}>
+            {id || "N/A"}
+          </Text>
+          <IconButton
+            icon="content-copy"
+            size={20}
+            iconColor={theme.colors.primary}
+            onPress={copyIdToClipboard}
+            style={styles.copyButton}
+          />
+        </View>
+      </Card.Content>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  field: {
-    marginBottom: 15,
+  container: {
+    marginBottom: 16,
+  },
+  content: {
+    paddingVertical: 8,
   },
   label: {
     fontSize: 14,
@@ -83,8 +79,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   copyButton: {
-    padding: 4,
-    borderRadius: 4,
-    flexShrink: 0,
+    margin: 0,
   },
 });

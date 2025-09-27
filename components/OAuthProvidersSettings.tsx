@@ -19,7 +19,7 @@ import {
 } from "react-native";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import SettingsScrollView from "./SettingsScrollView";
 
 function OAuthProviderItem({

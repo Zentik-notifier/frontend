@@ -92,7 +92,7 @@ export function useNavigationUtils() {
             if (isMobile) {
                 router.push(`/(mobile)/(settings)`);
             } else {
-                router.push(`/(tablet)/(settings)/user-profile`);
+                router.push(`/(tablet)/(settings)/user/profile`);
             }
         },
 
@@ -108,7 +108,7 @@ export function useNavigationUtils() {
             if (isMobile) {
                 router.push(`/(mobile)/(settings)/user-profile`);
             } else {
-                router.push(`/(tablet)/(settings)/user-profile`);
+                router.push(`/(tablet)/(settings)/user/profile`);
             }
         },
 
@@ -283,7 +283,7 @@ export function useNavigationUtils() {
             if (isMobile) {
                 router.push("/(mobile)/(settings)/change-password");
             } else {
-                router.push("/(tablet)/(settings)/change-password");
+                router.push("/(tablet)/(settings)/user/change-password");
             }
         },
 

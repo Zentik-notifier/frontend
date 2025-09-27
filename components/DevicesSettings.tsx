@@ -4,7 +4,7 @@ import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useColorScheme } from "@/hooks/useTheme";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import React, { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useGetUserDevicesQuery } from "../generated/gql-operations-generated";

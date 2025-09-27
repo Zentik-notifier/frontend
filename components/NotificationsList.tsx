@@ -1,6 +1,6 @@
 import {
   NotificationsProvider,
-  useNotifications,
+  useNotificationsContext,
 } from "@/contexts/NotificationsContext";
 import {
   MediaType,
@@ -12,7 +12,7 @@ import {
   useMassMarkNotificationsAsRead,
   useMassMarkNotificationsAsUnread,
 } from "@/hooks/useNotifications";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { userSettings } from "@/services/user-settings";
 import { FlashList } from "@shopify/flash-list";
 import React, {
@@ -85,7 +85,7 @@ export default function NotificationsList({
     handleCloseSelectionMode,
     handleSetAllNotifications,
     dispatch,
-  } = useNotifications();
+  } = useNotificationsContext();
 
   useEffect(() => {
     handleSetAllNotifications(notifications);

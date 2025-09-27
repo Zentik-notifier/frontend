@@ -1,5 +1,5 @@
 import { BucketFragment, NotificationFragment, Permission, useGetBucketQuery } from '@/generated/gql-operations-generated';
-import { useAppContext } from '@/services/app-context';
+import { useAppContext } from '@/contexts/AppContext';
 import { keyBy } from 'lodash';
 import { useMemo } from 'react';
 

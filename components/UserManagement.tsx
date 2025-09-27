@@ -6,7 +6,7 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";

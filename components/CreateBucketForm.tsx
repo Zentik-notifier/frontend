@@ -8,7 +8,7 @@ import {
 import { useGetBucketData } from "@/hooks";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";

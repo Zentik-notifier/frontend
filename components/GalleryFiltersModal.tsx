@@ -1,7 +1,7 @@
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/services/app-context";
-import { useGallery } from "@/contexts/GalleryContext";
+import { useAppContext } from "@/contexts/AppContext";
+import { useGalleryContext } from "@/contexts/GalleryContext";
 import React from "react";
 import { StyleSheet, View, ScrollView, Dimensions } from "react-native";
 import {
@@ -26,7 +26,7 @@ export default function GalleryFiltersModal() {
     state: { selectedMediaTypes, showFiltersModal },
     handleMediaTypesChange,
     handleHideFiltersModal,
-  } = useGallery();
+  } = useGalleryContext();
 
   // Get gallery settings from user settings
   const gallerySettings = userSettings.getGallerySettings();

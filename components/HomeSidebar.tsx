@@ -4,7 +4,7 @@ import { useDeviceType } from "@/hooks/useDeviceType";
 import { getBucketStats } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
 import { usePathname } from "expo-router";
 import React, { useMemo } from "react";

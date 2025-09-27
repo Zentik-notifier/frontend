@@ -12,7 +12,7 @@ import {
   useMarkNotificationUnread,
 } from "@/hooks/useNotifications";
 import { useNotificationUtils } from "@/hooks/useNotificationUtils";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { mediaCache } from "@/services/media-cache";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useRecyclingState } from "@shopify/flash-list";

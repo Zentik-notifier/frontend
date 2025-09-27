@@ -1,7 +1,7 @@
 import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { DATE_FORMAT_STYLES, DateFormatPreferences, DateFormatStyle } from "@/services/date-format";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";

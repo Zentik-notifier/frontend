@@ -1,10 +1,10 @@
-import { useI18n } from "@/hooks/useI18n";
-import { useRouter, useSegments } from "expo-router";
-import React from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Card, Icon, List, Surface, Text, useTheme } from "react-native-paper";
 import { useDeviceType } from "@/hooks/useDeviceType";
+import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
+import { useSegments } from "expo-router";
+import React from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { Card, Icon, List, Text, useTheme } from "react-native-paper";
 
 interface SettingsOption {
   id: string;
@@ -31,7 +31,7 @@ export default function SettingsSidebar() {
       icon: "account",
       iconColor: "#4F46E5", // Indigo
       onPress: nav.navigateToUserProfile,
-      selectionSegment: "user-profile",
+      selectionSegment: "user",
     },
     {
       id: "app-settings",

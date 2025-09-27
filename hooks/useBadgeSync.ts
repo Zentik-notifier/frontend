@@ -1,4 +1,4 @@
-import { useAppContext } from '@/services/app-context';
+import { useAppContext } from '@/contexts/AppContext';
 import { saveBadgeCount } from '@/services/auth-storage';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';

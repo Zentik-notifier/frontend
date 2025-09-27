@@ -205,6 +205,7 @@
     "saving": "Saving...",
     "changePassword": "Change Password",
     "deleteAccount": "Delete Account",
+    "deleteAccountWarning": "This action cannot be undone. All your data will be permanently deleted.",
     "deletingAccount": "Deleting...",
     "logout": "Logout",
     "profileUpdateSuccess": "Profile updated successfully!",

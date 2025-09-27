@@ -1,6 +1,6 @@
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/services/app-context";
-import { useNotifications } from "@/contexts/NotificationsContext";
+import { useAppContext } from "@/contexts/AppContext";
+import { useNotificationsContext } from "@/contexts/NotificationsContext";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import {
@@ -48,7 +48,7 @@ export default function NotificationFilters({
     handleSelectAll,
     handleDeselectAll,
     handleShowFiltersModal,
-  } = useNotifications();
+  } = useNotificationsContext();
   const [internalSearchQuery, setInternalSearchQuery] = useState(
     filters.searchQuery || ""
   );

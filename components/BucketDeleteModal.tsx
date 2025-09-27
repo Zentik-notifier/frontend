@@ -8,7 +8,7 @@ import {
 import { useGetBucketData } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
 import { useColorScheme } from "@/hooks/useTheme";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import React, { useState } from "react";
 import { Alert, Modal, StyleSheet, View } from "react-native";
 import { ThemedText } from "./ThemedText";

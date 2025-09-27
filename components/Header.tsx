@@ -1,7 +1,7 @@
 import { useBadgeSync } from "@/hooks";
 import { useDownloadQueue } from "@/hooks/useMediaCache";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Platform, StyleSheet, View } from "react-native";
@@ -33,7 +33,7 @@ const HOME_ROUTES: Href[] = [
   "/(tablet)/(settings)/notifications",
   "/(tablet)/(settings)/user-sessions",
   "/(tablet)/(settings)/logs",
-  "/(tablet)/(settings)/user-profile",
+  "/(tablet)/(settings)/user/profile",
 ];
 
 // Routes that should show back button
@@ -42,6 +42,9 @@ const BACK_ROUTES: Href[] = [
   "/(mobile)/(home)/bucket/[id]",
   "/(mobile)/(home)/notification/[id]",
   "/(mobile)/(home)/bucket/settings/create",
+  "/(mobile)/(settings)/change-password",
+  "/(mobile)/(settings)/user-profile",
+  "/(tablet)/(settings)/user/change-password",
 ];
 
 export default function Header() {

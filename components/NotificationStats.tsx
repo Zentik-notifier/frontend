@@ -1,18 +1,20 @@
-import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useUserNotificationStatsQuery } from "@/generated/gql-operations-generated";
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
+import { StyleSheet, View } from "react-native";
+import {
+  ActivityIndicator,
+  Card,
+  Text,
+  useTheme,
+} from "react-native-paper";
 
 interface NotificationStatsProps {
   refreshing?: boolean;
 }
 
 export default function NotificationStats({ refreshing }: NotificationStatsProps) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
 
   const { data, loading, error, refetch } = useUserNotificationStatsQuery({
@@ -27,19 +29,26 @@ export default function NotificationStats({ refreshing }: NotificationStatsProps
 
   if (loading && !data) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedText style={styles.title}>{t("userProfile.notificationStats")}</ThemedText>
-        <ThemedText style={styles.loading}>{t("common.loading")}</ThemedText>
-      </ThemedView>
+      <Card style={styles.container}>
+        <Card.Content style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
+            {t("common.loading")}
+          </Text>
+        </Card.Content>
+      </Card>
     );
   }
 
   if (error) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedText style={styles.title}>{t("userProfile.notificationStats")}</ThemedText>
-        <ThemedText style={styles.error}>{t("common.error")}</ThemedText>
-      </ThemedView>
+      <Card style={styles.container}>
+        <Card.Content style={styles.errorContainer}>
+          <Text style={[styles.errorText, { color: theme.colors.error }]}>
+            {t("common.error")}
+          </Text>
+        </Card.Content>
+      </Card>
     );
   }
 
@@ -57,70 +66,79 @@ export default function NotificationStats({ refreshing }: NotificationStatsProps
   ];
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText style={styles.title}>{t("userProfile.notificationStats")}</ThemedText>
-      <View style={styles.statsGrid}>
-        {statItems.map((item, index) => (
-          <ThemedView key={index} style={[styles.statItem, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
-            <ThemedText style={styles.statValue}>{item.value}</ThemedText>
-            <ThemedText style={styles.statLabel}>{item.label}</ThemedText>
-          </ThemedView>
-        ))}
-      </View>
-    </ThemedView>
+    <Card style={styles.container}>
+      <Card.Content>
+        <View style={styles.header}>
+          <Text variant="titleMedium" style={{ color: theme.colors.onSurface }}>
+            {t("userProfile.notificationStats")}
+          </Text>
+        </View>
+        
+        <View style={styles.statsGrid}>
+          {statItems.map((item, index) => (
+            <Card key={index} style={styles.statItem}>
+              <Card.Content style={styles.statContent}>
+                <Text variant="headlineSmall" style={[styles.statValue, { color: theme.colors.primary }]}>
+                  {item.value}
+                </Text>
+                <Text variant="bodySmall" style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>
+                  {item.label}
+                </Text>
+              </Card.Content>
+            </Card>
+          ))}
+        </View>
+      </Card.Content>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 16,
-    paddingHorizontal: 16,
+    marginBottom: 16,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    gap: 12,
   },
-  loading: {
-    fontSize: 14,
-    opacity: 0.7,
-    textAlign: 'center',
-    paddingVertical: 20,
+  loadingText: {
+    fontSize: 16,
   },
-  error: {
-    fontSize: 14,
-    color: '#ff6b6b',
-    textAlign: 'center',
-    paddingVertical: 20,
+  errorContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: "center",
+  },
+  header: {
+    marginBottom: 16,
   },
   statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 12,
   },
   statItem: {
-    width: '48%',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    width: "48%",
+    marginBottom: 0,
+  },
+  statContent: {
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 12,
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
     marginBottom: 4,
+    textAlign: "center",
   },
   statLabel: {
-    fontSize: 12,
-    opacity: 0.7,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

@@ -4,7 +4,7 @@ import * as Updates from 'expo-updates';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDeviceRegistrationStatus } from './useDeviceRegistrationStatus';
 import { UsePushNotifications, usePushNotifications } from './usePushNotifications';
-import { useAppContext } from '@/services/app-context';
+import { useAppContext } from '@/contexts/AppContext';
 
 
 export type GetPriorityStatus = () => {

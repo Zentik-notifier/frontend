@@ -1,4 +1,4 @@
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { mediaCache } from "@/services/media-cache";
 import { Ionicons } from "@expo/vector-icons";
 import { useEvent } from "expo";

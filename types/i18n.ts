@@ -1227,6 +1227,7 @@ export interface TranslationKey {
   userProfile: {
     accountDeletedMessage: string;
     accountDeletedTitle: string;
+    deleteAccountWarning: string;
     avatar: string;
     avatarPlaceholder: string;
     changePassword: string;

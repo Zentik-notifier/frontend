@@ -41,9 +41,9 @@ import {
   saveLastUserId,
   savePushNotificationsInitialized,
   saveTokens,
-} from "./auth-storage";
-import { mediaCache } from "./media-cache";
-import { useUserSettings } from "./user-settings";
+} from "../services/auth-storage";
+import { mediaCache } from "../services/media-cache";
+import { useUserSettings } from "../services/user-settings";
 import { useReactiveVar } from "@apollo/client";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
@@ -460,5 +460,3 @@ export function useAppContext() {
   if (!ctx) throw new Error("useAppContext must be used within AppProvider");
   return ctx;
 }
-
-const styles = StyleSheet.create({});

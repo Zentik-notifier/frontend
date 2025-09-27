@@ -1,7 +1,7 @@
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import { CacheItem } from "@/services/media-cache";
 import React, {
   createContext,
@@ -309,7 +309,7 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
 }
 
 // Hook
-export function useGallery() {
+export function useGalleryContext() {
   const context = useContext(GalleryContext);
   if (context === undefined) {
     throw new Error("useGallery must be used within a GalleryProvider");

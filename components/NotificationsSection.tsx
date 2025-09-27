@@ -1,5 +1,5 @@
 import { NotificationFragment } from "@/generated/gql-operations-generated";
-import { useAppContext } from "@/services/app-context";
+import { useAppContext } from "@/contexts/AppContext";
 import React, { useEffect } from "react";
 import { NotificationsListWithContext } from "./NotificationsList";
 
