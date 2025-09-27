@@ -1,4 +1,4 @@
-import CreateBucketForm from "@/components/CreateBucketForm";
+import CreateBucket from "@/components/CreateBucket";
 import { useI18n } from "@/hooks/useI18n";
 import React from "react";
 import { Stack } from "expo-router";
@@ -8,7 +8,7 @@ export default function CreateBucketScreen() {
   return (
     <>
       <Stack.Screen options={{ headerTitle: t("buckets.form.createTitle") }} />
-      <CreateBucketForm />
+      <CreateBucket />
     </>
   );
 }

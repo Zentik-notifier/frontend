@@ -12,12 +12,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import {
   Button,
   Card,
@@ -182,12 +177,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   };
 
   return (
-    <>
-      <ScrollView 
-        style={[styles.container, { backgroundColor: theme.colors.background }]} 
-        contentContainerStyle={styles.contentContainer}
-      >
-        <Card style={styles.formContainer}>
+    <View>
+      <Card style={styles.formContainer}>
         <Card.Content>
           {/* Read-only warning */}
           {isEditing && !canWrite && (
@@ -251,6 +242,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
+              multiline={true}
               editable={!isEditing || canWrite}
               disabled={(isEditing && !canWrite) || offline}
               mode="outlined"
@@ -268,9 +260,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
 
           {/* Icon Preview */}
           <View style={styles.previewSection}>
-            <Text style={styles.previewLabel}>
-              {t("buckets.form.preview")}
-            </Text>
+            <Text style={styles.previewLabel}>{t("buckets.form.preview")}</Text>
             <Surface style={styles.previewContainer}>
               {bucketIcon ? (
                 <Surface
@@ -283,14 +273,16 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                     },
                   ]}
                 >
-                  <Image
-                    source={{ uri: bucketIcon }}
-                    style={styles.previewIcon}
-                    contentFit="contain"
-                    onError={() => {
-                      // If image fails to load, it will show the color indicator as fallback
-                    }}
-                  />
+                  <View style={styles.previewIconContent}>
+                    <Image
+                      source={{ uri: bucketIcon }}
+                      style={styles.previewIcon}
+                      contentFit="contain"
+                      onError={() => {
+                        // If image fails to load, it will show the color indicator as fallback
+                      }}
+                    />
+                  </View>
                 </Surface>
               ) : (
                 <Surface
@@ -379,7 +371,6 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           </Card.Content>
         </Card>
       )}
-      </ScrollView>
 
       {/* Icon Editor Modal */}
       {isIconEditorVisible && (
@@ -389,7 +380,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           onClose={handleCloseIconEditor}
         />
       )}
-    </>
+    </View>
   );
 }
 
@@ -460,7 +451,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
     justifyContent: "center",
     alignItems: "center",
+  },
+  previewIconContent: {
     overflow: "hidden",
+    borderRadius: 24,
+    width: 48,
+    height: 48,
   },
   previewIcon: {
     width: 44,

@@ -56,15 +56,6 @@ const mapIconToPaper = (iconName: keyof typeof AppIcons): string => {
   return iconMap[iconName] || "help-circle";
 };
 
-// Keep only one menu open at a time across all instances
-const menuCloseHandlers = new Set<() => void>();
-const closeAllMenus = () => {
-  menuCloseHandlers.forEach((fn) => {
-    try {
-      fn();
-    } catch {}
-  });
-};
 
 // Fallback to screen width if container width is not available
 const { width: screenWidth } = Dimensions.get("window");
@@ -118,7 +109,6 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   } | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(screenWidth);
   const theme = useTheme();
-  const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     action: SwipeAction;
@@ -239,7 +229,6 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
 
   const handleMenuActionPress = async (action?: SwipeAction) => {
     if (!action) return;
-    setIsMenuVisible(false);
     try {
       await action.onPress();
     } catch (error) {
@@ -248,14 +237,6 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     }
   };
 
-  // Register global closer for this instance
-  React.useEffect(() => {
-    const closer = () => setIsMenuVisible(false);
-    menuCloseHandlers.add(closer);
-    return () => {
-      menuCloseHandlers.delete(closer);
-    };
-  }, []);
 
   return (
     <View
@@ -371,32 +352,6 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
             },
           ]}
         >
-          {(leftAction || rightAction) && withButton && (
-            <TouchableOpacity
-              style={[
-                styles.burgerButton,
-                { 
-                  backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.outlineVariant,
-                }
-              ]}
-              onPress={() => {
-                if (isMenuVisible) {
-                  setIsMenuVisible(false);
-                } else {
-                  closeAllMenus();
-                  setIsMenuVisible(true);
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <Icon
-                source="dots-vertical"
-                size={18}
-                color={theme.colors.onSurface}
-              />
-            </TouchableOpacity>
-          )}
           {children}
         </Animated.View>
       </PanGestureHandler>
@@ -404,7 +359,25 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
       {/* Popup menu */}
       <Menu>
         <MenuTrigger>
-          <View />
+          {(leftAction || rightAction) && withButton ? (
+            <View
+              style={[
+                styles.burgerButton,
+                { 
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.outlineVariant,
+                }
+              ]}
+            >
+              <Icon
+                source="dots-vertical"
+                size={18}
+                color={theme.colors.onSurface}
+              />
+            </View>
+          ) : (
+            <View />
+          )}
         </MenuTrigger>
         <MenuOptions 
           optionsContainerStyle={{ 

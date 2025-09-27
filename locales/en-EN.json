@@ -357,7 +357,8 @@
       "confirmDeleteTitle": "Confirm Bucket Deletion",
       "confirmDeleteMessage": "You are about to delete the bucket \"{{bucketName}}\". This action cannot be undone and will remove all notifications in this bucket.",
       "confirmRevokeTitle": "Confirm Access Revocation",
-      "confirmRevokeMessage": "Are you sure you want to revoke your access to the bucket \"{{bucketName}}\"? You will no longer be able to view or manage notifications in this bucket."
+      "confirmRevokeMessage": "Are you sure you want to revoke your access to the bucket \"{{bucketName}}\"? You will no longer be able to view or manage notifications in this bucket.",
+      "error": "Failed to delete bucket. Please try again."
     }
   },
   "devices": {
@@ -795,7 +796,10 @@
     "deleteConfirmMessage": "Are you sure you want to delete this notification? This action cannot be undone.",
     "deleteConfirmButton": "Delete",
     "deleteCancelButton": "Cancel",
-    "deleteSuccess": "Notification deleted"
+    "deleteSuccess": "Notification deleted",
+    "delete": {
+      "error": "Failed to delete notification. Please try again."
+    }
   },
   "recurringSnooze": {
     "addSchedule": "Add Snooze",

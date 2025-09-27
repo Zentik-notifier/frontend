@@ -1,4 +1,4 @@
-import { 
+import {
   BucketWithDevicesFragment,
   GetBucketsDocument,
   ResourceType,
@@ -10,7 +10,12 @@ import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Alert, StyleSheet, TouchableWithoutFeedback, View } from "react-native";
+import {
+  Alert,
+  StyleSheet,
+  TouchableWithoutFeedback,
+  View,
+} from "react-native";
 import BucketIcon from "./BucketIcon";
 import SwipeableItem from "./SwipeableItem";
 import Icon from "./ui/Icon";
@@ -76,7 +81,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
 
   const showDeleteAlert = () => {
     const actions = [];
-    
+
     if (canDelete) {
       actions.push({
         text: t("buckets.delete.deleteBucket"),
@@ -84,23 +89,24 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
         style: "destructive" as const,
       });
     }
-    
+
     if (isSharedWithMe) {
       actions.push({
         text: t("buckets.delete.revokeSharing"),
-        onPress: () => unshareBucket({
-          variables: {
-            input: {
-              resourceType: ResourceType.Bucket,
-              resourceId: bucket.id,
-              userId: userId,
+        onPress: () =>
+          unshareBucket({
+            variables: {
+              input: {
+                resourceType: ResourceType.Bucket,
+                resourceId: bucket.id,
+                userId: userId,
+              },
             },
-          },
-        }),
+          }),
         style: "destructive" as const,
       });
     }
-    
+
     actions.push({
       text: t("common.cancel"),
       style: "cancel" as const,
@@ -137,44 +143,43 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
   };
 
   return (
-    <SwipeableItem 
-      rightAction={deleteAction} 
-      marginBottom={8} 
+    <SwipeableItem
+      rightAction={deleteAction}
+      marginBottom={8}
       borderRadius={12}
     >
       <TouchableWithoutFeedback onPress={() => editBucket(bucket.id)}>
         <View style={styles.itemCard}>
-            <View style={styles.itemHeader}>
-              <View style={styles.itemInfo}>
-                <BucketIcon size="lg" bucketId={bucket.id} />
-                <Text variant="titleMedium" style={styles.itemName}>
-                  {bucket.name}
-                </Text>
-              </View>
-              <View style={styles.headerRight}>
-                <CopyButton
-                  text={bucket.id}
-                  size={20}
-                  style={styles.copyIdButton}
-                />
-                {isSharedWithMe && (
-                  <View style={styles.sharedWithMeTag}>
-                    <Text variant="bodySmall" style={styles.sharedWithMeText}>
-                      {t("buckets.item.sharedWithMe")}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-            {/* Device info removed */}
-            {getSharedUsersText() && (
-              <Text variant="bodySmall" style={styles.sharingInfo}>
-                👥 {getSharedUsersText()}
+          <View style={styles.itemHeader}>
+            <View style={styles.itemInfo}>
+              <BucketIcon noRouting size="lg" bucketId={bucket.id} />
+              <Text variant="titleMedium" style={styles.itemName}>
+                {bucket.name}
               </Text>
-            )}
+            </View>
+            <View style={styles.headerRight}>
+              <CopyButton
+                text={bucket.id}
+                size={20}
+                style={styles.copyIdButton}
+              />
+              {isSharedWithMe && (
+                <View style={styles.sharedWithMeTag}>
+                  <Text variant="bodySmall" style={styles.sharedWithMeText}>
+                    {t("buckets.item.sharedWithMe")}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+          {/* Device info removed */}
+          {getSharedUsersText() && (
+            <Text variant="bodySmall" style={styles.sharingInfo}>
+              👥 {getSharedUsersText()}
+            </Text>
+          )}
         </View>
       </TouchableWithoutFeedback>
-
 
       {/* Success Dialog */}
       <Portal>

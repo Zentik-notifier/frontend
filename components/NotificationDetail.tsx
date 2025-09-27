@@ -199,7 +199,7 @@ export default function NotificationDetail({
               );
             } catch (error) {
               console.error("Error deleting notification:", error);
-              Alert.alert(t("common.error"), t("common.error"));
+              Alert.alert(t("common.error"), t("notificationDetail.delete.error"));
             }
           },
         },

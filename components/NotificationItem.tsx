@@ -370,25 +370,26 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               },
             ]}
           >
-            {(notification.message?.deliveryType ===
-              NotificationDeliveryType.Critical ||
-              notification.message?.deliveryType ===
-                NotificationDeliveryType.Silent) && (
-              <Surface
-                style={[
-                  styles.priorityBackground,
-                  {
-                    backgroundColor:
-                      notification.message?.deliveryType ===
-                      NotificationDeliveryType.Critical
-                        ? theme.colors.error
-                        : theme.colors.secondary,
-                  },
-                ]}
-              >
-                <></>
-              </Surface>
-            )}
+            <View style={styles.itemCardContent}>
+              {(notification.message?.deliveryType ===
+                NotificationDeliveryType.Critical ||
+                notification.message?.deliveryType ===
+                  NotificationDeliveryType.Silent) && (
+                <Surface
+                  style={[
+                    styles.priorityBackground,
+                    {
+                      backgroundColor:
+                        notification.message?.deliveryType ===
+                        NotificationDeliveryType.Critical
+                          ? theme.colors.error
+                          : theme.colors.secondary,
+                    },
+                  ]}
+                >
+                  <></>
+                </Surface>
+              )}
 
             {/* First row */}
             <Surface style={[styles.firstRow]} elevation={0}>
@@ -669,6 +670,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 </Menu>
               </View>
             </Surface>
+            </View>
           </Surface>
         </TouchableWithoutFeedback>
 
@@ -707,13 +709,16 @@ const styles = StyleSheet.create({
   wrapper: {},
   itemCard: {
     borderRadius: 8,
-    overflow: "hidden",
     shadowColor: "transparent",
     shadowOpacity: 0,
     shadowRadius: 0,
     shadowOffset: { width: 0, height: 0 },
     elevation: 0,
     borderWidth: 1,
+  },
+  itemCardContent: {
+    overflow: "hidden",
+    borderRadius: 8,
   },
   firstRow: {
     paddingTop: 12,

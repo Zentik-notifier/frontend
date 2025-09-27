@@ -357,7 +357,8 @@
       "confirmDeleteTitle": "Conferma Eliminazione Bucket",
       "confirmDeleteMessage": "Stai per eliminare il bucket \"{{bucketName}}\". Questa azione non può essere annullata e rimuoverà tutte le notifiche in questo bucket.",
       "confirmRevokeTitle": "Conferma Revoca Accesso",
-      "confirmRevokeMessage": "Sei sicuro di voler revocare il tuo accesso al bucket \"{{bucketName}}\"? Non potrai più visualizzare o gestire le notifiche in questo bucket."
+      "confirmRevokeMessage": "Sei sicuro di voler revocare il tuo accesso al bucket \"{{bucketName}}\"? Non potrai più visualizzare o gestire le notifiche in questo bucket.",
+      "error": "Impossibile eliminare il bucket. Riprova."
     }
   },
   "devices": {
@@ -795,7 +796,10 @@
     "deleteConfirmMessage": "Sei sicuro di voler eliminare questa notifica? Questa azione non può essere annullata.",
     "deleteConfirmButton": "Elimina",
     "deleteCancelButton": "Annulla",
-    "deleteSuccess": "Notifica eliminata"
+    "deleteSuccess": "Notifica eliminata",
+    "delete": {
+      "error": "Impossibile eliminare la notifica. Riprova."
+    }
   },
   "recurringSnooze": {
     "addSchedule": "Aggiungi sospensione",

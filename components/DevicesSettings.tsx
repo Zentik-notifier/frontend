@@ -1,13 +1,12 @@
 import PaperScrollView from "@/components/ui/PaperScrollView";
+import { useAppContext } from "@/contexts/AppContext";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { useAppContext } from "@/contexts/AppContext";
 import React, { useEffect, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
+import { Button, Icon, Surface, Text, useTheme } from "react-native-paper";
 import { useGetUserDevicesQuery } from "../generated/gql-operations-generated";
 import SwipeableDeviceItem from "./SwipeableDeviceItem";
-import { Text, Surface, Button, Icon, useTheme } from "react-native-paper";
 
 export default function DevicesSettings() {
   const { t } = useI18n();

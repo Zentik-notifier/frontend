@@ -10,7 +10,7 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useAppContext } from "@/contexts/AppContext";
 import React, { useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Button,
@@ -19,6 +19,7 @@ import {
   Text,
   useTheme,
 } from "react-native-paper";
+import PaperScrollView from "./ui/PaperScrollView";
 
 interface EditBucketProps {
   bucketId: string;
@@ -30,7 +31,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   const theme = useTheme();
   const { userId } = useAppContext();
 
-  const { bucket, loading, error, canAdmin, canDelete, isSharedWithMe } = useGetBucketData(bucketId);
+  const { bucket, loading, error, canAdmin, canDelete, isSharedWithMe, refetch } = useGetBucketData(bucketId);
 
   const [deleteBucketMutation] = useDeleteBucketMutation({
     onCompleted: () => {
@@ -115,13 +116,11 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
 
   if (loading) {
     return (
-      <Surface style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" />
-          <Text style={styles.loadingText}>
-            {t("common.loading")}
-          </Text>
-        </View>
+      <Surface style={styles.loadingContainer}>
+        <ActivityIndicator size="large" />
+        <Text style={styles.loadingText}>
+          {t("common.loading")}
+        </Text>
       </Surface>
     );
   }
@@ -137,42 +136,35 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   }
 
   return (
-    <ScrollView>
-      <Surface style={styles.container}>
-        <View style={styles.content}>
-          <CreateBucketForm bucketId={bucketId} />
+    <PaperScrollView onRefresh={refetch}>
+      <View style={styles.content}>
+        <CreateBucketForm bucketId={bucketId} />
 
-          {canAdmin && (
-            <Card style={styles.sharingSection}>
-              <Card.Content>
-                <BucketSharingSection bucketId={bucketId} />
-                <Button
-                  mode="contained"
-                  buttonColor={theme.colors.error}
-                  textColor={theme.colors.onError}
-                  icon="delete"
-                  onPress={showDeleteAlert}
-                  style={styles.deleteButton}
-                >
-                  {t("buckets.form.deleteBucket")}
-                </Button>
-              </Card.Content>
-            </Card>
-          )}
-        </View>
-
-      </Surface>
-    </ScrollView>
+        {canAdmin && (
+          <Card style={styles.sharingSection}>
+            <Card.Content>
+              <BucketSharingSection bucketId={bucketId} />
+              <Button
+                mode="contained"
+                buttonColor={theme.colors.error}
+                textColor={theme.colors.onError}
+                icon="delete"
+                onPress={showDeleteAlert}
+                style={styles.deleteButton}
+              >
+                {t("buckets.form.deleteBucket")}
+              </Button>
+            </Card.Content>
+          </Card>
+        )}
+      </View>
+    </PaperScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   content: {
     gap: 24,
-    padding: 16,
   },
   loadingContainer: {
     flex: 1,

@@ -439,6 +439,7 @@ export interface TranslationKey {
       confirmRevokeTitle: string;
       deleteBucket: string;
       deleteBucketWithPermission: string;
+      error: string;
       modalDescription: string;
       modalTitle: string;
       revokeSharing: string;
@@ -842,6 +843,9 @@ export interface TranslationKey {
     deleteConfirmMessage: string;
     deleteConfirmTitle: string;
     deleteSuccess: string;
+    delete: {
+      error: string;
+    };
     deliveryTypes: {
       CRITICAL: string;
       NORMAL: string;

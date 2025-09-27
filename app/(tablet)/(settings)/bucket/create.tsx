@@ -1,5 +1,5 @@
 import CloseHeader from "@/components/CloseHeader";
-import CreateBucketForm from "@/components/CreateBucketForm";
+import CreateBucket from "@/components/CreateBucket";
 import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
 
@@ -9,7 +9,7 @@ export default function CreateBucketScreen() {
   return (
     <>
       <CloseHeader onClose={navigateBack} />
-      <CreateBucketForm />
+      <CreateBucket />
     </>
   );
 }

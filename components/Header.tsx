@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Href, useSegments } from "expo-router";
 import { LoginModal } from "./LoginModal";
 import UserDropdown from "./UserDropdown";
+import { TranslationKey, TranslationKeyPath } from "@/utils";
 
 // Routes that should show home button instead of back button
 const HOME_ROUTES: Href[] = [
@@ -63,28 +64,32 @@ const BACK_ROUTES: Href[] = [
 ];
 
 // Route-based title mapping
-const ROUTE_TITLES: Record<string, string> = {
-  "/(mobile)/(admin)": "common.admin",
+const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
+  "/(mobile)/(admin)": "administration.title",
   "/(mobile)/(settings)": "common.settings",
-  "/(mobile)/(home)": "common.home",
   "/(mobile)/(settings)/app-settings": "appSettings.title",
   "/(mobile)/(settings)/bucket/list": "buckets.title",
-  "/(mobile)/(settings)/bucket/create": "buckets.create",
-  "/(mobile)/(settings)/bucket/[id]": "buckets.edit",
+  "/(mobile)/(settings)/bucket/create": "buckets.form.createTitle",
+  "/(tablet)/(settings)/bucket/create": "buckets.form.createTitle",
+  "/(mobile)/(settings)/bucket/[id]": "buckets.form.editTitle",
+  "/(tablet)/(settings)/bucket/[id]": "buckets.form.editTitle",
   "/(mobile)/(settings)/webhook/list": "webhooks.title",
   "/(mobile)/(settings)/webhook/create": "webhooks.create",
   "/(mobile)/(settings)/webhook/[id]": "webhooks.edit",
+  "/(tablet)/(settings)/webhook/create": "webhooks.create",
+  "/(tablet)/(settings)/webhook/[id]": "webhooks.edit",
   "/(mobile)/(settings)/access-token/list": "accessTokens.title",
-  "/(mobile)/(settings)/access-token/create": "accessTokens.create",
+  "/(mobile)/(settings)/access-token/create": "accessTokens.form.title",
+  "/(tablet)/(settings)/access-token/create": "accessTokens.form.title",
   "/(mobile)/(settings)/devices": "devices.title",
   "/(mobile)/(settings)/notifications": "notifications.title",
   "/(mobile)/(settings)/user-sessions": "userSessions.title",
-  "/(mobile)/(settings)/logs": "logs.title",
+  "/(mobile)/(settings)/logs": "appLogs.title",
   "/(mobile)/(settings)/change-password": "changePassword.title",
   "/(mobile)/(settings)/user-profile": "userProfile.title",
-  "/(mobile)/(home)/bucket/[id]": "bucketDetail.title",
+  "/(mobile)/(home)/bucket/[id]": "buckets.form.editTitle",
   "/(mobile)/(home)/notification/[id]": "notificationDetail.title",
-  "/(tablet)/(admin)/user-management/list": "userManagement.title",
+  "/(tablet)/(admin)/user-management/list": "administration.userManagement",
   "/(tablet)/(settings)/bucket/list": "buckets.title",
   "/(tablet)/(settings)/app-settings": "appSettings.title",
   "/(tablet)/(settings)/access-token/list": "accessTokens.title",
@@ -92,8 +97,9 @@ const ROUTE_TITLES: Record<string, string> = {
   "/(tablet)/(settings)/devices": "devices.title",
   "/(tablet)/(settings)/notifications": "notifications.title",
   "/(tablet)/(settings)/user-sessions": "userSessions.title",
-  "/(tablet)/(settings)/logs": "logs.title",
+  "/(tablet)/(settings)/logs": "appLogs.title",
   "/(tablet)/(settings)/user/profile": "userProfile.title",
+  "/(tablet)/(settings)/user/change-password": "changePassword.title",
 };
 
 export default function Header() {
@@ -131,28 +137,7 @@ export default function Header() {
     (route) => currentRoute === route
   );
 
-  // Get title based on current route
-  const getRouteTitle = (route: string): string | null => {
-    // Check for exact match first
-    if (ROUTE_TITLES[route]) {
-      return ROUTE_TITLES[route];
-    }
-
-    // Check for dynamic routes (with [id] parameters)
-    for (const [routePattern, titleKey] of Object.entries(ROUTE_TITLES)) {
-      if (routePattern.includes("[id]")) {
-        const pattern = routePattern.replace(/\[id\]/g, "[^/]+");
-        const regex = new RegExp(`^${pattern}$`);
-        if (regex.test(route)) {
-          return titleKey;
-        }
-      }
-    }
-
-    return null;
-  };
-
-  const currentTitle = getRouteTitle(currentRoute);
+  const currentTitle = ROUTE_TITLES[currentRoute];
 
   const downloadBlinkAnim = useRef(new Animated.Value(1)).current;
   const markBlinkAnim = useRef(new Animated.Value(1)).current;
@@ -311,7 +296,11 @@ export default function Header() {
                 accessibilityRole="button"
               >
                 <View style={styles.homeButtonContent}>
-                  <Icon source="home" size={24} color={theme.colors.onPrimary} />
+                  <Icon
+                    source="home"
+                    size={24}
+                    color={theme.colors.onPrimary}
+                  />
                   <Text
                     variant="titleMedium"
                     style={{ color: theme.colors.onPrimary }}
@@ -406,11 +395,12 @@ export default function Header() {
                 </Text>
 
                 {/* Indicatore di loading per aggiornamenti */}
-                {status.type === "update" && (isCheckingUpdate || isUpdating) && (
-                  <View style={styles.loadingIndicator}>
-                    <Icon source="dots-horizontal" size={12} color="#fff" />
-                  </View>
-                )}
+                {status.type === "update" &&
+                  (isCheckingUpdate || isUpdating) && (
+                    <View style={styles.loadingIndicator}>
+                      <Icon source="dots-horizontal" size={12} color="#fff" />
+                    </View>
+                  )}
 
                 {/* Indicatore per dispositivo non registrato */}
                 {status.type === "push-notifications" && (
