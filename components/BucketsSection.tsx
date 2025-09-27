@@ -1,29 +1,21 @@
-import { Colors } from "@/constants/Colors";
 import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { getBucketStats } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
-import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo } from "react";
 import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from "react-native";
-import { FAB, useTheme } from "react-native-paper";
+import { FAB, Icon, Text, TouchableRipple, useTheme } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
-import Icon from "./ui/Icon";
 
 const BucketsSection: React.FC = () => {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
   const theme = useTheme();
   const {
     data: bucketsData,
@@ -76,42 +68,43 @@ const BucketsSection: React.FC = () => {
 
   if (bucketStats.length === 0) {
     return (
-      <ThemedView style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.emptyStateContainer}>
-          <View
-            style={[
-              styles.emptyState,
-              { backgroundColor: Colors[colorScheme].backgroundCard },
-            ]}
-          >
-            <Icon name="bucket" size="lg" color="secondary" />
-            <ThemedText
-              style={[styles.emptyTitle, { color: Colors[colorScheme].text }]}
+          <View style={[
+            styles.emptyState,
+            { backgroundColor: theme.colors.surface },
+          ]}>
+            <Icon source="bucket" size={64} color={theme.colors.onSurfaceVariant} />
+            <Text 
+              variant="headlineSmall" 
+              style={[
+                styles.emptyTitle,
+                { color: theme.colors.onSurface },
+              ]}
             >
               {t("buckets.noBucketsYet")}
-            </ThemedText>
-            <ThemedText
+            </Text>
+            <Text 
+              variant="bodyMedium" 
               style={[
                 styles.emptyDescription,
-                { color: Colors[colorScheme].textSecondary },
+                { color: theme.colors.onSurfaceVariant },
               ]}
             >
               {t("buckets.createFirstBucket")}
-            </ThemedText>
+            </Text>
           </View>
         </View>
 
         {/* Floating Action Button per creare nuovo bucket */}
-        <TouchableOpacity
-          style={[styles.fab, { backgroundColor: Colors[colorScheme].tint }]}
+        <FAB
+          icon="plus"
+          style={styles.fab}
           onPress={() => {
             navigateToCreateBucket(true);
           }}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={24} color="white" />
-        </TouchableOpacity>
-      </ThemedView>
+        />
+      </View>
     );
   }
 
@@ -121,7 +114,7 @@ const BucketsSection: React.FC = () => {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -129,99 +122,104 @@ const BucketsSection: React.FC = () => {
           <RefreshControl
             refreshing={false}
             onRefresh={refetch}
-            tintColor={Colors[colorScheme].tint}
+            tintColor={theme.colors.primary}
           />
         }
       >
         <View style={styles.bucketsGrid}>
           {bucketStats.map((bucket) => (
-            <TouchableOpacity
+            <TouchableRipple
               key={bucket.id}
               style={[
                 styles.bucketCard,
                 {
-                  backgroundColor: Colors[colorScheme].backgroundCard,
-                  borderColor: Colors[colorScheme].border,
+                  borderColor: theme.colors.outline,
+                  backgroundColor: theme.colors.surface,
                 },
               ]}
               onPress={() => handleBucketPress(bucket.id)}
-              activeOpacity={0.7}
             >
-              {/* Header con icona e nome */}
-              <View style={styles.bucketHeader}>
-                <BucketIcon bucketId={bucket.id} size="lg" noRouting />
+              <View style={styles.bucketCardContent}>
+                {/* Header con icona e nome */}
+                <View style={styles.bucketHeader}>
+                  <BucketIcon bucketId={bucket.id} size="lg" noRouting />
 
-                <View style={styles.bucketInfo}>
-                  <ThemedText
-                    style={[
-                      styles.bucketName,
-                      { color: Colors[colorScheme].text },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {bucket.name}
-                  </ThemedText>
-                  {bucket.description && (
-                    <ThemedText
+                  <View style={styles.bucketInfo}>
+                    <Text
+                      variant="titleMedium"
                       style={[
-                        styles.bucketDescription,
-                        { color: Colors[colorScheme].textSecondary },
+                        styles.bucketName,
+                        { color: theme.colors.onSurface },
                       ]}
                       numberOfLines={1}
                     >
-                      {bucket.description}
-                    </ThemedText>
+                      {bucket.name}
+                    </Text>
+                    {bucket.description && (
+                      <Text
+                        variant="bodySmall"
+                        style={[
+                          styles.bucketDescription,
+                          { color: theme.colors.onSurfaceVariant },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {bucket.description}
+                      </Text>
+                    )}
+                  </View>
+
+                  <NotificationSnoozeButton
+                    bucketId={bucket.id}
+                    variant="swipeable"
+                    showText
+                  />
+
+                  {/* Badge per notifiche non lette */}
+                  {bucket.unreadCount > 0 && (
+                    <View
+                      style={[
+                        styles.unreadBadge,
+                        { backgroundColor: theme.colors.error },
+                      ]}
+                    >
+                      <Text style={[styles.unreadText, { color: theme.colors.onError }]}>
+                        {bucket.unreadCount > 99 ? "99+" : bucket.unreadCount}
+                      </Text>
+                    </View>
                   )}
                 </View>
 
-                <NotificationSnoozeButton
-                  bucketId={bucket.id}
-                  variant="swipeable"
-                  showText
-                />
-
-                {/* Badge per notifiche non lette */}
-                {bucket.unreadCount > 0 && (
-                  <View
-                    style={[
-                      styles.unreadBadge,
-                      { backgroundColor: Colors[colorScheme].error },
-                    ]}
-                  >
-                    <ThemedText style={[styles.unreadText, { color: "white" }]}>
-                      {bucket.unreadCount > 99 ? "99+" : bucket.unreadCount}
-                    </ThemedText>
+                {/* Statistiche */}
+                <View style={styles.bucketStats}>
+                  <View style={styles.statItem}>
+                    <Icon source="bell" size={16} color={theme.colors.onSurfaceVariant} />
+                    <Text
+                      variant="bodySmall"
+                      style={[
+                        styles.statText,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {bucket.totalMessages} {t("buckets.item.messages")}
+                    </Text>
                   </View>
-                )}
-              </View>
 
-              {/* Statistiche */}
-              <View style={styles.bucketStats}>
-                <View style={styles.statItem}>
-                  <Icon name="notifications" size="xs" color="secondary" />
-                  <ThemedText
-                    style={[
-                      styles.statText,
-                      { color: Colors[colorScheme].textSecondary },
-                    ]}
-                  >
-                    {bucket.totalMessages} {t("buckets.item.messages")}
-                  </ThemedText>
-                </View>
-
-                <View style={styles.statItem}>
-                  <Icon name="loading" size="xs" color="secondary" />
-                  <ThemedText
-                    style={[
-                      styles.statText,
-                      { color: Colors[colorScheme].textSecondary },
-                    ]}
-                  >
-                    {formatLastActivity(bucket.lastNotificationAt)}
-                  </ThemedText>
+                  <View style={styles.statItem}>
+                    <Icon source="clock" size={16} color={theme.colors.onSurfaceVariant} />
+                    <Text
+                      variant="bodySmall"
+                      style={[
+                        styles.statText,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {formatLastActivity(bucket.lastNotificationAt)}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </TouchableOpacity>
+            </TouchableRipple>
           ))}
         </View>
       </ScrollView>
@@ -234,7 +232,7 @@ const BucketsSection: React.FC = () => {
           navigateToCreateBucket(true);
         }}
       />
-    </ThemedView>
+    </View>
   );
 };
 
@@ -252,16 +250,11 @@ const styles = StyleSheet.create({
   },
   bucketCard: {
     borderRadius: 12,
-    padding: 16,
     borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    backgroundColor: "transparent", // Will be set dynamically
+  },
+  bucketCardContent: {
+    padding: 16,
   },
   bucketHeader: {
     flexDirection: "row",
@@ -273,12 +266,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bucketName: {
-    fontSize: 16,
-    fontWeight: "600",
     marginBottom: 2,
   },
   bucketDescription: {
-    fontSize: 13,
+    // fontSize handled by variant
   },
   unreadBadge: {
     minWidth: 24,
@@ -287,16 +278,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 8,
-  },
-  snoozePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    gap: 4,
-    borderWidth: 1,
-    marginRight: 6,
   },
   unreadText: {
     fontSize: 12,
@@ -312,7 +293,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statText: {
-    fontSize: 12,
+    // fontSize handled by variant
   },
   emptyStateContainer: {
     flex: 1,
@@ -325,15 +306,13 @@ const styles = StyleSheet.create({
     margin: 16,
     padding: 32,
     borderRadius: 12,
+    backgroundColor: "transparent", // Will be set dynamically
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: "600",
     marginTop: 16,
     marginBottom: 8,
   },
   emptyDescription: {
-    fontSize: 14,
     textAlign: "center",
   },
   fab: {

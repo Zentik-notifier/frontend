@@ -483,19 +483,8 @@ export default function UnifiedCacheSettings() {
           </View>
         </Card.Content>
       </Card>
-      </Surface>
 
-      {/* GraphQL Cache Settings */}
-      <Surface style={styles.surfaceSection} elevation={1}>
-        <View style={styles.sectionHeader}>
-        <Text variant="headlineSmall" style={styles.sectionTitle}>
-          {t("appSettings.notifications.title")}
-        </Text>
-        <Text variant="bodyMedium" style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
-          {t("appSettings.notifications.description")}
-        </Text>
-      </View>
-
+      {/* Max Stored Notifications */}
       <Card style={styles.settingCard} elevation={0}>
         <Card.Content>
           <View style={styles.settingRow}>
@@ -537,6 +526,7 @@ export default function UnifiedCacheSettings() {
         </Card.Content>
       </Card>
 
+      {/* Max Stored Notifications Days */}
       <Card style={styles.settingCard} elevation={0}>
         <Card.Content>
           <View style={styles.settingRow}>
@@ -574,6 +564,32 @@ export default function UnifiedCacheSettings() {
               style={styles.compactInput}
               dense
             />
+          </View>
+        </Card.Content>
+      </Card>
+      </Surface>
+
+      {/* GraphQL Cache Settings */}
+      <Surface style={styles.surfaceSection} elevation={1}>
+        <View style={styles.sectionHeader}>
+        <Text variant="headlineSmall" style={styles.sectionTitle}>
+          {t("appSettings.notifications.title")}
+        </Text>
+        <Text variant="bodyMedium" style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
+          {t("appSettings.notifications.description")}
+        </Text>
+      </View>
+
+      <Card style={styles.settingCard} elevation={0}>
+        <Card.Content>
+          <View style={styles.settingRow}>
+          </View>
+        </Card.Content>
+      </Card>
+
+      <Card style={styles.settingCard} elevation={0}>
+        <Card.Content>
+          <View style={styles.settingRow}>
           </View>
         </Card.Content>
       </Card>

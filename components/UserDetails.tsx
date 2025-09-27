@@ -1,6 +1,6 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import InlinePicker, { InlinePickerOption } from "@/components/InlinePicker";
+import ThemedInputSelect from "@/components/ui/ThemedInputSelect";
 import { Colors } from "@/constants/Colors";
 import {
   UpdateUserRoleInput,
@@ -133,21 +133,18 @@ export default function UserDetails({ userId }: UserDetailsProps) {
     }
   };
 
-  const roleOptions: InlinePickerOption[] = [
+  const roleOptions = [
     {
-      label: getUserRoleDisplayName(UserRole.User),
-      value: UserRole.User,
-      color: getRoleColor(UserRole.User),
+      id: UserRole.User,
+      name: getUserRoleDisplayName(UserRole.User),
     },
     {
-      label: getUserRoleDisplayName(UserRole.Moderator),
-      value: UserRole.Moderator,
-      color: getRoleColor(UserRole.Moderator),
+      id: UserRole.Moderator,
+      name: getUserRoleDisplayName(UserRole.Moderator),
     },
     {
-      label: getUserRoleDisplayName(UserRole.Admin),
-      value: UserRole.Admin,
-      color: getRoleColor(UserRole.Admin),
+      id: UserRole.Admin,
+      name: getUserRoleDisplayName(UserRole.Admin),
     },
   ];
 
@@ -253,11 +250,14 @@ export default function UserDetails({ userId }: UserDetailsProps) {
             <ThemedText style={styles.roleLabel}>
               {t("administration.currentRole", { role: "" }).replace(": ", "")}
             </ThemedText>
-            <InlinePicker
+            <ThemedInputSelect
               selectedValue={user.role}
-              options={roleOptions}
-              onValueChange={handleRoleChange}
               placeholder={t("administration.selectNewRole")}
+              options={roleOptions}
+              optionLabel="name"
+              optionValue="id"
+              onValueChange={handleRoleChange}
+              isSearchable={false}
             />
           </View>
         </ThemedView>

@@ -1,5 +1,3 @@
-import { Colors } from "@/constants/Colors";
-import { AppIcons } from "@/constants/Icons";
 import {
   CreateMessageDto,
   GetNotificationsDocument,
@@ -14,7 +12,6 @@ import { useLocaleOptions, useNotificationUtils } from "@/hooks";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/contexts/AppContext";
 import {
   getNotificationTestData,
@@ -27,7 +24,6 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -37,9 +33,14 @@ import BucketSelector from "./BucketSelector";
 import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
 import NotificationActionsSelector from "./NotificationActionsSelector";
 import NotificationTapActionSelector from "./NotificationTapActionSelector";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
-import { Icon, IconButton, InlinePicker, InlinePickerOption } from "./ui";
+import {
+  Surface,
+  Text,
+  useTheme,
+  Button,
+  Icon,
+} from "react-native-paper";
+import ThemedInputSelect from "./ui/ThemedInputSelect";
 
 export default function NotificationsSettings() {
   const {
@@ -48,7 +49,7 @@ export default function NotificationsSettings() {
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { getDeliveryTypeFriendlyName, getDeliveryTypeIcon } =
     useNotificationUtils();
   const [sending, setSending] = useState(false);
@@ -269,117 +270,118 @@ export default function NotificationsSettings() {
   };
 
   // Delivery type options for the picker - generated dynamically from enum
-  const deliveryTypeOptions: InlinePickerOption<NotificationDeliveryType>[] =
-    Object.values(NotificationDeliveryType).map((deliveryType) => ({
-      value: deliveryType,
-      label: getDeliveryTypeFriendlyName(deliveryType),
-      icon: getDeliveryTypeIcon(deliveryType),
-    }));
+  const deliveryTypeOptions = Object.values(NotificationDeliveryType).map((deliveryType) => ({
+    id: deliveryType,
+    name: getDeliveryTypeFriendlyName(deliveryType),
+  }));
 
   // Webhook options for the picker - when action type is ACTION (external webhook)
-  const webhookOptions: InlinePickerOption<string>[] = (
+  const webhookOptions = (
     webhooksData?.userWebhooks || []
   ).map((webhook) => ({
-    value: webhook.id,
-    label: webhook.name,
-    subtitle: `${webhook.method} ${webhook.url}`,
-    icon: "webhook" as keyof typeof AppIcons,
+    id: webhook.id,
+    name: webhook.name,
+    description: `${webhook.method} ${webhook.url}`,
   }));
 
   // Check if webhooks are available
   const hasWebhooks = webhookOptions.length > 0;
 
   // Locale options for the picker - use the same locales supported by the i18n system
-  const localeOptions: InlinePickerOption<string>[] = useLocaleOptions();
+  const localeOptions = useLocaleOptions().map(option => ({
+    id: option.value,
+    name: option.label,
+  }));
 
   return (
     <SettingsScrollView>
       <View style={styles.section}>
         <View style={styles.loadDataBtnRow}>
-          <IconButton
-            title={t("notifications.loadTestData")}
-            iconName="add"
+          <Button
+            mode="outlined"
+            icon="plus"
             onPress={loadTestData}
-            variant="secondary"
-            size="sm"
-          />
+            compact
+          >
+            {t("notifications.loadTestData")}
+          </Button>
         </View>
 
         {/* Content Section */}
-        <ThemedView
+        <Surface
           style={[
             styles.profileContainer,
-            { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
+            { backgroundColor: theme.colors.surface },
           ]}
         >
           <View style={styles.field}>
-            <ThemedText style={styles.label}>
+            <Text style={styles.label}>
               {t("notifications.content.title")}
-            </ThemedText>
+            </Text>
             <TextInput
               style={[
                 styles.textInput,
                 {
                   backgroundColor:
-                    Colors[colorScheme ?? "light"].inputBackground,
-                  borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                  color: Colors[colorScheme ?? "light"].text,
+                    theme.colors.surface,
+                  borderColor: theme.colors.outline,
+                  color: theme.colors.onSurface,
                 },
               ]}
               value={title}
               onChangeText={setTitle}
               placeholder={t("notifications.content.titlePlaceholder")}
               placeholderTextColor={
-                Colors[colorScheme ?? "light"].inputPlaceholder
+                theme.colors.onSurfaceVariant
               }
               maxLength={100}
             />
           </View>
 
           <View style={styles.field}>
-            <ThemedText style={styles.label}>
+            <Text style={styles.label}>
               {t("notifications.content.subtitle")}
-            </ThemedText>
+            </Text>
             <TextInput
               style={[
                 styles.textInput,
                 {
                   backgroundColor:
-                    Colors[colorScheme ?? "light"].inputBackground,
-                  borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                  color: Colors[colorScheme ?? "light"].text,
+                    theme.colors.surface,
+                  borderColor: theme.colors.outline,
+                  color: theme.colors.onSurface,
                 },
               ]}
               value={subtitle}
               onChangeText={setSubtitle}
               placeholder={t("notifications.content.subtitlePlaceholder")}
               placeholderTextColor={
-                Colors[colorScheme ?? "light"].inputPlaceholder
+                theme.colors.onSurfaceVariant
               }
               maxLength={100}
             />
           </View>
 
           <View style={styles.field}>
-            <ThemedText style={styles.label}>
+            <Text style={styles.label}>
               {t("notifications.content.body")}
-            </ThemedText>
+            </Text>
             <TextInput
               style={[
                 styles.textInput,
                 styles.textArea,
                 {
                   backgroundColor:
-                    Colors[colorScheme ?? "light"].inputBackground,
-                  borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                  color: Colors[colorScheme ?? "light"].text,
+                    theme.colors.surface,
+                  borderColor: theme.colors.outline,
+                  color: theme.colors.onSurface,
                 },
               ]}
               value={body}
               onChangeText={setBody}
               placeholder={t("notifications.content.bodyPlaceholder")}
               placeholderTextColor={
-                Colors[colorScheme ?? "light"].inputPlaceholder
+                theme.colors.onSurfaceVariant
               }
               multiline
               maxLength={500}
@@ -400,55 +402,62 @@ export default function NotificationsSettings() {
 
           {/* Settings Section */}
           <View style={styles.field}>
-            <InlinePicker
+            <ThemedInputSelect
               label={t("notifications.settings.deliveryType")}
-              selectedValue={deliveryType}
-              options={deliveryTypeOptions}
-              onValueChange={setDeliveryType}
               placeholder={t("notifications.settings.selectDeliveryType")}
+              options={deliveryTypeOptions}
+              optionLabel="name"
+              optionValue="id"
+              selectedValue={deliveryType}
+              onValueChange={(value) => setDeliveryType(value as NotificationDeliveryType)}
+              isSearchable={false}
             />
           </View>
 
           <View style={styles.field}>
-            <ThemedText style={styles.label}>
+            <Text style={styles.label}>
               {t("notifications.settings.sound")}
-            </ThemedText>
+            </Text>
             <TextInput
               style={[
                 styles.textInput,
                 {
                   backgroundColor:
-                    Colors[colorScheme ?? "light"].inputBackground,
-                  borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                  color: Colors[colorScheme ?? "light"].text,
+                    theme.colors.surface,
+                  borderColor: theme.colors.outline,
+                  color: theme.colors.onSurface,
                 },
               ]}
               value={sound}
               onChangeText={setSound}
               placeholder={t("notifications.settings.soundPlaceholder")}
               placeholderTextColor={
-                Colors[colorScheme ?? "light"].inputPlaceholder
+                theme.colors.onSurfaceVariant
               }
             />
           </View>
 
           <View style={styles.field}>
-            <ThemedText style={styles.label}>
+            <Text style={styles.label}>
               {t("notifications.settings.locale")}
-            </ThemedText>
-            <ThemedText
+            </Text>
+            <Text
               style={[
                 styles.inputHint,
-                { color: Colors[colorScheme ?? "light"].textSecondary },
+                { color: theme.colors.onSurfaceVariant },
               ]}
             >
               {t("notifications.settings.localeDescription")}
-            </ThemedText>
-            <InlinePicker
+            </Text>
+            <ThemedInputSelect
               selectedValue={locale}
-              options={localeOptions}
-              onValueChange={setLocale}
               placeholder={t("notifications.settings.selectLocale")}
+              options={localeOptions}
+              optionLabel="name"
+              optionValue="id"
+              onValueChange={(value) => setLocale(value as string)}
+              isSearchable={true}
+              searchPlaceholder="Search locale..."
             />
           </View>
 
@@ -457,17 +466,17 @@ export default function NotificationsSettings() {
 
           {/* Automatic Actions Section */}
           <View style={styles.field}>
-            <ThemedText style={styles.sectionTitle}>
+            <Text style={styles.sectionTitle}>
               {t("notifications.automaticActions.title")}
-            </ThemedText>
-            <ThemedText
+            </Text>
+            <Text
               style={[
                 styles.sectionDescription,
-                { color: Colors[colorScheme ?? "light"].textSecondary },
+                { color: theme.colors.onSurfaceVariant },
               ]}
             >
               {t("notifications.automaticActions.description")}
-            </ThemedText>
+            </Text>
 
             {/* Mark As Read Action Checkbox */}
             <View
@@ -475,36 +484,36 @@ export default function NotificationsSettings() {
                 styles.switchRow,
                 {
                   backgroundColor:
-                    Colors[colorScheme ?? "light"].backgroundSecondary,
+                    theme.colors.surfaceVariant,
                 },
               ]}
             >
               <View style={styles.switchLabelContainer}>
-                <ThemedText
+                <Text
                   style={[
                     styles.switchLabel,
-                    { color: Colors[colorScheme ?? "light"].text },
+                    { color: theme.colors.onSurface },
                   ]}
                 >
                   {t("notifications.automaticActions.addMarkAsReadAction")}
-                </ThemedText>
-                <ThemedText
+                </Text>
+                <Text
                   style={[
                     styles.switchDescription,
-                    { color: Colors[colorScheme ?? "light"].textSecondary },
+                    { color: theme.colors.onSurfaceVariant },
                   ]}
                 >
                   {t(
                     "notifications.automaticActions.addMarkAsReadActionDescription"
                   )}
-                </ThemedText>
+                </Text>
               </View>
               <Switch
                 value={addMarkAsReadAction}
                 onValueChange={setAddMarkAsReadAction}
                 trackColor={{
-                  false: Colors[colorScheme ?? "light"].border,
-                  true: Colors[colorScheme ?? "light"].tint,
+                  false: theme.colors.outline,
+                  true: theme.colors.primary,
                 }}
               />
             </View>
@@ -515,36 +524,36 @@ export default function NotificationsSettings() {
                 styles.switchRow,
                 {
                   backgroundColor:
-                    Colors[colorScheme ?? "light"].backgroundSecondary,
+                    theme.colors.surfaceVariant,
                 },
               ]}
             >
               <View style={styles.switchLabelContainer}>
-                <ThemedText
+                <Text
                   style={[
                     styles.switchLabel,
-                    { color: Colors[colorScheme ?? "light"].text },
+                    { color: theme.colors.onSurface },
                   ]}
                 >
                   {t("notifications.automaticActions.addDeleteAction")}
-                </ThemedText>
-                <ThemedText
+                </Text>
+                <Text
                   style={[
                     styles.switchDescription,
-                    { color: Colors[colorScheme ?? "light"].textSecondary },
+                    { color: theme.colors.onSurfaceVariant },
                   ]}
                 >
                   {t(
                     "notifications.automaticActions.addDeleteActionDescription"
                   )}
-                </ThemedText>
+                </Text>
               </View>
               <Switch
                 value={addDeleteAction}
                 onValueChange={setAddDeleteAction}
                 trackColor={{
-                  false: Colors[colorScheme ?? "light"].border,
-                  true: Colors[colorScheme ?? "light"].tint,
+                  false: theme.colors.outline,
+                  true: theme.colors.primary,
                 }}
               />
             </View>
@@ -555,55 +564,55 @@ export default function NotificationsSettings() {
                 styles.switchRow,
                 {
                   backgroundColor:
-                    Colors[colorScheme ?? "light"].backgroundSecondary,
+                    theme.colors.surfaceVariant,
                 },
               ]}
             >
               <View style={styles.switchLabelContainer}>
-                <ThemedText
+                <Text
                   style={[
                     styles.switchLabel,
-                    { color: Colors[colorScheme ?? "light"].text },
+                    { color: theme.colors.onSurface },
                   ]}
                 >
                   {t(
                     "notifications.automaticActions.addOpenNotificationAction"
                   )}
-                </ThemedText>
-                <ThemedText
+                </Text>
+                <Text
                   style={[
                     styles.switchDescription,
-                    { color: Colors[colorScheme ?? "light"].textSecondary },
+                    { color: theme.colors.onSurfaceVariant },
                   ]}
                 >
                   {t(
                     "notifications.automaticActions.addOpenNotificationActionDescription"
                   )}
-                </ThemedText>
+                </Text>
               </View>
               <Switch
                 value={addOpenNotificationAction}
                 onValueChange={setAddOpenNotificationAction}
                 trackColor={{
-                  false: Colors[colorScheme ?? "light"].border,
-                  true: Colors[colorScheme ?? "light"].tint,
+                  false: theme.colors.outline,
+                  true: theme.colors.primary,
                 }}
               />
             </View>
 
             {/* Snooze Times Section */}
             <View style={styles.field}>
-              <ThemedText style={styles.label}>
+              <Text style={styles.label}>
                 {t("notifications.automaticActions.snoozeTimes")}
-              </ThemedText>
-              <ThemedText
+              </Text>
+              <Text
                 style={[
                   styles.inputHint,
-                  { color: Colors[colorScheme ?? "light"].textSecondary },
+                  { color: theme.colors.onSurfaceVariant },
                 ]}
               >
                 {t("notifications.automaticActions.snoozeTimesDescription")}
-              </ThemedText>
+              </Text>
 
               {/* Current Snooze Times */}
               {snoozeTimes.length > 0 && (
@@ -615,24 +624,24 @@ export default function NotificationsSettings() {
                         styles.snoozeTimeItem,
                         {
                           backgroundColor:
-                            Colors[colorScheme ?? "light"].backgroundSecondary,
-                          borderColor: Colors[colorScheme ?? "light"].border,
+                            theme.colors.surfaceVariant,
+                          borderColor: theme.colors.outline,
                         },
                       ]}
                     >
-                      <ThemedText
+                      <Text
                         style={[
                           styles.snoozeTimeText,
-                          { color: Colors[colorScheme ?? "light"].text },
+                          { color: theme.colors.onSurface },
                         ]}
                       >
                         {time} min
-                      </ThemedText>
+                      </Text>
                       <TouchableOpacity
                         style={styles.removeSnoozeTimeButton}
                         onPress={() => removeSnoozeTime(time)}
                       >
-                        <Icon name="remove" size="xs" color="white" />
+                        <Icon source="minus" size={16} />
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -647,9 +656,9 @@ export default function NotificationsSettings() {
                     styles.snoozeTimeInput,
                     {
                       backgroundColor:
-                        Colors[colorScheme ?? "light"].inputBackground,
-                      borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                      color: Colors[colorScheme ?? "light"].text,
+                        theme.colors.surface,
+                      borderColor: theme.colors.outline,
+                      color: theme.colors.onSurface,
                     },
                   ]}
                   value={snoozeTimeInput}
@@ -658,21 +667,22 @@ export default function NotificationsSettings() {
                     "notifications.automaticActions.snoozeTimePlaceholder"
                   )}
                   placeholderTextColor={
-                    Colors[colorScheme ?? "light"].inputPlaceholder
+                    theme.colors.onSurfaceVariant
                   }
                   keyboardType="numeric"
                   maxLength={4}
                 />
-                <IconButton
-                  title="Add"
-                  iconName="add"
+                <Button
+                  mode="outlined"
+                  icon="plus"
                   onPress={addSnoozeTime}
-                  variant="secondary"
-                  size="sm"
+                  compact
                   disabled={
                     !snoozeTimeInput.trim() || parseInt(snoozeTimeInput) <= 0
                   }
-                />
+                >
+                  Add
+                </Button>
               </View>
             </View>
           </View>
@@ -683,14 +693,14 @@ export default function NotificationsSettings() {
           {/* Targeting Section */}
           <View style={styles.field}>
             {bucketsLoading ? (
-              <ThemedText
+              <Text
                 style={[
                   styles.loadingText,
-                  { color: Colors[colorScheme ?? "light"].textSecondary },
+                  { color: theme.colors.onSurfaceVariant },
                 ]}
               >
                 {t("notifications.targeting.loadingBuckets")}
-              </ThemedText>
+              </Text>
             ) : bucketsData?.buckets && bucketsData.buckets.length > 0 ? (
               <BucketSelector
                 label={t("notifications.targeting.bucket")}
@@ -704,72 +714,72 @@ export default function NotificationsSettings() {
               />
             ) : (
               <View style={styles.field}>
-                <ThemedText style={styles.label}>
+                <Text style={styles.label}>
                   {t("notifications.targeting.bucket")}
-                </ThemedText>
-                <ThemedText
+                </Text>
+                <Text
                   style={[
                     styles.errorText,
-                    { color: Colors[colorScheme ?? "light"].error },
+                    { color: theme.colors.error },
                   ]}
                 >
                   {t("notifications.targeting.bucketRequired")}
-                </ThemedText>
+                </Text>
               </View>
             )}
           </View>
 
           {/* New Fields Section */}
           <View style={styles.field}>
-            <ThemedText style={styles.label}>
+            <Text style={styles.label}>
               {t("notifications.targeting.groupId")}
-            </ThemedText>
+            </Text>
             <TextInput
               style={[
                 styles.textInput,
                 {
                   backgroundColor:
-                    Colors[colorScheme ?? "light"].inputBackground,
-                  borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                  color: Colors[colorScheme ?? "light"].text,
+                    theme.colors.surface,
+                  borderColor: theme.colors.outline,
+                  color: theme.colors.onSurface,
                 },
               ]}
               value={groupId}
               onChangeText={setGroupId}
               placeholder={t("notifications.targeting.groupIdPlaceholder")}
               placeholderTextColor={
-                Colors[colorScheme ?? "light"].inputPlaceholder
+                theme.colors.onSurfaceVariant
               }
             />
-            <ThemedText
+            <Text
               style={[
                 styles.description,
-                { color: Colors[colorScheme ?? "light"].textSecondary },
+                { color: theme.colors.onSurfaceVariant },
               ]}
             >
               {t("notifications.targeting.groupIdDefault")}
-            </ThemedText>
+            </Text>
           </View>
 
           <View style={styles.field}>
-            <ThemedText style={styles.label}>
+            <Text style={styles.label}>
               {t("notifications.targeting.collapseId")}
-            </ThemedText>
+            </Text>
             <TextInput
               style={[
                 styles.textInput,
                 {
                   backgroundColor:
-                    Colors[colorScheme ?? "light"].inputBackground,
-                  borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                  color: Colors[colorScheme ?? "light"].text,
+                    theme.colors.surface,
+                  borderColor: theme.colors.outline,
+                  color: theme.colors.onSurface,
                 },
               ]}
               value={collapseId}
               onChangeText={setCollapseId}
               placeholder={t("notifications.targeting.collapseIdPlaceholder")}
               placeholderTextColor={
-                Colors[colorScheme ?? "light"].inputPlaceholder
+                theme.colors.onSurfaceVariant
               }
             />
           </View>
@@ -777,24 +787,24 @@ export default function NotificationsSettings() {
           {/* User Selection Section */}
           {allPermissions && allPermissions.length > 0 && (
             <View style={styles.field}>
-              <ThemedText style={styles.label}>
+              <Text style={styles.label}>
                 {t("notifications.targeting.userIds")}
-              </ThemedText>
-              <ThemedText
+              </Text>
+              <Text
                 style={[
                   styles.description,
-                  { color: Colors[colorScheme ?? "light"].textSecondary },
+                  { color: theme.colors.onSurfaceVariant },
                 ]}
               >
                 {t("notifications.targeting.userIdsDescription")}
-              </ThemedText>
+              </Text>
               <View style={styles.userSelectionContainer}>
                 {/* "Me" option */}
                 <TouchableOpacity
                   style={[
                     styles.userChip,
                     selectedUserIds.includes("me") && {
-                      backgroundColor: Colors[colorScheme ?? "light"].tint,
+                      backgroundColor: theme.colors.primary,
                     },
                   ]}
                   onPress={() => {
@@ -807,7 +817,7 @@ export default function NotificationsSettings() {
                     }
                   }}
                 >
-                  <ThemedText
+                  <Text
                     style={[
                       styles.userChipText,
                       selectedUserIds.includes("me") && {
@@ -816,7 +826,7 @@ export default function NotificationsSettings() {
                     ]}
                   >
                     Me
-                  </ThemedText>
+                  </Text>
                 </TouchableOpacity>
                 {/* Other users */}
                 {allPermissions.map((permission) => (
@@ -825,7 +835,7 @@ export default function NotificationsSettings() {
                     style={[
                       styles.userChip,
                       selectedUserIds.includes(permission.user.id) && {
-                        backgroundColor: Colors[colorScheme ?? "light"].tint,
+                        backgroundColor: theme.colors.primary,
                       },
                     ]}
                     onPress={() => {
@@ -843,7 +853,7 @@ export default function NotificationsSettings() {
                       }
                     }}
                   >
-                    <ThemedText
+                    <Text
                       style={[
                         styles.userChipText,
                         selectedUserIds.includes(permission.user.id) && {
@@ -854,26 +864,26 @@ export default function NotificationsSettings() {
                       {permission.user.username ||
                         permission.user.email ||
                         permission.user.id}
-                    </ThemedText>
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-              <ThemedText
+              <Text
                 style={[
                   styles.description,
-                  { color: Colors[colorScheme ?? "light"].textSecondary },
+                  { color: theme.colors.onSurfaceVariant },
                 ]}
               >
                 {t("notifications.targeting.userIdsDefault")}
-              </ThemedText>
+              </Text>
               {selectedUserIds.length > 0 && (
                 <TouchableOpacity
                   style={styles.clearSelectionButton}
                   onPress={() => setSelectedUserIds([])}
                 >
-                  <ThemedText style={styles.clearSelectionText}>
+                  <Text style={styles.clearSelectionText}>
                     {t("notifications.targeting.clearSelection")}
-                  </ThemedText>
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -902,13 +912,13 @@ export default function NotificationsSettings() {
             webhookOptions={webhookOptions}
             hasWebhooks={hasWebhooks}
           />
-        </ThemedView>
+        </Surface>
 
         {/* JSON Preview Section - Collapsible */}
-        <ThemedView
+        <Surface
           style={[
             styles.profileContainer,
-            { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
+            { backgroundColor: theme.colors.surface },
           ]}
         >
           <TouchableOpacity
@@ -917,93 +927,96 @@ export default function NotificationsSettings() {
           >
             <View style={styles.previewHeaderContent}>
               <Icon
-                name="view"
-                size="sm"
-                color={Colors[colorScheme ?? "light"].tint}
+                source="eye"
+                size={20}
+                color={theme.colors.primary}
               />
-              <ThemedText style={styles.previewHeaderTitle}>
+              <Text style={styles.previewHeaderTitle}>
                 {t("notifications.preview.title")}
-              </ThemedText>
+              </Text>
             </View>
             <Icon
-              name={showJsonPreview ? "collapse" : "dropdown"}
-              size="sm"
-              color={Colors[colorScheme ?? "light"].text}
+              source={showJsonPreview ? "chevron-up" : "chevron-down"}
+              size={20}
+              color={theme.colors.onSurface}
             />
           </TouchableOpacity>
 
           {showJsonPreview && (
             <>
-              <ThemedText
+              <Text
                 style={[
                   styles.previewDescription,
-                  { color: Colors[colorScheme ?? "light"].textSecondary },
+                  { color: theme.colors.onSurfaceVariant },
                 ]}
               >
                 {t("notifications.preview.description")}
-              </ThemedText>
+              </Text>
 
               <ScrollView
                 style={[
                   styles.jsonPreviewContainer,
                   {
                     backgroundColor:
-                      Colors[colorScheme ?? "light"].backgroundSecondary,
-                    borderColor: Colors[colorScheme ?? "light"].border,
+                      theme.colors.surfaceVariant,
+                    borderColor: theme.colors.outline,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.jsonPreviewText,
-                    { color: Colors[colorScheme ?? "light"].text },
+                    { color: theme.colors.onSurface },
                   ]}
                 >
                   {JSON.stringify(buildMessagePayload(), null, 2)}
                 </Text>
               </ScrollView>
 
-              <IconButton
-                title={t("notifications.preview.copy")}
-                iconName="copy"
+              <Button
+                mode="outlined"
+                icon="content-copy"
                 onPress={copyJsonToClipboard}
-                variant="secondary"
-                size="md"
-              />
+                compact
+              >
+                {t("notifications.preview.copy")}
+              </Button>
             </>
           )}
-        </ThemedView>
+        </Surface>
 
         <View style={styles.buttonContainer}>
           {!push.isReady() && (
-            <ThemedText
+            <Text
               style={[
                 styles.warningText,
-                { color: Colors[colorScheme ?? "light"].warning },
+                { color: theme.colors.error },
               ]}
             >
               {t("notifications.warningNotRegistered")}
-            </ThemedText>
+            </Text>
           )}
 
-          <IconButton
-            title={t("notifications.sendButton")}
-            iconName="send"
+          <Button
+            mode="contained"
+            icon="send"
             onPress={sendMessage}
             disabled={sending || isOfflineAuth || isBackendUnreachable}
             loading={sending}
-            loadingText={t("notifications.sending")}
-            variant="primary"
-            size="lg"
-          />
+            style={styles.sendButton}
+          >
+            {sending ? t("notifications.sending") : t("notifications.sendButton")}
+          </Button>
 
-          <IconButton
-            title={t("notifications.resetForm")}
-            iconName="reset"
+          <Button
+            mode="outlined"
+            icon="refresh"
             onPress={resetForm}
-            variant="secondary"
-            size="md"
-          />
+            compact
+            style={styles.resetButton}
+          >
+            {t("notifications.resetForm")}
+          </Button>
         </View>
       </View>
     </SettingsScrollView>
@@ -1234,5 +1247,12 @@ const styles = StyleSheet.create({
   clearSelectionText: {
     fontSize: 14,
     color: "#6b7280",
+  },
+  sendButton: {
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  resetButton: {
+    marginBottom: 10,
   },
 });

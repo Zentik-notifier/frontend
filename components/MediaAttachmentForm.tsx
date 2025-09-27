@@ -1,12 +1,10 @@
-import { Colors } from "@/constants/Colors";
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useNotificationUtils } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import React from "react";
 import { StyleSheet, TextInput, View } from "react-native";
-import { ThemedText } from "./ThemedText";
-import { IconButton, InlinePicker, InlinePickerOption } from "./ui";
+import { Text, Surface, Button, useTheme } from "react-native-paper";
+import ThemedInputSelect from "./ui/ThemedInputSelect";
 
 interface MediaAttachmentFormProps {
   attachmentType: MediaType | undefined;
@@ -34,17 +32,15 @@ export default function MediaAttachmentForm({
   isEditing = false,
 }: MediaAttachmentFormProps) {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { getMediaTypeFriendlyName, getMediaTypeIcon, getMediaTypeColor } =
     useNotificationUtils();
 
-  const mediaTypeOptions: InlinePickerOption<MediaType>[] = Object.values(
+  const mediaTypeOptions = Object.values(
     MediaType
   ).map((mediaType) => ({
-    value: mediaType,
-    label: getMediaTypeFriendlyName(mediaType),
-    icon: getMediaTypeIcon(mediaType),
-    color: getMediaTypeColor(mediaType),
+    id: mediaType,
+    name: getMediaTypeFriendlyName(mediaType),
   }));
 
   const isFormValid = () => {
@@ -52,82 +48,87 @@ export default function MediaAttachmentForm({
   };
 
   return (
-    <View
+    <Surface
       style={[
         styles.attachmentForm,
         {
-          backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
-          borderColor: Colors[colorScheme ?? "light"].border,
+          backgroundColor: theme.colors.surfaceVariant,
+          borderColor: theme.colors.outline,
         },
       ]}
     >
-      <InlinePicker
+      <ThemedInputSelect
         label={t("notifications.attachments.mediaType")}
-        selectedValue={attachmentType!}
-        options={mediaTypeOptions}
-        onValueChange={onAttachmentTypeChange}
         placeholder={t("notifications.attachments.selectMediaType")}
+        options={mediaTypeOptions}
+        optionLabel="name"
+        optionValue="id"
+        selectedValue={attachmentType!}
+        onValueChange={onAttachmentTypeChange}
+        isSearchable={false}
       />
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>
+        <Text style={[styles.label, { color: theme.colors.onSurface }]}>
           {t("notifications.attachments.mediaUrl")}
-        </ThemedText>
+        </Text>
         <TextInput
           style={[
             styles.textInput,
             {
-              backgroundColor: Colors[colorScheme ?? "light"].inputBackground,
-              borderColor: Colors[colorScheme ?? "light"].inputBorder,
-              color: Colors[colorScheme ?? "light"].text,
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.outline,
+              color: theme.colors.onSurface,
             },
           ]}
           value={attachmentUrl}
           onChangeText={onAttachmentUrlChange}
           placeholder={t("notifications.attachments.mediaUrlPlaceholder")}
-          placeholderTextColor={Colors[colorScheme ?? "light"].inputPlaceholder}
+          placeholderTextColor={theme.colors.onSurfaceVariant}
           keyboardType="url"
         />
       </View>
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>
+        <Text style={[styles.label, { color: theme.colors.onSurface }]}>
           {t("notifications.attachments.mediaName")}
-        </ThemedText>
+        </Text>
         <TextInput
           style={[
             styles.textInput,
             {
-              backgroundColor: Colors[colorScheme ?? "light"].inputBackground,
-              borderColor: Colors[colorScheme ?? "light"].inputBorder,
-              color: Colors[colorScheme ?? "light"].text,
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.outline,
+              color: theme.colors.onSurface,
             },
           ]}
           value={attachmentName}
           onChangeText={onAttachmentNameChange}
           placeholder={t("notifications.attachments.mediaNamePlaceholder")}
-          placeholderTextColor={Colors[colorScheme ?? "light"].inputPlaceholder}
+          placeholderTextColor={theme.colors.onSurfaceVariant}
         />
       </View>
 
       <View style={styles.attachmentFormButtons}>
-        <IconButton
-          title={t("notifications.form.cancel")}
-          iconName="cancel"
+        <Button
+          mode="outlined"
           onPress={onCancel}
-          variant="secondary"
-          size="sm"
-        />
-        <IconButton
-          title={saveButtonTitle}
-          iconName={isEditing ? "confirm" : "add"}
+          compact
+          style={styles.button}
+        >
+          {t("notifications.form.cancel")}
+        </Button>
+        <Button
+          mode="contained"
           onPress={onSave}
-          variant="success"
-          size="sm"
+          compact
           disabled={!isFormValid()}
-        />
+          style={styles.button}
+        >
+          {saveButtonTitle}
+        </Button>
       </View>
-    </View>
+    </Surface>
   );
 }
 
@@ -158,5 +159,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 15,
     gap: 10,
+  },
+  button: {
+    flex: 1,
   },
 });

@@ -4,9 +4,9 @@ import { ThemedText } from './ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useTheme';
 
-export interface InlinePickerOption {
+export interface InlinePickerOption<T extends string = string> {
   label: string;
-  value: string;
+  value: T;
   color?: string;
 }
 

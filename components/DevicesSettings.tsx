@@ -1,21 +1,17 @@
 import SettingsScrollView from "@/components/SettingsScrollView";
-import { Colors } from "@/constants/Colors";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/contexts/AppContext";
 import React, { useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import { useGetUserDevicesQuery } from "../generated/gql-operations-generated";
 import SwipeableDeviceItem from "./SwipeableDeviceItem";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
-import Icon from "./ui/Icon";
+import { Text, Surface, Button, Icon, useTheme } from "react-native-paper";
 
 export default function DevicesSettings() {
-  const colorScheme = useColorScheme();
   const { t } = useI18n();
+  const theme = useTheme();
   const [managingDevice, setManagingDevice] = useState(false);
   const { deviceToken, push } = useAppContext();
 
@@ -98,8 +94,9 @@ export default function DevicesSettings() {
 
   return (
     <SettingsScrollView onRefresh={refetch}>
-      <ThemedView style={styles.container}>
-        <View style={styles.buttonContainer}>
+      <Surface style={styles.container}>
+        <View style={styles.content}>
+          <View style={styles.buttonContainer}>
           {(() => {
             const disabledRegister =
               managingDevice ||
@@ -108,25 +105,17 @@ export default function DevicesSettings() {
               isBackendUnreachable ||
               push.pushPermissionError;
             return (
-              <TouchableOpacity
-                style={[
-                  styles.button,
-                  styles.registerButton,
-                  {
-                    backgroundColor: disabledRegister
-                      ? Colors[colorScheme ?? "light"].buttonDisabled
-                      : Colors[colorScheme ?? "light"].tint,
-                  },
-                ]}
+              <Button
+                mode="contained"
                 onPress={handleRegisterDevice}
                 disabled={disabledRegister}
+                loading={managingDevice}
+                style={styles.button}
               >
-                <Text style={styles.registerButtonText}>
-                  {managingDevice
-                    ? t("devices.registering")
-                    : t("devices.registerDevice")}
-                </Text>
-              </TouchableOpacity>
+                {managingDevice
+                  ? t("devices.registering")
+                  : t("devices.registerDevice")}
+              </Button>
             );
           })()}
 
@@ -146,72 +135,57 @@ export default function DevicesSettings() {
               disabledRegister ||
               !isCurrentRegistered;
             return (
-              <TouchableOpacity
-                style={[
-                  styles.button,
-                  styles.unregisterButton,
-                  {
-                    backgroundColor: disabledUnregister
-                      ? Colors[colorScheme ?? "light"].buttonDisabled
-                      : Colors[colorScheme ?? "light"].backgroundCard,
-                    borderColor: Colors[colorScheme ?? "light"].border,
-                  },
-                ]}
+              <Button
+                mode="outlined"
                 onPress={handleUnregisterDevice}
                 disabled={disabledUnregister}
+                loading={managingDevice}
+                buttonColor={theme.colors.errorContainer}
+                textColor={theme.colors.onErrorContainer}
+                style={styles.button}
               >
-                <Text
-                  style={[
-                    styles.unregisterButtonText,
-                    {
-                      color: disabledUnregister
-                        ? Colors[colorScheme ?? "light"].textSecondary
-                        : "#FF3B30",
-                    },
-                  ]}
-                >
-                  {managingDevice
-                    ? t("devices.unregistering")
-                    : t("devices.unregisterDevice")}
-                </Text>
-              </TouchableOpacity>
+                {managingDevice
+                  ? t("devices.unregistering")
+                  : t("devices.unregisterDevice")}
+              </Button>
             );
           })()}
         </View>
 
-        {/* Messaggio di errore per permessi push */}
-        {push.pushPermissionError && (
-          <ThemedText style={styles.errorMessage}>
-            {t("common.pushPermissionsHint")}
-          </ThemedText>
-        )}
+          {/* Messaggio di errore per permessi push */}
+          {push.pushPermissionError && (
+            <Text style={[styles.errorMessage, { color: theme.colors.error }]}>
+              {t("common.pushPermissionsHint")}
+            </Text>
+          )}
 
-        {sortedDevices.length === 0 ? (
-          <ThemedView style={styles.emptyState}>
-            <Icon
-              name="mobile"
-              size={64}
-              color={Colors[colorScheme ?? "light"].icon}
-            />
-            <ThemedText style={styles.emptyText}>
-              {t("devices.noDevicesTitle")}
-            </ThemedText>
-            <ThemedText style={styles.emptySubtext}>
-              {t("devices.noDevicesSubtext")}
-            </ThemedText>
-          </ThemedView>
-        ) : (
-          <View style={styles.devicesContainer}>
-            {sortedDevices.map((item) => (
-              <SwipeableDeviceItem
-                key={item.id}
-                device={item}
-                isCurrentDevice={deviceToken === item.deviceToken}
+          {sortedDevices.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Icon
+                source="cellphone"
+                size={64}
+                color={theme.colors.onSurfaceVariant}
               />
-            ))}
-          </View>
-        )}
-      </ThemedView>
+              <Text style={[styles.emptyText, { color: theme.colors.onSurface }]}>
+                {t("devices.noDevicesTitle")}
+              </Text>
+              <Text style={[styles.emptySubtext, { color: theme.colors.onSurfaceVariant }]}>
+                {t("devices.noDevicesSubtext")}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.devicesContainer}>
+              {sortedDevices.map((item) => (
+                <SwipeableDeviceItem
+                  key={item.id}
+                  device={item}
+                  isCurrentDevice={deviceToken === item.deviceToken}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+      </Surface>
     </SettingsScrollView>
   );
 }
@@ -220,29 +194,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  content: {
+    padding: 16,
+  },
   buttonContainer: {
+    flexDirection: "row",
     gap: 12,
     marginBottom: 24,
   },
   button: {
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  registerButton: {
-    // Background color set dynamically
-  },
-  registerButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  unregisterButton: {
-    borderWidth: 1,
-  },
-  unregisterButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
+    flex: 1,
   },
   errorMessage: {
     color: "#FF3B30",

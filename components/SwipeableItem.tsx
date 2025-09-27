@@ -1,12 +1,9 @@
 import { AppIcons } from "@/constants/Icons";
-import { useColorScheme } from "@/hooks/useTheme";
 import React, { useRef, useState } from "react";
 import {
-  Alert,
   Animated,
   Dimensions,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -15,7 +12,49 @@ import {
   PanGestureHandlerStateChangeEvent,
   State,
 } from "react-native-gesture-handler";
-import Icon from "./ui/Icon";
+import {
+  Dialog,
+  Icon,
+  Portal,
+  Text,
+  useTheme,
+} from "react-native-paper";
+import { Menu, MenuOptions, MenuOption, MenuTrigger } from "react-native-popup-menu";
+
+// Map AppIcons to Paper Icons
+const mapIconToPaper = (iconName: keyof typeof AppIcons): string => {
+  const iconMap: Record<string, string> = {
+    "delete": "delete",
+    "edit": "pencil",
+    "share": "share",
+    "copy": "content-copy",
+    "download": "download",
+    "upload": "upload",
+    "add": "plus",
+    "remove": "minus",
+    "check": "check",
+    "close": "close",
+    "menu": "menu",
+    "more": "dots-vertical",
+    "settings": "cog",
+    "info": "information",
+    "warning": "alert",
+    "error": "alert-circle",
+    "success": "check-circle",
+    "refresh": "refresh",
+    "search": "magnify",
+    "filter": "filter",
+    "sort": "sort",
+    "back": "arrow-left",
+    "forward": "arrow-right",
+    "up": "chevron-up",
+    "down": "chevron-down",
+    "left": "chevron-left",
+    "right": "chevron-right",
+  };
+  
+  return iconMap[iconName] || "help-circle";
+};
 
 // Keep only one menu open at a time across all instances
 const menuCloseHandlers = new Set<() => void>();
@@ -78,8 +117,13 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     action: SwipeAction;
   } | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(screenWidth);
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    action: SwipeAction;
+    direction: "left" | "right";
+  } | null>(null);
   
   // Calculate swipe threshold based on container width
   const SWIPE_THRESHOLD = containerWidth * 0.3; // 30% of container width
@@ -154,40 +198,8 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     setShowActionBackground({ direction, action });
 
     if (action.showAlert) {
-      Alert.alert(action.showAlert.title, action.showAlert.message, [
-        {
-          text: action.showAlert.cancelText || "Cancel",
-          style: "cancel",
-          onPress: () => {
-            setShowActionBackground(null);
-            animateToPosition(0);
-          },
-        },
-        {
-          text: action.showAlert.confirmText || "Confirm",
-          style: direction === "left" ? "destructive" : "default",
-          onPress: async () => {
-            try {
-              // Animate based on direction
-              const targetPosition =
-                direction === "left" ? -screenWidth : screenWidth;
-              Animated.timing(translateX, {
-                toValue: targetPosition,
-                duration: 300,
-                useNativeDriver: true,
-              }).start();
-
-              await action.onPress();
-              setShowActionBackground(null);
-            } catch (error) {
-              console.error("Error during action:", error);
-              setShowActionBackground(null);
-              animateToPosition(0);
-              Alert.alert("Error", "Could not complete the action");
-            }
-          },
-        },
-      ]);
+      setPendingAction({ action, direction });
+      setShowConfirmDialog(true);
     } else {
       // No alert - execute action with animation
       executeActionWithAnimation(action, direction);
@@ -221,7 +233,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
       console.error("Error during action:", error);
       setShowActionBackground(null);
       animateToPosition(0);
-      Alert.alert("Error", "Could not complete the action");
+      // Error handling will be done via dialog
     }
   };
 
@@ -232,7 +244,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
       await action.onPress();
     } catch (error) {
       console.error("Error during action:", error);
-      Alert.alert("Error", "Could not complete the action");
+      // Error handling will be done via dialog
     }
   };
 
@@ -273,7 +285,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
           ]}
         >
           <View style={styles.actionLeft}>
-            <Icon name={leftAction.icon} size="md" color="white" />
+            <Icon source={mapIconToPaper(leftAction.icon)} size={24} color="white" />
             <Text style={styles.actionLabel}>{leftAction.label}</Text>
           </View>
         </View>
@@ -294,7 +306,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
           ]}
         >
           <View style={styles.actionRight}>
-            <Icon name={rightAction.icon} size="md" color="white" />
+            <Icon source={mapIconToPaper(rightAction.icon)} size={24} color="white" />
             <Text style={styles.actionLabel}>{rightAction.label}</Text>
           </View>
         </View>
@@ -323,8 +335,8 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
             }
           >
             <Icon
-              name={showActionBackground.action.icon}
-              size="md"
+              source={mapIconToPaper(showActionBackground.action.icon)}
+              size={24}
               color="white"
             />
             <Text style={styles.actionLabel}>
@@ -353,12 +365,21 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
               transform: [{ translateX }],
               borderRadius,
               overflow: "hidden",
+              backgroundColor: theme.colors.surface,
+              borderWidth: 1,
+              borderColor: theme.colors.outlineVariant,
             },
           ]}
         >
           {(leftAction || rightAction) && withButton && (
             <TouchableOpacity
-              style={styles.burgerButton}
+              style={[
+                styles.burgerButton,
+                { 
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.outlineVariant,
+                }
+              ]}
               onPress={() => {
                 if (isMenuVisible) {
                   setIsMenuVisible(false);
@@ -369,56 +390,126 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
               }}
               activeOpacity={0.7}
             >
-              <Text style={styles.burgerIcon}>⋮</Text>
+              <Icon
+                source="dots-vertical"
+                size={18}
+                color={theme.colors.onSurface}
+              />
             </TouchableOpacity>
           )}
           {children}
         </Animated.View>
       </PanGestureHandler>
 
-      {/* Inline dropdown menu */}
-      {isMenuVisible && (
-        <>
-          {/* overlay only within the item to close on outside click */}
-          <TouchableOpacity
-            style={styles.inlineOverlay}
-            activeOpacity={1}
-            onPress={() => setIsMenuVisible(false)}
-          />
-          <View style={[styles.dropdownContainer, { borderRadius }]}>
-            {!!leftAction && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => handleMenuActionPress(leftAction)}
-              >
+      {/* Popup menu */}
+      <Menu>
+        <MenuTrigger>
+          <View />
+        </MenuTrigger>
+        <MenuOptions 
+          optionsContainerStyle={{ 
+            backgroundColor: theme.colors.surface,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: theme.colors.outlineVariant,
+            marginTop: 8,
+          }}
+        >
+          {!!leftAction && (
+            <MenuOption onSelect={() => handleMenuActionPress(leftAction)}>
+              <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
                 <Icon
-                  name={leftAction.icon}
-                  size="xs"
+                  source={mapIconToPaper(leftAction.icon)}
+                  size={16}
                   color={leftAction.backgroundColor}
                 />
-                <Text style={styles.menuItemText} numberOfLines={1}>
+                <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]} numberOfLines={1}>
                   {leftAction.label}
                 </Text>
-              </TouchableOpacity>
-            )}
-            {!!rightAction && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => handleMenuActionPress(rightAction)}
-              >
+              </View>
+            </MenuOption>
+          )}
+          {!!rightAction && (
+            <MenuOption onSelect={() => handleMenuActionPress(rightAction)}>
+              <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
                 <Icon
-                  name={rightAction.icon}
-                  size="xs"
+                  source={mapIconToPaper(rightAction.icon)}
+                  size={16}
                   color={rightAction.backgroundColor}
                 />
-                <Text style={styles.menuItemText} numberOfLines={1}>
+                <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]} numberOfLines={1}>
                   {rightAction.label}
                 </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </>
-      )}
+              </View>
+            </MenuOption>
+          )}
+        </MenuOptions>
+      </Menu>
+
+      {/* Confirmation Dialog */}
+      <Portal>
+        <Dialog
+          visible={showConfirmDialog}
+          onDismiss={() => {
+            setShowConfirmDialog(false);
+            setPendingAction(null);
+            setShowActionBackground(null);
+            animateToPosition(0);
+          }}
+        >
+          <Dialog.Title>
+            {pendingAction?.action.showAlert?.title || "Confirm Action"}
+          </Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">
+              {pendingAction?.action.showAlert?.message || "Are you sure you want to perform this action?"}
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Text
+              onPress={() => {
+                setShowConfirmDialog(false);
+                setPendingAction(null);
+                setShowActionBackground(null);
+                animateToPosition(0);
+              }}
+              style={{ color: theme.colors.primary }}
+            >
+              {pendingAction?.action.showAlert?.cancelText || "Cancel"}
+            </Text>
+            <Text
+              onPress={async () => {
+                if (!pendingAction) return;
+                
+                setShowConfirmDialog(false);
+                try {
+                  // Animate based on direction
+                  const targetPosition =
+                    pendingAction.direction === "left" ? -screenWidth : screenWidth;
+                  Animated.timing(translateX, {
+                    toValue: targetPosition,
+                    duration: 300,
+                    useNativeDriver: true,
+                  }).start();
+
+                  await pendingAction.action.onPress();
+                  setShowActionBackground(null);
+                } catch (error) {
+                  console.error("Error during action:", error);
+                  setShowActionBackground(null);
+                  animateToPosition(0);
+                }
+                setPendingAction(null);
+              }}
+              style={{ 
+                color: pendingAction?.direction === "left" ? theme.colors.error : theme.colors.primary 
+              }}
+            >
+              {pendingAction?.action.showAlert?.confirmText || "Confirm"}
+            </Text>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 };
@@ -474,16 +565,12 @@ const styles = StyleSheet.create({
     bottom: 8,
     right: 8,
     zIndex: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 14,
-    backgroundColor: "rgba(0,0,0,0.05)",
-  },
-  burgerIcon: {
-    fontSize: 16,
-    color: "#666",
-    fontWeight: "bold",
-    lineHeight: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
   },
   inlineOverlay: {
     position: "absolute",
@@ -497,7 +584,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 8,
     bottom: 40, // place above the burger so it stays clickable
-    backgroundColor: "#fff",
     paddingVertical: 4,
     paddingHorizontal: 6,
     shadowColor: "#000",
@@ -523,7 +609,6 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 13,
-    color: "#333",
     marginLeft: 6,
   },
   cancelButton: {

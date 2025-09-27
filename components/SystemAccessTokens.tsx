@@ -1,4 +1,3 @@
-import { Colors } from "@/constants/Colors";
 import {
   SystemAccessTokenFragment,
   useGetSystemAccessTokensQuery,
@@ -7,19 +6,25 @@ import {
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
-import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect } from "react";
-import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import SettingsScrollView from "./SettingsScrollView";
 import SwipeableItem from "./SwipeableItem";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
+import {
+  Button,
+  Card,
+  Dialog,
+  FAB,
+  Icon,
+  Portal,
+  Text,
+  useTheme,
+} from "react-native-paper";
 
 export default function SystemAccessTokens() {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { navigateToCreateSystemAccessToken } = useNavigationUtils();
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
@@ -27,6 +32,8 @@ export default function SystemAccessTokens() {
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
     setMainLoading,
   } = useAppContext();
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const disabledActions = isOfflineAuth || isBackendUnreachable;
 
@@ -43,7 +50,8 @@ export default function SystemAccessTokens() {
       refetch();
     } catch (error) {
       console.error("Error deleting token:", error);
-      Alert.alert(t("common.error"), t("systemAccessTokens.deleteError"));
+      setErrorMessage(t("systemAccessTokens.deleteError"));
+      setShowErrorDialog(true);
     }
   };
 
@@ -78,70 +86,68 @@ export default function SystemAccessTokens() {
             : undefined
         }
       >
-        <ThemedView
+        <View
           style={[
             styles.tokenItem,
-            {
-              backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
-            },
             isExpired && styles.expiredToken,
           ]}
         >
-          <View style={styles.tokenHeader}>
-            <ThemedText style={styles.tokenName}>
-              {item.description ||
-                (item.requester
-                  ? item.requester.username ||
+            <View style={styles.tokenHeader}>
+              <Text variant="titleMedium" style={styles.tokenName}>
+                {item.description ||
+                  (item.requester
+                    ? item.requester.username ||
+                      item.requester.email ||
+                      item.requester.id
+                    : null) ||
+                  item.id}
+              </Text>
+              {isExpired && (
+                <View style={styles.expiredBadge}>
+                  <Text variant="bodySmall" style={styles.expiredText}>
+                    {t("systemAccessTokens.item.expired")}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.tokenDetails}>
+              <Text variant="bodySmall" style={styles.tokenDetail}>
+                {t("systemAccessTokens.item.created")}:{" "}
+                {formatTokenDate(item.createdAt)}
+              </Text>
+
+              <Text variant="bodySmall" style={styles.tokenDetail}>
+                {t("systemAccessTokens.item.calls")}: {item.calls}/
+                {item.maxCalls || "-"}
+              </Text>
+
+              {item.requester ? (
+                <Text variant="bodySmall" style={styles.tokenDetail}>
+                  {t("systemAccessTokens.item.requester")}:{" "}
+                  {item.requester.username ||
                     item.requester.email ||
-                    item.requester.id
-                  : null) ||
-                item.id}
-            </ThemedText>
-            {isExpired && (
-              <View style={styles.expiredBadge}>
-                <ThemedText style={styles.expiredText}>
-                  {t("systemAccessTokens.item.expired")}
-                </ThemedText>
-              </View>
-            )}
-          </View>
+                    item.requester.id}
+                </Text>
+              ) : null}
 
-          <View style={styles.tokenDetails}>
-            <ThemedText style={styles.tokenDetail}>
-              {t("systemAccessTokens.item.created")}:{" "}
-              {formatTokenDate(item.createdAt)}
-            </ThemedText>
+              {item.description ? (
+                <Text variant="bodySmall" style={styles.tokenDetail}>
+                  {t("systemAccessTokens.item.description")}: {item.description}
+                </Text>
+              ) : null}
 
-            <ThemedText style={styles.tokenDetail}>
-              {t("systemAccessTokens.item.calls")}: {item.calls}/
-              {item.maxCalls || "-"}
-            </ThemedText>
-
-            {item.requester ? (
-              <ThemedText style={styles.tokenDetail}>
-                {t("systemAccessTokens.item.requester")}:{" "}
-                {item.requester.username ||
-                  item.requester.email ||
-                  item.requester.id}
-              </ThemedText>
-            ) : null}
-
-            {item.description ? (
-              <ThemedText style={styles.tokenDetail}>
-                {t("systemAccessTokens.item.description")}: {item.description}
-              </ThemedText>
-            ) : null}
-
-            {item.expiresAt && (
-              <ThemedText
-                style={[styles.tokenDetail, isExpired && styles.expiredDetail]}
-              >
-                {t("systemAccessTokens.item.expires")}:{" "}
-                {formatTokenDate(item.expiresAt)}
-              </ThemedText>
-            )}
-          </View>
-        </ThemedView>
+              {item.expiresAt && (
+                <Text
+                  variant="bodySmall"
+                  style={[styles.tokenDetail, isExpired && styles.expiredDetail]}
+                >
+                  {t("systemAccessTokens.item.expires")}:{" "}
+                  {formatTokenDate(item.expiresAt)}
+                </Text>
+              )}
+            </View>
+        </View>
       </SwipeableItem>
     );
   };
@@ -149,85 +155,70 @@ export default function SystemAccessTokens() {
   const disabledAdd = disabledActions;
 
   return (
-    <SettingsScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      onRefresh={refetch}
-      headerActions={
-        <TouchableOpacity
-          style={[
-            styles.createButton,
-            {
-              backgroundColor: disabledAdd
-                ? Colors[colorScheme ?? "light"].buttonDisabled
-                : Colors[colorScheme ?? "light"].tint,
-            },
-          ]}
-          onPress={() => navigateToCreateSystemAccessToken()}
-          disabled={disabledAdd}
-        >
-          <Ionicons
-            name="add"
-            size={24}
-            color={
-              disabledAdd
-                ? Colors[colorScheme ?? "light"].textSecondary
-                : "white"
-            }
-          />
-        </TouchableOpacity>
-      }
-    >
-      <ThemedView>
+    <View style={styles.container}>
+      <SettingsScrollView
+        showsVerticalScrollIndicator={false}
+        onRefresh={refetch}
+      >
         {sortedTokens.length === 0 ? (
-          <ThemedView style={styles.emptyState}>
-            <Ionicons
-              name="key-outline"
+          <View style={styles.emptyState}>
+            <Icon
+              source="key"
               size={64}
-              color={Colors[colorScheme ?? "light"].icon}
+              color={theme.colors.onSurfaceVariant}
             />
-            <ThemedText style={styles.emptyText}>
+            <Text variant="headlineSmall" style={styles.emptyText}>
               {t("systemAccessTokens.noTokensTitle")}
-            </ThemedText>
-            <ThemedText style={styles.emptySubtext}>
+            </Text>
+            <Text variant="bodyMedium" style={styles.emptySubtext}>
               {t("systemAccessTokens.noTokensSubtext")}
-            </ThemedText>
-          </ThemedView>
+            </Text>
+          </View>
         ) : (
           <View style={styles.tokensContainer}>
             {sortedTokens.map((item) => renderTokenItem(item))}
           </View>
         )}
-      </ThemedView>
-    </SettingsScrollView>
+      </SettingsScrollView>
+
+      <FAB
+        icon="plus"
+        style={styles.fab}
+        onPress={() => navigateToCreateSystemAccessToken()}
+        disabled={disabledAdd}
+      />
+
+      {/* Error Dialog */}
+      <Portal>
+        <Dialog
+          visible={showErrorDialog}
+          onDismiss={() => setShowErrorDialog(false)}
+        >
+          <Dialog.Title>{t("common.error")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{errorMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowErrorDialog(false)}>
+              {t("common.ok")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: "relative",
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  createButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  description: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 24,
+  fab: {
+    position: "absolute",
+    margin: 16,
+    right: 0,
+    bottom: 0,
   },
   emptyState: {
     flex: 1,
@@ -236,14 +227,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
     marginTop: 16,
     textAlign: "center",
   },
   emptySubtext: {
-    fontSize: 14,
-    opacity: 0.7,
     marginTop: 8,
     textAlign: "center",
   },
@@ -252,11 +239,6 @@ const styles = StyleSheet.create({
   },
   tokenItem: {
     padding: 16,
-    borderRadius: 12,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   expiredToken: {
     opacity: 0.6,
@@ -269,8 +251,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tokenName: {
-    fontSize: 16,
-    fontWeight: "600",
     flex: 1,
   },
   expiredBadge: {
@@ -281,14 +261,12 @@ const styles = StyleSheet.create({
   },
   expiredText: {
     color: "white",
-    fontSize: 12,
     fontWeight: "600",
   },
   tokenDetails: {
     gap: 4,
   },
   tokenDetail: {
-    fontSize: 13,
     opacity: 0.7,
   },
   expiredDetail: {

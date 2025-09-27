@@ -1,17 +1,18 @@
-import { Colors } from "@/constants/Colors";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/contexts/AppContext";
 import React, { useEffect } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import SettingsScrollView from "@/components/SettingsScrollView";
 import { useGetUserWebhooksQuery } from "../generated/gql-operations-generated";
 import SwipeableWebhookItem from "./SwipeableWebhookItem";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
-import Icon from "./ui/Icon";
 import { useNavigationUtils } from "@/utils/navigation";
+import {
+  FAB,
+  Icon,
+  Text,
+  useTheme,
+} from "react-native-paper";
 
 interface WebhooksSettingsProps {
   refreshing?: boolean;
@@ -20,7 +21,7 @@ interface WebhooksSettingsProps {
 export default function WebhooksSettings({
   refreshing,
 }: WebhooksSettingsProps) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const { navigateToCreateWebhook } = useNavigationUtils();
   const {
@@ -56,40 +57,22 @@ export default function WebhooksSettings({
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <SettingsScrollView
-        onRefresh={handleRefresh}
-        headerActions={
-          <TouchableOpacity
-            style={[
-              styles.addButton,
-              {
-                backgroundColor: isOffline
-                  ? Colors[colorScheme ?? "light"].buttonDisabled
-                  : Colors[colorScheme ?? "light"].tint,
-              },
-            ]}
-            onPress={handleCreateWebhook}
-            disabled={isOffline}
-          >
-            <Icon name="add" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-        }
-      >
+    <View style={styles.container}>
+      <SettingsScrollView onRefresh={handleRefresh}>
         {webhooks.length === 0 ? (
-          <ThemedView style={styles.emptyState}>
+          <View style={styles.emptyState}>
             <Icon
-              name="webhook"
+              source="webhook"
               size={64}
-              color={Colors[colorScheme ?? "light"].icon}
+              color={theme.colors.onSurfaceVariant}
             />
-            <ThemedText style={styles.emptyText}>
+            <Text variant="headlineSmall" style={styles.emptyText}>
               {t("webhooks.noWebhooksTitle")}
-            </ThemedText>
-            <ThemedText style={styles.emptySubtext}>
+            </Text>
+            <Text variant="bodyMedium" style={styles.emptySubtext}>
               {t("webhooks.noWebhooksSubtext")}
-            </ThemedText>
-          </ThemedView>
+            </Text>
+          </View>
         ) : (
           <View style={styles.webhooksContainer}>
             {sortedWebhooks.map((webhook) => (
@@ -98,24 +81,22 @@ export default function WebhooksSettings({
           </View>
         )}
       </SettingsScrollView>
-    </ThemedView>
+
+      {/* FAB per creare nuovo webhook */}
+      <FAB
+        icon="plus"
+        style={styles.fab}
+        onPress={handleCreateWebhook}
+        disabled={isOffline}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
+    position: "relative",
   },
   emptyState: {
     flex: 1,
@@ -124,18 +105,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
     marginTop: 16,
     textAlign: "center",
   },
   emptySubtext: {
-    fontSize: 14,
-    opacity: 0.7,
     marginTop: 8,
     textAlign: "center",
   },
   webhooksContainer: {
     flex: 1,
+  },
+  fab: {
+    position: "absolute",
+    bottom: 24,
+    right: 24,
   },
 });

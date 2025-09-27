@@ -1,43 +1,46 @@
-import { Colors } from "@/constants/Colors";
 import {
   CreateAccessTokenDto,
   useCreateAccessTokenMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
-import { Ionicons } from "@expo/vector-icons";
-import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
-  Modal,
   Platform,
   StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
 import SettingsScrollView from "@/components/SettingsScrollView";
+import CopyButton from "@/components/ui/CopyButton";
+import {
+  Button,
+  Card,
+  Dialog,
+  Icon,
+  Portal,
+  Text,
+  TextInput,
+  useTheme,
+} from "react-native-paper";
 
 export default function CreateAccessTokenForm() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const [creating, setCreating] = useState(false);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [newToken, setNewToken] = useState<string>("");
   const [newTokenName, setNewTokenName] = useState("");
   const [expirationDays, setExpirationDays] = useState("");
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [createAccessToken] = useCreateAccessTokenMutation();
 
   const createToken = async () => {
     if (!newTokenName.trim()) {
-      Alert.alert(t("common.error"), t("accessTokens.form.nameRequired"));
+      setErrorMessage(t("accessTokens.form.nameRequired"));
+      setShowErrorDialog(true);
       return;
     }
 
@@ -70,18 +73,11 @@ export default function CreateAccessTokenForm() {
       }
     } catch (error) {
       console.error("Error creating token:", error);
-      Alert.alert(t("common.error"), t("accessTokens.form.createError"));
+      setErrorMessage(t("accessTokens.form.createError"));
+      setShowErrorDialog(true);
     } finally {
       setCreating(false);
     }
-  };
-
-  const copyToClipboard = async (text: string) => {
-    await Clipboard.setStringAsync(text);
-    Alert.alert(
-      t("accessTokens.form.copied"),
-      t("accessTokens.form.tokenCopied")
-    );
   };
 
   const resetForm = () => {
@@ -93,167 +89,133 @@ export default function CreateAccessTokenForm() {
 
   return (
     <SettingsScrollView style={styles.container}>
-      <ThemedView
-        style={[
-          styles.formContainer,
-          { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
-        ]}
-      >
-        <View style={styles.inputGroup}>
-          <ThemedText style={styles.inputLabel}>
-            {t("accessTokens.form.tokenName")}
-          </ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: Colors[colorScheme ?? "light"].background,
-                borderColor: Colors[colorScheme ?? "light"].border,
-                color: Colors[colorScheme ?? "light"].text,
-              },
-            ]}
-            value={newTokenName}
-            onChangeText={setNewTokenName}
-            placeholder={t("accessTokens.form.tokenNamePlaceholder")}
-            placeholderTextColor={Colors[colorScheme ?? "light"].tabIconDefault}
-            autoFocus
-          />
-        </View>
+      <Card style={styles.formContainer} elevation={0}>
+        <Card.Content>
+          <View style={styles.inputGroup}>
+            <Text variant="titleMedium" style={styles.inputLabel}>
+              {t("accessTokens.form.tokenName")}
+            </Text>
+            <TextInput
+              mode="outlined"
+              value={newTokenName}
+              onChangeText={setNewTokenName}
+              placeholder={t("accessTokens.form.tokenNamePlaceholder")}
+              autoFocus
+            />
+          </View>
 
-        <View style={styles.inputGroup}>
-          <ThemedText style={styles.inputLabel}>
-            {t("accessTokens.form.expiration")}
-          </ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: Colors[colorScheme ?? "light"].background,
-                borderColor: Colors[colorScheme ?? "light"].border,
-                color: Colors[colorScheme ?? "light"].text,
-              },
-            ]}
-            value={expirationDays}
-            onChangeText={setExpirationDays}
-            placeholder={t("accessTokens.form.expirationPlaceholder")}
-            placeholderTextColor={Colors[colorScheme ?? "light"].tabIconDefault}
-            keyboardType="numeric"
-          />
-          <ThemedText style={styles.inputHint}>
-            {t("accessTokens.form.expirationHint")}
-          </ThemedText>
-        </View>
+          <View style={styles.inputGroup}>
+            <Text variant="titleMedium" style={styles.inputLabel}>
+              {t("accessTokens.form.expiration")}
+            </Text>
+            <TextInput
+              mode="outlined"
+              value={expirationDays}
+              onChangeText={setExpirationDays}
+              placeholder={t("accessTokens.form.expirationPlaceholder")}
+              keyboardType="numeric"
+            />
+            <Text variant="bodySmall" style={styles.inputHint}>
+              {t("accessTokens.form.expirationHint")}
+            </Text>
+          </View>
 
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[
-              styles.button,
-              styles.createButton,
-              { backgroundColor: Colors[colorScheme ?? "light"].tint },
-              (!isFormValid || creating) && styles.buttonDisabled,
-            ]}
-            onPress={createToken}
-            disabled={!isFormValid || creating}
-          >
-            <ThemedText style={styles.createButtonText}>
+          <View style={styles.buttonRow}>
+            <Button
+              mode="contained"
+              onPress={createToken}
+              disabled={!isFormValid || creating}
+              style={styles.createButton}
+            >
               {creating
                 ? t("accessTokens.form.creating")
                 : t("accessTokens.form.createButton")}
-            </ThemedText>
-          </TouchableOpacity>
+            </Button>
 
-          <TouchableOpacity
-            style={[
-              styles.button,
-              styles.resetButton,
-              { borderColor: Colors[colorScheme ?? "light"].tint },
-            ]}
-            onPress={resetForm}
-            disabled={creating}
-          >
-            <ThemedText
-              style={[
-                styles.resetButtonText,
-                { color: Colors[colorScheme ?? "light"].tint },
-              ]}
+            <Button
+              mode="outlined"
+              onPress={resetForm}
+              disabled={creating}
+              style={styles.resetButton}
             >
               {t("common.reset")}
-            </ThemedText>
-          </TouchableOpacity>
-        </View>
-      </ThemedView>
+            </Button>
+          </View>
+        </Card.Content>
+      </Card>
 
-      {/* Token Display Modal */}
-      <Modal
-        visible={showTokenModal}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setShowTokenModal(false)}
-      >
-        <View style={styles.tokenModalOverlay}>
-          <ThemedView style={styles.tokenModalContainer}>
+      {/* Token Display Dialog */}
+      <Portal>
+        <Dialog
+          visible={showTokenModal}
+          onDismiss={() => setShowTokenModal(false)}
+        >
+          <Dialog.Title>{t("accessTokens.form.tokenCreatedTitle")}</Dialog.Title>
+          <Dialog.Content>
             <View style={styles.tokenModalHeader}>
-              <Ionicons
-                name="checkmark-circle"
+              <Icon
+                source="check-circle"
                 size={48}
-                color={Colors[colorScheme ?? "light"].tint}
+                color={theme.colors.primary}
               />
-              <ThemedText style={styles.tokenModalTitle}>
-                {t("accessTokens.form.tokenCreatedTitle")}
-              </ThemedText>
-              <ThemedText style={styles.tokenModalSubtitle}>
+              <Text variant="bodyMedium" style={styles.tokenModalSubtitle}>
                 {t("accessTokens.form.tokenCreatedSubtitle")}
-              </ThemedText>
+              </Text>
             </View>
 
-            <View
-              style={[
-                styles.tokenContainer,
-                {
-                  backgroundColor:
-                    Colors[colorScheme ?? "light"].backgroundSecondary,
-                },
-              ]}
-            >
+            <View style={styles.tokenContainer}>
               <Text
+                variant="bodySmall"
                 style={[
                   styles.tokenText,
-                  { color: Colors[colorScheme ?? "light"].text },
+                  { fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" },
                 ]}
               >
                 {newToken}
               </Text>
-              <TouchableOpacity
-                style={[
-                  styles.copyButton,
-                  { backgroundColor: Colors[colorScheme ?? "light"].tint },
-                ]}
-                onPress={() => copyToClipboard(newToken)}
-              >
-                <Ionicons name="copy" size={20} color="white" />
-                <Text style={styles.copyButtonText}>
+              <View style={styles.copyButtonContainer}>
+                <CopyButton
+                  text={newToken}
+                  size={20}
+                  style={styles.copyButton}
+                />
+                <Text variant="bodyMedium" style={styles.copyButtonText}>
                   {t("accessTokens.form.copy")}
                 </Text>
-              </TouchableOpacity>
+              </View>
             </View>
-
-            <TouchableOpacity
-              style={[
-                styles.doneButton,
-                { backgroundColor: Colors[colorScheme ?? "light"].tint },
-              ]}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              mode="contained"
               onPress={() => {
                 setShowTokenModal(false);
                 router.back();
               }}
             >
-              <ThemedText style={styles.doneButtonText}>
-                {t("accessTokens.form.done")}
-              </ThemedText>
-            </TouchableOpacity>
-          </ThemedView>
-        </View>
-      </Modal>
+              {t("accessTokens.form.done")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* Error Dialog */}
+      <Portal>
+        <Dialog
+          visible={showErrorDialog}
+          onDismiss={() => setShowErrorDialog(false)}
+        >
+          <Dialog.Title>{t("common.error")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{errorMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowErrorDialog(false)}>
+              {t("common.ok")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </SettingsScrollView>
   );
 }
@@ -263,87 +225,32 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   formContainer: {
-    padding: 20,
-    borderRadius: 12,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    marginBottom: 16,
   },
   inputGroup: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 16,
-    fontWeight: "600",
     marginBottom: 8,
   },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
   inputHint: {
-    fontSize: 12,
-    opacity: 0.7,
     marginTop: 4,
   },
   buttonRow: {
     flexDirection: "row",
     gap: 12,
   },
-  button: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   createButton: {
-    // backgroundColor set dynamically
-  },
-  createButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
+    flex: 1,
   },
   resetButton: {
-    borderWidth: 1,
-  },
-  resetButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  tokenModalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 32,
-  },
-  tokenModalContainer: {
-    width: "100%",
-    maxWidth: 400,
-    borderRadius: 16,
-    padding: 24,
   },
   tokenModalHeader: {
     alignItems: "center",
-    marginBottom: 24,
-  },
-  tokenModalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginTop: 12,
-    textAlign: "center",
+    marginBottom: 16,
   },
   tokenModalSubtitle: {
-    fontSize: 14,
-    opacity: 0.7,
     marginTop: 8,
     textAlign: "center",
   },
@@ -351,36 +258,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginBottom: 24,
-    padding: 12,
-    borderRadius: 8,
+    marginTop: 16,
   },
   tokenText: {
     flex: 1,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
     fontSize: 12,
   },
   copyButton: {
+    margin: 0,
+  },
+  copyButtonContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 16,
   },
   copyButtonText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  doneButton: {
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  doneButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
+    marginLeft: 4,
   },
 });

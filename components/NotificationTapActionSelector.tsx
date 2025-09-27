@@ -1,4 +1,3 @@
-import { Colors } from "@/constants/Colors";
 import {
   HttpMethod,
   NotificationActionDto,
@@ -6,18 +5,21 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useNotificationUtils } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import React, { useEffect, useState } from "react";
 import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import NotificationActionForm from "./NotificationActionForm";
-import { ThemedText } from "./ThemedText";
-import { Icon, IconButton, InlinePickerOption } from "./ui";
+import {
+  Text,
+  Icon,
+  Button,
+  useTheme,
+} from "react-native-paper";
 
 interface NotificationTapActionSelectorProps {
   tapAction: NotificationActionDto | null;
   onTapActionChange: (tapAction: NotificationActionDto | null) => void;
   label?: string;
-  webhookOptions?: InlinePickerOption<string>[];
+  webhookOptions?: Array<{ id: string; name: string; description?: string }>;
   hasWebhooks?: boolean;
 }
 
@@ -29,7 +31,7 @@ export default function NotificationTapActionSelector({
   hasWebhooks = false,
 }: NotificationTapActionSelectorProps) {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { getActionTypeFriendlyName } = useNotificationUtils();
 
   const [showTapActionForm, setShowTapActionForm] = useState(false);
@@ -45,7 +47,7 @@ export default function NotificationTapActionSelector({
       setEditingAction(tapAction);
       if (
         tapAction.type === NotificationActionType.BackgroundCall &&
-        tapAction.value.includes(":")
+        tapAction.value && tapAction.value.includes(":")
       ) {
         const [method, url] = tapAction.value.split(":");
         setWebhookMethod(method as HttpMethod);
@@ -76,7 +78,7 @@ export default function NotificationTapActionSelector({
       });
     } else {
       // For non-webhook actions, ensure the value is set
-      if (!editingAction.value.trim()) {
+      if (!editingAction.value || !editingAction.value.trim()) {
         Alert.alert(
           t("common.error"),
           t("notifications.actions.actionValueRequired")
@@ -120,7 +122,7 @@ export default function NotificationTapActionSelector({
       setEditingAction(tapAction);
       if (
         tapAction.type === NotificationActionType.BackgroundCall &&
-        tapAction.value.includes(":")
+        tapAction.value && tapAction.value.includes(":")
       ) {
         const [method, url] = tapAction.value.split(":");
         setWebhookMethod(method as HttpMethod);
@@ -135,17 +137,17 @@ export default function NotificationTapActionSelector({
 
   return (
     <View style={styles.field}>
-      <ThemedText style={styles.label}>
+      <Text style={styles.label}>
         {label || t("notifications.tapAction.title")}
-      </ThemedText>
-      <ThemedText
+      </Text>
+      <Text
         style={[
           styles.inputHint,
-          { color: Colors[colorScheme ?? "light"].textSecondary },
+          { color: theme.colors.onSurfaceVariant },
         ]}
       >
         {t("notifications.tapAction.description")}
-      </ThemedText>
+      </Text>
 
       {tapAction ? (
         <View
@@ -153,70 +155,71 @@ export default function NotificationTapActionSelector({
             styles.actionItem,
             {
               backgroundColor:
-                Colors[colorScheme ?? "light"].backgroundSecondary,
-              borderColor: Colors[colorScheme ?? "light"].border,
+                theme.colors.surfaceVariant,
+              borderColor: theme.colors.outline,
             },
           ]}
         >
           <View style={styles.actionInfo}>
             <Icon
-              name="action"
-              size="sm"
-              color={Colors[colorScheme ?? "light"].tint}
+              source="action"
+              size={20}
+              color={theme.colors.primary}
             />
             <View style={styles.actionDetails}>
-              <ThemedText
+              <Text
                 style={[
                   styles.actionValue,
-                  { color: Colors[colorScheme ?? "light"].text },
+                  { color: theme.colors.onSurface },
                 ]}
               >
                 {tapAction.title}
-              </ThemedText>
-              <ThemedText
+              </Text>
+              <Text
                 style={[
                   styles.actionMeta,
-                  { color: Colors[colorScheme ?? "light"].textSecondary },
+                  { color: theme.colors.onSurfaceVariant },
                 ]}
               >
                 {getActionTypeFriendlyName(tapAction.type)} • {tapAction.value}{" "}
                 {tapAction.destructive ? "• Destructive" : ""}
-              </ThemedText>
+              </Text>
             </View>
           </View>
           <View style={styles.actionButtons}>
             <TouchableOpacity
               style={[
                 styles.editActionButton,
-                { backgroundColor: Colors[colorScheme ?? "light"].tint },
+                { backgroundColor: theme.colors.primary },
               ]}
               onPress={handleEditTapAction}
             >
-              <Icon name="edit" size="xs" color="white" />
+              <Icon source="pencil" size={16} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.removeActionButton}
               onPress={() => onTapActionChange(null)}
             >
-              <Icon name="remove" size="xs" color="white" />
+              <Icon source="minus" size={16} />
             </TouchableOpacity>
           </View>
         </View>
       ) : (
-        <IconButton
-          title={t("notifications.tapAction.addTapAction")}
-          iconName="add"
+        <Button
+          mode="outlined"
+          icon="plus"
           onPress={handleAddTapAction}
-          variant="secondary"
-          size="md"
-        />
+          compact
+        >
+          {t("notifications.tapAction.addTapAction")}
+        </Button>
       )}
 
       {showTapActionForm && editingAction && (
         <NotificationActionForm
           actionTitle={editingAction.title || ""}
           actionType={editingAction.type}
-          actionValue={editingAction.value}
+          actionValue={editingAction.value || ""}
           actionIconName={editingAction.icon?.replace("sfsymbols:", "") || ""}
           actionDestructive={editingAction.destructive || false}
           webhookMethod={webhookMethod}

@@ -17,7 +17,12 @@ import {
 } from "react-native-paper";
 import GalleryFiltersModal from "./GalleryFiltersModal";
 import { MediaTypeIcon } from "./MediaTypeIcon";
-import InlineMenu from "./ui/InlineMenu";
+import {
+  Menu,
+  MenuOptions,
+  MenuOption,
+  MenuTrigger,
+} from "react-native-popup-menu";
 
 const availableMediaTypes = Object.values(MediaType);
 
@@ -214,23 +219,57 @@ export default function GalleryFilters() {
     );
 
     return (
-      <InlineMenu
-        anchor={
+      <Menu>
+        <MenuTrigger>
           <View style={styles.infoButton}>
             <Icon source="information" size={20} color={theme.colors.primary} />
           </View>
-        }
-        items={statsItems}
-        header={
-          <View style={styles.statsHeader}>
+        </MenuTrigger>
+        <MenuOptions
+          optionsContainerStyle={{
+            marginTop: 50,
+            backgroundColor: theme.colors.surface,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: theme.colors.outlineVariant,
+          }}
+        >
+          {/* Header */}
+          <View
+            style={[
+              styles.statsHeader,
+              { borderBottomColor: theme.colors.outlineVariant },
+            ]}
+          >
             <Text
               style={[styles.statsTitle, { color: theme.colors.onSurface }]}
             >
               {t("gallery.statsByType")}
             </Text>
           </View>
-        }
-      />
+
+          {/* Stats Items */}
+          {statsItems.map((item, index) => (
+            <MenuOption key={index} onSelect={() => item.onPress()}>
+              <View style={styles.menuItem}>
+                <Icon
+                  source={item.icon}
+                  size={20}
+                  color={theme.colors.onSurface}
+                />
+                <Text
+                  style={[
+                    styles.menuItemText,
+                    { color: theme.colors.onSurface },
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </View>
+            </MenuOption>
+          ))}
+        </MenuOptions>
+      </Menu>
     );
   };
 
@@ -482,5 +521,15 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: "center",
     justifyContent: "center",
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  menuItemText: {
+    marginLeft: 12,
+    fontSize: 16,
   },
 });

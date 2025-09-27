@@ -1,25 +1,18 @@
-import { useI18n, useLanguageSync, useLocaleOptions } from "@/hooks";
 import { useAppContext } from "@/contexts/AppContext";
+import { useI18n, useLanguageSync } from "@/hooks";
 import { DATE_FORMAT_STYLES, DateFormatPreferences, DateFormatStyle } from "@/services/date-format";
 import { Locale } from "@/types/i18n";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  FlatList,
-  StyleSheet,
-  View,
+    StyleSheet,
+    View,
 } from "react-native";
+import ThemedInputSelect from "./ui/ThemedInputSelect";
 import {
-  Button,
-  Card,
-  Dialog,
-  Icon,
-  List,
-  Portal,
-  Switch,
-  Text,
-  TextInput,
-  TouchableRipple,
-  useTheme,
+    Card,
+    Switch,
+    Text,
+    useTheme
 } from "react-native-paper";
 
 interface LocalizationSettingsProps {
@@ -35,16 +28,13 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
   } = useAppContext();
 
   // Language settings state
-  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [languageSearchQuery, setLanguageSearchQuery] = useState("");
 
   // Timezone settings state
-  const [showTimezoneModal, setShowTimezoneModal] = useState(false);
   const [timezoneSearchQuery, setTimezoneSearchQuery] = useState("");
   const [allTimezones, setAllTimezones] = useState<string[]>([]);
 
   // Date format settings state
-  const [showDateFormatModal, setShowDateFormatModal] = useState(false);
   const [dateFormatPreferences, setDateFormatPreferencesState] = useState<DateFormatPreferences>(
     getDateFormatPreferences()
   );
@@ -301,11 +291,47 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
     );
   }, [timezoneSearchQuery, allTimezones]);
 
+  // Prepare options for dropdowns
+  const languageOptions = useMemo(() => {
+    return filteredLocales.map((locale) => ({
+      id: locale,
+      name: getLocaleDisplayName(locale),
+    }));
+  }, [filteredLocales, getLocaleDisplayName]);
+
+  const getTimezoneDisplayName = (timezone: string): string => {
+    if (timezone === getDeviceTimezone()) {
+      return `${timezone} (${t("appSettings.timezone.deviceDefault")})`;
+    }
+    return timezone;
+  };
+
+  const timezoneOptions = useMemo(() => {
+    return filteredTimezones.map((timezone) => ({
+      id: timezone,
+      name: getTimezoneDisplayName(timezone),
+    }));
+  }, [filteredTimezones, getTimezoneDisplayName]);
+
+  const dateFormatOptions = useMemo(() => {
+    return Object.keys(DATE_FORMAT_STYLES).map((style) => {
+      const styleInfo = DATE_FORMAT_STYLES[style as DateFormatStyle];
+      return {
+        id: style,
+        name: t(`appSettings.dateFormat.styles.${style}.name` as any),
+        description: `${styleInfo.example} - ${t(`appSettings.dateFormat.styles.${style}.description` as any)}`,
+      };
+    });
+  }, [t]);
+
+  const selectedLanguage = languageOptions.find(option => option.id === currentLocale);
+  const selectedTimezone = timezoneOptions.find(option => option.id === currentTimezone);
+  const selectedDateFormat = dateFormatOptions.find(option => option.id === dateFormatPreferences.dateStyle);
+
   // Language handlers
   const handleLanguageSelect = async (locale: Locale) => {
     try {
       await setLocale(locale);
-      setShowLanguageModal(false);
       setLanguageSearchQuery("");
     } catch (error) {
       console.error("Failed to change language:", error);
@@ -319,15 +345,7 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
   // Timezone handlers
   const handleTimezoneSelect = async (timezone: string) => {
     await setTimezone(timezone);
-    setShowTimezoneModal(false);
     setTimezoneSearchQuery("");
-  };
-
-  const getTimezoneDisplayName = (timezone: string): string => {
-    if (timezone === getDeviceTimezone()) {
-      return `${timezone} (${t("appSettings.timezone.deviceDefault")})`;
-    }
-    return timezone;
   };
 
   const getCurrentTimezoneDisplayName = (): string => {
@@ -339,7 +357,6 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
     const newPreferences = { ...dateFormatPreferences, dateStyle: newStyle };
     setDateFormatPreferencesState(newPreferences);
     await setDateFormatPreferences(newPreferences);
-    setShowDateFormatModal(false);
   };
 
   const handleTimeFormatChange = async (use24Hour: boolean) => {
@@ -348,138 +365,69 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
     await setDateFormatPreferences(newPreferences);
   };
 
-  // Render functions
-  const renderLanguageItem = ({ item }: { item: Locale }) => (
-    <List.Item
-      title={getLocaleDisplayName(item)}
-      right={(props) => 
-        item === currentLocale ? (
-          <List.Icon {...props} icon="check" color={theme.colors.primary} />
-        ) : undefined
-      }
-      onPress={() => handleLanguageSelect(item)}
-      style={{
-        backgroundColor: item === currentLocale 
-          ? theme.colors.primaryContainer 
-          : theme.colors.surface,
-        marginHorizontal: 16,
-        marginVertical: 2,
-        borderRadius: 8,
-      }}
-    />
-  );
-
-  const renderTimezoneItem = ({ item }: { item: string }) => (
-    <List.Item
-      title={getTimezoneDisplayName(item)}
-      description={item === getDeviceTimezone() ? t("appSettings.timezone.deviceDefault") : undefined}
-      right={(props) => 
-        item === currentTimezone ? (
-          <List.Icon {...props} icon="check" color={theme.colors.primary} />
-        ) : undefined
-      }
-      onPress={() => handleTimezoneSelect(item)}
-      style={{
-        backgroundColor: item === currentTimezone 
-          ? theme.colors.primaryContainer 
-          : theme.colors.surface,
-        marginHorizontal: 16,
-        marginVertical: 2,
-        borderRadius: 8,
-      }}
-    />
-  );
-
-  const renderDateFormatStyleItem = ({ item }: { item: DateFormatStyle }) => {
-    const styleInfo = DATE_FORMAT_STYLES[item];
-    const isSelected = dateFormatPreferences.dateStyle === item;
-
-    return (
-      <List.Item
-        title={t(`appSettings.dateFormat.styles.${item}.name` as any)}
-        description={`${styleInfo.example} - ${t(`appSettings.dateFormat.styles.${item}.description` as any)}`}
-        right={(props) => 
-          isSelected ? (
-            <List.Icon {...props} icon="check" color={theme.colors.primary} />
-          ) : undefined
-        }
-        onPress={() => handleDateFormatStyleChange(item)}
-        style={{
-          backgroundColor: isSelected 
-            ? theme.colors.primaryContainer 
-            : theme.colors.surface,
-          marginHorizontal: 16,
-          marginVertical: 2,
-          borderRadius: 8,
-        }}
-      />
-    );
-  };
-
   return (
     <View style={style}>
       {/* Section Header */}
       <View style={styles.sectionHeader}>
         <Text variant="headlineSmall" style={styles.sectionTitle}>
-          {t("appSettings.language.title")}
+          {t("appSettings.localization.title")}
         </Text>
         <Text variant="bodyMedium" style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
-          {t("appSettings.language.description")}
+          {t("appSettings.localization.description")}
         </Text>
       </View>
 
       {/* Language Settings */}
       <Card style={styles.settingCard} elevation={0}>
-        <List.Item
-          title={t("appSettings.language.title")}
-          description={t("appSettings.language.description")}
-          left={(props) => <List.Icon {...props} icon="translate" />}
-          right={(props) => (
-            <View style={styles.rightContent}>
-              <Text variant="bodyMedium" style={{ color: theme.colors.primary, marginRight: 8 }}>
-                {getCurrentLanguageDisplayName()}
-              </Text>
-              <List.Icon {...props} icon="chevron-right" />
-            </View>
-          )}
-          onPress={() => setShowLanguageModal(true)}
-        />
+        <View style={styles.dropdownContainer}>
+          <ThemedInputSelect
+            label={t("appSettings.localization.selectLanguage")}
+            placeholder={t("appSettings.localization.selectPlaceholder")}
+            options={languageOptions}
+            optionLabel="name"
+            optionValue="id"
+            selectedValue={selectedLanguage?.id}
+            onValueChange={(value) => handleLanguageSelect(value as Locale)}
+            isSearchable={true}
+            searchPlaceholder="Search..."
+            helperText={t("appSettings.localization.selectLanguage")}
+          />
+        </View>
       </Card>
 
       {/* Timezone Settings */}
       <Card style={styles.settingCard} elevation={0}>
-        <List.Item
-          title={t("appSettings.timezone.title")}
-          description={t("appSettings.timezone.description")}
-          left={(props) => <List.Icon {...props} icon="clock-outline" />}
-          right={(props) => (
-            <View style={styles.rightContent}>
-              <Text variant="bodyMedium" style={{ color: theme.colors.primary, marginRight: 8 }}>
-                {currentTimezone}
-              </Text>
-              <List.Icon {...props} icon="chevron-right" />
-            </View>
-          )}
-          onPress={() => setShowTimezoneModal(true)}
-        />
+        <View style={styles.dropdownContainer}>
+          <ThemedInputSelect
+            label={t("appSettings.timezone.title")}
+            placeholder={t("appSettings.timezone.selectPlaceholder")}
+            options={timezoneOptions}
+            optionLabel="name"
+            optionValue="id"
+            selectedValue={selectedTimezone?.id}
+            onValueChange={(value) => handleTimezoneSelect(value as string)}
+            isSearchable={true}
+            searchPlaceholder="Search..."
+            helperText={t("appSettings.timezone.description")}
+          />
+        </View>
       </Card>
 
       {/* Date Format Settings */}
       <Card style={styles.settingCard} elevation={0}>
-        <List.Item
-          title={t("appSettings.dateFormat.title")}
-          description={t("appSettings.dateFormat.description")}
-          left={(props) => <List.Icon {...props} icon="calendar" />}
-          right={(props) => (
-            <View style={styles.rightContent}>
-              <Text variant="bodyMedium" style={{ color: theme.colors.primary, marginRight: 8 }}>
-                {t(`appSettings.dateFormat.styles.${dateFormatPreferences.dateStyle}.name` as any)}
-              </Text>
-              <List.Icon {...props} icon="chevron-right" />
-            </View>
-          )}
-          onPress={() => setShowDateFormatModal(true)}
-        />
+        <View style={styles.dropdownContainer}>
+          <ThemedInputSelect
+            label={t("appSettings.dateFormat.title")}
+            placeholder={t("appSettings.dateFormat.selectPlaceholder")}
+            options={dateFormatOptions}
+            optionLabel="name"
+            optionValue="id"
+            selectedValue={selectedDateFormat?.id}
+            onValueChange={(value) => handleDateFormatStyleChange(value as DateFormatStyle)}
+            isSearchable={false}
+            helperText={t("appSettings.dateFormat.description")}
+          />
+        </View>
         
         <View style={styles.switchContainer}>
           <Text variant="bodyMedium" style={styles.switchLabel}>
@@ -492,127 +440,6 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
         </View>
       </Card>
 
-      {/* Language Selection Modal */}
-      <Portal>
-        <Dialog 
-          visible={showLanguageModal} 
-          onDismiss={() => setShowLanguageModal(false)}
-          style={styles.modalDialog}
-        >
-          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outline }]}>
-            <View style={styles.headerLeft}>
-              <Icon source="translate" size={24} color={theme.colors.primary} />
-              <Text style={styles.modalTitle}>{t("appSettings.language.selectLanguage")}</Text>
-            </View>
-            <TouchableRipple
-              style={styles.closeButton}
-              onPress={() => setShowLanguageModal(false)}
-              borderless
-            >
-              <Icon source="close" size={20} color={theme.colors.onSurface} />
-            </TouchableRipple>
-          </View>
-                 <Dialog.Content style={{ paddingTop: 16 }}>
-                   <TextInput
-                     mode="outlined"
-                     placeholder={t("appSettings.language.searchLanguage")}
-                     value={languageSearchQuery}
-                     onChangeText={setLanguageSearchQuery}
-                     left={<TextInput.Icon icon="magnify" />}
-                     right={
-                       languageSearchQuery.length > 0 ? (
-                         <TextInput.Icon icon="close" onPress={() => setLanguageSearchQuery("")} />
-                       ) : undefined
-                     }
-                     style={{ marginBottom: 16 }}
-                   />
-            <FlatList
-              data={filteredLocales}
-              renderItem={renderLanguageItem}
-              keyExtractor={(item) => item}
-              style={{ maxHeight: 300 }}
-              showsVerticalScrollIndicator={false}
-            />
-          </Dialog.Content>
-        </Dialog>
-      </Portal>
-
-      {/* Timezone Selection Modal */}
-      <Portal>
-        <Dialog 
-          visible={showTimezoneModal} 
-          onDismiss={() => setShowTimezoneModal(false)}
-          style={styles.modalDialog}
-        >
-          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outline }]}>
-            <View style={styles.headerLeft}>
-              <Icon source="clock-outline" size={24} color={theme.colors.primary} />
-              <Text style={styles.modalTitle}>{t("appSettings.timezone.selectTimezone")}</Text>
-            </View>
-            <TouchableRipple
-              style={styles.closeButton}
-              onPress={() => setShowTimezoneModal(false)}
-              borderless
-            >
-              <Icon source="close" size={20} color={theme.colors.onSurface} />
-            </TouchableRipple>
-          </View>
-                 <Dialog.Content style={{ paddingTop: 16 }}>
-                   <TextInput
-                     mode="outlined"
-                     placeholder={t("appSettings.timezone.searchTimezone")}
-                     value={timezoneSearchQuery}
-                     onChangeText={setTimezoneSearchQuery}
-                     left={<TextInput.Icon icon="magnify" />}
-                     right={
-                       timezoneSearchQuery.length > 0 ? (
-                         <TextInput.Icon icon="close" onPress={() => setTimezoneSearchQuery("")} />
-                       ) : undefined
-                     }
-                     style={{ marginBottom: 16 }}
-                   />
-            <FlatList
-              data={filteredTimezones}
-              renderItem={renderTimezoneItem}
-              keyExtractor={(item) => item}
-              style={{ maxHeight: 300 }}
-              showsVerticalScrollIndicator={false}
-            />
-          </Dialog.Content>
-        </Dialog>
-      </Portal>
-
-      {/* Date Format Style Selection Modal */}
-      <Portal>
-        <Dialog 
-          visible={showDateFormatModal} 
-          onDismiss={() => setShowDateFormatModal(false)}
-          style={styles.modalDialog}
-        >
-          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outline }]}>
-            <View style={styles.headerLeft}>
-              <Icon source="calendar" size={24} color={theme.colors.primary} />
-              <Text style={styles.modalTitle}>{t("appSettings.dateFormat.selectStyle")}</Text>
-            </View>
-            <TouchableRipple
-              style={styles.closeButton}
-              onPress={() => setShowDateFormatModal(false)}
-              borderless
-            >
-              <Icon source="close" size={20} color={theme.colors.onSurface} />
-            </TouchableRipple>
-          </View>
-                 <Dialog.Content style={{ paddingTop: 16 }}>
-                   <FlatList
-                     data={Object.keys(DATE_FORMAT_STYLES) as DateFormatStyle[]}
-                     renderItem={renderDateFormatStyleItem}
-                     keyExtractor={(item) => item}
-                     style={{ maxHeight: 300 }}
-                     showsVerticalScrollIndicator={false}
-                   />
-                 </Dialog.Content>
-        </Dialog>
-      </Portal>
     </View>
   );
 }
@@ -631,8 +458,8 @@ const styles = StyleSheet.create({
   },
   settingCard: {
     marginHorizontal: 16,
-    marginBottom: 16,
-    marginTop: 16,
+    marginBottom: 8,
+    marginTop: 8,
   },
   rightContent: {
     flexDirection: "row",
@@ -651,27 +478,40 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 16,
   },
-  modalDialog: {
-    maxHeight: "80%",
+  dropdownContainer: {
   },
-  modalHeader: {
+  dropdownLabel: {
+    marginBottom: 4,
+  },
+  dropdownDescription: {
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  dropdownButton: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  dropdownButtonText: {
+    flex: 1,
+    marginLeft: 8,
+    marginRight: 8,
+    fontSize: 16,
+  },
+  dropdownItem: {
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
   },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+  dropdownItemText: {
+    fontSize: 16,
+    fontWeight: "500",
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-  },
-  closeButton: {
-    padding: 8,
+  dropdownItemDescription: {
+    fontSize: 14,
+    marginTop: 4,
+    opacity: 0.7,
   },
 });

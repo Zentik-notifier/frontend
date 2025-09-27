@@ -37,6 +37,7 @@ interface NotificationSnoozeButtonProps {
   showText?: boolean;
   fullWidth?: boolean;
   onPress?: () => void;
+  style?: any;
 }
 
 const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
@@ -45,6 +46,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   showText = false,
   fullWidth = false,
   onPress,
+  style,
 }) => {
   const theme = useTheme();
   const { t } = useI18n();
@@ -199,7 +201,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   return (
     <>
       <TouchableRipple
-        style={
+        style={[
           variant === "inline"
             ? [
                 styles.inlinePill,
@@ -219,8 +221,9 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
                     : theme.colors.surfaceVariant,
                   borderColor: theme.colors.outline,
                 },
-              ]
-        }
+              ],
+          style,
+        ]}
         onPress={handlePress}
         disabled={settingSnooze}
       >

@@ -2,7 +2,9 @@ import { AppIcons } from "@/constants/Icons";
 import { BucketFragment } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
-import InlinePicker, { InlinePickerOption } from "./ui/InlinePicker";
+import { View, Text, StyleSheet } from "react-native";
+import ThemedInputSelect from "./ui/ThemedInputSelect";
+import { useTheme } from "react-native-paper";
 
 interface BucketSelectorProps {
   selectedBucketId: string | null;
@@ -26,54 +28,120 @@ export default function BucketSelector({
   searchPlaceholder,
 }: BucketSelectorProps) {
   const { t } = useI18n();
+  const theme = useTheme();
 
   // Use translations for default placeholders
-  const defaultPlaceholder = placeholder || t("bucketSelector.selectBucket" );
-  const defaultSearchPlaceholder = searchPlaceholder || t("bucketSelector.searchBuckets" );
-  // Helper function to get bucket icon based on bucket properties
-  const getBucketIconOption = (bucket: BucketFragment) => {
-    if (bucket.icon) {
-      return { imageUrl: bucket.icon };
-    }
-    return { color: bucket.color! };
-  };
+  const defaultPlaceholder = placeholder || t("bucketSelector.selectBucket");
+  const defaultSearchPlaceholder = searchPlaceholder || t("bucketSelector.searchBuckets");
 
-  // Prepare options for the bucket picker
-  const bucketOptions: InlinePickerOption<string | null>[] = useMemo(() => {
-    const options: InlinePickerOption<string | null>[] = [];
+  // Prepare options for the dropdown
+  const bucketOptions = useMemo(() => {
+    const options: Array<{ id: string | null; name: string; description?: string; icon?: string; color?: string }> = [];
 
     // Add "All Buckets" option if requested
     if (includeAllOption) {
       options.push({
-        value: null,
-        label: t("bucketSelector.allBuckets" ),
-        icon: "buckets" as keyof typeof AppIcons,
+        id: null,
+        name: t("bucketSelector.allBuckets"),
       });
     }
 
     // Add regular buckets
     buckets.forEach((bucket) => {
-      const iconOption = getBucketIconOption(bucket);
       options.push({
-        value: bucket.id,
-        label: bucket.name,
-        ...iconOption,
-        subtitle: bucket.description || undefined,
+        id: bucket.id,
+        name: bucket.name,
+        description: bucket.description || undefined,
+        icon: bucket.icon || undefined,
+        color: bucket.color || undefined,
       });
     });
 
     return options;
   }, [buckets, includeAllOption, t]);
 
+  const selectedOption = bucketOptions.find(option => option.id === selectedBucketId);
+
   return (
-    <InlinePicker<string | null>
-      label={label}
-      selectedValue={selectedBucketId}
-      options={bucketOptions}
-      onValueChange={onBucketChange}
-      placeholder={defaultPlaceholder}
-      searchable={searchable}
-      searchPlaceholder={defaultSearchPlaceholder}
-    />
+    <View style={styles.container}>
+      <ThemedInputSelect
+        label={label}
+        placeholder={defaultPlaceholder}
+        options={bucketOptions.filter(option => option.id !== null) as any}
+        optionLabel="name"
+        optionValue="id"
+        selectedValue={selectedOption?.id || ""}
+        onValueChange={(value) => onBucketChange(value as string || null)}
+        isSearchable={searchable}
+        searchPlaceholder={defaultSearchPlaceholder}
+      />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  dropdownButton: {
+    width: "100%",
+    height: 50,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+  },
+  dropdownButtonText: {
+    fontSize: 16,
+    textAlign: "left",
+  },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  buttonText: {
+    fontSize: 16,
+    flex: 1,
+  },
+  dropdown: {
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  dropdownRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  dropdownRowText: {
+    fontSize: 16,
+  },
+  rowContent: {
+    flexDirection: "column",
+  },
+  rowText: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  rowSubtext: {
+    fontSize: 14,
+    marginTop: 2,
+    opacity: 0.7,
+  },
+  searchInput: {
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    marginHorizontal: 12,
+    marginVertical: 8,
+    fontSize: 16,
+  },
+});

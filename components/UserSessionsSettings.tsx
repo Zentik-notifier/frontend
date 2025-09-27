@@ -1,4 +1,3 @@
-import { Colors } from "@/constants/Colors";
 import {
   SessionInfoDto,
   useGetUserSessionsQuery,
@@ -9,24 +8,32 @@ import {
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/contexts/AppContext";
-import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect } from "react";
-import { Alert, Image, StyleSheet, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Image, StyleSheet, View } from "react-native";
 import SwipeableItem from "./SwipeableItem";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
 import SettingsScrollView from "@/components/SettingsScrollView";
+import {
+  Button,
+  Card,
+  Dialog,
+  Icon,
+  Portal,
+  Text,
+  useTheme,
+} from "react-native-paper";
 
 export function UserSessionsSettings() {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
   const {
     setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   const { data, loading, refetch } = useGetUserSessionsQuery();
   const [revokeSession] = useRevokeSessionMutation();
@@ -45,7 +52,8 @@ export function UserSessionsSettings() {
       refetch(); // Refresh the list
     } catch (error) {
       console.error("Error deleting session:", error);
-      Alert.alert(t("common.error"), t("userSessions.deleteError") as string);
+      setErrorMessage(t("userSessions.deleteError") as string);
+      setShowErrorDialog(true);
     }
   };
 
@@ -55,7 +63,8 @@ export function UserSessionsSettings() {
       refetch(); // Refresh the list
     } catch (error) {
       console.error("Error revoking all other sessions:", error);
-      Alert.alert(t("common.error"), t("userSessions.deleteError") as string);
+      setErrorMessage(t("userSessions.deleteError") as string);
+      setShowErrorDialog(true);
     }
   };
 
@@ -66,8 +75,8 @@ export function UserSessionsSettings() {
   const getDeviceIcon = (
     deviceName?: string | null,
     operatingSystem?: string | null
-  ): keyof typeof Ionicons.glyphMap => {
-    if (!deviceName && !operatingSystem) return "phone-portrait-outline";
+  ): string => {
+    if (!deviceName && !operatingSystem) return "cellphone";
 
     const device = (deviceName || "").toLowerCase();
     const os = (operatingSystem || "").toLowerCase();
@@ -77,22 +86,22 @@ export function UserSessionsSettings() {
       device.includes("iphone") ||
       device.includes("ipad")
     ) {
-      return "phone-portrait-outline";
+      return "cellphone";
     }
     if (os.includes("android")) {
-      return "phone-portrait-outline";
+      return "cellphone";
     }
     if (os.includes("mac") || os.includes("darwin")) {
-      return "laptop-outline";
+      return "laptop";
     }
     if (os.includes("windows")) {
-      return "desktop-outline";
+      return "monitor";
     }
     if (os.includes("linux")) {
-      return "terminal-outline";
+      return "console";
     }
 
-    return "globe-outline";
+    return "web";
   };
 
   const getLocationDisplay = (session: SessionInfoDto): string | null => {
@@ -166,183 +175,201 @@ export function UserSessionsSettings() {
         marginBottom={12}
         borderRadius={12}
       >
-        <ThemedView
+        <View
           style={[
             styles.sessionItem,
-            {
-              backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
-            },
             isExpired && styles.expiredSession,
             item.isCurrent && styles.currentSession,
           ]}
         >
-          <View style={styles.sessionHeader}>
-            <View style={styles.deviceInfo}>
-              <Ionicons
-                name={getDeviceIcon(item.deviceName, item.operatingSystem)}
-                size={20}
-                color={Colors[colorScheme ?? "light"].text}
-                style={styles.deviceIcon}
-              />
-              <View style={styles.deviceTextInfo}>
-                <ThemedText style={styles.deviceName}>
-                  {getDeviceDescription(item)}
-                </ThemedText>
-                {getLocationDisplay(item) && (
-                  <ThemedText style={styles.locationText}>
-                    📍 {getLocationDisplay(item)}
-                  </ThemedText>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.headerRight}>
-              {/* Show login provider icon */}
-              {item.loginProvider && (
-                <View style={styles.providerInfo}>
-                  {provider?.iconUrl ? (
-                    <Image
-                      source={{ uri: provider.iconUrl }}
-                      style={[styles.providerIcon, styles.providerIconImage]}
-                    />
-                  ) : (
-                    <Ionicons
-                      name={
-                        item.loginProvider === "github"
-                          ? "logo-github"
-                          : item.loginProvider === "google"
-                          ? "logo-google"
-                          : item.loginProvider === "local"
-                          ? "person-outline"
-                          : "key-outline"
-                      }
-                      size={18}
-                      color={Colors[colorScheme ?? "light"].text}
-                      style={styles.providerIcon}
-                    />
+            <View style={styles.sessionHeader}>
+              <View style={styles.deviceInfo}>
+                <Icon
+                  source={getDeviceIcon(item.deviceName, item.operatingSystem)}
+                  size={20}
+                  color={theme.colors.onSurface}
+                />
+                <View style={styles.deviceTextInfo}>
+                  <Text variant="titleMedium" style={styles.deviceName}>
+                    {getDeviceDescription(item)}
+                  </Text>
+                  {getLocationDisplay(item) && (
+                    <Text variant="bodySmall" style={styles.locationText}>
+                      📍 {getLocationDisplay(item)}
+                    </Text>
                   )}
                 </View>
+              </View>
+
+              <View style={styles.headerRight}>
+                {/* Show login provider icon */}
+                {item.loginProvider && (
+                  <View style={styles.providerInfo}>
+                    {provider?.iconUrl ? (
+                      <Image
+                        source={{ uri: provider.iconUrl }}
+                        style={[styles.providerIcon, styles.providerIconImage]}
+                      />
+                    ) : (
+                      <Icon
+                        source={
+                          item.loginProvider === "github"
+                            ? "github"
+                            : item.loginProvider === "google"
+                            ? "google"
+                            : item.loginProvider === "local"
+                            ? "account"
+                            : "key"
+                        }
+                        size={18}
+                        color={theme.colors.onSurface}
+                      />
+                    )}
+                  </View>
+                )}
+
+                <View style={styles.badges}>
+                  {item.isCurrent && (
+                    <View style={[styles.badge, styles.currentBadge]}>
+                      <Text variant="bodySmall" style={styles.currentText}>
+                        {t("userSessions.item.current") as string}
+                      </Text>
+                    </View>
+                  )}
+                  {isExpired && (
+                    <View style={[styles.badge, styles.expiredBadge]}>
+                      <Text variant="bodySmall" style={styles.expiredText}>
+                        {t("userSessions.item.expired") as string}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+          </View>
+
+            <View style={styles.sessionDetails}>
+              {item.ipAddress && (
+                <Text variant="bodySmall" style={styles.sessionDetail}>
+                  {t("userSessions.item.ipAddress") as string}: {item.ipAddress}
+                </Text>
               )}
 
-              <View style={styles.badges}>
-                {item.isCurrent && (
-                  <View style={[styles.badge, styles.currentBadge]}>
-                    <ThemedText style={styles.currentText}>
-                      {t("userSessions.item.current") as string}
-                    </ThemedText>
-                  </View>
-                )}
-                {isExpired && (
-                  <View style={[styles.badge, styles.expiredBadge]}>
-                    <ThemedText style={styles.expiredText}>
-                      {t("userSessions.item.expired") as string}
-                    </ThemedText>
-                  </View>
-                )}
-              </View>
+              <Text variant="bodySmall" style={styles.sessionDetail}>
+                {t("userSessions.item.created") as string}:{" "}
+                {formatSessionDate(item.createdAt)}
+              </Text>
+
+              {item.lastActivity && (
+                <Text variant="bodySmall" style={styles.sessionDetail}>
+                  {t("userSessions.item.lastActivity") as string}:{" "}
+                  {formatSessionDate(item.lastActivity)}
+                </Text>
+              )}
+
+              {item.expiresAt && (
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    styles.sessionDetail,
+                    isExpired && styles.expiredDetail,
+                  ]}
+                >
+                  {t("userSessions.item.expires") as string}:{" "}
+                  {formatSessionDate(item.expiresAt)}
+                </Text>
+              )}
             </View>
-          </View>
-
-          <View style={styles.sessionDetails}>
-            {item.ipAddress && (
-              <ThemedText style={styles.sessionDetail}>
-                {t("userSessions.item.ipAddress") as string}: {item.ipAddress}
-              </ThemedText>
-            )}
-
-            <ThemedText style={styles.sessionDetail}>
-              {t("userSessions.item.created") as string}:{" "}
-              {formatSessionDate(item.createdAt)}
-            </ThemedText>
-
-            {item.lastActivity && (
-              <ThemedText style={styles.sessionDetail}>
-                {t("userSessions.item.lastActivity") as string}:{" "}
-                {formatSessionDate(item.lastActivity)}
-              </ThemedText>
-            )}
-
-            {item.expiresAt && (
-              <ThemedText
-                style={[
-                  styles.sessionDetail,
-                  isExpired && styles.expiredDetail,
-                ]}
-              >
-                {t("userSessions.item.expires") as string}:{" "}
-                {formatSessionDate(item.expiresAt)}
-              </ThemedText>
-            )}
-          </View>
-        </ThemedView>
+        </View>
       </SwipeableItem>
     );
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
       <SettingsScrollView onRefresh={refetch}>
         {sortedSessions.length > 1 && (
-        <TouchableOpacity
-          style={[
-            styles.revokeAllButton,
-            {
-              backgroundColor: Colors[colorScheme ?? "light"].buttonError,
-              borderColor: Colors[colorScheme ?? "light"].buttonError,
-            },
-          ]}
-          onPress={() => {
-            Alert.alert(
-              t("userSessions.revokeAllOthersTitle") as string,
-              t("userSessions.revokeAllOthersMessage") as string,
-              [
-                {
-                  text: t("common.cancel") as string,
-                  style: "cancel",
-                },
-                {
-                  text: t("userSessions.revokeAllOthersConfirm") as string,
-                  style: "destructive",
-                  onPress: revokeAllOtherSessionsHandler,
-                },
-              ]
-            );
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="log-out-outline"
-            size={18}
-            color="#FFFFFF"
-            style={styles.revokeAllIcon}
-          />
-          <ThemedText style={styles.revokeAllText}>
+          <Button
+            mode="contained"
+            buttonColor={theme.colors.error}
+            textColor={theme.colors.onError}
+            icon="logout"
+            onPress={() => setShowConfirmDialog(true)}
+            style={styles.revokeAllButton}
+          >
             {t("userSessions.revokeAllOthers") as string}
-          </ThemedText>
-        </TouchableOpacity>
+          </Button>
         )}
 
         {sortedSessions.length === 0 ? (
-          <ThemedView style={styles.emptyState}>
-            <Ionicons
-              name="globe-outline"
+          <View style={styles.emptyState}>
+            <Icon
+              source="web"
               size={64}
-              color={Colors[colorScheme ?? "light"].icon}
+              color={theme.colors.onSurfaceVariant}
             />
-            <ThemedText style={styles.emptyText}>
+            <Text variant="headlineSmall" style={styles.emptyText}>
               {t("userSessions.noSessionsTitle") as string}
-            </ThemedText>
-            <ThemedText style={styles.emptySubtext}>
+            </Text>
+            <Text variant="bodyMedium" style={styles.emptySubtext}>
               {t("userSessions.noSessionsSubtext") as string}
-            </ThemedText>
-          </ThemedView>
+            </Text>
+          </View>
         ) : (
           <View style={styles.sessionsContainer}>
             {sortedSessions.map((item) => renderSessionItem(item))}
           </View>
         )}
       </SettingsScrollView>
-    </ThemedView>
+
+      {/* Confirmation Dialog */}
+      <Portal>
+        <Dialog
+          visible={showConfirmDialog}
+          onDismiss={() => setShowConfirmDialog(false)}
+        >
+          <Dialog.Title>
+            {t("userSessions.revokeAllOthersTitle") as string}
+          </Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">
+              {t("userSessions.revokeAllOthersMessage") as string}
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Text onPress={() => setShowConfirmDialog(false)}>
+              {t("common.cancel") as string}
+            </Text>
+            <Text
+              onPress={() => {
+                setShowConfirmDialog(false);
+                revokeAllOtherSessionsHandler();
+              }}
+              style={{ color: theme.colors.error }}
+            >
+              {t("userSessions.revokeAllOthersConfirm") as string}
+            </Text>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* Error Dialog */}
+      <Portal>
+        <Dialog
+          visible={showErrorDialog}
+          onDismiss={() => setShowErrorDialog(false)}
+        >
+          <Dialog.Title>{t("common.error")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{errorMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Text onPress={() => setShowErrorDialog(false)}>
+              {t("common.ok")}
+            </Text>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+    </View>
   );
 }
 
@@ -350,33 +377,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
   revokeAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
     marginBottom: 24,
-    gap: 8,
-  },
-  revokeAllIcon: {
-    marginRight: 4,
-  },
-  revokeAllText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
   },
   emptyState: {
     flex: 1,
@@ -385,14 +387,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
     marginTop: 16,
     textAlign: "center",
   },
   emptySubtext: {
-    fontSize: 14,
-    opacity: 0.7,
     marginTop: 8,
     textAlign: "center",
   },
@@ -401,11 +399,6 @@ const styles = StyleSheet.create({
   },
   sessionItem: {
     padding: 16,
-    borderRadius: 12,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   currentSession: {
     borderWidth: 2,
@@ -431,19 +424,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
   },
-  deviceIcon: {
-    marginRight: 8,
-  },
   deviceTextInfo: {
     flex: 1,
+    marginLeft: 8,
   },
   deviceName: {
-    fontSize: 16,
-    fontWeight: "600",
+    // Styles handled by Text variant
   },
   locationText: {
-    fontSize: 13,
-    opacity: 0.7,
     marginTop: 2,
   },
   badges: {
@@ -463,19 +451,16 @@ const styles = StyleSheet.create({
   },
   currentText: {
     color: "white",
-    fontSize: 12,
     fontWeight: "600",
   },
   expiredText: {
     color: "white",
-    fontSize: 12,
     fontWeight: "600",
   },
   sessionDetails: {
     gap: 4,
   },
   sessionDetail: {
-    fontSize: 13,
     opacity: 0.7,
   },
   expiredDetail: {
@@ -485,9 +470,6 @@ const styles = StyleSheet.create({
   providerInfo: {
     alignItems: "center",
     justifyContent: "center",
-  },
-  providerIcon: {
-    opacity: 0.8,
   },
   providerIconImage: {
     width: 18,

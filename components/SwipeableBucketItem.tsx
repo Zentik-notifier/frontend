@@ -1,19 +1,29 @@
-import { Colors } from "@/constants/Colors";
-import { BucketWithDevicesFragment } from "@/generated/gql-operations-generated";
+import { 
+  BucketWithDevicesFragment,
+  GetBucketsDocument,
+  ResourceType,
+  useDeleteBucketMutation,
+  useUnshareBucketMutation,
+} from "@/generated/gql-operations-generated";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
+import { useAppContext } from "@/contexts/AppContext";
 import { useRouter } from "expo-router";
-import * as Clipboard from 'expo-clipboard';
 import React, { useState } from "react";
-import { Alert, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
-import BucketDeleteModal from "./BucketDeleteModal";
+import { Alert, StyleSheet, TouchableWithoutFeedback, View } from "react-native";
 import BucketIcon from "./BucketIcon";
 import SwipeableItem from "./SwipeableItem";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
 import Icon from "./ui/Icon";
+import CopyButton from "./ui/CopyButton";
 import { useNavigationUtils } from "@/utils/navigation";
+import {
+  Button,
+  Card,
+  Dialog,
+  Portal,
+  Text,
+  useTheme,
+} from "react-native-paper";
 
 interface SwipeableBucketItemProps {
   bucket: BucketWithDevicesFragment;
@@ -26,25 +36,81 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
   bucketDeleted,
   onSharingRevoked,
 }) => {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
+  const { userId } = useAppContext();
   const { navigateToEditBucket } = useNavigationUtils();
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Use the bucket permissions hook to check permissions
   const { canDelete, isSharedWithMe, sharedCount } = useGetBucketData(
     bucket.id
   );
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const [deleteBucketMutation] = useDeleteBucketMutation({
+    onCompleted: () => {
+      bucketDeleted();
+    },
+    onError: (error) => {
+      console.error("Error deleting bucket:", error);
+      Alert.alert(t("common.error"), t("buckets.delete.error"));
+    },
+    refetchQueries: [{ query: GetBucketsDocument }],
+  });
+
+  const [unshareBucket] = useUnshareBucketMutation({
+    onCompleted: () => {
+      onSharingRevoked();
+    },
+    onError: (error) => {
+      console.error("Error unsharing bucket:", error);
+      Alert.alert(t("common.error"), t("buckets.sharing.unshareError"));
+    },
+    refetchQueries: [{ query: GetBucketsDocument }],
+  });
 
   const editBucket = (bucketId: string) => {
     navigateToEditBucket(bucketId, false);
   };
 
-  const copyBucketId = async () => {
-    if (bucket.id && bucket.id !== "N/A") {
-      await Clipboard.setStringAsync(bucket.id);
-      Alert.alert("Copied!", t("buckets.item.bucketIdCopied"));
+  const showDeleteAlert = () => {
+    const actions = [];
+    
+    if (canDelete) {
+      actions.push({
+        text: t("buckets.delete.deleteBucket"),
+        onPress: () => deleteBucketMutation({ variables: { id: bucket.id } }),
+        style: "destructive" as const,
+      });
     }
+    
+    if (isSharedWithMe) {
+      actions.push({
+        text: t("buckets.delete.revokeSharing"),
+        onPress: () => unshareBucket({
+          variables: {
+            input: {
+              resourceType: ResourceType.Bucket,
+              resourceId: bucket.id,
+              userId: userId,
+            },
+          },
+        }),
+        style: "destructive" as const,
+      });
+    }
+    
+    actions.push({
+      text: t("common.cancel"),
+      style: "cancel" as const,
+    });
+
+    Alert.alert(
+      t("buckets.delete.modalTitle"),
+      t("buckets.delete.modalDescription", { bucketName: bucket.name }),
+      actions
+    );
   };
 
   const deleteAction =
@@ -53,7 +119,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
           icon: "delete" as const,
           label: t("buckets.item.delete"),
           backgroundColor: "#ff4444",
-          onPress: () => setShowDeleteModal(true),
+          onPress: showDeleteAlert,
         }
       : undefined;
 
@@ -77,61 +143,56 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
       borderRadius={12}
     >
       <TouchableWithoutFeedback onPress={() => editBucket(bucket.id)}>
-        <ThemedView
-          style={[
-            styles.itemCard,
-            {
-              backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
-            },
-          ]}
-        >
-          <View style={styles.itemHeader}>
-            <View style={styles.itemInfo}>
-              <BucketIcon size="lg" bucketId={bucket.id} />
-              <ThemedText style={styles.itemName}>{bucket.name}</ThemedText>
+        <View style={styles.itemCard}>
+            <View style={styles.itemHeader}>
+              <View style={styles.itemInfo}>
+                <BucketIcon size="lg" bucketId={bucket.id} />
+                <Text variant="titleMedium" style={styles.itemName}>
+                  {bucket.name}
+                </Text>
+              </View>
+              <View style={styles.headerRight}>
+                <CopyButton
+                  text={bucket.id}
+                  size={20}
+                  style={styles.copyIdButton}
+                />
+                {isSharedWithMe && (
+                  <View style={styles.sharedWithMeTag}>
+                    <Text variant="bodySmall" style={styles.sharedWithMeText}>
+                      {t("buckets.item.sharedWithMe")}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
-            <View style={styles.headerRight}>
-              <TouchableOpacity
-                style={[
-                  styles.copyIdButton,
-                  { backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary }
-                ]}
-                onPress={copyBucketId}
-                activeOpacity={0.7}
-              >
-                <Icon name="copy" size="sm" color={Colors[colorScheme ?? "light"].tabIconDefault} />
-              </TouchableOpacity>
-              {isSharedWithMe && (
-                <View style={styles.sharedWithMeTag}>
-                  <ThemedText style={styles.sharedWithMeText}>
-                    {t("buckets.item.sharedWithMe")}
-                  </ThemedText>
-                </View>
-              )}
-            </View>
-          </View>
-          {/* Device info removed */}
-          {getSharedUsersText() && (
-            <ThemedText style={styles.sharingInfo}>
-              👥 {getSharedUsersText()}
-            </ThemedText>
-          )}
-        </ThemedView>
+            {/* Device info removed */}
+            {getSharedUsersText() && (
+              <Text variant="bodySmall" style={styles.sharingInfo}>
+                👥 {getSharedUsersText()}
+              </Text>
+            )}
+        </View>
       </TouchableWithoutFeedback>
 
-      <BucketDeleteModal
-        visible={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        bucket={bucket}
-        onBucketDeleted={() => {
-          bucketDeleted();
-          setShowDeleteModal(false);
-        }}
-        onSharingRevoked={() => {
-          onSharingRevoked();
-          setShowDeleteModal(false);
-        }}
-      />
+
+      {/* Success Dialog */}
+      <Portal>
+        <Dialog
+          visible={showSuccessDialog}
+          onDismiss={() => setShowSuccessDialog(false)}
+        >
+          <Dialog.Title>{t("common.success")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{successMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowSuccessDialog(false)}>
+              {t("common.ok")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </SwipeableItem>
   );
 };
@@ -139,10 +200,6 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
 const styles = StyleSheet.create({
   itemCard: {
     padding: 16,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   itemHeader: {
     flexDirection: "row",
@@ -161,9 +218,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   copyIdButton: {
-    padding: 6,
-    borderRadius: 6,
-    flexShrink: 0,
+    margin: 0,
   },
   sharedWithMeTag: {
     backgroundColor: "#007AFF",
@@ -174,18 +229,14 @@ const styles = StyleSheet.create({
   },
   sharedWithMeText: {
     color: "#fff",
-    fontSize: 10,
     fontWeight: "600",
   },
   itemName: {
-    fontSize: 16,
-    fontWeight: "600",
+    // Styles handled by Text variant
   },
   sharingInfo: {
-    fontSize: 13,
     opacity: 0.8,
     marginBottom: 4,
-    color: "#666",
   },
 });
 

@@ -6,7 +6,7 @@ import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
 import { Avatar, Icon, Text, useTheme } from "react-native-paper";
-import InlineMenu, { InlineMenuItem } from "./ui/InlineMenu";
+import { Menu, MenuOptions, MenuOption, MenuTrigger } from "react-native-popup-menu";
 
 export default function UserDropdown() {
   const { logout, showOnboarding } = useAppContext();
@@ -103,89 +103,10 @@ export default function UserDropdown() {
     return t("userDropdown.offlineMode");
   }
 
-  const userHeader = (
-    <View style={styles.userInfo}>
-      {renderSmallAvatar()}
-      <View style={styles.userDetails}>
-        <Text
-          variant="titleMedium"
-          style={styles.userDisplayName}
-          numberOfLines={1}
-        >
-          {getUserDisplayName()}
-        </Text>
-        <Text variant="bodySmall" style={styles.userEmail} numberOfLines={1}>
-          {user?.email || t("userDropdown.offlineMode")}
-        </Text>
-      </View>
-    </View>
-  );
-
-  const menuItems: InlineMenuItem[] = useMemo(
-    () => [
-      {
-        id: "gettingStarted",
-        label: t("userDropdown.gettingStarted"),
-        icon: "help-circle-outline",
-        onPress: () => {
-          showOnboarding();
-        },
-      },
-      {
-        id: "themeToggle",
-        label: getThemeCycleLabel(),
-        icon: getThemeCycleIcon(),
-        onPress: () => setThemeMode(getNextThemeMode()),
-        keepOpen: true,
-      },
-      {
-        id: "settings",
-        label: t("userDropdown.settings"),
-        icon: "cog",
-        onPress: () => {
-          navigateToSettings();
-        },
-      },
-      ...(user?.role === UserRole.Admin
-        ? [
-            {
-              id: "administration",
-              label: t("userDropdown.administration"),
-              icon: "shield-outline",
-              onPress: () => {
-                navigateToAdmin();
-              },
-            },
-          ]
-        : []),
-      {
-        id: "logout",
-        label: t("userDropdown.logout"),
-        icon: "logout",
-        onPress: () => {
-          logout();
-        },
-        type: "destructive",
-      },
-    ],
-    [
-      t,
-      getThemeCycleLabel,
-      getThemeCycleIcon,
-      setThemeMode,
-      getNextThemeMode,
-      navigateToSettings,
-      user?.role,
-      navigateToAdmin,
-      logout,
-      showOnboarding,
-    ]
-  );
 
   return (
-    <InlineMenu
-      position="vertically"
-      anchor={
+    <Menu>
+      <MenuTrigger>
         <View style={styles.avatarButton}>
           {user?.avatar && !showInitials ? (
             <Avatar.Image source={{ uri: user.avatar }} size={36} />
@@ -200,32 +121,93 @@ export default function UserDropdown() {
             />
           </View>
         </View>
-      }
-      items={menuItems}
-      anchorPosition="bottom"
-      maxHeight={400}
-      header={userHeader}
-    />
+      </MenuTrigger>
+      <MenuOptions 
+        optionsContainerStyle={{ 
+          backgroundColor: theme.colors.surface,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: theme.colors.outlineVariant,
+          marginTop: 8,
+          zIndex: 9999,
+          elevation: 100,
+        }}
+      >
+        {/* User Header */}
+        <View style={[styles.userInfo, { 
+          borderBottomColor: theme.colors.outlineVariant,
+          backgroundColor: theme.colors.surfaceVariant,
+        }]}>
+          {renderSmallAvatar()}
+          <View style={styles.userDetails}>
+            <Text
+              variant="titleMedium"
+              style={[styles.userDisplayName, { color: theme.colors.onSurface }]}
+              numberOfLines={1}
+            >
+              {getUserDisplayName()}
+            </Text>
+            <Text variant="bodySmall" style={[styles.userEmail, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+              {user?.email || t("userDropdown.offlineMode")}
+            </Text>
+          </View>
+        </View>
+        
+        {/* Getting Started */}
+        <MenuOption onSelect={() => showOnboarding()}>
+          <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
+            <Icon source="help-circle-outline" size={20} color={theme.colors.onSurface} />
+            <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>{t("userDropdown.gettingStarted")}</Text>
+          </View>
+        </MenuOption>
+        
+        {/* Theme Toggle */}
+        <MenuOption onSelect={() => setThemeMode(getNextThemeMode())}>
+          <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
+            <Icon source={getThemeCycleIcon()} size={20} color={theme.colors.onSurface} />
+            <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>{getThemeCycleLabel()}</Text>
+          </View>
+        </MenuOption>
+        
+        {/* Settings */}
+        <MenuOption onSelect={() => navigateToSettings()}>
+          <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
+            <Icon source="cog" size={20} color={theme.colors.onSurface} />
+            <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>{t("userDropdown.settings")}</Text>
+          </View>
+        </MenuOption>
+        
+        {/* Administration (Admin only) */}
+        {user?.role === UserRole.Admin && (
+          <MenuOption onSelect={() => navigateToAdmin()}>
+            <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
+              <Icon source="shield-outline" size={20} color={theme.colors.onSurface} />
+              <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>{t("userDropdown.administration")}</Text>
+            </View>
+          </MenuOption>
+        )}
+        
+        {/* Logout */}
+        <MenuOption onSelect={() => logout()}>
+          <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
+            <Icon source="logout" size={20} color={theme.colors.error} />
+            <Text style={[styles.menuItemText, { color: theme.colors.error }]}>
+              {t("userDropdown.logout")}
+            </Text>
+          </View>
+        </MenuOption>
+      </MenuOptions>
+    </Menu>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-  },
   avatarButton: {
     borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 4,
-  },
-  avatarButtonContent: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
   },
   avatarContainer: {
     width: 36,
@@ -246,19 +228,18 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 18,
   },
-  menuContent: {
-    width: 200,
-    borderRadius: 12,
+  initialsSmallText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 14,
   },
   userInfo: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-  },
-  initialsSmallText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 14,
+    borderBottomWidth: 1,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   userDetails: {
     flex: 1,
@@ -270,10 +251,17 @@ const styles = StyleSheet.create({
   userEmail: {
     opacity: 0.7,
   },
-  destructiveText: {
-    color: "#ff3b30",
-  },
   dropdownIcon: {
     marginLeft: 2,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  menuItemText: {
+    marginLeft: 12,
+    fontSize: 16,
   },
 });

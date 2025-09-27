@@ -32,7 +32,12 @@ import {
   Surface,
   Text,
 } from "react-native-paper";
-import InlineMenu, { InlineMenuItem } from "./ui/InlineMenu";
+import {
+  Menu,
+  MenuOptions,
+  MenuOption,
+  MenuTrigger,
+} from "react-native-popup-menu";
 import BucketIcon from "./BucketIcon";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
@@ -230,8 +235,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const { executeAction } = useNotificationActions();
   const { getActionTypeIcon } = useNotificationUtils();
 
-  const menuItems: InlineMenuItem[] = useMemo(() => {
-    const items: InlineMenuItem[] = [
+  const menuItems = useMemo(() => {
+    const items = [
       {
         id: "toggleRead",
         label: isRead
@@ -612,8 +617,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                   ))}
               </Surface>
               <View style={styles.bottomRightActions}>
-                <InlineMenu
-                  anchor={
+                <Menu>
+                  <MenuTrigger>
                     <View
                       style={[
                         styles.actionsFab,
@@ -626,11 +631,46 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                         color={theme.colors.onSurface}
                       />
                     </View>
-                  }
-                  items={menuItems}
-                  anchorPosition="bottom"
-                  maxHeight={300}
-                />
+                  </MenuTrigger>
+                  <MenuOptions
+                    optionsContainerStyle={{
+                      marginTop: 50,
+                      backgroundColor: theme.colors.surface,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: theme.colors.outlineVariant,
+                    }}
+                  >
+                    {menuItems.map((item) => (
+                      <MenuOption key={item.id} onSelect={() => item.onPress()}>
+                        <View style={styles.menuItem}>
+                          <Icon
+                            source={item.icon}
+                            size={20}
+                            color={
+                              item.type === "destructive"
+                                ? theme.colors.error
+                                : theme.colors.onSurface
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.menuItemText,
+                              {
+                                color:
+                                  item.type === "destructive"
+                                    ? theme.colors.error
+                                    : theme.colors.onSurface,
+                              },
+                            ]}
+                          >
+                            {item.label}
+                          </Text>
+                        </View>
+                      </MenuOption>
+                    ))}
+                  </MenuOptions>
+                </Menu>
               </View>
             </Surface>
           </Surface>
@@ -851,6 +891,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  menuItemText: {
+    marginLeft: 12,
+    fontSize: 16,
   },
 });
 

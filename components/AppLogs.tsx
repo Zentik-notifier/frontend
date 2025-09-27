@@ -1,10 +1,5 @@
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
-import { Icon } from "@/components/ui";
-import { Colors } from "@/constants/Colors";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   RefreshControl,
   StyleSheet,
@@ -12,18 +7,25 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import {
+  Surface,
+  useTheme,
+  Icon,
+  Text,
+  Button,
+  ActivityIndicator,
+} from "react-native-paper";
 import { FlashList } from "@shopify/flash-list";
 import { openSharedCacheDb } from "@/services/media-cache-db";
 import { AppLog, LogRepository } from "@/services/log-repository";
-import { useColorScheme } from "@/hooks/useTheme";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useI18n } from "@/hooks/useI18n";
 import * as Sharing from "expo-sharing";
 import { File, Paths } from "expo-file-system";
 
 export default function AppLogs() {
-  const colorScheme = useColorScheme();
   const { t } = useI18n();
+  const theme = useTheme();
   const [logs, setLogs] = useState<AppLog[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -61,12 +63,12 @@ export default function AppLogs() {
   const levelToColor = useMemo(
     () =>
       ({
-        debug: Colors[colorScheme].textSecondary,
-        info: Colors[colorScheme].tint,
-        warn: Colors[colorScheme].warning,
-        error: Colors[colorScheme].error,
+        debug: theme.colors.onSurfaceVariant,
+        info: theme.colors.primary,
+        warn: theme.colors.error,
+        error: theme.colors.error,
       } as const),
-    [colorScheme]
+    [theme.colors]
   );
 
   const renderItem = useCallback(
@@ -80,8 +82,8 @@ export default function AppLogs() {
           style={[
             styles.logItem,
             {
-              borderColor: Colors[colorScheme].border,
-              backgroundColor: Colors[colorScheme].backgroundCard,
+              borderColor: theme.colors.outline,
+              backgroundColor: theme.colors.surface,
             },
           ]}
         >
@@ -93,36 +95,36 @@ export default function AppLogs() {
                   { backgroundColor: levelToColor[item.level] },
                 ]}
               />
-              <ThemedText style={styles.levelText}>
+              <Text style={styles.levelText}>
                 {item.level.toUpperCase()}
-              </ThemedText>
+              </Text>
             </View>
-            <ThemedText style={styles.dateText}>
+            <Text style={styles.dateText}>
               {new Date(item.timestamp).toLocaleString()}
-            </ThemedText>
+            </Text>
           </View>
           {!!item.tag && (
             <View style={styles.metaRow}>
-              <ThemedText style={styles.metaLabel}>tag:</ThemedText>
-              <ThemedText style={styles.metaValue}>{item.tag}</ThemedText>
+              <Text style={styles.metaLabel}>tag:</Text>
+              <Text style={styles.metaValue}>{item.tag}</Text>
             </View>
           )}
           <View style={styles.metaRow}>
-            <ThemedText style={styles.metaLabel}>message:</ThemedText>
-            <ThemedText style={styles.metaValue}>{item.message}</ThemedText>
+            <Text style={styles.metaLabel}>message:</Text>
+            <Text style={styles.metaValue}>{item.message}</Text>
           </View>
           {!!meta && (
             <View style={styles.metaRow}>
-              <ThemedText style={styles.metaLabel}>meta:</ThemedText>
-              <ThemedText style={styles.metaValue}>
+              <Text style={styles.metaLabel}>meta:</Text>
+              <Text style={styles.metaValue}>
                 {truncate(JSON.stringify(meta))}
-              </ThemedText>
+              </Text>
             </View>
           )}
         </View>
       );
     },
-    [colorScheme, levelToColor]
+    [theme.colors, levelToColor]
   );
 
   const filteredLogs = useMemo(() => {
@@ -185,16 +187,16 @@ export default function AppLogs() {
   return (
     <SafeAreaView
       edges={["left", "right", "bottom"]}
-      style={[styles.safe, { backgroundColor: Colors[colorScheme].background }]}
+      style={[styles.safe, { backgroundColor: theme.colors.background }]}
     >
-      <ThemedView style={styles.container}>
+      <Surface style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity
             style={[
               styles.exportButton,
               {
-                borderColor: Colors[colorScheme].border,
-                backgroundColor: Colors[colorScheme].backgroundCard,
+                borderColor: theme.colors.outline,
+                backgroundColor: theme.colors.surface,
               },
             ]}
             onPress={handleExportLogs}
@@ -202,30 +204,26 @@ export default function AppLogs() {
             disabled={isExporting}
           >
             {isExporting ? (
-              <ActivityIndicator size="small" color={Colors[colorScheme].tint} />
+              <ActivityIndicator size="small" color={theme.colors.primary} />
             ) : (
-              <Icon name="share" size="sm" color="primary" />
+              <Icon source="share" size={20} color="#007AFF" />
             )}
-            <ThemedText style={styles.exportText}>
+            <Text style={styles.exportText}>
               {t("appSettings.logs.exportButton")}
-            </ThemedText>
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <ThemedView
+        <Surface
           style={[
             styles.searchContainer,
-            {
-              backgroundColor: Colors[colorScheme].inputBackground,
-              borderColor: Colors[colorScheme].border,
-            },
           ]}
         >
-          <Icon name="search" size="sm" color="secondary" />
+          <Icon source="magnify" size={20} color="#666" />
           <TextInput
-            style={[styles.searchInput, { color: Colors[colorScheme].text }]}
+            style={[styles.searchInput, { color: theme.colors.onSurface }]}
             placeholder={t("appLogs.filterPlaceholder")}
-            placeholderTextColor={Colors[colorScheme].textSecondary}
+            placeholderTextColor={theme.colors.onSurfaceVariant}
             value={query}
             onChangeText={setQuery}
             autoCapitalize="none"
@@ -233,15 +231,15 @@ export default function AppLogs() {
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={() => setQuery("")} style={styles.clearBtn}>
-              <Icon name="cancel" size="sm" color="secondary" />
+              <Icon source="close" size={20} color="#666" />
             </TouchableOpacity>
           )}
-        </ThemedView>
+        </Surface>
 
         {isLoading && logs.length === 0 ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
-            <ThemedText style={styles.loadingText}>{t("appLogs.loading")}</ThemedText>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={styles.loadingText}>{t("appLogs.loading")}</Text>
           </View>
         ) : (
           <FlashList
@@ -252,14 +250,14 @@ export default function AppLogs() {
               <RefreshControl
                 refreshing={isRefreshing}
                 onRefresh={refreshFromDb}
-                colors={[Colors[colorScheme].tint]}
-                tintColor={Colors[colorScheme].tint}
+                colors={[theme.colors.primary]}
+                tintColor={theme.colors.primary}
               />
             }
             contentContainerStyle={styles.listContent}
           />
         )}
-      </ThemedView>
+      </Surface>
     </SafeAreaView>
   );
 }

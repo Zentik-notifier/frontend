@@ -29,18 +29,21 @@
       "description": "Imposta il tuo fuso orario preferito per visualizzare date e orari",
       "deviceDefault": "Predefinito del Dispositivo",
       "selectTimezone": "Seleziona Fuso Orario",
+      "selectPlaceholder": "Seleziona fuso orario",
       "searchTimezone": "Cerca fuso orario..."
     },
-    "language": {
-      "title": "Lingua",
-      "description": "Imposta la tua lingua preferita per l'interfaccia dell'app",
+    "localization": {
+      "title": "Localizzazione",
+      "description": "Configura lingua, fuso orario e preferenze formato data per la tua app",
       "selectLanguage": "Seleziona Lingua",
+      "selectPlaceholder": "Seleziona lingua",
       "searchLanguage": "Cerca lingua..."
     },
     "dateFormat": {
       "title": "Formato Date",
       "description": "Personalizza come vengono visualizzate le date e gli orari nell'app",
       "selectStyle": "Stile Data",
+      "selectPlaceholder": "Seleziona formato",
       "use24Hour": "Formato 24 Ore",
       "use24HourDescription": "Usa il formato 24 ore invece del formato 12 ore con AM/PM",
       "styles": {

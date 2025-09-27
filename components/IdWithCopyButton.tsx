@@ -1,11 +1,10 @@
-import * as Clipboard from 'expo-clipboard';
 import React from "react";
 import {
-    Alert,
     StyleSheet,
     View,
 } from "react-native";
-import { Card, IconButton, Text, useTheme } from "react-native-paper";
+import { Card, Text, useTheme } from "react-native-paper";
+import CopyButton from "./ui/CopyButton";
 
 interface IdWithCopyButtonProps {
   id: string;
@@ -23,13 +22,6 @@ export default function IdWithCopyButton({
   valueStyle,
 }: IdWithCopyButtonProps) {
   const theme = useTheme();
-  
-  const copyIdToClipboard = async () => {
-    if (id && id !== "N/A") {
-      await Clipboard.setStringAsync(id);
-      Alert.alert("Copied!", copyMessage);
-    }
-  };
 
   return (
     <Card style={[styles.container, style]}>
@@ -41,11 +33,9 @@ export default function IdWithCopyButton({
           <Text style={[styles.idValue, { color: theme.colors.onSurfaceVariant }, valueStyle]}>
             {id || "N/A"}
           </Text>
-          <IconButton
-            icon="content-copy"
+          <CopyButton
+            text={id}
             size={20}
-            iconColor={theme.colors.primary}
-            onPress={copyIdToClipboard}
             style={styles.copyButton}
           />
         </View>

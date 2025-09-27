@@ -1,10 +1,13 @@
 import CreateWebhookForm from "@/components/CreateWebhookForm";
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
-import IconButton from "@/components/ui/IconButton";
 import { useDeleteWebhookMutation, useGetWebhookQuery } from "@/generated/gql-operations-generated";
+import { useI18n } from "@/hooks/useI18n";
 import React from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import {
+  Surface,
+  Button,
+  useTheme,
+} from "react-native-paper";
 import SettingsScrollView from "@/components/SettingsScrollView";
 import { useRouter } from "expo-router";
 
@@ -14,6 +17,8 @@ interface EditWebhookSectionProps {
 
 export default function EditWebhookSection({ webhookId }: EditWebhookSectionProps) {
   const router = useRouter();
+  const theme = useTheme();
+  const { t } = useI18n();
 
   const { data, loading, error } = useGetWebhookQuery({
     variables: { id: webhookId },
@@ -33,12 +38,12 @@ export default function EditWebhookSection({ webhookId }: EditWebhookSectionProp
   const deleteWebhook = () => {
     if (!webhook) return;
     Alert.alert(
-      "Delete Webhook",
-      `Are you sure you want to delete "${webhook.name}"? This action cannot be undone.`,
+      t("webhooks.deleteConfirmTitle"),
+      t("webhooks.deleteConfirmMessage", { webhookName: webhook.name }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t("webhooks.delete"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -56,40 +61,44 @@ export default function EditWebhookSection({ webhookId }: EditWebhookSectionProp
 
   if (loading) {
     return (
-      <ThemedView style={styles.container}>
+      <Surface style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ThemedText style={styles.loadingText}>Loading webhook...</ThemedText>
+          <Text style={styles.loadingText}>Loading webhook...</Text>
         </View>
-      </ThemedView>
+      </Surface>
     );
   }
 
   if (!webhook) {
     return (
-      <ThemedView style={styles.container}>
+      <Surface style={styles.container}>
         <View style={styles.errorContainer}>
-          <ThemedText style={styles.errorText}>Webhook not found</ThemedText>
+          <Text style={styles.errorText}>Webhook not found</Text>
         </View>
-      </ThemedView>
+      </Surface>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <Surface style={styles.container}>
       <SettingsScrollView>
-        <CreateWebhookForm webhookId={webhookId} showTitle={false} />
+        <CreateWebhookForm webhookId={webhookId} />
         <View style={styles.deleteSection}>
-          <IconButton
-            title={deletingWebhook ? "Deleting..." : "Delete Webhook"}
-            iconName="delete"
+          <Button
+            mode="contained"
+            buttonColor={theme.colors.error}
+            textColor={theme.colors.onError}
+            icon="delete"
             onPress={deleteWebhook}
-            variant="danger"
-            size="lg"
+            loading={deletingWebhook}
             disabled={deletingWebhook}
-          />
+            style={styles.deleteButton}
+          >
+{deletingWebhook ? "Deleting..." : t("webhooks.delete")}
+          </Button>
         </View>
       </SettingsScrollView>
-    </ThemedView>
+    </Surface>
   );
 }
 
@@ -99,7 +108,8 @@ const styles = StyleSheet.create({
   loadingText: { fontSize: 16, opacity: 0.7 },
   errorContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   errorText: { fontSize: 16, color: "#dc3545" },
-  deleteSection: { padding: 16, marginTop: 20 },
+  deleteSection: { padding: 16, marginTop: 8 },
+  deleteButton: { marginTop: 0 },
 });
 
 

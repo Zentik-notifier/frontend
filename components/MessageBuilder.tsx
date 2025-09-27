@@ -1,4 +1,3 @@
-import { Colors } from "@/constants/Colors";
 import { AppIcons } from "@/constants/Icons";
 import {
   CreateMessageDto,
@@ -10,39 +9,46 @@ import {
   useGetUserWebhooksQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
-import { useAppContext } from "@/contexts/AppContext";
 import React, { useState } from "react";
 import {
-  Alert,
   StyleSheet,
-  Switch,
-  TextInput,
   View,
 } from "react-native";
 import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
 import NotificationActionsSelector from "./NotificationActionsSelector";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
-import { IconButton, InlinePicker, InlinePickerOption } from "./ui";
+import {
+  Button,
+  Card,
+  Dialog,
+  Portal,
+  Switch,
+  Text,
+  TextInput,
+  useTheme,
+} from "react-native-paper";
+import { IconButton } from "./ui";
+import ThemedInputSelect from "./ui/ThemedInputSelect";
 
 interface MessageBuilderProps {
   onMessageSent?: () => void;
   initialBucketId?: string;
   compact?: boolean;
+  isOfflineAuth?: boolean;
+  isBackendUnreachable?: boolean;
 }
 
 export default function MessageBuilder({
   onMessageSent,
   initialBucketId,
   compact = true,
+  isOfflineAuth = false,
+  isBackendUnreachable = false,
 }: MessageBuilderProps) {
-  const {
-    connectionStatus: { isOfflineAuth, isBackendUnreachable },
-  } = useAppContext();
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const [sending, setSending] = useState(false);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [createMessageMutation] = useCreateMessageMutation({
     refetchQueries: [GetNotificationsDocument],
   });
@@ -67,18 +73,14 @@ export default function MessageBuilder({
 
   const sendMessage = async () => {
     if (!title.trim()) {
-      Alert.alert(
-        t("notifications.sendErrorTitle"),
-        t("notifications.titleRequired")
-      );
+      setErrorMessage(t("notifications.titleRequired"));
+      setShowErrorDialog(true);
       return;
     }
 
     if (!initialBucketId?.trim()) {
-      Alert.alert(
-        t("notifications.sendErrorTitle"),
-        t("notifications.targeting.bucketRequired")
-      );
+      setErrorMessage(t("notifications.targeting.bucketRequired"));
+      setShowErrorDialog(true);
       return;
     }
 
@@ -100,7 +102,8 @@ export default function MessageBuilder({
     } catch (error: any) {
       console.error("Send message error:", error);
       const errorMessage = error.message || "Failed to send message";
-      Alert.alert(t("notifications.sendErrorTitle"), errorMessage);
+      setErrorMessage(errorMessage);
+      setShowErrorDialog(true);
     } finally {
       setSending(false);
     }
@@ -140,61 +143,49 @@ export default function MessageBuilder({
   };
 
   // Webhook options for the picker
-  const webhookOptions: InlinePickerOption<string>[] = (
+  const webhookOptions = (
     webhooksData?.userWebhooks || []
   ).map((webhook) => ({
-    value: webhook.id,
-    label: webhook.name,
-    subtitle: `${webhook.method} ${webhook.url}`,
-    icon: "webhook" as keyof typeof AppIcons,
+    id: webhook.id,
+    name: webhook.name,
+    description: `${webhook.method} ${webhook.url}`,
   }));
 
   const hasWebhooks = webhookOptions.length > 0;
 
   // Priority options for the picker
-  const priorityOptions: InlinePickerOption<NotificationDeliveryType>[] = [
+  const priorityOptions = [
     {
-      value: NotificationDeliveryType.Normal,
-      label: t("compose.messageBuilder.normal"),
-      icon: "notifications" as keyof typeof AppIcons,
+      id: NotificationDeliveryType.Normal,
+      name: t("compose.messageBuilder.normal"),
     },
     {
-      value: NotificationDeliveryType.Critical,
-      label: t("compose.messageBuilder.important"),
-      icon: "warning" as keyof typeof AppIcons,
+      id: NotificationDeliveryType.Critical,
+      name: t("compose.messageBuilder.important"),
     },
     {
-      value: NotificationDeliveryType.Silent,
-      label: t("compose.messageBuilder.low"),
-      icon: "notification-off" as keyof typeof AppIcons,
+      id: NotificationDeliveryType.Silent,
+      name: t("compose.messageBuilder.low"),
     },
   ];
 
   return (
     <View style={styles.container}>
-      <ThemedView
+      <View
         style={[
           styles.formContainer,
-          { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
+          { backgroundColor: theme.colors.surface },
         ]}
       >
         {/* Titolo */}
         <View style={styles.field}>
           <TextInput
-            style={[
-              styles.textInput,
-              {
-                backgroundColor: Colors[colorScheme ?? "light"].inputBackground,
-                borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                color: Colors[colorScheme ?? "light"].text,
-              },
-            ]}
+            mode="outlined"
+            style={styles.textInput}
             value={title}
             onChangeText={setTitle}
             placeholder={t("notifications.content.titlePlaceholder")}
-            placeholderTextColor={
-              Colors[colorScheme ?? "light"].inputPlaceholder
-            }
+            label={t("notifications.content.title")}
             maxLength={100}
           />
         </View>
@@ -202,20 +193,12 @@ export default function MessageBuilder({
         {/* Sottotitolo */}
         <View style={styles.field}>
           <TextInput
-            style={[
-              styles.textInput,
-              {
-                backgroundColor: Colors[colorScheme ?? "light"].inputBackground,
-                borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                color: Colors[colorScheme ?? "light"].text,
-              },
-            ]}
+            mode="outlined"
+            style={styles.textInput}
             value={subtitle}
             onChangeText={setSubtitle}
             placeholder={t("notifications.content.subtitlePlaceholder")}
-            placeholderTextColor={
-              Colors[colorScheme ?? "light"].inputPlaceholder
-            }
+            label={t("notifications.content.subtitle")}
             maxLength={100}
           />
         </View>
@@ -223,21 +206,12 @@ export default function MessageBuilder({
         {/* Corpo del messaggio */}
         <View style={styles.field}>
           <TextInput
-            style={[
-              styles.textInput,
-              styles.textArea,
-              {
-                backgroundColor: Colors[colorScheme ?? "light"].inputBackground,
-                borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                color: Colors[colorScheme ?? "light"].text,
-              },
-            ]}
+            mode="outlined"
+            style={[styles.textInput, styles.textArea]}
             value={body}
             onChangeText={setBody}
             placeholder={t("notifications.content.bodyPlaceholder")}
-            placeholderTextColor={
-              Colors[colorScheme ?? "light"].inputPlaceholder
-            }
+            label={t("notifications.content.body")}
             multiline
             maxLength={500}
           />
@@ -245,66 +219,57 @@ export default function MessageBuilder({
 
         {/* Priority Selector */}
         <View style={styles.field}>
-          <InlinePicker
+          <ThemedInputSelect
             label={t("compose.messageBuilder.priority")}
-            selectedValue={priority}
-            options={priorityOptions}
-            onValueChange={setPriority}
             placeholder={t("compose.messageBuilder.normal")}
+            options={priorityOptions}
+            optionLabel="name"
+            optionValue="id"
+            selectedValue={priority}
+            onValueChange={(value) => setPriority(value as NotificationDeliveryType)}
+            isSearchable={false}
           />
         </View>
 
         {/* Automatic Actions Flags */}
         <View style={styles.field}>
-          <ThemedText style={styles.sectionTitle}>
+          <Text variant="titleMedium" style={styles.sectionTitle}>
             {t("compose.messageBuilder.flags")}
-          </ThemedText>
+          </Text>
 
-          <View style={[styles.switchRow, { backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary }]}>
+          <View style={[styles.switchRow, { backgroundColor: theme.colors.surfaceVariant }]}>
             <View style={styles.switchLabelContainer}>
-              <ThemedText style={[styles.switchLabel, { color: Colors[colorScheme ?? "light"].text }]}>
+              <Text variant="bodyMedium" style={[styles.switchLabel, { color: theme.colors.onSurface }]}>
                 {t("notifications.automaticActions.addMarkAsReadAction")}
-              </ThemedText>
+              </Text>
             </View>
             <Switch
               value={addMarkAsReadAction}
               onValueChange={setAddMarkAsReadAction}
-              trackColor={{
-                false: Colors[colorScheme ?? "light"].border,
-                true: Colors[colorScheme ?? "light"].tint,
-              }}
             />
           </View>
 
-          <View style={[styles.switchRow, { backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary }]}>
+          <View style={[styles.switchRow, { backgroundColor: theme.colors.surfaceVariant }]}>
             <View style={styles.switchLabelContainer}>
-              <ThemedText style={[styles.switchLabel, { color: Colors[colorScheme ?? "light"].text }]}>
+              <Text variant="bodyMedium" style={[styles.switchLabel, { color: theme.colors.onSurface }]}>
                 {t("notifications.automaticActions.addDeleteAction")}
-              </ThemedText>
+              </Text>
             </View>
             <Switch
               value={addDeleteAction}
               onValueChange={setAddDeleteAction}
-              trackColor={{
-                false: Colors[colorScheme ?? "light"].border,
-                true: Colors[colorScheme ?? "light"].tint,
-              }}
             />
           </View>
 
-          <View style={[styles.switchRow, { backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary }]}>
+          <View style={[styles.switchRow, { backgroundColor: theme.colors.surfaceVariant }]}>
             <View style={styles.switchLabelContainer}>
-              <ThemedText style={[styles.switchLabel, { color: Colors[colorScheme ?? "light"].text }]}>
+              <Text variant="bodyMedium" style={[styles.switchLabel, { color: theme.colors.onSurface }]}>
                 {t("notifications.automaticActions.addOpenNotificationAction")}
-              </ThemedText>
+              </Text>
             </View>
             <Switch
               value={addOpenNotificationAction}
               onValueChange={setAddOpenNotificationAction}
-              trackColor={{
-                false: Colors[colorScheme ?? "light"].border,
-                true: Colors[colorScheme ?? "light"].tint,
-              }}
             />
           </View>
         </View>
@@ -348,7 +313,25 @@ export default function MessageBuilder({
             size="md"
           />
         </View>
-      </ThemedView>
+      </View>
+
+      {/* Error Dialog */}
+      <Portal>
+        <Dialog
+          visible={showErrorDialog}
+          onDismiss={() => setShowErrorDialog(false)}
+        >
+          <Dialog.Title>{t("notifications.sendErrorTitle")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{errorMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowErrorDialog(false)}>
+              {t("common.ok")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }

@@ -1,4 +1,3 @@
-import { Colors } from "@/constants/Colors";
 import {
   AccessTokenListDto,
   useGetUserAccessTokensQuery,
@@ -7,19 +6,26 @@ import {
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/contexts/AppContext";
-import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect } from "react";
-import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import SwipeableItem from "./SwipeableItem";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
 import SettingsScrollView from "@/components/SettingsScrollView";
 import { useNavigationUtils } from "@/utils/navigation";
+import {
+  Badge,
+  Button,
+  Card,
+  Dialog,
+  FAB,
+  Icon,
+  Portal,
+  Text,
+  useTheme,
+} from "react-native-paper";
 
 export function AccessTokensSettings() {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { navigateToCreateAccessToken } = useNavigationUtils();
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
@@ -28,6 +34,8 @@ export function AccessTokensSettings() {
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const disabledAdd = isOfflineAuth || isBackendUnreachable;
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // GraphQL queries and mutations
   const { data, loading, refetch } = useGetUserAccessTokensQuery();
@@ -46,7 +54,8 @@ export function AccessTokensSettings() {
       refetch(); // Refresh the list
     } catch (error) {
       console.error("Error deleting token:", error);
-      Alert.alert(t("common.error"), t("accessTokens.deleteError"));
+      setErrorMessage(t("accessTokens.deleteError"));
+      setShowErrorDialog(true);
     }
   };
 
@@ -81,55 +90,61 @@ export function AccessTokensSettings() {
             : undefined
         }
       >
-        <ThemedView
+        <Card
           style={[
             styles.tokenItem,
-            {
-              backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
-            },
-            isExpired && styles.expiredToken,
+            isExpired && { borderColor: theme.colors.error, borderWidth: 1 },
           ]}
+          elevation={0}
         >
-          <View style={styles.tokenHeader}>
-            <ThemedText style={styles.tokenName}>{item.name}</ThemedText>
-            {isExpired && (
-              <View style={styles.expiredBadge}>
-                <ThemedText style={styles.expiredText}>
+          <Card.Content>
+            <View style={styles.tokenHeader}>
+              <Text variant="titleMedium" style={styles.tokenName}>
+                {item.name}
+              </Text>
+              {isExpired && (
+                <Badge
+                  style={[styles.expiredBadge, { backgroundColor: theme.colors.error }]}
+                >
                   {t("accessTokens.item.expired")}
-                </ThemedText>
-              </View>
-            )}
-          </View>
+                </Badge>
+              )}
+            </View>
 
-          <View style={styles.tokenDetails}>
-            <ThemedText style={styles.tokenDetail}>
-              {t("accessTokens.item.created")}:{" "}
-              {formatTokenDate(item.createdAt)}
-            </ThemedText>
+            <View style={styles.tokenDetails}>
+              <Text variant="bodySmall" style={styles.tokenDetail}>
+                {t("accessTokens.item.created")}:{" "}
+                {formatTokenDate(item.createdAt)}
+              </Text>
 
-            {item.lastUsed && (
-              <ThemedText style={styles.tokenDetail}>
-                {t("accessTokens.item.lastUsed")}:{" "}
-                {formatTokenDate(item.lastUsed)}
-              </ThemedText>
-            )}
+              {item.lastUsed && (
+                <Text variant="bodySmall" style={styles.tokenDetail}>
+                  {t("accessTokens.item.lastUsed")}:{" "}
+                  {formatTokenDate(item.lastUsed)}
+                </Text>
+              )}
 
-            {!item.lastUsed && (
-              <ThemedText style={[styles.tokenDetail, { fontStyle: "italic" }]}>
-                {t("accessTokens.item.neverUsed")}
-              </ThemedText>
-            )}
+              {!item.lastUsed && (
+                <Text variant="bodySmall" style={[styles.tokenDetail, { fontStyle: "italic" }]}>
+                  {t("accessTokens.item.neverUsed")}
+                </Text>
+              )}
 
-            {item.expiresAt && (
-              <ThemedText
-                style={[styles.tokenDetail, isExpired && styles.expiredDetail]}
-              >
-                {t("accessTokens.item.expires")}:{" "}
-                {formatTokenDate(item.expiresAt)}
-              </ThemedText>
-            )}
-          </View>
-        </ThemedView>
+              {item.expiresAt && (
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    styles.tokenDetail,
+                    isExpired && { color: theme.colors.error },
+                  ]}
+                >
+                  {t("accessTokens.item.expires")}:{" "}
+                  {formatTokenDate(item.expiresAt)}
+                </Text>
+              )}
+            </View>
+          </Card.Content>
+        </Card>
       </SwipeableItem>
     );
   };
@@ -139,72 +154,62 @@ export function AccessTokensSettings() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <SettingsScrollView
-        onRefresh={handleRefresh}
-        headerActions={
-          <TouchableOpacity
-            style={[
-              styles.createButton,
-              {
-                backgroundColor: disabledAdd
-                  ? Colors[colorScheme ?? "light"].buttonDisabled
-                  : Colors[colorScheme ?? "light"].tint,
-              },
-            ]}
-            onPress={() => navigateToCreateAccessToken()}
-            disabled={disabledAdd}
-          >
-            <Ionicons
-              name="add"
-              size={24}
-              color={
-                disabledAdd
-                  ? Colors[colorScheme ?? "light"].textSecondary
-                  : "white"
-              }
-            />
-          </TouchableOpacity>
-        }
-      >
+    <View style={styles.container}>
+      <SettingsScrollView onRefresh={handleRefresh}>
         {sortedTokens.length === 0 ? (
-          <ThemedView style={styles.emptyState}>
-            <Ionicons
-              name="key-outline"
+          <View style={styles.emptyState}>
+            <Icon
+              source="key"
               size={64}
-              color={Colors[colorScheme ?? "light"].icon}
+              color={theme.colors.onSurfaceVariant}
             />
-            <ThemedText style={styles.emptyText}>
+            <Text variant="headlineSmall" style={styles.emptyText}>
               {t("accessTokens.noTokensTitle")}
-            </ThemedText>
-            <ThemedText style={styles.emptySubtext}>
+            </Text>
+            <Text variant="bodyMedium" style={styles.emptySubtext}>
               {t("accessTokens.noTokensSubtext")}
-            </ThemedText>
-          </ThemedView>
+            </Text>
+          </View>
         ) : (
           <View style={styles.tokensContainer}>
             {sortedTokens.map((item) => renderTokenItem(item))}
           </View>
         )}
       </SettingsScrollView>
-    </ThemedView>
+
+      {/* FAB per creare nuovo token */}
+      <FAB
+        icon="plus"
+        style={styles.fab}
+        onPress={() => navigateToCreateAccessToken()}
+        disabled={disabledAdd}
+      />
+
+      {/* Error Dialog */}
+      <Portal>
+        <Dialog
+          visible={showErrorDialog}
+          onDismiss={() => setShowErrorDialog(false)}
+        >
+          <Dialog.Title>{t("common.error")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{errorMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowErrorDialog(false)}>
+              {t("common.ok")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  createButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
+    position: "relative",
   },
   emptyState: {
     flex: 1,
@@ -213,14 +218,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
     marginTop: 16,
     textAlign: "center",
   },
   emptySubtext: {
-    fontSize: 14,
-    opacity: 0.7,
     marginTop: 8,
     textAlign: "center",
   },
@@ -228,16 +229,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tokenItem: {
-    padding: 16,
-    borderRadius: 12,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  expiredToken: {
-    opacity: 0.6,
-    borderColor: "#ff6b6b",
+    marginHorizontal: 16,
+    marginBottom: 8,
   },
   tokenHeader: {
     flexDirection: "row",
@@ -246,30 +239,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tokenName: {
-    fontSize: 16,
-    fontWeight: "600",
     flex: 1,
+    marginRight: 8,
   },
   expiredBadge: {
-    backgroundColor: "#ff6b6b",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  expiredText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "600",
+    // backgroundColor handled by theme
   },
   tokenDetails: {
     gap: 4,
   },
   tokenDetail: {
-    fontSize: 13,
-    opacity: 0.7,
+    // opacity handled by color
   },
-  expiredDetail: {
-    color: "#ff6b6b",
-    opacity: 1,
+  fab: {
+    position: "absolute",
+    bottom: 24,
+    right: 24,
   },
 });

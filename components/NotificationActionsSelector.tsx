@@ -1,4 +1,3 @@
-import { Colors } from "@/constants/Colors";
 import {
   HttpMethod,
   NotificationActionDto,
@@ -6,18 +5,21 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useNotificationUtils } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import React, { useState } from "react";
 import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import NotificationActionForm from "./NotificationActionForm";
-import { ThemedText } from "./ThemedText";
-import { Icon, IconButton, InlinePickerOption } from "./ui";
+import {
+  Text,
+  Icon,
+  Button,
+  useTheme,
+} from "react-native-paper";
 
 interface NotificationActionsSelectorProps {
   actions: NotificationActionDto[];
   onActionsChange: (actions: NotificationActionDto[]) => void;
   label?: string;
-  webhookOptions?: InlinePickerOption<string>[];
+  webhookOptions?: Array<{ id: string; name: string; description?: string }>;
   hasWebhooks?: boolean;
 }
 
@@ -29,7 +31,7 @@ export default function NotificationActionsSelector({
   hasWebhooks = false,
 }: NotificationActionsSelectorProps) {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { getActionTypeFriendlyName } = useNotificationUtils();
 
   const [showActionForm, setShowActionForm] = useState(false);
@@ -109,9 +111,9 @@ export default function NotificationActionsSelector({
 
   return (
     <View style={styles.field}>
-      <ThemedText style={styles.label}>
+      <Text style={styles.label}>
         {label || t("notifications.actions.title")}
-      </ThemedText>
+      </Text>
 
       {actions.map((action, index) => (
         <View
@@ -120,42 +122,42 @@ export default function NotificationActionsSelector({
             styles.actionItem,
             {
               backgroundColor:
-                Colors[colorScheme ?? "light"].backgroundSecondary,
-              borderColor: Colors[colorScheme ?? "light"].border,
+                theme.colors.surfaceVariant,
+              borderColor: theme.colors.outline,
             },
           ]}
         >
           <View style={styles.actionInfo}>
             <Icon
-              name="action"
-              size="sm"
-              color={Colors[colorScheme ?? "light"].tint}
+              source="action"
+              size={20}
+              color={theme.colors.primary}
             />
             <View style={styles.actionDetails}>
-              <ThemedText
+              <Text
                 style={[
                   styles.actionValue,
-                  { color: Colors[colorScheme ?? "light"].text },
+                  { color: theme.colors.onSurface },
                 ]}
               >
                 {action.title || action.value}
-              </ThemedText>
-              <ThemedText
+              </Text>
+              <Text
                 style={[
                   styles.actionMeta,
-                  { color: Colors[colorScheme ?? "light"].textSecondary },
+                  { color: theme.colors.onSurfaceSecondary },
                 ]}
               >
                 {getActionTypeFriendlyName(action.type)} • {action.value}{" "}
                 {action.destructive ? "• Destructive" : ""}
-              </ThemedText>
+              </Text>
             </View>
           </View>
           <TouchableOpacity
             style={styles.removeActionButton}
             onPress={() => removeAction(index)}
           >
-            <Icon name="remove" size="xs" color="white" />
+            <Icon source="minus" size={16} />
           </TouchableOpacity>
         </View>
       ))}
@@ -186,13 +188,14 @@ export default function NotificationActionsSelector({
       )}
 
       {!showActionForm && (
-        <IconButton
-          title={t("notifications.actions.addAction")}
-          iconName="add"
+        <Button
+          mode="outlined"
+          icon="plus"
           onPress={() => setShowActionForm(true)}
-          variant="secondary"
-          size="md"
-        />
+          compact
+        >
+          {t("notifications.actions.addAction")}
+        </Button>
       )}
     </View>
   );

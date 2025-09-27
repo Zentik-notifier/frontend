@@ -32,7 +32,6 @@ export { ThemeSettings } from './ThemeSettings';
 export { default as UserSection } from './UserSection';
 
 // Utility Components
-export { Collapsible } from './Collapsible';
 export { ExternalLink } from './ExternalLink';
 export { default as IdWithCopyButton } from './IdWithCopyButton';
 export { MediaTypeIcon } from './MediaTypeIcon';

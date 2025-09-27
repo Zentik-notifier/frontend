@@ -4,13 +4,14 @@ import { useMassMarkNotificationsAsRead } from "@/hooks/useNotifications";
 import { useAppContext } from "@/contexts/AppContext";
 import { useUserSettings, userSettings } from "@/services/user-settings";
 import { useNavigationUtils } from "@/utils/navigation";
-import * as Clipboard from "expo-clipboard";
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import {
   Badge,
+  Dialog,
   Icon,
   IconButton,
+  Portal,
   Surface,
   Text,
   TouchableRipple,
@@ -20,6 +21,7 @@ import BucketIcon from "./BucketIcon";
 import MessageBuilder from "./MessageBuilder";
 import { NotificationsListWithContext } from "./NotificationsList";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
+import CopyButton from "./ui/CopyButton";
 
 interface BucketDetailProps {
   bucketId: string;
@@ -34,7 +36,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { massMarkAsRead, loading: markAllAsReadLoading } =
     useMassMarkNotificationsAsRead();
 
-  const { notifications } = useAppContext();
+  const { notifications, connectionStatus } = useAppContext();
   const {
     settings: { notificationFilters },
   } = useUserSettings();
@@ -91,15 +93,6 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
     }
   };
 
-  const handleCopyBucketId = async () => {
-    try {
-      await Clipboard.setStringAsync(bucketId);
-      Alert.alert(t("common.copied"), bucketId);
-    } catch (e) {
-      Alert.alert(t("common.error"), t("common.error"));
-    }
-  };
-
   const renderBucketHeader = () => (
     <Surface style={styles.bucketHeader} elevation={0}>
       <View style={styles.bucketInfo}>
@@ -153,6 +146,8 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
                   backgroundColor: unreadNotifications.length > 0 
                     ? theme.colors.primary 
                     : theme.colors.surfaceVariant,
+                  width: 32,
+                  height: 32,
                 },
               ]}
               onPress={handleMarkAllAsRead}
@@ -186,6 +181,8 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
               styles.actionButton,
               {
                 backgroundColor: theme.colors.surfaceVariant,
+                width: 32,
+                height: 32,
               },
             ]}
             onPress={() => navigateToEditBucket(bucketId, true)}
@@ -200,29 +197,30 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
           </TouchableRipple>
 
           {/* Copy Bucket ID Button */}
-          <TouchableRipple
+          <CopyButton
+            text={bucketId}
+            size={16}
             style={[
               styles.actionButton,
               {
                 backgroundColor: theme.colors.surfaceVariant,
+                width: 32,
+                height: 32,
+                margin: 0,
+                padding: 0,
               },
             ]}
-            onPress={handleCopyBucketId}
-          >
-            <View>
-              <Icon
-                source="content-copy"
-                size={16}
-                color={theme.colors.onSurfaceVariant}
-              />
-            </View>
-          </TouchableRipple>
+          />
 
           {/* Snooze Button */}
           <NotificationSnoozeButton
             bucketId={bucketId}
             variant="detail"
             showText={false}
+            style={{
+              width: 32,
+              height: 32,
+            }}
           />
         </View>
       </View>
@@ -242,7 +240,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
           {
             backgroundColor:
               theme.colors.elevation?.level1 || theme.colors.surface,
-            borderColor: theme.colors.outline,
+            borderColor: theme.colors.outlineVariant,
           },
         ]}
         onPress={() => setIsMessageBuilderVisible(!isMessageBuilderVisible)}
@@ -307,37 +305,38 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
       {/* Message Builder Toggle */}
       {renderMessageBuilderToggle()}
 
-      {/* Message Builder */}
-      {isMessageBuilderVisible && (
-        <Surface style={[styles.messageBuilderContainer]} elevation={2}>
-          {/* Header del MessageBuilder con indicatore di chiusura */}
-          <View
-            style={[
-              styles.messageBuilderHeader,
-              { borderBottomColor: theme.colors.outline },
-            ]}
-          >
-            <View style={styles.messageBuilderDragHandle} />
+      {/* Message Builder Dialog */}
+      <Portal>
+        <Dialog
+          visible={isMessageBuilderVisible}
+          onDismiss={() => setIsMessageBuilderVisible(false)}
+          style={styles.messageBuilderDialog}
+        >
+          <Dialog.Title>{t("buckets.composeMessage")}</Dialog.Title>
+          <Dialog.ScrollArea>
+            <ScrollView
+              style={styles.messageBuilderScrollView}
+              contentContainerStyle={styles.messageBuilderScrollContent}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+            >
+              <MessageBuilder
+                initialBucketId={bucketId}
+                onMessageSent={handleMessageSent}
+                compact={true}
+                isOfflineAuth={connectionStatus.isOfflineAuth}
+                isBackendUnreachable={connectionStatus.isBackendUnreachable}
+              />
+            </ScrollView>
+          </Dialog.ScrollArea>
+          <Dialog.Actions>
             <IconButton
               icon="close"
               onPress={() => setIsMessageBuilderVisible(false)}
             />
-          </View>
-
-          <ScrollView
-            style={styles.messageBuilderScrollView}
-            contentContainerStyle={styles.messageBuilderScrollContent}
-            showsVerticalScrollIndicator={true}
-            keyboardShouldPersistTaps="handled"
-          >
-            <MessageBuilder
-              initialBucketId={bucketId}
-              onMessageSent={handleMessageSent}
-              compact={true}
-            />
-          </ScrollView>
-        </Surface>
-      )}
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </Surface>
   );
 }
@@ -411,22 +410,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  messageBuilderContainer: {
-    position: "absolute",
-    bottom: 70,
-    left: 0,
-    right: 0,
-    maxHeight: "60%",
-    zIndex: 3,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+  messageBuilderDialog: {
+    maxHeight: "80%",
   },
   messageBuilderScrollView: {
-    flex: 1,
+    maxHeight: 400,
   },
   messageBuilderScrollContent: {
     paddingHorizontal: 16,

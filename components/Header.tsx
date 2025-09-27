@@ -42,10 +42,59 @@ const BACK_ROUTES: Href[] = [
   "/(mobile)/(home)/bucket/[id]",
   "/(mobile)/(home)/notification/[id]",
   "/(mobile)/(home)/bucket/settings/create",
+  "/(mobile)/(home)/bucket/create",
+  "/(mobile)/(settings)/bucket/settings/create",
   "/(mobile)/(settings)/change-password",
   "/(mobile)/(settings)/user-profile",
   "/(tablet)/(settings)/user/change-password",
+  "/(mobile)/(settings)/app-settings",
+  "/(mobile)/(settings)/bucket/list",
+  "/(mobile)/(settings)/webhook/[id]",
+  "/(mobile)/(settings)/bucket/[id]",
+  "/(mobile)/(settings)/bucket/create",
+  "/(mobile)/(settings)/webhook/list",
+  "/(mobile)/(settings)/webhook/create",
+  "/(mobile)/(settings)/access-token/list",
+  "/(mobile)/(settings)/access-token/create",
+  "/(mobile)/(settings)/devices",
+  "/(mobile)/(settings)/notifications",
+  "/(mobile)/(settings)/user-sessions",
+  "/(mobile)/(settings)/logs",
 ];
+
+// Route-based title mapping
+const ROUTE_TITLES: Record<string, string> = {
+  "/(mobile)/(admin)": "common.admin",
+  "/(mobile)/(settings)": "common.settings",
+  "/(mobile)/(home)": "common.home",
+  "/(mobile)/(settings)/app-settings": "appSettings.title",
+  "/(mobile)/(settings)/bucket/list": "buckets.title",
+  "/(mobile)/(settings)/bucket/create": "buckets.create",
+  "/(mobile)/(settings)/bucket/[id]": "buckets.edit",
+  "/(mobile)/(settings)/webhook/list": "webhooks.title",
+  "/(mobile)/(settings)/webhook/create": "webhooks.create",
+  "/(mobile)/(settings)/webhook/[id]": "webhooks.edit",
+  "/(mobile)/(settings)/access-token/list": "accessTokens.title",
+  "/(mobile)/(settings)/access-token/create": "accessTokens.create",
+  "/(mobile)/(settings)/devices": "devices.title",
+  "/(mobile)/(settings)/notifications": "notifications.title",
+  "/(mobile)/(settings)/user-sessions": "userSessions.title",
+  "/(mobile)/(settings)/logs": "logs.title",
+  "/(mobile)/(settings)/change-password": "changePassword.title",
+  "/(mobile)/(settings)/user-profile": "userProfile.title",
+  "/(mobile)/(home)/bucket/[id]": "bucketDetail.title",
+  "/(mobile)/(home)/notification/[id]": "notificationDetail.title",
+  "/(tablet)/(admin)/user-management/list": "userManagement.title",
+  "/(tablet)/(settings)/bucket/list": "buckets.title",
+  "/(tablet)/(settings)/app-settings": "appSettings.title",
+  "/(tablet)/(settings)/access-token/list": "accessTokens.title",
+  "/(tablet)/(settings)/webhook/list": "webhooks.title",
+  "/(tablet)/(settings)/devices": "devices.title",
+  "/(tablet)/(settings)/notifications": "notifications.title",
+  "/(tablet)/(settings)/user-sessions": "userSessions.title",
+  "/(tablet)/(settings)/logs": "logs.title",
+  "/(tablet)/(settings)/user/profile": "userProfile.title",
+};
 
 export default function Header() {
   const {
@@ -81,6 +130,29 @@ export default function Header() {
   const shouldShowBackButton = BACK_ROUTES.some(
     (route) => currentRoute === route
   );
+
+  // Get title based on current route
+  const getRouteTitle = (route: string): string | null => {
+    // Check for exact match first
+    if (ROUTE_TITLES[route]) {
+      return ROUTE_TITLES[route];
+    }
+
+    // Check for dynamic routes (with [id] parameters)
+    for (const [routePattern, titleKey] of Object.entries(ROUTE_TITLES)) {
+      if (routePattern.includes("[id]")) {
+        const pattern = routePattern.replace(/\[id\]/g, "[^/]+");
+        const regex = new RegExp(`^${pattern}$`);
+        if (regex.test(route)) {
+          return titleKey;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const currentTitle = getRouteTitle(currentRoute);
 
   const downloadBlinkAnim = useRef(new Animated.Value(1)).current;
   const markBlinkAnim = useRef(new Animated.Value(1)).current;
@@ -206,152 +278,171 @@ export default function Header() {
           statusBarHeight={0}
           style={styles.appbar}
         >
-          {/* Navigation Button */}
-          {shouldShowBackButton && (
-            <TouchableRipple
-              style={styles.backButton}
-              onPress={navigateBack}
-              accessibilityLabel={t("common.back")}
-              accessibilityRole="button"
-            >
-              <View style={styles.backButtonContent}>
-                <Icon
-                  source="arrow-left"
-                  size={24}
-                  color={theme.colors.onPrimary}
-                />
-                <Text
-                  variant="titleMedium"
-                  style={{ color: theme.colors.onPrimary }}
-                >
-                  {t("common.back")}
-                </Text>
-              </View>
-            </TouchableRipple>
-          )}
-          {shouldShowHomeButton && (
-            <TouchableRipple
-              style={styles.homeButton}
-              onPress={navigateToHome}
-              accessibilityLabel={t("common.home")}
-              accessibilityRole="button"
-            >
-              <View style={styles.homeButtonContent}>
-                <Icon source="home" size={24} color={theme.colors.onPrimary} />
-                <Text
-                  variant="titleMedium"
-                  style={{ color: theme.colors.onPrimary }}
-                >
-                  {t("common.home")}
-                </Text>
-              </View>
-            </TouchableRipple>
-          )}
+          {/* SEZIONE SINISTRA: Navigation + Badge di Status */}
+          <View style={styles.leftSection}>
+            {/* Navigation Button */}
+            {shouldShowBackButton && (
+              <TouchableRipple
+                style={styles.backButton}
+                onPress={navigateBack}
+                accessibilityLabel={t("common.back")}
+                accessibilityRole="button"
+              >
+                <View style={styles.backButtonContent}>
+                  <Icon
+                    source="arrow-left"
+                    size={24}
+                    color={theme.colors.onPrimary}
+                  />
+                  <Text
+                    variant="titleMedium"
+                    style={{ color: theme.colors.onPrimary }}
+                  >
+                    {t("common.back")}
+                  </Text>
+                </View>
+              </TouchableRipple>
+            )}
+            {shouldShowHomeButton && (
+              <TouchableRipple
+                style={styles.homeButton}
+                onPress={navigateToHome}
+                accessibilityLabel={t("common.home")}
+                accessibilityRole="button"
+              >
+                <View style={styles.homeButtonContent}>
+                  <Icon source="home" size={24} color={theme.colors.onPrimary} />
+                  <Text
+                    variant="titleMedium"
+                    style={{ color: theme.colors.onPrimary }}
+                  >
+                    {t("common.home")}
+                  </Text>
+                </View>
+              </TouchableRipple>
+            )}
 
-          {/* Main Loading Indicator */}
-          {(isMainLoading || isLoadingGqlData) && (
-            <View style={styles.mainLoadingContainer}>
-              <Appbar.Action
-                icon={() => <ActivityIndicator size="small" color="#fff" />}
-                disabled
-                style={styles.loadingIcon}
-              />
-            </View>
-          )}
-
-          {hasUnreadNotifications && !isLoadingGqlData && (
-            <View style={styles.markAllButtonContainer}>
-              <Animated.View style={{ opacity: markBlinkAnim }}>
+            {/* Main Loading Indicator */}
+            {(isMainLoading || isLoadingGqlData) && !currentTitle && (
+              <View style={styles.mainLoadingContainer}>
                 <Appbar.Action
-                  onPress={handleMarkAllAsRead}
-                  disabled={!hasUnreadNotifications || isMarkingAllAsRead}
-                  icon={() =>
-                    isMarkingAllAsRead ? (
+                  icon={() => <ActivityIndicator size="small" color="#fff" />}
+                  disabled
+                  style={styles.loadingIcon}
+                />
+              </View>
+            )}
+
+            {/* Mark All as Read Button */}
+            {hasUnreadNotifications && !isLoadingGqlData && (
+              <View style={styles.markAllButtonContainer}>
+                <Animated.View style={{ opacity: markBlinkAnim }}>
+                  <Appbar.Action
+                    onPress={handleMarkAllAsRead}
+                    disabled={!hasUnreadNotifications || isMarkingAllAsRead}
+                    icon={() =>
+                      isMarkingAllAsRead ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Icon source="check-all" size={20} color="#fff" />
+                      )
+                    }
+                    style={styles.markAllIcon}
+                  />
+                </Animated.View>
+                {unreadCount > 0 && (
+                  <Surface style={styles.badge} elevation={3}>
+                    {isLoadingGqlData ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Icon source="check-all" size={20} color="#fff" />
-                    )
-                  }
-                  style={styles.markAllIcon}
-                />
-              </Animated.View>
-              {unreadCount > 0 && (
-                <Surface style={styles.badge} elevation={3}>
-                  {isLoadingGqlData ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text variant="labelSmall" style={styles.badgeText}>
-                      {unreadCount > 99 ? "99+" : unreadCount.toString()}
-                    </Text>
-                  )}
-                </Surface>
-              )}
-            </View>
-          )}
-
-          {/* Download Queue Progress Icon */}
-          {inProcessing && (
-            <View style={styles.downloadQueueContainer}>
-              <Appbar.Action
-                icon={() => (
-                  <Animated.View style={{ opacity: downloadBlinkAnim }}>
-                    <Icon source="download" size={20} color="#fff" />
-                  </Animated.View>
+                      <Text variant="labelSmall" style={styles.badgeText}>
+                        {unreadCount > 99 ? "99+" : unreadCount.toString()}
+                      </Text>
+                    )}
+                  </Surface>
                 )}
-                disabled
-                style={styles.downloadIcon}
-              />
-              <Surface style={styles.downloadQueueBadge} elevation={3}>
-                <Text
-                  variant="labelSmall"
-                  style={styles.downloadQueueBadgeText}
-                >
-                  {itemsInQueue > 99 ? "99+" : itemsInQueue.toString()}
+              </View>
+            )}
+
+            {/* Download Queue Progress Icon */}
+            {inProcessing && (
+              <View style={styles.downloadQueueContainer}>
+                <Appbar.Action
+                  icon={() => (
+                    <Animated.View style={{ opacity: downloadBlinkAnim }}>
+                      <Icon source="download" size={20} color="#fff" />
+                    </Animated.View>
+                  )}
+                  disabled
+                  style={styles.downloadIcon}
+                />
+                <Surface style={styles.downloadQueueBadge} elevation={3}>
+                  <Text
+                    variant="labelSmall"
+                    style={styles.downloadQueueBadgeText}
+                  >
+                    {itemsInQueue > 99 ? "99+" : itemsInQueue.toString()}
+                  </Text>
+                </Surface>
+              </View>
+            )}
+
+            {/* Status Badge */}
+            {status.type !== "none" && (
+              <Button
+                mode="contained"
+                onPress={handleStatusPress}
+                disabled={!isStatusClickable}
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: status.color },
+                  !isStatusClickable && styles.statusBadgeNonClickable,
+                ]}
+                contentStyle={styles.statusBadgeContent}
+              >
+                <Icon source={getStatusIcon() as any} size={16} color="#fff" />
+                <Text variant="labelSmall" style={styles.statusText}>
+                  {getStatusLabel()}
                 </Text>
-              </Surface>
-            </View>
-          )}
 
-          {/* Status Badge reale */}
-          {status.type !== "none" && (
-            <Button
-              mode="contained"
-              onPress={handleStatusPress}
-              disabled={!isStatusClickable}
-              style={[
-                styles.statusBadge,
-                { backgroundColor: status.color },
-                !isStatusClickable && styles.statusBadgeNonClickable,
-              ]}
-              contentStyle={styles.statusBadgeContent}
-            >
-              <Icon source={getStatusIcon() as any} size={16} color="#fff" />
-              <Text variant="labelSmall" style={styles.statusText}>
-                {getStatusLabel()}
+                {/* Indicatore di loading per aggiornamenti */}
+                {status.type === "update" && (isCheckingUpdate || isUpdating) && (
+                  <View style={styles.loadingIndicator}>
+                    <Icon source="dots-horizontal" size={12} color="#fff" />
+                  </View>
+                )}
+
+                {/* Indicatore per dispositivo non registrato */}
+                {status.type === "push-notifications" && (
+                  <View style={styles.loadingIndicator}>
+                    <Icon
+                      source={isRegistering ? "clock" : "alert"}
+                      size={12}
+                      color="#fff"
+                    />
+                  </View>
+                )}
+              </Button>
+            )}
+          </View>
+
+          {/* SEZIONE CENTRO: Titolo sempre centrato */}
+          <View style={styles.centerSection}>
+            {currentTitle && (
+              <Text
+                variant="titleMedium"
+                style={[styles.titleText, { color: theme.colors.onPrimary }]}
+                numberOfLines={1}
+              >
+                {t(currentTitle as any)}
               </Text>
+            )}
+          </View>
 
-              {/* Indicatore di loading per aggiornamenti */}
-              {status.type === "update" && (isCheckingUpdate || isUpdating) && (
-                <View style={styles.loadingIndicator}>
-                  <Icon source="dots-horizontal" size={12} color="#fff" />
-                </View>
-              )}
-
-              {/* Indicatore per dispositivo non registrato */}
-              {status.type === "push-notifications" && (
-                <View style={styles.loadingIndicator}>
-                  <Icon
-                    source={isRegistering ? "clock" : "alert"}
-                    size={12}
-                    color="#fff"
-                  />
-                </View>
-              )}
-            </Button>
-          )}
-
-          <View style={styles.spacer} />
-          <UserDropdown />
+          {/* SEZIONE DESTRA: User Profile */}
+          <View style={styles.rightSection}>
+            <UserDropdown />
+          </View>
         </Appbar.Header>
       </View>
 
@@ -373,6 +464,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     minHeight: 48,
     backgroundColor: "transparent", // Trasparente perché il colore è nel container
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  // Sezioni dell'header
+  leftSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "flex-start",
+  },
+  centerSection: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: -1, // Sotto gli altri elementi
+  },
+  rightSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "flex-end",
   },
   backButton: {
     paddingHorizontal: 8,
@@ -391,6 +507,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+  titleText: {
+    fontWeight: "600",
+    textAlign: "center",
   },
   headerContainer: {
     flexDirection: "row",
@@ -537,8 +657,5 @@ const styles = StyleSheet.create({
   },
   loadingIndicator: {
     marginLeft: 4,
-  },
-  spacer: {
-    flex: 1,
   },
 });

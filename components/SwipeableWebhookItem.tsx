@@ -1,28 +1,29 @@
-import { Colors } from "@/constants/Colors";
 import {
   UserWebhookFragment,
   useDeleteWebhookMutation,
 } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/contexts/AppContext";
 import { getHttpMethodColor } from "@/utils/webhookUtils";
-import * as Clipboard from "expo-clipboard";
-import React from "react";
+import React, { useState } from "react";
 import {
-  Alert,
   StyleSheet,
-  Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
 import SwipeableItem from "./SwipeableItem";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
 import Icon from "./ui/Icon";
+import CopyButton from "./ui/CopyButton";
 import { useNavigationUtils } from "@/utils/navigation";
+import {
+  Card,
+  Dialog,
+  Portal,
+  Text,
+  useTheme,
+} from "react-native-paper";
 
 interface SwipeableWebhookItemProps {
   webhook: UserWebhookFragment;
@@ -31,7 +32,7 @@ interface SwipeableWebhookItemProps {
 const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
   webhook,
 }) => {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const { formatDate } = useDateFormat();
   const { navigateToEditWebhook } = useNavigationUtils();
@@ -40,48 +41,27 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
   } = useAppContext();
   const isOffline = isOfflineAuth || isBackendUnreachable;
   const [deleteWebhookMutation] = useDeleteWebhookMutation();
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [dialogMessage, setDialogMessage] = useState("");
 
   const handleEditWebhook = (webhookId: string) => {
     navigateToEditWebhook(webhookId);
   };
 
-  const copyWebhookId = async () => {
-    if (webhook.id && webhook.id !== "N/A") {
-      await Clipboard.setStringAsync(webhook.id);
-      Alert.alert("Copied!", "Webhook ID copied");
-    }
-  };
-
   const deleteWebhook = async (webhookId: string) => {
-    Alert.alert(
-      t("webhooks.deleteConfirmTitle"),
-      t("webhooks.deleteConfirmMessage"),
-      [
-        {
-          text: t("common.cancel"),
-          style: "cancel",
-        },
-        {
-          text: t("webhooks.delete"),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteWebhookMutation({
-                variables: { id: webhookId },
-                refetchQueries: ["GetUserWebhooks"],
-              });
-              Alert.alert(
-                t("common.success"),
-                t("webhooks.deleteSuccessMessage")
-              );
-            } catch (error) {
-              console.error("Error deleting webhook:", error);
-              Alert.alert(t("common.error"), t("webhooks.deleteErrorMessage"));
-            }
-          },
-        },
-      ]
-    );
+    try {
+      await deleteWebhookMutation({
+        variables: { id: webhookId },
+        refetchQueries: ["GetUserWebhooks"],
+      });
+      setDialogMessage(t("webhooks.deleteSuccessMessage"));
+      setShowSuccessDialog(true);
+    } catch (error) {
+      console.error("Error deleting webhook:", error);
+      setDialogMessage(t("webhooks.deleteErrorMessage"));
+      setShowErrorDialog(true);
+    }
   };
 
   const deleteAction = !isOffline
@@ -90,6 +70,12 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
         label: t("webhooks.delete"),
         backgroundColor: "#ff4444",
         onPress: () => deleteWebhook(webhook.id),
+        showAlert: {
+          title: t("webhooks.deleteConfirmTitle"),
+          message: t("webhooks.deleteConfirmMessage"),
+          confirmText: t("webhooks.delete"),
+          cancelText: t("common.cancel"),
+        },
       }
     : undefined;
 
@@ -100,69 +86,88 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
       borderRadius={12}
     >
       <TouchableWithoutFeedback onPress={() => handleEditWebhook(webhook.id)}>
-        <ThemedView
-          style={[
-            styles.itemCard,
-            {
-              backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
-            },
-          ]}
-        >
-          <View style={styles.itemHeader}>
-            <View style={styles.itemInfo}>
-              <View
-                style={[
-                  styles.methodBadge,
-                  { backgroundColor: getHttpMethodColor(webhook.method) },
-                ]}
-              >
-                <Text style={styles.methodText}>{webhook.method}</Text>
+        <View style={styles.itemCard}>
+            <View style={styles.itemHeader}>
+              <View style={styles.itemInfo}>
+                <View
+                  style={[
+                    styles.methodBadge,
+                    { backgroundColor: getHttpMethodColor(webhook.method) },
+                  ]}
+                >
+                  <Text style={styles.methodText}>{webhook.method}</Text>
+                </View>
+                <View style={styles.webhookDetails}>
+                  <Text variant="titleMedium" style={styles.itemName}>
+                    {webhook.name}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.webhookUrl} numberOfLines={1}>
+                    {webhook.url}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.webhookDetails}>
-                <ThemedText style={styles.itemName}>{webhook.name}</ThemedText>
-                <ThemedText style={styles.webhookUrl} numberOfLines={1}>
-                  {webhook.url}
-                </ThemedText>
+              <CopyButton
+                text={webhook.id}
+                size={20}
+                style={styles.copyIdButton}
+              />
+            </View>
+
+            {webhook.headers && webhook.headers.length > 0 && (
+              <View style={styles.headersInfo}>
+                <Icon
+                  name="settings"
+                  size={12}
+                  color={theme.colors.onSurfaceVariant}
+                />
+                <Text variant="bodySmall" style={styles.headersText}>
+                  {webhook.headers.length} header
+                  {webhook.headers.length !== 1 ? "s" : ""}
+                </Text>
               </View>
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.copyIdButton,
-                {
-                  backgroundColor:
-                    Colors[colorScheme ?? "light"].backgroundSecondary,
-                },
-              ]}
-              onPress={copyWebhookId}
-              activeOpacity={0.7}
-            >
-              <Icon
-                name="copy"
-                size="sm"
-                color={Colors[colorScheme ?? "light"].tabIconDefault}
-              />
-            </TouchableOpacity>
-          </View>
+            )}
 
-          {webhook.headers && webhook.headers.length > 0 && (
-            <View style={styles.headersInfo}>
-              <Icon
-                name="settings"
-                size={12}
-                color={Colors[colorScheme ?? "light"].icon}
-              />
-              <ThemedText style={styles.headersText}>
-                {webhook.headers.length} header
-                {webhook.headers.length !== 1 ? "s" : ""}
-              </ThemedText>
-            </View>
-          )}
-
-          <ThemedText style={styles.itemDetail}>
-            Created: {formatDate(webhook.createdAt)}
-          </ThemedText>
-        </ThemedView>
+            <Text variant="bodySmall" style={styles.itemDetail}>
+              Created: {formatDate(webhook.createdAt)}
+            </Text>
+        </View>
       </TouchableWithoutFeedback>
+
+      {/* Success Dialog */}
+      <Portal>
+        <Dialog
+          visible={showSuccessDialog}
+          onDismiss={() => setShowSuccessDialog(false)}
+        >
+          <Dialog.Title>{t("common.success")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{dialogMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Text onPress={() => setShowSuccessDialog(false)}>
+              {t("common.ok")}
+            </Text>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* Error Dialog */}
+      <Portal>
+        <Dialog
+          visible={showErrorDialog}
+          onDismiss={() => setShowErrorDialog(false)}
+        >
+          <Dialog.Title>{t("common.error")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{dialogMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Text onPress={() => setShowErrorDialog(false)}>
+              {t("common.ok")}
+            </Text>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </SwipeableItem>
   );
 };
@@ -170,11 +175,6 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
 const styles = StyleSheet.create({
   itemCard: {
     padding: 16,
-    borderRadius: 12,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   itemHeader: {
     flexDirection: "row",
@@ -183,9 +183,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   copyIdButton: {
-    padding: 6,
-    borderRadius: 6,
-    flexShrink: 0,
+    margin: 0,
   },
   itemInfo: {
     flexDirection: "row",
@@ -209,12 +207,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemName: {
-    fontSize: 16,
-    fontWeight: "600",
     marginBottom: 2,
   },
   webhookUrl: {
-    fontSize: 14,
     opacity: 0.7,
   },
   headersInfo: {
@@ -223,12 +218,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   headersText: {
-    fontSize: 12,
     opacity: 0.6,
     marginLeft: 4,
   },
   itemDetail: {
-    fontSize: 13,
     opacity: 0.7,
     marginBottom: 4,
   },

@@ -1,10 +1,8 @@
-import { Colors } from "@/constants/Colors";
 import {
   MediaType,
   NotificationAttachmentDto,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import React, { useState } from "react";
 import {
   StyleSheet,
@@ -12,8 +10,12 @@ import {
   View
 } from "react-native";
 import MediaAttachmentForm from "./MediaAttachmentForm";
-import { ThemedText } from "./ThemedText";
-import { Icon, IconButton } from "./ui";
+import {
+  Text,
+  Icon,
+  Button,
+  useTheme,
+} from "react-native-paper";
 
 interface MediaAttachmentsSelectorProps {
   attachments: NotificationAttachmentDto[];
@@ -27,7 +29,7 @@ export default function MediaAttachmentsSelector({
   label,
 }: MediaAttachmentsSelectorProps) {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
 
   const [showAttachmentForm, setShowAttachmentForm] = useState(false);
   const [attachmentType, setAttachmentType] = useState<MediaType>();
@@ -57,9 +59,9 @@ export default function MediaAttachmentsSelector({
 
   return (
     <View style={styles.field}>
-      <ThemedText style={styles.label}>
+      <Text style={styles.label}>
         {label || t("notifications.attachments.title")}
-      </ThemedText>
+      </Text>
 
       {attachments.map((attachment, index) => (
         <View
@@ -67,48 +69,48 @@ export default function MediaAttachmentsSelector({
           style={[
             styles.attachmentItem,
             {
-              backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
-              borderColor: Colors[colorScheme ?? "light"].border,
+              backgroundColor: theme.colors.surfaceVariant,
+              borderColor: theme.colors.outline,
             },
           ]}
         >
           <View style={styles.attachmentInfo}>
             <Icon
-              name={
+              source={
                 attachment.mediaType === MediaType.Video
                   ? "video"
                   : attachment.mediaType === MediaType.Audio
-                    ? "sound"
+                    ? "music"
                     : "image"
               }
-              size="sm"
-              color={Colors[colorScheme ?? "light"].tint}
+              size={20}
+              color={theme.colors.primary}
             />
             <View style={styles.attachmentDetails}>
-              <ThemedText
+              <Text
                 style={[
                   styles.attachmentUrl,
-                  { color: Colors[colorScheme ?? "light"].text },
+                  { color: theme.colors.onSurface },
                 ]}
               >
                 {attachment.name || attachment.url}
-              </ThemedText>
-              <ThemedText
+              </Text>
+              <Text
                 style={[
                   styles.attachmentMeta,
-                  { color: Colors[colorScheme ?? "light"].textSecondary },
+                  { color: theme.colors.onSurfaceVariant },
                 ]}
               >
                 {attachment.mediaType}{" "}
                 {attachment.name && `• ${attachment.url}`}
-              </ThemedText>
+              </Text>
             </View>
           </View>
           <TouchableOpacity
             style={styles.removeAttachmentButton}
             onPress={() => removeAttachment(index)}
           >
-            <Icon name="remove" size="xs" color="white" />
+            <Icon source="minus" size={16} />
           </TouchableOpacity>
         </View>
       ))}
@@ -129,24 +131,25 @@ export default function MediaAttachmentsSelector({
       )}
 
       {!showAttachmentForm && (
-        <IconButton
-          title={t("notifications.attachments.addMedia")}
-          iconName="add"
+        <Button
+          mode="outlined"
+          icon="plus"
           onPress={() => setShowAttachmentForm(true)}
-          variant="secondary"
-          size="md"
-        />
+          compact
+        >
+          {t("notifications.attachments.addMedia")}
+        </Button>
       )}
 
       {attachments.length === 0 && (
-        <ThemedText
+        <Text
           style={[
             styles.attachmentHint,
-            { color: Colors[colorScheme ?? "light"].textSecondary },
+            { color: theme.colors.onSurfaceVariant },
           ]}
         >
           {t("notifications.attachments.hint")}
-        </ThemedText>
+        </Text>
       )}
     </View>
   );

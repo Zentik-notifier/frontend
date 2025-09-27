@@ -14,7 +14,8 @@ import {
   View,
 } from "react-native";
 import { ThemedText } from "./ThemedText";
-import { IconButton, InlinePicker, InlinePickerOption } from "./ui";
+import { IconButton } from "./ui";
+import ThemedInputSelect from "./ui/ThemedInputSelect";
 import WebhookMethodUrlSelector from "./WebhookMethodUrlSelector";
 
 interface NotificationActionFormProps {
@@ -35,7 +36,7 @@ interface NotificationActionFormProps {
   onCancel: () => void;
   onSave: () => void;
   saveButtonTitle: string;
-  webhookOptions?: InlinePickerOption<string>[];
+  webhookOptions?: Array<{ id: string; name: string; description?: string }>;
   hasWebhooks?: boolean;
   isEditing?: boolean;
 }
@@ -66,15 +67,14 @@ export default function NotificationActionForm({
   const colorScheme = useColorScheme();
   const { getActionTypeFriendlyName, getActionTypeIcon } = useNotificationUtils();
 
-  const actionTypeOptions: InlinePickerOption<NotificationActionType>[] = [
+  const actionTypeOptions = [
     NotificationActionType.Navigate,
     NotificationActionType.BackgroundCall,
     NotificationActionType.Webhook,
     NotificationActionType.OpenNotification,
   ].map((actionType) => ({
-    value: actionType,
-    label: getActionTypeFriendlyName(actionType),
-    icon: getActionTypeIcon(actionType),
+    id: actionType,
+    name: getActionTypeFriendlyName(actionType),
   }));
 
   const isFormValid = () => {
@@ -97,14 +97,17 @@ export default function NotificationActionForm({
         },
       ]}
     >
-      <InlinePicker
+      <ThemedInputSelect
         label={t("notifications.actions.actionType")}
-        selectedValue={actionType}
+        placeholder={t("notifications.actions.selectActionType")}
         options={actionTypeOptions}
+        optionLabel="name"
+        optionValue="id"
+        selectedValue={actionType}
         onValueChange={(value) => {
           onActionTypeChange(value as NotificationActionType);
         }}
-        placeholder={t("notifications.actions.selectActionType")}
+        isSearchable={false}
       />
 
       <View style={styles.field}>
@@ -113,12 +116,14 @@ export default function NotificationActionForm({
         </ThemedText>
         {actionType === NotificationActionType.Webhook ? (
           hasWebhooks ? (
-            <InlinePicker
+            <ThemedInputSelect
               selectedValue={actionValue}
-              options={webhookOptions}
-              onValueChange={onActionValueChange}
               placeholder={t("notifications.actions.selectWebhook")}
-              searchable={true}
+              options={webhookOptions}
+              optionLabel="name"
+              optionValue="id"
+              onValueChange={onActionValueChange}
+              isSearchable={true}
               searchPlaceholder={t("notifications.actions.searchWebhooks")}
             />
           ) : (

@@ -29,18 +29,21 @@
       "description": "Set your preferred timezone for displaying dates and times",
       "deviceDefault": "Device Default",
       "selectTimezone": "Select Timezone",
+      "selectPlaceholder": "Select timezone",
       "searchTimezone": "Search timezone..."
     },
-    "language": {
-      "title": "Language",
-      "description": "Set your preferred language for the app interface",
+    "localization": {
+      "title": "Localization",
+      "description": "Configure language, timezone and date format preferences for your app",
       "selectLanguage": "Select Language",
+      "selectPlaceholder": "Select language",
       "searchLanguage": "Search language..."
     },
     "dateFormat": {
       "title": "Date Format",
       "description": "Customize how dates and times are displayed in the app",
       "selectStyle": "Date Style",
+      "selectPlaceholder": "Select format",
       "use24Hour": "24-Hour Format",
       "use24HourDescription": "Use 24-hour format instead of 12-hour format with AM/PM",
       "styles": {

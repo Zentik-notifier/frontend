@@ -1,10 +1,16 @@
-import BucketDeleteModal from "@/components/BucketDeleteModal";
 import BucketSharingSection from "@/components/BucketSharingSection";
 import CreateBucketForm from "@/components/CreateBucketForm";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
+import { 
+  GetBucketsDocument,
+  ResourceType,
+  useDeleteBucketMutation,
+  useUnshareBucketMutation,
+} from "@/generated/gql-operations-generated";
+import { useAppContext } from "@/contexts/AppContext";
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Button,
@@ -22,9 +28,72 @@ interface EditBucketProps {
 export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   const { t } = useI18n();
   const theme = useTheme();
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const { userId } = useAppContext();
 
-  const { bucket, loading, error, canAdmin } = useGetBucketData(bucketId);
+  const { bucket, loading, error, canAdmin, canDelete, isSharedWithMe } = useGetBucketData(bucketId);
+
+  const [deleteBucketMutation] = useDeleteBucketMutation({
+    onCompleted: () => {
+      onBack?.();
+    },
+    onError: (error) => {
+      console.error("Error deleting bucket:", error);
+      Alert.alert(t("common.error"), t("buckets.delete.error"));
+    },
+    refetchQueries: [{ query: GetBucketsDocument }],
+  });
+
+  const [unshareBucket] = useUnshareBucketMutation({
+    onCompleted: () => {
+      onBack?.();
+    },
+    onError: (error) => {
+      console.error("Error unsharing bucket:", error);
+      Alert.alert(t("common.error"), t("buckets.sharing.unshareError"));
+    },
+    refetchQueries: [{ query: GetBucketsDocument }],
+  });
+
+  const showDeleteAlert = () => {
+    if (!bucket) return;
+
+    const actions = [];
+    
+    if (canDelete) {
+      actions.push({
+        text: t("buckets.delete.deleteBucket"),
+        onPress: () => deleteBucketMutation({ variables: { id: bucket.id } }),
+        style: "destructive" as const,
+      });
+    }
+    
+    if (isSharedWithMe) {
+      actions.push({
+        text: t("buckets.delete.revokeSharing"),
+        onPress: () => unshareBucket({
+          variables: {
+            input: {
+              resourceType: ResourceType.Bucket,
+              resourceId: bucket.id,
+              userId: userId,
+            },
+          },
+        }),
+        style: "destructive" as const,
+      });
+    }
+    
+    actions.push({
+      text: t("common.cancel"),
+      style: "cancel" as const,
+    });
+
+    Alert.alert(
+      t("buckets.delete.modalTitle"),
+      t("buckets.delete.modalDescription", { bucketName: bucket.name }),
+      actions
+    );
+  };
 
   if (!bucketId) {
     return (
@@ -37,7 +106,6 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   }
 
   const onDeleteComplete = async () => {
-    setShowDeleteModal(false);
     onBack?.();
   };
 
@@ -83,7 +151,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
                   buttonColor={theme.colors.error}
                   textColor={theme.colors.onError}
                   icon="delete"
-                  onPress={() => setShowDeleteModal(true)}
+                  onPress={showDeleteAlert}
                   style={styles.deleteButton}
                 >
                   {t("buckets.form.deleteBucket")}
@@ -93,13 +161,6 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
           )}
         </View>
 
-        <BucketDeleteModal
-          visible={showDeleteModal}
-          bucket={bucket}
-          onClose={() => setShowDeleteModal(false)}
-          onBucketDeleted={onDeleteComplete}
-          onSharingRevoked={onDeleteComplete}
-        />
       </Surface>
     </ScrollView>
   );

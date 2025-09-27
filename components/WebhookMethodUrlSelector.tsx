@@ -1,12 +1,10 @@
-import { Colors } from "@/constants/Colors";
 import { HttpMethod } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { getHttpMethodColor } from "@/utils/webhookUtils";
 import React from "react";
-import { TextInput, View } from "react-native";
-import { ThemedText } from "./ThemedText";
-import InlinePicker, { InlinePickerOption } from "./ui/InlinePicker";
+import { TextInput, View, StyleSheet } from "react-native";
+import ThemedInputSelect from "./ui/ThemedInputSelect";
+import { Text, useTheme } from "react-native-paper";
 
 interface WebhookMethodUrlSelectorProps {
   method: HttpMethod | undefined;
@@ -29,55 +27,55 @@ export default function WebhookMethodUrlSelector({
   onMethodChange,
   onUrlChange,
 }: WebhookMethodUrlSelectorProps) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
 
   const getMethodDisplayName = (method: HttpMethod) => {
     return t(`webhooks.methods.${method}`);
   };
 
-  const httpMethodOptions: InlinePickerOption<HttpMethod>[] = httpMethods.map(method => ({
-    value: method,
-    label: getMethodDisplayName(method),
+  const httpMethodOptions = httpMethods.map(method => ({
+    id: method,
+    name: getMethodDisplayName(method),
     color: getHttpMethodColor(method),
   }));
+
+  const selectedMethod = httpMethodOptions.find(option => option.id === method);
 
   return (
     <>
       {/* HTTP Method Selection */}
-      <View style={{ marginBottom: 16 }}>
-        <InlinePicker
+      <View style={styles.container}>
+        <ThemedInputSelect
           label={t('webhooks.form.method')}
-          selectedValue={method || HttpMethod.Post}
-          options={httpMethodOptions}
-          onValueChange={onMethodChange}
           placeholder={t('webhooks.form.method')}
+          options={httpMethodOptions}
+          optionLabel="name"
+          optionValue="id"
+          selectedValue={selectedMethod?.id}
+          onValueChange={(value) => onMethodChange(value as HttpMethod)}
+          isSearchable={false}
         />
       </View>
       
       {/* Webhook URL Input */}
-      <View style={{ marginBottom: 16 }}>
-        <ThemedText style={{ 
-          fontSize: 16, 
-          fontWeight: "600", 
-          marginBottom: 8 
-        }}>
+      <View style={styles.container}>
+        <Text variant="titleMedium" style={styles.label}>
           {t('webhooks.form.url')}
-        </ThemedText>
+        </Text>
         <TextInput
-          style={{
-            borderWidth: 1,
-            borderRadius: 8,
-            padding: 12,
-            fontSize: 16,
-            backgroundColor: Colors[colorScheme ?? 'light'].background,
-            borderColor: Colors[colorScheme ?? 'light'].border,
-            color: Colors[colorScheme ?? 'light'].text,
-          }}
+          style={[
+            styles.textInput,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.outlineVariant,
+              color: theme.colors.onSurface,
+            }
+          ]}
           value={url}
           onChangeText={onUrlChange}
           placeholder={t('webhooks.form.urlPlaceholder')}
-          placeholderTextColor={Colors[colorScheme ?? 'light'].tabIconDefault}
+          placeholderTextColor={theme.colors.onSurfaceVariant}
           keyboardType="url"
           autoCapitalize="none"
           autoCorrect={false}
@@ -86,3 +84,52 @@ export default function WebhookMethodUrlSelector({
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: 16,
+  },
+  label: {
+    marginBottom: 8,
+  },
+  dropdownButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.1)",
+    backgroundColor: "rgba(0,0,0,0.02)",
+  },
+  methodIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  dropdownButtonText: {
+    flex: 1,
+    fontSize: 16,
+  },
+  dropdownIcon: {
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  dropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  textInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+});

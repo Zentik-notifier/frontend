@@ -3,9 +3,14 @@ import { useI18n } from "@/hooks/useI18n";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
 import { StyleSheet, View, ViewStyle } from "react-native";
-import { Button, Text } from "react-native-paper";
+import { Button, Text, useTheme } from "react-native-paper";
 import { Image } from "expo-image";
-import InlineMenu, { InlineMenuItem } from "./ui/InlineMenu";
+import {
+  Menu,
+  MenuOptions,
+  MenuOption,
+  MenuTrigger,
+} from "react-native-popup-menu";
 
 interface OAuthSelectorProps {
   onProviderSelect: (providerId: string) => void;
@@ -20,10 +25,11 @@ export function OAuthSelector({
     usePublicAppConfigQuery({ fetchPolicy: "network-only" });
   const providers = providersData?.publicAppConfig.oauthProviders || [];
   const disabled = disabledParent || providersLoading;
+  const theme = useTheme();
 
   const { t } = useI18n();
 
-  const menuItems: InlineMenuItem[] = useMemo(() => {
+  const menuItems = useMemo(() => {
     return providers.map((provider) => ({
       id: provider.id,
       label: provider.name,
@@ -36,8 +42,8 @@ export function OAuthSelector({
 
   return (
     <View style={[styles.container]}>
-      <InlineMenu
-        anchor={
+      <Menu>
+        <MenuTrigger>
           <Button
             mode="outlined"
             disabled={disabled}
@@ -49,10 +55,31 @@ export function OAuthSelector({
           >
             {t("login.orContinueWith")}
           </Button>
-        }
-        items={menuItems}
-        maxHeight={250}
-      />
+        </MenuTrigger>
+        <MenuOptions
+          optionsContainerStyle={{
+            marginTop: 50,
+            backgroundColor: theme.colors.surface,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: theme.colors.outlineVariant,
+          }}
+        >
+          {menuItems.map((item) => (
+            <MenuOption key={item.id} onSelect={() => item.onPress()}>
+              <View style={styles.menuItem}>
+                {item.imageUrl && (
+                  <Image
+                    source={{ uri: item.imageUrl }}
+                    style={styles.providerIcon}
+                  />
+                )}
+                <Text style={styles.providerName}>{item.label}</Text>
+              </View>
+            </MenuOption>
+          ))}
+        </MenuOptions>
+      </Menu>
     </View>
   );
 }
@@ -83,5 +110,11 @@ const styles = StyleSheet.create({
   },
   providerName: {
     fontWeight: "500",
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
 });

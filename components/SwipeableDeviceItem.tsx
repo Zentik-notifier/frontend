@@ -1,4 +1,3 @@
-import { Colors } from "@/constants/Colors";
 import {
   GetUserDevicesDocument,
   UserDeviceFragment,
@@ -7,23 +6,25 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/contexts/AppContext";
-import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  Modal,
   StyleSheet,
-  TextInput,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
 import SwipeableItem, { SwipeAction } from "./SwipeableItem";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
 import Icon from "./ui/Icon";
+import {
+  Button,
+  Card,
+  Dialog,
+  IconButton,
+  Portal,
+  Text,
+  TextInput,
+  useTheme,
+} from "react-native-paper";
 
 interface SwipeableDeviceItemProps {
   device: UserDeviceFragment;
@@ -34,12 +35,16 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
   device,
   isCurrentDevice = false,
 }) => {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
   const {
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const formatDeviceDate = (dateString: string) => {
     try {
@@ -91,7 +96,8 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
         refetchQueries: [{ query: GetUserDevicesDocument }],
       });
     } catch (error: any) {
-      Alert.alert(t("common.error"), t("devices.removeErrorMessage"));
+      setErrorMessage(t("devices.removeErrorMessage"));
+      setShowErrorDialog(true);
     }
   };
 
@@ -102,7 +108,8 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
 
   const handleSaveName = async () => {
     if (!editingName.trim()) {
-      Alert.alert(t("common.error"), t("devices.editName.nameRequired"));
+      setErrorMessage(t("devices.editName.nameRequired"));
+      setShowErrorDialog(true);
       return;
     }
 
@@ -124,13 +131,13 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
         refetchQueries: [{ query: GetUserDevicesDocument }],
       });
 
-      Alert.alert(t("common.success"), t("devices.editName.successMessage"), [
-        { text: t("common.ok"), onPress: () => {} },
-      ]);
+      setSuccessMessage(t("devices.editName.successMessage"));
+      setShowSuccessDialog(true);
       setShowEditModal(false);
     } catch (error: any) {
       console.error("Error updating device name:", error);
-      Alert.alert(t("common.error"), t("devices.editName.errorMessage"));
+      setErrorMessage(t("devices.editName.errorMessage"));
+      setShowErrorDialog(true);
     } finally {
       setIsUpdating(false);
     }
@@ -162,211 +169,158 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
     <SwipeableItem
       rightAction={deleteAction}
       containerStyle={styles.swipeContainer}
-      contentStyle={[
-        styles.swipeContent,
-        { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
-      ]}
+      contentStyle={styles.swipeContent}
       marginBottom={4}
     >
       <TouchableWithoutFeedback>
-        <View
-          style={[
-            styles.itemCard,
-            {
-              borderColor: Colors[colorScheme ?? "light"].border,
-              backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
-            },
-          ]}
-        >
-          <View style={styles.itemHeader}>
-            <View style={styles.itemInfo}>
-              <Icon
-                name={getDeviceTypeIcon(device.platform)}
-                size="md"
-                color={Colors[colorScheme ?? "light"].tint}
-                style={styles.deviceIcon}
-              />
-              <View style={styles.deviceTextInfo}>
-                <View style={styles.deviceNameRow}>
-                  <View style={styles.nameAndEditContainer}>
-                    <ThemedText style={styles.itemName}>
-                      {device.deviceName || `${device.platform} Device`}
-                    </ThemedText>
-                    <TouchableOpacity
-                      style={styles.editButton}
-                      onPress={handleEditName}
-                    >
-                      <Ionicons
-                        name="create-outline"
+        <View style={styles.itemCard}>
+            <View style={styles.itemHeader}>
+              <View style={styles.itemInfo}>
+                <Icon
+                  name={getDeviceTypeIcon(device.platform)}
+                  size="md"
+                  color={theme.colors.primary}
+                  style={styles.deviceIcon}
+                />
+                <View style={styles.deviceTextInfo}>
+                  <View style={styles.deviceNameRow}>
+                    <View style={styles.nameAndEditContainer}>
+                      <Text variant="titleMedium" style={styles.itemName}>
+                        {device.deviceName || `${device.platform} Device`}
+                      </Text>
+                      <IconButton
+                        icon="pencil"
                         size={16}
-                        color={Colors[colorScheme ?? "light"].tint}
+                        onPress={handleEditName}
+                        style={styles.editButton}
                       />
-                    </TouchableOpacity>
-                  </View>
-                  {isCurrentDevice && (
-                    <View
-                      style={[
-                        styles.currentDeviceBadge,
-                        {
-                          backgroundColor: Colors[colorScheme ?? "light"].tint,
-                        },
-                      ]}
-                    >
-                      <ThemedText style={styles.currentDeviceText}>
-                        {t("devices.item.thisDevice")}
-                      </ThemedText>
                     </View>
+                    {isCurrentDevice && (
+                      <View
+                        style={[
+                          styles.currentDeviceBadge,
+                          { backgroundColor: theme.colors.primary },
+                        ]}
+                      >
+                        <Text variant="bodySmall" style={styles.currentDeviceText}>
+                          {t("devices.item.thisDevice")}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text variant="bodySmall" style={styles.devicePlatform}>
+                    {device.platform} • {t("devices.item.registered")}:{" "}
+                    {formatDeviceDate(device.createdAt)}
+                  </Text>
+                  {device.deviceModel && (
+                    <Text variant="bodySmall" style={styles.deviceModel}>
+                      {t("devices.item.model")}: {device.deviceModel}
+                      {device.osVersion && ` (${device.osVersion})`}
+                    </Text>
                   )}
                 </View>
-                <ThemedText style={styles.devicePlatform}>
-                  {device.platform} • {t("devices.item.registered")}:{" "}
-                  {formatDeviceDate(device.createdAt)}
-                </ThemedText>
-                {device.deviceModel && (
-                  <ThemedText style={styles.deviceModel}>
-                    {t("devices.item.model")}: {device.deviceModel}
-                    {device.osVersion && ` (${device.osVersion})`}
-                  </ThemedText>
-                )}
               </View>
             </View>
-          </View>
 
-          <View style={styles.deviceDetails}>
-            <View style={styles.statusContainer}>
-              <View
-                style={[
-                  styles.statusIndicator,
-                  { backgroundColor: isDeviceActive() ? "#4CAF50" : "#FF9800" },
-                ]}
-              />
-              <ThemedText style={styles.statusText}>
-                {isDeviceActive()
-                  ? t("devices.item.active")
-                  : t("devices.item.inactive")}
-              </ThemedText>
-              <ThemedText style={styles.lastUsedText}>
-                {" "}• {t("devices.item.lastUsed")}:{" "}
-                {device.lastUsed
-                  ? formatDeviceDate(device.lastUsed)
-                  : t("devices.item.never")}
-              </ThemedText>
+            <View style={styles.deviceDetails}>
+              <View style={styles.statusContainer}>
+                <View
+                  style={[
+                    styles.statusIndicator,
+                    { backgroundColor: isDeviceActive() ? "#4CAF50" : "#FF9800" },
+                  ]}
+                />
+                <Text variant="bodySmall" style={styles.statusText}>
+                  {isDeviceActive()
+                    ? t("devices.item.active")
+                    : t("devices.item.inactive")}
+                </Text>
+                <Text variant="bodySmall" style={styles.lastUsedText}>
+                  {" "}• {t("devices.item.lastUsed")}:{" "}
+                  {device.lastUsed
+                    ? formatDeviceDate(device.lastUsed)
+                    : t("devices.item.never")}
+                </Text>
+              </View>
             </View>
-          </View>
         </View>
       </TouchableWithoutFeedback>
 
-      {/* Edit Device Name Modal */}
-      <Modal
-        visible={showEditModal}
-        transparent
-        animationType="slide"
-        onRequestClose={handleCancelEdit}
-      >
-        <View style={styles.modalOverlay}>
-          <ThemedView
-            style={[
-              styles.modalContent,
-              {
-                backgroundColor: Colors[colorScheme ?? "light"].backgroundCard,
-              },
-            ]}
-          >
-            <View
-              style={[
-                styles.modalHeader,
-                { borderBottomColor: Colors[colorScheme ?? "light"].border },
-              ]}
+      {/* Edit Device Name Dialog */}
+      <Portal>
+        <Dialog
+          visible={showEditModal}
+          onDismiss={handleCancelEdit}
+        >
+          <Dialog.Title>{t("devices.editName.title")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={styles.modalDescription}>
+              {t("devices.editName.description")}
+            </Text>
+            <TextInput
+              mode="outlined"
+              label={t("devices.editName.namePlaceholder")}
+              value={editingName}
+              onChangeText={setEditingName}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.input}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={handleCancelEdit} disabled={isUpdating}>
+              {t("devices.editName.cancel")}
+            </Button>
+            <Button
+              mode="contained"
+              onPress={handleSaveName}
+              disabled={
+                isUpdating || editingName.trim() === (device.deviceName || "")
+              }
             >
-              <ThemedText style={styles.modalTitle}>
-                {t("devices.editName.title")}
-              </ThemedText>
-              <TouchableOpacity onPress={handleCancelEdit}>
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color={Colors[colorScheme ?? "light"].textMuted}
-                />
-              </TouchableOpacity>
-            </View>
+              {isUpdating
+                ? t("devices.editName.saving")
+                : t("devices.editName.save")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
-            <View style={styles.modalBody}>
-              <ThemedText style={styles.modalDescription}>
-                {t("devices.editName.description")}
-              </ThemedText>
+      {/* Success Dialog */}
+      <Portal>
+        <Dialog
+          visible={showSuccessDialog}
+          onDismiss={() => setShowSuccessDialog(false)}
+        >
+          <Dialog.Title>{t("common.success")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{successMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowSuccessDialog(false)}>
+              {t("common.ok")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
-              <ThemedText style={styles.label}>
-                {t("devices.editName.namePlaceholder")}
-              </ThemedText>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: Colors[colorScheme ?? "light"].background,
-                    borderColor: Colors[colorScheme ?? "light"].border,
-                    color: Colors[colorScheme ?? "light"].text,
-                  },
-                ]}
-                value={editingName}
-                onChangeText={setEditingName}
-                placeholder={t("devices.editName.namePlaceholder")}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-
-            <View
-              style={[
-                styles.modalFooter,
-                { borderTopColor: Colors[colorScheme ?? "light"].border },
-              ]}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  styles.cancelButton,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme ?? "light"].backgroundSecondary,
-                    borderColor: Colors[colorScheme ?? "light"].border,
-                  },
-                ]}
-                onPress={handleCancelEdit}
-                disabled={isUpdating}
-              >
-                <ThemedText
-                  style={[
-                    styles.cancelButtonText,
-                    { color: Colors[colorScheme ?? "light"].textSecondary },
-                  ]}
-                >
-                  {t("devices.editName.cancel")}
-                </ThemedText>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  styles.saveButton,
-                  {
-                    backgroundColor: Colors[colorScheme ?? "light"].tint,
-                  },
-                ]}
-                onPress={handleSaveName}
-                disabled={
-                  isUpdating || editingName.trim() === (device.deviceName || "")
-                }
-              >
-                <ThemedText style={styles.saveButtonText}>
-                  {isUpdating
-                    ? t("devices.editName.saving")
-                    : t("devices.editName.save")}
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
-          </ThemedView>
-        </View>
-      </Modal>
+      {/* Error Dialog */}
+      <Portal>
+        <Dialog
+          visible={showErrorDialog}
+          onDismiss={() => setShowErrorDialog(false)}
+        >
+          <Dialog.Title>{t("common.error")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{errorMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowErrorDialog(false)}>
+              {t("common.ok")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </SwipeableItem>
   );
 };
@@ -381,8 +335,6 @@ const styles = StyleSheet.create({
   },
   itemCard: {
     padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
   },
   itemHeader: {
     marginBottom: 12,
@@ -413,12 +365,10 @@ const styles = StyleSheet.create({
     maxWidth: '70%',
   },
   editButton: {
-    padding: 2,
-    marginLeft: 6,
+    margin: 0,
+    padding: 0,
   },
   itemName: {
-    fontSize: 16,
-    fontWeight: "600",
     flexShrink: 1,
   },
   currentDeviceBadge: {
@@ -429,17 +379,14 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   currentDeviceText: {
-    fontSize: 9,
-    fontWeight: "600",
     color: "#FFFFFF",
+    fontWeight: "600",
     textTransform: "uppercase",
   },
   devicePlatform: {
-    fontSize: 14,
     marginBottom: 2,
   },
   deviceModel: {
-    fontSize: 12,
     marginBottom: 2,
   },
   deviceDetails: {
@@ -458,84 +405,16 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   statusText: {
-    fontSize: 14,
     fontWeight: "500",
   },
   lastUsedText: {
-    fontSize: 14,
     fontWeight: "400",
   },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    width: "90%",
-    maxWidth: 400,
-    borderRadius: 12,
-    padding: 0,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  modalBody: {
-    padding: 20,
-  },
   modalDescription: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 20,
-    lineHeight: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "500",
-    marginBottom: 8,
+    marginBottom: 16,
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  modalFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 20,
-    borderTopWidth: 1,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    marginHorizontal: 4,
-  },
-  cancelButton: {
-    borderWidth: 1,
-  },
-  cancelButtonText: {
-    fontWeight: "500",
-  },
-  saveButton: {
-    // Background color set dynamically
-  },
-  saveButtonText: {
-    color: "#fff",
-    fontWeight: "500",
+    marginTop: 8,
   },
 });
 

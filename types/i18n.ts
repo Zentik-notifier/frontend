@@ -166,6 +166,12 @@ export interface TranslationKey {
     you: string;
   };
   appSettings: {
+    localization: {
+      title: string;
+      description: string;
+      selectLanguage: string;
+      selectPlaceholder: string;
+    };
     apiUrl: {
       placeholder: string;
       reset: string;
@@ -226,6 +232,7 @@ export interface TranslationKey {
     dateFormat: {
       description: string;
       selectStyle: string;
+      selectPlaceholder: string;
       title: string;
       use24Hour: string;
       use24HourDescription: string;
@@ -294,6 +301,7 @@ export interface TranslationKey {
       description: string;
       searchLanguage: string;
       selectLanguage: string;
+      selectPlaceholder: string;
       title: string;
     };
     retentionPolicies: {
@@ -313,6 +321,7 @@ export interface TranslationKey {
       deviceDefault: string;
       searchTimezone: string;
       selectTimezone: string;
+      selectPlaceholder: string;
       title: string;
     };
     title: string;
