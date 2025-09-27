@@ -1,27 +1,31 @@
-import { Colors } from "@/constants/Colors";
 import {
   SnoozeScheduleInput,
   useUpdateBucketSnoozesMutation,
 } from "@/generated/gql-operations-generated";
 import { useGetBucketData } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { TranslationKeyPath } from "@/utils";
-import { Ionicons } from "@expo/vector-icons";
-import { Picker } from "@react-native-picker/picker";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
-  Modal,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
+  Dimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
-import { Button } from "./ui/Button";
+import {
+  Button,
+  Card,
+  Icon,
+  Modal,
+  Portal,
+  Surface,
+  Text,
+  TextInput,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 
 interface SnoozeSchedulesManagerProps {
   bucketId: string;
@@ -94,7 +98,7 @@ export default function SnoozeSchedulesManager({
   disabled = false,
 }: SnoozeSchedulesManagerProps) {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [currentSchedule, setCurrentSchedule] = useState<SnoozeScheduleInput>({
@@ -299,298 +303,275 @@ export default function SnoozeSchedulesManager({
       .join(", ");
   };
 
+  const deviceHeight = Dimensions.get("window").height;
+  const containerStyle = {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    overflow: "hidden",
+    marginHorizontal: 16,
+    marginVertical: 24,
+    maxHeight: deviceHeight * 0.8,
+  } as const;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <ThemedText style={styles.title}>
-          {/* {t("recurringSnooze.title")} */}
-        </ThemedText>
-        <TouchableOpacity
-          style={[
-            styles.addButton,
-            { backgroundColor: Colors[colorScheme].tint },
-            disabled && styles.disabledButton,
-          ]}
+        <Button
+          mode="contained"
           onPress={openAddModal}
           disabled={disabled}
+          icon="plus"
+          style={styles.addButton}
         >
-          <Ionicons name="add" size={20} color="white" />
-          <ThemedText style={styles.addButtonText}>
-            {t("recurringSnooze.addSchedule")}
-          </ThemedText>
-        </TouchableOpacity>
+          {t("recurringSnooze.addSchedule")}
+        </Button>
       </View>
 
       {schedules.length === 0 ? (
-        <ThemedView
-          style={[
-            styles.emptyState,
-            { backgroundColor: Colors[colorScheme].backgroundSecondary },
-          ]}
-        >
-          <Ionicons
-            name="time-outline"
-            size={48}
-            color={Colors[colorScheme].textSecondary}
-          />
-          <ThemedText
-            style={[
-              styles.emptyStateText,
-              { color: Colors[colorScheme].textSecondary },
-            ]}
-          >
-            {t("recurringSnooze.noSchedules")}
-          </ThemedText>
-          <ThemedText
-            style={[
-              styles.emptyStateSubtext,
-              { color: Colors[colorScheme].textSecondary },
-            ]}
-          >
-            {t("recurringSnooze.noSchedulesDescription")}
-          </ThemedText>
-        </ThemedView>
+        <Card style={styles.emptyState}>
+          <Card.Content style={styles.emptyStateContent}>
+            <Icon
+              source="clock-outline"
+              size={48}
+              color={theme.colors.onSurfaceVariant}
+            />
+            <Text variant="titleMedium" style={styles.emptyStateText}>
+              {t("recurringSnooze.noSchedules")}
+            </Text>
+            <Text
+              variant="bodyMedium"
+              style={[
+                styles.emptyStateSubtext,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              {t("recurringSnooze.noSchedulesDescription")}
+            </Text>
+          </Card.Content>
+        </Card>
       ) : (
         <ScrollView
           style={styles.schedulesList}
           showsVerticalScrollIndicator={false}
         >
           {schedules.map((schedule, index) => (
-            <ThemedView
+            <Card
               key={index}
               style={[
                 styles.scheduleCard,
-                {
-                  backgroundColor: Colors[colorScheme].backgroundCard,
-                  borderColor: Colors[colorScheme].border,
-                },
                 !schedule.isEnabled && styles.disabledSchedule,
               ]}
             >
-              <View style={styles.scheduleHeader}>
-                <TouchableOpacity
-                  style={styles.enableToggle}
-                  onPress={() => toggleScheduleEnabled(index)}
-                  disabled={disabled}
-                >
-                  <Ionicons
-                    name={
-                      schedule.isEnabled
-                        ? "checkmark-circle"
-                        : "ellipse-outline"
-                    }
-                    size={24}
-                    color={
-                      schedule.isEnabled
-                        ? Colors[colorScheme].tint
-                        : Colors[colorScheme].textSecondary
-                    }
-                  />
-                </TouchableOpacity>
-                <View style={styles.scheduleInfo}>
-                  <ThemedText
-                    style={[
-                      styles.scheduleDays,
-                      { color: Colors[colorScheme].text },
-                    ]}
-                  >
-                    {formatDays(schedule.days)}
-                  </ThemedText>
-                  <ThemedText
-                    style={[
-                      styles.scheduleTime,
-                      { color: Colors[colorScheme].textSecondary },
-                    ]}
-                  >
-                    {schedule.timeFrom} - {schedule.timeTill}
-                  </ThemedText>
-                </View>
-                <View style={styles.scheduleActions}>
+              <Card.Content>
+                <View style={styles.scheduleHeader}>
                   <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => openEditModal(index)}
+                    style={styles.enableToggle}
+                    onPress={() => toggleScheduleEnabled(index)}
                     disabled={disabled}
                   >
-                    <Ionicons
-                      name="create-outline"
-                      size={20}
-                      color={Colors[colorScheme].tint}
+                    <Icon
+                      source={
+                        schedule.isEnabled ? "check-circle" : "circle-outline"
+                      }
+                      size={24}
+                      color={
+                        schedule.isEnabled
+                          ? theme.colors.primary
+                          : theme.colors.onSurfaceVariant
+                      }
                     />
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => deleteSchedule(index)}
-                    disabled={disabled}
-                  >
-                    <Ionicons
-                      name="trash-outline"
-                      size={20}
-                      color={Colors[colorScheme].error}
-                    />
-                  </TouchableOpacity>
+                  <View style={styles.scheduleInfo}>
+                    <Text variant="titleSmall" style={styles.scheduleDays}>
+                      {formatDays(schedule.days)}
+                    </Text>
+                    <Text
+                      variant="bodyMedium"
+                      style={{ color: theme.colors.onSurfaceVariant }}
+                    >
+                      {schedule.timeFrom} - {schedule.timeTill}
+                    </Text>
+                  </View>
+                  <View style={styles.scheduleActions}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => openEditModal(index)}
+                      disabled={disabled}
+                    >
+                      <Icon
+                        source="pencil"
+                        size={20}
+                        color={theme.colors.primary}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => deleteSchedule(index)}
+                      disabled={disabled}
+                    >
+                      <Icon
+                        source="delete"
+                        size={20}
+                        color={theme.colors.error}
+                      />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            </ThemedView>
+              </Card.Content>
+            </Card>
           ))}
         </ScrollView>
       )}
 
-      <Modal
-        visible={showAddModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={closeModal}
-      >
-        <SafeAreaView
-          style={[
-            styles.modalContainer,
-            { backgroundColor: Colors[colorScheme].background },
-          ]}
+      <Portal>
+        <Modal
+          visible={showAddModal}
+          onDismiss={closeModal}
+          contentContainerStyle={containerStyle}
+          dismissableBackButton
         >
           <View
             style={[
               styles.modalHeader,
-              { borderBottomColor: Colors[colorScheme].border },
+              {
+                borderBottomColor: theme.colors.outline,
+                backgroundColor: "transparent",
+              },
             ]}
           >
-            <ThemedText
-              style={[styles.modalTitle, { color: Colors[colorScheme].text }]}
-            >
-              {editingIndex !== null
-                ? t("recurringSnooze.editSchedule")
-                : t("recurringSnooze.addScheduleTitle")}
-            </ThemedText>
-            <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
-              <Ionicons
-                name="close"
+            <View style={styles.headerLeft}>
+              <Icon
+                source="clock-outline"
                 size={24}
-                color={Colors[colorScheme].text}
+                color={theme.colors.primary}
               />
-            </TouchableOpacity>
+              <Text style={styles.modalTitle}>
+                {editingIndex !== null
+                  ? t("recurringSnooze.editSchedule")
+                  : t("recurringSnooze.addScheduleTitle")}
+              </Text>
+            </View>
+            <TouchableRipple
+              style={[styles.closeButton]}
+              onPress={closeModal}
+              borderless
+            >
+              <Icon source="close" size={20} color={theme.colors.onSurface} />
+            </TouchableRipple>
           </View>
 
           <ScrollView
-            style={styles.modalContent}
-            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              padding: 20,
+            }}
           >
             <View style={styles.section}>
-              <ThemedText
-                style={[
-                  styles.sectionTitle,
-                  { color: Colors[colorScheme].text },
-                ]}
-              >
+              <Text variant="titleSmall" style={styles.sectionTitle}>
                 {t("recurringSnooze.daysOfWeek")}
-              </ThemedText>
+              </Text>
               <View style={styles.daysGrid}>
                 {DAYS_OF_WEEK.map(({ value, label }) => (
                   <TouchableOpacity
                     key={value}
                     style={[
                       styles.dayButton,
-                      { borderColor: Colors[colorScheme].border },
+                      { borderColor: theme.colors.outline },
                       currentSchedule.days.includes(value) && {
-                        backgroundColor: Colors[colorScheme].tint,
-                        borderColor: Colors[colorScheme].tint,
+                        backgroundColor: theme.colors.primary,
+                        borderColor: theme.colors.primary,
                       },
                     ]}
                     onPress={() => toggleDay(value)}
                   >
-                    <ThemedText
+                    <Text
                       style={[
                         styles.dayButtonText,
                         {
                           color: currentSchedule.days.includes(value)
-                            ? "white"
-                            : Colors[colorScheme].text,
+                            ? theme.colors.onPrimary
+                            : theme.colors.onSurface,
                         },
                       ]}
                     >
                       {String(t(label)).slice(0, 3)}
-                    </ThemedText>
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
             <View style={styles.section}>
-              <ThemedText
-                style={[
-                  styles.sectionTitle,
-                  { color: Colors[colorScheme].text },
-                ]}
-              >
+              <Text variant="titleSmall" style={styles.sectionTitle}>
                 {t("recurringSnooze.timeRange")}
-              </ThemedText>
+              </Text>
               <View style={styles.timeRow}>
                 <View style={styles.timePicker}>
-                  <ThemedText
+                  <Text
+                    variant="bodySmall"
                     style={[
                       styles.timeLabel,
-                      { color: Colors[colorScheme].textSecondary },
+                      { color: theme.colors.onSurfaceVariant },
                     ]}
                   >
                     {t("recurringSnooze.from")}
-                  </ThemedText>
-                  <Picker
-                    selectedValue={currentSchedule.timeFrom}
-                    onValueChange={(value) =>
+                  </Text>
+                  <TextInput
+                    mode="outlined"
+                    value={currentSchedule.timeFrom}
+                    onChangeText={(value) =>
                       setCurrentSchedule((prev) => ({
                         ...prev,
                         timeFrom: value,
                       }))
                     }
-                    style={[styles.picker, { color: Colors[colorScheme].text }]}
-                  >
-                    {TIME_OPTIONS.map((time) => (
-                      <Picker.Item key={time} label={time} value={time} />
-                    ))}
-                  </Picker>
+                    placeholder="09:00"
+                    keyboardType="numeric"
+                    style={styles.timeInput}
+                    contentStyle={styles.timeInputContent}
+                    outlineStyle={styles.timeInputOutline}
+                  />
                 </View>
                 <View style={styles.timePicker}>
-                  <ThemedText
+                  <Text
+                    variant="bodySmall"
                     style={[
                       styles.timeLabel,
-                      { color: Colors[colorScheme].textSecondary },
+                      { color: theme.colors.onSurfaceVariant },
                     ]}
                   >
                     {t("recurringSnooze.to")}
-                  </ThemedText>
-                  <Picker
-                    selectedValue={currentSchedule.timeTill}
-                    onValueChange={(value) =>
+                  </Text>
+                  <TextInput
+                    mode="outlined"
+                    value={currentSchedule.timeTill}
+                    onChangeText={(value) =>
                       setCurrentSchedule((prev) => ({
                         ...prev,
                         timeTill: value,
                       }))
                     }
-                    style={[styles.picker, { color: Colors[colorScheme].text }]}
-                  >
-                    {TIME_OPTIONS.map((time) => (
-                      <Picker.Item key={time} label={time} value={time} />
-                    ))}
-                  </Picker>
+                    placeholder="17:00"
+                    keyboardType="numeric"
+                    style={styles.timeInput}
+                    contentStyle={styles.timeInputContent}
+                    outlineStyle={styles.timeInputOutline}
+                  />
                 </View>
               </View>
             </View>
 
             <View style={styles.section}>
               <View style={styles.enableRow}>
-                <ThemedText
-                  style={[
-                    styles.sectionTitle,
-                    { color: Colors[colorScheme].text },
-                  ]}
-                >
+                <Text variant="titleSmall" style={styles.sectionTitle}>
                   {t("recurringSnooze.enableSchedule")}
-                </ThemedText>
+                </Text>
                 <TouchableOpacity
                   style={[
                     styles.enableSwitch,
                     {
                       backgroundColor: currentSchedule.isEnabled
-                        ? Colors[colorScheme].tint
-                        : Colors[colorScheme].border,
+                        ? theme.colors.primary
+                        : theme.colors.outline,
                     },
                   ]}
                   onPress={() =>
@@ -617,23 +598,24 @@ export default function SnoozeSchedulesManager({
 
           <View style={styles.modalFooter}>
             <Button
-              title={t("recurringSnooze.cancel")}
+              mode="outlined"
               onPress={closeModal}
-              variant="secondary"
               style={styles.footerButton}
-            />
+            >
+              {t("recurringSnooze.cancel")}
+            </Button>
             <Button
-              title={
-                editingIndex !== null
-                  ? t("recurringSnooze.update")
-                  : t("recurringSnooze.add")
-              }
+              mode="contained"
               onPress={saveSchedule}
               style={styles.footerButton}
-            />
+            >
+              {editingIndex !== null
+                ? t("recurringSnooze.update")
+                : t("recurringSnooze.add")}
+            </Button>
           </View>
-        </SafeAreaView>
-      </Modal>
+        </Modal>
+      </Portal>
     </View>
   );
 }
@@ -653,47 +635,27 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   addButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
-  },
-  addButtonText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  disabledButton: {
-    opacity: 0.5,
+    margin: 0,
   },
   emptyState: {
+    marginBottom: 16,
+  },
+  emptyStateContent: {
     alignItems: "center",
     padding: 32,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: "dashed",
   },
   emptyStateText: {
-    fontSize: 16,
-    fontWeight: "600",
     marginTop: 16,
     textAlign: "center",
   },
   emptyStateSubtext: {
-    fontSize: 14,
     marginTop: 8,
     textAlign: "center",
-    opacity: 0.7,
   },
   schedulesList: {
     maxHeight: 300,
   },
   scheduleCard: {
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
     marginBottom: 12,
   },
   disabledSchedule: {
@@ -711,12 +673,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scheduleDays: {
-    fontSize: 16,
-    fontWeight: "600",
     marginBottom: 4,
-  },
-  scheduleTime: {
-    fontSize: 14,
   },
   scheduleActions: {
     flexDirection: "row",
@@ -725,16 +682,18 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
   },
-  modalContainer: {
-    flex: 1,
-  },
   modalHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    height: 60,
     borderBottomWidth: 1,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   modalTitle: {
     fontSize: 20,
@@ -742,10 +701,6 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 8,
-  },
-  modalContent: {
-    flex: 1,
-    paddingHorizontal: 20,
   },
   section: {
     marginVertical: 16,
@@ -783,9 +738,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 8,
   },
-  picker: {
-    borderWidth: 1,
-    borderColor: "#ccc",
+  timeInput: {
+    height: 48,
+  },
+  timeInputContent: {
+    textAlign: "center",
+    fontSize: 16,
+  },
+  timeInputOutline: {
     borderRadius: 8,
   },
   enableRow: {

@@ -24,8 +24,12 @@ export default function HomeSidebar() {
   const { data: bucketsData } = useGetBucketsQuery();
   const { cacheStats } = useGetCacheStats();
   const pathname = usePathname();
-  const { navigateToHome, navigateToGallery, navigateToBucketDetail } =
-    useNavigationUtils();
+  const {
+    navigateToCreateBucket,
+    navigateToHome,
+    navigateToGallery,
+    navigateToBucketDetail,
+  } = useNavigationUtils();
   const { isDesktop } = useDeviceType();
 
   const notifCount = notifications.length;
@@ -87,67 +91,67 @@ export default function HomeSidebar() {
           {sidebarItems.map((item) => {
             const isSelected = isSectionSelected(item.route);
             return (
-               <TouchableRipple
-                 key={item.id}
-                 style={[
-                   styles.sidebarItem,
-                   {
-                     backgroundColor: isSelected
-                       ? theme.colors.primaryContainer
-                       : "transparent",
-                   },
-                 ]}
-                 onPress={item.onPress}
-               >
-                 <View style={styles.sidebarItemContent}>
-                   <Icon
-                     source={item.icon as any}
-                     size={20}
-                     color={
-                       isSelected
-                         ? theme.colors.primary
-                         : theme.colors.onSurfaceVariant
-                     }
-                   />
-                   <Text
-                     style={[
-                       styles.sidebarItemText,
-                       {
-                         color: isSelected
-                           ? theme.colors.primary
-                           : theme.colors.onSurfaceVariant,
-                         fontWeight: isSelected ? "600" : "400",
-                       },
-                     ]}
-                   >
-                     {item.title}
-                   </Text>
-                   {item.count > 0 && (
-                     <View
-                       style={[
-                         styles.badge,
-                         { backgroundColor: theme.colors.primary },
-                       ]}
-                     >
-                       {item.id === "notifications" && isLoadingGqlData ? (
-                         <ActivityIndicator
-                           size="small"
-                           color={theme.colors.onPrimary}
-                         />
-                       ) : (
-                         <Text
-                           style={[
-                             styles.badgeText,
-                             { color: theme.colors.onPrimary },
-                           ]}
-                         >
-                           {item.count}
-                         </Text>
-                       )}
-                     </View>
-                   )}
-                 </View>
-               </TouchableRipple>
+              <TouchableRipple
+                key={item.id}
+                style={[
+                  styles.sidebarItem,
+                  {
+                    backgroundColor: isSelected
+                      ? theme.colors.primaryContainer
+                      : "transparent",
+                  },
+                ]}
+                onPress={item.onPress}
+              >
+                <View style={styles.sidebarItemContent}>
+                  <Icon
+                    source={item.icon as any}
+                    size={20}
+                    color={
+                      isSelected
+                        ? theme.colors.primary
+                        : theme.colors.onSurfaceVariant
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.sidebarItemText,
+                      {
+                        color: isSelected
+                          ? theme.colors.primary
+                          : theme.colors.onSurfaceVariant,
+                        fontWeight: isSelected ? "600" : "400",
+                      },
+                    ]}
+                  >
+                    {item.title}
+                  </Text>
+                  {item.count > 0 && (
+                    <View
+                      style={[
+                        styles.badge,
+                        { backgroundColor: theme.colors.primary },
+                      ]}
+                    >
+                      {item.id === "notifications" && isLoadingGqlData ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={theme.colors.onPrimary}
+                        />
+                      ) : (
+                        <Text
+                          style={[
+                            styles.badgeText,
+                            { color: theme.colors.onPrimary },
+                          ]}
+                        >
+                          {item.count}
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+              </TouchableRipple>
             );
           })}
 
@@ -166,63 +170,63 @@ export default function HomeSidebar() {
               return (
                 <TouchableRipple
                   key={bucket.id}
-                 style={[
-                   styles.bucketItem,
-                   {
-                     backgroundColor: isSelected
-                       ? theme.colors.primaryContainer
-                       : "transparent",
-                   },
-                 ]}
-                 onPress={() => navigateToBucketDetail(bucket.id)}
-               >
-                 <View style={styles.bucketItemContent}>
-                   <BucketIcon
-                     bucketId={bucket.id}
-                     size="lg"
-                     noRouting
-                     showBorder={false}
-                   />
-                   <Text
-                     style={[
-                       styles.bucketItemText,
-                       {
-                         color: isSelected
-                           ? theme.colors.primary
-                           : theme.colors.onSurfaceVariant,
-                         fontWeight:
-                           bucket.unreadCount > 0 || isSelected
-                             ? "600"
-                             : "400",
-                       },
-                     ]}
-                   >
-                     {bucket.name}
-                   </Text>
-                   {bucket.unreadCount > 0 && (
-                     <View
-                       style={[
-                         styles.badge,
-                         { backgroundColor: theme.colors.primary },
-                       ]}
-                     >
-                       <Text
-                         style={[
-                           styles.badgeText,
-                           { color: theme.colors.onPrimary },
-                         ]}
-                       >
-                         {bucket.unreadCount > 99
-                           ? "99+"
-                           : bucket.unreadCount.toString()}
-                       </Text>
-                     </View>
-                   )}
-                 </View>
-               </TouchableRipple>
+                  style={[
+                    styles.bucketItem,
+                    {
+                      backgroundColor: isSelected
+                        ? theme.colors.primaryContainer
+                        : "transparent",
+                    },
+                  ]}
+                  onPress={() => navigateToBucketDetail(bucket.id)}
+                >
+                  <View style={styles.bucketItemContent}>
+                    <BucketIcon
+                      bucketId={bucket.id}
+                      size="lg"
+                      noRouting
+                      showBorder={false}
+                    />
+                    <Text
+                      style={[
+                        styles.bucketItemText,
+                        {
+                          color: isSelected
+                            ? theme.colors.primary
+                            : theme.colors.onSurfaceVariant,
+                          fontWeight:
+                            bucket.unreadCount > 0 || isSelected
+                              ? "600"
+                              : "400",
+                        },
+                      ]}
+                    >
+                      {bucket.name}
+                    </Text>
+                    {bucket.unreadCount > 0 && (
+                      <View
+                        style={[
+                          styles.badge,
+                          { backgroundColor: theme.colors.primary },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.badgeText,
+                            { color: theme.colors.onPrimary },
+                          ]}
+                        >
+                          {bucket.unreadCount > 99
+                            ? "99+"
+                            : bucket.unreadCount.toString()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </TouchableRipple>
               );
             })}
-            
+
             {/* Add new bucket item */}
             <TouchableRipple
               style={[
@@ -234,10 +238,7 @@ export default function HomeSidebar() {
                   borderColor: theme.colors.outline,
                 },
               ]}
-              onPress={() => {
-                // TODO: Navigate to add bucket screen
-                console.log("Add new bucket");
-              }}
+              onPress={() => navigateToCreateBucket(true)}
             >
               <View style={styles.bucketItemContent}>
                 <View
@@ -264,7 +265,7 @@ export default function HomeSidebar() {
                     },
                   ]}
                 >
-                  Add Bucket
+                  {t("buckets.form.createButton")}
                 </Text>
               </View>
             </TouchableRipple>

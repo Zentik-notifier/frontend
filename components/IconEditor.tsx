@@ -1,31 +1,29 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  Image,
-  StatusBar,
-  Modal,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { uploadBucketIcon } from "@/services/buckets";
 import * as DocumentPicker from "expo-document-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
-import { ThemedText } from "./ThemedText";
-import { useThemeColor } from "@/hooks/useThemeColor";
-import { uploadBucketIcon } from "@/services/buckets";
-import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
+import React, { useState } from "react";
 import {
-  PanResponder,
-  LayoutChangeEvent,
+  Alert,
+  Dimensions,
   GestureResponderEvent,
-  PanResponderGestureState,
+  Image,
+  LayoutChangeEvent,
+  PanResponder,
+  StyleSheet,
+  View,
 } from "react-native";
-import ButtonGroup from "./ButtonGroup";
+import {
+  Icon,
+  Modal,
+  Portal,
+  SegmentedButtons,
+  Text,
+  TextInput,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 
 interface IconEditorProps {
   currentIcon?: string;
@@ -42,6 +40,7 @@ export default function IconEditor({
   onClose,
 }: IconEditorProps) {
   const { t } = useI18n();
+  const theme = useTheme();
   const { data: appConfig } = usePublicAppConfigQuery();
 
   const [mode, setMode] = useState<"url" | "file" | "crop">("url");
@@ -73,10 +72,6 @@ export default function IconEditor({
   React.useEffect(() => {
     previewLayoutRef.current = previewLayout;
   }, [previewLayout]);
-
-  const backgroundColor = useThemeColor({}, "background");
-  const textColor = useThemeColor({}, "text");
-  const tintColor = useThemeColor({}, "tint");
 
   const initSelection = (w: number, h: number) => {
     const size = Math.min(w, h) * 0.6;
@@ -267,8 +262,8 @@ export default function IconEditor({
           {
             left: selection.x - 15,
             top: selection.y - 15,
-            backgroundColor: backgroundColor,
-            borderColor: tintColor,
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.primary,
           },
         ]}
         {...handlePan("tl").panHandlers}
@@ -279,8 +274,8 @@ export default function IconEditor({
           {
             left: selection.x + selection.size - 15,
             top: selection.y - 15,
-            backgroundColor: backgroundColor,
-            borderColor: tintColor,
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.primary,
           },
         ]}
         {...handlePan("tr").panHandlers}
@@ -291,8 +286,8 @@ export default function IconEditor({
           {
             left: selection.x - 15,
             top: selection.y + selection.size - 15,
-            backgroundColor: backgroundColor,
-            borderColor: tintColor,
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.primary,
           },
         ]}
         {...handlePan("bl").panHandlers}
@@ -303,8 +298,8 @@ export default function IconEditor({
           {
             left: selection.x + selection.size - 15,
             top: selection.y + selection.size - 15,
-            backgroundColor: backgroundColor,
-            borderColor: tintColor,
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.primary,
           },
         ]}
         {...handlePan("br").panHandlers}
@@ -366,24 +361,24 @@ export default function IconEditor({
       const needsResize =
         croppedWidth > CROP_TARGET_PX || croppedHeight > CROP_TARGET_PX;
 
-       const format = SaveFormat.PNG;
-       const fileExtension = "png";
+      const format = SaveFormat.PNG;
+      const fileExtension = "png";
 
-       const context = ImageManipulator.manipulate(previewImage);
-       context.crop(crop);
-       if (needsResize) {
-         context.resize({ width: CROP_TARGET_PX, height: CROP_TARGET_PX });
-       }
-       
-       const image = await context.renderAsync();
-       const result = await image.saveAsync({
-         compress: 1.0,
-         format,
-       });
-       
-       // Rilascia le risorse
-       context.release();
-       image.release();
+      const context = ImageManipulator.manipulate(previewImage);
+      context.crop(crop);
+      if (needsResize) {
+        context.resize({ width: CROP_TARGET_PX, height: CROP_TARGET_PX });
+      }
+
+      const image = await context.renderAsync();
+      const result = await image.saveAsync({
+        compress: 1.0,
+        format,
+      });
+
+      // Rilascia le risorse
+      context.release();
+      image.release();
 
       const iconUrl = await uploadBucketIcon(
         result.uri,
@@ -501,48 +496,55 @@ export default function IconEditor({
 
   const renderUrlInput = () => (
     <View style={styles.inputContainer}>
-      <ThemedText style={styles.label}>{t("iconEditor.fromUrl")}</ThemedText>
+      <Text variant="titleSmall" style={styles.label}>
+        {t("iconEditor.fromUrl")}
+      </Text>
       <View style={styles.urlInputContainer}>
         <TextInput
-          style={[
-            styles.urlInput,
-            { color: textColor, borderColor: tintColor },
-          ]}
+          mode="outlined"
+          style={styles.urlInput}
           value={url}
           onChangeText={setUrl}
           placeholder={t("iconEditor.urlPlaceholder")}
-          placeholderTextColor={textColor + "80"}
           keyboardType="url"
           autoCapitalize="none"
           autoCorrect={false}
         />
-        <TouchableOpacity
-          style={[styles.loadButton, { backgroundColor: tintColor }]}
+        <TouchableRipple
+          style={[styles.loadButton, { backgroundColor: theme.colors.primary }]}
           onPress={handleLoadFromUrl}
           disabled={!url.trim()}
         >
-          <Ionicons name="cloud-download" size={20} color="white" />
-        </TouchableOpacity>
+          <Icon source="cloud-download" size={20} color={theme.colors.onPrimary} />
+        </TouchableRipple>
       </View>
     </View>
   );
 
   const renderFileInput = () => (
     <View style={styles.inputContainer}>
-      <ThemedText style={styles.label}>{t("iconEditor.fromFile")}</ThemedText>
-      <TouchableOpacity
-        style={[styles.fileButton, { backgroundColor: tintColor }]}
+      <Text variant="titleSmall" style={styles.label}>
+        {t("iconEditor.fromFile")}
+      </Text>
+      <TouchableRipple
+        style={[styles.fileButton, { backgroundColor: theme.colors.primary }]}
         onPress={handleSelectFile}
       >
-        <Ionicons name="folder-open" size={20} color="white" />
-        <Text style={styles.fileButtonText}>{t("iconEditor.chooseFile")}</Text>
-      </TouchableOpacity>
+        <View style={styles.fileButtonContent}>
+          <Icon source="folder-open" size={20} color={theme.colors.onPrimary} />
+          <Text style={[styles.fileButtonText, { color: theme.colors.onPrimary }]}>
+            {t("iconEditor.chooseFile")}
+          </Text>
+        </View>
+      </TouchableRipple>
     </View>
   );
 
   const renderCropView = () => (
     <View style={styles.cropContainer}>
-      <ThemedText style={styles.label}>{t("iconEditor.cropImage")}</ThemedText>
+      <Text variant="titleSmall" style={styles.label}>
+        {t("iconEditor.cropImage")}
+      </Text>
       <View style={styles.imagePreviewContainer} onLayout={onPreviewLayout}>
         <View
           style={{
@@ -562,82 +564,121 @@ export default function IconEditor({
           {renderCropOverlay()}
         </View>
       </View>
-      <TouchableOpacity
-        style={[styles.cropButton, { backgroundColor: tintColor }]}
+      <TouchableRipple
+        style={[styles.cropButton, { backgroundColor: theme.colors.primary }]}
         onPress={handleConfirmCrop}
         disabled={isLoading}
       >
-        <Ionicons name="crop" size={20} color="white" />
-        <Text style={styles.cropButtonText}>
-          {isLoading ? t("common.loading") : t("iconEditor.cropAndUpload")}
-        </Text>
-      </TouchableOpacity>
+        <View style={styles.cropButtonContent}>
+          <Icon source="crop" size={20} color={theme.colors.onPrimary} />
+          <Text style={[styles.cropButtonText, { color: theme.colors.onPrimary }]}>
+            {isLoading ? t("common.loading") : t("iconEditor.cropAndUpload")}
+          </Text>
+        </View>
+      </TouchableRipple>
     </View>
   );
 
+  const deviceHeight = Dimensions.get("window").height;
+  const containerStyle = {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginVertical: 16,
+    maxHeight: deviceHeight * 0.95,
+    minHeight: deviceHeight * 0.7,
+  } as const;
+
   return (
-    <Modal
-      visible={true}
-      animationType="slide"
-      presentationStyle="fullScreen"
-      onRequestClose={onClose}
-    >
-      <SafeAreaView style={[styles.container, { backgroundColor }]}>
-        <StatusBar barStyle="light-content" backgroundColor={backgroundColor} />
+    <Portal>
+      <Modal
+        visible={true}
+        onDismiss={onClose}
+        contentContainerStyle={containerStyle}
+        dismissableBackButton
+      >
+        <View style={{ borderRadius: 12, flex: 1 }}>
+          <View
+            style={[
+              styles.modalHeader,
+              {
+                borderBottomColor: theme.colors.outline,
+                backgroundColor: "transparent",
+              },
+            ]}
+          >
+            <View style={styles.headerLeft}>
+              <Icon
+                source="image-edit"
+                size={24}
+                color={theme.colors.primary}
+              />
+              <Text style={styles.modalTitle}>{t("iconEditor.title")}</Text>
+            </View>
+            <TouchableRipple
+              style={[styles.closeButton]}
+              onPress={onClose}
+              borderless
+            >
+              <Icon source="close" size={20} color={theme.colors.onSurface} />
+            </TouchableRipple>
+          </View>
 
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>{t("iconEditor.title")}</ThemedText>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={textColor} />
-          </TouchableOpacity>
+          <View style={{ padding: 20, flex: 1 }}>
+            <SegmentedButtons
+              value={mode}
+              onValueChange={(value) => setMode(value as "url" | "file")}
+              buttons={[
+                {
+                  value: "url",
+                  label: t("iconEditor.fromUrl"),
+                },
+                {
+                  value: "file",
+                  label: t("iconEditor.fromFile"),
+                },
+              ]}
+              style={styles.tabContainer}
+            />
+
+            <View style={styles.content}>
+              {mode === "url" && renderUrlInput()}
+              {mode === "file" && renderFileInput()}
+              {mode === "crop" && renderCropView()}
+            </View>
+          </View>
         </View>
-
-        <ButtonGroup
-          options={[
-            { key: "url", label: t("iconEditor.fromUrl") },
-            { key: "file", label: t("iconEditor.fromFile") },
-          ]}
-          selectedKey={mode}
-          onSelect={(key) => setMode(key as "url" | "file")}
-          style={styles.tabContainer}
-        />
-
-        <View style={styles.content}>
-          {mode === "url" && renderUrlInput()}
-          {mode === "file" && renderFileInput()}
-          {mode === "crop" && renderCropView()}
-        </View>
-      </SafeAreaView>
-    </Modal>
+      </Modal>
+    </Portal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
+  modalHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    height: 60,
+    borderBottomWidth: 1,
   },
-  title: {
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  modalTitle: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "600",
   },
   closeButton: {
-    padding: 4,
+    padding: 8,
   },
   tabContainer: {
-    marginHorizontal: 20,
     marginBottom: 20,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   inputContainer: {
     marginBottom: 20,
@@ -653,11 +694,6 @@ const styles = StyleSheet.create({
   },
   urlInput: {
     flex: 1,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
     marginRight: 10,
   },
   loadButton: {
@@ -666,6 +702,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+    height: 56, // Altezza standard per TextInput outlined
+  },
+  fileButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   fileButton: {
     flexDirection: "row",
@@ -676,7 +718,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   fileButtonText: {
-    color: "white",
     fontSize: 16,
     fontWeight: "500",
     marginLeft: 8,
@@ -709,18 +750,19 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   cropButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
   },
+  cropButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
   cropButtonText: {
-    color: "white",
     fontSize: 16,
     fontWeight: "500",
-    marginLeft: 8,
   },
   selection: {
     position: "absolute",

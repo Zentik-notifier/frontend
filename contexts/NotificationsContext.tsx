@@ -6,7 +6,6 @@ interface NotificationsState {
   allNotifications: NotificationFragment[];
   selectionMode: boolean;
   selectedItems: Set<string>;
-  isCompactMode: boolean;
   markAsReadLoading: boolean;
   markAsUnreadLoading: boolean;
   deleteLoading: boolean;
@@ -20,7 +19,6 @@ type NotificationsAction =
   | { type: "SET_SELECTED_ITEMS"; payload: Set<string> }
   | { type: "TOGGLE_ITEM_SELECTION"; payload: string }
   | { type: "CLEAR_SELECTION" }
-  | { type: "SET_COMPACT_MODE"; payload: boolean }
   | { type: "SET_MARK_AS_READ_LOADING"; payload: boolean }
   | { type: "SET_MARK_AS_UNREAD_LOADING"; payload: boolean }
   | { type: "SET_DELETE_LOADING"; payload: boolean }
@@ -32,7 +30,6 @@ const initialState: NotificationsState = {
   allNotifications: [],
   selectionMode: false,
   selectedItems: new Set(),
-  isCompactMode: false,
   markAsReadLoading: false,
   markAsUnreadLoading: false,
   deleteLoading: false,
@@ -66,8 +63,6 @@ function notificationsReducer(
       return { ...state, selectedItems: newSelectedItems };
     case "CLEAR_SELECTION":
       return { ...state, selectedItems: new Set() };
-    case "SET_COMPACT_MODE":
-      return { ...state, isCompactMode: action.payload };
     case "SET_MARK_AS_READ_LOADING":
       return { ...state, markAsReadLoading: action.payload };
     case "SET_MARK_AS_UNREAD_LOADING":
@@ -94,7 +89,6 @@ interface NotificationsContextType {
   handleSelectAll: () => void;
   handleDeselectAll: () => void;
   handleCloseSelectionMode: () => void;
-  handleToggleCompactMode: () => void;
   handleShowFiltersModal: () => void;
   handleHideFiltersModal: () => void;
 }
@@ -141,10 +135,6 @@ export function NotificationsProvider({
     dispatch({ type: "SET_SELECTION_MODE", payload: false });
   };
 
-  const handleToggleCompactMode = () => {
-    dispatch({ type: "SET_COMPACT_MODE", payload: !state.isCompactMode });
-  };
-
   const handleShowFiltersModal = () => {
     dispatch({ type: "SET_SHOW_FILTERS_MODAL", payload: true });
   };
@@ -162,7 +152,6 @@ export function NotificationsProvider({
     handleSelectAll,
     handleDeselectAll,
     handleCloseSelectionMode,
-    handleToggleCompactMode,
     handleShowFiltersModal,
     handleHideFiltersModal,
   };

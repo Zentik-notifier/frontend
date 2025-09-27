@@ -1,15 +1,22 @@
-import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
-import { Ionicons } from "@expo/vector-icons";
 import React, { forwardRef, useImperativeHandle, useState } from "react";
-import { Modal, StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
+import { Dimensions, StyleSheet, View } from "react-native";
 import ReanimatedColorPicker, {
   Panel1,
   Preview,
 } from "reanimated-color-picker";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
+import {
+  Button,
+  Card,
+  Icon,
+  Modal,
+  Portal,
+  Surface,
+  Text,
+  TextInput,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 
 interface ColorPickerProps {
   selectedColor: string;
@@ -39,10 +46,10 @@ const colorPalette = [
 const ColorPicker = forwardRef<ColorPickerRef, ColorPickerProps>(
   ({ selectedColor, onColorChange, disabled = false }, ref) => {
     const { t } = useI18n();
-         const colorScheme = useColorScheme();
-     const [showModal, setShowModal] = useState(false);
-     const [baseColor, setBaseColor] = useState<string>();
-     const [hexInput, setHexInput] = useState("");
+    const theme = useTheme();
+    const [showModal, setShowModal] = useState(false);
+    const [baseColor, setBaseColor] = useState<string>();
+    const [hexInput, setHexInput] = useState("");
 
     const handleColorSelect = (color: string) => {
       if (!disabled) {
@@ -83,39 +90,57 @@ const ColorPicker = forwardRef<ColorPickerRef, ColorPickerProps>(
        setShowModal(true);
      };
 
-    return (
-      <Modal
-        visible={showModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <ThemedView style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <ThemedText style={styles.modalTitle}>
-                {t("buckets.form.chooseColor")}
-              </ThemedText>
-              <TouchableOpacity
-                onPress={() => setShowModal(false)}
-                style={styles.closeButton}
-              >
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color={Colors[colorScheme ?? "light"].text}
-                />
-              </TouchableOpacity>
-            </View>
+    const deviceHeight = Dimensions.get("window").height;
+    const containerStyle = {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 12,
+      marginHorizontal: 16,
+      marginVertical: 24,
+      maxHeight: deviceHeight * 0.8,
+    } as const;
 
+    return (
+      <Portal>
+        <Modal
+          visible={showModal}
+          onDismiss={() => setShowModal(false)}
+          contentContainerStyle={containerStyle}
+          dismissableBackButton
+        >
+          <View style={{ overflow: "hidden", borderRadius: 12 }}>
+          <View
+            style={[
+              styles.modalHeader,
+              {
+                borderBottomColor: theme.colors.outline,
+                backgroundColor: "transparent",
+              },
+            ]}
+          >
+            <View style={styles.headerLeft}>
+              <Icon source="palette" size={24} color={theme.colors.primary} />
+              <Text style={styles.modalTitle}>
+                {t("buckets.form.chooseColor")}
+              </Text>
+            </View>
+            <TouchableRipple
+              style={[styles.closeButton]}
+              onPress={() => setShowModal(false)}
+              borderless
+            >
+              <Icon source="close" size={20} color={theme.colors.onSurface} />
+            </TouchableRipple>
+          </View>
+
+          <View style={{ padding: 20 }}>
             {/* Color Palette Section */}
             <View style={styles.paletteSection}>
-              <ThemedText style={styles.sectionTitle}>
+              <Text variant="titleSmall" style={styles.sectionTitle}>
                 {t("common.colorPalette")}
-              </ThemedText>
+              </Text>
               <View style={styles.colorPalette}>
                 {colorPalette.map((color) => (
-                  <TouchableOpacity
+                  <TouchableRipple
                     key={color}
                     style={[
                       styles.colorOption,
@@ -126,24 +151,27 @@ const ColorPicker = forwardRef<ColorPickerRef, ColorPickerProps>(
                       handleColorSelect(color);
                       setBaseColor(color);
                     }}
+                    borderless
                   >
-                    {baseColor === color && (
-                      <Ionicons
-                        name="checkmark"
-                        size={20}
-                        style={styles.checkmark}
-                      />
-                    )}
-                  </TouchableOpacity>
+                    <View style={styles.colorOptionContent}>
+                      {baseColor === color && (
+                        <Icon
+                          source="check"
+                          size={20}
+                          color="white"
+                        />
+                      )}
+                    </View>
+                  </TouchableRipple>
                 ))}
               </View>
             </View>
 
             {/* Custom Color Picker Section */}
             <View style={styles.customSection}>
-              <ThemedText style={styles.sectionTitle}>
+              <Text variant="titleSmall" style={styles.sectionTitle}>
                 {t("common.customColor")}
-              </ThemedText>
+              </Text>
               <View style={styles.colorPickerContainer}>
                 <ReanimatedColorPicker
                   value={selectedColor}
@@ -151,7 +179,7 @@ const ColorPicker = forwardRef<ColorPickerRef, ColorPickerProps>(
                   style={styles.colorPicker}
                   thumbStyle={[
                     styles.colorPickerThumb,
-                    { borderColor: Colors[colorScheme ?? "light"].border },
+                    { borderColor: theme.colors.outline },
                   ]}
                   sliderThickness={25}
                   thumbSize={24}
@@ -165,61 +193,42 @@ const ColorPicker = forwardRef<ColorPickerRef, ColorPickerProps>(
 
             {/* Hex Input Section */}
             <View style={styles.hexInputSection}>
-              <ThemedText style={styles.sectionTitle}>
+              <Text variant="titleSmall" style={styles.sectionTitle}>
                 {t("common.hexColorCode")}
-              </ThemedText>
+              </Text>
               <TextInput
-                style={[
-                  styles.hexInput,
-                  {
-                    backgroundColor: Colors[colorScheme ?? "light"].background,
-                    borderColor: Colors[colorScheme ?? "light"].border,
-                    color: Colors[colorScheme ?? "light"].text,
-                  },
-                ]}
+                mode="outlined"
                 value={hexInput}
                 onChangeText={handleHexInputChange}
                 placeholder="#0a7ea4"
-                placeholderTextColor={Colors[colorScheme ?? "light"].textSecondary}
                 autoCapitalize="none"
                 autoCorrect={false}
                 maxLength={7}
+                style={styles.hexInput}
+                contentStyle={styles.hexInputContent}
               />
             </View>
+          </View>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  styles.cancelButton,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme ?? "light"].backgroundSecondary,
-                    borderColor: Colors[colorScheme ?? "light"].border,
-                  },
-                ]}
-                onPress={() => setShowModal(false)}
-              >
-                <ThemedText style={styles.cancelButtonText}>
-                  {t("common.cancel")}
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  styles.applyButton,
-                  { backgroundColor: selectedColor },
-                ]}
-                onPress={() => setShowModal(false)}
-              >
-                <ThemedText style={styles.applyButtonText}>
-                  {t("common.apply")}
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
-          </ThemedView>
-        </View>
-      </Modal>
+          <View style={styles.modalFooter}>
+            <Button
+              mode="outlined"
+              onPress={() => setShowModal(false)}
+              style={styles.footerButton}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              mode="contained"
+              onPress={() => setShowModal(false)}
+              style={styles.footerButton}
+            >
+              {t("common.apply")}
+            </Button>
+          </View>
+          </View>
+        </Modal>
+      </Portal>
     );
   }
 );
@@ -253,35 +262,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  modalContent: {
-    width: "100%",
-    maxWidth: 400,
-    borderRadius: 16,
-    padding: 20,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
-  },
   modalHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    height: 60,
+    borderBottomWidth: 1,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: "600",
   },
   closeButton: {
-    padding: 4,
+    padding: 8,
   },
   sectionTitle: {
     fontSize: 16,
@@ -300,22 +299,18 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
     borderWidth: 2,
     borderColor: "transparent",
+  },
+  colorOptionContent: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   selectedColorOption: {
     borderColor: "#333",
     borderWidth: 3,
-  },
-  checkmark: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-    textShadowColor: "#000",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
   },
   customSection: {
     marginBottom: 20,
@@ -331,41 +326,25 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   hexInputSection: {
+    marginTop: 12,
     marginBottom: 24,
   },
   hexInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    fontFamily: "monospace",
-    textAlign: "center",
+    height: 48,
   },
-  modalActions: {
+  hexInputContent: {
+    textAlign: "center",
+    fontFamily: "monospace",
+  },
+  modalFooter: {
     flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
     gap: 12,
   },
-  modalButton: {
+  footerButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  cancelButton: {
-    borderWidth: 1,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  applyButton: {
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  applyButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
   },
 });

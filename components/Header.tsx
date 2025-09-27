@@ -12,24 +12,29 @@ import {
   Text,
   Icon,
   Appbar,
+  TouchableRipple,
   useTheme,
 } from "react-native-paper";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Href, useSegments } from "expo-router";
 import { LoginModal } from "./LoginModal";
 import UserDropdown from "./UserDropdown";
 
 // Routes that should show home button instead of back button
 const HOME_ROUTES: Href[] = [
-  "/(mobile)/(home)/bucket/[id]",
-  "/(mobile)/(home)/notification/[id]",
+  "/(mobile)/(admin)",
+  "/(mobile)/(settings)",
+  "/(tablet)/(admin)/user-management/list",
+  "/(tablet)/(settings)/user-profile",
 ];
 
 // Routes that should show back button
-const BACK_ROUTES: Href[] = [];
+const BACK_ROUTES: Href[] = [
+  "/(mobile)/(home)/bucket/settings/[id]",
+  "/(mobile)/(home)/bucket/[id]",
+  "/(mobile)/(home)/notification/[id]",
+  "/(mobile)/(home)/bucket/settings/create",
+];
 
 export default function Header() {
   const {
@@ -68,7 +73,7 @@ export default function Header() {
 
   const downloadBlinkAnim = useRef(new Animated.Value(1)).current;
   const markBlinkAnim = useRef(new Animated.Value(1)).current;
-  // console.log("currentRoute", currentRoute);
+  console.log("currentRoute", currentRoute);
 
   // Status badge logic
   const status = getPriorityStatus();
@@ -192,14 +197,44 @@ export default function Header() {
         >
           {/* Navigation Button */}
           {shouldShowBackButton && (
-            <Appbar.BackAction onPress={navigateBack} mode="contained" />
+            <TouchableRipple
+              style={styles.backButton}
+              onPress={navigateBack}
+              accessibilityLabel={t("common.back")}
+              accessibilityRole="button"
+            >
+              <View style={styles.backButtonContent}>
+                <Icon
+                  source="arrow-left"
+                  size={24}
+                  color={theme.colors.onPrimary}
+                />
+                <Text
+                  variant="titleMedium"
+                  style={{ color: theme.colors.onPrimary }}
+                >
+                  {t("common.back")}
+                </Text>
+              </View>
+            </TouchableRipple>
           )}
           {shouldShowHomeButton && (
-            <Appbar.Action
-              icon="home"
+            <TouchableRipple
+              style={styles.homeButton}
               onPress={navigateToHome}
-              mode="contained"
-            />
+              accessibilityLabel={t("common.home")}
+              accessibilityRole="button"
+            >
+              <View style={styles.homeButtonContent}>
+                <Icon source="home" size={24} color={theme.colors.onPrimary} />
+                <Text
+                  variant="titleMedium"
+                  style={{ color: theme.colors.onPrimary }}
+                >
+                  {t("common.home")}
+                </Text>
+              </View>
+            </TouchableRipple>
           )}
 
           {/* Main Loading Indicator */}
@@ -327,6 +362,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     minHeight: 48,
     backgroundColor: "transparent", // Trasparente perché il colore è nel container
+  },
+  backButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  backButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  homeButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  homeButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   headerContainer: {
     flexDirection: "row",

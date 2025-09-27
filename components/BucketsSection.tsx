@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { FAB, useTheme } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
 import { ThemedText } from "./ThemedText";
@@ -23,6 +24,7 @@ import Icon from "./ui/Icon";
 const BucketsSection: React.FC = () => {
   const { t } = useI18n();
   const colorScheme = useColorScheme();
+  const theme = useTheme();
   const {
     data: bucketsData,
     loading: bucketsLoading,
@@ -225,15 +227,13 @@ const BucketsSection: React.FC = () => {
       </ScrollView>
 
       {/* Floating Action Button per creare nuovo bucket */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: Colors[colorScheme].tint }]}
+      <FAB
+        icon="plus"
+        style={styles.fab}
         onPress={() => {
           navigateToCreateBucket(true);
         }}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={24} color="white" />
-      </TouchableOpacity>
+      />
     </ThemedView>
   );
 };
@@ -340,19 +340,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 24,
     right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
 });
 

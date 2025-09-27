@@ -80,13 +80,14 @@ export default function NotificationDetail({
 
   if (loading || (!notification && !error)) {
     return (
-      <Surface style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Surface
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
         <View style={styles.loadingContainer}>
-          <ActivityIndicator
-            size="large"
-            color={theme.colors.primary}
-          />
-          <Text style={[styles.loadingText, { color: theme.colors.onBackground }]}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text
+            style={[styles.loadingText, { color: theme.colors.onBackground }]}
+          >
             {t("notificationDetail.loading")}
           </Text>
         </View>
@@ -96,7 +97,9 @@ export default function NotificationDetail({
 
   if (error || !notification) {
     return (
-      <Surface style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Surface
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
         <View style={styles.errorContainer}>
           <Icon source="alert-circle" size={48} color={theme.colors.error} />
           <Text style={[styles.errorText, { color: theme.colors.error }]}>
@@ -208,7 +211,9 @@ export default function NotificationDetail({
   const actions = message?.actions ? filteredActions(notification) : [];
 
   return (
-    <Surface style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <Surface
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -220,13 +225,14 @@ export default function NotificationDetail({
             {/* Left side: Bucket info */}
             <View style={styles.headerLeft}>
               <View style={styles.bucketContainer}>
-                <BucketIcon
-                  bucketId={message?.bucket?.id || ""}
-                  size="xxl"
-                  noRouting
-                />
+                <BucketIcon bucketId={message?.bucket?.id || ""} size="xxl" />
                 <View style={styles.bucketInfo}>
-                  <Text style={[styles.bucketName, { color: theme.colors.onBackground }]}>
+                  <Text
+                    style={[
+                      styles.bucketName,
+                      { color: theme.colors.onBackground },
+                    ]}
+                  >
                     {bucketName}
                   </Text>
                 </View>
@@ -281,7 +287,11 @@ export default function NotificationDetail({
                   onPress={handleDeleteNotification}
                 >
                   <View>
-                    <Icon source="delete" size={16} color={theme.colors.onError} />
+                    <Icon
+                      source="delete"
+                      size={16}
+                      color={theme.colors.onError}
+                    />
                   </View>
                 </TouchableRipple>
 
@@ -298,7 +308,12 @@ export default function NotificationDetail({
                     disabled
                   >
                     <View>
-                      <Text style={[styles.statusText, { color: theme.colors.onPrimary }]}>
+                      <Text
+                        style={[
+                          styles.statusText,
+                          { color: theme.colors.onPrimary },
+                        ]}
+                      >
                         {getDeliveryTypeFriendlyName(
                           message?.deliveryType as NotificationDeliveryType
                         )}
@@ -311,13 +326,23 @@ export default function NotificationDetail({
               {/* Timestamps */}
               <View style={styles.timestampsContainer}>
                 {notification.sentAt && (
-                  <Text style={[styles.timestampText, { color: theme.colors.onBackground }]}>
+                  <Text
+                    style={[
+                      styles.timestampText,
+                      { color: theme.colors.onBackground },
+                    ]}
+                  >
                     {t("notificationDetail.sent")}{" "}
                     {formatDate(notification.sentAt, true)}
                   </Text>
                 )}
                 {notification.readAt && (
-                  <Text style={[styles.timestampText, { color: theme.colors.onBackground }]}>
+                  <Text
+                    style={[
+                      styles.timestampText,
+                      { color: theme.colors.onBackground },
+                    ]}
+                  >
                     {t("notificationDetail.read")}{" "}
                     {formatDate(notification.readAt, true)}
                   </Text>

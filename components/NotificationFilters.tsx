@@ -29,22 +29,21 @@ export default function NotificationFilters({
   const { t } = useI18n();
   const theme = useTheme();
   const {
-    userSettings: { settings, setNotificationFilters },
+    userSettings: { settings, setNotificationFilters, setIsCompactMode },
   } = useAppContext();
   const filters = settings.notificationFilters;
+  const isCompactMode = settings.isCompactMode;
 
   // Use notifications context
   const {
     state: {
       selectionMode,
       selectedItems,
-      isCompactMode,
       markAsReadLoading,
       markAsUnreadLoading,
       deleteLoading,
     },
     handleToggleMultiSelection,
-    handleToggleCompactMode,
     handleCloseSelectionMode,
     handleSelectAll,
     handleDeselectAll,
@@ -100,6 +99,10 @@ export default function NotificationFilters({
   };
 
   const activeFiltersCount = getActiveFiltersCount();
+
+  const handleToggleCompactMode = useCallback(async () => {
+    await setIsCompactMode(!isCompactMode);
+  }, [isCompactMode, setIsCompactMode]);
 
   const renderSelectionBar = () => (
     <Surface
@@ -392,7 +395,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 8,
-    paddingHorizontal: 12,
     height: 44,
   },
   searchIcon: {

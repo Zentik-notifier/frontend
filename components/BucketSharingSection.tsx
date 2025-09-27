@@ -1,4 +1,3 @@
-import { Colors } from "@/constants/Colors";
 import {
   BucketFullFragment,
   EntityPermissionFragment,
@@ -10,23 +9,29 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
-import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Modal,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
+  Dimensions,
 } from "react-native";
+import {
+  Button,
+  Card,
+  Icon,
+  IconButton,
+  Modal,
+  Portal,
+  Text,
+  TextInput,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 import IdWithCopyButton from "./IdWithCopyButton";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
 
 interface BucketSharingSectionProps {
   bucketId: string;
@@ -80,7 +85,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
   onUpdate,
 }) => {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const [identifier, setIdentifier] = useState("");
   const [selectedPermissionLevel, setSelectedPermissionLevel] =
     useState<PermissionLevel>("read");
@@ -133,169 +138,152 @@ const ShareModal: React.FC<ShareModalProps> = ({
     }
   }, [isEditing, editingPermission]);
 
+  const deviceHeight = Dimensions.get("window").height;
+  const containerStyle = {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    overflow: "hidden",
+    marginHorizontal: 16,
+    marginVertical: 24,
+    maxHeight: deviceHeight * 0.8,
+  } as const;
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <ThemedView
+    <Portal>
+      <Modal
+        visible={visible}
+        onDismiss={onClose}
+        contentContainerStyle={containerStyle}
+        dismissableBackButton
+      >
+        <View
           style={[
-            styles.modalContent,
-            { backgroundColor: Colors[colorScheme].backgroundCard },
+            styles.modalHeader,
+            {
+              borderBottomColor: theme.colors.outline,
+              backgroundColor: "transparent",
+            },
           ]}
         >
-          <View
-            style={[
-              styles.modalHeader,
-              { borderBottomColor: Colors[colorScheme].border },
-            ]}
-          >
-            <ThemedText style={styles.modalTitle}>
+          <View style={styles.headerLeft}>
+            <Icon source="share" size={24} color={theme.colors.primary} />
+            <Text style={styles.modalTitle}>
               {isEditing
                 ? t("buckets.sharing.editTitle")
                 : t("buckets.sharing.shareTitle")}
-            </ThemedText>
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons
-                name="close"
-                size={24}
-                color={Colors[colorScheme].textSecondary}
-              />
-            </TouchableOpacity>
+            </Text>
           </View>
+          <TouchableRipple
+            style={[styles.closeButton]}
+            onPress={onClose}
+            borderless
+          >
+            <Icon source="close" size={20} color={theme.colors.onSurface} />
+          </TouchableRipple>
+        </View>
 
-          <View style={styles.modalBody}>
-            {!isEditing && (
-              <>
-                <ThemedText style={styles.label}>
-                  {t("buckets.sharing.userIdentifier")}
-                </ThemedText>
-                <TextInput
-                  style={[
-                    styles.input,
+        <View
+          style={{
+            padding: 20,
+          }}
+        >
+          {!isEditing && (
+            <>
+              <Text variant="titleSmall" style={styles.label}>
+                {t("buckets.sharing.userIdentifier")}
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={identifier}
+                onChangeText={setIdentifier}
+                placeholder={t("buckets.sharing.identifierPlaceholder")}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                mode="outlined"
+              />
+            </>
+          )}
+
+          {isEditing && (
+            <>
+              <View style={[styles.editingUserInfo, { backgroundColor: theme.colors.surfaceVariant }]}>
+                <Text variant="titleSmall" style={styles.editingUserLabel}>
+                  {t("buckets.sharing.userIdentifier")}:
+                </Text>
+                <Text style={[styles.editingUserValue, { color: theme.colors.primary }]}>
+                  {identifier}
+                </Text>
+              </View>
+              {editingPermission?.user?.id && (
+                <IdWithCopyButton
+                  id={editingPermission.user.id}
+                  label={t("buckets.sharing.userId")}
+                  copyMessage={t("buckets.sharing.userIdCopied")}
+                />
+              )}
+            </>
+          )}
+
+          <Text variant="titleSmall" style={styles.label}>
+            {t("buckets.sharing.permissions")}
+          </Text>
+          <View style={styles.permissionsContainer}>
+            {PERMISSION_LEVELS.map((level) => (
+              <TouchableOpacity
+                key={level.value}
+                style={[
+                  styles.permissionChip,
+                  { borderColor: theme.colors.outline },
+                  selectedPermissionLevel === level.value && [
                     {
-                      backgroundColor: Colors[colorScheme].inputBackground,
-                      borderColor: Colors[colorScheme].inputBorder,
-                      color: Colors[colorScheme].text,
+                      backgroundColor: theme.colors.primary,
+                      borderColor: theme.colors.primary,
+                    },
+                  ],
+                ]}
+                onPress={() => setSelectedPermissionLevel(level.value)}
+              >
+                <Text
+                  style={[
+                    styles.permissionText,
+                    { color: theme.colors.onSurfaceVariant },
+                    selectedPermissionLevel === level.value && {
+                      color: theme.colors.onPrimary,
                     },
                   ]}
-                  value={identifier}
-                  onChangeText={setIdentifier}
-                  placeholder={t("buckets.sharing.identifierPlaceholder")}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                />
-              </>
-            )}
-
-            {isEditing && (
-              <>
-                <View style={styles.editingUserInfo}>
-                  <ThemedText style={styles.editingUserLabel}>
-                    {t("buckets.sharing.userIdentifier")}:
-                  </ThemedText>
-                  <ThemedText style={styles.editingUserValue}>
-                    {identifier}
-                  </ThemedText>
-                </View>
-                {editingPermission?.user?.id && (
-                  <IdWithCopyButton
-                    id={editingPermission.user.id}
-                    label={t("buckets.sharing.userId")}
-                    copyMessage={t("buckets.sharing.userIdCopied")}
-                  />
-                )}
-              </>
-            )}
-
-            <ThemedText style={styles.label}>
-              {t("buckets.sharing.permissions")}
-            </ThemedText>
-            <View style={styles.permissionsContainer}>
-              {PERMISSION_LEVELS.map((level) => (
-                <TouchableOpacity
-                  key={level.value}
-                  style={[
-                    styles.permissionChip,
-                    selectedPermissionLevel === level.value && [
-                      {
-                        backgroundColor: Colors[colorScheme].tint,
-                        borderColor: Colors[colorScheme].tint,
-                      },
-                    ],
-                  ]}
-                  onPress={() => setSelectedPermissionLevel(level.value)}
                 >
-                  <Text
-                    style={[
-                      styles.permissionText,
-                      { color: Colors[colorScheme].textSecondary },
-                      selectedPermissionLevel === level.value && {
-                        color: "#fff",
-                      },
-                    ]}
-                  >
-                    {t(level.label as any)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          <View
-            style={[
-              styles.modalFooter,
-              { borderTopColor: Colors[colorScheme].border },
-            ]}
-          >
-            <TouchableOpacity
-              style={[
-                styles.modalButton,
-                {
-                  backgroundColor: Colors[colorScheme].backgroundSecondary,
-                  borderColor: Colors[colorScheme].border,
-                  borderWidth: 1,
-                },
-              ]}
-              onPress={() => {
-                reset();
-                onClose();
-              }}
-            >
-              <Text
-                style={[
-                  styles.cancelButtonText,
-                  { color: Colors[colorScheme].textSecondary },
-                ]}
-              >
-                {t("common.cancel")}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.modalButton,
-                { backgroundColor: Colors[colorScheme].tint },
-              ]}
-              onPress={handleShare}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={[styles.shareButtonText, { color: "#fff" }]}>
-                  {isEditing
-                    ? t("buckets.sharing.update")
-                    : t("buckets.sharing.share")}
+                  {t(level.label as any)}
                 </Text>
-              )}
-            </TouchableOpacity>
+              </TouchableOpacity>
+            ))}
           </View>
-        </ThemedView>
-      </View>
-    </Modal>
+        </View>
+
+        <View style={styles.modalFooter}>
+          <Button
+            mode="outlined"
+            onPress={() => {
+              reset();
+              onClose();
+            }}
+            style={styles.footerButton}
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button
+            mode="contained"
+            onPress={handleShare}
+            disabled={loading}
+            loading={loading}
+            style={styles.footerButton}
+          >
+            {isEditing
+              ? t("buckets.sharing.update")
+              : t("buckets.sharing.share")}
+          </Button>
+        </View>
+      </Modal>
+    </Portal>
   );
 };
 
@@ -315,7 +303,7 @@ const PermissionItem: React.FC<PermissionItemProps> = ({
   bucket,
 }) => {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
 
   const getUserDisplayName = () => {
     if (permission.user?.username) return `@${permission.user.username}`;
@@ -381,68 +369,66 @@ const PermissionItem: React.FC<PermissionItemProps> = ({
   };
 
   return (
-    <View
-      style={[
-        styles.permissionItem,
-        { backgroundColor: Colors[colorScheme].backgroundCard },
-      ]}
-    >
-      <View style={styles.permissionInfo}>
-        <ThemedText style={styles.permissionUser}>
-          {getUserDisplayName()}
-        </ThemedText>
-        <ThemedText style={styles.permissionDetails}>
-          {getPermissionsText()}
-        </ThemedText>
-        {getExpirationText() && (
-          <ThemedText style={styles.permissionExpiry}>
-            {getExpirationText()}
-          </ThemedText>
-        )}
-        {getGrantedByText() && (
-          <ThemedText
-            style={[
-              styles.permissionGrantedBy,
-              { color: Colors[colorScheme].textSecondary },
-            ]}
+    <Card style={styles.permissionItem}>
+      <Card.Content>
+        <View style={styles.permissionInfo}>
+          <Text variant="titleSmall" style={styles.permissionUser}>
+            {getUserDisplayName()}
+          </Text>
+          <Text variant="bodyMedium" style={styles.permissionDetails}>
+            {getPermissionsText()}
+          </Text>
+          {getExpirationText() && (
+            <Text variant="bodySmall" style={styles.permissionExpiry}>
+              {getExpirationText()}
+            </Text>
+          )}
+          {getGrantedByText() && (
+            <Text
+              variant="bodySmall"
+              style={[
+                styles.permissionGrantedBy,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              {getGrantedByText()}
+            </Text>
+          )}
+        </View>
+        <View style={styles.permissionActions}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => onEdit(permission)}
+            disabled={loading}
           >
-            {getGrantedByText()}
-          </ThemedText>
-        )}
-      </View>
-      <View style={styles.permissionActions}>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => onEdit(permission)}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color={Colors[colorScheme].tint} />
-          ) : (
-            <Ionicons
-              name="pencil"
-              size={18}
-              color={Colors[colorScheme].tint}
-            />
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.revokeButton}
-          onPress={() => onRevoke(permission)}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color={Colors[colorScheme].error} />
-          ) : (
-            <Ionicons
-              name="person-remove"
-              size={20}
-              color={Colors[colorScheme].error}
-            />
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
+            {loading ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : (
+              <Icon
+                source="pencil"
+                size={18}
+                color={theme.colors.primary}
+              />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.revokeButton}
+            onPress={() => onRevoke(permission)}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={theme.colors.error} />
+            ) : (
+              <Icon
+                source="account-remove"
+                size={20}
+                color={theme.colors.error}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+      </Card.Content>
+    </Card>
   );
 };
 
@@ -450,6 +436,7 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
   bucketId,
 }) => {
   const { t } = useI18n();
+  const theme = useTheme();
   const [showShareModal, setShowShareModal] = useState(false);
   const [editingPermission, setEditingPermission] =
     useState<EntityPermissionFragment | null>(null);
@@ -579,34 +566,44 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <ThemedText style={styles.title}>
+        <Text style={styles.title}>
           {t("buckets.sharing.title")}
-        </ThemedText>
-        <TouchableOpacity
-          style={styles.addButton}
+        </Text>
+        <IconButton
+          mode="contained"
           onPress={() => setShowShareModal(true)}
-        >
-          <Ionicons name="person-add" size={20} color="#007AFF" />
-        </TouchableOpacity>
+          icon="plus"
+          style={styles.addButton}
+        />
       </View>
 
-      <ThemedText style={styles.description}>
+      <Text style={styles.description}>
         {t("buckets.sharing.description")}
-      </ThemedText>
+      </Text>
 
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" />
-          <ThemedText style={styles.loadingText}>
+          <Text style={styles.loadingText}>
             {t("buckets.sharing.loading")}
-          </ThemedText>
+          </Text>
         </View>
       ) : allPermissions.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <ThemedText style={styles.emptyText}>
-            {t("buckets.sharing.noShares")}
-          </ThemedText>
-        </View>
+        <Card style={styles.emptyContainer}>
+          <Card.Content>
+            <Icon
+              source="account-group"
+              size={48}
+              color={theme.colors.onSurfaceVariant}
+            />
+            <Text
+              variant="titleMedium"
+              style={styles.emptyText}
+            >
+              {t("buckets.sharing.noShares")}
+            </Text>
+          </Card.Content>
+        </Card>
       ) : (
         <FlatList
           data={allPermissions}
@@ -684,7 +681,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: "#f8f9fa",
     borderRadius: 8,
     marginBottom: 8,
   },
@@ -710,7 +706,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     marginTop: 2,
     fontStyle: "italic",
-    color: "#6c757d",
   },
   permissionActions: {
     flexDirection: "row",
@@ -728,7 +723,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
     padding: 12,
-    backgroundColor: "#f0f0f0",
     borderRadius: 8,
   },
   editingUserLabel: {
@@ -738,11 +732,9 @@ const styles = StyleSheet.create({
   },
   editingUserValue: {
     fontSize: 14,
-    color: "#007AFF",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -754,15 +746,23 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: 20,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    height: 60,
     borderBottomWidth: 1,
-    borderBottomColor: "#e1e1e1",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "600",
+  },
+  closeButton: {
+    padding: 8,
   },
   modalBody: {
     padding: 20,
@@ -774,13 +774,11 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
     marginBottom: 20,
-    backgroundColor: "#fff",
   },
   permissionsContainer: {
     flexDirection: "row",
@@ -792,26 +790,26 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#ddd",
-    backgroundColor: "#fff",
   },
   permissionChipSelected: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
+    // Selected state will be handled by theme colors
   },
   permissionText: {
     fontSize: 14,
-    color: "#666",
   },
   permissionTextSelected: {
-    color: "#fff",
+    // Selected text color will be handled by theme colors
   },
   modalFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: "#e1e1e1",
+    gap: 12,
+  },
+  footerButton: {
+    flex: 1,
   },
   modalButton: {
     flex: 1,
@@ -821,19 +819,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   cancelButton: {
-    backgroundColor: "#f8f9fa",
     borderWidth: 1,
-    borderColor: "#ddd",
   },
   cancelButtonText: {
-    color: "#666",
     fontWeight: "500",
   },
   shareButton: {
-    backgroundColor: "#007AFF",
+    // Background color will be handled by theme
   },
   shareButtonText: {
-    color: "#fff",
     fontWeight: "500",
   },
 });

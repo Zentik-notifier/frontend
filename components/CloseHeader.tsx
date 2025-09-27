@@ -1,9 +1,12 @@
-import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
-import { HeaderBackButton } from "@react-navigation/elements";
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  Icon,
+  Surface,
+  Text,
+  useTheme,
+} from "react-native-paper";
 
 interface CloseHeaderProps {
   onClose: () => void;
@@ -11,34 +14,50 @@ interface CloseHeaderProps {
 
 export default function CloseHeader({ onClose }: CloseHeaderProps) {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
 
   return (
-    <View
+    <Surface
       style={[
         styles.header,
         {
-          backgroundColor: Colors[colorScheme].backgroundCard,
-          borderBottomColor: Colors[colorScheme].border,
+          backgroundColor: theme.colors.surface,
+          borderBottomColor: theme.colors.outline,
         },
       ]}
+      elevation={1}
     >
-      <HeaderBackButton
+      <TouchableOpacity
+        style={styles.content}
         onPress={onClose}
-        tintColor={Colors[colorScheme].text}
-        label={t("common.back")}
-      />
-    </View>
+        accessibilityLabel={t("common.back")}
+        accessibilityRole="button"
+      >
+        <Icon
+          source="arrow-left"
+          size={24}
+          color={theme.colors.onSurface}
+        />
+        <Text
+          variant="titleMedium"
+          style={{ color: theme.colors.onSurface }}
+        >
+          {t("common.back")}
+        </Text>
+      </TouchableOpacity>
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
+    borderBottomWidth: 1,
+  },
+  content: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 3,
-    borderBottomWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    gap: 8,
   },
 });

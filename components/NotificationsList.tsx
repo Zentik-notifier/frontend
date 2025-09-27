@@ -81,7 +81,7 @@ export default function NotificationsList({
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const {
-    state: { selectionMode, selectedItems, isCompactMode },
+    state: { selectionMode, selectedItems },
     handleCloseSelectionMode,
     handleSetAllNotifications,
     dispatch,
@@ -120,7 +120,12 @@ export default function NotificationsList({
     const maxId = filtered[filtered.length - 1]?.id;
 
     return { filteredNotifications: filtered, maxId };
-  }, [notifications, notificationFilters, hideBucketInfo, isCompactMode]);
+  }, [
+    notifications,
+    notificationFilters,
+    hideBucketInfo,
+    settings.isCompactMode,
+  ]);
 
   const onViewableItemsChanged = useCallback(
     ({
@@ -229,30 +234,6 @@ export default function NotificationsList({
       setIsRefreshing(false);
     }
   };
-
-  // Predicted item heights (max) to help FlashList pre-compute layouts
-  // Compact: only text + optional attachments pills
-  // Heights imported from NotificationItem to keep values in sync
-
-  const itemHasMediaAttachments = useCallback((n: NotificationFragment) => {
-    const atts = n.message?.attachments ?? [];
-    return atts.some((a) =>
-      [
-        MediaType.Image,
-        MediaType.Gif,
-        MediaType.Video,
-        MediaType.Audio,
-      ].includes(a.mediaType)
-    );
-  }, []);
-
-  // Provide a predictable max size per type so FlashList can pre-measure content length
-  const overrideItemLayout = useCallback(
-    (layout: { span?: number; size?: number }, item: NotificationFragment) => {
-      layout.size = getNotificationItemHeight(item, isCompactMode);
-    },
-    [isCompactMode]
-  );
 
   const renderItem = useCallback(
     ({ item }: { item: NotificationFragment }) => {
