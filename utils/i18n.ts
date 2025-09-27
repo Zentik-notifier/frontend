@@ -1,6 +1,5 @@
 // Internationalization exports - cleaned up for progressive implementation
 export { I18nProvider, useI18nContext } from '@/components/I18nProvider';
-export { LanguageSettings } from '@/components/LanguageSettings';
 export { useI18n } from '@/hooks/useI18n';
 export { useLanguageSync } from '@/hooks/useLanguageSync';
 export { i18nService } from '@/services/i18n';

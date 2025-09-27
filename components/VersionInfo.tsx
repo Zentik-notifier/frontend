@@ -1,15 +1,21 @@
-import { Colors } from "@/constants/Colors";
 import { useGetBackendVersionQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
-import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Updates from "expo-updates";
-import React, { useEffect } from "react";
-import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, View } from "react-native";
+import {
+  Button,
+  Card,
+  Dialog,
+  Icon,
+  IconButton,
+  Portal,
+  Text,
+  useTheme,
+} from "react-native-paper";
 import packageJson from "../package.json";
-import { ThemedText } from "./ThemedText";
 import { useAppContext } from "@/contexts/AppContext";
 
 interface VersionInfoProps {
@@ -17,7 +23,7 @@ interface VersionInfoProps {
 }
 
 export function VersionInfo({ style }: VersionInfoProps) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const { data, loading, refetch, error } = useGetBackendVersionQuery();
   const backendVersion = data?.getBackendVersion || "...";
@@ -25,10 +31,13 @@ export function VersionInfo({ style }: VersionInfoProps) {
     connectionStatus: {
       checkForUpdates,
       hasUpdateAvailable,
-      isCheckingUpdate,
       isOtaUpdatesEnabled,
     },
   } = useAppContext();
+
+  // Dialog states
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const refreshData = async () => {
     await refetch();
@@ -44,11 +53,8 @@ export function VersionInfo({ style }: VersionInfoProps) {
       await Updates.reloadAsync();
     } catch (error) {
       console.error("Failed to reload app:", error);
-      Alert.alert(
-        t("appSettings.versions.reloadError"),
-        t("appSettings.versions.reloadErrorMessage"),
-        [{ text: t("common.ok") }]
-      );
+      setErrorMessage(t("appSettings.versions.reloadErrorMessage"));
+      setShowErrorDialog(true);
     }
   };
 
@@ -80,43 +86,37 @@ export function VersionInfo({ style }: VersionInfoProps) {
     icon: string,
     description?: string
   ) => (
-    <View
-      style={[
-        styles.versionItem,
-        { backgroundColor: Colors[colorScheme].backgroundCard },
-      ]}
-    >
-      <View style={styles.versionInfo}>
-        <Ionicons
-          name={icon as any}
-          size={20}
-          color={Colors[colorScheme].tint}
-          style={styles.versionIcon}
-        />
-        <View style={styles.versionTextContainer}>
-          <ThemedText
-            style={[styles.versionTitle, { color: Colors[colorScheme].text }]}
-          >
-            {title}
-          </ThemedText>
-          {description && (
-            <ThemedText
-              style={[
-                styles.versionDescription,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
+    <Card style={styles.versionCard} elevation={0}>
+      <Card.Content>
+        <View style={styles.versionInfo}>
+          <View style={styles.versionIcon}>
+            <Icon source={icon as any} size={20} color={theme.colors.primary} />
+          </View>
+          <View style={styles.versionTextContainer}>
+            <Text variant="titleMedium" style={styles.versionTitle}>
+              {title}
+            </Text>
+            {description && (
+              <Text
+                variant="bodySmall"
+                style={[
+                  styles.versionDescription,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                {description}
+              </Text>
+            )}
+            <Text
+              variant="bodyMedium"
+              style={[styles.versionValue, { color: theme.colors.primary }]}
             >
-              {description}
-            </ThemedText>
-          )}
-          <ThemedText
-            style={[styles.versionValue, { color: Colors[colorScheme].tint }]}
-          >
-            {version}
-          </ThemedText>
+              {version}
+            </Text>
+          </View>
         </View>
-      </View>
-    </View>
+      </Card.Content>
+    </Card>
   );
 
   return (
@@ -124,37 +124,26 @@ export function VersionInfo({ style }: VersionInfoProps) {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View>
-            <ThemedText
-              style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}
-            >
+            <Text variant="headlineSmall" style={styles.sectionTitle}>
               {t("appSettings.versions.title")}
-            </ThemedText>
-            <ThemedText
+            </Text>
+            <Text
+              variant="bodyMedium"
               style={[
                 styles.sectionDescription,
-                { color: Colors[colorScheme].textSecondary },
+                { color: theme.colors.onSurfaceVariant },
               ]}
             >
               {t("appSettings.versions.description")}
-            </ThemedText>
+            </Text>
           </View>
-          <TouchableOpacity
-            style={[
-              styles.refreshButton,
-              { backgroundColor: Colors[colorScheme].tint },
-            ]}
+          <IconButton
+            mode="contained"
             onPress={refreshData}
             disabled={loading}
-            accessibilityLabel={t("appSettings.versions.refresh")}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: loading }}
-          >
-            <Ionicons
-              name={loading ? "refresh" : "refresh-outline"}
-              size={16}
-              color="#fff"
-            />
-          </TouchableOpacity>
+            icon="refresh"
+            size={20}
+          />
         </View>
       </View>
 
@@ -166,24 +155,31 @@ export function VersionInfo({ style }: VersionInfoProps) {
       )}
 
       {error && (
-        <View
+        <Card
           style={[
-            styles.errorContainer,
-            { backgroundColor: Colors[colorScheme].error + "20" },
+            styles.errorCard,
+            { backgroundColor: theme.colors.errorContainer },
           ]}
+          elevation={0}
         >
-          <ThemedText
-            style={[styles.errorText, { color: Colors[colorScheme].error }]}
-          >
-            {error?.message}
-          </ThemedText>
-        </View>
+          <Card.Content>
+            <Text
+              variant="bodySmall"
+              style={[
+                styles.errorText,
+                { color: theme.colors.onErrorContainer },
+              ]}
+            >
+              {error?.message}
+            </Text>
+          </Card.Content>
+        </Card>
       )}
 
       {renderVersionItem(
         t("appSettings.versions.expo"),
         Constants.expoConfig?.version || t("appSettings.versions.unknown"),
-        "logo-react",
+        "cellphone",
         t("appSettings.versions.expoDescription")
       )}
 
@@ -197,85 +193,80 @@ export function VersionInfo({ style }: VersionInfoProps) {
       {renderVersionItem(
         t("appSettings.versions.app"),
         packageJson.version || t("appSettings.versions.unknown"),
-        "phone-portrait",
+        "react",
         t("appSettings.versions.appDescription")
       )}
 
       {/* OTA Update Section */}
       {isOtaUpdatesEnabled && (
-        <View style={styles.otaSection}>
-          <View
-            style={[
-              styles.settingRow,
-              { backgroundColor: Colors[colorScheme].backgroundCard },
-            ]}
-          >
-            <View style={styles.settingInfo}>
-              <Ionicons
-                name="refresh-circle"
-                size={20}
-                color={Colors[colorScheme].tint}
-                style={styles.settingIcon}
-              />
-              <View style={styles.settingTextContainer}>
-                <ThemedText
-                  style={[
-                    styles.settingTitle,
-                    { color: Colors[colorScheme].text },
-                  ]}
-                >
-                  {t("appSettings.versions.otaUpdate")}
-                </ThemedText>
-                <ThemedText
-                  style={[
-                    styles.settingDescription,
-                    { color: Colors[colorScheme].textSecondary },
-                  ]}
-                >
-                  {hasUpdateAvailable
-                    ? t("appSettings.versions.updateAvailable")
-                    : t("appSettings.versions.noUpdateAvailable")}
-                </ThemedText>
+        <Card style={styles.otaCard} elevation={0}>
+          <Card.Content>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <View style={styles.settingIcon}>
+                  <Icon
+                    source="refresh-circle"
+                    size={20}
+                    color={theme.colors.primary}
+                  />
+                </View>
+                <View style={styles.settingTextContainer}>
+                  <Text variant="titleMedium" style={styles.settingTitle}>
+                    {t("appSettings.versions.otaUpdate")}
+                  </Text>
+                  <Text
+                    variant="bodyMedium"
+                    style={[
+                      styles.settingDescription,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {hasUpdateAvailable
+                      ? t("appSettings.versions.updateAvailable")
+                      : t("appSettings.versions.noUpdateAvailable")}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.otaActions}>
+                {hasUpdateAvailable && (
+                  <IconButton
+                    mode="contained"
+                    onPress={reloadApp}
+                    icon="download"
+                    size={20}
+                  />
+                )}
               </View>
             </View>
-            <View style={styles.otaActions}>
-              <TouchableOpacity
-                style={[
-                  styles.otaButton,
-                  { backgroundColor: Colors[colorScheme].tint },
-                ]}
-                onPress={checkForUpdates}
-                disabled={isCheckingUpdate}
-              >
-                <Ionicons
-                  name={isCheckingUpdate ? "refresh" : "refresh-outline"}
-                  size={16}
-                  color="#fff"
-                />
-              </TouchableOpacity>
-              {hasUpdateAvailable && (
-                <TouchableOpacity
-                  style={[
-                    styles.otaButton,
-                    { backgroundColor: Colors[colorScheme].success },
-                  ]}
-                  onPress={reloadApp}
-                >
-                  <Ionicons name="download" size={16} color="#fff" />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </View>
+          </Card.Content>
+        </Card>
       )}
+
+      {/* Error Dialog */}
+      <Portal>
+        <Dialog
+          visible={showErrorDialog}
+          onDismiss={() => setShowErrorDialog(false)}
+        >
+          <Dialog.Title>{t("appSettings.versions.reloadError")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{errorMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowErrorDialog(false)}>
+              {t("common.ok")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
     paddingHorizontal: 16,
+    paddingTop: 16,
   },
   header: {
     marginBottom: 16,
@@ -286,30 +277,19 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   refreshButton: {
-    width: 32,
+    minWidth: 80,
+  },
+  refreshButtonContent: {
     height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "600",
     marginBottom: 4,
   },
   sectionDescription: {
-    fontSize: 14,
     lineHeight: 20,
   },
-  versionItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+  versionCard: {
     marginBottom: 8,
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0,0,0,0.1)",
   },
   versionInfo: {
     flexDirection: "row",
@@ -324,44 +304,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   versionTitle: {
-    fontSize: 16,
-    fontWeight: "500",
     marginBottom: 2,
   },
   versionDescription: {
-    fontSize: 12,
     lineHeight: 16,
     marginBottom: 4,
   },
   versionValue: {
-    fontSize: 14,
     fontWeight: "600",
   },
-  errorContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  errorCard: {
     marginBottom: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.1)",
   },
   errorText: {
-    fontSize: 12,
     textAlign: "center",
   },
-  otaSection: {
-    marginBottom: 20,
-    paddingHorizontal: 16,
+  otaCard: {
+    marginBottom: 8,
   },
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0,0,0,0.1)",
   },
   settingInfo: {
     flexDirection: "row",
@@ -376,12 +340,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingTitle: {
-    fontSize: 16,
-    fontWeight: "500",
     marginBottom: 2,
   },
   settingDescription: {
-    fontSize: 14,
     lineHeight: 20,
   },
   otaActions: {
@@ -389,10 +350,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   otaButton: {
-    width: 32,
+    minWidth: 40,
+  },
+  otaButtonContent: {
     height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });

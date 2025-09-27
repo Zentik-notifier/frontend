@@ -1,25 +1,30 @@
 import { apolloClient, resetApolloCache } from "@/config/apollo-client";
-import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
 import {
   useGetCacheStats
 } from "@/hooks/useMediaCache";
-import { useColorScheme } from "@/hooks/useTheme";
 import { clearAllAuthData } from "@/services/auth-storage";
 import { localNotifications } from "@/services/local-notifications";
 import { mediaCache } from "@/services/media-cache";
 import { userSettings } from "@/services/user-settings";
-import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  Alert,
-  Modal,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from "react-native";
-import { ThemedText } from "./ThemedText";
+import {
+  Button,
+  Card,
+  Checkbox,
+  Dialog,
+  Icon,
+  IconButton,
+  Portal,
+  Text,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 
 interface CacheResetModalProps {
   visible: boolean;
@@ -42,13 +47,18 @@ export function CacheResetModal({
   onClose,
   totalCacheSize,
 }: CacheResetModalProps) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const { cacheStats } = useGetCacheStats();
   const [selectedEntities, setSelectedEntities] = useState<Set<string>>(
     new Set()
   );
   const [isResetting, setIsResetting] = useState(false);
+  const [showCompleteResetDialog, setShowCompleteResetDialog] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [dialogMessage, setDialogMessage] = useState("");
 
   // Get GraphQL cache info
   const getGraphQLCacheInfo = () => {
@@ -76,46 +86,33 @@ export function CacheResetModal({
   };
 
   const handleCompleteReset = async () => {
-    Alert.alert(
-      t("appSettings.cacheReset.completeResetTitle"),
-      t("appSettings.cacheReset.completeResetMessage"),
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        {
-          text: t("appSettings.cacheReset.completeReset"),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setIsResetting(true);
+    setShowCompleteResetDialog(true);
+  };
 
-              // Complete reset of all caches and auth storage
-              await Promise.all([
-                // Stop realtime/populators before purging GQL cache
-                Promise.resolve().then(() => localNotifications.cleanup()),
-                resetApolloCache(),
-                mediaCache.clearCacheComplete(),
-                userSettings.resetSettings(),
-                clearAllAuthData(),
-              ]);
+  const confirmCompleteReset = async () => {
+    try {
+      setIsResetting(true);
+      setShowCompleteResetDialog(false);
 
-              Alert.alert(
-                t("common.success"),
-                t("appSettings.cacheReset.completeResetSuccess"),
-                [{ text: t("common.ok"), onPress: onClose }]
-              );
-            } catch (error) {
-              console.error("Failed to complete reset:", error);
-              Alert.alert(
-                t("common.error"),
-                t("appSettings.cacheReset.resetError")
-              );
-            } finally {
-              setIsResetting(false);
-            }
-          },
-        },
-      ]
-    );
+      // Complete reset of all caches and auth storage
+      await Promise.all([
+        // Stop realtime/populators before purging GQL cache
+        Promise.resolve().then(() => localNotifications.cleanup()),
+        resetApolloCache(),
+        mediaCache.clearCacheComplete(),
+        userSettings.resetSettings(),
+        clearAllAuthData(),
+      ]);
+
+      setDialogMessage(t("appSettings.cacheReset.completeResetSuccess"));
+      setShowSuccessDialog(true);
+    } catch (error) {
+      console.error("Failed to complete reset:", error);
+      setDialogMessage(t("appSettings.cacheReset.resetError"));
+      setShowErrorDialog(true);
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const cacheEntities: CacheEntity[] = [
@@ -123,7 +120,7 @@ export function CacheResetModal({
       id: "gql",
       title: t("appSettings.cacheReset.graphql"),
       description: t("appSettings.cacheReset.graphqlDescription"),
-      icon: "code-slash",
+      icon: "database",
       count: getGraphQLCacheInfo(),
       selected: false,
     },
@@ -131,7 +128,7 @@ export function CacheResetModal({
       id: "media",
       title: t("appSettings.cacheReset.media"),
       description: t("appSettings.cacheReset.mediaDescription"),
-      icon: "images",
+      icon: "image-multiple",
       size: cacheStats
         ? `${(cacheStats.totalSize / (1024 * 1024)).toFixed(1)} MB`
         : undefined,
@@ -142,7 +139,7 @@ export function CacheResetModal({
       id: "settings",
       title: t("appSettings.cacheReset.settings"),
       description: t("appSettings.cacheReset.settingsDescription"),
-      icon: "settings",
+      icon: "cog",
       selected: false,
     },
   ];
@@ -167,200 +164,146 @@ export function CacheResetModal({
 
   const handleReset = async () => {
     if (selectedEntities.size === 0) {
-      Alert.alert(
-        t("appSettings.cacheReset.noSelection"),
-        t("appSettings.cacheReset.noSelectionMessage"),
-        [{ text: t("common.ok") }]
-      );
+      setDialogMessage(t("appSettings.cacheReset.noSelectionMessage"));
+      setShowErrorDialog(true);
       return;
     }
 
-    const selectedNames = cacheEntities
-      .filter((e) => selectedEntities.has(e.id))
-      .map((e) => e.title)
-      .join(", ");
+    setShowResetDialog(true);
+  };
 
-    Alert.alert(
-      t("appSettings.cacheReset.confirmTitle"),
-      t("appSettings.cacheReset.confirmMessage", { entities: selectedNames }),
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        {
-          text: t("appSettings.cacheReset.reset"),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setIsResetting(true);
+  const confirmReset = async () => {
+    try {
+      setIsResetting(true);
+      setShowResetDialog(false);
 
-              // Reset selected entities
-              if (selectedEntities.has("gql")) {
-                // Stop realtime/populators before purging GQL cache
-                // localNotifications.cleanup();
-                await resetApolloCache();
-              }
+      // Reset selected entities
+      if (selectedEntities.has("gql")) {
+        // Stop realtime/populators before purging GQL cache
+        // localNotifications.cleanup();
+        await resetApolloCache();
+      }
 
-              if (selectedEntities.has("media")) {
-                await mediaCache.clearCache();
-              }
+      if (selectedEntities.has("media")) {
+        await mediaCache.clearCache();
+      }
 
-              if (selectedEntities.has("settings")) {
-                await Promise.all([
-                  userSettings.resetSettings(),
-                  clearAllAuthData(),
-                ]);
-              }
+      if (selectedEntities.has("settings")) {
+        await Promise.all([
+          userSettings.resetSettings(),
+          clearAllAuthData(),
+        ]);
+      }
 
-              Alert.alert(
-                t("common.success"),
-                t("appSettings.cacheReset.resetSuccess"),
-                [{ text: t("common.ok"), onPress: onClose }]
-              );
-            } catch (error) {
-              console.error("Failed to reset cache:", error);
-              Alert.alert(
-                t("common.error"),
-                t("appSettings.cacheReset.resetError")
-              );
-            } finally {
-              setIsResetting(false);
-            }
-          },
-        },
-      ]
-    );
+      setDialogMessage(t("appSettings.cacheReset.resetSuccess"));
+      setShowSuccessDialog(true);
+    } catch (error) {
+      console.error("Failed to reset cache:", error);
+      setDialogMessage(t("appSettings.cacheReset.resetError"));
+      setShowErrorDialog(true);
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const renderEntityItem = (entity: CacheEntity) => (
-    <TouchableOpacity
+    <Card
       key={entity.id}
       style={[
         styles.entityItem,
-        { backgroundColor: Colors[colorScheme].backgroundCard },
         selectedEntities.has(entity.id) && {
-          borderColor: Colors[colorScheme].tint,
+          borderColor: theme.colors.primary,
+          borderWidth: 2,
         },
       ]}
-      onPress={() => toggleEntity(entity.id)}
-      activeOpacity={0.7}
+      elevation={0}
     >
-      <View style={styles.entityInfo}>
-        <Ionicons
-          name={entity.icon as any}
-          size={24}
-          color={
-            selectedEntities.has(entity.id)
-              ? Colors[colorScheme].tint
-              : Colors[colorScheme].textSecondary
-          }
-          style={styles.entityIcon}
-        />
-        <View style={styles.entityTextContainer}>
-          <ThemedText
-            style={[styles.entityTitle, { color: Colors[colorScheme].text }]}
-          >
-            {entity.title}
-          </ThemedText>
-          <ThemedText
-            style={[
-              styles.entityDescription,
-              { color: Colors[colorScheme].textSecondary },
-            ]}
-          >
-            {entity.description}
-          </ThemedText>
-          {(entity.size || entity.count !== undefined) && (
-            <ThemedText
-              style={[styles.entityStats, { color: Colors[colorScheme].tint }]}
-            >
-              {entity.size && `${entity.size}`}
-              {entity.size && entity.count !== undefined && " • "}
-              {entity.count !== undefined && `${entity.count} items`}
-            </ThemedText>
-          )}
-        </View>
-      </View>
-      <View style={styles.entitySelection}>
-        <View
-          style={[
-            styles.checkbox,
-            { borderColor: Colors[colorScheme].border },
-            selectedEntities.has(entity.id) && {
-              backgroundColor: Colors[colorScheme].tint,
-              borderColor: Colors[colorScheme].tint,
-            },
-          ]}
-        >
-          {selectedEntities.has(entity.id) && (
-            <Ionicons name="checkmark" size={16} color="#fff" />
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
+      <TouchableRipple onPress={() => toggleEntity(entity.id)}>
+        <Card.Content>
+          <View style={styles.entityInfo}>
+            <Icon
+              source={entity.icon as any}
+              size={24}
+              color={
+                selectedEntities.has(entity.id)
+                  ? theme.colors.primary
+                  : theme.colors.onSurfaceVariant
+              }
+            />
+            <View style={styles.entityTextContainer}>
+              <Text variant="titleMedium" style={styles.entityTitle}>
+                {entity.title}
+              </Text>
+              <Text
+                variant="bodyMedium"
+                style={[styles.entityDescription, { color: theme.colors.onSurfaceVariant }]}
+              >
+                {entity.description}
+              </Text>
+              {(entity.size || entity.count !== undefined) && (
+                <Text
+                  variant="bodySmall"
+                  style={[styles.entityStats, { color: theme.colors.primary }]}
+                >
+                  {entity.size && `${entity.size}`}
+                  {entity.size && entity.count !== undefined && " • "}
+                  {entity.count !== undefined && `${entity.count} items`}
+                </Text>
+              )}
+            </View>
+            <Checkbox
+              status={selectedEntities.has(entity.id) ? "checked" : "unchecked"}
+              onPress={() => toggleEntity(entity.id)}
+            />
+          </View>
+        </Card.Content>
+      </TouchableRipple>
+    </Card>
   );
 
+  const selectedNames = cacheEntities
+    .filter((e) => selectedEntities.has(e.id))
+    .map((e) => e.title)
+    .join(", ");
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View
-          style={[
-            styles.modalContent,
-            { backgroundColor: Colors[colorScheme].background },
-          ]}
-        >
-          <View style={styles.modalHeader}>
-            <ThemedText
-              style={[styles.modalTitle, { color: Colors[colorScheme].text }]}
-            >
+    <Portal>
+      <Dialog
+        visible={visible}
+        onDismiss={onClose}
+        style={styles.modalDialog}
+      >
+        <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outline }]}>
+          <View style={styles.headerLeft}>
+            <Text variant="headlineSmall" style={styles.modalTitle}>
               {t("appSettings.cacheReset.title")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.modalSubtitle,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
+            </Text>
+            <Text variant="bodyMedium" style={[styles.modalSubtitle, { color: theme.colors.onSurfaceVariant }]}>
               {t("appSettings.cacheReset.subtitle", { size: totalCacheSize })}
-            </ThemedText>
+            </Text>
             <View style={styles.modalStats}>
-              <ThemedText
-                style={[
-                  styles.modalStat,
-                  { color: Colors[colorScheme].textSecondary },
-                ]}
-              >
+              <Text variant="bodySmall" style={[styles.modalStat, { color: theme.colors.onSurfaceVariant }]}>
                 {cacheStats &&
                   t("appSettings.cacheReset.mediaInfo", {
-                    size: `${(cacheStats.totalSize / (1024 * 1024)).toFixed(
-                      1
-                    )} MB`,
+                    size: `${(cacheStats.totalSize / (1024 * 1024)).toFixed(1)} MB`,
                     count: cacheStats.totalItems,
                   })}
-              </ThemedText>
-              <ThemedText
-                style={[
-                  styles.modalStat,
-                  { color: Colors[colorScheme].textSecondary },
-                ]}
-              >
+              </Text>
+              <Text variant="bodySmall" style={[styles.modalStat, { color: theme.colors.onSurfaceVariant }]}>
                 {t("appSettings.cacheReset.graphqlInfo", {
                   count: getGraphQLCacheInfo(),
                 })}
-              </ThemedText>
+              </Text>
             </View>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons
-                name="close"
-                size={24}
-                color={Colors[colorScheme].text}
-              />
-            </TouchableOpacity>
           </View>
+          <IconButton
+            icon="close"
+            size={20}
+            onPress={onClose}
+          />
+        </View>
 
+        <Dialog.Content style={{ paddingTop: 16 }}>
           <ScrollView
             style={styles.entityList}
             showsVerticalScrollIndicator={false}
@@ -370,122 +313,178 @@ export function CacheResetModal({
 
           <View style={styles.modalActions}>
             <View style={styles.selectionActions}>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  { backgroundColor: Colors[colorScheme].tint },
-                ]}
+              <Button
+                mode="outlined"
                 onPress={selectAll}
+                style={styles.actionButton}
               >
-                <ThemedText style={styles.actionButtonText}>
-                  {t("appSettings.cacheReset.selectAll")}
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  { backgroundColor: Colors[colorScheme].textSecondary },
-                ]}
+                {t("appSettings.cacheReset.selectAll")}
+              </Button>
+              <Button
+                mode="outlined"
                 onPress={deselectAll}
+                style={styles.actionButton}
               >
-                <ThemedText style={styles.actionButtonText}>
-                  {t("appSettings.cacheReset.deselectAll")}
-                </ThemedText>
-              </TouchableOpacity>
+                {t("appSettings.cacheReset.deselectAll")}
+              </Button>
             </View>
 
-            <TouchableOpacity
-              style={[
-                styles.resetButton,
-                { backgroundColor: Colors[colorScheme].error },
-                selectedEntities.size === 0 && { opacity: 0.5 },
-              ]}
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.error}
               onPress={handleReset}
               disabled={isResetting || selectedEntities.size === 0}
+              style={styles.resetButton}
             >
-              <ThemedText style={styles.resetButtonText}>
-                {isResetting
-                  ? t("appSettings.cacheReset.resetting")
-                  : t("appSettings.cacheReset.reset")}
-              </ThemedText>
-            </TouchableOpacity>
+              {isResetting
+                ? t("appSettings.cacheReset.resetting")
+                : t("appSettings.cacheReset.reset")}
+            </Button>
 
-            <TouchableOpacity
-              style={[
-                styles.completeResetButton,
-                { backgroundColor: Colors[colorScheme].warning },
-                isResetting && { opacity: 0.5 },
-              ]}
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.errorContainer}
+              textColor={theme.colors.onErrorContainer}
               onPress={handleCompleteReset}
               disabled={isResetting}
-              activeOpacity={0.8}
+              style={styles.completeResetButton}
+              icon="delete-sweep"
             >
-              <Ionicons name="nuclear" size={20} color="#fff" />
-              <ThemedText style={styles.completeResetButtonText}>
-                {t("appSettings.cacheReset.completeReset")}
-              </ThemedText>
-            </TouchableOpacity>
+              {t("appSettings.cacheReset.completeReset")}
+            </Button>
           </View>
-        </View>
-      </View>
-    </Modal>
+        </Dialog.Content>
+      </Dialog>
+
+      {/* Complete Reset Confirmation Dialog */}
+      <Dialog
+        visible={showCompleteResetDialog}
+        onDismiss={() => setShowCompleteResetDialog(false)}
+      >
+        <Dialog.Title>{t("appSettings.cacheReset.completeResetTitle")}</Dialog.Title>
+        <Dialog.Content>
+          <Text variant="bodyMedium">{t("appSettings.cacheReset.completeResetMessage")}</Text>
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={() => setShowCompleteResetDialog(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            mode="contained"
+            buttonColor={theme.colors.error}
+            onPress={confirmCompleteReset}
+          >
+            {t("appSettings.cacheReset.completeReset")}
+          </Button>
+        </Dialog.Actions>
+      </Dialog>
+
+      {/* Reset Confirmation Dialog */}
+      <Dialog
+        visible={showResetDialog}
+        onDismiss={() => setShowResetDialog(false)}
+      >
+        <Dialog.Title>{t("appSettings.cacheReset.confirmTitle")}</Dialog.Title>
+        <Dialog.Content>
+          <Text variant="bodyMedium">
+            {t("appSettings.cacheReset.confirmMessage", { entities: selectedNames })}
+          </Text>
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={() => setShowResetDialog(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            mode="contained"
+            buttonColor={theme.colors.error}
+            onPress={confirmReset}
+          >
+            {t("appSettings.cacheReset.reset")}
+          </Button>
+        </Dialog.Actions>
+      </Dialog>
+
+      {/* Success Dialog */}
+      <Dialog
+        visible={showSuccessDialog}
+        onDismiss={() => {
+          setShowSuccessDialog(false);
+          onClose();
+        }}
+      >
+        <Dialog.Title>{t("common.success")}</Dialog.Title>
+        <Dialog.Content>
+          <Text variant="bodyMedium">{dialogMessage}</Text>
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button
+            onPress={() => {
+              setShowSuccessDialog(false);
+              onClose();
+            }}
+          >
+            {t("common.ok")}
+          </Button>
+        </Dialog.Actions>
+      </Dialog>
+
+      {/* Error Dialog */}
+      <Dialog
+        visible={showErrorDialog}
+        onDismiss={() => setShowErrorDialog(false)}
+      >
+        <Dialog.Title>{t("common.error")}</Dialog.Title>
+        <Dialog.Content>
+          <Text variant="bodyMedium">{dialogMessage}</Text>
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={() => setShowErrorDialog(false)}>
+            {t("common.ok")}
+          </Button>
+        </Dialog.Actions>
+      </Dialog>
+    </Portal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    width: "90%",
+  modalDialog: {
     maxHeight: "80%",
-    borderRadius: 16,
-    padding: 20,
   },
   modalHeader: {
-    alignItems: "center",
-    marginBottom: 20,
-    paddingRight: 30,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+  },
+  headerLeft: {
+    flex: 1,
+    marginRight: 16,
   },
   modalTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  modalSubtitle: {
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  modalStats: {
-    marginTop: 12,
-    marginBottom: 16,
-  },
-  modalStat: {
-    fontSize: 14,
-    textAlign: "center",
     marginBottom: 4,
   },
-  closeButton: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    padding: 8,
+  modalSubtitle: {
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  modalStats: {
+    marginTop: 8,
+  },
+  modalStat: {
+    textAlign: "left",
+    marginBottom: 2,
   },
   entityList: {
-    marginBottom: 20,
+    maxHeight: 300,
+    marginBottom: 16,
   },
   entityItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    borderWidth: 2,
+    marginBottom: 8,
+    borderWidth: 1,
     borderColor: "transparent",
   },
   entityInfo: {
@@ -493,80 +492,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
   },
-  entityIcon: {
-    marginRight: 16,
-  },
   entityTextContainer: {
     flex: 1,
-  },
-  entityTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  entityDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 6,
-  },
-  entityStats: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  entitySelection: {
     marginLeft: 16,
   },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
+  entityTitle: {
+    marginBottom: 2,
+  },
+  entityDescription: {
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  entityStats: {
+    fontWeight: "500",
   },
   modalActions: {
-    gap: 16,
+    gap: 12,
   },
   selectionActions: {
     flexDirection: "row",
-    gap: 12,
+    gap: 8,
   },
   actionButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  actionButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
   },
   resetButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  resetButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
+    marginTop: 8,
   },
   completeResetButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  completeResetButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
+    marginTop: 4,
   },
 });

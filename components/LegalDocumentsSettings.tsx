@@ -1,22 +1,29 @@
-import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
     StyleSheet,
-    Text,
-    TouchableOpacity,
     View,
 } from 'react-native';
-import { Colors } from '../constants/Colors';
+import {
+    Button,
+    Card,
+    Dialog,
+    Icon,
+    List,
+    Portal,
+    Text,
+    useTheme,
+} from 'react-native-paper';
 import { useI18n } from '../hooks/useI18n';
-import { useColorScheme } from '../hooks/useTheme';
 import { LEGAL_DOCUMENTS } from '../services/legal-documents';
 import { LegalDocumentViewer } from './LegalDocumentViewer';
+import { clearTermsAcceptance } from '../services/auth-storage';
 
 export const LegalDocumentsSettings: React.FC = () => {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [viewerVisible, setViewerVisible] = useState(false);
+  const [showRevokeDialog, setShowRevokeDialog] = useState(false);
 
   const openDocument = (document: any) => {
     setSelectedDocument(document);
@@ -28,42 +35,54 @@ export const LegalDocumentsSettings: React.FC = () => {
     setSelectedDocument(null);
   };
 
+  const handleRevokeTerms = () => {
+    setShowRevokeDialog(true);
+  };
+
+  const confirmRevokeTerms = async () => {
+    try {
+      await clearTermsAcceptance();
+      setShowRevokeDialog(false);
+    } catch (error) {
+      console.error("Error revoking terms:", error);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>
+      <Text variant="headlineSmall" style={styles.sectionTitle}>
         {t('legal.allDocuments')}
       </Text>
       
       {LEGAL_DOCUMENTS.map((document) => (
-        <TouchableOpacity
-          key={document.id}
-          style={[
-            styles.documentItem,
-            {
-              backgroundColor: Colors[colorScheme].backgroundSecondary,
-              borderColor: Colors[colorScheme].border,
-            },
-          ]}
-          onPress={() => openDocument(document)}
-        >
-          <View style={styles.documentInfo}>
-            <Ionicons
-              name={document.icon}
-              size={20}
-              color={Colors[colorScheme].tint}
-              style={styles.documentIcon}
-            />
-            <Text style={[styles.documentTitle, { color: Colors[colorScheme].text }]}>
-              {document.title}
-            </Text>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={16}
-            color={Colors[colorScheme].textSecondary}
+        <Card key={document.id} style={styles.documentCard} elevation={0}>
+          <List.Item
+            title={document.title}
+            left={(props) => (
+              <List.Icon 
+                {...props} 
+                icon={document.icon} 
+                color={theme.colors.primary}
+              />
+            )}
+            right={(props) => (
+              <List.Icon {...props} icon="chevron-right" />
+            )}
+            onPress={() => openDocument(document)}
           />
-        </TouchableOpacity>
+        </Card>
       ))}
+
+      {/* Revoke Terms */}
+      <Card style={styles.settingCard} elevation={0}>
+        <List.Item
+          title={t("appSettings.revokeTerms")}
+          description={t("appSettings.revokeTermsDescription")}
+          left={(props) => <List.Icon {...props} icon="file-document-remove" color={theme.colors.error} />}
+          titleStyle={{ color: theme.colors.error }}
+          onPress={handleRevokeTerms}
+        />
+      </Card>
 
       {selectedDocument && (
         <LegalDocumentViewer
@@ -72,41 +91,41 @@ export const LegalDocumentsSettings: React.FC = () => {
           onClose={closeViewer}
         />
       )}
+
+      {/* Revoke Terms Dialog */}
+      <Portal>
+        <Dialog visible={showRevokeDialog} onDismiss={() => setShowRevokeDialog(false)}>
+          <Dialog.Title>{t("appSettings.revokeTerms")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{t("appSettings.revokeTermsConfirm")}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowRevokeDialog(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.error}
+              onPress={confirmRevokeTerms}
+            >
+              {t("appSettings.revokeTerms")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
     marginBottom: 12,
-    paddingHorizontal: 16,
   },
-  documentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginHorizontal: 16,
+  documentCard: {
     marginBottom: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  documentInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  documentIcon: {
-    marginRight: 12,
-  },
-  documentTitle: {
-    fontSize: 14,
-    fontWeight: '500',
   },
 });

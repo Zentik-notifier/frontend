@@ -1,32 +1,36 @@
-import { Colors } from "@/constants/Colors";
 import { useGetNotificationsQuery } from "@/generated/gql-operations-generated";
 import { useGraphQLCacheImportExport } from "@/hooks/useGraphQLCacheImportExport";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/contexts/AppContext";
 import { formatFileSize } from "@/utils";
 import { openSharedCacheDb } from "@/services/media-cache-db";
 import { MediaCacheRepository } from "@/services/media-cache-repository";
-import { Ionicons } from "@expo/vector-icons";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   Platform,
   StyleSheet,
-  Switch,
-  TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
+import {
+  Button,
+  Card,
+  Dialog,
+  Icon,
+  Portal,
+  Surface,
+  Switch,
+  Text,
+  TextInput,
+  useTheme,
+} from "react-native-paper";
 import { CacheResetModal } from "./CacheResetModal";
-import { ThemedText } from "./ThemedText";
 import { useUserSettings } from "@/services/user-settings";
 
 export default function UnifiedCacheSettings() {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const {
     settings,
@@ -38,6 +42,11 @@ export default function UnifiedCacheSettings() {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isExportingMetadata, setIsExportingMetadata] = useState(false);
+
+  // Dialog states
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [dialogMessage, setDialogMessage] = useState("");
 
   const [localMaxCacheSizeMB, setLocalMaxCacheSizeMB] = useState<string>(
     settings.mediaCache.retentionPolicies?.maxCacheSizeMB?.toString() || ""
@@ -159,10 +168,8 @@ export default function UnifiedCacheSettings() {
     try {
       // Manteniamo per ora la restrizione iOS come in precedenza (può essere rimossa se serve cross-platform)
       if (Platform.OS !== "ios") {
-        Alert.alert(
-          t("appSettings.gqlCache.importExport.exportMetadataError"),
-          t("common.notAvailableOnWeb")
-        );
+        setDialogMessage(t("common.notAvailableOnWeb"));
+        setShowErrorDialog(true);
         return;
       }
 
@@ -191,12 +198,10 @@ export default function UnifiedCacheSettings() {
           dialogTitle: "Export Media Cache Metadata",
         });
       } else {
-        Alert.alert(
-          t("appSettings.gqlCache.importExport.exportComplete"),
-          t("appSettings.gqlCache.importExport.exportCompleteMessage", {
-            path: destPath,
-          })
-        );
+        setDialogMessage(t("appSettings.gqlCache.importExport.exportCompleteMessage", {
+          path: destPath,
+        }));
+        setShowSuccessDialog(true);
       }
 
       try {
@@ -206,10 +211,8 @@ export default function UnifiedCacheSettings() {
       }
     } catch (error) {
       console.error("Error exporting media cache DB metadata:", error);
-      Alert.alert(
-        t("appSettings.gqlCache.importExport.exportMetadataError"),
-        t("appSettings.gqlCache.importExport.exportMetadataError")
-      );
+      setDialogMessage(t("appSettings.gqlCache.importExport.exportMetadataError"));
+      setShowErrorDialog(true);
     } finally {
       setIsExportingMetadata(false);
     }
@@ -220,719 +223,489 @@ export default function UnifiedCacheSettings() {
   return (
     <View style={styles.sectionContainer}>
       {/* Cache Overview Section */}
-      <View style={styles.sectionHeader}>
-        <ThemedText
-          style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}
-        >
-          {t("appSettings.cache.title")}
-        </ThemedText>
-        <ThemedText
-          style={[
-            styles.sectionDescription,
-            { color: Colors[colorScheme].textSecondary },
-          ]}
-        >
-          {t("appSettings.cache.description")}
-        </ThemedText>
-      </View>
-
-      {/* Cache Summary */}
-      <View
-        style={[
-          styles.summaryCard,
-          { backgroundColor: Colors[colorScheme].backgroundCard },
-        ]}
-      >
-        <View style={styles.summaryHeader}>
-          <Ionicons
-            name="analytics"
-            size={24}
-            color={Colors[colorScheme].tint}
-          />
-          <ThemedText
-            style={[styles.summaryTitle, { color: Colors[colorScheme].text }]}
-          >
-            {t("appSettings.cache.summary")}
-          </ThemedText>
+      <Surface style={styles.surfaceSection} elevation={1}>
+        <View style={styles.sectionHeader}>
+          <Text variant="headlineSmall" style={styles.sectionTitle}>
+            {t("appSettings.cache.title")}
+          </Text>
+          <Text variant="bodyMedium" style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
+            {t("appSettings.cache.description")}
+          </Text>
         </View>
 
-        <View style={styles.summaryStats}>
-          <View style={styles.summaryStat}>
-            <ThemedText
-              style={[
-                styles.summaryStatValue,
-                { color: Colors[colorScheme].tint },
-              ]}
-            >
-              {cacheStats ? formatFileSize(cacheStats.totalSize) : "0"}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.summaryStatLabel,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("appSettings.cache.mediaSize")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.summaryStatSubtext,
-                { color: Colors[colorScheme].textMuted },
-              ]}
-            >
-              {cacheStats ? cacheStats.totalItems : 0}{" "}
-              {t("appSettings.cache.items")}
-            </ThemedText>
-          </View>
-
-          <View style={styles.summaryStat}>
-            <ThemedText
-              style={[
-                styles.summaryStatValue,
-                { color: Colors[colorScheme].tint },
-              ]}
-            >
-              {graphqlCacheInfo}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.summaryStatLabel,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("appSettings.cache.notificationsCount")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.summaryStatSubtext,
-                { color: Colors[colorScheme].textMuted },
-              ]}
-            >
-              {t("appSettings.cache.inCache")}
-            </ThemedText>
-          </View>
-
-          <View style={styles.summaryStat}>
-            <ThemedText
-              style={[
-                styles.summaryStatValue,
-                { color: Colors[colorScheme].tint },
-              ]}
-            >
-              {totalCacheSize}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.summaryStatLabel,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("appSettings.cache.totalSize")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.summaryStatSubtext,
-                { color: Colors[colorScheme].textMuted },
-              ]}
-            >
-              {t("appSettings.cache.approximate")}
-            </ThemedText>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.resetButton,
-            { backgroundColor: Colors[colorScheme].error },
-          ]}
-          onPress={handleOpenResetModal}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="trash" size={20} color="#fff" />
-          <ThemedText style={styles.resetButtonText}>
-            {t("appSettings.cache.resetCache")}
-          </ThemedText>
-        </TouchableOpacity>
-      </View>
-
-      {/* Auto Download Settings */}
-      <View style={styles.sectionHeader}>
-        <ThemedText
-          style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}
-        >
-          {t("appSettings.autoDownload.title")}
-        </ThemedText>
-        <ThemedText
-          style={[
-            styles.sectionDescription,
-            { color: Colors[colorScheme].textSecondary },
-          ]}
-        >
-          {t("appSettings.autoDownload.description")}
-        </ThemedText>
-      </View>
-
-      <View
-        style={[
-          styles.settingRow,
-          { backgroundColor: Colors[colorScheme].backgroundCard },
-        ]}
-      >
-        <View style={styles.settingInfo}>
-          <Ionicons
-            name="download"
-            size={20}
-            color={Colors[colorScheme].tint}
-            style={styles.settingIcon}
-          />
-          <View style={styles.settingTextContainer}>
-            <ThemedText
-              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
-            >
-              {t("appSettings.autoDownload.enableAutoDownload")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.settingDescription,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("appSettings.autoDownload.enableAutoDownloadDescription")}
-            </ThemedText>
-          </View>
-        </View>
-        <Switch
-          value={downloadSettings.autoDownloadEnabled}
-          onValueChange={(v) =>
-            updateMediaCacheDownloadSettings({ autoDownloadEnabled: v })
-          }
-          thumbColor={
-            downloadSettings.autoDownloadEnabled
-              ? Colors[colorScheme].tint
-              : Colors[colorScheme].textSecondary
-          }
-          trackColor={{
-            false: Colors[colorScheme].border,
-            true: Colors[colorScheme].tint + "40",
-          }}
-        />
-      </View>
-
-      {downloadSettings?.autoDownloadEnabled && (
-        <View
-          style={[
-            styles.settingRow,
-            { backgroundColor: Colors[colorScheme].backgroundCard },
-          ]}
-        >
-          <View style={styles.settingInfo}>
-            <Ionicons
-              name="wifi"
-              size={20}
-              color={Colors[colorScheme].tint}
-              style={styles.settingIcon}
+        {/* Cache Summary */}
+        <Card style={styles.summaryCard} elevation={0}>
+        <Card.Content>
+          <View style={styles.summaryHeader}>
+            <Icon
+              source="chart-line"
+              size={24}
+              color={theme.colors.primary}
             />
-            <View style={styles.settingTextContainer}>
-              <ThemedText
-                style={[
-                  styles.settingTitle,
-                  { color: Colors[colorScheme].text },
-                ]}
+            <Text variant="titleMedium" style={styles.summaryTitle}>
+              {t("appSettings.cache.summary")}
+            </Text>
+          </View>
+
+          <View style={styles.summaryStats}>
+            <View style={styles.summaryStat}>
+              <Text
+                variant="headlineMedium"
+                style={[styles.summaryStatValue, { color: theme.colors.primary }]}
               >
-                {t("appSettings.autoDownload.downloadOnWiFiOnly")}
-              </ThemedText>
-              <ThemedText
-                style={[
-                  styles.settingDescription,
-                  { color: Colors[colorScheme].textSecondary },
-                ]}
+                {cacheStats ? formatFileSize(cacheStats.totalSize) : "0"}
+              </Text>
+              <Text
+                variant="bodySmall"
+                style={[styles.summaryStatLabel, { color: theme.colors.onSurfaceVariant }]}
               >
-                {t("appSettings.autoDownload.downloadOnWiFiOnlyDescription")}
-              </ThemedText>
+                {t("appSettings.cache.mediaSize")}
+              </Text>
+              <Text
+                variant="labelSmall"
+                style={[styles.summaryStatSubtext, { color: theme.colors.outline }]}
+              >
+                {cacheStats ? cacheStats.totalItems : 0}{" "}
+                {t("appSettings.cache.items")}
+              </Text>
+            </View>
+
+            <View style={styles.summaryStat}>
+              <Text
+                variant="headlineMedium"
+                style={[styles.summaryStatValue, { color: theme.colors.primary }]}
+              >
+                {graphqlCacheInfo}
+              </Text>
+              <Text
+                variant="bodySmall"
+                style={[styles.summaryStatLabel, { color: theme.colors.onSurfaceVariant }]}
+              >
+                {t("appSettings.cache.notificationsCount")}
+              </Text>
+              <Text
+                variant="labelSmall"
+                style={[styles.summaryStatSubtext, { color: theme.colors.outline }]}
+              >
+                {t("appSettings.cache.inCache")}
+              </Text>
+            </View>
+
+            <View style={styles.summaryStat}>
+              <Text
+                variant="headlineMedium"
+                style={[styles.summaryStatValue, { color: theme.colors.primary }]}
+              >
+                {totalCacheSize}
+              </Text>
+              <Text
+                variant="bodySmall"
+                style={[styles.summaryStatLabel, { color: theme.colors.onSurfaceVariant }]}
+              >
+                {t("appSettings.cache.totalSize")}
+              </Text>
+              <Text
+                variant="labelSmall"
+                style={[styles.summaryStatSubtext, { color: theme.colors.outline }]}
+              >
+                {t("appSettings.cache.approximate")}
+              </Text>
             </View>
           </View>
-          <Switch
-            value={downloadSettings.wifiOnlyDownload}
-            onValueChange={(v) =>
-              updateMediaCacheDownloadSettings({ wifiOnlyDownload: v })
-            }
-            thumbColor={
-              downloadSettings.wifiOnlyDownload
-                ? Colors[colorScheme].tint
-                : Colors[colorScheme].textSecondary
-            }
-            trackColor={{
-              false: Colors[colorScheme].border,
-              true: Colors[colorScheme].tint + "40",
-            }}
-          />
-        </View>
+
+          <Button
+            mode="contained"
+            buttonColor={theme.colors.error}
+            textColor={theme.colors.onError}
+            onPress={handleOpenResetModal}
+            icon="delete"
+            style={styles.resetButton}
+          >
+            {t("appSettings.cache.resetCache")}
+          </Button>
+        </Card.Content>
+      </Card>
+      </Surface>
+
+      {/* Auto Download Settings */}
+      <Surface style={styles.surfaceSection} elevation={1}>
+        <View style={styles.sectionHeader}>
+        <Text variant="headlineSmall" style={styles.sectionTitle}>
+          {t("appSettings.autoDownload.title")}
+        </Text>
+        <Text variant="bodyMedium" style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
+          {t("appSettings.autoDownload.description")}
+        </Text>
+      </View>
+
+      <Card style={styles.settingCard} elevation={0}>
+        <Card.Content>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingIcon}>
+                <Icon
+                  source="download"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+              </View>
+              <View style={styles.settingTextContainer}>
+                <Text variant="titleMedium" style={styles.settingTitle}>
+                  {t("appSettings.autoDownload.enableAutoDownload")}
+                </Text>
+                <Text variant="bodyMedium" style={[styles.settingDescription, { color: theme.colors.onSurfaceVariant }]}>
+                  {t("appSettings.autoDownload.enableAutoDownloadDescription")}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={downloadSettings.autoDownloadEnabled}
+              onValueChange={(v) =>
+                updateMediaCacheDownloadSettings({ autoDownloadEnabled: v })
+              }
+            />
+          </View>
+        </Card.Content>
+      </Card>
+
+      {downloadSettings?.autoDownloadEnabled && (
+        <Card style={styles.settingCard} elevation={0}>
+          <Card.Content>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <View style={styles.settingIcon}>
+                  <Icon
+                    source="wifi"
+                    size={20}
+                    color={theme.colors.primary}
+                  />
+                </View>
+                <View style={styles.settingTextContainer}>
+                  <Text variant="titleMedium" style={styles.settingTitle}>
+                    {t("appSettings.autoDownload.downloadOnWiFiOnly")}
+                  </Text>
+                  <Text variant="bodyMedium" style={[styles.settingDescription, { color: theme.colors.onSurfaceVariant }]}>
+                    {t("appSettings.autoDownload.downloadOnWiFiOnlyDescription")}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={downloadSettings.wifiOnlyDownload}
+                onValueChange={(v) =>
+                  updateMediaCacheDownloadSettings({ wifiOnlyDownload: v })
+                }
+              />
+            </View>
+          </Card.Content>
+        </Card>
       )}
+      </Surface>
 
       {/* Retention Policies */}
-      <View style={styles.sectionHeader}>
-        <ThemedText
-          style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}
-        >
+      <Surface style={styles.surfaceSection} elevation={1}>
+        <View style={styles.sectionHeader}>
+        <Text variant="headlineSmall" style={styles.sectionTitle}>
           {t("appSettings.retentionPolicies.title")}
-        </ThemedText>
-        <ThemedText
-          style={[
-            styles.sectionDescription,
-            { color: Colors[colorScheme].textSecondary },
-          ]}
-        >
+        </Text>
+        <Text variant="bodyMedium" style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
           {t("appSettings.retentionPolicies.description")}
-        </ThemedText>
+        </Text>
       </View>
 
-      <View
-        style={[
-          styles.settingRow,
-          { backgroundColor: Colors[colorScheme].backgroundCard },
-        ]}
-      >
-        <View style={styles.settingInfo}>
-          <View style={styles.settingTextContainer}>
-            <ThemedText
-              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
-            >
-              {t("appSettings.retentionPolicies.maxCacheSize")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.settingDescription,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("appSettings.retentionPolicies.maxCacheSizeDescription")}
-            </ThemedText>
+      <Card style={styles.settingCard} elevation={0}>
+        <Card.Content>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingTextContainer}>
+                <Text variant="titleMedium" style={styles.settingTitle}>
+                  {t("appSettings.retentionPolicies.maxCacheSize")}
+                </Text>
+                <Text variant="bodyMedium" style={[styles.settingDescription, { color: theme.colors.onSurfaceVariant }]}>
+                  {t("appSettings.retentionPolicies.maxCacheSizeDescription")}
+                </Text>
+              </View>
+            </View>
+            <TextInput
+              mode="outlined"
+              value={localMaxCacheSizeMB}
+              onChangeText={(text) => {
+                setLocalMaxCacheSizeMB(text);
+                if (text.trim() === "") {
+                  updateMediaCacheRetentionPolicies({ maxCacheSizeMB: undefined });
+                  return;
+                }
+                const value = parseInt(text, 10);
+                if (!Number.isNaN(value) && value >= 0 && value <= 10000) {
+                  updateMediaCacheRetentionPolicies({ maxCacheSizeMB: value });
+                }
+              }}
+              keyboardType="numeric"
+              maxLength={5}
+              style={styles.compactInput}
+              dense
+            />
           </View>
-        </View>
-        <TextInput
-          style={[
-            styles.settingInput,
-            {
-              color: Colors[colorScheme].text,
-              backgroundColor: Colors[colorScheme].background,
-              borderColor: Colors[colorScheme].border,
-            },
-          ]}
-          value={localMaxCacheSizeMB}
-          onChangeText={(text) => {
-            setLocalMaxCacheSizeMB(text);
-            if (text.trim() === "") {
-              updateMediaCacheRetentionPolicies({ maxCacheSizeMB: undefined });
-              return;
-            }
-            const value = parseInt(text, 10);
-            if (!Number.isNaN(value) && value >= 0 && value <= 10000) {
-              updateMediaCacheRetentionPolicies({ maxCacheSizeMB: value });
-            }
-          }}
-          keyboardType="numeric"
-          maxLength={5}
-        />
-      </View>
+        </Card.Content>
+      </Card>
 
-      <View
-        style={[
-          styles.settingRow,
-          { backgroundColor: Colors[colorScheme].backgroundCard },
-        ]}
-      >
-        <View style={styles.settingInfo}>
-          <View style={styles.settingTextContainer}>
-            <ThemedText
-              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
-            >
-              {t("appSettings.retentionPolicies.maxCacheAge")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.settingDescription,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("appSettings.retentionPolicies.maxCacheAgeDescription")}
-            </ThemedText>
+      <Card style={styles.settingCard} elevation={0}>
+        <Card.Content>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingTextContainer}>
+                <Text variant="titleMedium" style={styles.settingTitle}>
+                  {t("appSettings.retentionPolicies.maxCacheAge")}
+                </Text>
+                <Text variant="bodyMedium" style={[styles.settingDescription, { color: theme.colors.onSurfaceVariant }]}>
+                  {t("appSettings.retentionPolicies.maxCacheAgeDescription")}
+                </Text>
+              </View>
+            </View>
+            <TextInput
+              mode="outlined"
+              value={localMaxCacheAgeDays}
+              onChangeText={(text) => {
+                setLocalMaxCacheAgeDays(text);
+                if (text.trim() === "") {
+                  updateMediaCacheRetentionPolicies({ maxCageAgeDays: undefined });
+                  return;
+                }
+                const value = parseInt(text, 10);
+                if (!Number.isNaN(value) && value >= 0 && value <= 365) {
+                  updateMediaCacheRetentionPolicies({ maxCageAgeDays: value });
+                }
+              }}
+              keyboardType="numeric"
+              maxLength={3}
+              style={styles.compactInput}
+              dense
+            />
           </View>
-        </View>
-        <TextInput
-          style={[
-            styles.settingInput,
-            {
-              color: Colors[colorScheme].text,
-              backgroundColor: Colors[colorScheme].background,
-              borderColor: Colors[colorScheme].border,
-            },
-          ]}
-          value={localMaxCacheAgeDays}
-          onChangeText={(text) => {
-            setLocalMaxCacheAgeDays(text);
-            if (text.trim() === "") {
-              updateMediaCacheRetentionPolicies({ maxCageAgeDays: undefined });
-              return;
-            }
-            const value = parseInt(text, 10);
-            if (!Number.isNaN(value) && value >= 0 && value <= 365) {
-              updateMediaCacheRetentionPolicies({ maxCageAgeDays: value });
-            }
-          }}
-          keyboardType="numeric"
-          maxLength={3}
-        />
-      </View>
+        </Card.Content>
+      </Card>
+      </Surface>
 
       {/* GraphQL Cache Settings */}
-      <View style={styles.sectionHeader}>
-        <ThemedText
-          style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}
-        >
+      <Surface style={styles.surfaceSection} elevation={1}>
+        <View style={styles.sectionHeader}>
+        <Text variant="headlineSmall" style={styles.sectionTitle}>
           {t("appSettings.notifications.title")}
-        </ThemedText>
-        <ThemedText
-          style={[
-            styles.sectionDescription,
-            { color: Colors[colorScheme].textSecondary },
-          ]}
-        >
+        </Text>
+        <Text variant="bodyMedium" style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
           {t("appSettings.notifications.description")}
-        </ThemedText>
+        </Text>
       </View>
 
-      <View
-        style={[
-          styles.settingRow,
-          { backgroundColor: Colors[colorScheme].backgroundCard },
-        ]}
-      >
-        <View style={styles.settingInfo}>
-          <View style={styles.settingTextContainer}>
-            <ThemedText
-              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
-            >
-              {t("appSettings.notifications.maxStoredTitle")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.settingDescription,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("appSettings.notifications.maxStoredDescription")}
-            </ThemedText>
+      <Card style={styles.settingCard} elevation={0}>
+        <Card.Content>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingTextContainer}>
+                <Text variant="titleMedium" style={styles.settingTitle}>
+                  {t("appSettings.notifications.maxStoredTitle")}
+                </Text>
+                <Text variant="bodyMedium" style={[styles.settingDescription, { color: theme.colors.onSurfaceVariant }]}>
+                  {t("appSettings.notifications.maxStoredDescription")}
+                </Text>
+              </View>
+            </View>
+            <TextInput
+              mode="outlined"
+              value={localMaxNotifications}
+              onFocus={() => setIsEditingMaxNotifications(true)}
+              onBlur={async () => {
+                const text = localMaxNotifications;
+                if (text.trim() === "") {
+                  await setMaxCachedNotifications(undefined);
+                } else {
+                  const parsed = parseInt(text, 10);
+                  if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 100000) {
+                    await setMaxCachedNotifications(parsed);
+                  }
+                }
+                setIsEditingMaxNotifications(false);
+              }}
+              onChangeText={(text) => {
+                setLocalMaxNotifications(text);
+              }}
+              keyboardType="numeric"
+              maxLength={6}
+              style={styles.compactInput}
+              dense
+            />
           </View>
-        </View>
-        <TextInput
-          style={[
-            styles.settingInput,
-            {
-              color: Colors[colorScheme].text,
-              backgroundColor: Colors[colorScheme].background,
-              borderColor: Colors[colorScheme].border,
-            },
-          ]}
-          value={localMaxNotifications}
-          onFocus={() => setIsEditingMaxNotifications(true)}
-          onBlur={async () => {
-            const text = localMaxNotifications;
-            if (text.trim() === "") {
-              await setMaxCachedNotifications(undefined);
-            } else {
-              const parsed = parseInt(text, 10);
-              if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 100000) {
-                await setMaxCachedNotifications(parsed);
-              }
-            }
-            setIsEditingMaxNotifications(false);
-          }}
-          onChangeText={(text) => {
-            setLocalMaxNotifications(text);
-          }}
-          keyboardType="numeric"
-          maxLength={6}
-        />
-      </View>
+        </Card.Content>
+      </Card>
 
-      <View
-        style={[
-          styles.settingRow,
-          { backgroundColor: Colors[colorScheme].backgroundCard },
-        ]}
-      >
-        <View style={styles.settingInfo}>
-          <View style={styles.settingTextContainer}>
-            <ThemedText
-              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
-            >
-              {t("appSettings.gqlCache.maxStoredDaysTitle")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.settingDescription,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("appSettings.gqlCache.maxStoredDaysDescription")}
-            </ThemedText>
+      <Card style={styles.settingCard} elevation={0}>
+        <Card.Content>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingTextContainer}>
+                <Text variant="titleMedium" style={styles.settingTitle}>
+                  {t("appSettings.gqlCache.maxStoredDaysTitle")}
+                </Text>
+                <Text variant="bodyMedium" style={[styles.settingDescription, { color: theme.colors.onSurfaceVariant }]}>
+                  {t("appSettings.gqlCache.maxStoredDaysDescription")}
+                </Text>
+              </View>
+            </View>
+            <TextInput
+              mode="outlined"
+              value={localMaxNotificationsDays}
+              onFocus={() => setIsEditingMaxNotificationsDays(true)}
+              onBlur={async () => {
+                const text = localMaxNotificationsDays;
+                if (text.trim() === "") {
+                  await setMaxCachedNotificationsDay(undefined);
+                } else {
+                  const parsed = parseInt(text, 10);
+                  if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 3650) {
+                    await setMaxCachedNotificationsDay(parsed);
+                  }
+                }
+                setIsEditingMaxNotificationsDays(false);
+              }}
+              onChangeText={(text) => {
+                setLocalMaxNotificationsDays(text);
+              }}
+              keyboardType="numeric"
+              maxLength={4}
+              style={styles.compactInput}
+              dense
+            />
           </View>
-        </View>
-        <TextInput
-          style={[
-            styles.settingInput,
-            {
-              color: Colors[colorScheme].text,
-              backgroundColor: Colors[colorScheme].background,
-              borderColor: Colors[colorScheme].border,
-            },
-          ]}
-          value={localMaxNotificationsDays}
-          onFocus={() => setIsEditingMaxNotificationsDays(true)}
-          onBlur={async () => {
-            const text = localMaxNotificationsDays;
-            if (text.trim() === "") {
-              await setMaxCachedNotificationsDay(undefined);
-            } else {
-              const parsed = parseInt(text, 10);
-              if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 3650) {
-                await setMaxCachedNotificationsDay(parsed);
-              }
-            }
-            setIsEditingMaxNotificationsDays(false);
-          }}
-          onChangeText={(text) => {
-            setLocalMaxNotificationsDays(text);
-          }}
-          keyboardType="numeric"
-          maxLength={4}
-        />
-      </View>
+        </Card.Content>
+      </Card>
 
       {/* Mark as read on view setting */}
-      <View
-        style={[
-          styles.settingRow,
-          { backgroundColor: Colors[colorScheme].backgroundCard },
-        ]}
-      >
-        <View style={styles.settingInfo}>
-          <View style={styles.settingTextContainer}>
-            <ThemedText
-              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
-            >
-              {t("appSettings.notifications.markAsReadOnView")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.settingDescription,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("appSettings.notifications.markAsReadOnViewDescription")}
-            </ThemedText>
+      <Card style={styles.settingCard} elevation={0}>
+        <Card.Content>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingTextContainer}>
+                <Text variant="titleMedium" style={styles.settingTitle}>
+                  {t("appSettings.notifications.markAsReadOnView")}
+                </Text>
+                <Text variant="bodyMedium" style={[styles.settingDescription, { color: theme.colors.onSurfaceVariant }]}>
+                  {t("appSettings.notifications.markAsReadOnViewDescription")}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={!!settings.notificationsPreferences?.markAsReadOnView}
+              onValueChange={setMarkAsReadOnView}
+            />
           </View>
-        </View>
-        <Switch
-          value={!!settings.notificationsPreferences?.markAsReadOnView}
-          onValueChange={setMarkAsReadOnView}
-          thumbColor={
-            !!settings.notificationsPreferences?.markAsReadOnView
-              ? Colors[colorScheme].tint
-              : Colors[colorScheme].textSecondary
-          }
-          trackColor={{
-            false: Colors[colorScheme].border,
-            true: Colors[colorScheme].tint + "40",
-          }}
-        />
-      </View>
+        </Card.Content>
+      </Card>
 
       {/* Notifications preferences */}
-      <View
-        style={[
-          styles.settingRow,
-          { backgroundColor: Colors[colorScheme].backgroundCard },
-        ]}
-      >
-        <View style={styles.settingInfo}>
-          <View style={styles.settingTextContainer}>
-            <ThemedText
-              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
-            >
-              {t("appSettings.notifications.unencryptOnBigPayload")}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.settingDescription,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("appSettings.notifications.unencryptOnBigPayloadDescription")}
-            </ThemedText>
+      <Card style={styles.settingCard} elevation={0}>
+        <Card.Content>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingTextContainer}>
+                <Text variant="titleMedium" style={styles.settingTitle}>
+                  {t("appSettings.notifications.unencryptOnBigPayload")}
+                </Text>
+                <Text variant="bodyMedium" style={[styles.settingDescription, { color: theme.colors.onSurfaceVariant }]}>
+                  {t("appSettings.notifications.unencryptOnBigPayloadDescription")}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={!!settings.notificationsPreferences?.unencryptOnBigPayload}
+              onValueChange={setUnencryptOnBigPayload}
+            />
           </View>
-        </View>
-        <Switch
-          value={!!settings.notificationsPreferences?.unencryptOnBigPayload}
-          onValueChange={setUnencryptOnBigPayload}
-          thumbColor={
-            !!settings.notificationsPreferences?.unencryptOnBigPayload
-              ? Colors[colorScheme].tint
-              : Colors[colorScheme].textSecondary
-          }
-          trackColor={{
-            false: Colors[colorScheme].border,
-            true: Colors[colorScheme].tint + "40",
-          }}
-        />
-      </View>
+        </Card.Content>
+      </Card>
 
       {/* Show app icon when bucket icon missing */}
-      <View
-        style={[
-          styles.settingRow,
-          { backgroundColor: Colors[colorScheme].backgroundCard },
-        ]}
-      >
-        <View style={styles.settingInfo}>
-          <View style={styles.settingTextContainer}>
-            <ThemedText
-              style={[styles.settingTitle, { color: Colors[colorScheme].text }]}
-            >
-              {t('appSettings.notifications.showAppIconOnBucketIconMissing')}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.settingDescription,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t('appSettings.notifications.showAppIconOnBucketIconMissingDescription')}
-            </ThemedText>
+      <Card style={styles.settingCard} elevation={0}>
+        <Card.Content>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingTextContainer}>
+                <Text variant="titleMedium" style={styles.settingTitle}>
+                  {t('appSettings.notifications.showAppIconOnBucketIconMissing')}
+                </Text>
+                <Text variant="bodyMedium" style={[styles.settingDescription, { color: theme.colors.onSurfaceVariant }]}>
+                  {t('appSettings.notifications.showAppIconOnBucketIconMissingDescription')}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={!!notificationsPreferences?.showAppIconOnBucketIconMissing}
+              onValueChange={setShowAppIconOnBucketIconMissing}
+            />
           </View>
-        </View>
-        <Switch
-          value={!!notificationsPreferences?.showAppIconOnBucketIconMissing}
-          onValueChange={setShowAppIconOnBucketIconMissing}
-          thumbColor={
-            !!notificationsPreferences?.showAppIconOnBucketIconMissing
-              ? Colors[colorScheme].tint
-              : Colors[colorScheme].textSecondary
-          }
-          trackColor={{
-            false: Colors[colorScheme].border,
-            true: Colors[colorScheme].tint + '40',
-          }}
-        />
-      </View>
+        </Card.Content>
+      </Card>
+      </Surface>
 
       {/* Advanced Section */}
-      <View style={styles.sectionHeader}>
-        <ThemedText
-          style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}
-        >
+      <Surface style={styles.surfaceSection} elevation={1}>
+        <View style={styles.sectionHeader}>
+        <Text variant="headlineSmall" style={styles.sectionTitle}>
           {t("appSettings.gqlCache.importExport.title")}
-        </ThemedText>
-        <ThemedText
-          style={[
-            styles.sectionDescription,
-            { color: Colors[colorScheme].textSecondary },
-          ]}
-        >
+        </Text>
+        <Text variant="bodyMedium" style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
           {t("appSettings.gqlCache.importExport.description")}
-        </ThemedText>
+        </Text>
       </View>
 
       <View style={styles.importExportContainer}>
-        {/* Export Button */}
-        {/* Import Button (moved first) */}
-        <TouchableOpacity
-          style={[
-            styles.importExportButton,
-            { backgroundColor: Colors[colorScheme].success },
-            isImporting && styles.importExportButtonDisabled,
-          ]}
+        {/* Import Button */}
+        <Button
+          mode="contained"
+          buttonColor={theme.colors.primary}
+          textColor={theme.colors.onPrimary}
           onPress={handleImportNotifications}
           disabled={isExporting || isImporting}
-          activeOpacity={0.8}
+          loading={isImporting}
+          icon="cloud-upload"
+          style={styles.importExportButton}
         >
-          <Ionicons
-            name={isImporting ? "hourglass" : "cloud-upload"}
-            size={20}
-            color="#fff"
-            style={styles.importExportButtonIcon}
-          />
-          <View style={styles.importExportButtonTextContainer}>
-            <ThemedText style={styles.importExportButtonText}>
-              {isImporting
-                ? t("common.importing")
-                : t("appSettings.gqlCache.importExport.importButton")}
-            </ThemedText>
-            <ThemedText style={styles.importExportButtonDescription}>
-              {t("appSettings.gqlCache.importExport.importDescription")}
-            </ThemedText>
-          </View>
-        </TouchableOpacity>
-        {/* Logging toggle */}
-        <TouchableOpacity
-          style={[
-            styles.importExportButton,
-            { backgroundColor: Colors[colorScheme].tint },
-            isExporting && styles.importExportButtonDisabled,
-          ]}
+          {isImporting
+            ? t("common.importing")
+            : t("appSettings.gqlCache.importExport.importButton")}
+        </Button>
+
+        {/* Export Button */}
+        <Button
+          mode="contained"
+          buttonColor={theme.colors.primary}
+          textColor={theme.colors.onPrimary}
           onPress={handleExportNotifications}
           disabled={isExporting || isImporting}
-          activeOpacity={0.8}
+          loading={isExporting}
+          icon="download"
+          style={styles.importExportButton}
         >
-          <Ionicons
-            name={isExporting ? "hourglass" : "download"}
-            size={20}
-            color="#fff"
-            style={styles.importExportButtonIcon}
-          />
-          <View style={styles.importExportButtonTextContainer}>
-            <ThemedText style={styles.importExportButtonText}>
-              {isExporting
-                ? t("common.exporting")
-                : t("appSettings.gqlCache.importExport.exportButton")}
-            </ThemedText>
-            <ThemedText style={styles.importExportButtonDescription}>
-              {t("appSettings.gqlCache.importExport.exportDescription")}
-            </ThemedText>
-          </View>
-        </TouchableOpacity>
+          {isExporting
+            ? t("common.exporting")
+            : t("appSettings.gqlCache.importExport.exportButton")}
+        </Button>
 
         {/* Export Metadata Button */}
-        <TouchableOpacity
-          style={[
-            styles.importExportButton,
-            { backgroundColor: Colors[colorScheme].tint },
-            isExportingMetadata && styles.importExportButtonDisabled,
-          ]}
+        <Button
+          mode="contained"
+          buttonColor={theme.colors.primary}
+          textColor={theme.colors.onPrimary}
           onPress={handleExportMetadata}
           disabled={isExportingMetadata || isExporting || isImporting}
-          activeOpacity={0.8}
+          loading={isExportingMetadata}
+          icon="file-document"
+          style={styles.importExportButton}
         >
-          <Ionicons
-            name={isExportingMetadata ? "hourglass" : "document-text"}
-            size={20}
-            color="#fff"
-            style={styles.importExportButtonIcon}
-          />
-          <View style={styles.importExportButtonTextContainer}>
-            <ThemedText style={styles.importExportButtonText}>
-              {isExportingMetadata
-                ? t("common.exporting")
-                : t("appSettings.gqlCache.importExport.exportMetadataButton")}
-            </ThemedText>
-            <ThemedText style={styles.importExportButtonDescription}>
-              {t("appSettings.gqlCache.importExport.exportMetadataDescription")}
-            </ThemedText>
-          </View>
-        </TouchableOpacity>
-
-        {/* Logs controls removed */}
+          {isExportingMetadata
+            ? t("common.exporting")
+            : t("appSettings.gqlCache.importExport.exportMetadataButton")}
+        </Button>
       </View>
+      </Surface>
 
       {/* Cache Reset Modal */}
       <CacheResetModal
@@ -940,34 +713,63 @@ export default function UnifiedCacheSettings() {
         onClose={() => setShowResetModal(false)}
         totalCacheSize={totalCacheSize.toString()}
       />
+
+      {/* Success Dialog */}
+      <Portal>
+        <Dialog visible={showSuccessDialog} onDismiss={() => setShowSuccessDialog(false)}>
+          <Dialog.Title>{t("appSettings.gqlCache.importExport.exportComplete")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{dialogMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowSuccessDialog(false)}>
+              {t("common.ok")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* Error Dialog */}
+      <Portal>
+        <Dialog visible={showErrorDialog} onDismiss={() => setShowErrorDialog(false)}>
+          <Dialog.Title>{t("appSettings.gqlCache.importExport.exportMetadataError")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{dialogMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowErrorDialog(false)}>
+              {t("common.ok")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   sectionContainer: {
-    marginBottom: 20,
     paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  surfaceSection: {
+    marginBottom: 20,
+    borderRadius: 12,
   },
   sectionHeader: {
-    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "600",
     marginBottom: 4,
   },
   sectionDescription: {
-    fontSize: 14,
     lineHeight: 20,
   },
   summaryCard: {
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 24,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0,0,0,0.1)",
+    marginHorizontal: 16,
+    marginBottom: 16,
   },
   summaryHeader: {
     flexDirection: "row",
@@ -975,8 +777,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   summaryTitle: {
-    fontSize: 18,
-    fontWeight: "600",
     marginLeft: 12,
   },
   summaryStats: {
@@ -989,41 +789,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   summaryStatValue: {
-    fontSize: 24,
-    fontWeight: "bold",
     marginBottom: 4,
   },
   summaryStatLabel: {
-    fontSize: 12,
     textAlign: "center",
   },
   summaryStatSubtext: {
-    fontSize: 10,
     textAlign: "center",
     marginTop: 2,
   },
   resetButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    gap: 8,
+    marginTop: 16,
   },
-  resetButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+  settingCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
   },
   settingRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(0,0,0,0.1)",
   },
   settingInfo: {
     flexDirection: "row",
@@ -1039,56 +824,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingTitle: {
-    fontSize: 16,
-    fontWeight: "500",
     marginBottom: 4,
   },
   settingDescription: {
-    fontSize: 14,
     lineHeight: 20,
     marginBottom: 8,
   },
   settingInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 16,
     minWidth: 80,
   },
+  compactInput: {
+    minWidth: 60,
+    height: 40,
+  },
   importExportContainer: {
-    marginBottom: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
     gap: 12,
   },
   importExportButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    borderRadius: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  importExportButtonDisabled: {
-    opacity: 0.6,
-  },
-  importExportButtonIcon: {
-    marginRight: 12,
-  },
-  importExportButtonTextContainer: {
-    flex: 1,
-  },
-  importExportButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  importExportButtonDescription: {
-    color: "#fff",
-    fontSize: 13,
-    opacity: 0.9,
-    lineHeight: 18,
+    marginBottom: 8,
   },
 });

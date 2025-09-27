@@ -12,19 +12,19 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     id: 'terms-of-service',
     title: 'Terms of Service',
     fileName: 'terms-of-service',
-    icon: 'document-text',
+    icon: 'file-document',
   },
   {
     id: 'privacy-policy',
     title: 'Privacy Policy',
     fileName: 'privacy-policy',
-    icon: 'shield-checkmark',
+    icon: 'shield-check',
   },
   {
     id: 'cookie-policy',
     title: 'Cookie Policy',
     fileName: 'cookie-policy',
-    icon: 'library',
+    icon: 'cookie',
   },
 ];
 
