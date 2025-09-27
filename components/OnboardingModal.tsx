@@ -1,38 +1,41 @@
-import { Colors } from "@/constants/Colors";
 import {
+  CreateAccessTokenDto,
   CreateBucketDto,
   CreateMessageDto,
-  CreateAccessTokenDto,
   NotificationDeliveryType,
+  useCreateAccessTokenMutation,
   useCreateBucketMutation,
   useCreateMessageMutation,
-  useCreateAccessTokenMutation,
   useGetBucketsQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useUserSettings } from "@/services/user-settings";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { useColorScheme } from "@/hooks/useTheme";
-import * as Clipboard from "expo-clipboard";
 import { ApiConfigService } from "@/services/api-config";
-import { Ionicons } from "@expo/vector-icons";
-import React, { useState, useEffect, useRef } from "react";
+import { useUserSettings } from "@/services/user-settings";
+import * as Clipboard from "expo-clipboard";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Dimensions,
+  GestureResponderEvent,
   Linking,
-  Modal,
+  PanResponder,
+  PanResponderGestureState,
   ScrollView,
   StyleSheet,
-  TextInput,
-  TouchableOpacity,
   View,
-  PanResponder,
-  GestureResponderEvent,
-  PanResponderGestureState,
 } from "react-native";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
-import { Icon } from "./ui";
+import {
+  Button,
+  Icon,
+  Modal,
+  Portal,
+  Surface,
+  Text,
+  TextInput,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 
 interface OnboardingModalProps {
   visible: boolean;
@@ -52,7 +55,7 @@ export default function OnboardingModal({
   onClose,
 }: OnboardingModalProps) {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { completeOnboarding } = useUserSettings();
   const [currentStep, setCurrentStep] = useState(0);
   const [bucketName, setBucketName] = useState("My First Bucket");
@@ -313,286 +316,276 @@ export default function OnboardingModal({
       case "welcome":
         return (
           <View style={styles.stepContent}>
-            <Icon
-              name="app"
-              size="xl"
-              color="primary"
-              style={styles.stepIcon}
-            />
-            <ThemedText style={styles.stepDescription}>
+            <View style={styles.stepIcon}>
+              <Icon source="cellphone" size={64} color={theme.colors.primary} />
+            </View>
+            <Text
+              style={[
+                styles.stepDescription,
+                { color: theme.colors.onSurface },
+              ]}
+            >
               {t("onboarding.welcome.description")}
-            </ThemedText>
-            <ThemedText style={styles.stepDescription}>
+            </Text>
+            <Text
+              style={[
+                styles.stepDescription,
+                { color: theme.colors.onSurface },
+              ]}
+            >
               {t("onboarding.welcome.description2")}
-            </ThemedText>
+            </Text>
           </View>
         );
 
       case "bucket":
         return (
           <View style={styles.stepContent}>
-            <Icon
-              name="folder"
-              size="xl"
-              color="primary"
-              style={styles.stepIcon}
-            />
-            <ThemedText style={styles.stepDescription}>
+            <View style={styles.stepIcon}>
+              <Icon source="folder" size={64} color={theme.colors.primary} />
+            </View>
+            <Text
+              style={[
+                styles.stepDescription,
+                { color: theme.colors.onSurface },
+              ]}
+            >
               {t("onboarding.bucket.description")}
-            </ThemedText>
+            </Text>
             <View style={styles.inputContainer}>
-              <ThemedText style={styles.inputLabel}>
+              <Text
+                style={[styles.inputLabel, { color: theme.colors.onSurface }]}
+              >
                 {t("onboarding.bucket.nameLabel")}
-              </ThemedText>
+              </Text>
               <TextInput
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme ?? "light"].backgroundCard,
-                    color: Colors[colorScheme ?? "light"].text,
-                    borderColor: Colors[colorScheme ?? "light"].border,
-                  },
-                ]}
+                mode="outlined"
                 value={bucketName}
                 onChangeText={setBucketName}
                 placeholder={t("onboarding.bucket.namePlaceholder")}
-                placeholderTextColor={
-                  Colors[colorScheme ?? "light"].textSecondary
-                }
+                style={styles.textInput}
               />
             </View>
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                { backgroundColor: Colors[colorScheme ?? "light"].tint },
-                creatingBucket && styles.disabledButton,
-              ]}
+            <Button
+              mode="contained"
               onPress={handleCreateBucket}
+              loading={creatingBucket}
               disabled={creatingBucket}
+              style={styles.actionButton}
             >
-              <ThemedText style={styles.actionButtonText}>
-                {creatingBucket
-                  ? t("onboarding.bucket.creating")
-                  : t("onboarding.bucket.createButton")}
-              </ThemedText>
-            </TouchableOpacity>
+              {creatingBucket
+                ? t("onboarding.bucket.creating")
+                : t("onboarding.bucket.createButton")}
+            </Button>
           </View>
         );
 
       case "token":
         return (
           <View style={styles.stepContent}>
-            <Icon
-              name="key"
-              size="xl"
-              color="primary"
-              style={styles.stepIcon}
-            />
-            <ThemedText style={styles.stepDescription}>
+            <View style={styles.stepIcon}>
+              <Icon source="key" size={64} color={theme.colors.primary} />
+            </View>
+            <Text
+              style={[
+                styles.stepDescription,
+                { color: theme.colors.onSurface },
+              ]}
+            >
               {t("onboarding.token.description")}
-            </ThemedText>
+            </Text>
             <View style={styles.inputContainer}>
-              <ThemedText style={styles.inputLabel}>
+              <Text
+                style={[styles.inputLabel, { color: theme.colors.onSurface }]}
+              >
                 {t("onboarding.token.nameLabel")}
-              </ThemedText>
+              </Text>
               <TextInput
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme ?? "light"].backgroundCard,
-                    color: Colors[colorScheme ?? "light"].text,
-                    borderColor: Colors[colorScheme ?? "light"].border,
-                  },
-                ]}
+                mode="outlined"
                 value={tokenName}
                 onChangeText={setTokenName}
                 placeholder={t("onboarding.token.namePlaceholder")}
-                placeholderTextColor={
-                  Colors[colorScheme ?? "light"].textSecondary
-                }
+                style={styles.textInput}
               />
             </View>
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                { backgroundColor: Colors[colorScheme ?? "light"].tint },
-                creatingToken && styles.disabledButton,
-              ]}
+            <Button
+              mode="contained"
               onPress={handleCreateToken}
+              loading={creatingToken}
               disabled={creatingToken}
+              style={styles.actionButton}
             >
-              <ThemedText style={styles.actionButtonText}>
-                {creatingToken
-                  ? t("onboarding.token.creating")
-                  : t("onboarding.token.createButton")}
-              </ThemedText>
-            </TouchableOpacity>
+              {creatingToken
+                ? t("onboarding.token.creating")
+                : t("onboarding.token.createButton")}
+            </Button>
           </View>
         );
 
       case "notification":
         return (
           <View style={styles.stepContent}>
-            <Icon
-              name="notifications"
-              size="xl"
-              color="primary"
-              style={styles.stepIcon}
-            />
-            <ThemedText style={styles.stepDescription}>
+            <View style={styles.stepIcon}>
+              <Icon source="bell" size={64} color={theme.colors.primary} />
+            </View>
+            <Text
+              style={[
+                styles.stepDescription,
+                { color: theme.colors.onSurface },
+              ]}
+            >
               {t("onboarding.notification.description")}
-            </ThemedText>
+            </Text>
             <View style={styles.inputContainer}>
-              <ThemedText style={styles.inputLabel}>
+              <Text
+                style={[styles.inputLabel, { color: theme.colors.onSurface }]}
+              >
                 {t("onboarding.notification.titleLabel")}
-              </ThemedText>
+              </Text>
               <TextInput
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme ?? "light"].backgroundCard,
-                    color: Colors[colorScheme ?? "light"].text,
-                    borderColor: Colors[colorScheme ?? "light"].border,
-                  },
-                ]}
+                mode="outlined"
                 value={notificationTitle}
                 onChangeText={setNotificationTitle}
                 placeholder={t("onboarding.notification.titlePlaceholder")}
-                placeholderTextColor={
-                  Colors[colorScheme ?? "light"].textSecondary
-                }
+                style={styles.textInput}
               />
             </View>
             <View style={styles.inputContainer}>
-              <ThemedText style={styles.inputLabel}>
+              <Text
+                style={[styles.inputLabel, { color: theme.colors.onSurface }]}
+              >
                 {t("onboarding.notification.bodyLabel")}
-              </ThemedText>
+              </Text>
               <TextInput
-                style={[
-                  styles.textInput,
-                  styles.multilineInput,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme ?? "light"].backgroundCard,
-                    color: Colors[colorScheme ?? "light"].text,
-                    borderColor: Colors[colorScheme ?? "light"].border,
-                  },
-                ]}
+                mode="outlined"
                 value={notificationBody}
                 onChangeText={setNotificationBody}
                 placeholder={t("onboarding.notification.bodyPlaceholder")}
-                placeholderTextColor={
-                  Colors[colorScheme ?? "light"].textSecondary
-                }
                 multiline
                 numberOfLines={3}
+                style={[styles.textInput, styles.multilineInput]}
               />
             </View>
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                { backgroundColor: Colors[colorScheme ?? "light"].tint },
-                sendingMessage && styles.disabledButton,
-              ]}
+            <Button
+              mode="contained"
               onPress={handleSendNotification}
+              loading={sendingMessage}
               disabled={sendingMessage}
+              style={styles.actionButton}
             >
-              <ThemedText style={styles.actionButtonText}>
-                {sendingMessage
-                  ? t("onboarding.notification.sending")
-                  : t("onboarding.notification.sendButton")}
-              </ThemedText>
-            </TouchableOpacity>
+              {sendingMessage
+                ? t("onboarding.notification.sending")
+                : t("onboarding.notification.sendButton")}
+            </Button>
           </View>
         );
 
       case "api":
         return (
           <View style={styles.stepContent}>
-            <Icon
-              name="code"
-              size="xl"
-              color="primary"
-              style={styles.stepIcon}
-            />
-            <ThemedText style={styles.stepDescription}>
+            <View style={styles.stepIcon}>
+              <Icon source="code" size={64} color={theme.colors.primary} />
+            </View>
+            <Text
+              style={[
+                styles.stepDescription,
+                { color: theme.colors.onSurface },
+              ]}
+            >
               {t("onboarding.api.description")}
-            </ThemedText>
+            </Text>
 
             <View style={styles.documentationContainer}>
-              <ThemedText style={styles.documentationText}>
+              <Text
+                style={[
+                  styles.documentationText,
+                  { color: theme.colors.onSurface },
+                ]}
+              >
                 {t("onboarding.api.documentationInfo")}{" "}
-                <ThemedText
-                  style={styles.documentationLinkText}
+                <Text
+                  style={[
+                    styles.documentationLinkText,
+                    { color: theme.colors.primary },
+                  ]}
                   onPress={() => {
                     Linking.openURL(t("onboarding.api.documentationLink"));
                   }}
                 >
                   {t("onboarding.api.documentationLink")}
-                </ThemedText>
-              </ThemedText>
+                </Text>
+              </Text>
             </View>
 
             {/* Endpoint Information */}
-            <View style={styles.endpointContainer}>
-              <ThemedText style={styles.endpointValue}>
+            <Surface
+              style={[
+                styles.endpointContainer,
+                { backgroundColor: theme.colors.surfaceVariant },
+              ]}
+              elevation={0}
+            >
+              <Text
+                style={[
+                  styles.endpointValue,
+                  { color: theme.colors.onSurface },
+                ]}
+              >
                 POST {ApiConfigService.getApiBaseWithPrefix()}/messages
-              </ThemedText>
-            </View>
+              </Text>
+            </Surface>
 
             {/* JSON Preview - Always Visible */}
-            <ThemedView
+            <Surface
               style={[
                 styles.jsonPreviewContainer,
-                {
-                  backgroundColor:
-                    Colors[colorScheme ?? "light"].backgroundCard,
-                },
+                { backgroundColor: theme.colors.surfaceVariant },
               ]}
+              elevation={0}
             >
               <ScrollView
                 style={[
                   styles.jsonPreviewScrollView,
                   {
-                    backgroundColor:
-                      Colors[colorScheme ?? "light"].backgroundSecondary,
-                    borderColor: Colors[colorScheme ?? "light"].border,
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.outline,
                   },
                 ]}
               >
-                <ThemedText
+                <Text
                   style={[
                     styles.jsonPreviewText,
-                    { color: Colors[colorScheme ?? "light"].text },
+                    { color: theme.colors.onSurface },
                   ]}
                 >
                   {JSON.stringify(buildMessagePayload(), null, 2)}
-                </ThemedText>
+                </Text>
               </ScrollView>
 
-              <TouchableOpacity
+              <TouchableRipple
                 style={[
                   styles.copyButton,
-                  {
-                    backgroundColor:
-                      Colors[colorScheme ?? "light"].backgroundSecondary,
-                  },
+                  { backgroundColor: theme.colors.surface },
                 ]}
                 onPress={copyJsonToClipboard}
               >
-                <Icon
-                  name="copy"
-                  size="sm"
-                  color={Colors[colorScheme ?? "light"].tint}
-                />
-                <ThemedText style={styles.copyButtonText}>
-                  {t("onboarding.preview.copy")}
-                </ThemedText>
-              </TouchableOpacity>
-            </ThemedView>
+                <View style={styles.copyButtonContent}>
+                  <Icon
+                    source="content-copy"
+                    size={16}
+                    color={theme.colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.copyButtonText,
+                      { color: theme.colors.onSurface },
+                    ]}
+                  >
+                    {t("onboarding.preview.copy")}
+                  </Text>
+                </View>
+              </TouchableRipple>
+            </Surface>
           </View>
         );
 
@@ -601,110 +594,110 @@ export default function OnboardingModal({
     }
   };
 
+  const deviceHeight = Dimensions.get("window").height;
+  const containerStyle = {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginVertical: 24,
+    maxHeight: deviceHeight * 0.8,
+  } as const;
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={handleClose}
-    >
-      <ThemedView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <Ionicons
-              name="close"
-              size={24}
-              color={Colors[colorScheme ?? "light"].text}
-            />
-          </TouchableOpacity>
-          <ThemedText style={styles.headerTitle}>
-            {t("onboarding.title")}
-          </ThemedText>
-          <View style={styles.placeholder} />
-        </View>
-
-        {/* progress moved to bottom above footer */}
-
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.content}
-          showsVerticalScrollIndicator={false}
-          {...panResponder.panHandlers}
-        >
-          <ThemedText style={styles.stepTitle}>
-            {steps[currentStep]?.title}
-          </ThemedText>
-
-          {renderStepContent()}
-        </ScrollView>
-
-        <View style={styles.footerCarouselContainer}>
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
-              {steps.map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.progressDot,
-                    {
-                      backgroundColor:
-                        index <= currentStep
-                          ? Colors[colorScheme ?? "light"].tint
-                          : Colors[colorScheme ?? "light"].border,
-                    },
-                  ]}
-                />
-              ))}
-            </View>
-            <ThemedText style={styles.progressText}>
-              {t("onboarding.navigation.step", {
-                current: currentStep + 1,
-                total: steps.length,
-              })}
-            </ThemedText>
-          </View>
-        </View>
-
-        <View style={styles.footer}>
-          {currentStep > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.navigationButton,
-                styles.previousButton,
-                { borderColor: Colors[colorScheme ?? "light"].border },
-              ]}
-              onPress={handlePrevious}
+    <Portal>
+      <Modal
+        visible={visible}
+        onDismiss={handleClose}
+        contentContainerStyle={containerStyle}
+        dismissableBackButton
+      >
+        <Surface elevation={0}>
+          <View style={styles.header}>
+            <TouchableRipple onPress={handleClose} style={styles.closeButton}>
+              <Icon source="close" size={24} color={theme.colors.onSurface} />
+            </TouchableRipple>
+            <Text
+              style={[styles.headerTitle, { color: theme.colors.onSurface }]}
             >
-              <ThemedText style={styles.previousButtonText}>
-                {t("onboarding.navigation.back")}
-              </ThemedText>
-            </TouchableOpacity>
-          )}
+              {t("onboarding.title")}
+            </Text>
+            <View style={styles.placeholder} />
+          </View>
 
-          <TouchableOpacity
-            style={[
-              styles.navigationButton,
-              styles.nextButton,
-              { backgroundColor: Colors[colorScheme ?? "light"].tint },
-            ]}
-            onPress={handleNext}
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.content}
+            showsVerticalScrollIndicator={false}
+            {...panResponder.panHandlers}
           >
-            <ThemedText style={styles.nextButtonText}>
+            <Text style={[styles.stepTitle, { color: theme.colors.onSurface }]}>
+              {steps[currentStep]?.title}
+            </Text>
+
+            {renderStepContent()}
+          </ScrollView>
+
+          <View style={styles.footerCarouselContainer}>
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                {steps.map((_, index) => (
+                  <Surface
+                    key={index}
+                    style={[
+                      styles.progressDot,
+                      {
+                        backgroundColor:
+                          index <= currentStep
+                            ? theme.colors.primary
+                            : theme.colors.outline,
+                      },
+                    ]}
+                    elevation={0}
+                  >
+                    <></>
+                  </Surface>
+                ))}
+              </View>
+              <Text
+                style={[styles.progressText, { color: theme.colors.onSurface }]}
+              >
+                {t("onboarding.navigation.step", {
+                  current: currentStep + 1,
+                  total: steps.length,
+                })}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.footer}>
+            {currentStep > 0 && (
+              <Button
+                mode="outlined"
+                onPress={handlePrevious}
+                style={styles.previousButton}
+                labelStyle={{ color: theme.colors.onSurface }}
+              >
+                {t("onboarding.navigation.back")}
+              </Button>
+            )}
+
+            <Button
+              mode="contained"
+              onPress={handleNext}
+              style={styles.nextButton}
+            >
               {currentStep === steps.length - 1
                 ? t("onboarding.navigation.complete")
                 : t("onboarding.navigation.next")}
-            </ThemedText>
-          </TouchableOpacity>
-        </View>
-      </ThemedView>
-    </Modal>
+            </Button>
+          </View>
+        </Surface>
+      </Modal>
+    </Portal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -742,7 +735,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   content: {
-    flex: 1,
     paddingHorizontal: 20,
   },
   footerCarouselContainer: {
@@ -789,19 +781,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   actionButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
     marginTop: 10,
-  },
-  actionButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  disabledButton: {
-    opacity: 0.6,
   },
   footer: {
     flexDirection: "row",
@@ -810,33 +790,24 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingBottom: 40,
   },
-  navigationButton: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 8,
-    alignItems: "center",
-  },
   previousButton: {
-    borderWidth: 1,
+    flex: 1,
     marginRight: 10,
   },
-  previousButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
   nextButton: {
+    flex: 1,
     marginLeft: 10,
-  },
-  nextButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
   },
   endpointContainer: {
     marginVertical: 16,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
+  },
+  copyButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
   endpointLabel: {
     fontSize: 14,
