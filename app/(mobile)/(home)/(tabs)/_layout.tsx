@@ -1,14 +1,13 @@
-import { Colors } from "@/constants/Colors";
 import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
-import { useColorScheme, useI18n } from "@/hooks";
+import { useI18n } from "@/hooks";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useAppContext } from "@/services/app-context";
-import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { Platform } from "react-native";
+import { Icon, useTheme } from "react-native-paper";
 
 export default function TabsLayout() {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const { notifications, isLoadingGqlData } = useAppContext();
   const { data: bucketsData } = useGetBucketsQuery();
@@ -21,11 +20,11 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme].tint,
-        tabBarInactiveTintColor: Colors[colorScheme].textSecondary,
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarStyle: {
-          backgroundColor: Colors[colorScheme].background,
-          borderTopColor: Colors[colorScheme].border,
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.outline,
           borderTopWidth: 1,
           shadowColor: "#000",
           shadowOffset: {
@@ -59,8 +58,8 @@ export default function TabsLayout() {
         options={{
           title: t("navigation.sections.all"),
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "notifications" : "notifications-outline"}
+            <Icon
+              source={focused ? "bell" : "bell-outline"}
               size={24}
               color={color}
             />
@@ -71,8 +70,8 @@ export default function TabsLayout() {
             ? notifCount
             : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: Colors[colorScheme].tint,
-            color: "#ffffff",
+            backgroundColor: theme.colors.primary,
+            color: theme.colors.onPrimary,
             fontSize: notifCount > 999 ? 8 : notifCount > 99 ? 9 : 10,
             left: 20,
             minWidth: 30,
@@ -85,16 +84,16 @@ export default function TabsLayout() {
         options={{
           title: t("navigation.sections.buckets"),
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "folder" : "folder-outline"}
+            <Icon
+              source={focused ? "folder" : "folder-outline"}
               size={24}
               color={color}
             />
           ),
           tabBarBadge: bucketsCount > 0 ? bucketsCount : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: Colors[colorScheme].tint,
-            color: "#ffffff",
+            backgroundColor: theme.colors.primary,
+            color: theme.colors.onPrimary,
             fontSize: 10,
             left: 20,
             minWidth: 30,
@@ -107,16 +106,16 @@ export default function TabsLayout() {
         options={{
           title: t("navigation.sections.gallery"),
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "images" : "images-outline"}
+            <Icon
+              source={focused ? "image" : "image-outline"}
               size={24}
               color={color}
             />
           ),
           tabBarBadge: galleryCount > 0 ? galleryCount : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: Colors[colorScheme].tint,
-            color: "#ffffff",
+            backgroundColor: theme.colors.primary,
+            color: theme.colors.onPrimary,
             fontSize: 10,
             left: 20,
             minWidth: 30,
