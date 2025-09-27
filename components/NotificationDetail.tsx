@@ -2,9 +2,6 @@ import { SmartTextRenderer } from "@/components";
 import AttachmentGallery from "@/components/AttachmentGallery";
 import BucketIcon from "@/components/BucketIcon";
 import FullScreenMediaViewer from "@/components/FullScreenMediaViewer";
-import NotificationActionsButton, {
-  filteredActions,
-} from "@/components/NotificationActionsButton";
 import NotificationSnoozeButton from "@/components/NotificationSnoozeButton";
 import {
   MediaType,
@@ -19,7 +16,7 @@ import {
 } from "@/hooks/useNotifications";
 import { useNotificationUtils } from "@/hooks/useNotificationUtils";
 import * as Clipboard from "expo-clipboard";
-import { Paths, File } from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
 import {
@@ -30,12 +27,13 @@ import {
   View,
 } from "react-native";
 import {
+  Icon,
   Surface,
   Text,
   TouchableRipple,
-  Icon,
   useTheme,
 } from "react-native-paper";
+import { NotificationActionsMenu } from "./NotificationActionsMenu";
 
 interface NotificationDetailProps {
   notificationId: string;
@@ -199,7 +197,10 @@ export default function NotificationDetail({
               );
             } catch (error) {
               console.error("Error deleting notification:", error);
-              Alert.alert(t("common.error"), t("notificationDetail.delete.error"));
+              Alert.alert(
+                t("common.error"),
+                t("notificationDetail.delete.error")
+              );
             }
           },
         },
@@ -208,7 +209,6 @@ export default function NotificationDetail({
   };
 
   const attachments = message?.attachments || [];
-  const actions = message?.actions ? filteredActions(notification) : [];
 
   return (
     <Surface
@@ -353,14 +353,11 @@ export default function NotificationDetail({
 
           {/* Actions and Snooze buttons */}
           <View style={styles.actionsRow}>
-            {actions.length > 0 && (
-              <NotificationActionsButton
-                notification={notification}
-                actions={actions}
-                variant="detail"
-                showTextLabel
-              />
-            )}
+            <NotificationActionsMenu
+              notification={notification}
+              onlyActions
+              showTextAndIcon
+            />
             <View style={styles.filler} />
             <NotificationSnoozeButton
               bucketId={message?.bucket?.id}
