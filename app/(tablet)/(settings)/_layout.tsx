@@ -1,4 +1,3 @@
-import HomeSidebar from "@/components/HomeSidebar";
 import SettingsSidebar from "@/components/SettingsSidebar";
 import { Slot } from "expo-router";
 import React from "react";
@@ -10,9 +9,7 @@ export default function TabletSettingsLayout() {
       <SettingsSidebar />
       <View
         style={{
-          flexGrow: 1,
-          flexShrink: 1,
-          flexBasis: 0,
+          flex: 1,
           overflow: "hidden",
         }}
       >

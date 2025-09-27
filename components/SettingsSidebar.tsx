@@ -1,13 +1,8 @@
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
-import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useRouter, useSegments } from "expo-router";
 import React from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import Icon from "@/components/ui/Icon";
-import { IconName } from "@/constants/Icons";
+import { Card, Icon, List, Surface, Text, useTheme } from "react-native-paper";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { useNavigationUtils } from "@/utils/navigation";
 
@@ -15,18 +10,17 @@ interface SettingsOption {
   id: string;
   title: string;
   description: string;
-  icon: IconName;
+  icon: string;
   iconColor: string;
   onPress: () => void;
   selectionSegment: string;
 }
 
 export default function SettingsSidebar() {
-  const router = useRouter();
   const segments = useSegments();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
-  const { isMobile, isDesktop } = useDeviceType();
+  const { isMobile, isDesktop, isTablet } = useDeviceType();
   const nav = useNavigationUtils();
 
   const settingsOptions: SettingsOption[] = [
@@ -34,7 +28,7 @@ export default function SettingsSidebar() {
       id: "user-profile",
       title: t("userProfile.title"),
       description: t("userProfile.description"),
-      icon: "user",
+      icon: "account",
       iconColor: "#4F46E5", // Indigo
       onPress: nav.navigateToUserProfile,
       selectionSegment: "user-profile",
@@ -43,7 +37,7 @@ export default function SettingsSidebar() {
       id: "app-settings",
       title: t("appSettings.title"),
       description: t("appSettings.description"),
-      icon: "settings",
+      icon: "cog",
       iconColor: "#F59E0B", // Amber
       onPress: nav.navigateToAppSettings,
       selectionSegment: "app-settings",
@@ -79,7 +73,7 @@ export default function SettingsSidebar() {
       id: "devices-settings",
       title: t("devices.title"),
       description: t("devices.description"),
-      icon: "device",
+      icon: "cellphone",
       iconColor: "#DC2626", // Red
       onPress: nav.navigateToDevicesSettings,
       selectionSegment: "devices",
@@ -88,8 +82,8 @@ export default function SettingsSidebar() {
       id: "user-sessions-settings",
       title: t("userSessions.title"),
       description: t("userSessions.description"),
-      icon: "notebook",
-      iconColor: "#2563EB", // Notebook blue
+      icon: "account-clock",
+      iconColor: "#7C3AED", // Violet
       onPress: nav.navigateToUserSessionsSettings,
       selectionSegment: "user-sessions",
     },
@@ -97,8 +91,8 @@ export default function SettingsSidebar() {
       id: "notifications-settings",
       title: t("notifications.title"),
       description: t("notifications.description"),
-      icon: "notification",
-      iconColor: "#7C3AED", // Violet
+      icon: "bell",
+      iconColor: "#EA580C", // Orange
       onPress: nav.navigateToNotificationsSettings,
       selectionSegment: "notifications",
     },
@@ -106,7 +100,7 @@ export default function SettingsSidebar() {
       id: "app-logs",
       title: "Application Logs",
       description: "View and refresh local application logs stored on device.",
-      icon: "notebook",
+      icon: "file-document",
       iconColor: "#0EA5E9", // Sky
       onPress: nav.navigateToLogs,
       selectionSegment: "logs",
@@ -115,66 +109,68 @@ export default function SettingsSidebar() {
 
   if (!isMobile) {
     return (
-      <ScrollView
-        style={{
-          backgroundColor: Colors[colorScheme ?? "light"].background,
-          flexGrow: 0,
-          flexShrink: 0,
-        }}
-        showsVerticalScrollIndicator={false}
+      <View
+        style={[
+          styles.sidebar,
+          {
+            backgroundColor: theme.colors.surface,
+            borderRightColor: theme.colors.outline,
+            width: isDesktop ? 400 : isTablet ? 300 : 250,
+          },
+        ]}
       >
-        <View style={[{ width: isDesktop ? 300 : 250 }]}>
-          {settingsOptions.map((option) => {
-            const isSelected = segments.some(
-              (segment) => segment === option.selectionSegment
-            );
-            return (
-              <TouchableOpacity
-                key={option.id}
-                style={[
-                  styles.sidebarItem,
-                  {
-                    borderLeftWidth: 0,
-                    borderLeftColor: "transparent",
-                    backgroundColor: isSelected
-                      ? Colors[colorScheme ?? "light"].tint + "20"
-                      : "transparent",
-                  },
-                ]}
-                onPress={option.onPress}
-              >
-                <Icon
-                  name={option.icon}
-                  size="md"
-                  color={
-                    option.iconColor ||
-                    Colors[colorScheme ?? "light"].textSecondary
-                  }
-                />
-                <ThemedText
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View>
+            {settingsOptions.map((option) => {
+              const isSelected = segments.some(
+                (segment) => segment === option.selectionSegment
+              );
+              return (
+                <List.Item
+                  key={option.id}
+                  title={option.title}
+                  description={option.description}
+                  left={(props) => (
+                    <List.Icon
+                      {...props}
+                      icon={option.icon}
+                      color={
+                        isSelected ? theme.colors.primary : option.iconColor
+                      }
+                    />
+                  )}
+                  onPress={option.onPress}
                   style={[
-                    styles.sidebarItemText,
+                    styles.listItem,
                     {
-                      color: isSelected
-                        ? Colors[colorScheme ?? "light"].tint
-                        : Colors[colorScheme ?? "light"].textSecondary,
-                      fontSize: isDesktop ? 20 : 18,
-                      fontWeight: isSelected ? "600" : "400",
+                      backgroundColor: isSelected
+                        ? theme.colors.primaryContainer
+                        : "transparent",
                     },
                   ]}
-                >
-                  {option.title}
-                </ThemedText>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </ScrollView>
+                  titleStyle={{
+                    color: isSelected
+                      ? theme.colors.onPrimaryContainer
+                      : theme.colors.onSurface,
+                  }}
+                  descriptionStyle={{
+                    color: isSelected
+                      ? theme.colors.onPrimaryContainer
+                      : theme.colors.onSurfaceVariant,
+                  }}
+                />
+              );
+            })}
+          </View>
+        </ScrollView>
+      </View>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -182,70 +178,72 @@ export default function SettingsSidebar() {
       >
         <View style={styles.optionsContainer}>
           {settingsOptions.map((option) => (
-            <TouchableOpacity
+            <Card
               key={option.id}
               style={[
                 styles.optionCard,
                 {
-                  backgroundColor:
-                    Colors[colorScheme ?? "light"].backgroundCard,
-                  borderColor: Colors[colorScheme ?? "light"].border,
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.outline,
                 },
               ]}
               onPress={option.onPress}
-              activeOpacity={0.7}
             >
-              <View
-                style={[
-                  styles.optionIconContainer,
-                  { backgroundColor: `${option.iconColor}15` },
-                ]}
-              >
+              <Card.Content style={styles.cardContent}>
+                <View
+                  style={[
+                    styles.optionIconContainer,
+                    { backgroundColor: `${option.iconColor}15` },
+                  ]}
+                >
+                  <Icon
+                    source={option.icon}
+                    size={24}
+                    color={option.iconColor}
+                  />
+                </View>
+                <View style={styles.optionTextContainer}>
+                  <Text
+                    style={[
+                      styles.optionTitle,
+                      { color: theme.colors.onSurface },
+                    ]}
+                  >
+                    {option.title}
+                  </Text>
+                  {isMobile && (
+                    <Text
+                      style={[
+                        styles.optionDescription,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {option.description}
+                    </Text>
+                  )}
+                </View>
                 <Icon
-                  name={option.icon}
-                  size="lg"
-                  color={
-                    option.iconColor || Colors[colorScheme ?? "light"].tint
-                  }
+                  source="chevron-right"
+                  size={20}
+                  color={theme.colors.onSurfaceVariant}
                 />
-              </View>
-              <View style={styles.optionTextContainer}>
-                <ThemedText style={styles.optionTitle}>
-                  {option.title}
-                </ThemedText>
-                {isMobile && (
-                  <ThemedText style={styles.optionDescription}>
-                    {option.description}
-                  </ThemedText>
-                )}
-              </View>
-              <Icon name="chevron" size="md" color="secondary" />
-            </TouchableOpacity>
+              </Card.Content>
+            </Card>
           ))}
         </View>
       </ScrollView>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  sidebarScroll: {
-    flex: 1,
+  sidebar: {
+    borderRightWidth: 1,
   },
-  sidebarItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    marginHorizontal: 8,
-    borderLeftWidth: 3,
-    borderRadius: 4,
-    marginBottom: 4,
-  },
-  sidebarItemText: {
-    marginLeft: 12,
-    fontSize: 14,
-    flex: 1,
+  listItem: {
+    marginHorizontal: 4,
+    marginVertical: 1,
+    borderRadius: 8,
   },
   container: {
     flex: 1,
@@ -271,19 +269,17 @@ const styles = StyleSheet.create({
     lineHeight: 34,
   },
   optionsContainer: {
-    gap: 15,
+    gap: 8,
   },
   optionCard: {
-    padding: 20,
+    marginBottom: 4,
     borderRadius: 12,
     borderWidth: 1,
+  },
+  cardContent: {
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingVertical: 8,
   },
   optionIconContainer: {
     width: 56,

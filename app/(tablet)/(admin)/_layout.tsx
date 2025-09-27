@@ -9,9 +9,7 @@ export default function TabletAdminLayout() {
       <AdminSidebar />
       <View
         style={{
-          flexGrow: 1,
-          flexShrink: 1,
-          flexBasis: 0,
+          flex: 1,
           overflow: "hidden",
         }}
       >

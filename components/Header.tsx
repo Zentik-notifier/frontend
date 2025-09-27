@@ -25,6 +25,14 @@ const HOME_ROUTES: Href[] = [
   "/(mobile)/(admin)",
   "/(mobile)/(settings)",
   "/(tablet)/(admin)/user-management/list",
+  "/(tablet)/(settings)/bucket/list",
+  "/(tablet)/(settings)/app-settings",
+  "/(tablet)/(settings)/access-token/list",
+  "/(tablet)/(settings)/webhook/list",
+  "/(tablet)/(settings)/devices",
+  "/(tablet)/(settings)/notifications",
+  "/(tablet)/(settings)/user-sessions",
+  "/(tablet)/(settings)/logs",
   "/(tablet)/(settings)/user-profile",
 ];
 
