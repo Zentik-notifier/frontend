@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   Modal,
   FlatList,
+  ScrollView,
   TextInput,
   Animated,
   Dimensions,
@@ -54,6 +54,7 @@ export default function ThemedInputSelect({
   const [isInlineDropdownOpen, setIsInlineDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [slideAnim] = useState(new Animated.Value(screenHeight));
+  const containerRef = useRef<View>(null);
 
   const selectedOption = options.find((option) => option[optionValue] === selectedValue);
 
@@ -105,6 +106,18 @@ export default function ThemedInputSelect({
     setIsInlineDropdownOpen(false);
     setSearchQuery("");
   };
+
+  // Gestione semplice per chiudere il dropdown quando si clicca fuori
+  useEffect(() => {
+    if (mode === "inline" && isInlineDropdownOpen) {
+      const timer = setTimeout(() => {
+        // Chiudi automaticamente dopo 5 secondi se non viene interagito
+        closeInlineDropdown();
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [mode, isInlineDropdownOpen]);
 
   const styles = StyleSheet.create({
     container: {
@@ -222,7 +235,7 @@ export default function ThemedInputSelect({
     },
     inlineDropdownContainer: {
       position: "relative",
-      zIndex: 9999,
+      zIndex: 1000,
     },
     inlineDropdown: {
       position: "absolute",
@@ -235,18 +248,15 @@ export default function ThemedInputSelect({
       borderRadius: 12,
       marginTop: 4,
       maxHeight: 200,
-      zIndex: 10000,
-      elevation: 100,
+      zIndex: 1001,
+      elevation: 1000,
       shadowColor: "#000",
       shadowOffset: {
         width: 0,
-        height: 4,
+        height: 2,
       },
-      shadowOpacity: 0.3,
-      shadowRadius: 4.65,
-      // Forza lo sfondo ad essere completamente opaco
-      opacity: 1,
-      // Aggiungi un overlay per assicurare l'opacità
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
       overflow: "hidden",
     },
     inlineDropdownItem: {
@@ -315,72 +325,73 @@ export default function ThemedInputSelect({
           </View>
         )}
         
-        <FlatList
-          data={filteredOptions}
-          keyExtractor={(item) => item[optionValue].toString()}
-          renderItem={({ item, index }) => {
-            const isSelected = item[optionValue] === selectedValue;
-            const isLast = index === filteredOptions.length - 1;
-            
-            return (
-              <TouchableOpacity
-                style={[
-                  styles.inlineDropdownItem,
-                  isLast && styles.inlineDropdownItemLast,
-                  isSelected && styles.inlineDropdownItemSelected,
-                ]}
-                onPress={() => handleSelectOption(item)}
-              >
-                <Text
-                  style={[
-                    styles.inlineDropdownItemText,
-                    isSelected && styles.inlineDropdownItemTextSelected,
-                  ]}
-                >
-                  {item[optionLabel]}
-                </Text>
-              </TouchableOpacity>
-            );
-          }}
-          ListEmptyComponent={
+        <ScrollView
+          style={{ maxHeight: 200 }}
+          showsVerticalScrollIndicator={true}
+          nestedScrollEnabled={true}
+        >
+          {filteredOptions.length === 0 ? (
             <View style={styles.inlineEmptyState}>
               <Text style={styles.inlineEmptyStateText}>
                 {searchQuery.trim() ? "Nessun risultato trovato" : "Nessuna opzione disponibile"}
               </Text>
             </View>
-          }
-          nestedScrollEnabled
-        />
+          ) : (
+            filteredOptions.map((item, index) => {
+              const isSelected = item[optionValue] === selectedValue;
+              const isLast = index === filteredOptions.length - 1;
+              
+              return (
+                <TouchableOpacity
+                  key={item[optionValue].toString()}
+                  style={[
+                    styles.inlineDropdownItem,
+                    isLast && styles.inlineDropdownItemLast,
+                    isSelected && styles.inlineDropdownItemSelected,
+                  ]}
+                  onPress={() => handleSelectOption(item)}
+                >
+                  <Text
+                    style={[
+                      styles.inlineDropdownItemText,
+                      isSelected && styles.inlineDropdownItemTextSelected,
+                    ]}
+                  >
+                    {item[optionLabel]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </ScrollView>
       </View>
     );
   };
 
-  return (
-    <TouchableWithoutFeedback onPress={mode === "inline" ? closeInlineDropdown : undefined}>
+  if (mode === "inline") {
+    return (
       <View style={styles.container}>
         {label && <Text style={styles.label}>{label}</Text>}
         
-        <TouchableWithoutFeedback>
-          <View style={mode === "inline" ? styles.inlineDropdownContainer : undefined}>
-            <TouchableOpacity
-              style={styles.inputContainer}
-              onPress={mode === "modal" ? showModal : toggleInlineDropdown}
-              disabled={disabled}
-            >
-              <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
-                {selectedOption ? selectedOption[optionLabel] : placeholder || "Seleziona un'opzione"}
-              </Text>
-              <Ionicons
-                name={mode === "inline" && isInlineDropdownOpen ? "chevron-up" : "chevron-down"}
-                size={20}
-                color={theme.colors.onSurfaceVariant}
-                style={styles.chevronIcon}
-              />
-            </TouchableOpacity>
+        <View ref={containerRef} style={styles.inlineDropdownContainer}>
+          <TouchableOpacity
+            style={styles.inputContainer}
+            onPress={toggleInlineDropdown}
+            disabled={disabled}
+          >
+            <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
+              {selectedOption ? selectedOption[optionLabel] : placeholder || "Seleziona un'opzione"}
+            </Text>
+            <Ionicons
+              name={isInlineDropdownOpen ? "chevron-up" : "chevron-down"}
+              size={20}
+              color={theme.colors.onSurfaceVariant}
+              style={styles.chevronIcon}
+            />
+          </TouchableOpacity>
 
-            {mode === "inline" && renderInlineDropdown()}
-          </View>
-        </TouchableWithoutFeedback>
+          {renderInlineDropdown()}
+        </View>
 
         {helperText && !error && (
           <Text style={styles.helperText}>{helperText}</Text>
@@ -389,6 +400,37 @@ export default function ThemedInputSelect({
         {errorText && error && (
           <Text style={styles.errorText}>{errorText}</Text>
         )}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      {label && <Text style={styles.label}>{label}</Text>}
+      
+      <TouchableOpacity
+        style={styles.inputContainer}
+        onPress={showModal}
+        disabled={disabled}
+      >
+        <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
+          {selectedOption ? selectedOption[optionLabel] : placeholder || "Seleziona un'opzione"}
+        </Text>
+        <Ionicons
+          name="chevron-down"
+          size={20}
+          color={theme.colors.onSurfaceVariant}
+          style={styles.chevronIcon}
+        />
+      </TouchableOpacity>
+
+      {helperText && !error && (
+        <Text style={styles.helperText}>{helperText}</Text>
+      )}
+      
+      {errorText && error && (
+        <Text style={styles.errorText}>{errorText}</Text>
+      )}
 
       <Modal
         visible={isModalVisible}
@@ -471,7 +513,6 @@ export default function ThemedInputSelect({
           </Animated.View>
         </TouchableOpacity>
       </Modal>
-      </View>
-    </TouchableWithoutFeedback>
+    </View>
   );
 }
