@@ -1,4 +1,5 @@
 import { useI18n } from "@/hooks/useI18n";
+import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -12,14 +13,13 @@ import {
   Button,
   Card,
   Divider,
-  Icon,
   IconButton,
   List,
-  Surface,
   Text,
   TextInput,
   useTheme,
 } from "react-native-paper";
+import { useAppContext } from "../contexts/AppContext";
 import {
   GetMeDocument,
   useDeleteAccountMutation,
@@ -28,18 +28,12 @@ import {
   usePublicAppConfigQuery,
   useUpdateProfileMutation,
 } from "../generated/gql-operations-generated";
-import { useAppContext } from "../contexts/AppContext";
+import IdWithCopyButton from "./IdWithCopyButton";
 import NotificationStats from "./NotificationStats";
 import OAuthConnections from "./OAuthConnections";
-import { useNavigationUtils } from "@/utils/navigation";
 
 export default function UserSection() {
-  const {
-    logout,
-    setMainLoading,
-    refreshUserData,
-    connectionStatus: { isOfflineAuth, isBackendUnreachable },
-  } = useAppContext();
+  const { logout, setMainLoading, refreshUserData } = useAppContext();
   const theme = useTheme();
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
@@ -50,23 +44,11 @@ export default function UserSection() {
 
   const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    } catch (error) {
-      console.error("Error refreshing user profile:", error);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   const [updateProfileMutation, { loading: savingProfile }] =
     useUpdateProfileMutation({
       refetchQueries: [GetMeDocument],
       onCompleted: async () => {
         setEditing(false);
-        // Refresh auth context to update avatar in UserDropdown
         await refreshUserData();
       },
       onError: (error) => {
@@ -99,6 +81,17 @@ export default function UserSection() {
   const { data: userData, loading, error, refetch } = useGetMeQuery();
   const { data: providersData } = usePublicAppConfigQuery();
   useEffect(() => setMainLoading(loading), [loading]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } catch (error) {
+      console.error("Error refreshing user profile:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const user = userData?.me;
 
@@ -138,19 +131,6 @@ export default function UserSection() {
     } catch (error) {
       console.error("Failed to save profile:", error);
     }
-  };
-
-  const handleCancel = () => {
-    if (user) {
-      setFirstName(user.firstName || "");
-      setLastName(user.lastName || "");
-      setAvatar(user.avatar || "");
-    }
-    setEditing(false);
-  };
-
-  const handleChangePassword = () => {
-    navigateToChangePassword();
   };
 
   const handleDeleteAccount = () => {
@@ -200,7 +180,9 @@ export default function UserSection() {
 
   if (error && !user) {
     return (
-      <View style={[styles.section, { backgroundColor: theme.colors.background }]}>
+      <View
+        style={[styles.section, { backgroundColor: theme.colors.background }]}
+      >
         <Text style={[styles.loadingText, { color: theme.colors.error }]}>
           {t("userProfile.errorLoadingData")}: {error.message}
         </Text>
@@ -210,7 +192,9 @@ export default function UserSection() {
 
   if (!user) {
     return (
-      <View style={[styles.section, { backgroundColor: theme.colors.background }]}>
+      <View
+        style={[styles.section, { backgroundColor: theme.colors.background }]}
+      >
         <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
           {t("userProfile.noDataAvailable")}
         </Text>
@@ -223,7 +207,14 @@ export default function UserSection() {
       style={[styles.content, { backgroundColor: theme.colors.background }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[theme.colors.primary]}
+          tintColor={theme.colors.primary}
+          progressBackgroundColor={theme.colors.surface}
+          titleColor={theme.colors.onSurface}
+        />
       }
     >
       <View style={styles.section}>
@@ -231,7 +222,10 @@ export default function UserSection() {
         <Card style={styles.profileContainer}>
           <Card.Content>
             <View style={styles.profileHeader}>
-              <Text variant="titleMedium" style={{ color: theme.colors.onSurface }}>
+              <Text
+                variant="titleMedium"
+                style={{ color: theme.colors.onSurface }}
+              >
                 {t("userProfile.editProfile")}
               </Text>
               <IconButton
@@ -275,10 +269,13 @@ export default function UserSection() {
               />
             ) : (
               <View style={styles.avatarSection}>
-                <Text variant="bodyMedium" style={{ color: theme.colors.onSurface, marginBottom: 8 }}>
+                <Text
+                  variant="bodyMedium"
+                  style={{ color: theme.colors.onSurface, marginBottom: 8 }}
+                >
                   {t("userProfile.avatar")}
                 </Text>
-                
+
                 <View style={styles.avatarPreviewContainer}>
                   {user.avatar ? (
                     <View style={styles.avatarPreview}>
@@ -289,12 +286,23 @@ export default function UserSection() {
                           console.warn("Failed to load avatar image")
                         }
                       />
-                      <Text style={[styles.avatarUrl, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+                      <Text
+                        style={[
+                          styles.avatarUrl,
+                          { color: theme.colors.onSurfaceVariant },
+                        ]}
+                        numberOfLines={1}
+                      >
                         {user.avatar}
                       </Text>
                     </View>
                   ) : (
-                    <Text style={[styles.value, { color: theme.colors.onSurfaceVariant }]}>
+                    <Text
+                      style={[
+                        styles.value,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
                       {t("userProfile.notSet")}
                     </Text>
                   )}
@@ -310,52 +318,60 @@ export default function UserSection() {
                 left={(props) => <List.Icon {...props} icon="account" />}
               />
               <Divider />
-              
+
               <List.Item
                 title={t("userProfile.email")}
                 description={user.email || t("userProfile.notAvailable")}
                 left={(props) => <List.Icon {...props} icon="email" />}
               />
               <Divider />
-              
+
               <List.Item
                 title={t("userProfile.firstName")}
-                description={editing ? (
-                  <TextInput
-                    mode="outlined"
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    placeholder={t("userProfile.firstNamePlaceholder")}
-                    style={styles.inlineInput}
-                  />
-                ) : (
-                  user.firstName || t("userProfile.notAvailable")
+                description={
+                  editing ? (
+                    <TextInput
+                      mode="outlined"
+                      value={firstName}
+                      onChangeText={setFirstName}
+                      placeholder={t("userProfile.firstNamePlaceholder")}
+                      style={styles.inlineInput}
+                    />
+                  ) : (
+                    user.firstName || t("userProfile.notAvailable")
+                  )
+                }
+                left={(props) => (
+                  <List.Icon {...props} icon="account-details" />
                 )}
-                left={(props) => <List.Icon {...props} icon="account-details" />}
               />
               <Divider />
-              
+
               <List.Item
                 title={t("userProfile.lastName")}
-                description={editing ? (
-                  <TextInput
-                    mode="outlined"
-                    value={lastName}
-                    onChangeText={setLastName}
-                    placeholder={t("userProfile.lastNamePlaceholder")}
-                    style={styles.inlineInput}
-                  />
-                ) : (
-                  user.lastName || t("userProfile.notAvailable")
+                description={
+                  editing ? (
+                    <TextInput
+                      mode="outlined"
+                      value={lastName}
+                      onChangeText={setLastName}
+                      placeholder={t("userProfile.lastNamePlaceholder")}
+                      style={styles.inlineInput}
+                    />
+                  ) : (
+                    user.lastName || t("userProfile.notAvailable")
+                  )
+                }
+                left={(props) => (
+                  <List.Icon {...props} icon="account-details" />
                 )}
-                left={(props) => <List.Icon {...props} icon="account-details" />}
               />
               <Divider />
-              
-              <List.Item
-                title="User ID"
-                description={user.id}
-                left={(props) => <List.Icon {...props} icon="identifier" />}
+
+              <IdWithCopyButton
+                id={user.id}
+                label="User ID"
+                copyMessage="User ID copied to clipboard"
               />
             </View>
 
@@ -389,20 +405,24 @@ export default function UserSection() {
             <Card.Content>
               <List.Item
                 title={t("userProfile.currentSessionProvider")}
-                description={provider ? provider.name : t("userProfile.localUser")}
+                description={
+                  provider ? provider.name : t("userProfile.localUser")
+                }
                 left={(props) => (
-                  <List.Icon 
-                    {...props} 
-                    icon="account-network" 
+                  <List.Icon
+                    {...props}
+                    icon="account-network"
                     color={theme.colors.primary}
                   />
                 )}
-                right={() => provider && (
-                  <Image
-                    source={{ uri: provider?.iconUrl! }}
-                    style={styles.providerIconImage}
-                  />
-                )}
+                right={() =>
+                  provider && (
+                    <Image
+                      source={{ uri: provider?.iconUrl! }}
+                      style={styles.providerIconImage}
+                    />
+                  )
+                }
               />
             </Card.Content>
           </Card>
@@ -420,7 +440,7 @@ export default function UserSection() {
               >
                 {t("userProfile.changePassword")}
               </Button>
-              
+
               <Button
                 mode="outlined"
                 onPress={logout}
@@ -446,11 +466,18 @@ export default function UserSection() {
           <Card.Content>
             <View style={styles.deleteAccountContent}>
               <View style={styles.deleteAccountInfo}>
-                <Text variant="titleMedium" style={{ color: theme.colors.onSurface }}>
+                <Text
+                  variant="titleMedium"
+                  style={{ color: theme.colors.onSurface }}
+                >
                   {t("userProfile.deleteAccount")}
                 </Text>
-                <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
-                  This action cannot be undone. All your data will be permanently deleted.
+                <Text
+                  variant="bodyMedium"
+                  style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}
+                >
+                  This action cannot be undone. All your data will be
+                  permanently deleted.
                 </Text>
               </View>
               <Button
@@ -463,7 +490,9 @@ export default function UserSection() {
                 textColor={theme.colors.onErrorContainer}
                 style={styles.deleteButton}
               >
-                {deletingAccount ? t("userProfile.deletingAccount") : t("userProfile.deleteAccount")}
+                {deletingAccount
+                  ? t("userProfile.deletingAccount")
+                  : t("userProfile.deleteAccount")}
               </Button>
             </View>
           </Card.Content>

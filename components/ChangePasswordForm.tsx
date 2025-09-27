@@ -5,14 +5,14 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import {
-  Button,
-  Card,
-  Text,
-  TextInput,
-  useTheme,
-} from "react-native-paper";
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
+import { Button, Card, Text, TextInput, useTheme } from "react-native-paper";
 import { useNavigationUtils } from "@/utils/navigation";
 
 export function ChangePasswordForm() {
@@ -157,7 +157,10 @@ export function ChangePasswordForm() {
       <Card>
         <Card.Content>
           <View style={styles.header}>
-            <Text variant="titleMedium" style={{ color: theme.colors.onSurface }}>
+            <Text
+              variant="titleMedium"
+              style={{ color: theme.colors.onSurface }}
+            >
               {effectiveHasPassword
                 ? t("changePassword.title")
                 : t("setPassword.title")}
@@ -204,7 +207,12 @@ export function ChangePasswordForm() {
                 {errors.newPassword}
               </Text>
             )}
-            <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+            <Text
+              style={[
+                styles.helperText,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
               {hasPassword
                 ? t("changePassword.validation.newPasswordMinLength")
                 : t("setPassword.validation.newPasswordMinLength")}

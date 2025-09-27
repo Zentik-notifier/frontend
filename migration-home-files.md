@@ -75,9 +75,47 @@ Note:
 - **IMPORTANTE**: Utilizzare SOLO icone di Paper (MaterialCommunityIcons via `react-native-paper`), evitando set di icone custom.
 - **NON utilizzare MAI** il componente `Icon` da `components/ui/Icon.tsx` - tutte le icone devono venire da `react-native-paper`.
 - Usare `Icon` da `react-native-paper` con `source` prop (es: `source="home"`, `source="settings"`).
-- **NON utilizzare MAI** `SettingsScrollView` - sostituire con `ScrollView` nativo e applicare gli stili necessari.
+- **NON utilizzare MAI** `SettingsScrollView` - sostituire con `PaperScrollView` per ScrollView con RefreshControl.
 - Ridurre al minimo lo styling custom: preferire colori e tipografia da `theme.colors`/`MD3` e component props di Paper; evitare shadow/ombre custom.
 - Evitare modifiche dirette a ios/android; usare solo componenti Paper e hook tema.
+
+## Componenti Riusabili Paper
+
+### PaperScrollView
+
+Utilizzare il componente `PaperScrollView` per tutte le ScrollView con RefreshControl:
+
+```tsx
+import PaperScrollView from "@/components/ui/PaperScrollView";
+
+// Utilizzo base
+<PaperScrollView>
+  <Card>
+    <Card.Content>
+      {/* Contenuto */}
+    </Card.Content>
+  </Card>
+</PaperScrollView>
+
+// Con RefreshControl
+<PaperScrollView
+  refreshing={refreshing}
+  onRefresh={onRefresh}
+  contentContainerStyle={{ padding: 16 }}
+>
+  <Card>
+    <Card.Content>
+      {/* Contenuto */}
+    </Card.Content>
+  </Card>
+</PaperScrollView>
+```
+
+**Vantaggi**:
+- RefreshControl automaticamente temato
+- Background temato
+- Configurazione standardizzata
+- Supporto per dark mode
 
 ## Struttura Modal Standard
 
