@@ -5,15 +5,11 @@ import React from "react";
 
 export default function EditBucketPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { navigateToHome } = useNavigationUtils();
+  const { navigateToBucketsSettings } = useNavigationUtils();
 
   if (!id) {
     return null;
   }
 
-  const handleClose = () => {
-    navigateToHome();
-  };
-
-  return <EditBucket bucketId={id} onBack={handleClose} />;
+  return <EditBucket bucketId={id} onBack={navigateToBucketsSettings} />;
 }

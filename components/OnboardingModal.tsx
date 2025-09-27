@@ -484,7 +484,7 @@ export default function OnboardingModal({
         return (
           <View style={styles.stepContent}>
             <View style={styles.stepIcon}>
-              <Icon source="code" size={64} color={theme.colors.primary} />
+              <Icon source="cog" size={64} color={theme.colors.primary} />
             </View>
             <Text
               style={[
@@ -609,7 +609,7 @@ export default function OnboardingModal({
         visible={visible}
         onDismiss={handleClose}
         contentContainerStyle={containerStyle}
-        dismissableBackButton
+        dismissable={false}
       >
         <Surface elevation={0}>
           <View style={styles.header}>
