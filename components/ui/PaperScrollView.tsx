@@ -1,5 +1,10 @@
 import React from "react";
-import { RefreshControl, ScrollView, StyleSheet, ViewStyle } from "react-native";
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  ViewStyle,
+} from "react-native";
 import { useTheme } from "react-native-paper";
 
 interface PaperScrollViewProps {
@@ -38,8 +43,8 @@ export default function PaperScrollView({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[theme.colors.primary]}
-            tintColor={theme.colors.primary}
+            colors={[theme.colors.onSurface]}
+            tintColor={theme.colors.onSurface}
             progressBackgroundColor={theme.colors.surface}
             titleColor={theme.colors.onSurface}
           />
@@ -54,5 +59,6 @@ export default function PaperScrollView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 16,
   },
 });

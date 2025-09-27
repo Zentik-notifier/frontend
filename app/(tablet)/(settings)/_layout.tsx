@@ -1,20 +1,43 @@
 import SettingsSidebar from "@/components/SettingsSidebar";
 import { Slot } from "expo-router";
 import React from "react";
-import { View } from "react-native";
+import { View, StyleSheet } from "react-native";
+import { useDeviceType } from "@/hooks/useDeviceType";
+import { useTheme } from "react-native-paper";
 
 export default function TabletSettingsLayout() {
+  const { isDesktop } = useDeviceType();
+  const theme = useTheme();
+
+  const sidebarWidth = isDesktop ? 400 : 300;
+
   return (
-    <View style={{ flex: 1, flexDirection: "row" }}>
-      <SettingsSidebar />
+    <View style={styles.container}>
       <View
-        style={{
-          flex: 1,
-          overflow: "hidden",
-        }}
+        style={[
+          styles.sidebar,
+          { width: sidebarWidth, borderRightColor: theme.colors.outline },
+        ]}
       >
+        <SettingsSidebar />
+      </View>
+      <View style={styles.content}>
         <Slot />
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    flexDirection: "row",
+  },
+  sidebar: {
+    borderRightWidth: 1,
+  },
+  content: {
+    flex: 1,
+    overflow: "hidden",
+  },
+});

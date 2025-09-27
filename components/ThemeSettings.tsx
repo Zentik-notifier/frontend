@@ -1,7 +1,8 @@
 import { useTheme } from '@/hooks/useTheme';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import React from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { StyleSheet, Switch, Text, View } from 'react-native';
+import PaperScrollView from './ui/PaperScrollView';
 
 interface ThemeSettingsProps {
   style?: any;
@@ -32,7 +33,7 @@ export function ThemeSettings({ style }: ThemeSettingsProps) {
   };
 
   return (
-    <ScrollView 
+    <PaperScrollView 
       style={[styles.container, { backgroundColor }, style]}
       contentContainerStyle={styles.content}
     >
@@ -94,7 +95,7 @@ export function ThemeSettings({ style }: ThemeSettingsProps) {
           or manually controlled. Colors automatically adapt to provide optimal contrast and readability.
         </Text>
       </View>
-    </ScrollView>
+    </PaperScrollView>
   );
 }
 

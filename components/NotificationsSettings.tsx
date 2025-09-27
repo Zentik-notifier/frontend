@@ -21,14 +21,13 @@ import * as Clipboard from "expo-clipboard";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
-  ScrollView,
   StyleSheet,
   Switch,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import SettingsScrollView from "@/components/SettingsScrollView";
+import PaperScrollView from "@/components/ui/PaperScrollView";
 import BucketSelector from "./BucketSelector";
 import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
 import NotificationActionsSelector from "./NotificationActionsSelector";
@@ -294,7 +293,7 @@ export default function NotificationsSettings() {
   }));
 
   return (
-    <SettingsScrollView>
+    <PaperScrollView>
       <View style={styles.section}>
         <View style={styles.loadDataBtnRow}>
           <Button
@@ -953,15 +952,12 @@ export default function NotificationsSettings() {
                 {t("notifications.preview.description")}
               </Text>
 
-              <ScrollView
-                style={[
-                  styles.jsonPreviewContainer,
-                  {
-                    backgroundColor:
-                      theme.colors.surfaceVariant,
-                    borderColor: theme.colors.outline,
-                  },
-                ]}
+              <PaperScrollView
+                style={{
+                  ...styles.jsonPreviewContainer,
+                  backgroundColor: theme.colors.surfaceVariant,
+                  borderColor: theme.colors.outline,
+                }}
               >
                 <Text
                   style={[
@@ -971,7 +967,7 @@ export default function NotificationsSettings() {
                 >
                   {JSON.stringify(buildMessagePayload(), null, 2)}
                 </Text>
-              </ScrollView>
+              </PaperScrollView>
 
               <Button
                 mode="outlined"
@@ -1019,7 +1015,7 @@ export default function NotificationsSettings() {
           </Button>
         </View>
       </View>
-    </SettingsScrollView>
+    </PaperScrollView>
   );
 }
 

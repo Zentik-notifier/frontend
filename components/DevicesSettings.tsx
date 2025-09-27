@@ -1,4 +1,4 @@
-import SettingsScrollView from "@/components/SettingsScrollView";
+import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -93,7 +93,7 @@ export default function DevicesSettings() {
   };
 
   return (
-    <SettingsScrollView onRefresh={refetch}>
+    <PaperScrollView onRefresh={refetch}>
       <Surface style={styles.container}>
         <View style={styles.content}>
           <View style={styles.buttonContainer}>
@@ -186,7 +186,7 @@ export default function DevicesSettings() {
           )}
         </View>
       </Surface>
-    </SettingsScrollView>
+    </PaperScrollView>
   );
 }
 

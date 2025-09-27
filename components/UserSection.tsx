@@ -31,6 +31,7 @@ import {
 import IdWithCopyButton from "./IdWithCopyButton";
 import NotificationStats from "./NotificationStats";
 import OAuthConnections from "./OAuthConnections";
+import PaperScrollView from "./ui/PaperScrollView";
 
 export default function UserSection() {
   const { logout, setMainLoading, refreshUserData } = useAppContext();
@@ -203,20 +204,7 @@ export default function UserSection() {
   }
 
   return (
-    <ScrollView
-      style={[styles.content, { backgroundColor: theme.colors.background }]}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={[theme.colors.primary]}
-          tintColor={theme.colors.primary}
-          progressBackgroundColor={theme.colors.surface}
-          titleColor={theme.colors.onSurface}
-        />
-      }
-    >
+    <PaperScrollView refreshing={refreshing} onRefresh={onRefresh}>
       <View style={styles.section}>
         {/* Profile Section with Avatar and Form */}
         <Card style={styles.profileContainer}>
@@ -498,7 +486,7 @@ export default function UserSection() {
           </Card.Content>
         </Card>
       </View>
-    </ScrollView>
+    </PaperScrollView>
   );
 }
 
