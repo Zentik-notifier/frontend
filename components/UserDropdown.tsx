@@ -6,7 +6,12 @@ import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
 import { Avatar, Icon, Text, useTheme } from "react-native-paper";
-import { Menu, MenuOptions, MenuOption, MenuTrigger } from "react-native-popup-menu";
+import {
+  Menu,
+  MenuOptions,
+  MenuOption,
+  MenuTrigger,
+} from "react-native-popup-menu";
 
 export default function UserDropdown() {
   const { logout, showOnboarding } = useAppContext();
@@ -20,31 +25,10 @@ export default function UserDropdown() {
   const { data: userData } = useGetMeQuery();
   const user = userData?.me;
 
-  const [isDarkMode, setIsDarkMode] = useState(theme.dark);
-
-  // Update initials state when avatar changes
   useEffect(() => {
     setShowInitials(!user?.avatar);
     setShowInitialsSmall(!user?.avatar);
   }, [user?.avatar]);
-
-  function renderMainAvatar() {
-    if (user?.avatar && !showInitials) {
-      return (
-        <Image
-          source={{ uri: user.avatar }}
-          style={styles.avatarImage}
-          onError={() => setShowInitials(true)}
-        />
-      );
-    }
-
-    return (
-      <View style={styles.avatarContainer}>
-        <Text style={styles.initialsText}>{getInitials()}</Text>
-      </View>
-    );
-  }
 
   function getInitials() {
     if (!user) return "?";
@@ -103,7 +87,6 @@ export default function UserDropdown() {
     return t("userDropdown.offlineMode");
   }
 
-
   return (
     <Menu>
       <MenuTrigger>
@@ -117,79 +100,133 @@ export default function UserDropdown() {
             <Icon
               source="chevron-down"
               size={16}
-              color={theme.colors.onSurface}
+              color={theme.colors.background}
             />
           </View>
         </View>
       </MenuTrigger>
-      <MenuOptions 
-        optionsContainerStyle={{ 
+      <MenuOptions
+        optionsContainerStyle={{
           backgroundColor: theme.colors.surface,
           borderRadius: 12,
           borderWidth: 1,
           borderColor: theme.colors.outlineVariant,
-          marginTop: 8,
-          zIndex: 9999,
-          elevation: 100,
+          marginTop: 55,
         }}
       >
         {/* User Header */}
-        <View style={[styles.userInfo, { 
-          borderBottomColor: theme.colors.outlineVariant,
-          backgroundColor: theme.colors.surfaceVariant,
-        }]}>
+        <View
+          style={[
+            styles.userInfo,
+            {
+              borderBottomColor: theme.colors.outlineVariant,
+              backgroundColor: theme.colors.surfaceVariant,
+            },
+          ]}
+        >
           {renderSmallAvatar()}
           <View style={styles.userDetails}>
             <Text
               variant="titleMedium"
-              style={[styles.userDisplayName, { color: theme.colors.onSurface }]}
+              style={[
+                styles.userDisplayName,
+                { color: theme.colors.onSurface },
+              ]}
               numberOfLines={1}
             >
               {getUserDisplayName()}
             </Text>
-            <Text variant="bodySmall" style={[styles.userEmail, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+            <Text
+              variant="bodySmall"
+              style={[
+                styles.userEmail,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+              numberOfLines={1}
+            >
               {user?.email || t("userDropdown.offlineMode")}
             </Text>
           </View>
         </View>
-        
+
         {/* Getting Started */}
         <MenuOption onSelect={() => showOnboarding()}>
-          <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
-            <Icon source="help-circle-outline" size={20} color={theme.colors.onSurface} />
-            <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>{t("userDropdown.gettingStarted")}</Text>
+          <View
+            style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}
+          >
+            <Icon
+              source="help-circle-outline"
+              size={20}
+              color={theme.colors.onSurface}
+            />
+            <Text
+              style={[styles.menuItemText, { color: theme.colors.onSurface }]}
+            >
+              {t("userDropdown.gettingStarted")}
+            </Text>
           </View>
         </MenuOption>
-        
+
         {/* Theme Toggle */}
         <MenuOption onSelect={() => setThemeMode(getNextThemeMode())}>
-          <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
-            <Icon source={getThemeCycleIcon()} size={20} color={theme.colors.onSurface} />
-            <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>{getThemeCycleLabel()}</Text>
+          <View
+            style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}
+          >
+            <Icon
+              source={getThemeCycleIcon()}
+              size={20}
+              color={theme.colors.onSurface}
+            />
+            <Text
+              style={[styles.menuItemText, { color: theme.colors.onSurface }]}
+            >
+              {getThemeCycleLabel()}
+            </Text>
           </View>
         </MenuOption>
-        
+
         {/* Settings */}
         <MenuOption onSelect={() => navigateToSettings()}>
-          <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
+          <View
+            style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}
+          >
             <Icon source="cog" size={20} color={theme.colors.onSurface} />
-            <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>{t("userDropdown.settings")}</Text>
+            <Text
+              style={[styles.menuItemText, { color: theme.colors.onSurface }]}
+            >
+              {t("userDropdown.settings")}
+            </Text>
           </View>
         </MenuOption>
-        
+
         {/* Administration (Admin only) */}
         {user?.role === UserRole.Admin && (
           <MenuOption onSelect={() => navigateToAdmin()}>
-            <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
-              <Icon source="shield-outline" size={20} color={theme.colors.onSurface} />
-              <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>{t("userDropdown.administration")}</Text>
+            <View
+              style={[
+                styles.menuItem,
+                { backgroundColor: theme.colors.surface },
+              ]}
+            >
+              <Icon
+                source="shield-outline"
+                size={20}
+                color={theme.colors.onSurface}
+              />
+              <Text
+                style={[styles.menuItemText, { color: theme.colors.onSurface }]}
+              >
+                {t("userDropdown.administration")}
+              </Text>
             </View>
           </MenuOption>
         )}
-        
+
         {/* Logout */}
         <MenuOption onSelect={() => logout()}>
-          <View style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}>
+          <View
+            style={[styles.menuItem, { backgroundColor: theme.colors.surface }]}
+          >
             <Icon source="logout" size={20} color={theme.colors.error} />
             <Text style={[styles.menuItemText, { color: theme.colors.error }]}>
               {t("userDropdown.logout")}

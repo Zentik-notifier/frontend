@@ -239,7 +239,7 @@ export default function NotificationsList({
     ({ item }: { item: NotificationFragment }) => {
       const isSelected = selectedItems.has(item.id);
 
-      // return <ThemedText>{item.message.title}</ThemedText>
+      // return <Text>{item.message.title}</Text>
 
       return (
         <NotificationItem

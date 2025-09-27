@@ -1,3 +1,4 @@
+import { useAppContext } from "@/contexts/AppContext";
 import {
   MediaType,
   NotificationDeliveryType,
@@ -12,11 +13,10 @@ import {
   useMarkNotificationUnread,
 } from "@/hooks/useNotifications";
 import { useNotificationUtils } from "@/hooks/useNotificationUtils";
-import { useAppContext } from "@/contexts/AppContext";
 import { mediaCache } from "@/services/media-cache";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useRecyclingState } from "@shopify/flash-list";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   Alert,
   StyleSheet,
@@ -24,18 +24,16 @@ import {
   View,
 } from "react-native";
 import {
-  Divider,
-  IconButton,
-  Icon as PaperIcon,
-  TouchableRipple,
-  useTheme,
   Surface,
   Text,
+  TouchableRipple,
+  useTheme,
+  Icon,
 } from "react-native-paper";
 import {
   Menu,
-  MenuOptions,
   MenuOption,
+  MenuOptions,
   MenuTrigger,
 } from "react-native-popup-menu";
 import BucketIcon from "./BucketIcon";
@@ -45,9 +43,7 @@ import { MediaTypeIcon } from "./MediaTypeIcon";
 import { filteredActions } from "./NotificationActionsButton";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
 import SwipeableItem from "./SwipeableItem";
-// Replaced ThemedText/ThemedView with Paper Text/Surface
 import { SmartTextRenderer } from "./ui";
-import { Icon } from "react-native-paper";
 
 // Dynamic height calculator to keep FlashList and item in sync
 export function getNotificationItemHeight(
@@ -414,7 +410,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                     ]}
                   >
                     {isSelected && (
-                      <PaperIcon source="check" size={16} color={"#fff"} />
+                      <Icon source="check" size={16} color={"#fff"} />
                     )}
                   </Surface>
                 </TouchableRipple>
