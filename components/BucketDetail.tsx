@@ -8,14 +8,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import {
   Badge,
-  Dialog,
   Icon,
   IconButton,
-  Portal,
   Surface,
   Text,
   TouchableRipple,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import MessageBuilder from "./MessageBuilder";
@@ -32,7 +30,6 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const theme = useTheme();
   const { navigateToEditBucket, navigateToBucketsSettings } =
     useNavigationUtils();
-  const [isMessageBuilderVisible, setIsMessageBuilderVisible] = useState(false);
   const { massMarkAsRead, loading: markAllAsReadLoading } =
     useMassMarkNotificationsAsRead();
 
@@ -77,10 +74,6 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
     return filtered;
   }, [bucketNotifications, notificationFilters, userSettings]);
 
-  const handleMessageSent = () => {
-    console.log("Message sent successfully to bucket:", bucketId);
-    setIsMessageBuilderVisible(false);
-  };
 
   const handleMarkAllAsRead = async () => {
     if (unreadNotifications.length === 0) return;
@@ -143,9 +136,10 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
               style={[
                 styles.actionButton,
                 {
-                  backgroundColor: unreadNotifications.length > 0 
-                    ? theme.colors.primary 
-                    : theme.colors.surfaceVariant,
+                  backgroundColor:
+                    unreadNotifications.length > 0
+                      ? theme.colors.primary
+                      : theme.colors.surfaceVariant,
                   width: 32,
                   height: 32,
                 },
@@ -159,9 +153,11 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
                 <Icon
                   source="check-all"
                   size={16}
-                  color={unreadNotifications.length > 0 
-                    ? theme.colors.onPrimary 
-                    : theme.colors.onSurfaceVariant}
+                  color={
+                    unreadNotifications.length > 0
+                      ? theme.colors.onPrimary
+                      : theme.colors.onSurfaceVariant
+                  }
                 />
               </View>
             </TouchableRipple>
@@ -227,54 +223,6 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
     </Surface>
   );
 
-  const renderMessageBuilderToggle = () => (
-    <View
-      style={[
-        styles.messageBuilderToggleContainer,
-        { backgroundColor: theme.colors.background },
-      ]}
-    >
-      <TouchableRipple
-        style={[
-          styles.messageBuilderToggleButton,
-          {
-            backgroundColor:
-              theme.colors.elevation?.level1 || theme.colors.surface,
-            borderColor: theme.colors.outlineVariant,
-          },
-        ]}
-        onPress={() => setIsMessageBuilderVisible(!isMessageBuilderVisible)}
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
-        >
-          <Icon
-            source="plus-circle-outline"
-            size={24}
-            color={theme.colors.primary}
-          />
-          <Text
-            style={[
-              styles.messageBuilderToggleText,
-              { color: theme.colors.onSurface },
-            ]}
-          >
-            {t("buckets.composeMessage")}
-          </Text>
-          <Icon
-            source={isMessageBuilderVisible ? "chevron-up" : "chevron-down"}
-            size={20}
-            color={theme.colors.onSurfaceVariant}
-          />
-        </View>
-      </TouchableRipple>
-    </View>
-  );
 
   if (!bucket) {
     return null;
@@ -302,41 +250,8 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
         customHeader={<View style={[styles.filtersContainer]} />}
       />
 
-      {/* Message Builder Toggle */}
-      {renderMessageBuilderToggle()}
-
-      {/* Message Builder Dialog */}
-      <Portal>
-        <Dialog
-          visible={isMessageBuilderVisible}
-          onDismiss={() => setIsMessageBuilderVisible(false)}
-          style={styles.messageBuilderDialog}
-        >
-          <Dialog.Title>{t("buckets.composeMessage")}</Dialog.Title>
-          <Dialog.ScrollArea>
-            <ScrollView
-              style={styles.messageBuilderScrollView}
-              contentContainerStyle={styles.messageBuilderScrollContent}
-              showsVerticalScrollIndicator={true}
-              keyboardShouldPersistTaps="handled"
-            >
-              <MessageBuilder
-                initialBucketId={bucketId}
-                onMessageSent={handleMessageSent}
-                compact={true}
-                isOfflineAuth={connectionStatus.isOfflineAuth}
-                isBackendUnreachable={connectionStatus.isBackendUnreachable}
-              />
-            </ScrollView>
-          </Dialog.ScrollArea>
-          <Dialog.Actions>
-            <IconButton
-              icon="close"
-              onPress={() => setIsMessageBuilderVisible(false)}
-            />
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      {/* Message Builder */}
+      <MessageBuilder bucketId={bucketId} />
     </Surface>
   );
 }
@@ -387,59 +302,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   filtersContainer: {},
-  messageBuilderToggleContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 2,
-  },
-  messageBuilderToggleButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  messageBuilderToggleText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  messageBuilderDialog: {
-    maxHeight: "80%",
-  },
-  messageBuilderScrollView: {
-    maxHeight: 400,
-  },
-  messageBuilderScrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
-  },
-  messageBuilderHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  messageBuilderDragHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: "#ccc",
-    borderRadius: 2,
-    alignSelf: "center",
-  },
-  messageBuilderCloseButton: {
-    padding: 4,
-    borderRadius: 12,
-  },
   emptyState: {
     flex: 1,
     justifyContent: "center",

@@ -9,14 +9,19 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useState, useCallback } from "react";
-import { StyleSheet, View, ScrollView, Dimensions } from "react-native";
+import {
+  StyleSheet,
+  View,
+  ScrollView,
+  Dimensions,
+  Modal,
+  TouchableOpacity,
+} from "react-native";
 import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
 import NotificationActionsSelector from "./NotificationActionsSelector";
 import {
   Button,
   Card,
-  Dialog,
-  Portal,
   Switch,
   Text,
   TextInput,
@@ -31,12 +36,7 @@ import ThemedInputSelect from "./ui/ThemedInputSelect";
 const { height: screenHeight } = Dimensions.get("window");
 
 interface MessageBuilderProps {
-  visible: boolean;
-  onDismiss: () => void;
-  onMessageSent?: () => void;
-  initialBucketId?: string;
-  isOfflineAuth?: boolean;
-  isBackendUnreachable?: boolean;
+  bucketId: string;
 }
 
 interface MessageStep {
@@ -46,16 +46,10 @@ interface MessageStep {
   optional: boolean;
 }
 
-export default function MessageBuilder({
-  visible,
-  onDismiss,
-  onMessageSent,
-  initialBucketId,
-  isOfflineAuth = false,
-  isBackendUnreachable = false,
-}: MessageBuilderProps) {
+export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
   const { t } = useI18n();
   const theme = useTheme();
+  const [visible, setVisible] = useState(false);
   const [sending, setSending] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -65,6 +59,9 @@ export default function MessageBuilder({
 
   // GraphQL queries for data
   const { data: webhooksData } = useGetUserWebhooksQuery();
+
+  // Functions for visibility management
+  const handleOpen = () => setVisible(true);
 
   // State for form fields
   const [title, setTitle] = useState("");
@@ -167,7 +164,7 @@ export default function MessageBuilder({
       return;
     }
 
-    if (!initialBucketId?.trim()) {
+    if (!bucketId?.trim()) {
       setErrorMessage(t("notifications.targeting.bucketRequired"));
       setShowErrorDialog(true);
       return;
@@ -187,8 +184,7 @@ export default function MessageBuilder({
 
       // Reset form after successful send
       resetForm();
-      onDismiss();
-      onMessageSent?.();
+      handleDismiss();
     } catch (error: any) {
       console.error("Send message error:", error);
       const errorMessage = error.message || "Failed to send message";
@@ -213,7 +209,7 @@ export default function MessageBuilder({
 
   const handleDismiss = () => {
     resetForm();
-    onDismiss();
+    setVisible(false);
   };
 
   // Helper function to build the message payload for GraphQL mutation
@@ -221,7 +217,7 @@ export default function MessageBuilder({
     const message: CreateMessageDto = {
       title: title.trim(),
       deliveryType: priority,
-      bucketId: initialBucketId!,
+      bucketId: bucketId,
     };
 
     if (subtitle.trim()) message.subtitle = subtitle.trim();
@@ -266,55 +262,87 @@ export default function MessageBuilder({
   const totalRequiredSteps = steps.filter((s) => !s.optional).length;
 
   return (
-    <Portal>
-      <Dialog visible={visible} onDismiss={handleDismiss} style={styles.dialog}>
-        <Dialog.Title style={styles.dialogTitle}>
-          <View style={styles.titleContainer}>
-            <Text variant="headlineSmall" style={styles.title}>
-              {t("compose.messageBuilder.title")}
-            </Text>
-            <Text variant="bodyMedium" style={styles.progress}>
-              {completedSteps}/{steps.length}{" "}
-              {t("compose.messageBuilder.stepsCompleted")}
-            </Text>
-          </View>
+    <>
+      {/* Open Button */}
+      <Button
+        mode="contained"
+        onPress={handleOpen}
+        icon="plus-circle-outline"
+        style={styles.openButton}
+      >
+        {t("buckets.composeMessage")}
+      </Button>
 
-          {/* Progress indicator */}
-          <View style={styles.stepsContainer}>
-            {steps.map((step, index) => (
-              <View key={step.id} style={styles.stepContainer}>
-                <Chip
-                  mode={step.completed ? "flat" : "outlined"}
-                  compact
-                  style={[
-                    styles.stepChip,
-                    step.completed && {
-                      backgroundColor: theme.colors.primaryContainer,
-                    },
-                  ]}
-                  textStyle={[
-                    styles.stepChipText,
-                    step.completed && {
-                      color: theme.colors.onPrimaryContainer,
-                    },
-                  ]}
-                >
-                  {step.title}
-                </Chip>
-                {index < steps.length - 1 && (
-                  <Icon
-                    source="chevron-right"
-                    size={16}
-                    color={theme.colors.onSurfaceVariant}
-                  />
-                )}
+      <Modal
+        visible={visible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleDismiss}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContainer,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleDismiss}
+                accessibilityLabel={t("common.close")}
+              >
+                <Icon source="close" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+              <View style={styles.titleContainer}>
+                <Text variant="headlineSmall" style={styles.title}>
+                  {t("compose.messageBuilder.title")}
+                </Text>
+                <Text variant="bodyMedium" style={styles.progress}>
+                  {completedSteps}/{steps.length}{" "}
+                  {t("compose.messageBuilder.stepsCompleted")}
+                </Text>
               </View>
-            ))}
-          </View>
-        </Dialog.Title>
+            </View>
 
-        <Dialog.ScrollArea style={styles.dialogContent}>
-          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Progress indicator */}
+            <View style={styles.stepsContainer}>
+              {steps.map((step, index) => (
+                <View key={step.id} style={styles.stepContainer}>
+                  <Chip
+                    mode={step.completed ? "flat" : "outlined"}
+                    compact
+                    style={[
+                      styles.stepChip,
+                      step.completed && {
+                        backgroundColor: theme.colors.primaryContainer,
+                      },
+                    ]}
+                    textStyle={[
+                      styles.stepChipText,
+                      step.completed && {
+                        color: theme.colors.onPrimaryContainer,
+                      },
+                    ]}
+                  >
+                    {step.title}
+                  </Chip>
+                  {index < steps.length - 1 && (
+                    <Icon
+                      source="chevron-right"
+                      size={16}
+                      color={theme.colors.onSurfaceVariant}
+                    />
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <ScrollView
+            style={styles.modalContent}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Basic Information */}
             <Card style={styles.sectionCard} mode="outlined">
               <Card.Content>
@@ -548,64 +576,66 @@ export default function MessageBuilder({
               </Card.Content>
             </Card>
           </ScrollView>
-        </Dialog.ScrollArea>
 
-        <Dialog.Actions style={styles.dialogActions}>
-          <Button
-            mode="outlined"
-            onPress={handleDismiss}
-            style={styles.actionButton}
-          >
-            {t("common.cancel")}
-          </Button>
-          <Button
-            mode="outlined"
-            onPress={resetForm}
-            style={styles.actionButton}
-          >
-            {t("notifications.resetForm")}
-          </Button>
-          <Button
-            mode="contained"
-            onPress={sendMessage}
-            disabled={
-              sending || isOfflineAuth || isBackendUnreachable || !title.trim()
-            }
-            loading={sending}
-            style={styles.actionButton}
-          >
-            {t("notifications.sendButton")}
-          </Button>
-        </Dialog.Actions>
-      </Dialog>
-
-      {/* Error Dialog */}
-      <Portal>
-        <Dialog
-          visible={showErrorDialog}
-          onDismiss={() => setShowErrorDialog(false)}
-        >
-          <Dialog.Title>{t("notifications.sendErrorTitle")}</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{errorMessage}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowErrorDialog(false)}>
-              {t("common.ok")}
+          <View style={styles.modalActions}>
+            <Button
+              mode="outlined"
+              onPress={handleDismiss}
+              style={styles.actionButton}
+            >
+              {t("common.cancel")}
             </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </Portal>
+            <Button
+              mode="outlined"
+              onPress={resetForm}
+              style={styles.actionButton}
+            >
+              {t("notifications.resetForm")}
+            </Button>
+            <Button
+              mode="contained"
+              onPress={sendMessage}
+              disabled={
+              sending || !title.trim()
+              }
+              loading={sending}
+              style={styles.actionButton}
+            >
+              {t("notifications.sendButton")}
+            </Button>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  dialog: {
-    maxHeight: screenHeight * 0.9,
+  openButton: {
+    margin: 16,
   },
-  dialogTitle: {
-    paddingBottom: 16,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    maxHeight: screenHeight * 0.9,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: "hidden",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0, 0, 0, 0.1)",
+  },
+  closeButton: {
+    padding: 8,
   },
   titleContainer: {
     flexDirection: "row",
@@ -638,21 +668,48 @@ const styles = StyleSheet.create({
   stepSeparator: {
     marginHorizontal: 4,
   },
-  dialogContent: {
-    maxHeight: screenHeight * 0.6,
-    paddingHorizontal: 0,
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
-  dialogActions: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0, 0, 0, 0.1)",
     gap: 8,
   },
   actionButton: {
     flex: 1,
   },
+  errorModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorModalContainer: {
+    margin: 20,
+    padding: 20,
+    borderRadius: 12,
+    maxWidth: 300,
+  },
+  errorTitle: {
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  errorMessage: {
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  errorButton: {
+    alignSelf: "center",
+  },
   sectionCard: {
     marginBottom: 16,
-    marginHorizontal: 16,
   },
   sectionHeader: {
     flexDirection: "row",

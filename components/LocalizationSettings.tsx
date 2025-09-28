@@ -1,19 +1,15 @@
 import { useAppContext } from "@/contexts/AppContext";
 import { useI18n, useLanguageSync } from "@/hooks";
-import { DATE_FORMAT_STYLES, DateFormatPreferences, DateFormatStyle } from "@/services/date-format";
+import {
+  DATE_FORMAT_STYLES,
+  DateFormatPreferences,
+  DateFormatStyle,
+} from "@/services/date-format";
 import { Locale } from "@/types/i18n";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-    StyleSheet,
-    View,
-} from "react-native";
+import { StyleSheet, View } from "react-native";
 import ThemedInputSelect from "./ui/ThemedInputSelect";
-import {
-    Card,
-    Switch,
-    Text,
-    useTheme
-} from "react-native-paper";
+import { Card, Switch, Text, useTheme } from "react-native-paper";
 
 interface LocalizationSettingsProps {
   style?: any;
@@ -22,9 +18,15 @@ interface LocalizationSettingsProps {
 export function LocalizationSettings({ style }: LocalizationSettingsProps) {
   const theme = useTheme();
   const { t } = useI18n();
-  const { currentLocale, setLocale, availableLocales, getLocaleDisplayName } = useLanguageSync();
+  const { currentLocale, setLocale, availableLocales, getLocaleDisplayName } =
+    useLanguageSync();
   const {
-    userSettings: { getTimezone, setTimezone, getDateFormatPreferences, setDateFormatPreferences },
+    userSettings: {
+      getTimezone,
+      setTimezone,
+      getDateFormatPreferences,
+      setDateFormatPreferences,
+    },
   } = useAppContext();
 
   // Language settings state
@@ -35,9 +37,8 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
   const [allTimezones, setAllTimezones] = useState<string[]>([]);
 
   // Date format settings state
-  const [dateFormatPreferences, setDateFormatPreferencesState] = useState<DateFormatPreferences>(
-    getDateFormatPreferences()
-  );
+  const [dateFormatPreferences, setDateFormatPreferencesState] =
+    useState<DateFormatPreferences>(getDateFormatPreferences());
 
   const currentTimezone = getTimezone();
 
@@ -319,14 +320,22 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
       return {
         id: style,
         name: t(`appSettings.dateFormat.styles.${style}.name` as any),
-        description: `${styleInfo.example} - ${t(`appSettings.dateFormat.styles.${style}.description` as any)}`,
+        description: `${styleInfo.example} - ${t(
+          `appSettings.dateFormat.styles.${style}.description` as any
+        )}`,
       };
     });
   }, [t]);
 
-  const selectedLanguage = languageOptions.find(option => option.id === currentLocale);
-  const selectedTimezone = timezoneOptions.find(option => option.id === currentTimezone);
-  const selectedDateFormat = dateFormatOptions.find(option => option.id === dateFormatPreferences.dateStyle);
+  const selectedLanguage = languageOptions.find(
+    (option) => option.id === currentLocale
+  );
+  const selectedTimezone = timezoneOptions.find(
+    (option) => option.id === currentTimezone
+  );
+  const selectedDateFormat = dateFormatOptions.find(
+    (option) => option.id === dateFormatPreferences.dateStyle
+  );
 
   // Language handlers
   const handleLanguageSelect = async (locale: Locale) => {
@@ -360,7 +369,10 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
   };
 
   const handleTimeFormatChange = async (use24Hour: boolean) => {
-    const newPreferences = { ...dateFormatPreferences, use24HourTime: use24Hour };
+    const newPreferences = {
+      ...dateFormatPreferences,
+      use24HourTime: use24Hour,
+    };
     setDateFormatPreferencesState(newPreferences);
     await setDateFormatPreferences(newPreferences);
   };
@@ -372,7 +384,13 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
         <Text variant="headlineSmall" style={styles.sectionTitle}>
           {t("appSettings.localization.title")}
         </Text>
-        <Text variant="bodyMedium" style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
+        <Text
+          variant="bodyMedium"
+          style={[
+            styles.sectionDescription,
+            { color: theme.colors.onSurfaceVariant },
+          ]}
+        >
           {t("appSettings.localization.description")}
         </Text>
       </View>
@@ -423,12 +441,14 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
             optionLabel="name"
             optionValue="id"
             selectedValue={selectedDateFormat?.id}
-            onValueChange={(value) => handleDateFormatStyleChange(value as DateFormatStyle)}
+            onValueChange={(value) =>
+              handleDateFormatStyleChange(value as DateFormatStyle)
+            }
             isSearchable={false}
             helperText={t("appSettings.dateFormat.description")}
           />
         </View>
-        
+
         <View style={styles.switchContainer}>
           <Text variant="bodyMedium" style={styles.switchLabel}>
             {t("appSettings.dateFormat.use24Hour")}
@@ -439,7 +459,6 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
           />
         </View>
       </Card>
-
     </View>
   );
 }
@@ -478,8 +497,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 16,
   },
-  dropdownContainer: {
-  },
+  dropdownContainer: {},
   dropdownLabel: {
     marginBottom: 4,
   },

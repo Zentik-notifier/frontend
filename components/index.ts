@@ -21,6 +21,7 @@ export { default as NotificationTapActionSelector } from './NotificationTapActio
 
 // Settings Components
 export { AppSettings } from './AppSettings';
+export { default as ThemeSettings } from './ThemeSettings';
 export { default as UserSection } from './UserSection';
 
 // Utility Components

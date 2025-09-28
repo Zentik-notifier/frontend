@@ -112,6 +112,37 @@
       "markAsReadOnView": "Mark as read on view",
       "markAsReadOnViewDescription": "Notifications will be marked as read as soon as they are visible on screen"
     },
+    "theme": {
+      "title": "Theme Settings",
+      "subtitle": "Customize the appearance of your app",
+      "selectPreset": "Select Theme Preset",
+      "selectPresetPlaceholder": "Choose a theme preset",
+      "dynamicColors": "Dynamic Colors",
+      "primaryColor": "Primary Color",
+      "secondaryColor": "Secondary Color",
+      "tertiaryColor": "Tertiary Color",
+      "resetToDefault": "Reset to Default",
+      "generateTheme": "Generate Theme",
+      "dynamicThemeGenerated": "Dynamic theme generated successfully!",
+      "presets": {
+        "material3": "Material 3",
+        "material3_reverse": "Material 3 Reverse",
+        "blue": "Blue Theme",
+        "red": "Red Theme",
+        "yellow": "Yellow Theme",
+        "green": "Green Theme",
+        "custom": "Custom"
+      },
+      "presetDescriptions": {
+        "material3": "Default Material Design 3 theme",
+        "material3_reverse": "Reversed Material Design 3 theme (dark colors as light)",
+        "blue": "Professional blue theme with pink accents",
+        "red": "Bold red theme with cyan accents",
+        "yellow": "Vibrant yellow-orange theme with purple accents",
+        "green": "Natural green theme with orange accents",
+        "custom": "Custom theme with user-defined colors"
+      }
+    },
     "logs": {
       "exportButton": "Export Logs",
       "exportDescription": "Export all logs stored in the DB to a JSON file",

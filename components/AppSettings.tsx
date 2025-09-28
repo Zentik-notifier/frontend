@@ -20,6 +20,7 @@ import { reinitializeApolloClient } from "../config/apollo-client";
 import { ApiConfigService } from "../services/api-config";
 import { LegalDocumentsSettings } from "./LegalDocumentsSettings";
 import { LocalizationSettings } from "./LocalizationSettings";
+import ThemeSettings from "./ThemeSettings";
 import UnifiedCacheSettings from "./UnifiedCacheSettings";
 import { VersionInfo } from "./VersionInfo";
 
@@ -132,6 +133,11 @@ export function AppSettings() {
         {/* Localization Settings Section */}
         <Surface style={styles.settingsSurface} elevation={1}>
           <LocalizationSettings />
+        </Surface>
+
+        {/* Theme Settings Section */}
+        <Surface style={styles.settingsSurface} elevation={1}>
+          <ThemeSettings />
         </Surface>
 
         {/* Unified Cache Settings */}

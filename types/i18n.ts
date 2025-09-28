@@ -290,6 +290,37 @@ export interface TranslationKey {
       markAsReadOnView: string;
       markAsReadOnViewDescription: string;
     };
+    theme: {
+      title: string;
+      subtitle: string;
+      selectPreset: string;
+      selectPresetPlaceholder: string;
+      dynamicColors: string;
+      primaryColor: string;
+      secondaryColor: string;
+      tertiaryColor: string;
+      resetToDefault: string;
+      generateTheme: string;
+      dynamicThemeGenerated: string;
+      presets: {
+        material3: string;
+        material3_reverse: string;
+        blue: string;
+        red: string;
+        yellow: string;
+        green: string;
+        custom: string;
+      };
+      presetDescriptions: {
+        material3: string;
+        material3_reverse: string;
+        blue: string;
+        red: string;
+        yellow: string;
+        green: string;
+        custom: string;
+      };
+    };
     logs: {
       exportButton: string;
       exportDescription: string;

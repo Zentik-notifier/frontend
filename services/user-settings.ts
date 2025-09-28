@@ -4,6 +4,7 @@ import AsyncStorage from 'expo-sqlite/kv-store';
 import * as Localization from 'expo-localization';
 import { UserSettingType, useGetUserSettingsLazyQuery, useUpsertUserSettingMutation } from '@/generated/gql-operations-generated';
 import React, { useEffect } from 'react';
+import { ThemePreset } from './theme-presets';
 
 // Current version of terms (update this when terms change)
 const CURRENT_TERMS_VERSION = '1.0.0';
@@ -52,10 +53,22 @@ export interface DateFormatPreferences {
   use24HourTime: boolean;
 }
 
+// Theme customization types
+export interface DynamicThemeColors {
+  primary: string;
+  secondary: string;
+  tertiary: string;
+}
+
 // Types for user settings
 export interface UserSettings {
   // Theme settings
   themeMode: 'light' | 'dark' | 'system';
+  // Custom theme settings
+  themePreset?: ThemePreset;
+  // Dynamic theme settings
+  useDynamicTheme?: boolean;
+  dynamicThemeColors?: DynamicThemeColors;
 
   // Localization settings
   locale: Locale;
@@ -116,6 +129,13 @@ export interface UserSettings {
 
 const DEFAULT_SETTINGS: UserSettings = {
   themeMode: 'system',
+  themePreset: ThemePreset.Material3,
+  useDynamicTheme: false,
+  dynamicThemeColors: {
+    primary: '#6750A4',
+    secondary: '#625B71',
+    tertiary: '#7D5260',
+  },
   locale: 'en-EN',
   timezone: getDeviceTimezone(),
   dateFormat: {
@@ -299,6 +319,17 @@ class UserSettingsService {
     await this.updateSettings({
       themeMode: mode,
     });
+  }
+
+  /**
+   * Set custom theme settings
+   */
+  async setCustomThemeSettings(settings: {
+    themePreset?: ThemePreset;
+    useDynamicTheme?: boolean;
+    dynamicThemeColors?: DynamicThemeColors;
+  }): Promise<void> {
+    await this.updateSettings(settings);
   }
 
   /**
@@ -649,6 +680,9 @@ class UserSettingsService {
 
     return {
       themeMode: stored.themeMode || DEFAULT_SETTINGS.themeMode,
+      themePreset: stored.themePreset || DEFAULT_SETTINGS.themePreset,
+      useDynamicTheme: stored.useDynamicTheme !== undefined ? stored.useDynamicTheme : DEFAULT_SETTINGS.useDynamicTheme,
+      dynamicThemeColors: stored.dynamicThemeColors || DEFAULT_SETTINGS.dynamicThemeColors,
       locale: stored.locale || DEFAULT_SETTINGS.locale,
       timezone: stored.timezone || DEFAULT_SETTINGS.timezone,
       dateFormat: stored.dateFormat || DEFAULT_SETTINGS.dateFormat,
@@ -915,6 +949,7 @@ export function useUserSettings() {
     settings,
     updateSettings: userSettings.updateSettings.bind(userSettings),
     setThemeMode: userSettings.setThemeMode.bind(userSettings),
+    setCustomThemeSettings: userSettings.setCustomThemeSettings.bind(userSettings),
     setLocale: async (locale: Locale) => {
       await userSettings.setLocale(locale);
       try {

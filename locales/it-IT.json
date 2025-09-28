@@ -112,6 +112,37 @@
       "markAsReadOnView": "Segna come letta alla visualizzazione",
       "markAsReadOnViewDescription": "Le notifiche verranno segnate come lette non appena sono visibili a schermo"
     },
+    "theme": {
+      "title": "Impostazioni Tema",
+      "subtitle": "Personalizza l'aspetto della tua app",
+      "selectPreset": "Seleziona Tema Predefinito",
+      "selectPresetPlaceholder": "Scegli un tema predefinito",
+      "dynamicColors": "Colori Dinamici",
+      "primaryColor": "Colore Primario",
+      "secondaryColor": "Colore Secondario",
+      "tertiaryColor": "Colore Terziario",
+      "resetToDefault": "Ripristina Predefinito",
+      "generateTheme": "Genera Tema",
+      "dynamicThemeGenerated": "Tema dinamico generato con successo!",
+      "presets": {
+        "material3": "Material 3",
+        "material3_reverse": "Material 3 Invertito",
+        "blue": "Tema Blu",
+        "red": "Tema Rosso",
+        "yellow": "Tema Giallo",
+        "green": "Tema Verde",
+        "custom": "Personalizzato"
+      },
+      "presetDescriptions": {
+        "material3": "Tema Material Design 3 predefinito",
+        "material3_reverse": "Tema Material Design 3 invertito (colori scuri come chiari)",
+        "blue": "Tema blu professionale con accenti rosa",
+        "red": "Tema rosso audace con accenti ciano",
+        "yellow": "Tema giallo-arancio vibrante con accenti viola",
+        "green": "Tema verde naturale con accenti arancioni",
+        "custom": "Tema personalizzato con colori definiti dall'utente"
+      }
+    },
     "logs": {
       "exportButton": "Esporta Log",
       "exportDescription": "Esporta tutti i log presenti nel DB in un file JSON",
