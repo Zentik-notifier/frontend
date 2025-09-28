@@ -162,58 +162,37 @@ export default function SystemAccessTokens() {
 
   return (
     <View style={styles.container}>
-      {/* Header with refresh button */}
-      <View style={styles.header}>
-        <Text variant="headlineSmall" style={styles.headerTitle}>
-          {t("systemAccessTokens.title")}
-        </Text>
-        <Button
-          mode="outlined"
-          onPress={handleRefresh}
-          disabled={isRefreshing || loading}
-          style={styles.refreshButton}
-        >
-          {isRefreshing || loading ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-          ) : (
-            <Icon source="refresh" size={20} />
-          )}
-        </Button>
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text variant="bodyLarge" style={styles.loadingText}>
-            {t("common.loading")}
-          </Text>
-        </View>
-      ) : (
-        <PaperScrollView
-          refreshing={isRefreshing}
-          onRefresh={handleRefresh}
-        >
-          {sortedTokens.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Icon
-                source="key"
-                size={64}
-                color={theme.colors.onSurfaceVariant}
-              />
-              <Text variant="headlineSmall" style={styles.emptyText}>
-                {t("systemAccessTokens.noTokensTitle")}
-              </Text>
-              <Text variant="bodyMedium" style={styles.emptySubtext}>
-                {t("systemAccessTokens.noTokensSubtext")}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.tokensContainer}>
-              {sortedTokens.map((item) => renderTokenItem(item))}
-            </View>
-          )}
-        </PaperScrollView>
-      )}
+      <PaperScrollView
+        refreshing={isRefreshing || loading}
+        onRefresh={handleRefresh}
+      >
+        {loading && sortedTokens.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text variant="bodyLarge" style={styles.loadingText}>
+              {t("common.loading")}
+            </Text>
+          </View>
+        ) : sortedTokens.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Icon
+              source="key"
+              size={64}
+              color={theme.colors.onSurfaceVariant}
+            />
+            <Text variant="headlineSmall" style={styles.emptyText}>
+              {t("systemAccessTokens.noTokensTitle")}
+            </Text>
+            <Text variant="bodyMedium" style={styles.emptySubtext}>
+              {t("systemAccessTokens.noTokensSubtext")}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.tokensContainer}>
+            {sortedTokens.map((item) => renderTokenItem(item))}
+          </View>
+        )}
+      </PaperScrollView>
 
       <FAB
         icon="plus"

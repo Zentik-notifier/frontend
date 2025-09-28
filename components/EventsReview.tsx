@@ -1,31 +1,37 @@
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
-import { Icon } from "@/components/ui";
-import { Colors } from "@/constants/Colors";
+import { useAppContext } from "@/contexts/AppContext";
 import {
   EventType,
   useGetAllUsersQuery,
   useGetEventsPaginatedQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
-import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Modal,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  Button,
+  Card,
+  Dialog,
+  Icon,
+  Portal,
+  Surface,
+  Text,
+  useTheme
+} from "react-native-paper";
 
 export default function EventsReview() {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
+  const {
+    connectionStatus: { isOfflineAuth, isBackendUnreachable },
+  } = useAppContext();
 
   const [selectedType, setSelectedType] = useState<EventType | undefined>(
     undefined
@@ -35,7 +41,10 @@ export default function EventsReview() {
   const [targetId, setTargetId] = useState("");
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const pageSize = 20;
+
+  const disabledActions = isOfflineAuth || isBackendUnreachable;
 
   const { data: usersData, loading: loadingUsers } = useGetAllUsersQuery({});
 
@@ -70,7 +79,14 @@ export default function EventsReview() {
   const total = paginatedData?.events?.total ?? 0;
 
   const handleRefresh = useCallback(async () => {
-    await refetch();
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } catch (error) {
+      console.error("Error refreshing events:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
   }, [refetch]);
 
   const handleLoadMore = useCallback(() => {
@@ -202,174 +218,169 @@ export default function EventsReview() {
       ? userIdToName[item.userId] || item.userId
       : "-";
     return (
-      <View
-        style={[
-          styles.eventItem,
-          { borderColor: Colors[colorScheme ?? "light"].border },
-        ]}
-      >
-        <View style={styles.eventHeader}>
-          <ThemedText style={styles.eventType}>{item.type}</ThemedText>
-          <ThemedText style={styles.eventDate}>
-            {new Date(item.createdAt).toLocaleString()}
-          </ThemedText>
-        </View>
-        <View style={styles.eventMeta}>
-          <View style={styles.metaRow}>
-            <ThemedText style={styles.metaLabel}>user:</ThemedText>
-            <ThemedText style={styles.metaValue}>{userDisplay}</ThemedText>
+      <Card style={styles.eventItem}>
+        <Card.Content>
+          <View style={styles.eventHeader}>
+            <Text variant="titleMedium" style={styles.eventType}>
+              {item.type}
+            </Text>
+            <Text variant="bodySmall" style={styles.eventDate}>
+              {new Date(item.createdAt).toLocaleString()}
+            </Text>
           </View>
-          {item.objectId && (
+          <View style={styles.eventMeta}>
             <View style={styles.metaRow}>
-              <ThemedText style={styles.metaLabel}>
-                {getObjectIdLabel(item.type)}
-              </ThemedText>
-              <ThemedText style={styles.metaValue}>
-                {formatObjectId(item.objectId, item.type)}
-              </ThemedText>
+              <Text variant="bodySmall" style={styles.metaLabel}>
+                user:
+              </Text>
+              <Text variant="bodySmall" style={styles.metaValue}>
+                {userDisplay}
+              </Text>
             </View>
-          )}
-          {item.targetId && (
+            {item.objectId && (
+              <View style={styles.metaRow}>
+                <Text variant="bodySmall" style={styles.metaLabel}>
+                  {getObjectIdLabel(item.type)}
+                </Text>
+                <Text variant="bodySmall" style={styles.metaValue}>
+                  {formatObjectId(item.objectId, item.type)}
+                </Text>
+              </View>
+            )}
+            {item.targetId && (
+              <View style={styles.metaRow}>
+                <Text variant="bodySmall" style={styles.metaLabel}>
+                  {getTargetIdLabel(item.type)}
+                </Text>
+                <Text variant="bodySmall" style={styles.metaValue}>
+                  {formatTargetId(item.targetId, item.type)}
+                </Text>
+              </View>
+            )}
             <View style={styles.metaRow}>
-              <ThemedText style={styles.metaLabel}>
-                {getTargetIdLabel(item.type)}
-              </ThemedText>
-              <ThemedText style={styles.metaValue}>
-                {formatTargetId(item.targetId, item.type)}
-              </ThemedText>
+              <Text variant="bodySmall" style={styles.metaLabel}>
+                id:
+              </Text>
+              <Text variant="bodySmall" style={styles.metaValue}>
+                {item.id}
+              </Text>
             </View>
-          )}
-          <View style={styles.metaRow}>
-            <ThemedText style={styles.metaLabel}>id:</ThemedText>
-            <ThemedText style={styles.metaValue}>{item.id}</ThemedText>
           </View>
-        </View>
-      </View>
+        </Card.Content>
+      </Card>
     );
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.pageContent}>
-        <View style={styles.header}>
-        <View style={styles.statsContainer}>
-          <ThemedText style={styles.statsText}>
+    <Surface style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Header with refresh button */}
+      <Surface style={[styles.header, { backgroundColor: theme.colors.surface }]} elevation={1}>
+        <Text variant="headlineSmall" style={styles.headerTitle}>
+          {t("eventsReview.title")}
+        </Text>
+        <Button
+          mode="outlined"
+          onPress={handleRefresh}
+          disabled={isRefreshing || isLoading || disabledActions}
+          style={styles.refreshButton}
+        >
+          {isRefreshing || isLoading ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          ) : (
+            <Icon source="refresh" size={20} />
+          )}
+        </Button>
+      </Surface>
+
+      <Surface style={[styles.pageContent, { backgroundColor: theme.colors.background }]}>
+        <Surface style={[styles.statsContainer, { backgroundColor: theme.colors.surface }]} elevation={0}>
+          <Text variant="bodyMedium" style={styles.statsText}>
             {t("common.showing")} {events.length} {t("common.of")} {total}{" "}
             {t("common.results")}
-          </ThemedText>
-        </View>
-      </View>
+          </Text>
+        </Surface>
 
         <View style={styles.filtersContainer}>
-        <ThemedView
-          style={[
-            styles.searchContainer,
-            { backgroundColor: Colors[colorScheme ?? "light"].inputBackground },
-          ]}
-        >
-          <Ionicons
-            name="search"
-            size={18}
-            color={Colors[colorScheme ?? "light"].textSecondary}
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={[
-              styles.searchInput,
-              { color: Colors[colorScheme ?? "light"].text },
-            ]}
-            placeholder={t("eventsReview.filters.objectId")}
-            placeholderTextColor={
-              Colors[colorScheme ?? "light"].inputPlaceholder
-            }
-            value={objectId}
-            onChangeText={setObjectId}
-          />
-          {objectId.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setObjectId("")}
-              style={styles.clearButton}
-            >
-              <Ionicons
-                name="close-circle"
-                size={18}
-                color={Colors[colorScheme ?? "light"].textSecondary}
-              />
-            </TouchableOpacity>
-          )}
-        </ThemedView>
+          <Surface style={[styles.searchContainer, { backgroundColor: theme.colors.surface }]} elevation={1}>
+            <View style={styles.searchIcon}>
+              <Icon source="magnify" size={18} />
+            </View>
+            <TextInput
+              style={[styles.searchInput, { color: theme.colors.onSurface }]}
+              placeholder={t("eventsReview.filters.objectId")}
+              placeholderTextColor={theme.colors.onSurfaceVariant}
+              value={objectId}
+              onChangeText={setObjectId}
+              editable={!disabledActions}
+            />
+            {objectId.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setObjectId("")}
+                style={styles.clearButton}
+                disabled={disabledActions}
+              >
+                <Icon source="close-circle" size={18} />
+              </TouchableOpacity>
+            )}
+          </Surface>
         </View>
 
         <View style={styles.filtersContainer}>
-        <ThemedView
-          style={[
-            styles.searchContainer,
-            { backgroundColor: Colors[colorScheme ?? "light"].inputBackground },
-          ]}
-        >
-          <Ionicons
-            name="phone-portrait-outline"
-            size={18}
-            color={Colors[colorScheme ?? "light"].textSecondary}
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={[
-              styles.searchInput,
-              { color: Colors[colorScheme ?? "light"].text },
-            ]}
-            placeholder={t("eventsReview.filters.targetId")}
-            placeholderTextColor={
-              Colors[colorScheme ?? "light"].inputPlaceholder
-            }
-            value={targetId}
-            onChangeText={setTargetId}
-          />
-          {targetId.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setTargetId("")}
-              style={styles.clearButton}
-            >
-              <Ionicons
-                name="close-circle"
-                size={18}
-                color={Colors[colorScheme ?? "light"].textSecondary}
-              />
-            </TouchableOpacity>
-          )}
-        </ThemedView>
+          <Surface style={[styles.searchContainer, { backgroundColor: theme.colors.surface }]} elevation={1}>
+            <View style={styles.searchIcon}>
+              <Icon source="cellphone" size={18} />
+            </View>
+            <TextInput
+              style={[styles.searchInput, { color: theme.colors.onSurface }]}
+              placeholder={t("eventsReview.filters.targetId")}
+              placeholderTextColor={theme.colors.onSurfaceVariant}
+              value={targetId}
+              onChangeText={setTargetId}
+              editable={!disabledActions}
+            />
+            {targetId.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setTargetId("")}
+                style={styles.clearButton}
+                disabled={disabledActions}
+              >
+                <Icon source="close-circle" size={18} />
+              </TouchableOpacity>
+            )}
+          </Surface>
 
         <TouchableOpacity
           style={[
             styles.filterButton,
             {
-              borderColor: Colors[colorScheme ?? "light"].border,
+              borderColor: theme.colors.outline,
               backgroundColor: selectedType
-                ? Colors[colorScheme ?? "light"].selected
-                : Colors[colorScheme ?? "light"].inputBackground,
+                ? theme.colors.primaryContainer
+                : theme.colors.surface,
             },
           ]}
           onPress={() => setShowTypeModal(true)}
           activeOpacity={0.7}
+          disabled={disabledActions}
         >
-          <Ionicons
-            name="funnel"
+          <Icon
+            source="filter"
             size={16}
             color={
               selectedType
-                ? Colors[colorScheme ?? "light"].tint
-                : Colors[colorScheme ?? "light"].textSecondary
+                ? theme.colors.primary
+                : theme.colors.onSurfaceVariant
             }
           />
           {selectedType && (
-            <ThemedView
+            <View
               style={[
                 styles.filterBadge,
-                { backgroundColor: Colors[colorScheme ?? "light"].tint },
+                { backgroundColor: theme.colors.primary },
               ]}
             >
-              <ThemedText style={styles.filterBadgeText}>T</ThemedText>
-            </ThemedView>
+              <Text style={styles.filterBadgeText}>T</Text>
+            </View>
           )}
         </TouchableOpacity>
 
@@ -377,34 +388,34 @@ export default function EventsReview() {
           style={[
             styles.filterButton,
             {
-              borderColor: Colors[colorScheme ?? "light"].border,
+              borderColor: theme.colors.outline,
               backgroundColor: userId
-                ? Colors[colorScheme ?? "light"].selected
-                : Colors[colorScheme ?? "light"].inputBackground,
+                ? theme.colors.primaryContainer
+                : theme.colors.surface,
             },
           ]}
           onPress={() => setShowUserModal(true)}
           activeOpacity={0.7}
-          disabled={loadingUsers}
+          disabled={loadingUsers || disabledActions}
         >
-          <Ionicons
-            name="person"
+          <Icon
+            source="account"
             size={16}
             color={
               userId
-                ? Colors[colorScheme ?? "light"].tint
-                : Colors[colorScheme ?? "light"].textSecondary
+                ? theme.colors.primary
+                : theme.colors.onSurfaceVariant
             }
           />
           {userId && (
-            <ThemedView
+            <View
               style={[
                 styles.filterBadge,
-                { backgroundColor: Colors[colorScheme ?? "light"].tint },
+                { backgroundColor: theme.colors.primary },
               ]}
             >
-              <ThemedText style={styles.filterBadgeText}>U</ThemedText>
-            </ThemedView>
+              <Text style={styles.filterBadgeText}>U</Text>
+            </View>
           )}
         </TouchableOpacity>
 
@@ -413,204 +424,187 @@ export default function EventsReview() {
             style={[
               styles.clearFiltersButton,
               {
-                borderColor: Colors[colorScheme ?? "light"].border,
-                backgroundColor: Colors[colorScheme ?? "light"].inputBackground,
+                borderColor: theme.colors.outline,
+                backgroundColor: theme.colors.surface,
               },
             ]}
             onPress={handleClearFilters}
             activeOpacity={0.7}
+            disabled={disabledActions}
           >
-            <Ionicons
-              name="refresh"
+            <Icon
+              source="refresh"
               size={16}
-              color={Colors[colorScheme ?? "light"].textSecondary}
+              color={theme.colors.onSurfaceVariant}
             />
           </TouchableOpacity>
         )}
         </View>
 
         {isLoading && events.length === 0 ? (
-          <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" />
-          <ThemedText style={styles.loadingText}>
-            {t("common.loading")}
-          </ThemedText>
-          </View>
+          <Surface style={[styles.loadingContainer, { backgroundColor: theme.colors.surface }]} elevation={0}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text variant="bodyLarge" style={styles.loadingText}>
+              {t("common.loading")}
+            </Text>
+          </Surface>
         ) : events.length === 0 ? (
-          <View style={styles.emptyState}>
-          <Icon name="search" size="xl" color="secondary" />
-          <ThemedText style={styles.emptyTitle}>
-            {t("eventsReview.empty.title")}
-          </ThemedText>
-          <ThemedText style={styles.emptyDescription}>
-            {t("eventsReview.empty.description")}
-          </ThemedText>
-          </View>
+          <Surface style={[styles.emptyState, { backgroundColor: theme.colors.surface }]} elevation={0}>
+            <Icon source="magnify" size={64} color={theme.colors.onSurfaceVariant} />
+            <Text variant="headlineSmall" style={styles.emptyTitle}>
+              {t("eventsReview.empty.title")}
+            </Text>
+            <Text variant="bodyMedium" style={styles.emptyDescription}>
+              {t("eventsReview.empty.description")}
+            </Text>
+          </Surface>
         ) : (
           <FlatList
             data={events}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             onRefresh={handleRefresh}
-            refreshing={isLoading}
+            refreshing={isRefreshing}
             contentContainerStyle={styles.listContent}
-            // onEndReached={handleLoadMore}
+            onEndReached={handleLoadMore}
             onEndReachedThreshold={0.1}
             ListFooterComponent={() =>
               hasNextPage ? (
                 <View style={styles.loadMoreContainer}>
                   {isLoading ? (
-                    <ActivityIndicator />
+                    <ActivityIndicator color={theme.colors.primary} />
                   ) : (
                     <TouchableOpacity
                       style={[
                         styles.loadMoreButton,
                         {
-                          backgroundColor:
-                            Colors[colorScheme ?? "light"].backgroundCard,
+                          backgroundColor: theme.colors.surface,
                         },
                       ]}
                       onPress={handleLoadMore}
+                      disabled={disabledActions}
                     >
-                      <ThemedText style={styles.loadMoreText}>
+                      <Text variant="bodyMedium" style={styles.loadMoreText}>
                         {t("common.loadMore")}
-                      </ThemedText>
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
               ) : events.length > 0 ? (
                 <View style={styles.endOfListContainer}>
-                  <ThemedText style={styles.endOfListText}>
+                  <Text variant="bodySmall" style={styles.endOfListText}>
                     {t("common.endOfResults")}
-                  </ThemedText>
+                  </Text>
                 </View>
               ) : null
             }
           />
         )}
 
-        <Modal
-        visible={showTypeModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity
-              onPress={() => setShowTypeModal(false)}
-              style={styles.modalCloseButton}
-            >
-              <Ionicons
-                name="close"
-                size={24}
-                color={Colors[colorScheme ?? "light"].text}
-              />
-            </TouchableOpacity>
-            <ThemedText style={styles.modalTitle}>
-              {t("eventsReview.filters.type")}
-            </ThemedText>
-            <View style={styles.modalHeaderSpacer} />
-          </View>
+        <Portal>
+          <Dialog
+            visible={showTypeModal}
+            onDismiss={() => setShowTypeModal(false)}
+            style={styles.dialog}
+          >
+            <Dialog.Title>{t("eventsReview.filters.type")}</Dialog.Title>
+            <Dialog.ScrollArea>
+              <ScrollView contentContainerStyle={styles.dialogContent}>
+                {allEventTypeOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.value || "all"}
+                    style={[
+                      styles.modalOption,
+                      {
+                        backgroundColor:
+                          selectedType === option.value
+                            ? theme.colors.primaryContainer
+                            : theme.colors.surface,
+                      },
+                    ]}
+                    onPress={() => {
+                      setSelectedType(option.value);
+                      setShowTypeModal(false);
+                    }}
+                  >
+                    <Text variant="bodyMedium" style={styles.modalOptionText}>
+                      {option.label}
+                    </Text>
+                    {selectedType === option.value && (
+                      <Icon
+                        source="check"
+                        size={20}
+                        color={theme.colors.primary}
+                      />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </Dialog.ScrollArea>
+            <Dialog.Actions>
+              <Button onPress={() => setShowTypeModal(false)}>
+                {t("common.close")}
+              </Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
 
-          <ScrollView style={styles.modalContent}>
-            {allEventTypeOptions.map((option) => (
-              <TouchableOpacity
-                key={option.value || "all"}
-                style={[
-                  styles.modalOption,
-                  {
-                    backgroundColor:
-                      selectedType === option.value
-                        ? Colors[colorScheme ?? "light"].selected
-                        : Colors[colorScheme ?? "light"].background,
-                  },
-                ]}
-                onPress={() => {
-                  setSelectedType(option.value);
-                  setShowTypeModal(false);
-                }}
-              >
-                <ThemedText style={styles.modalOptionText}>
-                  {option.label}
-                </ThemedText>
-                {selectedType === option.value && (
-                  <Ionicons
-                    name="checkmark"
-                    size={20}
-                    color={Colors[colorScheme ?? "light"].tint}
-                  />
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </SafeAreaView>
-        </Modal>
-
-        <Modal
-        visible={showUserModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity
-              onPress={() => setShowUserModal(false)}
-              style={styles.modalCloseButton}
-            >
-              <Ionicons
-                name="close"
-                size={24}
-                color={Colors[colorScheme ?? "light"].text}
-              />
-            </TouchableOpacity>
-            <ThemedText style={styles.modalTitle}>
-              {t("eventsReview.filters.userId")}
-            </ThemedText>
-            <View style={styles.modalHeaderSpacer} />
-          </View>
-
-          <ScrollView style={styles.modalContent}>
-            {userOptions.map((option) => (
-              <TouchableOpacity
-                key={option.value || "all"}
-                style={[
-                  styles.modalOption,
-                  {
-                    backgroundColor:
-                      userId === option.value
-                        ? Colors[colorScheme ?? "light"].selected
-                        : Colors[colorScheme ?? "light"].background,
-                  },
-                ]}
-                onPress={() => {
-                  setUserId(option.value);
-                  setShowUserModal(false);
-                }}
-              >
-                <View style={styles.modalOptionContent}>
-                  <ThemedText style={styles.modalOptionText}>
-                    {option.label}
-                  </ThemedText>
-                  {"subtitle" in option && option.subtitle && (
-                    <ThemedText style={styles.modalOptionSubtitle}>
-                      {option.subtitle}
-                    </ThemedText>
-                  )}
-                </View>
-                {userId === option.value && (
-                  <Ionicons
-                    name="checkmark"
-                    size={20}
-                    color={Colors[colorScheme ?? "light"].tint}
-                  />
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </SafeAreaView>
-        </Modal>
-      </View>
-    </ThemedView>
+        <Portal>
+          <Dialog
+            visible={showUserModal}
+            onDismiss={() => setShowUserModal(false)}
+            style={styles.dialog}
+          >
+            <Dialog.Title>{t("eventsReview.filters.userId")}</Dialog.Title>
+            <Dialog.ScrollArea>
+              <ScrollView contentContainerStyle={styles.dialogContent}>
+                {userOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.value || "all"}
+                    style={[
+                      styles.modalOption,
+                      {
+                        backgroundColor:
+                          userId === option.value
+                            ? theme.colors.primaryContainer
+                            : theme.colors.surface,
+                      },
+                    ]}
+                    onPress={() => {
+                      setUserId(option.value);
+                      setShowUserModal(false);
+                    }}
+                  >
+                    <View style={styles.modalOptionContent}>
+                      <Text variant="bodyMedium" style={styles.modalOptionText}>
+                        {option.label}
+                      </Text>
+                      {"subtitle" in option && option.subtitle && (
+                        <Text variant="bodySmall" style={styles.modalOptionSubtitle}>
+                          {option.subtitle}
+                        </Text>
+                      )}
+                    </View>
+                    {userId === option.value && (
+                      <Icon
+                        source="check"
+                        size={20}
+                        color={theme.colors.primary}
+                      />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </Dialog.ScrollArea>
+            <Dialog.Actions>
+              <Button onPress={() => setShowUserModal(false)}>
+                {t("common.close")}
+              </Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
+      </Surface>
+    </Surface>
   );
 }
 
@@ -634,15 +628,27 @@ function mappedObjectIdPlaceholder(type: EventType): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: "relative",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  headerTitle: {
+    flex: 1,
+    fontWeight: "600",
+  },
+  refreshButton: {
+    minWidth: 48,
   },
   pageContent: {
     flex: 1,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 16,
-  },
-  header: {
-    marginBottom: 20,
   },
   titleContainer: {
     flexDirection: "row",
@@ -675,8 +681,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     height: 40,
-    borderWidth: 1,
-    borderColor: "transparent",
   },
   searchIcon: {
     marginRight: 8,
@@ -754,15 +758,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   eventItem: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
     marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   eventHeader: {
     flexDirection: "row",
@@ -823,34 +819,10 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     textAlign: "center",
   },
-  modalContainer: {
-    flex: 1,
+  dialog: {
+    maxHeight: "80%",
   },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.1)",
-  },
-  modalCloseButton: {
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  modalHeaderSpacer: {
-    width: 40,
-  },
-  modalContent: {
-    flex: 1,
+  dialogContent: {
     padding: 16,
   },
   modalOption: {
