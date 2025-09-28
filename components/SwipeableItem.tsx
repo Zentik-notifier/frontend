@@ -1,4 +1,3 @@
-import { AppIcons } from "@/constants/Icons";
 import React, { useRef, useState } from "react";
 import {
   Animated,
@@ -22,8 +21,8 @@ import {
 } from "react-native-paper";
 import { Menu, MenuOptions, MenuOption, MenuTrigger } from "react-native-popup-menu";
 
-// Map AppIcons to Paper Icons
-const mapIconToPaper = (iconName: keyof typeof AppIcons): string => {
+// Map icon names to Paper Icons
+const mapIconToPaper = (iconName: string): string => {
   const iconMap: Record<string, string> = {
     "delete": "delete",
     "edit": "pencil",
@@ -62,7 +61,7 @@ const mapIconToPaper = (iconName: keyof typeof AppIcons): string => {
 const { width: screenWidth } = Dimensions.get("window");
 
 export interface SwipeAction {
-  icon: keyof typeof AppIcons;
+  icon: string;
   label: string;
   backgroundColor: string;
   onPress: () => Promise<void> | void;

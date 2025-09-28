@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Icon from "./ui/Icon";
+import { Icon, useTheme } from "react-native-paper";
 
 interface BucketActionsMenuProps {
   bucketId: string;
@@ -23,6 +23,7 @@ export default function BucketActionsMenu({
   onDelete,
   onEdit,
 }: BucketActionsMenuProps) {
+  const theme = useTheme();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
 
   const copyIdToClipboard = async () => {
@@ -65,13 +66,13 @@ export default function BucketActionsMenu({
             <Text style={styles.menuTitle}>{bucketName}</Text>
             
             <TouchableOpacity style={styles.menuItem} onPress={copyIdToClipboard}>
-              <Icon name="copy" size="md" color="primary" />
+              <Icon source="content-copy" size={20} color={theme.colors.primary} />
               <Text style={styles.menuItemText}>Copy ID</Text>
             </TouchableOpacity>
 
             {onEdit && (
               <TouchableOpacity style={styles.menuItem} onPress={handleEdit}>
-                <Icon name="edit" size="md" color="primary" />
+                <Icon source="pencil" size={20} color={theme.colors.primary} />
                 <Text style={styles.menuItemText}>Edit Bucket</Text>
               </TouchableOpacity>
             )}
@@ -80,7 +81,7 @@ export default function BucketActionsMenu({
               style={[styles.menuItem, styles.deleteMenuItem]}
               onPress={handleDelete}
             >
-              <Icon name="delete" size="md" color="error" />
+              <Icon source="delete" size={20} color={theme.colors.error} />
               <Text style={[styles.menuItemText, styles.deleteText]}>
                 Delete Bucket
               </Text>

@@ -1,12 +1,10 @@
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks';
-import { useI18n } from '@/hooks/useI18n';
 import React from 'react';
 import {
   Modal,
   StyleSheet,
   View,
 } from 'react-native';
+import { useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LoginForm from './LoginForm';
 
@@ -16,8 +14,7 @@ interface LoginModalProps {
 }
 
 export function LoginModal({ visible, onClose }: LoginModalProps) {
-  const colorScheme = useColorScheme();
-  const { t } = useI18n();
+  const theme = useTheme();
 
   const handleSuccess = () => {
     onClose();
@@ -30,7 +27,7 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.form}>
           <LoginForm 
             onSuccess={handleSuccess}

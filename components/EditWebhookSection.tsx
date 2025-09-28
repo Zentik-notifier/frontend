@@ -82,6 +82,7 @@ export default function EditWebhookSection({ webhookId }: EditWebhookSectionProp
   return (
     <Surface style={styles.container}>
       <PaperScrollView 
+        loading={loading}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >

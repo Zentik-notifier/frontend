@@ -1,4 +1,3 @@
-import { AppIcons } from "@/constants/Icons";
 import { BucketFragment } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";

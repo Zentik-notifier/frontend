@@ -1,6 +1,6 @@
 import { useAppContext } from "@/contexts/AppContext";
 import { mediaCache } from "@/services/media-cache";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "react-native-paper";
 import { useEvent } from "expo";
 import { useAudioPlayer } from "expo-audio";
 import {
@@ -20,7 +20,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { Text } from "react-native-paper";
+import { Text, useTheme } from "react-native-paper";
 import { Pressable } from "react-native-gesture-handler";
 import { MediaType } from "../generated/gql-operations-generated";
 import { useI18n } from "../hooks/useI18n";
@@ -84,6 +84,7 @@ export const CachedMedia = React.memo(function CachedMedia({
   noBorder,
 }: CachedMediaProps) {
   const { t } = useI18n();
+  const theme = useTheme();
   const {
     userSettings: {
       settings: {
@@ -303,19 +304,19 @@ export const CachedMedia = React.memo(function CachedMedia({
   };
 
   const stateColors = {
-    loading: "#666",
-    downloading: "#007AFF",
-    deleted: "#007AFF",
-    failed: "#FF3B30",
-    videoError: "#FF9500",
+    loading: theme.colors.onSurfaceVariant,
+    downloading: theme.colors.primary,
+    deleted: theme.colors.primary,
+    failed: theme.colors.error,
+    videoError: theme.colors.tertiary,
   };
 
   const stateBackgrounds = {
-    loading: "#f5f5f5",
-    downloading: "#f0f8ff",
-    deleted: "#fafafa",
-    failed: "#fff5f5",
-    videoError: "#fffbf0",
+    loading: theme.colors.surfaceVariant,
+    downloading: theme.colors.primaryContainer,
+    deleted: theme.colors.surface,
+    failed: theme.colors.errorContainer,
+    videoError: theme.colors.tertiaryContainer,
   };
 
   const getStateContainerStyle = (stateType: keyof typeof stateColors) => {
@@ -399,11 +400,10 @@ export const CachedMedia = React.memo(function CachedMedia({
             <Text style={{ color: stateColors.failed }}>
               {!isCompact && mediaSource?.errorCode}
             </Text>
-            <Ionicons
-              name="warning-outline"
+            <Icon
+              source="alert-circle-outline"
               size={isCompact ? 20 : 24}
               color={stateColors.failed}
-              onPress={isCompact ? handleForceDownload : undefined}
             />
           </View>
           {!isCompact ? renderForceDownloadButton(true) : null}
@@ -416,11 +416,10 @@ export const CachedMedia = React.memo(function CachedMedia({
       return (
         <View style={getStateContainerStyle("deleted") as any}>
           <View style={defaultStyles.stateContent}>
-            <Ionicons
-              name="refresh-outline"
+            <Icon
+              source="refresh"
               size={isCompact ? 20 : 24}
               color={stateColors.deleted}
-              onPress={isCompact ? handleForceDownload : undefined}
             />
           </View>
           {!isCompact && renderForceDownloadButton(false)}
@@ -433,11 +432,10 @@ export const CachedMedia = React.memo(function CachedMedia({
       return (
         <View style={getStateContainerStyle("deleted") as any}>
           <View style={defaultStyles.stateContent}>
-            <Ionicons
-              name="download-outline"
+            <Icon
+              source="download"
               size={isCompact ? 20 : 24}
               color={stateColors.deleted}
-              onPress={isCompact ? handleForceDownload : undefined}
             />
           </View>
           {!isCompact && renderForceDownloadButton(!!mediaSource)}
@@ -471,11 +469,10 @@ export const CachedMedia = React.memo(function CachedMedia({
       return (
         <View style={getStateContainerStyle("videoError") as any}>
           <View style={defaultStyles.stateContent}>
-            <Ionicons
-              name="image-outline"
+            <Icon
+              source="image-outline"
               size={isCompact ? 20 : 24}
               color={stateColors.loading}
-              onPress={isCompact ? handleGenerateThumbnail : undefined}
             />
           </View>
           {!isCompact ? renderForceDownloadButton(true) : null}
@@ -590,8 +587,8 @@ export const CachedMedia = React.memo(function CachedMedia({
                     }}
                   >
                     <View style={defaultStyles.compactAudioButton}>
-                      <Ionicons
-                        name={audioPlayer?.playing ? "pause" : "play"}
+                      <Icon
+                        source={audioPlayer?.playing ? "pause" : "play"}
                         size={16}
                         color="#007AFF"
                       />
@@ -614,8 +611,8 @@ export const CachedMedia = React.memo(function CachedMedia({
                     }}
                   >
                     <View style={defaultStyles.playButton}>
-                      <Ionicons
-                        name={audioPlayer?.playing ? "pause" : "play"}
+                      <Icon
+                        source={audioPlayer?.playing ? "pause" : "play"}
                         size={24}
                         color="white"
                       />

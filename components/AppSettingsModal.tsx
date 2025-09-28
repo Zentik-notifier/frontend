@@ -1,5 +1,3 @@
-import { Colors } from "@/constants/Colors";
-import { useColorScheme } from "@/hooks/useTheme";
 import React from "react";
 import {
     Modal,
@@ -9,8 +7,8 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTheme, Icon } from "react-native-paper";
 import { AppSettings } from "./AppSettings";
-import { Icon } from "./ui/Icon";
 
 interface AppSettingsModalProps {
   visible: boolean;
@@ -18,8 +16,7 @@ interface AppSettingsModalProps {
 }
 
 export function AppSettingsModal({ visible, onClose }: AppSettingsModalProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme];
+  const theme = useTheme();
 
   return (
     <Modal
@@ -28,11 +25,11 @@ export function AppSettingsModal({ visible, onClose }: AppSettingsModalProps) {
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+      <StatusBar barStyle={theme.dark ? 'light-content' : 'dark-content'} />
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View style={[styles.header, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.outline }]}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Icon name="cancel" size={24} color={colors.text} />
+            <Icon source="close" size={24} color={theme.colors.onSurface} />
           </TouchableOpacity>
         </View>
         <AppSettings />

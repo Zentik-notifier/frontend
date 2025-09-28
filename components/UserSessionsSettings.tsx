@@ -289,6 +289,7 @@ export function UserSessionsSettings() {
       <PaperScrollView 
         refreshing={loading} 
         onRefresh={refetch}
+        loading={loading && sortedSessions.length === 0}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >

@@ -283,6 +283,7 @@ export default function CreateWebhookForm({
 
   return (
     <PaperScrollView
+      loading={isLoading}
       style={[styles.container, styles.scrollView]}
       contentContainerStyle={styles.scrollContent}
     >

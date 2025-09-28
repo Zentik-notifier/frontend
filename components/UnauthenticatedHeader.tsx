@@ -1,11 +1,9 @@
-import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import React, { useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme, Icon } from "react-native-paper";
 import { AppSettingsModal } from "./AppSettingsModal";
-import { Icon } from "./ui/Icon";
 
 interface UnauthenticatedHeaderProps {
   showSettingsButton?: boolean;
@@ -14,7 +12,7 @@ interface UnauthenticatedHeaderProps {
 export default function UnauthenticatedHeader({ 
   showSettingsButton = true 
 }: UnauthenticatedHeaderProps) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -37,7 +35,7 @@ export default function UnauthenticatedHeader({
         style={[
           styles.container,
           {
-            backgroundColor: Colors[colorScheme].background,
+            backgroundColor: theme.colors.background,
             paddingTop: insets.top + 10,
           },
         ]}
@@ -55,8 +53,8 @@ export default function UnauthenticatedHeader({
               style={[
                 styles.settingsButton,
                 {
-                  backgroundColor: Colors[colorScheme].backgroundSecondary,
-                  borderColor: Colors[colorScheme].border,
+                  backgroundColor: theme.colors.surfaceVariant,
+                  borderColor: theme.colors.outline,
                 },
               ]}
               onPress={handleSettingsPress}
@@ -64,9 +62,9 @@ export default function UnauthenticatedHeader({
               accessibilityRole="button"
             >
               <Icon
-                name="settings"
-                size="sm"
-                color="secondary"
+                source="cog"
+                size={20}
+                color={theme.colors.onSurfaceVariant}
               />
             </TouchableOpacity>
           </View>

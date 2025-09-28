@@ -1,12 +1,10 @@
-import { AppIcons } from "@/constants/Icons";
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { Text, TouchableRipple, Icon as PaperIcon, useTheme } from "react-native-paper";
+import { Icon, Text, TouchableRipple, useTheme } from "react-native-paper";
 import { CachedMedia } from "./CachedMedia";
-import { Icon } from "./ui";
 
 const sizeMap = {
   sm: { container: 32, icon: 28, text: 14 },
@@ -93,7 +91,11 @@ export default function BucketIcon({
           onPress={handlePress}
         >
           <View>
-            <PaperIcon source="link" size={currentSize.text} color={theme.colors.onError} />
+            <Icon
+              source="link"
+              size={currentSize.text}
+              color={theme.colors.onError}
+            />
           </View>
         </TouchableRipple>
       ) : (
@@ -140,11 +142,8 @@ export default function BucketIcon({
             </Text>
           ) : (
             <Icon
-              name={
-                (icon?.replace("sfsymbols:", "") as keyof typeof AppIcons) ||
-                "bucket"
-              }
-              size={size}
+              source={icon?.replace("sfsymbols:", "") || "folder"}
+              size={sizeMap[size].icon}
               color={theme.colors.onPrimary}
             />
           )}

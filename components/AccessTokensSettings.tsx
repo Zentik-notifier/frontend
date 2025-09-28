@@ -158,6 +158,7 @@ export function AccessTokensSettings() {
       <PaperScrollView 
         refreshing={loading} 
         onRefresh={handleRefresh}
+        loading={loading && sortedTokens.length === 0}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >

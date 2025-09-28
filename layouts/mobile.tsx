@@ -1,7 +1,5 @@
 import Header from "@/components/Header";
-import { Colors } from "@/constants/Colors";
-import { useColorScheme, useI18n } from "@/hooks";
-import { useNavigationUtils } from "@/utils/navigation";
+import { useI18n } from "@/hooks";
 import { HeaderBackButton } from "@react-navigation/elements";
 import { Stack } from "expo-router";
 import { useLocalSearchParams } from "expo-router/build/hooks";

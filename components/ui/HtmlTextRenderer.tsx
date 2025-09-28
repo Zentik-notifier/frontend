@@ -1,4 +1,3 @@
-import { useThemeColor } from "@/hooks/useThemeColor";
 import React, { useMemo } from "react";
 import {
   StyleProp,
@@ -7,6 +6,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import { useTheme } from "react-native-paper";
 import HTMLView from "react-native-htmlview";
 
 export interface HtmlTextRendererProps {
@@ -28,22 +28,27 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
   maxLines,
   testID,
 }) => {
-  const textColor = useThemeColor(
-    {},
-    color === "primary"
-      ? "text"
-      : color === "secondary"
-        ? "textSecondary"
-        : color === "muted"
-          ? "textMuted"
-          : color === "error"
-            ? "error"
-            : color === "success"
-              ? "success"
-              : "text"
-  );
+  const theme = useTheme();
+  
+  const getTextColor = () => {
+    switch (color) {
+      case "primary":
+        return theme.colors.onSurface;
+      case "secondary":
+        return theme.colors.onSurfaceVariant;
+      case "muted":
+        return theme.colors.outline;
+      case "error":
+        return theme.colors.error;
+      case "success":
+        return theme.colors.primary;
+      default:
+        return theme.colors.onSurface;
+    }
+  };
 
-  const linkColor = useThemeColor({}, "tint");
+  const textColor = getTextColor();
+  const linkColor = theme.colors.primary;
 
   // Get variant styles
   const getVariantStyle = (): TextStyle => {
@@ -191,14 +196,14 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
       fontStyle: "italic",
     },
     code: {
-      backgroundColor: useThemeColor({}, "backgroundSecondary"),
+      backgroundColor: theme.colors.surfaceVariant,
       paddingHorizontal: 4,
       paddingVertical: 2,
       borderRadius: 4,
       fontFamily: "monospace",
     },
     pre: {
-      backgroundColor: useThemeColor({}, "backgroundSecondary"),
+      backgroundColor: theme.colors.surfaceVariant,
       padding: 12,
       borderRadius: 8,
       marginVertical: 8,

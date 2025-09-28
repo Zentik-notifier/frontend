@@ -89,6 +89,7 @@ export default function CreateAccessTokenForm() {
 
   return (
     <PaperScrollView 
+      loading={creating}
       style={[styles.container, styles.scrollView]}
       contentContainerStyle={styles.scrollContent}
     >

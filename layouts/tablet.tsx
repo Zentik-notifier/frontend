@@ -1,18 +1,19 @@
 import Header from "@/components/Header";
 import { useI18n } from "@/hooks";
 import { useDeviceType } from "@/hooks/useDeviceType";
-import { useThemeColor } from "@/hooks/useThemeColor";
 import { Stack } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme } from "react-native-paper";
 
 export default function TabletLayout() {
   const { isDesktop } = useDeviceType();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   
   // Ottieni i colori del tema
-  const backgroundColor = useThemeColor({}, 'backgroundSecondary');
-  const cardBackground = useThemeColor({}, 'background');
+  const backgroundColor = theme.colors.surface;
+  const cardBackground = theme.colors.background;
 
   // Calcola l'altezza totale dell'header (safe area + appbar)
   const headerHeight = insets.top + 64; // 48 è l'altezza dell'Appbar

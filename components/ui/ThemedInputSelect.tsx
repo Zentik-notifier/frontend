@@ -11,8 +11,7 @@ import {
   Dimensions,
   StyleSheet,
 } from "react-native";
-import { useTheme } from "react-native-paper";
-import { Ionicons } from "@expo/vector-icons";
+import { useTheme, Icon } from "react-native-paper";
 
 interface ThemedInputSelectProps {
   label?: string;
@@ -382,11 +381,10 @@ export default function ThemedInputSelect({
             <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
               {selectedOption ? selectedOption[optionLabel] : placeholder || "Seleziona un'opzione"}
             </Text>
-            <Ionicons
-              name={isInlineDropdownOpen ? "chevron-up" : "chevron-down"}
+            <Icon
+              source={isInlineDropdownOpen ? "chevron-up" : "chevron-down"}
               size={20}
               color={theme.colors.onSurfaceVariant}
-              style={styles.chevronIcon}
             />
           </TouchableOpacity>
 
@@ -416,11 +414,10 @@ export default function ThemedInputSelect({
         <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
           {selectedOption ? selectedOption[optionLabel] : placeholder || "Seleziona un'opzione"}
         </Text>
-        <Ionicons
-          name="chevron-down"
+        <Icon
+          source="chevron-down"
           size={20}
           color={theme.colors.onSurfaceVariant}
-          style={styles.chevronIcon}
         />
       </TouchableOpacity>
 
@@ -455,8 +452,8 @@ export default function ThemedInputSelect({
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>{label || "Seleziona opzione"}</Text>
                 <TouchableOpacity onPress={hideModal} style={styles.closeButton}>
-                  <Ionicons
-                    name="close"
+                  <Icon
+                    source="close"
                     size={24}
                     color={theme.colors.onSurface}
                   />

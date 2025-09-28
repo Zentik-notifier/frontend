@@ -1,4 +1,3 @@
-import { AppIcons } from "@/constants/Icons";
 import {
   CreateMessageDto,
   GetNotificationsDocument,

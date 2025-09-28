@@ -1,7 +1,7 @@
 import { useI18n } from "@/hooks/useI18n";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useAppContext } from "@/contexts/AppContext";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "react-native-paper";
 import React, { useState } from "react";
 import { Alert } from "react-native";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -87,21 +87,21 @@ export function StatusBadge() {
       disabled={!isClickable}
       activeOpacity={isClickable ? 0.7 : 1}
     >
-      <Ionicons name={getStatusIcon() as any} size={16} color="#fff" />
+      <Icon source={getStatusIcon() as any} size={16} color="#fff" />
       <Text style={styles.statusText}>{getStatusLabel()}</Text>
 
       {/* Indicatore di loading per aggiornamenti */}
       {status.type === "update" && (isCheckingUpdate || isUpdating) && (
         <View style={styles.loadingIndicator}>
-          <Ionicons name="ellipsis-horizontal" size={12} color="#fff" />
+          <Icon source="dots-horizontal" size={12} color="#fff" />
         </View>
       )}
 
       {/* Indicatore per dispositivo non registrato */}
       {status.type === "push-notifications" && (
         <View style={styles.loadingIndicator}>
-          <Ionicons
-            name={isRegistering ? "hourglass" : "warning"}
+          <Icon
+            source={isRegistering ? "clock" : "alert"}
             size={12}
             color="#fff"
           />

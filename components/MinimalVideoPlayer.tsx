@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "react-native-paper";
 import { VideoView, useVideoPlayer } from "expo-video";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -9,8 +9,7 @@ import {
     View,
     ViewStyle,
 } from "react-native";
-import { Colors } from "../constants/Colors";
-import { useColorScheme } from "../hooks/useTheme";
+import { useTheme } from "react-native-paper";
 
 interface MinimalVideoPlayerProps {
   source: string;
@@ -20,7 +19,7 @@ interface MinimalVideoPlayerProps {
   isMuted?: boolean;
   showControls?: boolean;
   customButton?: {
-    icon: keyof typeof Ionicons.glyphMap;
+    icon: string;
     onPress: () => void;
     color?: string;
     size?: number;
@@ -42,7 +41,7 @@ export const MinimalVideoPlayer: React.FC<MinimalVideoPlayerProps> = ({
   onError,
   onLoad,
 }) => {
-    const colorScheme = useColorScheme();
+    const theme = useTheme();
   const [showOverlay, setShowOverlay] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -169,7 +168,7 @@ export const MinimalVideoPlayer: React.FC<MinimalVideoPlayerProps> = ({
         {/* Loading indicator */}
         {isLoading && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+            <ActivityIndicator size="large" color={theme.colors.primary} />
           </View>
         )}
 
@@ -182,8 +181,8 @@ export const MinimalVideoPlayer: React.FC<MinimalVideoPlayerProps> = ({
                 style={[styles.controlButton, styles.playButton]}
                 onPress={handlePlayPause}
               >
-                <Ionicons
-                  name={isPlaying ? "pause" : "play"}
+                <Icon
+                  source={isPlaying ? "pause" : "play"}
                   size={24}
                   color="white"
                 />
@@ -195,8 +194,8 @@ export const MinimalVideoPlayer: React.FC<MinimalVideoPlayerProps> = ({
                   style={[styles.controlButton, styles.customButton]}
                   onPress={handleCustomButtonPress}
                 >
-                  <Ionicons
-                    name={customButton.icon}
+                  <Icon
+                    source={customButton.icon}
                     size={customButton.size || 20}
                     color={customButton.color || "white"}
                   />

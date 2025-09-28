@@ -1,10 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
-
 export interface LegalDocument {
   id: string;
   title: string;
   fileName: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
 }
 
 export const LEGAL_DOCUMENTS: LegalDocument[] = [

@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native";
 import SwipeableItem from "./SwipeableItem";
-import Icon from "./ui/Icon";
+import { Icon } from "react-native-paper";
 import CopyButton from "./ui/CopyButton";
 import { useNavigationUtils } from "@/utils/navigation";
 import {

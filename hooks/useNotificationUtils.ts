@@ -1,4 +1,3 @@
-import { AppIcons } from "@/constants/Icons";
 import { MediaType, NotificationActionType, NotificationDeliveryType } from "@/generated/gql-operations-generated";
 import { useI18n } from "./useI18n";
 
@@ -8,7 +7,7 @@ import { useI18n } from "./useI18n";
 export const useNotificationUtils = () => {
   const { t } = useI18n();
 
-  const getDeliveryTypeIcon = (deliveryType: NotificationDeliveryType): keyof typeof AppIcons => {
+  const getDeliveryTypeIcon = (deliveryType: NotificationDeliveryType): string => {
     switch (deliveryType) {
       case NotificationDeliveryType.Silent:
         return "priorityLow";
@@ -59,7 +58,7 @@ export const useNotificationUtils = () => {
       case MediaType.Image:
         return "image";
       case MediaType.Gif:
-        return "gif";
+        return "file-image";
       case MediaType.Video:
         return "video";
       case MediaType.Audio:

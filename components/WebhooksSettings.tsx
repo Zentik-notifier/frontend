@@ -61,6 +61,7 @@ export default function WebhooksSettings({
       <PaperScrollView 
         refreshing={loading} 
         onRefresh={handleRefresh}
+        loading={loading && webhooks.length === 0}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >

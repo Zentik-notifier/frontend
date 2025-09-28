@@ -1,9 +1,5 @@
 // Main UI Components
 export { default as BucketIcon } from './BucketIcon';
-export { default as Icon } from './ui/Icon';
-
-// Layout Components
-export { default as SectionHeader } from './SectionHeader';
 
 // Feature Components
 export { default as BucketDetail } from './BucketDetail';

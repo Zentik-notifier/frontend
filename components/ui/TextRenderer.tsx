@@ -1,6 +1,6 @@
-import { useThemeColor } from "@/hooks/useThemeColor";
 import React, { useMemo } from "react";
-import { Alert, Linking, StyleProp, Text, TextStyle, View, ViewStyle } from "react-native";
+import { Alert, Linking, StyleProp, TextStyle, View, ViewStyle } from "react-native";
+import { Text, useTheme } from "react-native-paper";
 
 export interface TextRendererProps {
   content: string;
@@ -34,22 +34,27 @@ export const TextRenderer: React.FC<TextRendererProps> = ({
   onLinkPress,
   testID,
 }) => {
-  const textColor = useThemeColor(
-    {},
-    color === "primary"
-      ? "text"
-      : color === "secondary"
-        ? "textSecondary"
-        : color === "muted"
-          ? "textMuted"
-          : color === "error"
-            ? "error"
-            : color === "success"
-              ? "success"
-              : "text"
-  );
+  const theme = useTheme();
+  
+  const getTextColor = () => {
+    switch (color) {
+      case "primary":
+        return theme.colors.onSurface;
+      case "secondary":
+        return theme.colors.onSurfaceVariant;
+      case "muted":
+        return theme.colors.outline;
+      case "error":
+        return theme.colors.error;
+      case "success":
+        return theme.colors.primary;
+      default:
+        return theme.colors.onSurface;
+    }
+  };
 
-  const linkColor = useThemeColor({}, "tint");
+  const textColor = getTextColor();
+  const linkColor = theme.colors.primary;
 
   // Regular expressions for contact detection
   const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;

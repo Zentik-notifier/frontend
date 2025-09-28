@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native";
 import SwipeableItem, { SwipeAction } from "./SwipeableItem";
-import Icon from "./ui/Icon";
+import { Icon } from "react-native-paper";
 import {
   Button,
   Card,

@@ -1,10 +1,9 @@
-import { Colors } from "@/constants/Colors";
 import { MediaType } from "@/generated/gql-operations-generated";
-import { useColorScheme, useDateFormat } from "@/hooks";
+import { useDateFormat } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
 import { mediaCache } from "@/services/media-cache";
 import { saveMediaToGallery } from "@/services/media-gallery";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "react-native-paper";
 import * as Clipboard from "expo-clipboard";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
@@ -17,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useTheme } from "react-native-paper";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -58,13 +58,13 @@ export default function FullScreenMediaViewer({
   onSwipeRight,
   currentPosition,
 }: FullScreenMediaViewerProps) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const [busy, setBusy] = useState(false);
   const { t } = useI18n();
   const { formatDate } = useDateFormat();
 
-  const textColor = Colors[colorScheme].text;
-  const bgSecondary = Colors[colorScheme].backgroundSecondary;
+  const textColor = theme.colors.onSurface;
+  const bgSecondary = theme.colors.surfaceVariant;
   const [mediaLayout, setMediaLayout] = useState<{
     x: number;
     y: number;
@@ -324,7 +324,7 @@ export default function FullScreenMediaViewer({
                   onPress={onSwipeRight}
                   accessibilityLabel="previous-media"
                 >
-                  <Ionicons name="chevron-back" size={18} color={textColor} />
+                  <Icon source="chevron-left" size={18} color={textColor} />
                 </TouchableOpacity>
                 {currentPosition && (
                   <Text style={[styles.counterText, { color: textColor }]}>
@@ -340,8 +340,8 @@ export default function FullScreenMediaViewer({
                   onPress={onSwipeLeft}
                   accessibilityLabel="next-media"
                 >
-                  <Ionicons
-                    name="chevron-forward"
+                  <Icon
+                    source="chevron-right"
                     size={18}
                     color={textColor}
                   />
@@ -357,31 +357,31 @@ export default function FullScreenMediaViewer({
               onPress={handleCopyUrl}
               accessibilityLabel="copy-url"
             >
-              <Ionicons name="copy-outline" size={18} color={textColor} />
+              <Icon source="content-copy" size={18} color={textColor} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.iconButton, { backgroundColor: bgSecondary }]}
               onPress={handleSave}
               accessibilityLabel="save-to-gallery"
             >
-              <Ionicons name="download-outline" size={18} color={textColor} />
+              <Icon source="download" size={18} color={textColor} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.iconButton, { backgroundColor: bgSecondary }]}
               onPress={handleShare}
               accessibilityLabel="share"
             >
-              <Ionicons name="share-outline" size={18} color={textColor} />
+              <Icon source="share" size={18} color={textColor} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.iconButton, { backgroundColor: bgSecondary }]}
               onPress={handleDelete}
               accessibilityLabel="delete"
             >
-              <Ionicons
-                name="trash"
+              <Icon
+                source="delete"
                 size={18}
-                color={Colors[colorScheme].error}
+                color={theme.colors.error}
               />
             </TouchableOpacity>
             <TouchableOpacity
@@ -389,7 +389,7 @@ export default function FullScreenMediaViewer({
               onPress={onClose}
               accessibilityLabel="close"
             >
-              <Ionicons name="close" size={18} color={textColor} />
+              <Icon source="close" size={18} color={textColor} />
             </TouchableOpacity>
           </View>
         </View>

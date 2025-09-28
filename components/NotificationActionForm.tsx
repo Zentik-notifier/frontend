@@ -1,11 +1,9 @@
-import { Colors } from "@/constants/Colors";
 import {
   HttpMethod,
   NotificationActionType
 } from "@/generated/gql-operations-generated";
 import { useNotificationUtils } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import React from "react";
 import {
   StyleSheet,
@@ -13,8 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Text } from "react-native-paper";
-import { IconButton } from "./ui";
+import { Text, useTheme, Button } from "react-native-paper";
 import ThemedInputSelect from "./ui/ThemedInputSelect";
 import WebhookMethodUrlSelector from "./WebhookMethodUrlSelector";
 
@@ -64,7 +61,7 @@ export default function NotificationActionForm({
   isEditing = false,
 }: NotificationActionFormProps) {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { getActionTypeFriendlyName, getActionTypeIcon } = useNotificationUtils();
 
   const actionTypeOptions = [
@@ -92,8 +89,8 @@ export default function NotificationActionForm({
       style={[
         styles.actionForm,
         {
-          backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
-          borderColor: Colors[colorScheme ?? "light"].border,
+          backgroundColor: theme.colors.surfaceVariant,
+          borderColor: theme.colors.outline,
         },
       ]}
     >
@@ -132,16 +129,16 @@ export default function NotificationActionForm({
                 styles.noWebhooksContainer,
                 {
                   backgroundColor:
-                    Colors[colorScheme ?? "light"].backgroundSecondary,
+                    theme.colors.surfaceVariant,
                 },
               ]}
             >
               <Text
                 style={[
-                  styles.noWebhooksText,
-                  {
-                    color: Colors[colorScheme ?? "light"].textSecondary,
-                  },
+                styles.noWebhooksText,
+                {
+                  color: theme.colors.onSurfaceVariant,
+                },
                 ]}
               >
                 {t("notifications.noWebhooks.message", {
@@ -162,16 +159,16 @@ export default function NotificationActionForm({
             style={[
               styles.textInput,
               {
-                backgroundColor: Colors[colorScheme ?? "light"].inputBackground,
-                borderColor: Colors[colorScheme ?? "light"].inputBorder,
-                color: Colors[colorScheme ?? "light"].text,
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outline,
+                color: theme.colors.onSurface,
               },
             ]}
             value={actionValue}
             onChangeText={onActionValueChange}
             placeholder={t("notifications.actions.actionValuePlaceholder")}
             placeholderTextColor={
-              Colors[colorScheme ?? "light"].inputPlaceholder
+              theme.colors.onSurfaceVariant
             }
           />
         )}
@@ -185,16 +182,16 @@ export default function NotificationActionForm({
           style={[
             styles.textInput,
             {
-              backgroundColor: Colors[colorScheme ?? "light"].inputBackground,
-              borderColor: Colors[colorScheme ?? "light"].inputBorder,
-              color: Colors[colorScheme ?? "light"].text,
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.outline,
+              color: theme.colors.onSurface,
             },
           ]}
           value={actionTitle}
           onChangeText={onActionTitleChange}
           placeholder={t("notifications.actions.actionTitlePlaceholder")}
           placeholderTextColor={
-            Colors[colorScheme ?? "light"].inputPlaceholder
+            theme.colors.onSurfaceVariant
           }
           maxLength={50}
         />
@@ -204,7 +201,7 @@ export default function NotificationActionForm({
         <Text
           style={[
             styles.inputLabel,
-            { color: Colors[colorScheme ?? "light"].text },
+            { color: theme.colors.onSurface },
           ]}
         >
           {t("notifications.actions.iconName")}
@@ -212,7 +209,7 @@ export default function NotificationActionForm({
         <Text
           style={[
             styles.inputHint,
-            { color: Colors[colorScheme ?? "light"].textSecondary },
+            { color: theme.colors.onSurfaceVariant },
           ]}
         >
           {t("notifications.actions.iconHint")}
@@ -221,16 +218,16 @@ export default function NotificationActionForm({
           style={[
             styles.textInput,
             {
-              backgroundColor: Colors[colorScheme ?? "light"].inputBackground,
-              borderColor: Colors[colorScheme ?? "light"].inputBorder,
-              color: Colors[colorScheme ?? "light"].text,
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.outline,
+              color: theme.colors.onSurface,
             },
           ]}
           value={actionIconName}
           onChangeText={onActionIconNameChange}
           placeholder={t("notifications.actions.iconNamePlaceholder")}
           placeholderTextColor={
-            Colors[colorScheme ?? "light"].inputPlaceholder
+            theme.colors.onSurfaceVariant
           }
           maxLength={50}
         />
@@ -240,14 +237,14 @@ export default function NotificationActionForm({
         style={[
           styles.switchRow,
           {
-            backgroundColor: Colors[colorScheme ?? "light"].backgroundSecondary,
+            backgroundColor: theme.colors.surfaceVariant,
           },
         ]}
       >
         <Text
           style={[
             styles.switchLabel,
-            { color: Colors[colorScheme ?? "light"].text },
+            { color: theme.colors.onSurface },
           ]}
         >
           {t("notifications.actions.destructiveAction")}
@@ -256,28 +253,28 @@ export default function NotificationActionForm({
           value={actionDestructive}
           onValueChange={onActionDestructiveChange}
           trackColor={{
-            false: Colors[colorScheme ?? "light"].border,
-            true: Colors[colorScheme ?? "light"].tint,
+            false: theme.colors.outline,
+            true: theme.colors.primary,
           }}
         />
       </View>
 
       <View style={styles.actionFormButtons}>
-        <IconButton
-          title={t("notifications.form.cancel")}
-          iconName="cancel"
+        <Button
+          mode="outlined"
           onPress={onCancel}
-          variant="secondary"
-          size="sm"
-        />
-        <IconButton
-          title={saveButtonTitle}
-          iconName={isEditing ? "confirm" : "add"}
+          style={styles.button}
+        >
+          {t("notifications.form.cancel")}
+        </Button>
+        <Button
+          mode="contained"
           onPress={onSave}
-          variant="success"
-          size="sm"
           disabled={!isFormValid()}
-        />
+          style={styles.button}
+        >
+          {saveButtonTitle}
+        </Button>
       </View>
     </View>
   );
@@ -348,5 +345,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     fontStyle: "italic",
+  },
+  button: {
+    flex: 1,
+    marginHorizontal: 4,
   },
 });

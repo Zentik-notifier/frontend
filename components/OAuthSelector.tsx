@@ -1,9 +1,8 @@
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
 import { StyleSheet, View, ViewStyle } from "react-native";
-import { Button, Text, useTheme } from "react-native-paper";
+import { Button, Text, useTheme, Icon } from "react-native-paper";
 import { Image } from "expo-image";
 import {
   Menu,
@@ -50,7 +49,7 @@ export function OAuthSelector({
             style={styles.selectorButton}
             contentStyle={styles.buttonContent}
             icon={() => (
-              <Ionicons name="chevron-down" size={20} color="currentColor" />
+              <Icon source="chevron-down" size={20} color="currentColor" />
             )}
           >
             {t("login.orContinueWith")}

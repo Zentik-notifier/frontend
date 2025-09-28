@@ -8,6 +8,4 @@ export { useNotificationActions } from './useNotificationActions';
 export { useNotificationFilters } from './useNotificationFilters';
 export { useNotificationUtils } from './useNotificationUtils';
 export { useScreenFocus } from './useScreenFocus';
-export { useColorScheme, useTheme } from './useTheme';
-export { useThemeColor } from './useThemeColor';
 

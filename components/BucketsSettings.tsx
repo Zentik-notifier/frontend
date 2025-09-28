@@ -364,6 +364,7 @@ export default function BucketsSettings() {
       <PaperScrollView 
         refreshing={loading} 
         onRefresh={refetch}
+        loading={loading && buckets.length === 0}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >

@@ -1,7 +1,6 @@
 import { useRequestPasswordResetMutation } from '@/generated/gql-operations-generated';
 import { useI18n } from '@/hooks/useI18n';
 import { useLanguageSync } from '@/hooks/useLanguageSync';
-import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
     Alert,
