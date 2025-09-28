@@ -1,5 +1,3 @@
-export { Button } from './Button';
-export type { ButtonProps } from './Button';
 export { HtmlTextRenderer } from './HtmlTextRenderer';
 export type { HtmlTextRendererProps } from './HtmlTextRenderer';
 export { SmartTextRenderer } from './SmartTextRenderer';

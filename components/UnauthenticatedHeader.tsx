@@ -2,7 +2,7 @@ import { useI18n } from "@/hooks/useI18n";
 import React, { useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTheme, Icon } from "react-native-paper";
+import { useTheme, Icon, Surface } from "react-native-paper";
 import { AppSettingsModal } from "./AppSettingsModal";
 
 interface UnauthenticatedHeaderProps {
@@ -49,24 +49,26 @@ export default function UnauthenticatedHeader({
           
           {/* Right side with settings button */}
           <View style={styles.rightSection}>
-            <TouchableOpacity
-              style={[
-                styles.settingsButton,
-                {
-                  backgroundColor: theme.colors.surfaceVariant,
-                  borderColor: theme.colors.outline,
-                },
-              ]}
-              onPress={handleSettingsPress}
-              accessibilityLabel={t('common.settings')}
-              accessibilityRole="button"
-            >
-              <Icon
-                source="cog"
-                size={20}
-                color={theme.colors.onSurfaceVariant}
-              />
-            </TouchableOpacity>
+            <Surface style={styles.buttonWrapper} elevation={2}>
+              <TouchableOpacity
+                style={[
+                  styles.settingsButton,
+                  {
+                    backgroundColor: theme.colors.surfaceVariant,
+                    borderColor: theme.colors.outline,
+                  },
+                ]}
+                onPress={handleSettingsPress}
+                accessibilityLabel={t('common.settings')}
+                accessibilityRole="button"
+              >
+                <Icon
+                  source="cog"
+                  size={20}
+                  color={theme.colors.onSurfaceVariant}
+                />
+              </TouchableOpacity>
+            </Surface>
           </View>
         </View>
       </View>
@@ -105,6 +107,10 @@ const styles = StyleSheet.create({
   rightSection: {
     width: 44,
     alignItems: 'flex-end',
+  },
+  buttonWrapper: {
+    borderRadius: 22,
+    overflow: "hidden",
   },
   settingsButton: {
     width: 44,

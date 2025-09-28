@@ -284,53 +284,63 @@ export default function Header() {
           <View style={styles.leftSection}>
             {/* Navigation Button */}
             {shouldShowBackButton && (
-              <TouchableRipple
-                style={styles.backButton}
-                onPress={navigateBack}
-                accessibilityLabel={t("common.back")}
-                accessibilityRole="button"
+              <Surface 
+                style={[styles.buttonWrapper, { backgroundColor: theme.colors.surface }]} 
+                elevation={2}
               >
-                <View style={styles.backButtonContent}>
-                  <Icon
-                    source="arrow-left"
-                    size={24}
-                    color={theme.colors.onPrimary}
-                  />
-                  {!isMobile && (
-                    <Text
-                      variant="titleMedium"
-                      style={{ color: theme.colors.onPrimary }}
-                    >
-                      {t("common.back")}
-                    </Text>
-                  )}
-                </View>
-              </TouchableRipple>
+                <TouchableRipple
+                  style={styles.backButton}
+                  onPress={navigateBack}
+                  accessibilityLabel={t("common.back")}
+                  accessibilityRole="button"
+                >
+                  <View style={styles.backButtonContent}>
+                    <Icon
+                      source="arrow-left"
+                      size={24}
+                      color={theme.colors.onSurface}
+                    />
+                    {!isMobile && (
+                      <Text
+                        variant="titleMedium"
+                        style={{ color: theme.colors.onSurface }}
+                      >
+                        {t("common.back")}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableRipple>
+              </Surface>
             )}
 
             {shouldShowHomeButton && (
-              <TouchableRipple
-                style={styles.homeButton}
-                onPress={navigateToHome}
-                accessibilityLabel={t("common.home")}
-                accessibilityRole="button"
+              <Surface 
+                style={[styles.buttonWrapper, { backgroundColor: theme.colors.surface }]} 
+                elevation={2}
               >
-                <View style={styles.homeButtonContent}>
-                  <Icon
-                    source="home"
-                    size={24}
-                    color={theme.colors.onPrimary}
-                  />
-                  {!isMobile && (
-                    <Text
-                      variant="titleMedium"
-                      style={{ color: theme.colors.onPrimary }}
-                    >
-                      {t("common.home")}
-                    </Text>
-                  )}
-                </View>
-              </TouchableRipple>
+                <TouchableRipple
+                  style={styles.homeButton}
+                  onPress={navigateToHome}
+                  accessibilityLabel={t("common.home")}
+                  accessibilityRole="button"
+                >
+                  <View style={styles.homeButtonContent}>
+                    <Icon
+                      source="home"
+                      size={24}
+                      color={theme.colors.onSurface}
+                    />
+                    {!isMobile && (
+                      <Text
+                        variant="titleMedium"
+                        style={{ color: theme.colors.onSurface }}
+                      >
+                        {t("common.home")}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableRipple>
+              </Surface>
             )}
 
             {/* Main Loading Indicator */}
@@ -504,9 +514,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
   },
+  buttonWrapper: {
+    borderRadius: 20,
+    marginRight: 8,
+  },
   backButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   backButtonContent: {
     flexDirection: "row",
@@ -514,8 +528,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   homeButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   homeButtonContent: {
     flexDirection: "row",

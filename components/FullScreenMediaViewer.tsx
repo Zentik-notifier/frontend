@@ -3,21 +3,13 @@ import { useDateFormat } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
 import { mediaCache } from "@/services/media-cache";
 import { saveMediaToGallery } from "@/services/media-gallery";
-import { Icon } from "react-native-paper";
 import * as Clipboard from "expo-clipboard";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
-import {
-  Alert,
-  Modal,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { useTheme } from "react-native-paper";
+import { Alert, Modal, Platform, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { IconButton, Text, useTheme } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -62,6 +54,7 @@ export default function FullScreenMediaViewer({
   const [busy, setBusy] = useState(false);
   const { t } = useI18n();
   const { formatDate } = useDateFormat();
+  const insets = useSafeAreaInsets();
 
   const textColor = theme.colors.onSurface;
   const bgSecondary = theme.colors.surfaceVariant;
@@ -294,14 +287,16 @@ export default function FullScreenMediaViewer({
   return (
     <Modal
       visible={visible}
-      transparent
+      transparent={true}
       animationType="fade"
+      statusBarTranslucent={true}
       onRequestClose={onClose}
     >
       <View style={[styles.container]}>
         <View
           style={[
             styles.topBar,
+            { top: insets.top + 16 },
             enableSwipeNavigation
               ? styles.topBarWithNavigation
               : styles.topBarActionsOnly,
@@ -315,7 +310,10 @@ export default function FullScreenMediaViewer({
                   { backgroundColor: bgSecondary, borderRadius: 12 },
                 ]}
               >
-                <TouchableOpacity
+                <IconButton
+                  icon="chevron-left"
+                  size={18}
+                  iconColor={textColor}
                   style={[
                     styles.iconButton,
                     styles.leftNavButton,
@@ -323,15 +321,16 @@ export default function FullScreenMediaViewer({
                   ]}
                   onPress={onSwipeRight}
                   accessibilityLabel="previous-media"
-                >
-                  <Icon source="chevron-left" size={18} color={textColor} />
-                </TouchableOpacity>
+                />
                 {currentPosition && (
                   <Text style={[styles.counterText, { color: textColor }]}>
                     {currentPosition}
                   </Text>
                 )}
-                <TouchableOpacity
+                <IconButton
+                  icon="chevron-right"
+                  size={18}
+                  iconColor={textColor}
                   style={[
                     styles.iconButton,
                     styles.rightNavButton,
@@ -339,58 +338,53 @@ export default function FullScreenMediaViewer({
                   ]}
                   onPress={onSwipeLeft}
                   accessibilityLabel="next-media"
-                >
-                  <Icon
-                    source="chevron-right"
-                    size={18}
-                    color={textColor}
-                  />
-                </TouchableOpacity>
+                />
               </View>
             </View>
           )}
 
           {/* Action buttons */}
           <View style={styles.actionButtons}>
-            <TouchableOpacity
+            <IconButton
+              icon="content-copy"
+              size={18}
+              iconColor={textColor}
               style={[styles.iconButton, { backgroundColor: bgSecondary }]}
               onPress={handleCopyUrl}
               accessibilityLabel="copy-url"
-            >
-              <Icon source="content-copy" size={18} color={textColor} />
-            </TouchableOpacity>
-            <TouchableOpacity
+            />
+            <IconButton
+              icon="download"
+              size={18}
+              iconColor={textColor}
               style={[styles.iconButton, { backgroundColor: bgSecondary }]}
               onPress={handleSave}
               accessibilityLabel="save-to-gallery"
-            >
-              <Icon source="download" size={18} color={textColor} />
-            </TouchableOpacity>
-            <TouchableOpacity
+            />
+            <IconButton
+              icon="share"
+              size={18}
+              iconColor={textColor}
               style={[styles.iconButton, { backgroundColor: bgSecondary }]}
               onPress={handleShare}
               accessibilityLabel="share"
-            >
-              <Icon source="share" size={18} color={textColor} />
-            </TouchableOpacity>
-            <TouchableOpacity
+            />
+            <IconButton
+              icon="delete"
+              size={18}
+              iconColor={theme.colors.error}
               style={[styles.iconButton, { backgroundColor: bgSecondary }]}
               onPress={handleDelete}
               accessibilityLabel="delete"
-            >
-              <Icon
-                source="delete"
-                size={18}
-                color={theme.colors.error}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
+            />
+            <IconButton
+              icon="close"
+              size={18}
+              iconColor={textColor}
               style={[styles.iconButton, { backgroundColor: bgSecondary }]}
               onPress={onClose}
               accessibilityLabel="close"
-            >
-              <Icon source="close" size={18} color={textColor} />
-            </TouchableOpacity>
+            />
           </View>
         </View>
 
@@ -456,7 +450,7 @@ export default function FullScreenMediaViewer({
 
         {/* Bottom description with title */}
         {(description || originalFileName) && (
-          <View style={[styles.bottomBar, { backgroundColor: bgSecondary }]}>
+          <View style={[styles.bottomBar, { backgroundColor: bgSecondary, bottom: insets.bottom + 16 }]}>
             {originalFileName ? (
               <Text
                 style={[styles.descTitle, { color: textColor }]}
@@ -481,10 +475,12 @@ export default function FullScreenMediaViewer({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "rgba(0,0,0,0.9)" },
+  container: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.9)",
+  },
   topBar: {
     position: "absolute",
-    top: 50,
     left: 16,
     right: 16,
     zIndex: 1,
@@ -516,8 +512,6 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
   },
   counterText: {
     fontSize: 14,
@@ -528,12 +522,11 @@ const styles = StyleSheet.create({
     lineHeight: 34,
   },
   content: { flex: 1, alignItems: "center", justifyContent: "center" },
-  media: { width: "95%" },
+  media: { width: "95%", height: "80%" },
   bottomBar: {
     position: "absolute",
     left: 16,
     right: 16,
-    bottom: 60,
     padding: 12,
     borderRadius: 12,
   },

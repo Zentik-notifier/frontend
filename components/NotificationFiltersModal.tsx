@@ -504,7 +504,6 @@ export default function NotificationFiltersModal() {
               </View>
             )}
           </ScrollView>
-          {/* </SafeAreaView> */}
         </Modal>
       </Portal>
     </>
