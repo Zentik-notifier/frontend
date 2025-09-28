@@ -49,10 +49,11 @@ Ordine consigliato (dalle entrypoint ai componenti annidati):
 20. components/WebhooksSettings.tsx
 
 ### Fase 4: Admin Components (Priorità Media)
-21. components/UserManagement.tsx
-22. components/OAuthProvidersSettings.tsx
-23. components/SystemAccessTokensSettings.tsx
-24. components/EventsReview.tsx
+21. components/UserManagement.tsx ✅
+22. components/UserDetails.tsx ✅ (Nota: utilizzare ThemedInputSelect per selezione ruolo)
+23. components/OAuthProvidersSettings.tsx
+24. components/SystemAccessTokensSettings.tsx
+25. components/EventsReview.tsx
 
 ### Fase 5: Pagine Settings (Priorità Bassa)
 25. app/(mobile)/(settings)/*.tsx
@@ -67,6 +68,7 @@ Ordine consigliato (dalle entrypoint ai componenti annidati):
 - **Form Components**: Sostituire TextInput nativi con TextInput di Paper
 - **Color Consistency**: Usare theme.colors per tutti i colori
 - **Icon Consistency**: Solo MaterialCommunityIcons via react-native-paper
+- **ThemedInputSelect**: Mantenere ThemedInputSelect per selezioni complesse (es. selezione ruolo in UserDetails)
 
 Note:
 - Includere eventuali sotto-componenti usati da questi file (modali, badge, bottoni swipe) durante la migrazione.

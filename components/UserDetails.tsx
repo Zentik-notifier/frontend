@@ -1,33 +1,31 @@
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
-import ThemedInputSelect from "@/components/ui/ThemedInputSelect";
-import { Colors } from "@/constants/Colors";
 import {
   UpdateUserRoleInput,
-  UserFragment,
   UserRole,
   useGetUserByIdQuery,
   useUpdateUserRoleMutation,
   useUserNotificationStatsByUserIdQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import React, { useState } from "react";
+import { Alert, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
-  Alert,
-  RefreshControl,
-  StyleSheet,
-  View,
-} from "react-native";
-import SettingsScrollView from "./SettingsScrollView";
+  Card,
+  Chip,
+  Divider,
+  Surface,
+  Text,
+  useTheme,
+} from "react-native-paper";
+import ThemedInputSelect from "./ui/ThemedInputSelect";
+import PaperScrollView from "./ui/PaperScrollView";
 
 interface UserDetailsProps {
   userId: string;
 }
 
 export default function UserDetails({ userId }: UserDetailsProps) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -38,6 +36,7 @@ export default function UserDetails({ userId }: UserDetailsProps) {
   } = useGetUserByIdQuery({
     variables: { id: userId! },
     skip: !userId,
+    fetchPolicy: "cache-first",
   });
   const {
     data: statsData,
@@ -46,6 +45,7 @@ export default function UserDetails({ userId }: UserDetailsProps) {
   } = useUserNotificationStatsByUserIdQuery({
     variables: { userId: userId! },
     skip: !userId,
+    fetchPolicy: "cache-first",
   });
 
   const [updateUserRole] = useUpdateUserRoleMutation({
@@ -123,13 +123,13 @@ export default function UserDetails({ userId }: UserDetailsProps) {
   const getRoleColor = (role: UserRole): string => {
     switch (role) {
       case UserRole.Admin:
-        return "#DC2626"; // Red
+        return theme.colors.error;
       case UserRole.Moderator:
-        return "#F59E0B"; // Amber/Orange
+        return theme.colors.secondary;
       case UserRole.User:
-        return "#10B981"; // Green
+        return theme.colors.primary;
       default:
-        return "#6B7280"; // Gray
+        return theme.colors.outline;
     }
   };
 
@@ -150,223 +150,227 @@ export default function UserDetails({ userId }: UserDetailsProps) {
 
   if (!userId) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedText style={styles.errorText}>
+      <Surface style={styles.container}>
+        <Text variant="bodyLarge" style={styles.errorText}>
           {t("administration.userNotFound")}
-        </ThemedText>
-      </ThemedView>
+        </Text>
+      </Surface>
     );
   }
 
   if (userLoading) {
     return (
-      <ThemedView style={styles.container}>
+      <Surface style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator
-            size="large"
-            color={Colors[colorScheme ?? "light"].tint}
-          />
-          <ThemedText style={styles.loadingText}>
+          <ActivityIndicator size="large" animating={true} />
+          <Text variant="bodyLarge" style={styles.loadingText}>
             {t("common.loading")}
-          </ThemedText>
+          </Text>
         </View>
-      </ThemedView>
+      </Surface>
     );
   }
 
   if (!user) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedText style={styles.errorText}>
+      <Surface style={styles.container}>
+        <Text variant="bodyLarge" style={styles.errorText}>
           {t("administration.userNotFound")}
-        </ThemedText>
-      </ThemedView>
+        </Text>
+      </Surface>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <SettingsScrollView
-        showsVerticalScrollIndicator={false}
+    <Surface style={styles.container}>
+      <PaperScrollView
+        refreshing={refreshing}
         onRefresh={onRefresh}
+        contentContainerStyle={styles.content}
       >
         {/* User Info Section */}
-        <ThemedView
-          style={[
-            styles.section,
-            { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
-          ]}
-        >
-          {/* User Details */}
-          <View style={styles.userDetails}>
-            <View style={styles.detailRow}>
-              <ThemedText style={styles.detailLabel}>
-                {t("administration.userId")}
-              </ThemedText>
-              <ThemedText style={styles.detailValue}>{user.id}</ThemedText>
-            </View>
-
-            {user.username && (
+        <Card style={styles.section} mode="outlined">
+          <Card.Content>
+            {/* User Details */}
+            <View style={styles.userDetails}>
               <View style={styles.detailRow}>
-                <ThemedText style={styles.detailLabel}>
-                  {t("administration.username")}
-                </ThemedText>
-                <ThemedText style={styles.detailValue}>
-                  {user.username}
-                </ThemedText>
+                <Text variant="bodyMedium" style={styles.detailLabel}>
+                  {t("administration.userId")}
+                </Text>
+                <Text variant="bodyMedium" style={styles.detailValue}>
+                  {user.id}
+                </Text>
               </View>
-            )}
 
-            {user.email && (
+              {user.username && (
+                <>
+                  <Divider style={styles.divider} />
+                  <View style={styles.detailRow}>
+                    <Text variant="bodyMedium" style={styles.detailLabel}>
+                      {t("administration.username")}
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.detailValue}>
+                      {user.username}
+                    </Text>
+                  </View>
+                </>
+              )}
+
+              {user.email && (
+                <>
+                  <Divider style={styles.divider} />
+                  <View style={styles.detailRow}>
+                    <Text variant="bodyMedium" style={styles.detailLabel}>
+                      {t("administration.email")}
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.detailValue}>
+                      {user.email}
+                    </Text>
+                  </View>
+                </>
+              )}
+
+              <Divider style={styles.divider} />
               <View style={styles.detailRow}>
-                <ThemedText style={styles.detailLabel}>
-                  {t("administration.email")}
-                </ThemedText>
-                <ThemedText style={styles.detailValue}>{user.email}</ThemedText>
+                <Text variant="bodyMedium" style={styles.detailLabel}>
+                  {t("administration.createdAt")}
+                </Text>
+                <Text variant="bodyMedium" style={styles.detailValue}>
+                  {new Date(user.createdAt).toLocaleDateString()}
+                </Text>
               </View>
-            )}
 
-            <View style={styles.detailRow}>
-              <ThemedText style={styles.detailLabel}>
-                {t("administration.createdAt")}
-              </ThemedText>
-              <ThemedText style={styles.detailValue}>
-                {new Date(user.createdAt).toLocaleDateString()}
-              </ThemedText>
+              <Divider style={styles.divider} />
+              <View style={styles.detailRow}>
+                <Text variant="bodyMedium" style={styles.detailLabel}>
+                  {t("administration.lastUpdated")}
+                </Text>
+                <Text variant="bodyMedium" style={styles.detailValue}>
+                  {new Date(user.updatedAt).toLocaleDateString()}
+                </Text>
+              </View>
             </View>
 
-            <View style={styles.detailRow}>
-              <ThemedText style={styles.detailLabel}>
-                {t("administration.lastUpdated")}
-              </ThemedText>
-              <ThemedText style={styles.detailValue}>
-                {new Date(user.updatedAt).toLocaleDateString()}
-              </ThemedText>
-            </View>
-          </View>
+            <Divider style={styles.sectionDivider} />
 
-          {/* Role Management */}
-          <View style={styles.roleSection}>
-            <ThemedText style={styles.roleLabel}>
-              {t("administration.currentRole", { role: "" }).replace(": ", "")}
-            </ThemedText>
-            <ThemedInputSelect
-              selectedValue={user.role}
-              placeholder={t("administration.selectNewRole")}
-              options={roleOptions}
-              optionLabel="name"
-              optionValue="id"
-              onValueChange={handleRoleChange}
-              isSearchable={false}
-            />
-          </View>
-        </ThemedView>
+            {/* Role Management */}
+            <View style={styles.roleSection}>
+              <Text variant="titleMedium" style={styles.roleLabel}>
+                {t("administration.currentRole", { role: "" }).replace(
+                  ": ",
+                  ""
+                )}
+              </Text>
+              <ThemedInputSelect
+                selectedValue={user.role}
+                placeholder={t("administration.selectNewRole")}
+                options={roleOptions}
+                optionLabel="name"
+                optionValue="id"
+                onValueChange={handleRoleChange}
+                isSearchable={false}
+              />
+            </View>
+          </Card.Content>
+        </Card>
 
         {/* User Buckets Section */}
-        <ThemedView
-          style={[
-            styles.section,
-            { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
-          ]}
-        >
-          <ThemedText style={styles.sectionTitle}>
-            {t("administration.userBuckets")}
-          </ThemedText>
+        <Card style={styles.section} mode="outlined">
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              {t("administration.userBuckets")}
+            </Text>
 
-          {user.buckets && user.buckets.length > 0 ? (
-            <View style={styles.bucketsList}>
-              {user.buckets.map((bucket) => (
-                <View key={bucket.id} style={styles.bucketItem}>
-                  <View style={styles.bucketInfo}>
-                    <View style={styles.bucketHeader}>
-                      {/* {bucket.icon && (
-                      <ThemedText style={styles.bucketIcon}>{bucket.icon}</ThemedText>
-                    )} */}
-                      <ThemedText style={styles.bucketName}>
-                        {bucket.name}
-                      </ThemedText>
-                    </View>
-                    <ThemedText style={styles.bucketId}>
-                      ID: {bucket.id}
-                    </ThemedText>
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <ThemedText style={styles.noDataText}>
-              {t("administration.noBucketsFound")}
-            </ThemedText>
-          )}
-        </ThemedView>
+            {user.buckets && user.buckets.length > 0 ? (
+              <View style={styles.bucketsList}>
+                {user.buckets.map((bucket) => (
+                  <Card
+                    key={bucket.id}
+                    style={styles.bucketItem}
+                    mode="outlined"
+                  >
+                    <Card.Content>
+                      <View style={styles.bucketInfo}>
+                        <Text variant="titleSmall" style={styles.bucketName}>
+                          {bucket.name}
+                        </Text>
+                        <Text variant="bodySmall" style={styles.bucketId}>
+                          ID: {bucket.id}
+                        </Text>
+                      </View>
+                    </Card.Content>
+                  </Card>
+                ))}
+              </View>
+            ) : (
+              <Text variant="bodyMedium" style={styles.noDataText}>
+                {t("administration.noBucketsFound")}
+              </Text>
+            )}
+          </Card.Content>
+        </Card>
 
         {/* Notification Statistics Section */}
-        <ThemedView
-          style={[
-            styles.section,
-            { backgroundColor: Colors[colorScheme ?? "light"].backgroundCard },
-          ]}
-        >
-          <ThemedText style={styles.sectionTitle}>
-            {t("administration.userNotificationStats")}
-          </ThemedText>
+        <Card style={styles.section} mode="outlined">
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              {t("administration.userNotificationStats")}
+            </Text>
 
-          {statsLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator
-                size="large"
-                color={Colors[colorScheme ?? "light"].tint}
-              />
-              <ThemedText style={styles.loadingText}>
-                {t("administration.loadingStats")}
-              </ThemedText>
-            </View>
-          ) : statsData?.userNotificationStats ? (
-            <View style={styles.statsGrid}>
-              <View style={styles.statItem}>
-                <ThemedText style={styles.statValue}>
-                  {statsData.userNotificationStats.today}
-                </ThemedText>
-                <ThemedText style={styles.statLabel}>
-                  {t("userProfile.today")}
-                </ThemedText>
+            {statsLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" animating={true} />
+                <Text variant="bodyMedium" style={styles.loadingText}>
+                  {t("administration.loadingStats")}
+                </Text>
               </View>
+            ) : statsData?.userNotificationStats ? (
+              <View style={styles.statsGrid}>
+                <Surface style={styles.statItem} elevation={1}>
+                  <Text variant="headlineSmall" style={styles.statValue}>
+                    {statsData.userNotificationStats.today}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.statLabel}>
+                    {t("userProfile.today")}
+                  </Text>
+                </Surface>
 
-              <View style={styles.statItem}>
-                <ThemedText style={styles.statValue}>
-                  {statsData.userNotificationStats.thisWeek}
-                </ThemedText>
-                <ThemedText style={styles.statLabel}>
-                  {t("userProfile.thisWeek")}
-                </ThemedText>
-              </View>
+                <Surface style={styles.statItem} elevation={1}>
+                  <Text variant="headlineSmall" style={styles.statValue}>
+                    {statsData.userNotificationStats.thisWeek}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.statLabel}>
+                    {t("userProfile.thisWeek")}
+                  </Text>
+                </Surface>
 
-              <View style={styles.statItem}>
-                <ThemedText style={styles.statValue}>
-                  {statsData.userNotificationStats.thisMonth}
-                </ThemedText>
-                <ThemedText style={styles.statLabel}>
-                  {t("userProfile.thisMonth")}
-                </ThemedText>
-              </View>
+                <Surface style={styles.statItem} elevation={1}>
+                  <Text variant="headlineSmall" style={styles.statValue}>
+                    {statsData.userNotificationStats.thisMonth}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.statLabel}>
+                    {t("userProfile.thisMonth")}
+                  </Text>
+                </Surface>
 
-              <View style={styles.statItem}>
-                <ThemedText style={styles.statValue}>
-                  {statsData.userNotificationStats.total}
-                </ThemedText>
-                <ThemedText style={styles.statLabel}>
-                  {t("userProfile.total")}
-                </ThemedText>
+                <Surface style={styles.statItem} elevation={1}>
+                  <Text variant="headlineSmall" style={styles.statValue}>
+                    {statsData.userNotificationStats.total}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.statLabel}>
+                    {t("userProfile.total")}
+                  </Text>
+                </Surface>
               </View>
-            </View>
-          ) : (
-            <ThemedText style={styles.noDataText}>
-              {t("administration.noStatsAvailable")}
-            </ThemedText>
-          )}
-        </ThemedView>
-      </SettingsScrollView>
-    </ThemedView>
+            ) : (
+              <Text variant="bodyMedium" style={styles.noDataText}>
+                {t("administration.noStatsAvailable")}
+              </Text>
+            )}
+          </Card.Content>
+        </Card>
+      </PaperScrollView>
+    </Surface>
   );
 }
 
@@ -375,25 +379,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
     padding: 16,
   },
   section: {
     marginBottom: 16,
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
     marginBottom: 16,
   },
   userDetails: {
@@ -403,74 +394,44 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.1)",
+    paddingVertical: 12,
   },
   detailLabel: {
-    fontSize: 14,
     opacity: 0.7,
     flex: 1,
   },
   detailValue: {
-    fontSize: 14,
-    fontWeight: "500",
     flex: 2,
     textAlign: "right",
     fontFamily: "monospace",
+  },
+  divider: {
+    marginVertical: 4,
+  },
+  sectionDivider: {
+    marginVertical: 16,
   },
   roleSection: {
     marginBottom: 16,
   },
   roleLabel: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   bucketsList: {
     gap: 12,
   },
   bucketItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: "rgba(0,0,0,0.05)",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.1)",
+    marginBottom: 8,
   },
   bucketInfo: {
     flex: 1,
   },
-  bucketHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  bucketIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
   bucketName: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  bucketDescription: {
-    fontSize: 14,
-    opacity: 0.7,
     marginBottom: 4,
   },
   bucketId: {
-    fontSize: 12,
     opacity: 0.6,
     fontFamily: "monospace",
-  },
-  bucketColorIndicator: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    marginLeft: 8,
   },
   loadingContainer: {
     alignItems: "center",
@@ -484,22 +445,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+    gap: 12,
   },
   statItem: {
     width: "48%",
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.05)",
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: "bold",
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 12,
     opacity: 0.7,
     textAlign: "center",
   },

@@ -23,47 +23,41 @@ import { TranslationKey, TranslationKeyPath } from "@/utils";
 import { useDeviceType } from "@/hooks/useDeviceType";
 
 // Routes that should show home button instead of back button
-const ROUTES_WITH_HOME_BUTTON: Href[] = [
+const ROUTES_WITH_HOME_BUTTON: string[] = [
   "/(mobile)/(admin)",
   "/(mobile)/(settings)",
-  "/(tablet)/(admin)/user-management/list",
-  "/(tablet)/(settings)/bucket/list",
-  "/(tablet)/(settings)/app-settings",
-  "/(tablet)/(settings)/access-token/list",
-  "/(tablet)/(settings)/webhook/list",
-  "/(tablet)/(settings)/devices",
-  "/(tablet)/(settings)/notifications",
-  "/(tablet)/(settings)/user-sessions",
-  "/(tablet)/(settings)/logs",
-  "/(tablet)/(settings)/user/profile",
+  "/(tablet)/(admin)",
+  "/(tablet)/(settings)",
 ];
 
 const HOME_ROUTES: string[] = ["/(mobile)/(home)", "/(tablet)/(home)"];
 
 // Routes that should show back button
-const ROUTES_WITH_BACK_BUTTON: Href[] = [
+const ROUTES_WITH_BACK_BUTTON: string[] = [
   "/(mobile)/(home)/bucket/settings/[id]",
   "/(mobile)/(home)/bucket/[id]",
   "/(mobile)/(home)/notification/[id]",
   "/(mobile)/(home)/bucket/settings/create",
   "/(mobile)/(home)/bucket/create",
-  "/(mobile)/(settings)/bucket/settings/create",
-  "/(mobile)/(settings)/change-password",
-  "/(mobile)/(settings)/user-profile",
-  "/(tablet)/(settings)/user/change-password",
-  "/(mobile)/(settings)/app-settings",
-  "/(mobile)/(settings)/bucket/list",
-  "/(mobile)/(settings)/webhook/[id]",
-  "/(mobile)/(settings)/bucket/[id]",
-  "/(mobile)/(settings)/bucket/create",
-  "/(mobile)/(settings)/webhook/list",
-  "/(mobile)/(settings)/webhook/create",
-  "/(mobile)/(settings)/access-token/list",
-  "/(mobile)/(settings)/access-token/create",
-  "/(mobile)/(settings)/devices",
-  "/(mobile)/(settings)/notifications",
-  "/(mobile)/(settings)/user-sessions",
-  "/(mobile)/(settings)/logs",
+  "/(mobile)/(admin)/",
+  "/(mobile)/(settings)/",
+  // "/(mobile)/(settings)/bucket/settings/create",
+  // "/(mobile)/(settings)/change-password",
+  // "/(mobile)/(settings)/user-profile",
+  // "/(mobile)/(settings)/app-settings",
+  // "/(mobile)/(settings)/bucket/list",
+  // "/(mobile)/(settings)/webhook/[id]",
+  // "/(mobile)/(settings)/bucket/[id]",
+  // "/(mobile)/(settings)/bucket/create",
+  // "/(mobile)/(settings)/webhook/list",
+  // "/(mobile)/(settings)/webhook/create",
+  // "/(mobile)/(settings)/access-token/list",
+  // "/(mobile)/(settings)/access-token/create",
+  // "/(mobile)/(settings)/devices",
+  // "/(mobile)/(settings)/notifications",
+  // "/(mobile)/(settings)/user-sessions",
+  // "/(mobile)/(settings)/logs",
+  // "/(mobile)/(admin)/user-management/[id]",
 ];
 
 // Route-based title mapping
@@ -75,6 +69,8 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(mobile)/(settings)/bucket/create": "buckets.form.createTitle",
   "/(tablet)/(settings)/bucket/create": "buckets.form.createTitle",
   "/(mobile)/(settings)/bucket/[id]": "buckets.form.editTitle",
+  "/(mobile)/(home)/bucket/settings/[id]": "buckets.form.editTitle",
+  "/(tablet)/(home)/bucket/settings/[id]": "buckets.form.editTitle",
   "/(tablet)/(settings)/bucket/[id]": "buckets.form.editTitle",
   "/(mobile)/(settings)/webhook/list": "webhooks.title",
   "/(mobile)/(settings)/webhook/create": "webhooks.create",
@@ -93,6 +89,7 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(mobile)/(home)/bucket/[id]": "buckets.form.editTitle",
   "/(mobile)/(home)/notification/[id]": "notificationDetail.title",
   "/(tablet)/(admin)/user-management/list": "administration.userManagement",
+  "/(mobile)/(admin)/user-management/list": "administration.userManagement",
   "/(tablet)/(settings)/bucket/list": "buckets.title",
   "/(tablet)/(settings)/app-settings": "appSettings.title",
   "/(tablet)/(settings)/access-token/list": "accessTokens.title",
@@ -103,6 +100,8 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(tablet)/(settings)/logs": "appLogs.title",
   "/(tablet)/(settings)/user/profile": "userProfile.title",
   "/(tablet)/(settings)/user/change-password": "changePassword.title",
+  "/(tablet)/(admin)/user-management/[id]": "administration.userDetails",
+  "/(mobile)/(admin)/user-management/[id]": "administration.userDetails",
 };
 
 export default function Header() {
@@ -134,11 +133,11 @@ export default function Header() {
 
   // Determine current route
   const currentRoute = `/${segments.join("/")}`;
-  const shouldShowHomeButton = ROUTES_WITH_HOME_BUTTON.some(
-    (route) => currentRoute === route
+  const shouldShowHomeButton = ROUTES_WITH_HOME_BUTTON.some((route) =>
+    currentRoute.includes(route)
   );
   const shouldShowBackButton = ROUTES_WITH_BACK_BUTTON.some(
-    (route) => currentRoute === route
+    (route) => currentRoute.includes(route)
   );
   const shouldShowStatusBadges = HOME_ROUTES.some((route) =>
     currentRoute.includes(route)

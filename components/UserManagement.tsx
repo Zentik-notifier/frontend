@@ -1,34 +1,31 @@
-import { Colors } from "@/constants/Colors";
 import {
   useGetAllUsersQuery,
   UserFragment,
   UserRole,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/contexts/AppContext";
-import { Ionicons } from "@expo/vector-icons";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
+import { FlatList, StyleSheet, View } from "react-native";
 import {
-  FlatList,
-  RefreshControl,
-  StyleSheet,
+  Text,
+  Surface,
+  Card,
   TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
- 
-import { AppLoader } from "./ui/AppLoader";
+  Icon,
+  IconButton,
+  Chip,
+  useTheme,
+  ActivityIndicator,
+} from "react-native-paper";
+import PaperScrollView from "./ui/PaperScrollView";
 
 interface UserListItemProps {
   user: UserFragment;
-  colorScheme: "light" | "dark";
 }
 
-const UserListItem: React.FC<UserListItemProps> = ({ user, colorScheme }) => {
+const UserListItem: React.FC<UserListItemProps> = ({ user }) => {
   const { t } = useI18n();
   const { navigateToUserDetails } = useNavigationUtils();
 
@@ -46,82 +43,68 @@ const UserListItem: React.FC<UserListItemProps> = ({ user, colorScheme }) => {
   };
 
   const getRoleColor = (role: UserRole): string => {
+    const theme = useTheme();
     switch (role) {
       case UserRole.User:
-        return "#4F46E5";
+        return theme.colors.primary;
       case UserRole.Moderator:
-        return "#F59E0B";
+        return theme.colors.secondary;
       case UserRole.Admin:
-        return "#EF4444";
+        return theme.colors.error;
       default:
-        return "#6B7280";
+        return theme.colors.outline;
     }
   };
 
+  const theme = useTheme();
+
   return (
-    <TouchableOpacity
-      style={[
-        styles.userCard,
-        {
-          backgroundColor: Colors[colorScheme].backgroundCard,
-          borderColor: Colors[colorScheme].border,
-        },
-      ]}
+    <Card
+      style={styles.userCard}
       onPress={() => navigateToUserDetails(user.id)}
+      mode="outlined"
     >
-      <View style={styles.userInfo}>
+      <Card.Content style={styles.userInfo}>
         <View style={styles.userDetails}>
-          <ThemedText style={styles.userName}>
+          <Text variant="titleMedium" style={styles.userName}>
             {user.username || user.email || user.id}
-          </ThemedText>
-          <ThemedText style={styles.userEmail}>{user.email}</ThemedText>
+          </Text>
+          <Text variant="bodyMedium" style={styles.userEmail}>
+            {user.email}
+          </Text>
         </View>
 
         <View style={styles.userActions}>
-          <View
-            style={[
-              styles.roleBadge,
-              { backgroundColor: getRoleColor(user.role) },
-            ]}
+          <Chip
+            mode="flat"
+            textStyle={{ color: "white", fontWeight: "600" }}
+            style={{ backgroundColor: getRoleColor(user.role) }}
           >
-            <ThemedText style={styles.roleText}>
-              {getUserRoleDisplayName(user.role)?.toUpperCase()}
-            </ThemedText>
-          </View>
+            {getUserRoleDisplayName(user.role)?.toUpperCase()}
+          </Chip>
 
-          <TouchableOpacity
-            style={[
-              styles.viewButton,
-              {
-                backgroundColor: Colors[colorScheme].backgroundCard,
-                borderColor: Colors[colorScheme].border,
-              },
-            ]}
+          <IconButton
+            icon="eye"
+            size={20}
+            iconColor={theme.colors.primary}
             onPress={() => navigateToUserDetails(user.id)}
-          >
-            <Ionicons
-              name="eye-outline"
-              size={20}
-              color={Colors[colorScheme].tint}
-            />
-          </TouchableOpacity>
+          />
         </View>
-      </View>
-    </TouchableOpacity>
+      </Card.Content>
+    </Card>
   );
 };
 
 export default function UserManagement() {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const {
-    connectionStatus: { isOfflineAuth, isBackendUnreachable },
-    setMainLoading,
-  } = useAppContext();
+  const { setMainLoading } = useAppContext();
 
-  const { data, loading, error, refetch } = useGetAllUsersQuery();
+  const { data, loading, error, refetch } = useGetAllUsersQuery({
+    fetchPolicy: "cache-first",
+  });
 
   useEffect(() => setMainLoading(loading), [loading]);
 
@@ -147,94 +130,83 @@ export default function UserManagement() {
   });
 
   const renderUserItem = ({ item }: { item: UserFragment }) => (
-    <UserListItem user={item} colorScheme={colorScheme ?? "light"} />
+    <UserListItem user={item} />
   );
 
   if (loading) {
-    return <AppLoader />;
+    return (
+      <Surface style={styles.loadingContainer}>
+        <ActivityIndicator size="large" animating={true} />
+        <Text variant="bodyLarge" style={styles.loadingText}>
+          {t("common.loading")}
+        </Text>
+      </Surface>
+    );
   }
 
   if (error) {
     return (
-      <ThemedView style={styles.errorContainer}>
-        <Ionicons
-          name="alert-circle"
-          size={64}
-          color={Colors[colorScheme ?? "light"].icon}
-        />
-        <ThemedText style={styles.errorTitle}>
+      <Surface style={styles.errorContainer}>
+        <Icon source="alert-circle" size={64} color={theme.colors.error} />
+        <Text variant="headlineSmall" style={styles.errorTitle}>
           {t("administration.errorLoadingUsers")}
-        </ThemedText>
-        <ThemedText style={styles.errorText}>
+        </Text>
+        <Text variant="bodyLarge" style={styles.errorText}>
           {error.message || t("administration.failedToLoadUsers")}
-        </ThemedText>
-      </ThemedView>
+        </Text>
+      </Surface>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.pageContent}>
+    <Surface style={styles.container}>
+      <PaperScrollView
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        contentContainerStyle={styles.pageContent}
+      >
         <View style={styles.headerRow}>
-          <ThemedText style={styles.statsText}>
+          <Text variant="bodyMedium" style={styles.statsText}>
             {t("administration.totalUsers")}: {users.length}
-          </ThemedText>
+          </Text>
         </View>
+
         {/* Search Filter */}
-        <ThemedView
-          style={[
-            styles.searchContainer,
-            { backgroundColor: Colors[colorScheme ?? "light"].inputBackground },
-          ]}
-        >
-        <Ionicons
-          name="search"
-          size={18}
-          color={Colors[colorScheme ?? "light"].textSecondary}
-          style={styles.searchIcon}
-        />
         <TextInput
-          style={[
-            styles.searchInput,
-            { color: Colors[colorScheme ?? "light"].text },
-          ]}
+          mode="outlined"
+          style={styles.searchInput}
           placeholder={t("administration.searchUsers")}
-          placeholderTextColor={Colors[colorScheme ?? "light"].inputPlaceholder}
           value={searchQuery}
           onChangeText={setSearchQuery}
+          left={<TextInput.Icon icon="magnify" />}
+          right={
+            searchQuery.length > 0 ? (
+              <TextInput.Icon
+                icon="close-circle"
+                onPress={() => setSearchQuery("")}
+              />
+            ) : null
+          }
         />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            onPress={() => setSearchQuery("")}
-            style={styles.clearButton}
-          >
-            <Ionicons
-              name="close-circle"
-              size={18}
-              color={Colors[colorScheme ?? "light"].textSecondary}
-            />
-          </TouchableOpacity>
-        )}
-        </ThemedView>
 
         {filteredUsers.length === 0 ? (
-          <ThemedView style={styles.emptyState}>
-          <Ionicons
-            name="people-outline"
-            size={64}
-            color={Colors[colorScheme ?? "light"].icon}
-          />
-          <ThemedText style={styles.emptyText}>
-            {searchQuery
-              ? t("administration.noUsersFound")
-              : t("administration.noUsers")}
-          </ThemedText>
-          <ThemedText style={styles.emptySubtext}>
-            {searchQuery
-              ? t("administration.tryDifferentSearch")
-              : t("administration.noUsersSubtext")}
-          </ThemedText>
-          </ThemedView>
+          <Surface style={styles.emptyState} elevation={0}>
+            <Icon
+              source="account-group"
+              size={64}
+              color={theme.colors.onSurfaceVariant}
+            />
+            <Text variant="titleLarge" style={styles.emptyText}>
+              {searchQuery
+                ? t("administration.noUsersFound")
+                : t("administration.noUsers")}
+            </Text>
+            <Text variant="bodyMedium" style={styles.emptySubtext}>
+              {searchQuery
+                ? t("administration.tryDifferentSearch")
+                : t("administration.noUsersSubtext")}
+            </Text>
+          </Surface>
         ) : (
           <FlatList
             data={filteredUsers}
@@ -242,17 +214,11 @@ export default function UserManagement() {
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.usersList}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={Colors[colorScheme ?? "light"].tint}
-              />
-            }
+            scrollEnabled={false}
           />
         )}
-      </View>
-    </ThemedView>
+      </PaperScrollView>
+    </Surface>
   );
 }
 
@@ -260,49 +226,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 16,
+    opacity: 0.7,
   },
   statsText: {
-    fontSize: 14,
     opacity: 0.7,
-  },
-  description: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 24,
-  },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 44,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-  },
-  searchIcon: {
-    marginRight: 12,
   },
   searchInput: {
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 0,
-  },
-  clearButton: {
-    marginLeft: 8,
-    padding: 4,
+    marginBottom: 16,
   },
   usersList: {
     paddingBottom: 20,
   },
   pageContent: {
-    flex: 1,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 16,
@@ -314,15 +257,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   userCard: {
-    padding: 16,
     marginBottom: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   userInfo: {
     flexDirection: "row",
@@ -333,12 +268,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   userName: {
-    fontSize: 16,
-    fontWeight: "600",
     marginBottom: 2,
   },
   userEmail: {
-    fontSize: 14,
     opacity: 0.7,
   },
   userActions: {
@@ -346,38 +278,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  roleText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  viewButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-  },
   emptyState: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 32,
+    paddingVertical: 40,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
     marginTop: 16,
     textAlign: "center",
   },
   emptySubtext: {
-    fontSize: 14,
     opacity: 0.7,
     marginTop: 8,
     textAlign: "center",
@@ -389,14 +301,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   errorTitle: {
-    fontSize: 20,
-    fontWeight: "600",
     marginTop: 16,
     marginBottom: 8,
     textAlign: "center",
   },
   errorText: {
-    fontSize: 16,
     opacity: 0.7,
     textAlign: "center",
   },
