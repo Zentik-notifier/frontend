@@ -121,7 +121,6 @@ export default function NotificationActionForm({
               optionValue="id"
               onValueChange={onActionValueChange}
               isSearchable={true}
-              searchPlaceholder={t("notifications.actions.searchWebhooks")}
             />
           ) : (
             <View

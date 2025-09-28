@@ -644,26 +644,23 @@ export interface TranslationKey {
   };
   compose: {
     messageBuilder: {
+      createMessage: string;
       title: string;
-      flags: string;
-      important: string;
-      low: string;
-      normal: string;
-      priority: string;
-      stepsCompleted: string;
-      steps: {
-        basic: string;
-        priority: string;
-        actions: string;
-        attachments: string;
-        flags: string;
-      };
-      sections: {
-        basic: string;
-        priority: string;
-        actions: string;
-        attachments: string;
-        flags: string;
+      subtitle: string;
+      body: string;
+      deliveryType: string;
+      actions: string;
+      attachments: string;
+      titlePlaceholder: string;
+      subtitlePlaceholder: string;
+      bodyPlaceholder: string;
+      deliveryTypePlaceholder: string;
+      actionsDescription: string;
+      attachmentsDescription: string;
+      deliveryType: {
+        normal: string;
+        critical: string;
+        silent: string;
       };
     };
   };

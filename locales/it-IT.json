@@ -210,26 +210,23 @@
   },
   "compose": {
     "messageBuilder": {
-      "title": "Crea Messaggio",
-      "flags": "Flag",
-      "priority": "Priorità",
-      "important": "Importante",
-      "normal": "Normale",
-      "low": "Bassa",
-      "stepsCompleted": "passaggi completati",
-      "steps": {
-        "basic": "Info Base",
-        "priority": "Priorità",
-        "actions": "Azioni",
-        "attachments": "Media",
-        "flags": "Flag"
-      },
-      "sections": {
-        "basic": "Informazioni Base",
-        "priority": "Priorità Messaggio",
-        "actions": "Azioni Notifica",
-        "attachments": "Allegati Media",
-        "flags": "Azioni Automatiche"
+      "createMessage": "Crea Messaggio",
+      "title": "Titolo",
+      "subtitle": "Sottotitolo",
+      "body": "Messaggio",
+      "deliveryType": "Tipo di Consegna",
+      "actions": "Azioni",
+      "attachments": "Allegati",
+      "titlePlaceholder": "Inserisci il titolo del messaggio",
+      "subtitlePlaceholder": "Inserisci un sottotitolo (opzionale)",
+      "bodyPlaceholder": "Inserisci il contenuto del messaggio",
+      "deliveryTypePlaceholder": "Seleziona il tipo di consegna",
+      "actionsDescription": "Aggiungi azioni interattive al messaggio",
+      "attachmentsDescription": "Allega immagini, video o documenti",
+      "deliveryType": {
+        "normal": "Normale",
+        "critical": "Critica",
+        "silent": "Silenziosa"
       }
     }
   },

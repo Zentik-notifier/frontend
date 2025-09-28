@@ -39,12 +39,11 @@ export default function CreateSystemAccessTokenForm() {
 
   const {
     data: usersData,
-    loading: usersLoading,
+    loading,
     refetch: refetchUsers,
   } = useGetAllUsersQuery();
   const users = usersData?.users || [];
 
-  // Prepare user options for ThemedInputSelect
   const userOptions = [
     { id: "", name: t("systemAccessTokens.form.requesterPlaceholder") },
     ...users.map((user) => ({
@@ -122,8 +121,16 @@ export default function CreateSystemAccessTokenForm() {
 
   const isFormValid = !isNaN(parseFloat(maxCalls || "0"));
 
+  const handlerRefetch = async () => {
+    await refetchUsers();
+  };
+
   return (
-    <PaperScrollView style={styles.container} onRefresh={refetchUsers}>
+    <PaperScrollView
+      style={styles.container}
+      loading={loading}
+      onRefresh={handlerRefetch}
+    >
       <Card style={styles.formContainer} mode="outlined">
         <Card.Content>
           <View style={styles.inputGroup}>

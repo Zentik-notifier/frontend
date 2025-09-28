@@ -56,7 +56,6 @@ export default function CreateWebhookForm({
   const isOffline = isOfflineAuth || isBackendUnreachable;
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
 
   // Load webhook data if editing
   const {
@@ -69,9 +68,7 @@ export default function CreateWebhookForm({
   });
 
   const handleRefresh = async () => {
-    setRefreshing(true);
     await refetch();
-    setRefreshing(false);
   };
 
   const webhook = webhookData?.webhook;
@@ -293,7 +290,6 @@ export default function CreateWebhookForm({
   return (
     <PaperScrollView
       loading={loadingWebhook}
-      refreshing={refreshing}
       onRefresh={handleRefresh}
       contentContainerStyle={styles.scrollContent}
     >

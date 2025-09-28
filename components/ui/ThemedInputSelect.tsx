@@ -1,3 +1,4 @@
+import { useI18n } from "@/hooks";
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
@@ -22,7 +23,6 @@ interface ThemedInputSelectProps {
   selectedValue?: any;
   onValueChange: (value: any) => void;
   isSearchable?: boolean;
-  searchPlaceholder?: string;
   disabled?: boolean;
   helperText?: string;
   error?: boolean;
@@ -41,7 +41,6 @@ export default function ThemedInputSelect({
   selectedValue,
   onValueChange,
   isSearchable = false,
-  searchPlaceholder,
   disabled = false,
   helperText,
   error = false,
@@ -54,14 +53,17 @@ export default function ThemedInputSelect({
   const [searchQuery, setSearchQuery] = useState("");
   const [slideAnim] = useState(new Animated.Value(screenHeight));
   const containerRef = useRef<View>(null);
+  const { t } = useI18n();
 
-  const selectedOption = options.find((option) => option[optionValue] === selectedValue);
+  const selectedOption = options.find(
+    (option) => option[optionValue] === selectedValue
+  );
 
   const filteredOptions = useMemo(() => {
     if (!isSearchable || !searchQuery.trim()) {
       return options;
     }
-    
+
     return options.filter((option) =>
       option[optionLabel].toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -113,7 +115,7 @@ export default function ThemedInputSelect({
         // Chiudi automaticamente dopo 5 secondi se non viene interagito
         closeInlineDropdown();
       }, 5000);
-      
+
       return () => clearTimeout(timer);
     }
   }, [mode, isInlineDropdownOpen]);
@@ -142,7 +144,9 @@ export default function ThemedInputSelect({
     inputText: {
       flex: 1,
       fontSize: 16,
-      color: selectedOption ? theme.colors.onSurface : theme.colors.onSurfaceVariant,
+      color: selectedOption
+        ? theme.colors.onSurface
+        : theme.colors.onSurfaceVariant,
     },
     placeholder: {
       color: theme.colors.onSurfaceVariant,
@@ -315,15 +319,14 @@ export default function ThemedInputSelect({
           <View style={styles.inlineSearchContainer}>
             <TextInput
               style={styles.inlineSearchInput}
-              placeholder={searchPlaceholder || "Cerca..."}
+              placeholder={t("bucketSelector.searchBuckets")}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               value={searchQuery}
               onChangeText={setSearchQuery}
-              autoFocus
             />
           </View>
         )}
-        
+
         <ScrollView
           style={{ maxHeight: 200 }}
           showsVerticalScrollIndicator={true}
@@ -332,14 +335,16 @@ export default function ThemedInputSelect({
           {filteredOptions.length === 0 ? (
             <View style={styles.inlineEmptyState}>
               <Text style={styles.inlineEmptyStateText}>
-                {searchQuery.trim() ? "Nessun risultato trovato" : "Nessuna opzione disponibile"}
+                {searchQuery.trim()
+                  ? "Nessun risultato trovato"
+                  : "Nessuna opzione disponibile"}
               </Text>
             </View>
           ) : (
             filteredOptions.map((item, index) => {
               const isSelected = item[optionValue] === selectedValue;
               const isLast = index === filteredOptions.length - 1;
-              
+
               return (
                 <TouchableOpacity
                   key={item[optionValue].toString()}
@@ -371,15 +376,19 @@ export default function ThemedInputSelect({
     return (
       <View style={styles.container}>
         {label && <Text style={styles.label}>{label}</Text>}
-        
+
         <View ref={containerRef} style={styles.inlineDropdownContainer}>
           <TouchableOpacity
             style={styles.inputContainer}
             onPress={toggleInlineDropdown}
             disabled={disabled}
           >
-            <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
-              {selectedOption ? selectedOption[optionLabel] : placeholder || "Seleziona un'opzione"}
+            <Text
+              style={[styles.inputText, !selectedOption && styles.placeholder]}
+            >
+              {selectedOption
+                ? selectedOption[optionLabel]
+                : placeholder || "Seleziona un'opzione"}
             </Text>
             <Icon
               source={isInlineDropdownOpen ? "chevron-up" : "chevron-down"}
@@ -394,7 +403,7 @@ export default function ThemedInputSelect({
         {helperText && !error && (
           <Text style={styles.helperText}>{helperText}</Text>
         )}
-        
+
         {errorText && error && (
           <Text style={styles.errorText}>{errorText}</Text>
         )}
@@ -405,14 +414,16 @@ export default function ThemedInputSelect({
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
-      
+
       <TouchableOpacity
         style={styles.inputContainer}
         onPress={showModal}
         disabled={disabled}
       >
         <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
-          {selectedOption ? selectedOption[optionLabel] : placeholder || "Seleziona un'opzione"}
+          {selectedOption
+            ? selectedOption[optionLabel]
+            : placeholder || "Seleziona un'opzione"}
         </Text>
         <Icon
           source="chevron-down"
@@ -424,10 +435,8 @@ export default function ThemedInputSelect({
       {helperText && !error && (
         <Text style={styles.helperText}>{helperText}</Text>
       )}
-      
-      {errorText && error && (
-        <Text style={styles.errorText}>{errorText}</Text>
-      )}
+
+      {errorText && error && <Text style={styles.errorText}>{errorText}</Text>}
 
       <Modal
         visible={isModalVisible}
@@ -450,8 +459,13 @@ export default function ThemedInputSelect({
           >
             <TouchableOpacity activeOpacity={1} onPress={() => {}}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{label || "Seleziona opzione"}</Text>
-                <TouchableOpacity onPress={hideModal} style={styles.closeButton}>
+                <Text style={styles.modalTitle}>
+                  {label || "Seleziona opzione"}
+                </Text>
+                <TouchableOpacity
+                  onPress={hideModal}
+                  style={styles.closeButton}
+                >
                   <Icon
                     source="close"
                     size={24}
@@ -464,11 +478,10 @@ export default function ThemedInputSelect({
                 <View style={styles.searchContainer}>
                   <TextInput
                     style={styles.searchInput}
-                    placeholder={searchPlaceholder || "Cerca..."}
+                    placeholder={t("bucketSelector.searchBuckets")}
                     placeholderTextColor={theme.colors.onSurfaceVariant}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
-                    autoFocus
                   />
                 </View>
               )}
@@ -501,7 +514,9 @@ export default function ThemedInputSelect({
                 ListEmptyComponent={
                   <View style={styles.emptyState}>
                     <Text style={styles.emptyStateText}>
-                      {searchQuery.trim() ? "Nessun risultato trovato" : "Nessuna opzione disponibile"}
+                      {searchQuery.trim()
+                        ? "Nessun risultato trovato"
+                        : "Nessuna opzione disponibile"}
                     </Text>
                   </View>
                 }

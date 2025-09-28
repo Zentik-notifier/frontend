@@ -445,7 +445,6 @@ export default function NotificationsSettings() {
               optionValue="id"
               onValueChange={(value) => setLocale(value as string)}
               isSearchable={true}
-              searchPlaceholder="Search locale..."
             />
           </View>
 

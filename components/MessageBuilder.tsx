@@ -5,33 +5,24 @@ import {
   NotificationAttachmentDto,
   NotificationDeliveryType,
   useCreateMessageMutation,
-  useGetUserWebhooksQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import React, { useState, useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
+  Dimensions,
+  ScrollView,
   StyleSheet,
   View,
-  ScrollView,
-  Dimensions,
-  Modal,
-  TouchableOpacity,
 } from "react-native";
-import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
-import NotificationActionsSelector from "./NotificationActionsSelector";
 import {
   Button,
-  Card,
-  Switch,
+  Surface,
   Text,
   TextInput,
   useTheme,
-  Icon,
-  Chip,
-  Divider,
-  Surface,
 } from "react-native-paper";
 import ThemedInputSelect from "./ui/ThemedInputSelect";
+import ThemedBottomSheet from "./ui/ThemedBottomSheet";
 
 const { height: screenHeight } = Dimensions.get("window");
 
@@ -39,708 +30,280 @@ interface MessageBuilderProps {
   bucketId: string;
 }
 
-interface MessageStep {
-  id: string;
+interface MessageData {
   title: string;
-  completed: boolean;
-  optional: boolean;
+  subtitle: string;
+  body: string;
+  deliveryType: NotificationDeliveryType;
+  actions: NotificationActionDto[];
+  attachments: NotificationAttachmentDto[];
 }
 
 export default function MessageBuilder({ bucketId }: MessageBuilderProps) {
   const { t } = useI18n();
   const theme = useTheme();
-  const [visible, setVisible] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [showErrorDialog, setShowErrorDialog] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [createMessageMutation] = useCreateMessageMutation({
-    refetchQueries: [GetNotificationsDocument],
+  const [isVisible, setIsVisible] = useState(false);
+  const [messageData, setMessageData] = useState<MessageData>({
+    title: "",
+    subtitle: "",
+    body: "",
+    deliveryType: NotificationDeliveryType.Normal,
+    actions: [],
+    attachments: [],
   });
 
-  // GraphQL queries for data
-  const { data: webhooksData } = useGetUserWebhooksQuery();
+  const [createMessage, { loading: isCreating }] = useCreateMessageMutation();
 
-  // Functions for visibility management
-  const handleOpen = () => setVisible(true);
+  const showModal = useCallback(() => {
+    setIsVisible(true);
+  }, []);
 
-  // State for form fields
-  const [title, setTitle] = useState("");
-  const [subtitle, setSubtitle] = useState("");
-  const [body, setBody] = useState("");
-  const [actions, setActions] = useState<NotificationActionDto[]>([]);
-  const [attachments, setAttachments] = useState<NotificationAttachmentDto[]>(
-    []
-  );
+  const hideModal = useCallback(() => {
+    setIsVisible(false);
+  }, []);
 
-  // Priority state
-  const [priority, setPriority] = useState<NotificationDeliveryType>(
-    NotificationDeliveryType.Normal
-  );
-
-  // Automatic actions flags
-  const [addMarkAsReadAction, setAddMarkAsReadAction] = useState(false);
-  const [addDeleteAction, setAddDeleteAction] = useState(false);
-  const [addOpenNotificationAction, setAddOpenNotificationAction] =
-    useState(false);
-
-  // Steps tracking
-  const [steps, setSteps] = useState<MessageStep[]>([
-    {
-      id: "basic",
-      title: t("compose.messageBuilder.steps.basic"),
-      completed: false,
-      optional: false,
-    },
-    {
-      id: "priority",
-      title: t("compose.messageBuilder.steps.priority"),
-      completed: false,
-      optional: false,
-    },
-    {
-      id: "actions",
-      title: t("compose.messageBuilder.steps.actions"),
-      completed: false,
-      optional: true,
-    },
-    {
-      id: "attachments",
-      title: t("compose.messageBuilder.steps.attachments"),
-      completed: false,
-      optional: true,
-    },
-    {
-      id: "flags",
-      title: t("compose.messageBuilder.steps.flags"),
-      completed: false,
-      optional: true,
-    },
-  ]);
-
-  // Update steps completion
-  const updateSteps = useCallback(() => {
-    setSteps((prev) =>
-      prev.map((step) => {
-        switch (step.id) {
-          case "basic":
-            return { ...step, completed: title.trim().length > 0 };
-          case "priority":
-            return { ...step, completed: true }; // Always completed as it has a default
-          case "actions":
-            return { ...step, completed: actions.length > 0 };
-          case "attachments":
-            return { ...step, completed: attachments.length > 0 };
-          case "flags":
-            return {
-              ...step,
-              completed:
-                addMarkAsReadAction ||
-                addDeleteAction ||
-                addOpenNotificationAction,
-            };
-          default:
-            return step;
-        }
-      })
-    );
-  }, [
-    title,
-    actions,
-    attachments,
-    addMarkAsReadAction,
-    addDeleteAction,
-    addOpenNotificationAction,
-  ]);
-
-  // Update steps when dependencies change
-  React.useEffect(() => {
-    updateSteps();
-  }, [updateSteps]);
-
-  const sendMessage = async () => {
-    if (!title.trim()) {
-      setErrorMessage(t("notifications.titleRequired"));
-      setShowErrorDialog(true);
-      return;
-    }
-
-    if (!bucketId?.trim()) {
-      setErrorMessage(t("notifications.targeting.bucketRequired"));
-      setShowErrorDialog(true);
-      return;
-    }
-
-    setSending(true);
+  const handleSaveMessage = useCallback(async () => {
     try {
-      const messagePayload = buildMessagePayload();
+      const createMessageDto: CreateMessageDto = {
+        bucketId,
+        title: messageData.title,
+        subtitle: messageData.subtitle,
+        body: messageData.body,
+        deliveryType: messageData.deliveryType,
+        actions: messageData.actions,
+        attachments: messageData.attachments,
+      };
 
-      const result = await createMessageMutation({
-        variables: { input: messagePayload },
+      await createMessage({
+        variables: { input: createMessageDto },
+        refetchQueries: [GetNotificationsDocument],
       });
 
-      if (!result.data?.createMessage) {
-        throw new Error("Failed to create message");
-      }
+      // Reset form
+      setMessageData({
+        title: "",
+        subtitle: "",
+        body: "",
+        deliveryType: NotificationDeliveryType.Normal,
+        actions: [],
+        attachments: [],
+      });
 
-      // Reset form after successful send
-      resetForm();
-      handleDismiss();
-    } catch (error: any) {
-      console.error("Send message error:", error);
-      const errorMessage = error.message || "Failed to send message";
-      setErrorMessage(errorMessage);
-      setShowErrorDialog(true);
-    } finally {
-      setSending(false);
+      hideModal();
+    } catch (error) {
+      console.error("Error creating message:", error);
     }
-  };
+  }, [bucketId, messageData, createMessage, hideModal]);
 
-  const resetForm = () => {
-    setTitle("");
-    setSubtitle("");
-    setBody("");
-    setActions([]);
-    setAttachments([]);
-    setPriority(NotificationDeliveryType.Normal);
-    setAddMarkAsReadAction(false);
-    setAddDeleteAction(false);
-    setAddOpenNotificationAction(false);
-  };
+  const handleResetForm = useCallback(() => {
+    setMessageData({
+      title: "",
+      subtitle: "",
+      body: "",
+      deliveryType: NotificationDeliveryType.Normal,
+      actions: [],
+      attachments: [],
+    });
+  }, []);
 
-  const handleDismiss = () => {
-    resetForm();
-    setVisible(false);
-  };
-
-  // Helper function to build the message payload for GraphQL mutation
-  const buildMessagePayload = (): CreateMessageDto => {
-    const message: CreateMessageDto = {
-      title: title.trim(),
-      deliveryType: priority,
-      bucketId: bucketId,
-    };
-
-    if (subtitle.trim()) message.subtitle = subtitle.trim();
-    if (body.trim()) message.body = body.trim();
-    if (attachments.length > 0) message.attachments = attachments;
-    if (actions.length > 0) message.actions = actions;
-
-    // Add automatic actions flags
-    if (addMarkAsReadAction) message.addMarkAsReadAction = true;
-    if (addDeleteAction) message.addDeleteAction = true;
-    if (addOpenNotificationAction) message.addOpenNotificationAction = true;
-
-    return message;
-  };
-
-  // Webhook options for the picker
-  const webhookOptions = (webhooksData?.userWebhooks || []).map((webhook) => ({
-    id: webhook.id,
-    name: webhook.name,
-    description: `${webhook.method} ${webhook.url}`,
-  }));
-
-  const hasWebhooks = webhookOptions.length > 0;
-
-  // Priority options for the picker
-  const priorityOptions = [
+  const deliveryTypeOptions = [
     {
-      id: NotificationDeliveryType.Normal,
-      name: t("compose.messageBuilder.normal"),
+      value: NotificationDeliveryType.Normal,
+      label: t("compose.messageBuilder.deliveryType.normal" as any),
     },
     {
-      id: NotificationDeliveryType.Critical,
-      name: t("compose.messageBuilder.important"),
+      value: NotificationDeliveryType.Critical,
+      label: t("compose.messageBuilder.deliveryType.critical" as any),
     },
     {
-      id: NotificationDeliveryType.Silent,
-      name: t("compose.messageBuilder.low"),
+      value: NotificationDeliveryType.Silent,
+      label: t("compose.messageBuilder.deliveryType.silent" as any),
     },
   ];
 
-  const completedSteps = steps.filter((s) => s.completed).length;
-  const totalRequiredSteps = steps.filter((s) => !s.optional).length;
+  const styles = StyleSheet.create({
+    triggerButton: {
+      margin: 16,
+    },
+    formContainer: {
+      padding: 16,
+      marginBottom: 16,
+      borderRadius: 12,
+      backgroundColor: theme.colors.surfaceVariant,
+    },
+    inputGroup: {
+      marginBottom: 16,
+    },
+    inputLabel: {
+      marginBottom: 8,
+      fontWeight: "600",
+      color: theme.colors.onSurface,
+    },
+    textInput: {
+      backgroundColor: theme.colors.surface,
+    },
+    multilineInput: {
+      minHeight: 100,
+    },
+    sectionTitle: {
+      marginBottom: 8,
+      fontWeight: "600",
+      color: theme.colors.onSurface,
+    },
+    sectionDescription: {
+      marginBottom: 16,
+      opacity: 0.7,
+      color: theme.colors.onSurface,
+    },
+    footer: {
+      flexDirection: "row",
+      gap: 12,
+    },
+    footerButton: {
+      flex: 1,
+    },
+  });
+
+  const footer = (
+    <View style={styles.footer}>
+      <Button
+        mode="outlined"
+        onPress={handleResetForm}
+        style={styles.footerButton}
+      >
+        {t("common.reset")}
+      </Button>
+      <Button
+        mode="contained"
+        onPress={handleSaveMessage}
+        loading={isCreating}
+        disabled={!messageData.title.trim() || !messageData.body.trim()}
+        style={styles.footerButton}
+      >
+        {t("common.save")}
+      </Button>
+    </View>
+  );
 
   return (
     <>
-      {/* Open Button */}
+      {/* Trigger Button */}
       <Button
         mode="contained"
-        onPress={handleOpen}
-        icon="plus-circle-outline"
-        style={styles.openButton}
+        onPress={showModal}
+        icon="plus"
+        style={styles.triggerButton}
       >
-        {t("buckets.composeMessage")}
+        {t("compose.messageBuilder.createMessage")}
       </Button>
 
-      <Modal
-        visible={visible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={handleDismiss}
+      {/* Bottom Sheet Modal */}
+      <ThemedBottomSheet
+        visible={isVisible}
+        onClose={hideModal}
+        title={t("compose.messageBuilder.createMessage")}
+        maxHeight={screenHeight * 0.95}
+        minHeight={screenHeight * 0.6}
+        footer={footer}
       >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalContainer,
-              { backgroundColor: theme.colors.surface },
-            ]}
-          >
-            <View style={styles.modalHeader}>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={handleDismiss}
-                accessibilityLabel={t("common.close")}
-              >
-                <Icon source="close" size={24} color={theme.colors.onSurface} />
-              </TouchableOpacity>
-              <View style={styles.titleContainer}>
-                <Text variant="headlineSmall" style={styles.title}>
-                  {t("compose.messageBuilder.title")}
-                </Text>
-                <Text variant="bodyMedium" style={styles.progress}>
-                  {completedSteps}/{steps.length}{" "}
-                  {t("compose.messageBuilder.stepsCompleted")}
-                </Text>
-              </View>
-            </View>
-
-            {/* Progress indicator */}
-            <View style={styles.stepsContainer}>
-              {steps.map((step, index) => (
-                <View key={step.id} style={styles.stepContainer}>
-                  <Chip
-                    mode={step.completed ? "flat" : "outlined"}
-                    compact
-                    style={[
-                      styles.stepChip,
-                      step.completed && {
-                        backgroundColor: theme.colors.primaryContainer,
-                      },
-                    ]}
-                    textStyle={[
-                      styles.stepChipText,
-                      step.completed && {
-                        color: theme.colors.onPrimaryContainer,
-                      },
-                    ]}
-                  >
-                    {step.title}
-                  </Chip>
-                  {index < steps.length - 1 && (
-                    <Icon
-                      source="chevron-right"
-                      size={16}
-                      color={theme.colors.onSurfaceVariant}
-                    />
-                  )}
-                </View>
-              ))}
-            </View>
-          </View>
-
-          <ScrollView
-            style={styles.modalContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Basic Information */}
-            <Card style={styles.sectionCard} mode="outlined">
-              <Card.Content>
-                <View style={styles.sectionHeader}>
-                  <Icon source="text" size={20} color={theme.colors.primary} />
-                  <Text variant="titleMedium" style={styles.sectionTitle}>
-                    {t("compose.messageBuilder.sections.basic")}
-                  </Text>
-                  {steps.find((s) => s.id === "basic")?.completed && (
-                    <Icon
-                      source="check-circle"
-                      size={20}
-                      color={theme.colors.primary}
-                    />
-                  )}
-                </View>
-
-                {/* Titolo */}
-                <TextInput
-                  mode="outlined"
-                  style={styles.textInput}
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholder={t("notifications.content.titlePlaceholder")}
-                  label={t("notifications.content.title")}
-                  maxLength={100}
-                />
-
-                {/* Sottotitolo */}
-                <TextInput
-                  mode="outlined"
-                  style={styles.textInput}
-                  value={subtitle}
-                  onChangeText={setSubtitle}
-                  placeholder={t("notifications.content.subtitlePlaceholder")}
-                  label={t("notifications.content.subtitle")}
-                  maxLength={100}
-                />
-
-                {/* Corpo del messaggio */}
-                <TextInput
-                  mode="outlined"
-                  style={[styles.textInput, styles.textArea]}
-                  value={body}
-                  onChangeText={setBody}
-                  placeholder={t("notifications.content.bodyPlaceholder")}
-                  label={t("notifications.content.body")}
-                  multiline
-                  maxLength={500}
-                />
-              </Card.Content>
-            </Card>
-
-            {/* Priority */}
-            <Card style={styles.sectionCard} mode="outlined">
-              <Card.Content>
-                <View style={styles.sectionHeader}>
-                  <Icon source="flag" size={20} color={theme.colors.primary} />
-                  <Text variant="titleMedium" style={styles.sectionTitle}>
-                    {t("compose.messageBuilder.sections.priority")}
-                  </Text>
-                  {steps.find((s) => s.id === "priority")?.completed && (
-                    <Icon
-                      source="check-circle"
-                      size={20}
-                      color={theme.colors.primary}
-                    />
-                  )}
-                </View>
-
-                <ThemedInputSelect
-                  label={t("compose.messageBuilder.priority")}
-                  placeholder={t("compose.messageBuilder.normal")}
-                  options={priorityOptions}
-                  optionLabel="name"
-                  optionValue="id"
-                  selectedValue={priority}
-                  onValueChange={(value) =>
-                    setPriority(value as NotificationDeliveryType)
-                  }
-                  isSearchable={false}
-                />
-              </Card.Content>
-            </Card>
-
-            {/* Actions */}
-            <Card style={styles.sectionCard} mode="outlined">
-              <Card.Content>
-                <View style={styles.sectionHeader}>
-                  <Icon
-                    source="gesture-tap"
-                    size={20}
-                    color={theme.colors.primary}
-                  />
-                  <Text variant="titleMedium" style={styles.sectionTitle}>
-                    {t("compose.messageBuilder.sections.actions")}
-                  </Text>
-                  {steps.find((s) => s.id === "actions")?.completed && (
-                    <Icon
-                      source="check-circle"
-                      size={20}
-                      color={theme.colors.primary}
-                    />
-                  )}
-                </View>
-
-                <NotificationActionsSelector
-                  actions={actions}
-                  onActionsChange={setActions}
-                  webhookOptions={webhookOptions}
-                  hasWebhooks={hasWebhooks}
-                />
-              </Card.Content>
-            </Card>
-
-            {/* Attachments */}
-            <Card style={styles.sectionCard} mode="outlined">
-              <Card.Content>
-                <View style={styles.sectionHeader}>
-                  <Icon
-                    source="attachment"
-                    size={20}
-                    color={theme.colors.primary}
-                  />
-                  <Text variant="titleMedium" style={styles.sectionTitle}>
-                    {t("compose.messageBuilder.sections.attachments")}
-                  </Text>
-                  {steps.find((s) => s.id === "attachments")?.completed && (
-                    <Icon
-                      source="check-circle"
-                      size={20}
-                      color={theme.colors.primary}
-                    />
-                  )}
-                </View>
-
-                <MediaAttachmentsSelector
-                  attachments={attachments}
-                  onAttachmentsChange={setAttachments}
-                />
-              </Card.Content>
-            </Card>
-
-            {/* Flags */}
-            <Card style={styles.sectionCard} mode="outlined">
-              <Card.Content>
-                <View style={styles.sectionHeader}>
-                  <Icon source="cog" size={20} color={theme.colors.primary} />
-                  <Text variant="titleMedium" style={styles.sectionTitle}>
-                    {t("compose.messageBuilder.sections.flags")}
-                  </Text>
-                  {steps.find((s) => s.id === "flags")?.completed && (
-                    <Icon
-                      source="check-circle"
-                      size={20}
-                      color={theme.colors.primary}
-                    />
-                  )}
-                </View>
-
-                <Surface
-                  style={[
-                    styles.switchRow,
-                    { backgroundColor: theme.colors.surfaceVariant },
-                  ]}
-                >
-                  <View style={styles.switchLabelContainer}>
-                    <Text
-                      variant="bodyMedium"
-                      style={[
-                        styles.switchLabel,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      {t("notifications.automaticActions.addMarkAsReadAction")}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={addMarkAsReadAction}
-                    onValueChange={setAddMarkAsReadAction}
-                  />
-                </Surface>
-
-                <Surface
-                  style={[
-                    styles.switchRow,
-                    { backgroundColor: theme.colors.surfaceVariant },
-                  ]}
-                >
-                  <View style={styles.switchLabelContainer}>
-                    <Text
-                      variant="bodyMedium"
-                      style={[
-                        styles.switchLabel,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      {t("notifications.automaticActions.addDeleteAction")}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={addDeleteAction}
-                    onValueChange={setAddDeleteAction}
-                  />
-                </Surface>
-
-                <Surface
-                  style={[
-                    styles.switchRow,
-                    { backgroundColor: theme.colors.surfaceVariant },
-                  ]}
-                >
-                  <View style={styles.switchLabelContainer}>
-                    <Text
-                      variant="bodyMedium"
-                      style={[
-                        styles.switchLabel,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      {t(
-                        "notifications.automaticActions.addOpenNotificationAction"
-                      )}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={addOpenNotificationAction}
-                    onValueChange={setAddOpenNotificationAction}
-                  />
-                </Surface>
-              </Card.Content>
-            </Card>
-          </ScrollView>
-
-          <View style={styles.modalActions}>
-            <Button
+        <Surface style={styles.formContainer} elevation={1}>
+          {/* Title */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              {t("compose.messageBuilder.title")} *
+            </Text>
+            <TextInput
               mode="outlined"
-              onPress={handleDismiss}
-              style={styles.actionButton}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button
-              mode="outlined"
-              onPress={resetForm}
-              style={styles.actionButton}
-            >
-              {t("notifications.resetForm")}
-            </Button>
-            <Button
-              mode="contained"
-              onPress={sendMessage}
-              disabled={
-              sending || !title.trim()
+              value={messageData.title}
+              onChangeText={(text) =>
+                setMessageData((prev) => ({ ...prev, title: text }))
               }
-              loading={sending}
-              style={styles.actionButton}
-            >
-              {t("notifications.sendButton")}
-            </Button>
+              placeholder={t("compose.messageBuilder.titlePlaceholder")}
+              style={styles.textInput}
+            />
           </View>
-        </View>
-      </Modal>
+
+          {/* Subtitle */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              {t("compose.messageBuilder.subtitle")}
+            </Text>
+            <TextInput
+              mode="outlined"
+              value={messageData.subtitle}
+              onChangeText={(text) =>
+                setMessageData((prev) => ({ ...prev, subtitle: text }))
+              }
+              placeholder={t("compose.messageBuilder.subtitlePlaceholder")}
+              style={styles.textInput}
+            />
+          </View>
+
+          {/* Body */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              {t("compose.messageBuilder.body")} *
+            </Text>
+            <TextInput
+              mode="outlined"
+              value={messageData.body}
+              onChangeText={(text) =>
+                setMessageData((prev) => ({ ...prev, body: text }))
+              }
+              placeholder={t("compose.messageBuilder.bodyPlaceholder")}
+              multiline
+              numberOfLines={4}
+              style={[styles.textInput, styles.multilineInput]}
+            />
+          </View>
+
+          {/* Delivery Type */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              {t("compose.messageBuilder.deliveryType")}
+            </Text>
+            <ThemedInputSelect
+              options={deliveryTypeOptions}
+              optionLabel="label"
+              optionValue="value"
+              selectedValue={messageData.deliveryType}
+              onValueChange={(value) =>
+                setMessageData((prev) => ({
+                  ...prev,
+                  deliveryType: value as NotificationDeliveryType,
+                }))
+              }
+              placeholder={t(
+                "compose.messageBuilder.deliveryTypePlaceholder"
+              )}
+              isSearchable={false}
+              disabled={false}
+            />
+          </View>
+        </Surface>
+
+        {/* Actions Section */}
+        <Surface style={styles.formContainer} elevation={1}>
+          <Text style={styles.sectionTitle}>
+            {t("compose.messageBuilder.actions")}
+          </Text>
+          <Text style={styles.sectionDescription}>
+            {t("compose.messageBuilder.actionsDescription")}
+          </Text>
+          {/* TODO: Implement actions selector */}
+        </Surface>
+
+        {/* Attachments Section */}
+        <Surface style={styles.formContainer} elevation={1}>
+          <Text style={styles.sectionTitle}>
+            {t("compose.messageBuilder.attachments")}
+          </Text>
+          <Text style={styles.sectionDescription}>
+            {t("compose.messageBuilder.attachmentsDescription")}
+          </Text>
+          {/* TODO: Implement attachments selector */}
+        </Surface>
+      </ThemedBottomSheet>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  openButton: {
-    margin: 16,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContainer: {
-    maxHeight: screenHeight * 0.9,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    overflow: "hidden",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.1)",
-  },
-  closeButton: {
-    padding: 8,
-  },
-  titleContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  title: {
-    fontWeight: "600",
-  },
-  progress: {
-    opacity: 0.7,
-  },
-  stepsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  stepContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  stepChip: {
-    height: 28,
-  },
-  stepChipText: {
-    fontSize: 12,
-  },
-  stepSeparator: {
-    marginHorizontal: 4,
-  },
-  modalContent: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0, 0, 0, 0.1)",
-    gap: 8,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  errorModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  errorModalContainer: {
-    margin: 20,
-    padding: 20,
-    borderRadius: 12,
-    maxWidth: 300,
-  },
-  errorTitle: {
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  errorMessage: {
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  errorButton: {
-    alignSelf: "center",
-  },
-  sectionCard: {
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    flex: 1,
-    fontWeight: "600",
-  },
-  textInput: {
-    marginBottom: 12,
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: "top",
-  },
-  switchRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-    padding: 12,
-    borderRadius: 8,
-  },
-  switchLabelContainer: {
-    flex: 1,
-  },
-  switchLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-});

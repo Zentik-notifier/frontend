@@ -31,7 +31,6 @@ export default function BucketSelector({
 
   // Use translations for default placeholders
   const defaultPlaceholder = placeholder || t("bucketSelector.selectBucket");
-  const defaultSearchPlaceholder = searchPlaceholder || t("bucketSelector.searchBuckets");
 
   // Prepare options for the dropdown
   const bucketOptions = useMemo(() => {
@@ -72,7 +71,6 @@ export default function BucketSelector({
         selectedValue={selectedOption?.id || ""}
         onValueChange={(value) => onBucketChange(value as string || null)}
         isSearchable={searchable}
-        searchPlaceholder={defaultSearchPlaceholder}
       />
     </View>
   );

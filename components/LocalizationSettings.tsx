@@ -407,7 +407,6 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
             selectedValue={selectedLanguage?.id}
             onValueChange={(value) => handleLanguageSelect(value as Locale)}
             isSearchable={true}
-            searchPlaceholder="Search..."
             helperText={t("appSettings.localization.selectLanguage")}
           />
         </View>
@@ -425,7 +424,6 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
             selectedValue={selectedTimezone?.id}
             onValueChange={(value) => handleTimezoneSelect(value as string)}
             isSearchable={true}
-            searchPlaceholder="Search..."
             helperText={t("appSettings.timezone.description")}
           />
         </View>
