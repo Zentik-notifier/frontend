@@ -1,32 +1,27 @@
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
-import { Colors } from "@/constants/Colors";
-import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
-import { useRouter, useSegments } from "expo-router";
-import React from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import Icon from "@/components/ui/Icon";
-import { IconName } from "@/constants/Icons";
 import { useDeviceType } from "@/hooks/useDeviceType";
+import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
+import { useSegments } from "expo-router";
+import React from "react";
+import { StyleSheet, View } from "react-native";
+import { Card, Icon, List, Text, useTheme } from "react-native-paper";
+import PaperScrollView from "./ui/PaperScrollView";
 
 interface AdminOption {
   id: string;
   title: string;
   description: string;
-  icon: IconName;
+  icon: string;
   iconColor: string;
   onPress: () => void;
   selectionSegment: string;
 }
 
 export default function AdminSidebar() {
-  const router = useRouter();
   const segments = useSegments();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
-  const { isMobile, isDesktop } = useDeviceType();
+  const { isMobile, isDesktop, isTablet } = useDeviceType();
   const nav = useNavigationUtils();
 
   const adminOptions: AdminOption[] = [
@@ -34,7 +29,7 @@ export default function AdminSidebar() {
       id: "user-management",
       title: t("administration.userManagement"),
       description: t("administration.userManagementDescription"),
-      icon: "user",
+      icon: "account-supervisor",
       iconColor: "#4F46E5", // Indigo
       onPress: nav.navigateToUserManagement,
       selectionSegment: "user-management",
@@ -70,148 +65,122 @@ export default function AdminSidebar() {
 
   if (!isMobile) {
     return (
-      <ScrollView
-        style={{
-          backgroundColor: Colors[colorScheme ?? "light"].background,
-          flexGrow: 0,
-          flexShrink: 0,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[{ width: isDesktop ? 320 : 250 }]}>
+      <PaperScrollView>
+        <View>
           {adminOptions.map((option) => {
             const isSelected = segments.some(
               (segment) => segment === option.selectionSegment
             );
             return (
-              <TouchableOpacity
+              <List.Item
                 key={option.id}
+                title={option.title}
+                description={option.description}
+                titleNumberOfLines={1}
+                descriptionNumberOfLines={4}
+                left={(props) => (
+                  <List.Icon
+                    {...props}
+                    icon={option.icon}
+                    color={isSelected ? theme.colors.primary : option.iconColor}
+                  />
+                )}
+                onPress={option.onPress}
                 style={[
-                  styles.sidebarItem,
+                  styles.listItem,
                   {
-                    borderLeftWidth: 0,
-                    borderLeftColor: "transparent",
                     backgroundColor: isSelected
-                      ? Colors[colorScheme ?? "light"].tint + "20"
+                      ? theme.colors.primaryContainer
                       : "transparent",
                   },
                 ]}
-                onPress={option.onPress}
-              >
-                <Icon
-                  name={option.icon}
-                  size="md"
-                  color={
-                    option.iconColor ||
-                    Colors[colorScheme ?? "light"].textSecondary
-                  }
-                />
-                <ThemedText
-                  style={[
-                    styles.sidebarItemText,
-                    {
-                      color: isSelected
-                        ? Colors[colorScheme ?? "light"].tint
-                        : Colors[colorScheme ?? "light"].textSecondary,
-                      fontSize: isDesktop ? 20 : 18,
-                      fontWeight: isSelected ? "600" : "400",
-                    },
-                  ]}
-                >
-                  {option.title}
-                </ThemedText>
-              </TouchableOpacity>
+                titleStyle={{
+                  color: isSelected
+                    ? theme.colors.onPrimaryContainer
+                    : theme.colors.onSurface,
+                }}
+                descriptionStyle={{
+                  color: isSelected
+                    ? theme.colors.onPrimaryContainer
+                    : theme.colors.onSurfaceVariant,
+                }}
+              />
             );
           })}
         </View>
-      </ScrollView>
+      </PaperScrollView>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={styles.optionsContainer}>
-          {adminOptions.map((option) => (
-            <TouchableOpacity
-              key={option.id}
-              style={[
-                styles.optionCard,
-                {
-                  backgroundColor:
-                    Colors[colorScheme ?? "light"].backgroundCard,
-                  borderColor: Colors[colorScheme ?? "light"].border,
-                },
-              ]}
-              onPress={option.onPress}
-              activeOpacity={0.7}
-            >
+    <PaperScrollView>
+      <View style={styles.optionsContainer}>
+        {adminOptions.map((option) => (
+          <Card
+            key={option.id}
+            style={[
+              styles.optionCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outline,
+              },
+            ]}
+            onPress={option.onPress}
+          >
+            <Card.Content style={styles.cardContent}>
               <View
                 style={[
                   styles.optionIconContainer,
                   { backgroundColor: `${option.iconColor}15` },
                 ]}
               >
-                <Icon
-                  name={option.icon}
-                  size="lg"
-                  color={
-                    option.iconColor || Colors[colorScheme ?? "light"].tint
-                  }
-                />
+                <Icon source={option.icon} size={24} color={option.iconColor} />
               </View>
               <View style={styles.optionTextContainer}>
-                <ThemedText style={styles.optionTitle}>
+                <Text
+                  style={[
+                    styles.optionTitle,
+                    { color: theme.colors.onSurface },
+                  ]}
+                  numberOfLines={4}
+                >
                   {option.title}
-                </ThemedText>
+                </Text>
                 {isMobile && (
-                  <ThemedText style={styles.optionDescription}>
+                  <Text
+                    style={[
+                      styles.optionDescription,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                    numberOfLines={4}
+                  >
                     {option.description}
-                  </ThemedText>
+                  </Text>
                 )}
               </View>
-              <Icon name="chevron" size="md" color="secondary" />
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
-    </ThemedView>
+              <Icon
+                source="chevron-right"
+                size={20}
+                color={theme.colors.onSurfaceVariant}
+              />
+            </Card.Content>
+          </Card>
+        ))}
+      </View>
+    </PaperScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  sidebarScroll: {
-    flex: 1,
-  },
-  sidebarItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    marginHorizontal: 8,
-    borderLeftWidth: 3,
-    borderRadius: 4,
-    marginBottom: 4,
-  },
-  sidebarItemText: {
-    marginLeft: 12,
-    fontSize: 14,
-    flex: 1,
+  listItem: {
+    marginVertical: 1,
+    borderRadius: 8,
   },
   container: {
     flex: 1,
   },
   scrollView: {
     flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingTop: 25,
-    paddingBottom: 50,
   },
   titleContainer: {
     flexDirection: "row",
@@ -226,19 +195,17 @@ const styles = StyleSheet.create({
     lineHeight: 34,
   },
   optionsContainer: {
-    gap: 15,
+    gap: 8,
   },
   optionCard: {
-    padding: 20,
+    marginBottom: 4,
     borderRadius: 12,
     borderWidth: 1,
+  },
+  cardContent: {
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingVertical: 8,
   },
   optionIconContainer: {
     width: 56,

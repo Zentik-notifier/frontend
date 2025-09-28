@@ -20,9 +20,10 @@ import { Href, useSegments } from "expo-router";
 import { LoginModal } from "./LoginModal";
 import UserDropdown from "./UserDropdown";
 import { TranslationKey, TranslationKeyPath } from "@/utils";
+import { useDeviceType } from "@/hooks/useDeviceType";
 
 // Routes that should show home button instead of back button
-const HOME_ROUTES: Href[] = [
+const ROUTES_WITH_HOME_BUTTON: Href[] = [
   "/(mobile)/(admin)",
   "/(mobile)/(settings)",
   "/(tablet)/(admin)/user-management/list",
@@ -37,8 +38,10 @@ const HOME_ROUTES: Href[] = [
   "/(tablet)/(settings)/user/profile",
 ];
 
+const HOME_ROUTES: string[] = ["/(mobile)/(home)", "/(tablet)/(home)"];
+
 // Routes that should show back button
-const BACK_ROUTES: Href[] = [
+const ROUTES_WITH_BACK_BUTTON: Href[] = [
   "/(mobile)/(home)/bucket/settings/[id]",
   "/(mobile)/(home)/bucket/[id]",
   "/(mobile)/(home)/notification/[id]",
@@ -127,14 +130,18 @@ export default function Header() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const [isRegistering, setIsRegistering] = useState(false);
+  const { isMobile } = useDeviceType();
 
   // Determine current route
   const currentRoute = `/${segments.join("/")}`;
-  const shouldShowHomeButton = HOME_ROUTES.some(
+  const shouldShowHomeButton = ROUTES_WITH_HOME_BUTTON.some(
     (route) => currentRoute === route
   );
-  const shouldShowBackButton = BACK_ROUTES.some(
+  const shouldShowBackButton = ROUTES_WITH_BACK_BUTTON.some(
     (route) => currentRoute === route
+  );
+  const shouldShowStatusBadges = HOME_ROUTES.some((route) =>
+    currentRoute.includes(route)
   );
 
   const currentTitle = ROUTE_TITLES[currentRoute];
@@ -279,15 +286,18 @@ export default function Header() {
                     size={24}
                     color={theme.colors.onPrimary}
                   />
-                  <Text
-                    variant="titleMedium"
-                    style={{ color: theme.colors.onPrimary }}
-                  >
-                    {t("common.back")}
-                  </Text>
+                  {!isMobile && (
+                    <Text
+                      variant="titleMedium"
+                      style={{ color: theme.colors.onPrimary }}
+                    >
+                      {t("common.back")}
+                    </Text>
+                  )}
                 </View>
               </TouchableRipple>
             )}
+
             {shouldShowHomeButton && (
               <TouchableRipple
                 style={styles.homeButton}
@@ -301,12 +311,14 @@ export default function Header() {
                     size={24}
                     color={theme.colors.onPrimary}
                   />
-                  <Text
-                    variant="titleMedium"
-                    style={{ color: theme.colors.onPrimary }}
-                  >
-                    {t("common.home")}
-                  </Text>
+                  {!isMobile && (
+                    <Text
+                      variant="titleMedium"
+                      style={{ color: theme.colors.onPrimary }}
+                    >
+                      {t("common.home")}
+                    </Text>
+                  )}
                 </View>
               </TouchableRipple>
             )}
@@ -323,38 +335,40 @@ export default function Header() {
             )}
 
             {/* Mark All as Read Button */}
-            {hasUnreadNotifications && !isLoadingGqlData && (
-              <View style={styles.markAllButtonContainer}>
-                <Animated.View style={{ opacity: markBlinkAnim }}>
-                  <Appbar.Action
-                    onPress={handleMarkAllAsRead}
-                    disabled={!hasUnreadNotifications || isMarkingAllAsRead}
-                    icon={() =>
-                      isMarkingAllAsRead ? (
+            {shouldShowStatusBadges &&
+              hasUnreadNotifications &&
+              !isLoadingGqlData && (
+                <View style={styles.markAllButtonContainer}>
+                  <Animated.View style={{ opacity: markBlinkAnim }}>
+                    <Appbar.Action
+                      onPress={handleMarkAllAsRead}
+                      disabled={!hasUnreadNotifications || isMarkingAllAsRead}
+                      icon={() =>
+                        isMarkingAllAsRead ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Icon source="check-all" size={20} color="#fff" />
+                        )
+                      }
+                      style={styles.markAllIcon}
+                    />
+                  </Animated.View>
+                  {unreadCount > 0 && (
+                    <Surface style={styles.badge} elevation={3}>
+                      {isLoadingGqlData ? (
                         <ActivityIndicator size="small" color="#fff" />
                       ) : (
-                        <Icon source="check-all" size={20} color="#fff" />
-                      )
-                    }
-                    style={styles.markAllIcon}
-                  />
-                </Animated.View>
-                {unreadCount > 0 && (
-                  <Surface style={styles.badge} elevation={3}>
-                    {isLoadingGqlData ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Text variant="labelSmall" style={styles.badgeText}>
-                        {unreadCount > 99 ? "99+" : unreadCount.toString()}
-                      </Text>
-                    )}
-                  </Surface>
-                )}
-              </View>
-            )}
+                        <Text variant="labelSmall" style={styles.badgeText}>
+                          {unreadCount > 99 ? "99+" : unreadCount.toString()}
+                        </Text>
+                      )}
+                    </Surface>
+                  )}
+                </View>
+              )}
 
             {/* Download Queue Progress Icon */}
-            {inProcessing && (
+            {shouldShowStatusBadges && inProcessing && (
               <View style={styles.downloadQueueContainer}>
                 <Appbar.Action
                   icon={() => (
@@ -377,7 +391,7 @@ export default function Header() {
             )}
 
             {/* Status Badge */}
-            {status.type !== "none" && (
+            {shouldShowStatusBadges && status.type !== "none" && (
               <Button
                 mode="contained"
                 onPress={handleStatusPress}
