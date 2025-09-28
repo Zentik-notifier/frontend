@@ -6,12 +6,10 @@ import {
 import React, { useState } from "react";
 import {
   Dimensions,
-  Platform,
   ScrollView,
   StyleSheet,
-  View,
+  View
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import Markdown from "react-native-markdown-display";
 import {
   ActivityIndicator,

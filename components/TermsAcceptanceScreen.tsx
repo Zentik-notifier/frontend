@@ -1,20 +1,22 @@
-import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import Markdown from "react-native-markdown-display";
-import { Colors } from "../constants/Colors";
+import {
+  ActivityIndicator,
+  Button,
+  Icon,
+  Text,
+  TouchableRipple,
+  useTheme
+} from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useI18n } from "../hooks/useI18n";
-import { useColorScheme } from "../hooks/useTheme";
 import {
   acceptTerms,
   getCurrentTermsVersion,
@@ -36,7 +38,7 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
   onDeclined,
 }) => {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const [currentDocument, setCurrentDocument] = useState<LegalDocument | null>(
     null
   );
@@ -127,56 +129,56 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
 
   const markdownStyle = {
     body: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       fontSize: 14,
       lineHeight: 20,
     },
     heading1: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       fontSize: 24,
       fontWeight: "bold" as const,
       marginBottom: 16,
       marginTop: 20,
     },
     heading2: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       fontSize: 20,
       fontWeight: "bold" as const,
       marginBottom: 12,
       marginTop: 16,
     },
     heading3: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       fontSize: 16,
       fontWeight: "bold" as const,
       marginBottom: 8,
       marginTop: 12,
     },
     paragraph: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       fontSize: 14,
       lineHeight: 20,
       marginBottom: 8,
     },
     strong: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       fontWeight: "bold" as const,
     },
     em: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       fontStyle: "italic" as const,
     },
     list: {
       marginBottom: 8,
     },
     listItem: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       fontSize: 14,
       lineHeight: 20,
     },
     code: {
-      backgroundColor: Colors[colorScheme].backgroundSecondary,
-      color: Colors[colorScheme].tint,
+      backgroundColor: theme.colors.surfaceVariant,
+      color: theme.colors.primary,
       fontSize: 12,
       fontFamily:
         Platform.OS === "ios" || Platform.OS === "macos"
@@ -187,9 +189,9 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
       borderRadius: 4,
     },
     blockquote: {
-      backgroundColor: Colors[colorScheme].backgroundSecondary,
+      backgroundColor: theme.colors.surfaceVariant,
       borderLeftWidth: 4,
-      borderLeftColor: Colors[colorScheme].tint,
+      borderLeftColor: theme.colors.primary,
       paddingLeft: 12,
       paddingVertical: 8,
       marginVertical: 8,
@@ -201,17 +203,12 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
       <SafeAreaView
         style={[
           styles.container,
-          { backgroundColor: Colors[colorScheme].background },
+          { backgroundColor: theme.colors.background },
         ]}
       >
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
-          <Text
-            style={[
-              styles.loadingText,
-              { color: Colors[colorScheme].textSecondary },
-            ]}
-          >
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text variant="bodyLarge" style={styles.loadingText}>
             {t("legal.loading")}
           </Text>
         </View>
@@ -223,28 +220,21 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
     <SafeAreaView
       style={[
         styles.container,
-        { backgroundColor: Colors[colorScheme].background },
+        { backgroundColor: theme.colors.background },
       ]}
     >
       {/* Header */}
       <View
         style={[
           styles.header,
-          { borderBottomColor: Colors[colorScheme].border },
+          { borderBottomColor: theme.colors.outline },
         ]}
       >
         <View style={styles.headerContent}>
-          <Text
-            style={[styles.headerTitle, { color: Colors[colorScheme].text }]}
-          >
+          <Text variant="headlineSmall" style={styles.headerTitle}>
             {t("legal.acceptanceRequired")}
           </Text>
-          <Text
-            style={[
-              styles.headerSubtitle,
-              { color: Colors[colorScheme].textSecondary },
-            ]}
-          >
+          <Text variant="bodyMedium" style={styles.headerSubtitle}>
             {t("legal.acceptanceDescription")}
           </Text>
         </View>
@@ -255,7 +245,7 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
         <View
           style={[
             styles.navigationContainer,
-            { borderBottomColor: Colors[colorScheme].border },
+            { borderBottomColor: theme.colors.outline },
           ]}
         >
           <ScrollView
@@ -264,40 +254,43 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
             contentContainerStyle={styles.navigationContent}
           >
             {LEGAL_DOCUMENTS.map((document) => (
-              <TouchableOpacity
+              <TouchableRipple
                 key={document.fileName}
                 style={[
                   styles.navigationButton,
                   currentDocument?.fileName === document.fileName && {
-                    backgroundColor: Colors[colorScheme].tint,
+                    backgroundColor: theme.colors.primary,
                   },
-                  { borderColor: Colors[colorScheme].border },
+                  { borderColor: theme.colors.outline },
                 ]}
                 onPress={() => viewOtherDocument(document)}
               >
-                <Ionicons
-                  name={document.icon}
-                  size={16}
-                  color={
-                    currentDocument?.fileName === document.fileName
-                      ? Colors[colorScheme].background
-                      : Colors[colorScheme].tint
-                  }
-                />
-                <Text
-                  style={[
-                    styles.navigationButtonText,
-                    {
-                      color:
-                        currentDocument?.fileName === document.fileName
-                          ? Colors[colorScheme].background
-                          : Colors[colorScheme].text,
-                    },
-                  ]}
-                >
-                  {document.title}
-                </Text>
-              </TouchableOpacity>
+                <View style={styles.navigationButtonContent}>
+                  <Icon
+                    source={document.icon}
+                    size={16}
+                    color={
+                      currentDocument?.fileName === document.fileName
+                        ? theme.colors.onPrimary
+                        : theme.colors.primary
+                    }
+                  />
+                  <Text
+                    variant="bodySmall"
+                    style={[
+                      styles.navigationButtonText,
+                      {
+                        color:
+                          currentDocument?.fileName === document.fileName
+                            ? theme.colors.onPrimary
+                            : theme.colors.onSurface,
+                      },
+                    ]}
+                  >
+                    {document.title}
+                  </Text>
+                </View>
+              </TouchableRipple>
             ))}
           </ScrollView>
         </View>
@@ -308,30 +301,20 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
         <View
           style={[
             styles.documentHeader,
-            { borderBottomColor: Colors[colorScheme].border },
+            { borderBottomColor: theme.colors.outline },
           ]}
         >
           <View style={styles.documentInfo}>
-            <Ionicons
-              name={currentDocument.icon}
+            <Icon
+              source={currentDocument.icon}
               size={20}
-              color={Colors[colorScheme].tint}
+              color={theme.colors.primary}
             />
-            <Text
-              style={[
-                styles.documentTitle,
-                { color: Colors[colorScheme].text },
-              ]}
-            >
+            <Text variant="titleMedium" style={styles.documentTitle}>
               {currentDocument.title}
             </Text>
           </View>
-          <Text
-            style={[
-              styles.documentVersion,
-              { color: Colors[colorScheme].textSecondary },
-            ]}
-          >
+          <Text variant="bodySmall" style={styles.documentVersion}>
             {t("legal.version", { version: currentVersion })}
           </Text>
         </View>
@@ -348,60 +331,32 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
 
       {/* Acceptance Footer */}
       <View
-        style={[styles.footer, { borderTopColor: Colors[colorScheme].border }]}
+        style={[styles.footer, { borderTopColor: theme.colors.outline }]}
       >
-        <Text
-          style={[
-            styles.footerText,
-            { color: Colors[colorScheme].textSecondary },
-          ]}
-        >
+        <Text variant="bodySmall" style={styles.footerText}>
           {t("legal.acceptanceFooterText")}
         </Text>
 
         <View style={styles.buttonsContainer}>
-          <TouchableOpacity
-            style={[
-              styles.declineButton,
-              { borderColor: Colors[colorScheme].border },
-            ]}
+          <Button
+            mode="outlined"
             onPress={handleDecline}
             disabled={accepting}
+            style={styles.declineButton}
+            textColor={theme.colors.onSurfaceVariant}
           >
-            <Text
-              style={[
-                styles.declineButtonText,
-                { color: Colors[colorScheme].textSecondary },
-              ]}
-            >
-              {t("legal.declineTerms")}
-            </Text>
-          </TouchableOpacity>
+            {t("legal.declineTerms")}
+          </Button>
 
-          <TouchableOpacity
-            style={[
-              styles.acceptButton,
-              { backgroundColor: Colors[colorScheme].tint },
-            ]}
+          <Button
+            mode="contained"
             onPress={handleAccept}
             disabled={accepting}
+            style={styles.acceptButton}
+            loading={accepting}
           >
-            {accepting ? (
-              <ActivityIndicator
-                size="small"
-                color={Colors[colorScheme].background}
-              />
-            ) : (
-              <Text
-                style={[
-                  styles.acceptButtonText,
-                  { color: Colors[colorScheme].background },
-                ]}
-              >
-                {t("legal.acceptTerms")}
-              </Text>
-            )}
-          </TouchableOpacity>
+            {t("legal.acceptTerms")}
+          </Button>
         </View>
       </View>
     </SafeAreaView>
@@ -420,7 +375,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    fontSize: 16,
+    opacity: 0.7,
   },
   header: {
     paddingHorizontal: 20,
@@ -431,14 +386,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "600",
     marginBottom: 4,
+    textAlign: "center",
   },
   headerSubtitle: {
-    fontSize: 14,
     textAlign: "center",
     lineHeight: 18,
+    opacity: 0.8,
   },
   navigationContainer: {
     borderBottomWidth: 1,
@@ -449,16 +404,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   navigationButton: {
-    flexDirection: "row",
-    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
     borderRadius: 16,
+  },
+  navigationButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   navigationButtonText: {
-    fontSize: 12,
     fontWeight: "500",
   },
   documentHeader: {

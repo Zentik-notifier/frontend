@@ -18,7 +18,6 @@ import {
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import { reinitializeApolloClient } from "../config/apollo-client";
 import { ApiConfigService } from "../services/api-config";
-import { clearTermsAcceptance } from "../services/auth-storage";
 import { LegalDocumentsSettings } from "./LegalDocumentsSettings";
 import { LocalizationSettings } from "./LocalizationSettings";
 import UnifiedCacheSettings from "./UnifiedCacheSettings";
@@ -36,7 +35,6 @@ export function AppSettings() {
   // Dialog states
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
-  const [showRevokeDialog, setShowRevokeDialog] = useState(false);
   const [dialogMessage, setDialogMessage] = useState("");
 
   useEffect(() => {
@@ -79,64 +77,6 @@ export function AppSettings() {
   };
 
   const hasChanges = apiUrl !== originalApiUrl;
-
-  const handleRevokeTerms = () => {
-    setShowRevokeDialog(true);
-  };
-
-  const confirmRevokeTerms = async () => {
-    setShowRevokeDialog(false);
-    try {
-      setLoading(true);
-      await clearTermsAcceptance();
-      setDialogMessage(t("appSettings.revokeTermsSuccess"));
-      setShowSuccessDialog(true);
-    } catch (error) {
-      console.error("Failed to revoke terms:", error);
-      setDialogMessage("Failed to revoke terms acceptance");
-      setShowErrorDialog(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const renderActionSetting = (
-    title: string,
-    description: string,
-    onPress: () => void,
-    icon?: string,
-    destructive?: boolean
-  ) => (
-    <List.Item
-      title={title}
-      description={description}
-      left={(props) => 
-        icon ? (
-          <List.Icon 
-            {...props} 
-            icon={icon} 
-            color={destructive ? theme.colors.error : theme.colors.primary}
-          />
-        ) : undefined
-      }
-      right={(props) => (
-        <List.Icon {...props} icon="chevron-right" />
-      )}
-      onPress={onPress}
-      titleStyle={{
-        color: destructive ? theme.colors.error : theme.colors.onSurface,
-      }}
-      descriptionStyle={{
-        color: theme.colors.onSurfaceVariant,
-      }}
-      style={{
-        backgroundColor: theme.colors.surface,
-        marginHorizontal: 16,
-        marginVertical: 4,
-        borderRadius: 12,
-      }}
-    />
-  );
 
   const handleRefresh = async () => {
     // This screen mostly manages local settings; noop refresh hook
@@ -250,27 +190,6 @@ export function AppSettings() {
         </Dialog>
       </Portal>
 
-      {/* Revoke Terms Dialog */}
-      <Portal>
-        <Dialog visible={showRevokeDialog} onDismiss={() => setShowRevokeDialog(false)}>
-          <Dialog.Title>{t("appSettings.revokeTerms")}</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{t("appSettings.revokeTermsConfirm")}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowRevokeDialog(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button 
-              mode="contained" 
-              buttonColor={theme.colors.error}
-              onPress={confirmRevokeTerms}
-            >
-              {t("appSettings.revokeTerms")}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
     </>
   );
 }
