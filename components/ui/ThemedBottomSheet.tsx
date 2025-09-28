@@ -19,6 +19,7 @@ export interface ThemedBottomSheetProps {
   isVisible: boolean;
   onShown?: () => void;
   onHidden?: () => void;
+  footer?: ReactNode;
 }
 
 export default function ThemedBottomSheet({
@@ -28,6 +29,7 @@ export default function ThemedBottomSheet({
   isVisible,
   onShown,
   onHidden,
+  footer,
 }: ThemedBottomSheetProps) {
   const theme = useTheme();
   const [slideAnim] = useState(new Animated.Value(screenHeight));
@@ -88,6 +90,13 @@ export default function ThemedBottomSheet({
     closeButton: {
       padding: 8,
     },
+    footer: {
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      paddingBottom: 32,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.outlineVariant,
+    },
   });
 
   return (
@@ -129,6 +138,8 @@ export default function ThemedBottomSheet({
               </View>
 
               {children}
+              
+              {footer && <View style={styles.footer}>{footer}</View>}
             </TouchableOpacity>
           </Animated.View>
         </TouchableOpacity>

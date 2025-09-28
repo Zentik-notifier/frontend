@@ -304,20 +304,26 @@ export interface TranslationKey {
       dynamicThemeGenerated: string;
       presets: {
         material3: string;
-        material3_reverse: string;
         blue: string;
         red: string;
         yellow: string;
         green: string;
+        terra: string;
+        hightech: string;
+        pastel: string;
+        minimal: string;
         custom: string;
       };
       presetDescriptions: {
         material3: string;
-        material3_reverse: string;
         blue: string;
         red: string;
         yellow: string;
         green: string;
+        terra: string;
+        hightech: string;
+        pastel: string;
+        minimal: string;
         custom: string;
       };
     };
@@ -652,7 +658,6 @@ export interface TranslationKey {
       title: string;
       subtitle: string;
       body: string;
-      deliveryType: string;
       actions: string;
       attachments: string;
       titlePlaceholder: string;

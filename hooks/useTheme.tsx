@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { useColorScheme as useSystemColorScheme } from "react-native";
 import { userSettings, UserSettings } from "../services/user-settings";
 import { MD3DarkTheme, MD3LightTheme, PaperProvider } from "react-native-paper";
-import { ThemePreset, getThemePreset } from "../services/theme-presets";
+import { ThemePreset, getPresetColors } from "../services/theme-presets";
 import { generateDynamicTheme } from "../services/theme-generator";
 
 export type ThemeMode = "light" | "dark" | "system";
@@ -19,15 +19,19 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 // Helper function to generate theme based on settings
-function generateThemeFromSettings(settings: UserSettings, colorScheme: ColorScheme) {
+function generateThemeFromSettings(
+  settings: UserSettings,
+  colorScheme: ColorScheme
+) {
   const baseTheme = colorScheme === "dark" ? MD3DarkTheme : MD3LightTheme;
-  
+
   // If using dynamic theme, generate it
   if (settings.useDynamicTheme && settings.dynamicThemeColors) {
     try {
       const dynamicTheme = generateDynamicTheme(settings.dynamicThemeColors);
-      const dynamicColors = colorScheme === "dark" ? dynamicTheme.dark : dynamicTheme.light;
-      
+      const dynamicColors =
+        colorScheme === "dark" ? dynamicTheme.dark : dynamicTheme.light;
+
       // Create a complete theme by merging base theme with dynamic colors
       return {
         ...baseTheme,
@@ -41,24 +45,22 @@ function generateThemeFromSettings(settings: UserSettings, colorScheme: ColorSch
       return baseTheme;
     }
   }
-  
+
   // If using preset, apply preset colors
   if (settings.themePreset && settings.themePreset !== ThemePreset.Custom) {
-    const preset = getThemePreset(settings.themePreset);
-    if (preset) {
-      // Create a custom theme based on preset colors
-      return {
-        ...baseTheme,
-        colors: {
-          ...baseTheme.colors,
-          primary: preset.colors.primary,
-          secondary: preset.colors.secondary,
-          tertiary: preset.colors.tertiary,
-        },
-      };
-    }
+    const presetColors = getPresetColors(settings.themePreset, colorScheme);
+    // Create a custom theme based on preset colors
+    return {
+      ...baseTheme,
+      colors: {
+        ...baseTheme.colors,
+        primary: presetColors.primary,
+        secondary: presetColors.secondary,
+        tertiary: presetColors.tertiary,
+      },
+    };
   }
-  
+
   // Default theme
   return baseTheme;
 }
@@ -66,7 +68,9 @@ function generateThemeFromSettings(settings: UserSettings, colorScheme: ColorSch
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemColorScheme = useSystemColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
-  const [themeSettings, setThemeSettingsState] = useState<UserSettings | null>(null);
+  const [themeSettings, setThemeSettingsState] = useState<UserSettings | null>(
+    null
+  );
 
   // Determine actual color scheme based on theme mode
   const colorScheme: ColorScheme =
@@ -110,9 +114,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Generate theme based on current settings
-  const theme = themeSettings 
+  const theme = themeSettings
     ? generateThemeFromSettings(themeSettings, colorScheme)
-    : (colorScheme === "dark" ? MD3DarkTheme : MD3LightTheme);
+    : colorScheme === "dark"
+    ? MD3DarkTheme
+    : MD3LightTheme;
 
   // Log theme changes for debugging
   useEffect(() => {

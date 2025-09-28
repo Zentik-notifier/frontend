@@ -144,7 +144,7 @@ export default function HomeSidebar() {
                         <Text
                           style={[
                             styles.badgeText,
-                            { color: theme.colors.onPrimary },
+                            { color: theme.colors.surface },
                           ]}
                         >
                           {item.count}
@@ -215,7 +215,7 @@ export default function HomeSidebar() {
                         <Text
                           style={[
                             styles.badgeText,
-                            { color: theme.colors.onPrimary },
+                            { color: theme.colors.surface },
                           ]}
                         >
                           {bucket.unreadCount > 99
@@ -311,7 +311,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   badgeText: {
-    color: "#ffffff",
     fontSize: 12,
     fontWeight: "600",
   },

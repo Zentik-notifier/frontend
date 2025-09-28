@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import {
   Badge,
+  FAB,
   Icon,
   IconButton,
   Surface,
@@ -32,6 +33,8 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
     useNavigationUtils();
   const { massMarkAsRead, loading: markAllAsReadLoading } =
     useMassMarkNotificationsAsRead();
+
+  const [isMessageBuilderVisible, setIsMessageBuilderVisible] = useState(false);
 
   const { notifications, connectionStatus } = useAppContext();
   const {
@@ -73,7 +76,6 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
 
     return filtered;
   }, [bucketNotifications, notificationFilters, userSettings]);
-
 
   const handleMarkAllAsRead = async () => {
     if (unreadNotifications.length === 0) return;
@@ -223,7 +225,6 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
     </Surface>
   );
 
-
   if (!bucket) {
     return null;
   }
@@ -250,8 +251,18 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
         customHeader={<View style={[styles.filtersContainer]} />}
       />
 
-      {/* Message Builder */}
-      <MessageBuilder bucketId={bucketId} />
+      <MessageBuilder
+        bucketId={bucketId}
+        isVisible={isMessageBuilderVisible}
+        onClose={() => setIsMessageBuilderVisible(false)}
+        trigger={
+          <FAB
+            icon="message"
+            style={styles.fab}
+            onPress={() => setIsMessageBuilderVisible(true)}
+          />
+        }
+      />
     </Surface>
   );
 }
@@ -350,5 +361,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#fff",
+  },
+  fab: {
+    position: "absolute",
+    margin: 16,
+    right: 0,
+    bottom: 0,
   },
 });

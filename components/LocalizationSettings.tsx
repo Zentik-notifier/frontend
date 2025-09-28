@@ -419,7 +419,6 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
             placeholder={t("appSettings.timezone.selectPlaceholder")}
             options={timezoneOptions}
             optionLabel="name"
-            mode="inline"
             optionValue="id"
             selectedValue={selectedTimezone?.id}
             onValueChange={(value) => handleTimezoneSelect(value as string)}

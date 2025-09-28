@@ -135,7 +135,7 @@ export default function ThemeSettings() {
         <Card.Title
           title={t("appSettings.theme.title")}
           subtitle={t("appSettings.theme.subtitle")}
-          titleVariant="titleMedium"
+          titleVariant="titleLarge"
         />
         <Card.Content>
           {/* Preset Selection */}
