@@ -13,6 +13,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useTheme, Icon } from "react-native-paper";
+import ThemedBottomSheet from "./ThemedBottomSheet";
 
 interface ThemedInputSelectProps {
   label?: string;
@@ -51,7 +52,6 @@ export default function ThemedInputSelect({
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isInlineDropdownOpen, setIsInlineDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [slideAnim] = useState(new Animated.Value(screenHeight));
   const containerRef = useRef<View>(null);
   const { t } = useI18n();
 
@@ -71,22 +71,10 @@ export default function ThemedInputSelect({
 
   const showModal = () => {
     setIsModalVisible(true);
-    setSearchQuery("");
-    Animated.timing(slideAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
   };
 
   const hideModal = () => {
-    Animated.timing(slideAnim, {
-      toValue: screenHeight,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => {
-      setIsModalVisible(false);
-    });
+    setIsModalVisible(false);
   };
 
   const handleSelectOption = (option: any) => {
@@ -411,19 +399,15 @@ export default function ThemedInputSelect({
     );
   }
 
-  return (
-    <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
-
+  const trigger = (
+    <>
       <TouchableOpacity
         style={styles.inputContainer}
         onPress={showModal}
         disabled={disabled}
       >
         <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
-          {selectedOption
-            ? selectedOption[optionLabel]
-            : placeholder || "Seleziona un'opzione"}
+          {selectedOption ? selectedOption[optionLabel] : placeholder}
         </Text>
         <Icon
           source="chevron-down"
@@ -431,100 +415,65 @@ export default function ThemedInputSelect({
           color={theme.colors.onSurfaceVariant}
         />
       </TouchableOpacity>
-
       {helperText && !error && (
         <Text style={styles.helperText}>{helperText}</Text>
       )}
-
       {errorText && error && <Text style={styles.errorText}>{errorText}</Text>}
+    </>
+  );
 
-      <Modal
-        visible={isModalVisible}
-        transparent
-        animationType="none"
-        onRequestClose={hideModal}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={hideModal}
-        >
-          <Animated.View
-            style={[
-              styles.modalContainer,
-              {
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  {label || "Seleziona opzione"}
-                </Text>
-                <TouchableOpacity
-                  onPress={hideModal}
-                  style={styles.closeButton}
-                >
-                  <Icon
-                    source="close"
-                    size={24}
-                    color={theme.colors.onSurface}
-                  />
-                </TouchableOpacity>
-              </View>
+  return (
+    <ThemedBottomSheet
+      title={label}
+      trigger={trigger}
+      onShown={showModal}
+      onHidden={hideModal}
+      isVisible={isModalVisible}
+    >
+      {isSearchable && (
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder={t("bucketSelector.searchBuckets")}
+            placeholderTextColor={theme.colors.onSurfaceVariant}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+      )}
 
-              {isSearchable && (
-                <View style={styles.searchContainer}>
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder={t("bucketSelector.searchBuckets")}
-                    placeholderTextColor={theme.colors.onSurfaceVariant}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                  />
-                </View>
-              )}
-
-              <FlatList
-                style={styles.optionsList}
-                data={filteredOptions}
-                keyExtractor={(item) => item[optionValue].toString()}
-                renderItem={({ item }) => {
-                  const isSelected = item[optionValue] === selectedValue;
-                  return (
-                    <TouchableOpacity
-                      style={[
-                        styles.optionItem,
-                        isSelected && styles.selectedOption,
-                      ]}
-                      onPress={() => handleSelectOption(item)}
-                    >
-                      <Text
-                        style={[
-                          styles.optionText,
-                          isSelected && styles.selectedOptionText,
-                        ]}
-                      >
-                        {item[optionLabel]}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                }}
-                ListEmptyComponent={
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateText}>
-                      {searchQuery.trim()
-                        ? "Nessun risultato trovato"
-                        : "Nessuna opzione disponibile"}
-                    </Text>
-                  </View>
-                }
-              />
+      <FlatList
+        style={styles.optionsList}
+        data={filteredOptions}
+        keyExtractor={(item) => item[optionValue].toString()}
+        renderItem={({ item }) => {
+          const isSelected = item[optionValue] === selectedValue;
+          return (
+            <TouchableOpacity
+              style={[styles.optionItem, isSelected && styles.selectedOption]}
+              onPress={() => handleSelectOption(item)}
+            >
+              <Text
+                style={[
+                  styles.optionText,
+                  isSelected && styles.selectedOptionText,
+                ]}
+              >
+                {item[optionLabel]}
+              </Text>
             </TouchableOpacity>
-          </Animated.View>
-        </TouchableOpacity>
-      </Modal>
-    </View>
+          );
+        }}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>
+              {searchQuery.trim()
+                ? "Nessun risultato trovato"
+                : "Nessuna opzione disponibile"}
+            </Text>
+          </View>
+        }
+      />
+    </ThemedBottomSheet>
   );
 }

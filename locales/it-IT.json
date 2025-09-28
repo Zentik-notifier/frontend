@@ -777,6 +777,8 @@
     "actionFailed": "Impossibile eseguire l'azione. Controlla la tua connessione internet.",
     "snooze": "Posticipa",
     "snoozeMessage": "Notifica posticipata per {{minutes}} minuti",
+    "search": "Cerca",
+    "selectOption": "Seleziona opzione",
     "snoozeGeneric": "Notifica posticipata",
     "deviceNotRegistered": "PUSH non registrato",
     "notAvailableOnWeb": "Funzione non disponibile sul Web",

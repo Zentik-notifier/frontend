@@ -1,70 +1,64 @@
-import React, { useState, useRef, useEffect, ReactNode } from "react";
+import { useI18n } from "@/hooks";
+import React, { ReactNode, useCallback, useEffect, useState } from "react";
 import {
-  Modal,
-  TouchableOpacity,
-  View,
   Animated,
   Dimensions,
+  Modal,
   StyleSheet,
-  ScrollView,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { useTheme, Icon, Text } from "react-native-paper";
+import { Icon, Text, useTheme } from "react-native-paper";
 
 const { height: screenHeight } = Dimensions.get("window");
 
 export interface ThemedBottomSheetProps {
-  visible: boolean;
-  onClose: () => void;
   title?: string;
   children: ReactNode;
-  maxHeight?: number;
-  minHeight?: number;
-  showCloseButton?: boolean;
-  closeOnOverlayPress?: boolean;
-  scrollable?: boolean;
-  footer?: ReactNode;
-  disableScrollView?: boolean; // Per evitare VirtualizedLists annidati
+  trigger: ReactNode;
+  isVisible: boolean;
+  onShown?: () => void;
+  onHidden?: () => void;
 }
 
 export default function ThemedBottomSheet({
-  visible,
-  onClose,
   title,
   children,
-  maxHeight = screenHeight * 0.95,
-  minHeight = screenHeight * 0.4,
-  showCloseButton = true,
-  closeOnOverlayPress = true,
-  scrollable = true,
-  footer,
-  disableScrollView = false,
+  trigger,
+  isVisible,
+  onShown,
+  onHidden,
 }: ThemedBottomSheetProps) {
   const theme = useTheme();
   const [slideAnim] = useState(new Animated.Value(screenHeight));
 
+  const hideModal = useCallback(() => {
+    Animated.timing(slideAnim, {
+      toValue: screenHeight,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      onHidden?.();
+    });
+  }, [onHidden]);
+
   useEffect(() => {
-    if (visible) {
+    if (isVisible) {
+      onShown?.();
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 300,
         useNativeDriver: true,
       }).start();
     } else {
-      Animated.timing(slideAnim, {
-        toValue: screenHeight,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      hideModal();
     }
-  }, [visible, slideAnim]);
-
-  const handleOverlayPress = () => {
-    if (closeOnOverlayPress) {
-      onClose();
-    }
-  };
+  }, [isVisible, hideModal, onShown]);
 
   const styles = StyleSheet.create({
+    container: {
+      marginVertical: 8,
+    },
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -74,8 +68,7 @@ export default function ThemedBottomSheet({
       backgroundColor: theme.colors.surface,
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
-      maxHeight,
-      minHeight,
+      maxHeight: screenHeight * 0.7,
       paddingTop: 20,
     },
     modalHeader: {
@@ -95,80 +88,51 @@ export default function ThemedBottomSheet({
     closeButton: {
       padding: 8,
     },
-    content: {
-      flex: 1,
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-    },
-    scrollContent: {
-      paddingBottom: footer ? 0 : 16,
-    },
-    footer: {
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-      paddingBottom: 32,
-      borderTopWidth: 1,
-      borderTopColor: theme.colors.outlineVariant,
-    },
   });
 
-  const ContentWrapper = (scrollable && !disableScrollView) ? ScrollView : View;
-  const contentProps = (scrollable && !disableScrollView)
-    ? {
-        style: styles.content,
-        contentContainerStyle: styles.scrollContent,
-        showsVerticalScrollIndicator: false,
-        nestedScrollEnabled: true, // Permette scroll annidati
-      }
-    : { style: styles.content };
-
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={onClose}
-    >
-      <TouchableOpacity
-        style={styles.modalOverlay}
-        activeOpacity={1}
-        onPress={handleOverlayPress}
+    <View style={styles.container}>
+      {trigger}
+
+      <Modal
+        visible={isVisible}
+        transparent
+        animationType="none"
+        onRequestClose={hideModal}
       >
-        <Animated.View
-          style={[
-            styles.modalContainer,
-            {
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={hideModal}
         >
-          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-            {/* Header */}
-            {(title || showCloseButton) && (
+          <Animated.View
+            style={[
+              styles.modalContainer,
+              {
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <TouchableOpacity activeOpacity={1} onPress={() => {}}>
               <View style={styles.modalHeader}>
-                {title && <Text style={styles.modalTitle}>{title}</Text>}
-                {showCloseButton && (
-                  <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Icon
-                      source="close"
-                      size={24}
-                      color={theme.colors.onSurface}
-                    />
-                  </TouchableOpacity>
-                )}
+                <Text style={styles.modalTitle}>{title}</Text>
+                <TouchableOpacity
+                  onPress={hideModal}
+                  style={styles.closeButton}
+                >
+                  <Icon
+                    source="close"
+                    size={24}
+                    color={theme.colors.onSurface}
+                  />
+                </TouchableOpacity>
               </View>
-            )}
 
-            {/* Content */}
-            <ContentWrapper {...contentProps}>
               {children}
-            </ContentWrapper>
-
-            {/* Footer */}
-            {footer && <View style={styles.footer}>{footer}</View>}
-          </TouchableOpacity>
-        </Animated.View>
-      </TouchableOpacity>
-    </Modal>
+            </TouchableOpacity>
+          </Animated.View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
   );
 }
