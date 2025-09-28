@@ -27,6 +27,7 @@ export default function PaperScrollView({
   showsHorizontalScrollIndicator = false,
 }: PaperScrollViewProps) {
   const theme = useTheme();
+  console.log(theme.dark, theme.colors.primary)
 
   return (
     <ScrollView
@@ -46,8 +47,8 @@ export default function PaperScrollView({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[theme.colors.onSurface]}
-            tintColor={theme.colors.onSurface}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
             progressBackgroundColor={theme.colors.surface}
             titleColor={theme.colors.onSurface}
           />
