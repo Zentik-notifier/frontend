@@ -70,9 +70,6 @@ const ThemedBottomSheet = forwardRef<
   );
 
   const styles = StyleSheet.create({
-    container: {
-      marginVertical: 8,
-    },
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -116,7 +113,7 @@ const ThemedBottomSheet = forwardRef<
   }, [showModal]);
 
   return (
-    <View style={styles.container}>
+    <View>
       <TouchableOpacity onPress={handleTriggerPress}>
         {trigger(showModal)}
       </TouchableOpacity>
