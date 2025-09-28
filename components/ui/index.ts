@@ -1,6 +1,5 @@
 export { default as AdvancedIconSelector } from './AdvancedIconSelector';
 export type { IconInfo } from './AdvancedIconSelector';
-export { default as AppLoader } from './AppLoader';
 export { Button } from './Button';
 export type { ButtonProps } from './Button';
 export { HtmlTextRenderer } from './HtmlTextRenderer';

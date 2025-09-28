@@ -1376,6 +1376,11 @@ export interface TranslationKey {
       description: string;
     };
   };
+  notFound: {
+    title: string;
+    description: string;
+    goHome: string;
+  };
 }
 
 // Supported locales

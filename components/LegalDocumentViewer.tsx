@@ -1,24 +1,28 @@
-import { Colors } from "@/constants/Colors";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
 import {
   getLegalDocumentContent,
   type LegalDocument,
 } from "@/services/legal-documents";
-import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  Modal,
+  Dimensions,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Markdown from "react-native-markdown-display";
-import { ThemedText } from "./ThemedText";
-import { Button } from "./ui";
+import {
+  ActivityIndicator,
+  Button,
+  Icon,
+  Modal,
+  Portal,
+  Text,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 
 interface LegalDocumentViewerProps {
   document: LegalDocument;
@@ -32,9 +36,18 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
   onClose,
 }) => {
   const { t } = useI18n();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(false);
+
+  const deviceHeight = Dimensions.get("window").height;
+  const containerStyle = {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginVertical: 24,
+    maxHeight: deviceHeight * 0.8,
+  } as const;
 
   React.useEffect(() => {
     if (visible && document) {
@@ -57,63 +70,59 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
 
   const markdownStyles = {
     body: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       fontSize: 16,
       lineHeight: 24,
     },
     heading1: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       fontSize: 24,
       fontWeight: "bold" as const,
       marginBottom: 16,
     },
     heading2: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       fontSize: 20,
       fontWeight: "bold" as const,
       marginBottom: 12,
       marginTop: 24,
     },
     paragraph: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       marginBottom: 12,
     },
     strong: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       fontWeight: "bold" as const,
     },
     list_item: {
-      color: Colors[colorScheme].text,
+      color: theme.colors.onSurface,
       marginBottom: 4,
     },
   };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle={
-        Platform.OS === "ios" || Platform.OS === "macos"
-          ? "pageSheet"
-          : "fullScreen"
-      }
-    >
-      <SafeAreaView
-        style={[
-          styles.container,
-          { backgroundColor: Colors[colorScheme].background },
-        ]}
+    <Portal>
+      <Modal
+        visible={visible}
+        onDismiss={onClose}
+        contentContainerStyle={containerStyle}
+        dismissableBackButton
       >
-        <View
-          style={[
-            styles.header,
-            { borderBottomColor: Colors[colorScheme].border },
-          ]}
-        >
-          <ThemedText style={styles.title}>{document.title}</ThemedText>
-          <Pressable onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
-          </Pressable>
+        <View style={[styles.header, { borderBottomColor: theme.colors.outline }]}>
+          <View style={styles.headerLeft}>
+            <Icon source="file-document" size={24} color={theme.colors.primary} />
+            <Text variant="titleLarge" style={styles.headerTitle}>
+              {document.title}
+            </Text>
+          </View>
+          <TouchableRipple
+            style={styles.closeButton}
+            onPress={onClose}
+            borderless
+          >
+            <Icon source="close" size={20} color={theme.colors.onSurface} />
+          </TouchableRipple>
         </View>
 
         <ScrollView
@@ -123,56 +132,56 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
         >
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ThemedText>{t("common.loading")}</ThemedText>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text variant="bodyLarge" style={styles.loadingText}>
+                {t("common.loading")}
+              </Text>
             </View>
           ) : (
             <Markdown style={markdownStyles}>{content}</Markdown>
           )}
         </ScrollView>
 
-        <View
-          style={[
-            styles.footer,
-            { borderTopColor: Colors[colorScheme].border },
-          ]}
-        >
+        <View style={[styles.footer, { borderTopColor: theme.colors.outline }]}>
           <Button
-            title={t("common.close")}
+            mode="outlined"
             onPress={onClose}
-            variant="outline"
-            size="large"
-          />
+            style={styles.closeButton}
+          >
+            {t("common.close")}
+          </Button>
         </View>
-      </SafeAreaView>
-    </Modal>
+      </Modal>
+    </Portal>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: "600",
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerTitle: {
     flex: 1,
+    fontWeight: "600",
   },
   closeButton: {
-    padding: 4,
+    borderRadius: 20,
+    minWidth: 100,
   },
   content: {
-    flex: 1,
   },
   contentContainer: {
-    padding: 16,
+    padding: 20,
     paddingBottom: 32,
   },
   loadingContainer: {
@@ -180,9 +189,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 32,
+    gap: 16,
+  },
+  loadingText: {
+    marginTop: 8,
+    opacity: 0.7,
   },
   footer: {
-    padding: 16,
+    padding: 20,
     borderTopWidth: 1,
+    alignItems: "center",
   },
 });

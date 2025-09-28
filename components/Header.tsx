@@ -112,6 +112,8 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(mobile)/(admin)/system-access-tokens/list": "administration.systemTokensTitle",
   "/(tablet)/(admin)/system-access-tokens/create": "systemAccessTokens.form.title",
   "/(mobile)/(admin)/system-access-tokens/create": "systemAccessTokens.form.title",
+  "/(mobile)/(admin)/events-review": "eventsReview.title",
+  "/(tablet)/(admin)/events-review": "eventsReview.title",
 };
 
 export default function Header() {
@@ -157,7 +159,6 @@ export default function Header() {
 
   const downloadBlinkAnim = useRef(new Animated.Value(1)).current;
   const markBlinkAnim = useRef(new Animated.Value(1)).current;
-  console.log("currentRoute", currentRoute);
 
   // Status badge logic
   const status = getPriorityStatus();
