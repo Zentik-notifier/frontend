@@ -1,5 +1,11 @@
 import { useI18n } from "@/hooks";
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, {
+  useState,
+  useMemo,
+  useRef,
+  useEffect,
+  useCallback,
+} from "react";
 import {
   View,
   Text,
@@ -10,7 +16,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useTheme, Icon, Portal } from "react-native-paper";
-import ThemedBottomSheet from "./ThemedBottomSheet";
+import ThemedBottomSheet, { ThemedBottomSheetRef } from "./ThemedBottomSheet";
 
 interface ThemedInputSelectProps {
   label?: string;
@@ -49,11 +55,15 @@ export default function ThemedInputSelect({
 }: ThemedInputSelectProps) {
   const theme = useTheme();
   const { t } = useI18n();
-  const [isModalVisible, setIsModalVisible] = useState(false);
   const [isInlineDropdownOpen, setIsInlineDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
   const containerRef = useRef<View>(null);
+  const sheetRef = useRef<ThemedBottomSheetRef>(null);
 
   const selectedOption = options.find(
     (option) => option[optionValue] === selectedValue
@@ -63,20 +73,11 @@ export default function ThemedInputSelect({
     if (!isSearchable || !searchQuery.trim()) {
       return options;
     }
-    
+
     return options.filter((option) =>
       option[optionLabel].toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [options, searchQuery, optionLabel, isSearchable]);
-
-  const showModal = () => {
-    setIsModalVisible(true);
-    setSearchQuery("");
-  };
-
-  const hideModal = () => {
-    setIsModalVisible(false);
-  };
 
   const toggleInlineDropdown = () => {
     if (!isInlineDropdownOpen) {
@@ -98,7 +99,7 @@ export default function ThemedInputSelect({
   const handleSelectOption = (option: any) => {
     onValueChange(option[optionValue]);
     if (mode === "modal") {
-      hideModal();
+      sheetRef.current?.hide();
     } else {
       setIsInlineDropdownOpen(false);
     }
@@ -307,7 +308,7 @@ export default function ThemedInputSelect({
   const renderInlineMode = () => (
     <View style={styles.container} ref={containerRef}>
       {label && <Text style={styles.label}>{label}</Text>}
-      
+
       <TouchableOpacity
         style={[
           styles.inputContainer,
@@ -318,7 +319,9 @@ export default function ThemedInputSelect({
         disabled={disabled}
       >
         <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
-          {selectedOption ? selectedOption[optionLabel] : placeholder || t("common.selectOption")}
+          {selectedOption
+            ? selectedOption[optionLabel]
+            : placeholder || t("common.selectOption")}
         </Text>
         <Icon
           source={isInlineDropdownOpen ? "chevron-up" : "chevron-down"}
@@ -330,10 +333,8 @@ export default function ThemedInputSelect({
       {helperText && !error && (
         <Text style={styles.helperText}>{helperText}</Text>
       )}
-      
-      {errorText && error && (
-        <Text style={styles.errorText}>{errorText}</Text>
-      )}
+
+      {errorText && error && <Text style={styles.errorText}>{errorText}</Text>}
 
       {/* Dropdown inline con Portal */}
       {isInlineDropdownOpen && (
@@ -344,7 +345,7 @@ export default function ThemedInputSelect({
             activeOpacity={1}
             onPress={() => setIsInlineDropdownOpen(false)}
           />
-          
+
           <View style={styles.inlineDropdown}>
             <TouchableOpacity
               activeOpacity={1}
@@ -404,23 +405,26 @@ export default function ThemedInputSelect({
     </View>
   );
 
-  // Render per modalità modal
-  const renderModalMode = () => {
-    const trigger = (
+  const trigger = useCallback(
+    (show: () => void) => (
       <View style={styles.container}>
         {label && <Text style={styles.label}>{label}</Text>}
-        
+
         <TouchableOpacity
           style={[
             styles.inputContainer,
             disabled && styles.disabledInput,
             error && styles.errorInput,
           ]}
-          onPress={showModal}
+          onPress={show}
           disabled={disabled}
         >
-          <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
-            {selectedOption ? selectedOption[optionLabel] : placeholder || t("common.selectOption")}
+          <Text
+            style={[styles.inputText, !selectedOption && styles.placeholder]}
+          >
+            {selectedOption
+              ? selectedOption[optionLabel]
+              : placeholder || t("common.selectOption")}
           </Text>
           <Icon
             source="chevron-down"
@@ -431,17 +435,29 @@ export default function ThemedInputSelect({
         {helperText && !error && (
           <Text style={styles.helperText}>{helperText}</Text>
         )}
-        {errorText && error && <Text style={styles.errorText}>{errorText}</Text>}
+        {errorText && error && (
+          <Text style={styles.errorText}>{errorText}</Text>
+        )}
       </View>
-    );
+    ),
+    [
+      errorText,
+      error,
+      label,
+      placeholder,
+      selectedOption,
+      optionLabel,
+      optionValue,
+      t,
+    ]
+  );
 
+  const renderModalMode = () => {
     return (
       <ThemedBottomSheet
+        ref={sheetRef}
         title={label || t("common.selectOption")}
         trigger={trigger}
-        isVisible={isModalVisible}
-        onShown={showModal}
-        onHidden={hideModal}
       >
         {isSearchable && (
           <View style={styles.searchContainer}>

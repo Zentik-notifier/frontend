@@ -1,16 +1,15 @@
+import { useAppContext } from "@/contexts/AppContext";
 import { useGetBucketData } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
 import { useMassMarkNotificationsAsRead } from "@/hooks/useNotifications";
-import { useAppContext } from "@/contexts/AppContext";
 import { useUserSettings, userSettings } from "@/services/user-settings";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import {
   Badge,
   FAB,
   Icon,
-  IconButton,
   Surface,
   Text,
   TouchableRipple,
@@ -34,9 +33,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { massMarkAsRead, loading: markAllAsReadLoading } =
     useMassMarkNotificationsAsRead();
 
-  const [isMessageBuilderVisible, setIsMessageBuilderVisible] = useState(false);
-
-  const { notifications, connectionStatus } = useAppContext();
+  const { notifications } = useAppContext();
   const {
     settings: { notificationFilters },
   } = useUserSettings();
@@ -253,15 +250,9 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
 
       <MessageBuilder
         bucketId={bucketId}
-        isVisible={isMessageBuilderVisible}
-        onClose={() => setIsMessageBuilderVisible(false)}
-        trigger={
-          <FAB
-            icon="message"
-            style={styles.fab}
-            onPress={() => setIsMessageBuilderVisible(true)}
-          />
-        }
+        trigger={(show: () => void) => (
+          <FAB icon="message" style={styles.fab} onPress={show} />
+        )}
       />
     </Surface>
   );

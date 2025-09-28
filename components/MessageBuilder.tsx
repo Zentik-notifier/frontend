@@ -2,31 +2,26 @@ import {
   CreateMessageDto,
   GetNotificationsDocument,
   MessageFragment,
-  NotificationActionDto,
-  NotificationAttachmentDto,
   NotificationDeliveryType,
   useCreateMessageMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import React, { useCallback, useState } from "react";
-import { Dimensions, ScrollView, StyleSheet, View } from "react-native";
+import React, { useCallback, useRef, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { Button, Surface, Text, TextInput, useTheme } from "react-native-paper";
+import ThemedBottomSheet, {
+  ThemedBottomSheetRef,
+  ThemedBottomSheetTrigger,
+} from "./ui/ThemedBottomSheet";
 import ThemedInputSelect from "./ui/ThemedInputSelect";
-import ThemedBottomSheet from "./ui/ThemedBottomSheet";
 
 interface MessageBuilderProps {
   bucketId: string;
-  isVisible: boolean;
-  onClose?: () => void;
-  onShown?: () => void;
-  trigger: React.ReactNode;
+  trigger: ThemedBottomSheetTrigger;
 }
 
 export default function MessageBuilder({
   bucketId,
-  onClose,
-  onShown,
-  isVisible,
   trigger,
 }: MessageBuilderProps) {
   const { t } = useI18n();
@@ -39,6 +34,7 @@ export default function MessageBuilder({
     actions: [],
     attachments: [],
   });
+  const sheetRef = useRef<ThemedBottomSheetRef>(null);
 
   const [createMessage, { loading: isCreating }] = useCreateMessageMutation();
 
@@ -70,11 +66,11 @@ export default function MessageBuilder({
         attachments: [],
       });
 
-      onClose?.();
+      sheetRef.current?.hide();
     } catch (error) {
       console.error("Error creating message:", error);
     }
-  }, [bucketId, messageData, createMessage, onClose]);
+  }, [bucketId, messageData, createMessage]);
 
   const handleResetForm = useCallback(() => {
     setMessageData({
@@ -170,9 +166,7 @@ export default function MessageBuilder({
     <ThemedBottomSheet
       title={t("compose.messageBuilder.createMessage")}
       trigger={trigger}
-      isVisible={isVisible}
-      onShown={onClose}
-      onHidden={onShown}
+      ref={sheetRef}
       footer={footer}
     >
       <Surface style={styles.formContainer} elevation={1}>

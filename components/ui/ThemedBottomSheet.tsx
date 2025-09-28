@@ -1,5 +1,12 @@
 import { useI18n } from "@/hooks";
-import React, { ReactNode, useCallback, useEffect, useState } from "react";
+import React, {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import {
   Animated,
   Dimensions,
@@ -12,27 +19,27 @@ import { Icon, Text, useTheme } from "react-native-paper";
 
 const { height: screenHeight } = Dimensions.get("window");
 
+export type ThemedBottomSheetTrigger = (show: () => void) => ReactNode;
+
 export interface ThemedBottomSheetProps {
   title?: string;
   children: ReactNode;
-  trigger: ReactNode;
-  isVisible: boolean;
-  onShown?: () => void;
-  onHidden?: () => void;
+  trigger: ThemedBottomSheetTrigger;
   footer?: ReactNode;
 }
 
-export default function ThemedBottomSheet({
-  title,
-  children,
-  trigger,
-  isVisible,
-  onShown,
-  onHidden,
-  footer,
-}: ThemedBottomSheetProps) {
+export interface ThemedBottomSheetRef {
+  show: () => void;
+  hide: () => void;
+}
+
+const ThemedBottomSheet = forwardRef<
+  ThemedBottomSheetRef,
+  ThemedBottomSheetProps
+>(({ title, children, trigger, footer }, ref) => {
   const theme = useTheme();
   const [slideAnim] = useState(new Animated.Value(screenHeight));
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   const hideModal = useCallback(() => {
     Animated.timing(slideAnim, {
@@ -40,22 +47,27 @@ export default function ThemedBottomSheet({
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
-      onHidden?.();
+      setIsModalVisible(false);
     });
-  }, [onHidden]);
+  }, []);
 
-  useEffect(() => {
-    if (isVisible) {
-      onShown?.();
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      hideModal();
-    }
-  }, [isVisible, hideModal, onShown]);
+  const showModal = useCallback(() => {
+    setIsModalVisible(true);
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      show: showModal,
+      hide: hideModal,
+    }),
+    [showModal, hideModal]
+  );
 
   const styles = StyleSheet.create({
     container: {
@@ -99,12 +111,18 @@ export default function ThemedBottomSheet({
     },
   });
 
+  const handleTriggerPress = useCallback(() => {
+    showModal();
+  }, [showModal]);
+
   return (
     <View style={styles.container}>
-      {trigger}
+      <TouchableOpacity onPress={handleTriggerPress}>
+        {trigger(showModal)}
+      </TouchableOpacity>
 
       <Modal
-        visible={isVisible}
+        visible={isModalVisible}
         transparent
         animationType="none"
         onRequestClose={hideModal}
@@ -138,7 +156,7 @@ export default function ThemedBottomSheet({
               </View>
 
               {children}
-              
+
               {footer && <View style={styles.footer}>{footer}</View>}
             </TouchableOpacity>
           </Animated.View>
@@ -146,4 +164,8 @@ export default function ThemedBottomSheet({
       </Modal>
     </View>
   );
-}
+});
+
+ThemedBottomSheet.displayName = "ThemedBottomSheet";
+
+export default ThemedBottomSheet;
