@@ -5,11 +5,7 @@ import {
 import { useI18n } from "@/hooks/useI18n";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import {
-  Platform,
-  StyleSheet,
-  View,
-} from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import CopyButton from "@/components/ui/CopyButton";
 import {
@@ -62,7 +58,7 @@ export default function CreateAccessTokenForm() {
 
       const response = await createAccessToken({
         variables: { input: createData },
-        refetchQueries: ["GetUserAccessTokens"], // Aggiorna automaticamente la lista
+        // refetchQueries: ["GetUserAccessTokens"], // Aggiorna automaticamente la lista
       });
 
       if (response.data?.createAccessToken) {
@@ -88,11 +84,7 @@ export default function CreateAccessTokenForm() {
   const isFormValid = newTokenName.trim();
 
   return (
-    <PaperScrollView 
-      loading={creating}
-      style={[styles.container, styles.scrollView]}
-      contentContainerStyle={styles.scrollContent}
-    >
+    <PaperScrollView contentContainerStyle={styles.scrollContent}>
       <Card style={styles.formContainer} elevation={0}>
         <Card.Content>
           <View style={styles.inputGroup}>
@@ -154,7 +146,9 @@ export default function CreateAccessTokenForm() {
           visible={showTokenModal}
           onDismiss={() => setShowTokenModal(false)}
         >
-          <Dialog.Title>{t("accessTokens.form.tokenCreatedTitle")}</Dialog.Title>
+          <Dialog.Title>
+            {t("accessTokens.form.tokenCreatedTitle")}
+          </Dialog.Title>
           <Dialog.Content>
             <View style={styles.tokenModalHeader}>
               <Icon

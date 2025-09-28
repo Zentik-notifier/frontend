@@ -6,11 +6,7 @@ import {
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
-import {
-  Image,
-  StyleSheet,
-  View,
-} from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Button,
@@ -100,7 +96,9 @@ function OAuthProviderItem({
         <IconButton
           icon={provider.isEnabled ? "check" : "plus"}
           size={20}
-          iconColor={provider.isEnabled ? theme.colors.primary : provider.color!}
+          iconColor={
+            provider.isEnabled ? theme.colors.primary : provider.color!
+          }
           onPress={() => onToggle(provider)}
           disabled={toggleLoading}
           loading={toggleLoading}
@@ -196,11 +194,15 @@ export default function OAuthProvidersSettings() {
     );
   }
 
+  const handleRefresh = async () => {
+    await refetch();
+  };
+
   return (
     <View style={styles.container}>
       <PaperScrollView
-        refreshing={false}
-        onRefresh={refetch}
+        onRefresh={handleRefresh}
+        loading={loading}
         contentContainerStyle={styles.scrollContent}
       >
         {allProviders.length === 0 ? (
@@ -225,11 +227,7 @@ export default function OAuthProvidersSettings() {
       </PaperScrollView>
 
       {/* FAB per creare nuovo provider */}
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={handleCreateProvider}
-      />
+      <FAB icon="plus" style={styles.fab} onPress={handleCreateProvider} />
     </View>
   );
 }
@@ -305,7 +303,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
   },
-  providersContainer: {
-    paddingHorizontal: 16,
-  },
+  providersContainer: {},
 });

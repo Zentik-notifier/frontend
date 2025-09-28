@@ -10,7 +10,6 @@ import React, { useEffect, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import {
   Text,
-  Surface,
   Card,
   TextInput,
   Icon,
@@ -18,6 +17,7 @@ import {
   Chip,
   useTheme,
   ActivityIndicator,
+  Surface,
 } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
 
@@ -99,24 +99,16 @@ export default function UserManagement() {
   const theme = useTheme();
   const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
   const { setMainLoading } = useAppContext();
 
-  const { data, loading, error, refetch } = useGetAllUsersQuery({
-    fetchPolicy: "cache-first",
-  });
+  const { data, loading, error, refetch } = useGetAllUsersQuery();
 
   useEffect(() => setMainLoading(loading), [loading]);
 
   const users = data?.users || [];
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await refetch();
-    } finally {
-      setRefreshing(false);
-    }
+  const handleRefresh = async () => {
+    await refetch();
   };
 
   const filteredUsers = users.filter((user) => {
@@ -133,17 +125,6 @@ export default function UserManagement() {
     <UserListItem user={item} />
   );
 
-  if (loading) {
-    return (
-      <Surface style={styles.loadingContainer}>
-        <ActivityIndicator size="large" animating={true} />
-        <Text variant="bodyLarge" style={styles.loadingText}>
-          {t("common.loading")}
-        </Text>
-      </Surface>
-    );
-  }
-
   if (error) {
     return (
       <Surface style={styles.errorContainer}>
@@ -159,73 +140,68 @@ export default function UserManagement() {
   }
 
   return (
-    <Surface style={styles.container}>
-      <PaperScrollView
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        contentContainerStyle={styles.pageContent}
-      >
-        <View style={styles.headerRow}>
-          <Text variant="bodyMedium" style={styles.statsText}>
-            {t("administration.totalUsers")}: {users.length}
-          </Text>
-        </View>
+    <PaperScrollView
+      onRefresh={handleRefresh}
+      loading={loading}
+      contentContainerStyle={styles.pageContent}
+    >
+      <View style={styles.headerRow}>
+        <Text variant="bodyMedium" style={styles.statsText}>
+          {t("administration.totalUsers")}: {users.length}
+        </Text>
+      </View>
 
-        {/* Search Filter */}
-        <TextInput
-          mode="outlined"
-          style={styles.searchInput}
-          placeholder={t("administration.searchUsers")}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          left={<TextInput.Icon icon="magnify" />}
-          right={
-            searchQuery.length > 0 ? (
-              <TextInput.Icon
-                icon="close-circle"
-                onPress={() => setSearchQuery("")}
-              />
-            ) : null
-          }
-        />
-
-        {filteredUsers.length === 0 ? (
-          <Surface style={styles.emptyState} elevation={0}>
-            <Icon
-              source="account-group"
-              size={64}
-              color={theme.colors.onSurfaceVariant}
+      {/* Search Filter */}
+      <TextInput
+        mode="outlined"
+        style={styles.searchInput}
+        placeholder={t("administration.searchUsers")}
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        left={<TextInput.Icon icon="magnify" />}
+        right={
+          searchQuery.length > 0 ? (
+            <TextInput.Icon
+              icon="close-circle"
+              onPress={() => setSearchQuery("")}
             />
-            <Text variant="titleLarge" style={styles.emptyText}>
-              {searchQuery
-                ? t("administration.noUsersFound")
-                : t("administration.noUsers")}
-            </Text>
-            <Text variant="bodyMedium" style={styles.emptySubtext}>
-              {searchQuery
-                ? t("administration.tryDifferentSearch")
-                : t("administration.noUsersSubtext")}
-            </Text>
-          </Surface>
-        ) : (
-          <FlatList
-            data={filteredUsers}
-            renderItem={renderUserItem}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.usersList}
-            scrollEnabled={false}
+          ) : null
+        }
+      />
+
+      {filteredUsers.length === 0 ? (
+        <Surface style={styles.emptyState} elevation={0}>
+          <Icon
+            source="account-group"
+            size={64}
+            color={theme.colors.onSurfaceVariant}
           />
-        )}
-      </PaperScrollView>
-    </Surface>
+          <Text variant="titleLarge" style={styles.emptyText}>
+            {searchQuery
+              ? t("administration.noUsersFound")
+              : t("administration.noUsers")}
+          </Text>
+          <Text variant="bodyMedium" style={styles.emptySubtext}>
+            {searchQuery
+              ? t("administration.tryDifferentSearch")
+              : t("administration.noUsersSubtext")}
+          </Text>
+        </Surface>
+      ) : (
+        <FlatList
+          data={filteredUsers}
+          renderItem={renderUserItem}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.usersList}
+          scrollEnabled={false}
+        />
+      )}
+    </PaperScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -246,7 +222,6 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   pageContent: {
-    paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 16,
   },

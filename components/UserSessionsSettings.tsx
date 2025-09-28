@@ -182,114 +182,117 @@ export function UserSessionsSettings() {
             item.isCurrent && styles.currentSession,
           ]}
         >
-            <View style={styles.sessionHeader}>
-              <View style={styles.deviceInfo}>
-                <Icon
-                  source={getDeviceIcon(item.deviceName, item.operatingSystem)}
-                  size={20}
-                  color={theme.colors.onSurface}
-                />
-                <View style={styles.deviceTextInfo}>
-                  <Text variant="titleMedium" style={styles.deviceName}>
-                    {getDeviceDescription(item)}
+          <View style={styles.sessionHeader}>
+            <View style={styles.deviceInfo}>
+              <Icon
+                source={getDeviceIcon(item.deviceName, item.operatingSystem)}
+                size={20}
+                color={theme.colors.onSurface}
+              />
+              <View style={styles.deviceTextInfo}>
+                <Text variant="titleMedium" style={styles.deviceName}>
+                  {getDeviceDescription(item)}
+                </Text>
+                {getLocationDisplay(item) && (
+                  <Text variant="bodySmall" style={styles.locationText}>
+                    📍 {getLocationDisplay(item)}
                   </Text>
-                  {getLocationDisplay(item) && (
-                    <Text variant="bodySmall" style={styles.locationText}>
-                      📍 {getLocationDisplay(item)}
-                    </Text>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.headerRight}>
+              {/* Show login provider icon */}
+              {item.loginProvider && (
+                <View style={styles.providerInfo}>
+                  {provider?.iconUrl ? (
+                    <Image
+                      source={{ uri: provider.iconUrl }}
+                      style={[styles.providerIconImage]}
+                    />
+                  ) : (
+                    <Icon
+                      source={
+                        item.loginProvider === "github"
+                          ? "github"
+                          : item.loginProvider === "google"
+                          ? "google"
+                          : item.loginProvider === "local"
+                          ? "account"
+                          : "key"
+                      }
+                      size={18}
+                      color={theme.colors.onSurface}
+                    />
                   )}
                 </View>
-              </View>
+              )}
 
-              <View style={styles.headerRight}>
-                {/* Show login provider icon */}
-                {item.loginProvider && (
-                  <View style={styles.providerInfo}>
-                    {provider?.iconUrl ? (
-                      <Image
-                        source={{ uri: provider.iconUrl }}
-                        style={[styles.providerIcon, styles.providerIconImage]}
-                      />
-                    ) : (
-                      <Icon
-                        source={
-                          item.loginProvider === "github"
-                            ? "github"
-                            : item.loginProvider === "google"
-                            ? "google"
-                            : item.loginProvider === "local"
-                            ? "account"
-                            : "key"
-                        }
-                        size={18}
-                        color={theme.colors.onSurface}
-                      />
-                    )}
+              <View style={styles.badges}>
+                {item.isCurrent && (
+                  <View style={[styles.badge, styles.currentBadge]}>
+                    <Text variant="bodySmall" style={styles.currentText}>
+                      {t("userSessions.item.current") as string}
+                    </Text>
                   </View>
                 )}
-
-                <View style={styles.badges}>
-                  {item.isCurrent && (
-                    <View style={[styles.badge, styles.currentBadge]}>
-                      <Text variant="bodySmall" style={styles.currentText}>
-                        {t("userSessions.item.current") as string}
-                      </Text>
-                    </View>
-                  )}
-                  {isExpired && (
-                    <View style={[styles.badge, styles.expiredBadge]}>
-                      <Text variant="bodySmall" style={styles.expiredText}>
-                        {t("userSessions.item.expired") as string}
-                      </Text>
-                    </View>
-                  )}
-                </View>
+                {isExpired && (
+                  <View style={[styles.badge, styles.expiredBadge]}>
+                    <Text variant="bodySmall" style={styles.expiredText}>
+                      {t("userSessions.item.expired") as string}
+                    </Text>
+                  </View>
+                )}
               </View>
+            </View>
           </View>
 
-            <View style={styles.sessionDetails}>
-              {item.ipAddress && (
-                <Text variant="bodySmall" style={styles.sessionDetail}>
-                  {t("userSessions.item.ipAddress") as string}: {item.ipAddress}
-                </Text>
-              )}
-
+          <View style={styles.sessionDetails}>
+            {item.ipAddress && (
               <Text variant="bodySmall" style={styles.sessionDetail}>
-                {t("userSessions.item.created") as string}:{" "}
-                {formatSessionDate(item.createdAt)}
+                {t("userSessions.item.ipAddress") as string}: {item.ipAddress}
               </Text>
+            )}
 
-              {item.lastActivity && (
-                <Text variant="bodySmall" style={styles.sessionDetail}>
-                  {t("userSessions.item.lastActivity") as string}:{" "}
-                  {formatSessionDate(item.lastActivity)}
-                </Text>
-              )}
+            <Text variant="bodySmall" style={styles.sessionDetail}>
+              {t("userSessions.item.created") as string}:{" "}
+              {formatSessionDate(item.createdAt)}
+            </Text>
 
-              {item.expiresAt && (
-                <Text
-                  variant="bodySmall"
-                  style={[
-                    styles.sessionDetail,
-                    isExpired && styles.expiredDetail,
-                  ]}
-                >
-                  {t("userSessions.item.expires") as string}:{" "}
-                  {formatSessionDate(item.expiresAt)}
-                </Text>
-              )}
-            </View>
+            {item.lastActivity && (
+              <Text variant="bodySmall" style={styles.sessionDetail}>
+                {t("userSessions.item.lastActivity") as string}:{" "}
+                {formatSessionDate(item.lastActivity)}
+              </Text>
+            )}
+
+            {item.expiresAt && (
+              <Text
+                variant="bodySmall"
+                style={[
+                  styles.sessionDetail,
+                  isExpired && styles.expiredDetail,
+                ]}
+              >
+                {t("userSessions.item.expires") as string}:{" "}
+                {formatSessionDate(item.expiresAt)}
+              </Text>
+            )}
+          </View>
         </View>
       </SwipeableItem>
     );
   };
 
+  const handleRefresh = async () => {
+    await refetch();
+  };
+
   return (
     <View style={styles.container}>
-      <PaperScrollView 
-        refreshing={loading} 
-        onRefresh={refetch}
-        loading={loading && sortedSessions.length === 0}
+      <PaperScrollView
+        onRefresh={handleRefresh}
+        loading={loading}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >

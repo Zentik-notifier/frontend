@@ -34,7 +34,6 @@ export default function SystemAccessTokens() {
   } = useAppContext();
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const disabledActions = isOfflineAuth || isBackendUnreachable;
 
@@ -42,14 +41,7 @@ export default function SystemAccessTokens() {
   const [revokeSystemToken] = useRevokeSystemAccessTokenMutation();
 
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await refetch();
-    } catch (error) {
-      console.error("Error refreshing tokens:", error);
-    } finally {
-      setIsRefreshing(false);
-    }
+    await refetch();
   };
 
   const tokens = data?.listSystemTokens || [];
@@ -162,11 +154,7 @@ export default function SystemAccessTokens() {
 
   return (
     <View style={styles.container}>
-      <PaperScrollView
-        refreshing={isRefreshing || loading}
-        onRefresh={handleRefresh}
-        loading={loading && sortedTokens.length === 0}
-      >
+      <PaperScrollView onRefresh={handleRefresh} loading={loading}>
         {sortedTokens.length === 0 ? (
           <View style={styles.emptyState}>
             <Icon

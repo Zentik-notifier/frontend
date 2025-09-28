@@ -56,12 +56,23 @@ export default function CreateWebhookForm({
   const isOffline = isOfflineAuth || isBackendUnreachable;
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   // Load webhook data if editing
-  const { data: webhookData, loading: loadingWebhook } = useGetWebhookQuery({
+  const {
+    data: webhookData,
+    loading: loadingWebhook,
+    refetch,
+  } = useGetWebhookQuery({
     variables: { id: webhookId || "" },
     skip: !webhookId,
   });
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
   const webhook = webhookData?.webhook;
   const isEditing = !!webhookId;
@@ -254,12 +265,10 @@ export default function CreateWebhookForm({
     return t(`webhooks.methods.${method}`);
   };
 
-  const httpMethodOptions = httpMethods.map(
-    (method) => ({
-      id: method,
-      name: getMethodDisplayName(method),
-    })
-  );
+  const httpMethodOptions = httpMethods.map((method) => ({
+    id: method,
+    name: getMethodDisplayName(method),
+  }));
 
   // Header management functions
   const addHeader = () => {
@@ -283,8 +292,9 @@ export default function CreateWebhookForm({
 
   return (
     <PaperScrollView
-      loading={isLoading}
-      style={[styles.container, styles.scrollView]}
+      loading={loadingWebhook}
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
       contentContainerStyle={styles.scrollContent}
     >
       <Card style={styles.formContainer} elevation={0}>
@@ -304,20 +314,20 @@ export default function CreateWebhookForm({
             />
           </View>
 
-        {/* HTTP Method */}
-        <View style={styles.inputGroup}>
-          <ThemedInputSelect
-            label={t("webhooks.form.method")}
-            placeholder={t("webhooks.form.method")}
-            options={httpMethodOptions}
-            optionLabel="name"
-            optionValue="id"
-            selectedValue={method}
-            onValueChange={(value) => setMethod(value as HttpMethod)}
-            isSearchable={false}
-            mode="inline"
-          />
-        </View>
+          {/* HTTP Method */}
+          <View style={styles.inputGroup}>
+            <ThemedInputSelect
+              label={t("webhooks.form.method")}
+              placeholder={t("webhooks.form.method")}
+              options={httpMethodOptions}
+              optionLabel="name"
+              optionValue="id"
+              selectedValue={method}
+              onValueChange={(value) => setMethod(value as HttpMethod)}
+              isSearchable={false}
+              mode="inline"
+            />
+          </View>
 
           {/* URL */}
           <View style={styles.inputGroup}>
@@ -341,11 +351,7 @@ export default function CreateWebhookForm({
               <Text variant="titleMedium" style={styles.label}>
                 Headers
               </Text>
-              <IconButton
-                icon="plus"
-                size={20}
-                onPress={addHeader}
-              />
+              <IconButton icon="plus" size={20} onPress={addHeader} />
             </View>
 
             {headers.map((header, index) => (

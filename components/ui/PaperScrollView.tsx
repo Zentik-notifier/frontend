@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   RefreshControl,
   ScrollView,
@@ -11,20 +11,16 @@ import { useI18n } from "../../hooks/useI18n";
 
 interface PaperScrollViewProps {
   children: React.ReactNode;
-  refreshing?: boolean;
-  onRefresh?: () => void;
+  onRefresh?: () => Promise<void>;
   style?: ViewStyle;
   contentContainerStyle?: ViewStyle;
   showsVerticalScrollIndicator?: boolean;
   showsHorizontalScrollIndicator?: boolean;
-  // Loading props
   loading?: boolean;
-  showLoadingOverlay?: boolean;
 }
 
 export default function PaperScrollView({
   children,
-  refreshing = false,
   onRefresh,
   style,
   contentContainerStyle,
@@ -32,25 +28,26 @@ export default function PaperScrollView({
   showsHorizontalScrollIndicator = false,
   // Loading props
   loading = false,
-  showLoadingOverlay = false,
 }: PaperScrollViewProps) {
   const theme = useTheme();
   const { t } = useI18n();
 
-  // Se loading è true e showLoadingOverlay è false, mostra solo il loading
-  if (loading && !showLoadingOverlay) {
-    return (
-      <View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.colors.background }, style]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text variant="bodyLarge" style={[styles.loadingText, { color: theme.colors.onBackground }]}>
-          {t("common.loading")}
-        </Text>
-      </View>
-    );
-  }
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await onRefresh?.();
+    setRefreshing(false);
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }, style]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.colors.background },
+        style,
+      ]}
+    >
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={contentContainerStyle}
@@ -63,7 +60,7 @@ export default function PaperScrollView({
           onRefresh ? (
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={handleRefresh}
               colors={[theme.colors.primary]}
               tintColor={theme.colors.primary}
               progressBackgroundColor={theme.colors.surface}
@@ -74,13 +71,21 @@ export default function PaperScrollView({
       >
         {children}
       </ScrollView>
-      
+
       {/* Loading overlay */}
-      {loading && showLoadingOverlay && (
+      {loading && (
         <View style={styles.loadingOverlay}>
-          <View style={[styles.loadingContent, { backgroundColor: theme.colors.surface }]}>
+          <View
+            style={[
+              styles.loadingContent,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
             <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text variant="bodyLarge" style={[styles.loadingText, { color: theme.colors.onSurface }]}>
+            <Text
+              variant="bodyLarge"
+              style={[styles.loadingText, { color: theme.colors.onSurface }]}
+            >
               {t("common.loading")}
             </Text>
           </View>

@@ -51,9 +51,16 @@ export default function NotificationsSettings() {
   });
 
   // GraphQL queries for data
-  const { data: bucketsData, loading: bucketsLoading } = useGetBucketsQuery();
-  const { data: webhooksData, loading: webhooksLoading } =
-    useGetUserWebhooksQuery();
+  const {
+    data: bucketsData,
+    loading: bucketsLoading,
+    refetch: refetchBuckets,
+  } = useGetBucketsQuery();
+  const {
+    data: webhooksData,
+    loading: webhooksLoading,
+    refetch: refetchWebhooks,
+  } = useGetUserWebhooksQuery();
 
   const loading = bucketsLoading || webhooksLoading;
 
@@ -288,8 +295,13 @@ export default function NotificationsSettings() {
     icon: "language",
   }));
 
+  const handleRefresh = async () => {
+    await refetchBuckets();
+    await refetchWebhooks();
+  };
+
   return (
-    <PaperScrollView>
+    <PaperScrollView onRefresh={handleRefresh} loading={loading}>
       <View style={styles.section}>
         <View style={styles.loadDataBtnRow}>
           <Button mode="outlined" icon="plus" onPress={loadTestData} compact>
@@ -1040,7 +1052,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 15,
-    padding: 16,
     borderRadius: 8,
   },
   switchLabel: {
@@ -1080,7 +1091,6 @@ const styles = StyleSheet.create({
   jsonPreviewContainer: {
     borderRadius: 8,
     borderWidth: 1,
-    padding: 16,
     marginBottom: 16,
     maxHeight: 300,
   },
@@ -1111,7 +1121,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   noWebhooksContainer: {
-    padding: 16,
     borderRadius: 8,
     borderWidth: 1,
     borderStyle: "dashed",

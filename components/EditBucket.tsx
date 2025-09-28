@@ -2,7 +2,7 @@ import BucketSharingSection from "@/components/BucketSharingSection";
 import CreateBucketForm from "@/components/CreateBucketForm";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
-import { 
+import {
   GetBucketsDocument,
   ResourceType,
   useDeleteBucketMutation,
@@ -31,7 +31,19 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   const theme = useTheme();
   const { userId } = useAppContext();
 
-  const { bucket, loading, error, canAdmin, canDelete, isSharedWithMe, refetch } = useGetBucketData(bucketId);
+  const {
+    bucket,
+    loading,
+    error,
+    canAdmin,
+    canDelete,
+    isSharedWithMe,
+    refetch,
+  } = useGetBucketData(bucketId);
+
+  const handleRefresh = async () => {
+    await refetch();
+  };
 
   const [deleteBucketMutation] = useDeleteBucketMutation({
     onCompleted: () => {
@@ -59,7 +71,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     if (!bucket) return;
 
     const actions = [];
-    
+
     if (canDelete) {
       actions.push({
         text: t("buckets.delete.deleteBucket"),
@@ -67,23 +79,24 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
         style: "destructive" as const,
       });
     }
-    
+
     if (isSharedWithMe) {
       actions.push({
         text: t("buckets.delete.revokeSharing"),
-        onPress: () => unshareBucket({
-          variables: {
-            input: {
-              resourceType: ResourceType.Bucket,
-              resourceId: bucket.id,
-              userId: userId,
+        onPress: () =>
+          unshareBucket({
+            variables: {
+              input: {
+                resourceType: ResourceType.Bucket,
+                resourceId: bucket.id,
+                userId: userId,
+              },
             },
-          },
-        }),
+          }),
         style: "destructive" as const,
       });
     }
-    
+
     actions.push({
       text: t("common.cancel"),
       style: "cancel" as const,
@@ -118,9 +131,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     return (
       <Surface style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
-        <Text style={styles.loadingText}>
-          {t("common.loading")}
-        </Text>
+        <Text style={styles.loadingText}>{t("common.loading")}</Text>
       </Surface>
     );
   }
@@ -136,7 +147,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   }
 
   return (
-    <PaperScrollView onRefresh={refetch}>
+    <PaperScrollView onRefresh={handleRefresh} loading={loading}>
       <View style={styles.content}>
         <CreateBucketForm bucketId={bucketId} />
 

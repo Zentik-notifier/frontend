@@ -1,13 +1,12 @@
 import CreateWebhookForm from "@/components/CreateWebhookForm";
-import { useDeleteWebhookMutation, useGetWebhookQuery } from "@/generated/gql-operations-generated";
-import { useI18n } from "@/hooks/useI18n";
-import React from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
 import {
-  Surface,
-  Button,
-  useTheme,
-} from "react-native-paper";
+  useDeleteWebhookMutation,
+  useGetWebhookQuery,
+} from "@/generated/gql-operations-generated";
+import { useI18n } from "@/hooks/useI18n";
+import React, { useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import { Surface, Button, useTheme } from "react-native-paper";
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useRouter } from "expo-router";
 
@@ -15,23 +14,31 @@ interface EditWebhookSectionProps {
   webhookId: string;
 }
 
-export default function EditWebhookSection({ webhookId }: EditWebhookSectionProps) {
+export default function EditWebhookSection({
+  webhookId,
+}: EditWebhookSectionProps) {
   const router = useRouter();
   const theme = useTheme();
   const { t } = useI18n();
-
-  const { data, loading, error } = useGetWebhookQuery({
+  const { data, loading, error, refetch } = useGetWebhookQuery({
     variables: { id: webhookId },
     skip: !webhookId,
   });
 
-  const [deleteWebhookMutation, { loading: deletingWebhook }] = useDeleteWebhookMutation({
-    onCompleted: () => { router.back(); },
-    onError: (error) => {
-      console.error("Error deleting webhook:", error);
-      Alert.alert("Error", error.message || "Failed to delete webhook");
-    },
-  });
+  const handleRefresh = async () => {
+    await refetch();
+  };
+
+  const [deleteWebhookMutation, { loading: deletingWebhook }] =
+    useDeleteWebhookMutation({
+      onCompleted: () => {
+        router.back();
+      },
+      onError: (error) => {
+        console.error("Error deleting webhook:", error);
+        Alert.alert("Error", error.message || "Failed to delete webhook");
+      },
+    });
 
   const webhook = data?.webhook;
 
@@ -81,7 +88,8 @@ export default function EditWebhookSection({ webhookId }: EditWebhookSectionProp
 
   return (
     <Surface style={styles.container}>
-      <PaperScrollView 
+      <PaperScrollView
+        onRefresh={handleRefresh}
         loading={loading}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -98,7 +106,7 @@ export default function EditWebhookSection({ webhookId }: EditWebhookSectionProp
             disabled={deletingWebhook}
             style={styles.deleteButton}
           >
-{deletingWebhook ? "Deleting..." : t("webhooks.delete")}
+            {deletingWebhook ? "Deleting..." : t("webhooks.delete")}
           </Button>
         </View>
       </PaperScrollView>
@@ -122,5 +130,3 @@ const styles = StyleSheet.create({
   deleteSection: { padding: 16, marginTop: 8 },
   deleteButton: { marginTop: 0 },
 });
-
-

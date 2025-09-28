@@ -6,12 +6,7 @@ import { useI18n } from "@/hooks/useI18n";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import {
-  Alert,
-  Platform,
-  StyleSheet,
-  View,
-} from "react-native";
+import { Alert, Platform, StyleSheet, View } from "react-native";
 import {
   Button,
   Card,
@@ -128,11 +123,7 @@ export default function CreateSystemAccessTokenForm() {
   const isFormValid = !isNaN(parseFloat(maxCalls || "0"));
 
   return (
-    <PaperScrollView
-      style={styles.container}
-      refreshing={false}
-      onRefresh={refetchUsers}
-    >
+    <PaperScrollView style={styles.container} onRefresh={refetchUsers}>
       <Card style={styles.formContainer} mode="outlined">
         <Card.Content>
           <View style={styles.inputGroup}>
@@ -225,7 +216,9 @@ export default function CreateSystemAccessTokenForm() {
           visible={showTokenModal}
           onDismiss={() => setShowTokenModal(false)}
         >
-          <Dialog.Title>{t("systemAccessTokens.form.tokenCreatedTitle")}</Dialog.Title>
+          <Dialog.Title>
+            {t("systemAccessTokens.form.tokenCreatedTitle")}
+          </Dialog.Title>
           <Dialog.Content>
             <View style={styles.tokenModalHeader}>
               <Icon
@@ -239,10 +232,7 @@ export default function CreateSystemAccessTokenForm() {
             </View>
 
             <Surface style={styles.tokenContainer} elevation={1}>
-              <Text
-                variant="bodySmall"
-                style={styles.tokenText}
-              >
+              <Text variant="bodySmall" style={styles.tokenText}>
                 {newToken}
               </Text>
               <Button
@@ -256,24 +246,23 @@ export default function CreateSystemAccessTokenForm() {
             </Surface>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => {
-              setShowTokenModal(false);
-              router.back();
-            }}>
+            <Button
+              onPress={() => {
+                setShowTokenModal(false);
+                router.back();
+              }}
+            >
               {t("systemAccessTokens.form.done")}
             </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
-
     </PaperScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-  },
+  container: {},
   formContainer: {
     marginBottom: 16,
   },

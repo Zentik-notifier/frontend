@@ -83,17 +83,6 @@ export default function UserSection() {
   const { data: providersData } = usePublicAppConfigQuery();
   useEffect(() => setMainLoading(loading), [loading]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await refetch();
-    } catch (error) {
-      console.error("Error refreshing user profile:", error);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   const user = userData?.me;
 
   const { data: sessionsData } = useGetUserSessionsQuery();
@@ -179,6 +168,10 @@ export default function UserSection() {
     );
   };
 
+  const handleRefresh = async () => {
+    await refetch();
+  };
+
   if (error && !user) {
     return (
       <View
@@ -204,7 +197,7 @@ export default function UserSection() {
   }
 
   return (
-    <PaperScrollView refreshing={refreshing} onRefresh={onRefresh}>
+    <PaperScrollView onRefresh={handleRefresh} loading={loading}>
       <View style={styles.section}>
         {/* Profile Section with Avatar and Form */}
         <Card style={styles.profileContainer}>
@@ -493,7 +486,6 @@ export default function UserSection() {
 const styles = StyleSheet.create({
   content: {
     flex: 1,
-    padding: 16,
   },
   section: {
     marginBottom: 16,

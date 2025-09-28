@@ -4,7 +4,7 @@ import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useEffect, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
-import { Button, Icon, Surface, Text, useTheme } from "react-native-paper";
+import { Button, Icon, Text, useTheme } from "react-native-paper";
 import { useGetUserDevicesQuery } from "../generated/gql-operations-generated";
 import SwipeableDeviceItem from "./SwipeableDeviceItem";
 
@@ -19,6 +19,10 @@ export default function DevicesSettings() {
     setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
+
+  const handleRefresh = async () => {
+    await refetch();
+  };
 
   useEffect(() => setMainLoading(loading), [loading]);
 
@@ -92,10 +96,9 @@ export default function DevicesSettings() {
   };
 
   return (
-    <PaperScrollView onRefresh={refetch}>
-      <Surface style={styles.container}>
-        <View style={styles.content}>
-          <View style={styles.buttonContainer}>
+    <PaperScrollView onRefresh={handleRefresh} loading={loading}>
+      <View style={styles.content}>
+        <View style={styles.buttonContainer}>
           {(() => {
             const disabledRegister =
               managingDevice ||
@@ -151,51 +154,50 @@ export default function DevicesSettings() {
           })()}
         </View>
 
-          {/* Messaggio di errore per permessi push */}
-          {push.pushPermissionError && (
-            <Text style={[styles.errorMessage, { color: theme.colors.error }]}>
-              {t("common.pushPermissionsHint")}
-            </Text>
-          )}
+        {/* Messaggio di errore per permessi push */}
+        {push.pushPermissionError && (
+          <Text style={[styles.errorMessage, { color: theme.colors.error }]}>
+            {t("common.pushPermissionsHint")}
+          </Text>
+        )}
 
-          {sortedDevices.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Icon
-                source="cellphone"
-                size={64}
-                color={theme.colors.onSurfaceVariant}
+        {sortedDevices.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Icon
+              source="cellphone"
+              size={64}
+              color={theme.colors.onSurfaceVariant}
+            />
+            <Text style={[styles.emptyText, { color: theme.colors.onSurface }]}>
+              {t("devices.noDevicesTitle")}
+            </Text>
+            <Text
+              style={[
+                styles.emptySubtext,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              {t("devices.noDevicesSubtext")}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.devicesContainer}>
+            {sortedDevices.map((item) => (
+              <SwipeableDeviceItem
+                key={item.id}
+                device={item}
+                isCurrentDevice={deviceToken === item.deviceToken}
               />
-              <Text style={[styles.emptyText, { color: theme.colors.onSurface }]}>
-                {t("devices.noDevicesTitle")}
-              </Text>
-              <Text style={[styles.emptySubtext, { color: theme.colors.onSurfaceVariant }]}>
-                {t("devices.noDevicesSubtext")}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.devicesContainer}>
-              {sortedDevices.map((item) => (
-                <SwipeableDeviceItem
-                  key={item.id}
-                  device={item}
-                  isCurrentDevice={deviceToken === item.deviceToken}
-                />
-              ))}
-            </View>
-          )}
-        </View>
-      </Surface>
+            ))}
+          </View>
+        )}
+      </View>
     </PaperScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-  },
+  content: {},
   buttonContainer: {
     flexDirection: "row",
     gap: 12,

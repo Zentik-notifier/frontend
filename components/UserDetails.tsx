@@ -148,32 +148,14 @@ export default function UserDetails({ userId }: UserDetailsProps) {
     },
   ];
 
-  if (!userId) {
-    return (
-      <Surface style={styles.container}>
-        <Text variant="bodyLarge" style={styles.errorText}>
-          {t("administration.userNotFound")}
-        </Text>
-      </Surface>
-    );
-  }
-
-  if (userLoading) {
-    return (
-      <Surface style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" animating={true} />
-          <Text variant="bodyLarge" style={styles.loadingText}>
-            {t("common.loading")}
-          </Text>
-        </View>
-      </Surface>
-    );
-  }
+  const handleRefresh = async () => {
+    await refetchUser();
+    await refetchStats();
+  };
 
   if (!user) {
     return (
-      <Surface style={styles.container}>
+      <Surface>
         <Text variant="bodyLarge" style={styles.errorText}>
           {t("administration.userNotFound")}
         </Text>
@@ -182,205 +164,191 @@ export default function UserDetails({ userId }: UserDetailsProps) {
   }
 
   return (
-    <Surface style={styles.container}>
-      <PaperScrollView
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        contentContainerStyle={styles.content}
-      >
-        {/* User Info Section */}
-        <Card style={styles.section} mode="outlined">
-          <Card.Content>
-            {/* User Details */}
-            <View style={styles.userDetails}>
-              <View style={styles.detailRow}>
-                <Text variant="bodyMedium" style={styles.detailLabel}>
-                  {t("administration.userId")}
-                </Text>
-                <Text variant="bodyMedium" style={styles.detailValue}>
-                  {user.id}
-                </Text>
-              </View>
-
-              {user.username && (
-                <>
-                  <Divider style={styles.divider} />
-                  <View style={styles.detailRow}>
-                    <Text variant="bodyMedium" style={styles.detailLabel}>
-                      {t("administration.username")}
-                    </Text>
-                    <Text variant="bodyMedium" style={styles.detailValue}>
-                      {user.username}
-                    </Text>
-                  </View>
-                </>
-              )}
-
-              {user.email && (
-                <>
-                  <Divider style={styles.divider} />
-                  <View style={styles.detailRow}>
-                    <Text variant="bodyMedium" style={styles.detailLabel}>
-                      {t("administration.email")}
-                    </Text>
-                    <Text variant="bodyMedium" style={styles.detailValue}>
-                      {user.email}
-                    </Text>
-                  </View>
-                </>
-              )}
-
-              <Divider style={styles.divider} />
-              <View style={styles.detailRow}>
-                <Text variant="bodyMedium" style={styles.detailLabel}>
-                  {t("administration.createdAt")}
-                </Text>
-                <Text variant="bodyMedium" style={styles.detailValue}>
-                  {new Date(user.createdAt).toLocaleDateString()}
-                </Text>
-              </View>
-
-              <Divider style={styles.divider} />
-              <View style={styles.detailRow}>
-                <Text variant="bodyMedium" style={styles.detailLabel}>
-                  {t("administration.lastUpdated")}
-                </Text>
-                <Text variant="bodyMedium" style={styles.detailValue}>
-                  {new Date(user.updatedAt).toLocaleDateString()}
-                </Text>
-              </View>
+    <PaperScrollView
+      onRefresh={handleRefresh}
+      loading={userLoading || statsLoading}
+      contentContainerStyle={styles.content}
+    >
+      {/* User Info Section */}
+      <Card style={styles.section} mode="outlined">
+        <Card.Content>
+          {/* User Details */}
+          <View style={styles.userDetails}>
+            <View style={styles.detailRow}>
+              <Text variant="bodyMedium" style={styles.detailLabel}>
+                {t("administration.userId")}
+              </Text>
+              <Text variant="bodyMedium" style={styles.detailValue}>
+                {user.id}
+              </Text>
             </View>
 
-            <Divider style={styles.sectionDivider} />
+            {user.username && (
+              <>
+                <Divider style={styles.divider} />
+                <View style={styles.detailRow}>
+                  <Text variant="bodyMedium" style={styles.detailLabel}>
+                    {t("administration.username")}
+                  </Text>
+                  <Text variant="bodyMedium" style={styles.detailValue}>
+                    {user.username}
+                  </Text>
+                </View>
+              </>
+            )}
 
-            {/* Role Management */}
-            <View style={styles.roleSection}>
-              <Text variant="titleMedium" style={styles.roleLabel}>
-                {t("administration.currentRole", { role: "" }).replace(
-                  ": ",
-                  ""
-                )}
+            {user.email && (
+              <>
+                <Divider style={styles.divider} />
+                <View style={styles.detailRow}>
+                  <Text variant="bodyMedium" style={styles.detailLabel}>
+                    {t("administration.email")}
+                  </Text>
+                  <Text variant="bodyMedium" style={styles.detailValue}>
+                    {user.email}
+                  </Text>
+                </View>
+              </>
+            )}
+
+            <Divider style={styles.divider} />
+            <View style={styles.detailRow}>
+              <Text variant="bodyMedium" style={styles.detailLabel}>
+                {t("administration.createdAt")}
               </Text>
-              <ThemedInputSelect
-                selectedValue={user.role}
-                placeholder={t("administration.selectNewRole")}
-                options={roleOptions}
-                optionLabel="name"
-                optionValue="id"
-                onValueChange={handleRoleChange}
-                isSearchable={false}
-              />
+              <Text variant="bodyMedium" style={styles.detailValue}>
+                {new Date(user.createdAt).toLocaleDateString()}
+              </Text>
             </View>
-          </Card.Content>
-        </Card>
 
-        {/* User Buckets Section */}
-        <Card style={styles.section} mode="outlined">
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              {t("administration.userBuckets")}
-            </Text>
-
-            {user.buckets && user.buckets.length > 0 ? (
-              <View style={styles.bucketsList}>
-                {user.buckets.map((bucket) => (
-                  <Card
-                    key={bucket.id}
-                    style={styles.bucketItem}
-                    mode="outlined"
-                  >
-                    <Card.Content>
-                      <View style={styles.bucketInfo}>
-                        <Text variant="titleSmall" style={styles.bucketName}>
-                          {bucket.name}
-                        </Text>
-                        <Text variant="bodySmall" style={styles.bucketId}>
-                          ID: {bucket.id}
-                        </Text>
-                      </View>
-                    </Card.Content>
-                  </Card>
-                ))}
-              </View>
-            ) : (
-              <Text variant="bodyMedium" style={styles.noDataText}>
-                {t("administration.noBucketsFound")}
+            <Divider style={styles.divider} />
+            <View style={styles.detailRow}>
+              <Text variant="bodyMedium" style={styles.detailLabel}>
+                {t("administration.lastUpdated")}
               </Text>
-            )}
-          </Card.Content>
-        </Card>
+              <Text variant="bodyMedium" style={styles.detailValue}>
+                {new Date(user.updatedAt).toLocaleDateString()}
+              </Text>
+            </View>
+          </View>
 
-        {/* Notification Statistics Section */}
-        <Card style={styles.section} mode="outlined">
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              {t("administration.userNotificationStats")}
+          <Divider style={styles.sectionDivider} />
+
+          {/* Role Management */}
+          <View style={styles.roleSection}>
+            <Text variant="titleMedium" style={styles.roleLabel}>
+              {t("administration.currentRole", { role: "" }).replace(": ", "")}
             </Text>
+            <ThemedInputSelect
+              selectedValue={user.role}
+              placeholder={t("administration.selectNewRole")}
+              options={roleOptions}
+              optionLabel="name"
+              optionValue="id"
+              onValueChange={handleRoleChange}
+              isSearchable={false}
+            />
+          </View>
+        </Card.Content>
+      </Card>
 
-            {statsLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" animating={true} />
-                <Text variant="bodyMedium" style={styles.loadingText}>
-                  {t("administration.loadingStats")}
+      {/* User Buckets Section */}
+      <Card style={styles.section} mode="outlined">
+        <Card.Content>
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            {t("administration.userBuckets")}
+          </Text>
+
+          {user.buckets && user.buckets.length > 0 ? (
+            <View style={styles.bucketsList}>
+              {user.buckets.map((bucket) => (
+                <Card key={bucket.id} style={styles.bucketItem} mode="outlined">
+                  <Card.Content>
+                    <View style={styles.bucketInfo}>
+                      <Text variant="titleSmall" style={styles.bucketName}>
+                        {bucket.name}
+                      </Text>
+                      <Text variant="bodySmall" style={styles.bucketId}>
+                        ID: {bucket.id}
+                      </Text>
+                    </View>
+                  </Card.Content>
+                </Card>
+              ))}
+            </View>
+          ) : (
+            <Text variant="bodyMedium" style={styles.noDataText}>
+              {t("administration.noBucketsFound")}
+            </Text>
+          )}
+        </Card.Content>
+      </Card>
+
+      {/* Notification Statistics Section */}
+      <Card style={styles.section} mode="outlined">
+        <Card.Content>
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            {t("administration.userNotificationStats")}
+          </Text>
+
+          {statsLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" animating={true} />
+              <Text variant="bodyMedium" style={styles.loadingText}>
+                {t("administration.loadingStats")}
+              </Text>
+            </View>
+          ) : statsData?.userNotificationStats ? (
+            <View style={styles.statsGrid}>
+              <Surface style={styles.statItem} elevation={1}>
+                <Text variant="headlineSmall" style={styles.statValue}>
+                  {statsData.userNotificationStats.today}
                 </Text>
-              </View>
-            ) : statsData?.userNotificationStats ? (
-              <View style={styles.statsGrid}>
-                <Surface style={styles.statItem} elevation={1}>
-                  <Text variant="headlineSmall" style={styles.statValue}>
-                    {statsData.userNotificationStats.today}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.statLabel}>
-                    {t("userProfile.today")}
-                  </Text>
-                </Surface>
+                <Text variant="bodySmall" style={styles.statLabel}>
+                  {t("userProfile.today")}
+                </Text>
+              </Surface>
 
-                <Surface style={styles.statItem} elevation={1}>
-                  <Text variant="headlineSmall" style={styles.statValue}>
-                    {statsData.userNotificationStats.thisWeek}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.statLabel}>
-                    {t("userProfile.thisWeek")}
-                  </Text>
-                </Surface>
+              <Surface style={styles.statItem} elevation={1}>
+                <Text variant="headlineSmall" style={styles.statValue}>
+                  {statsData.userNotificationStats.thisWeek}
+                </Text>
+                <Text variant="bodySmall" style={styles.statLabel}>
+                  {t("userProfile.thisWeek")}
+                </Text>
+              </Surface>
 
-                <Surface style={styles.statItem} elevation={1}>
-                  <Text variant="headlineSmall" style={styles.statValue}>
-                    {statsData.userNotificationStats.thisMonth}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.statLabel}>
-                    {t("userProfile.thisMonth")}
-                  </Text>
-                </Surface>
+              <Surface style={styles.statItem} elevation={1}>
+                <Text variant="headlineSmall" style={styles.statValue}>
+                  {statsData.userNotificationStats.thisMonth}
+                </Text>
+                <Text variant="bodySmall" style={styles.statLabel}>
+                  {t("userProfile.thisMonth")}
+                </Text>
+              </Surface>
 
-                <Surface style={styles.statItem} elevation={1}>
-                  <Text variant="headlineSmall" style={styles.statValue}>
-                    {statsData.userNotificationStats.total}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.statLabel}>
-                    {t("userProfile.total")}
-                  </Text>
-                </Surface>
-              </View>
-            ) : (
-              <Text variant="bodyMedium" style={styles.noDataText}>
-                {t("administration.noStatsAvailable")}
-              </Text>
-            )}
-          </Card.Content>
-        </Card>
-      </PaperScrollView>
-    </Surface>
+              <Surface style={styles.statItem} elevation={1}>
+                <Text variant="headlineSmall" style={styles.statValue}>
+                  {statsData.userNotificationStats.total}
+                </Text>
+                <Text variant="bodySmall" style={styles.statLabel}>
+                  {t("userProfile.total")}
+                </Text>
+              </Surface>
+            </View>
+          ) : (
+            <Text variant="bodyMedium" style={styles.noDataText}>
+              {t("administration.noStatsAvailable")}
+            </Text>
+          )}
+        </Card.Content>
+      </Card>
+    </PaperScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-  },
+  content: {},
   section: {
     marginBottom: 16,
   },
@@ -449,7 +417,6 @@ const styles = StyleSheet.create({
   },
   statItem: {
     width: "48%",
-    padding: 16,
     borderRadius: 12,
     alignItems: "center",
   },

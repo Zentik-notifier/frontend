@@ -7,11 +7,10 @@ export function useGetBucketData(bucketId?: string) {
     const { userId } = useAppContext();
 
     const bucketSrcData = useGetBucketQuery({
-        fetchPolicy: 'cache-and-network',
         variables: { id: bucketId || '' },
         skip: !bucketId,
     });
-    const { data, loading, error } = bucketSrcData;
+    const { data, loading, error, refetch } = bucketSrcData;
     const bucket = data?.bucket;
 
     return useMemo(() => {
@@ -22,6 +21,7 @@ export function useGetBucketData(bucketId?: string) {
             ...bucketSrcData,
             bucket,
             isSnoozed,
+            refetch,
         }
 
         if (!userId || !bucketId) {
@@ -105,7 +105,7 @@ export function useGetBucketData(bucketId?: string) {
             allPermissions,
             ...bucketData,
         };
-    }, [userId, bucket, bucketId, loading]);
+    }, [userId, bucket, bucketId, loading, refetch]);
 }
 
 interface BucketStats {

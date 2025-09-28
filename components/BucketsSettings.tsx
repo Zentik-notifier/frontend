@@ -1,23 +1,17 @@
+import PaperScrollView from "@/components/ui/PaperScrollView";
+import { useAppContext } from "@/contexts/AppContext";
 import {
-  useGetBucketsQuery,
   BucketFragmentDoc,
   useCreateBucketMutation,
+  useGetBucketsQuery,
 } from "@/generated/gql-operations-generated";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/contexts/AppContext";
+import { useNavigationUtils } from "@/utils/navigation";
 import { useApolloClient } from "@apollo/client";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  StyleSheet,
-  View,
-  ActivityIndicator,
-} from "react-native";
-import SwipeableBucketItem from "./SwipeableBucketItem";
-import PaperScrollView from "@/components/ui/PaperScrollView";
-import BucketSelector from "./BucketSelector";
-import { useNavigationUtils } from "@/utils/navigation";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import {
   Button,
   Card,
@@ -30,6 +24,8 @@ import {
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
+import BucketSelector from "./BucketSelector";
+import SwipeableBucketItem from "./SwipeableBucketItem";
 
 export default function BucketsSettings() {
   const { danglingBucketId } = useLocalSearchParams<{
@@ -38,7 +34,6 @@ export default function BucketsSettings() {
   const theme = useTheme();
   const { t } = useI18n();
   const {
-    setMainLoading,
     notifications,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
@@ -62,7 +57,10 @@ export default function BucketsSettings() {
     useCreateBucketMutation({
       refetchQueries: ["GetBuckets"],
     });
-  useEffect(() => setMainLoading(loading), [loading]);
+
+  const handleRefresh = async () => {
+    await refetch();
+  };
 
   const buckets = data?.buckets || [];
   const sortedBuckets = useEntitySorting(buckets, "desc");
@@ -250,9 +248,9 @@ export default function BucketsSettings() {
         setSelectedDanglingBucket(null);
 
         // Refresh notifications and buckets
-        apolloClient.refetchQueries({
-          include: ["GetNotifications", "GetBuckets"],
-        });
+        // apolloClient.refetchQueries({
+        //   include: ["GetNotifications", "GetBuckets"],
+        // });
       })
       .catch((error) => {
         console.error("Migration error:", error);
@@ -351,20 +349,17 @@ export default function BucketsSettings() {
                 : theme.colors.primary
             }
             containerColor={
-              showDanglingBuckets
-                ? theme.colors.primary
-                : theme.colors.surface
+              showDanglingBuckets ? theme.colors.primary : theme.colors.surface
             }
             onPress={() => setShowDanglingBuckets(!showDanglingBuckets)}
             style={styles.danglingButton}
           />
         </View>
       )}
-      
-      <PaperScrollView 
-        refreshing={loading} 
-        onRefresh={refetch}
-        loading={loading && buckets.length === 0}
+
+      <PaperScrollView
+        onRefresh={handleRefresh}
+        loading={loading}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
@@ -413,7 +408,9 @@ export default function BucketsSettings() {
                       style={styles.danglingBucketItem}
                       elevation={0}
                     >
-                      <TouchableRipple onPress={() => handleDanglingBucketPress(item)}>
+                      <TouchableRipple
+                        onPress={() => handleDanglingBucketPress(item)}
+                      >
                         <Card.Content>
                           <View style={styles.danglingBucketInfo}>
                             <Icon
@@ -498,7 +495,12 @@ export default function BucketsSettings() {
             }}
             style={styles.modalDialog}
           >
-            <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outline }]}>
+            <View
+              style={[
+                styles.modalHeader,
+                { borderBottomColor: theme.colors.outline },
+              ]}
+            >
               <Text variant="headlineSmall" style={styles.modalTitle}>
                 {isMigrating
                   ? creatingBucket
@@ -548,7 +550,10 @@ export default function BucketsSettings() {
                             />
                           </View>
                           <View style={styles.bucketInfo}>
-                            <Text variant="titleMedium" style={styles.bucketName}>
+                            <Text
+                              variant="titleMedium"
+                              style={styles.bucketName}
+                            >
                               {selectedDanglingBucket.bucket.name}
                             </Text>
                             <Text
@@ -635,10 +640,7 @@ export default function BucketsSettings() {
                         size="large"
                         color={theme.colors.primary}
                       />
-                      <Text
-                        variant="bodyLarge"
-                        style={styles.loadingText}
-                      >
+                      <Text variant="bodyLarge" style={styles.loadingText}>
                         {t("buckets.migrating")}
                       </Text>
                     </View>

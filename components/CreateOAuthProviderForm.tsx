@@ -31,12 +31,11 @@ export default function CreateOAuthProviderForm({
   const router = useRouter();
   const theme = useTheme();
   const { t } = useI18n();
-  const [refreshing, setRefreshing] = useState(false);
 
   // Load provider data if editing
   const {
     data: providerData,
-    loading: loadingProvider,
+    loading,
     refetch,
   } = useOAuthProviderQuery({
     variables: { id: providerId || "" },
@@ -53,7 +52,6 @@ export default function CreateOAuthProviderForm({
     useUpdateOAuthProviderMutation();
 
   const isSaving = creating || updating;
-  const isLoading = loadingProvider;
 
   // Refs for color pickers
   const colorPickerRef = useRef<ColorPickerRef>(null);
@@ -168,33 +166,15 @@ export default function CreateOAuthProviderForm({
   const isCustomProvider =
     !provider || provider?.type === OAuthProviderType.Custom;
 
-  const onRefresh = async () => {
-    if (isEditing && refetch) {
-      setRefreshing(true);
-      try {
-        await refetch();
-      } finally {
-        setRefreshing(false);
-      }
-    }
+  const handleRefresh = async () => {
+    await refetch();
   };
-
-  if (isLoading) {
-    return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" animating={true} />
-        <Text variant="bodyLarge" style={styles.loadingText}>
-          {t("common.loading")}
-        </Text>
-      </View>
-    );
-  }
 
   return (
     <PaperScrollView
       style={styles.container}
-      refreshing={refreshing}
-      onRefresh={onRefresh}
+      loading={loading}
+      onRefresh={isEditing ? handleRefresh : undefined}
     >
       <View>
         {isEditing && provider && (

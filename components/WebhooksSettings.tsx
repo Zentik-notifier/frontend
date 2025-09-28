@@ -7,12 +7,7 @@ import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useGetUserWebhooksQuery } from "../generated/gql-operations-generated";
 import SwipeableWebhookItem from "./SwipeableWebhookItem";
 import { useNavigationUtils } from "@/utils/navigation";
-import {
-  FAB,
-  Icon,
-  Text,
-  useTheme,
-} from "react-native-paper";
+import { FAB, Icon, Text, useTheme } from "react-native-paper";
 
 interface WebhooksSettingsProps {
   refreshing?: boolean;
@@ -58,10 +53,9 @@ export default function WebhooksSettings({
 
   return (
     <View style={styles.container}>
-      <PaperScrollView 
-        refreshing={loading} 
+      <PaperScrollView
         onRefresh={handleRefresh}
-        loading={loading && webhooks.length === 0}
+        loading={loading}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >

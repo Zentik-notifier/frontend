@@ -27,6 +27,7 @@ import ColorPicker, { ColorPickerRef } from "./ColorPicker";
 import IconEditor from "./IconEditor";
 import IdWithCopyButton from "./IdWithCopyButton";
 import SnoozeSchedulesManager from "./SnoozeSchedulesManager";
+import PaperScrollView from "./ui/PaperScrollView";
 
 const defaultColor = "#0a7ea4";
 
@@ -50,7 +51,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const isEditing = !!bucketId;
 
-  const { bucket, refetch, canWrite } = useGetBucketData(bucketId);
+  const { bucket, refetch, canWrite, loading } = useGetBucketData(bucketId);
   const { data: appConfig } = usePublicAppConfigQuery();
 
   const [createBucketMutation, { loading: creatingBucket }] =
@@ -176,8 +177,12 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
     }
   };
 
+  const handleRefresh = async () => {
+    await refetch();
+  };
+
   return (
-    <View>
+    <PaperScrollView loading={loading} onRefresh={handleRefresh}>
       <Card style={styles.formContainer}>
         <Card.Content>
           {/* Read-only warning */}
@@ -380,7 +385,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           onClose={handleCloseIconEditor}
         />
       )}
-    </View>
+    </PaperScrollView>
   );
 }
 
@@ -388,9 +393,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  contentContainer: {
-    padding: 16,
-  },
+  contentContainer: {},
   formContainer: {
     marginBottom: 16,
   },

@@ -213,11 +213,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   apiUrlCard: {
-    marginHorizontal: 16,
     marginBottom: 20,
   },
   settingsSurface: {
-    marginHorizontal: 16,
     marginBottom: 20,
     borderRadius: 12,
   },

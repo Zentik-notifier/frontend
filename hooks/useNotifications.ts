@@ -4,8 +4,6 @@ import { mediaCache } from '@/services/media-cache';
 import { Reference, useApolloClient } from '@apollo/client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const shouldUpdateRemoteReadAt = false;
-
 export const useSaveNotificationsToStorage = () => {
 	const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const DEBOUNCE_DELAY = 2000;
@@ -99,22 +97,6 @@ export function useNotificationById(id?: string, forceFetch?: boolean) {
 
 	return { notification, loading: effectiveLoading, error: effectiveError };
 }
-
-// export function useNotificationById(id?: string, forceFetch?: boolean) {
-// 	const { data, loading, error } = useGetNotificationQuery({
-// 		variables: { id: id! },
-// 		fetchPolicy: !forceFetch ? 'cache-only' : 'cache-and-network',
-// 		errorPolicy: 'ignore'
-// 	});
-// 	console.log(data, error);
-
-// 	const notification = data?.notification ?? null;
-// 	const effectiveLoading = !!id && !notification ? loading : false;
-
-// 	const effectiveError = !loading && !notification && id ? (error ?? new Error('Notification not found')) : null;
-
-// 	return { notification, loading: effectiveLoading, error: effectiveError };
-// }
 
 export function useFetchNotifications(onlyCache?: boolean) {
 	const updateReceivedNotifications = useUpdateReceivedNotifications();
@@ -324,15 +306,8 @@ export function useMarkNotificationRead() {
 	const applyLocal = useNotificationCacheUpdater();
 
 	const markAsRead = useCallback(async (id: string) => {
-		try {
-			if (shouldUpdateRemoteReadAt) {
-				await markReadMutation({ variables: { id } });
-			}
-		} catch (e) { }
-		finally {
-			const now = new Date().toISOString();
-			await applyLocal(id, { readAt: now });
-		}
+		const now = new Date().toISOString();
+		await applyLocal(id, { readAt: now });
 	}, [markReadMutation, applyLocal])
 
 	return markAsRead;
@@ -343,14 +318,7 @@ export function useMarkNotificationUnread() {
 	const applyLocal = useNotificationCacheUpdater();
 
 	const markAsUnread = useCallback(async (id: string) => {
-		try {
-			if (shouldUpdateRemoteReadAt) {
-				await markUnreadMutation({ variables: { id } });
-			}
-		} catch (e) { }
-		finally {
-			await applyLocal(id, { readAt: null });
-		}
+		await applyLocal(id, { readAt: null });
 	}, [markUnreadMutation, applyLocal])
 
 	return markAsUnread;
@@ -468,14 +436,6 @@ export function useMassMarkNotificationsAsRead() {
 		try {
 			const now = new Date().toISOString();
 
-			if (shouldUpdateRemoteReadAt) {
-				const result = await massMarkNotificationsAsReadMutation({
-					variables: { ids: notificationIds },
-					errorPolicy: 'all'
-				});
-				console.log(`✅ Server mass mark as read completed: ${result.data?.massMarkNotificationsAsRead.updatedCount} notifications updated`);
-			}
-
 			for (const id of notificationIds) {
 				await applyLocal(id, { readAt: now });
 			}
@@ -504,14 +464,6 @@ export function useMassMarkNotificationsAsUnread() {
 		console.log(`📝 Starting mass mark as unread for ${notificationIds.length} notifications`);
 
 		try {
-			if (shouldUpdateRemoteReadAt) {
-				const result = await massMarkNotificationsAsUnreadMutation({
-					variables: { ids: notificationIds },
-					errorPolicy: 'all'
-				});
-				console.log(`✅ Server mass mark as unread completed: ${result.data?.massMarkNotificationsAsUnread.updatedCount} notifications updated`);
-			}
-
 			for (const id of notificationIds) {
 				await applyLocal(id, { readAt: null });
 			}
