@@ -7,7 +7,9 @@ import React, {
 } from "react";
 import {
   Alert,
+  Modal,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -20,21 +22,19 @@ import {
   Text,
   Button,
   ActivityIndicator,
-  Dialog,
-  Portal,
 } from "react-native-paper";
 import { FlashList } from "@shopify/flash-list";
 import { openSharedCacheDb } from "@/services/media-cache-db";
 import { AppLog, LogRepository } from "@/services/log-repository";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useI18n } from "@/hooks/useI18n";
 import * as Sharing from "expo-sharing";
 import { File, Paths } from "expo-file-system";
-import PaperScrollView from "./ui/PaperScrollView";
 
 export default function AppLogs() {
   const { t } = useI18n();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [logs, setLogs] = useState<AppLog[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -295,15 +295,18 @@ export default function AppLogs() {
         )}
       </Surface>
 
-      {/* Log Detail Dialog */}
-      <Portal>
-        <Dialog
-          visible={showLogDialog}
-          onDismiss={handleCloseLogDialog}
-          style={styles.dialog}
-        >
-          <Dialog.Title>
-            <View style={styles.dialogHeader}>
+      {/* Log Detail Modal */}
+      <Modal
+        visible={showLogDialog}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleCloseLogDialog}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}>
+            {/* Header */}
+            <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outline }]}>
+              {/* Level badge a sinistra */}
               <View style={styles.levelBadgeContainer}>
                 <View
                   style={[
@@ -319,26 +322,34 @@ export default function AppLogs() {
                   {selectedLog?.level.toUpperCase()}
                 </Text>
               </View>
-              <Text style={styles.dialogDate}>
-                {selectedLog
-                  ? new Date(selectedLog.timestamp).toLocaleString()
-                  : ""}
-              </Text>
+              
+              {/* Data in mezzo */}
+              <View style={styles.dateContainer}>
+                <Text style={styles.dialogDate}>
+                  {selectedLog
+                    ? new Date(selectedLog.timestamp).toLocaleString()
+                    : ""}
+                </Text>
+              </View>
+              
+              {/* Close button a destra */}
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleCloseLogDialog}
+                accessibilityLabel={t("common.close")}
+              >
+                <Icon source="close" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
             </View>
-          </Dialog.Title>
-          <Dialog.ScrollArea style={styles.dialogContent}>
-            <PaperScrollView showsVerticalScrollIndicator={true}>
+
+            {/* Content */}
+            <ScrollView 
+              style={styles.modalContent} 
+              showsVerticalScrollIndicator={true}
+              indicatorStyle="default"
+            >
               {selectedLog && (
                 <>
-                  {selectedLog.tag && (
-                    <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>Tag:</Text>
-                      <Text style={styles.dialogMetaValue}>
-                        {selectedLog.tag}
-                      </Text>
-                    </View>
-                  )}
-
                   <View style={styles.dialogMetaRow}>
                     <Text style={styles.dialogMetaLabel}>Message:</Text>
                     <Text style={styles.dialogMetaValue}>
@@ -358,31 +369,12 @@ export default function AppLogs() {
                       </Text>
                     </View>
                   )}
-
-                  <View style={styles.dialogMetaRow}>
-                    <Text style={styles.dialogMetaLabel}>Timestamp:</Text>
-                    <Text style={styles.dialogMetaValue}>
-                      {selectedLog.timestamp}
-                    </Text>
-                  </View>
-
-                  {selectedLog.id && (
-                    <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>ID:</Text>
-                      <Text style={styles.dialogMetaValue}>
-                        {selectedLog.id}
-                      </Text>
-                    </View>
-                  )}
                 </>
               )}
-            </PaperScrollView>
-          </Dialog.ScrollArea>
-          <Dialog.Actions>
-            <Button onPress={handleCloseLogDialog}>{t("common.close")}</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -508,14 +500,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.9,
   },
-  dialog: {
-    maxHeight: "80%",
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
-  dialogHeader: {
+  modalContainer: {
+    minHeight: "30%",
+    maxHeight: "30%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: "hidden",
+  },
+  modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    width: "100%",
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    minHeight: 80,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    paddingBottom: 40,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  dateContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   dialogDate: {
     fontSize: 14,

@@ -304,42 +304,33 @@ export default function FullScreenMediaViewer({
         >
           {enableSwipeNavigation && (
             <View style={styles.navigationSection}>
-              <View
+              <IconButton
+                icon="chevron-left"
+                size={18}
+                iconColor={textColor}
                 style={[
-                  styles.navigationButtons,
-                  { backgroundColor: bgSecondary, borderRadius: 12 },
+                  styles.iconButton,
+                  { backgroundColor: bgSecondary },
                 ]}
-              >
-                <IconButton
-                  icon="chevron-left"
-                  size={18}
-                  iconColor={textColor}
-                  style={[
-                    styles.iconButton,
-                    styles.leftNavButton,
-                    { backgroundColor: "rgba(255,255,255,0.1)" },
-                  ]}
-                  onPress={onSwipeRight}
-                  accessibilityLabel="previous-media"
-                />
-                {currentPosition && (
-                  <Text style={[styles.counterText, { color: textColor }]}>
-                    {currentPosition}
-                  </Text>
-                )}
-                <IconButton
-                  icon="chevron-right"
-                  size={18}
-                  iconColor={textColor}
-                  style={[
-                    styles.iconButton,
-                    styles.rightNavButton,
-                    { backgroundColor: "rgba(255,255,255,0.1)" },
-                  ]}
-                  onPress={onSwipeLeft}
-                  accessibilityLabel="next-media"
-                />
-              </View>
+                onPress={onSwipeRight}
+                accessibilityLabel="previous-media"
+              />
+              {currentPosition && (
+                <Text style={[styles.counterText, { color: textColor }]}>
+                  {currentPosition}
+                </Text>
+              )}
+              <IconButton
+                icon="chevron-right"
+                size={18}
+                iconColor={textColor}
+                style={[
+                  styles.iconButton,
+                  { backgroundColor: bgSecondary },
+                ]}
+                onPress={onSwipeLeft}
+                accessibilityLabel="next-media"
+              />
             </View>
           )}
 
@@ -450,7 +441,7 @@ export default function FullScreenMediaViewer({
 
         {/* Bottom description with title */}
         {(description || originalFileName) && (
-          <View style={[styles.bottomBar, { backgroundColor: bgSecondary, bottom: insets.bottom + 16 }]}>
+          <View style={[styles.bottomBar, { bottom: insets.bottom + 16 }]}>
             {originalFileName ? (
               <Text
                 style={[styles.descTitle, { color: textColor }]}
@@ -490,9 +481,6 @@ const styles = StyleSheet.create({
   topBarWithNavigation: { justifyContent: "space-between" },
   topBarActionsOnly: { justifyContent: "flex-end" },
   navigationSection: { flexDirection: "row", alignItems: "center", gap: 12 },
-  navigationButtons: { flexDirection: "row", alignItems: "center" },
-  leftNavButton: { borderTopRightRadius: 0, borderBottomRightRadius: 0 },
-  rightNavButton: { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 },
   actionButtons: { flexDirection: "row", alignItems: "center", gap: 10 },
   secondRow: {
     position: "absolute",
