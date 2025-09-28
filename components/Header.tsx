@@ -102,6 +102,12 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(tablet)/(settings)/user/change-password": "changePassword.title",
   "/(tablet)/(admin)/user-management/[id]": "administration.userDetails",
   "/(mobile)/(admin)/user-management/[id]": "administration.userDetails",
+  "/(mobile)/(admin)/oauth-providers/create": "administration.oauthProviderForm.createTitle",
+  "/(tablet)/(admin)/oauth-providers/create": "administration.oauthProviderForm.createTitle",
+  "/(mobile)/(admin)/oauth-providers/[id]": "administration.oauthProviderForm.editTitle",
+  "/(tablet)/(admin)/oauth-providers/[id]": "administration.oauthProviderForm.editTitle",
+  "/(mobile)/(admin)/oauth-providers/list": "administration.oauthProviders",
+  "/(tablet)/(admin)/oauth-providers/list": "administration.oauthProviders",
 };
 
 export default function Header() {

@@ -1,26 +1,30 @@
-import { Colors } from "@/constants/Colors";
 import {
   OAuthProviderFragment,
   useAllOAuthProvidersQuery,
   useToggleOAuthProviderMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useColorScheme } from "@/hooks/useTheme";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Image,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from "react-native";
-import { ThemedText } from "./ThemedText";
-import { ThemedView } from "./ThemedView";
+import {
+  ActivityIndicator,
+  Button,
+  Card,
+  Chip,
+  FAB,
+  Icon,
+  IconButton,
+  Surface,
+  Text,
+  useTheme,
+} from "react-native-paper";
 import { useAppContext } from "@/contexts/AppContext";
-import SettingsScrollView from "./SettingsScrollView";
+import PaperScrollView from "./ui/PaperScrollView";
 
 function OAuthProviderItem({
   provider,
@@ -33,22 +37,21 @@ function OAuthProviderItem({
   onToggle: (provider: OAuthProviderFragment) => void;
   toggleLoading?: boolean;
 }) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
 
   return (
-    <TouchableOpacity
+    <Card
       style={[
         styles.providerCard,
         {
-          backgroundColor: Colors[colorScheme].background,
-          borderColor: Colors[colorScheme].border,
           opacity: provider.isEnabled ? 1 : 0.7,
         },
       ]}
       onPress={() => onEdit(provider)}
+      mode="outlined"
     >
-      <View style={styles.providerInfo}>
+      <Card.Content style={[styles.providerInfo, { paddingVertical: 8 }]}>
         <View
           style={[
             styles.providerIcon,
@@ -57,83 +60,67 @@ function OAuthProviderItem({
             },
           ]}
         >
-          {
+          {provider.iconUrl && (
             <Image
-              source={{ uri: provider.iconUrl! }}
+              source={{ uri: provider.iconUrl }}
               style={{ width: 24, height: 24 }}
               resizeMode="contain"
             />
-          }
+          )}
         </View>
         <View style={styles.providerDetails}>
-          <ThemedText style={styles.providerName}>{provider.name}</ThemedText>
-          <ThemedText
+          <Text variant="titleMedium" style={styles.providerName}>
+            {provider.name}
+          </Text>
+          <Chip
+            mode="flat"
+            compact
             style={[
-              styles.providerStatus,
-              { color: provider.isEnabled ? "#4CAF50" : "#9E9E9E" },
+              styles.statusChip,
+              {
+                backgroundColor: provider.isEnabled
+                  ? theme.colors.primaryContainer
+                  : theme.colors.surfaceVariant,
+              },
             ]}
+            textStyle={{
+              color: provider.isEnabled
+                ? theme.colors.primary
+                : theme.colors.onSurfaceVariant,
+            }}
           >
             {provider.isEnabled
-              ? `✅ ${t("administration.enabled")}`
-              : `❌ ${t("administration.disabled")}`}
-          </ThemedText>
+              ? t("administration.enabled")
+              : t("administration.disabled")}
+          </Chip>
         </View>
-      </View>
+      </Card.Content>
 
-      <View style={styles.providerActions}>
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            {
-              backgroundColor: provider.isEnabled
-                ? "#4CAF5020"
-                : `${provider.color}15`,
-              borderColor: provider.isEnabled ? "#4CAF50" : provider.color!,
-              opacity: toggleLoading ? 0.6 : 1,
-            },
-          ]}
+      <Card.Actions style={styles.providerActions}>
+        <IconButton
+          icon={provider.isEnabled ? "check" : "plus"}
+          size={20}
+          iconColor={provider.isEnabled ? theme.colors.primary : provider.color!}
           onPress={() => onToggle(provider)}
           disabled={toggleLoading}
-        >
-          {toggleLoading ? (
-            <ActivityIndicator
-              size="small"
-              color={provider.isEnabled ? "#4CAF50" : provider.color!}
-            />
-          ) : (
-            <Ionicons
-              name={provider.isEnabled ? "checkmark" : "add"}
-              size={16}
-              color={provider.isEnabled ? "#4CAF50" : provider.color!}
-            />
-          )}
-        </TouchableOpacity>
+          loading={toggleLoading}
+        />
 
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            {
-              backgroundColor: Colors[colorScheme].background,
-              borderColor: Colors[colorScheme].border,
-            },
-          ]}
+        <IconButton
+          icon="chevron-right"
+          size={20}
+          iconColor={theme.colors.onSurface}
           onPress={() => onEdit(provider)}
-        >
-          <Ionicons
-            name="chevron-forward"
-            size={16}
-            color={Colors[colorScheme].text}
-          />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
+        />
+      </Card.Actions>
+    </Card>
   );
 }
 
 export default function OAuthProvidersSettings() {
   const { navigateToCreateOAuthProvider, navigateToEditOAuthProvider } =
     useNavigationUtils();
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const { t } = useI18n();
   const [togglingProviderId, setTogglingProviderId] = useState<string | null>(
     null
@@ -195,59 +182,55 @@ export default function OAuthProvidersSettings() {
 
   if (error) {
     return (
-      <ThemedView style={styles.container}>
+      <Surface style={styles.container}>
         <View style={styles.errorContainer}>
-          <Ionicons name="warning" size={48} color="#ff6b6b" />
-          <ThemedText style={styles.errorTitle}>
+          <Icon source="alert-circle" size={48} color={theme.colors.error} />
+          <Text variant="headlineSmall" style={styles.errorTitle}>
             {t("administration.errorLoadingOAuthProviders")}
-          </ThemedText>
-          <ThemedText style={styles.errorText}>
+          </Text>
+          <Text variant="bodyMedium" style={styles.errorText}>
             {t("administration.errorLoadingOAuthProvidersDescription")}
-          </ThemedText>
+          </Text>
         </View>
-      </ThemedView>
+      </Surface>
     );
   }
 
   return (
-    <SettingsScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      onRefresh={refetch}
-      headerActions={
-        <TouchableOpacity
-          style={[
-            styles.createButton,
-            { backgroundColor: Colors[colorScheme ?? "light"].tint },
-          ]}
-          onPress={handleCreateProvider}
-        >
-          <Ionicons name="add" size={24} color="white" />
-        </TouchableOpacity>
-      }
-    >
-      <ThemedView>
+    <View style={styles.container}>
+      <PaperScrollView
+        refreshing={false}
+        onRefresh={refetch}
+        contentContainerStyle={styles.scrollContent}
+      >
         {allProviders.length === 0 ? (
-          <ThemedView style={styles.emptyState}>
-            <Ionicons
-              name="folder-outline"
+          <View style={styles.emptyState}>
+            <Icon
+              source="folder-open"
               size={64}
-              color={Colors[colorScheme ?? "light"].icon}
+              color={theme.colors.onSurfaceVariant}
             />
-            <ThemedText style={styles.emptyText}>
+            <Text variant="headlineSmall" style={styles.emptyText}>
               {t("administration.noOAuthProviders")}
-            </ThemedText>
-            <ThemedText style={styles.emptySubtext}>
+            </Text>
+            <Text variant="bodyMedium" style={styles.emptySubtext}>
               {t("administration.noOAuthProvidersDescription")}
-            </ThemedText>
-          </ThemedView>
+            </Text>
+          </View>
         ) : (
-          <View style={styles.container}>
+          <View style={styles.providersContainer}>
             {allProviders.map((item) => renderProviderItem({ item }))}
           </View>
         )}
-      </ThemedView>
-    </SettingsScrollView>
+      </PaperScrollView>
+
+      {/* FAB per creare nuovo provider */}
+      <FAB
+        icon="plus"
+        style={styles.fab}
+        onPress={handleCreateProvider}
+      />
+    </View>
   );
 }
 
@@ -255,38 +238,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
+  scrollContent: {
+    paddingBottom: 100, // Space for FAB
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  createButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  description: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 24,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 40,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    opacity: 0.7,
+  fab: {
+    position: "absolute",
+    margin: 16,
+    right: 0,
+    bottom: 0,
   },
   errorContainer: {
     flex: 1,
@@ -295,42 +254,25 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   errorTitle: {
-    fontSize: 18,
-    fontWeight: "600",
     marginTop: 16,
     marginBottom: 8,
     textAlign: "center",
   },
   errorText: {
-    fontSize: 14,
     opacity: 0.7,
     textAlign: "center",
   },
-  providersList: {
-    paddingBottom: 20,
-  },
   providerCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    marginBottom: 8,
   },
   providerInfo: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
   },
   providerIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -339,31 +281,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   providerName: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  providerType: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 2,
-  },
-  providerStatus: {
-    fontSize: 12,
-    fontWeight: "500",
+  statusChip: {
+    alignSelf: "flex-start",
   },
   providerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  actionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "flex-end",
   },
   emptyState: {
     flex: 1,
@@ -373,18 +297,15 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
     marginTop: 16,
     textAlign: "center",
   },
   emptySubtext: {
-    fontSize: 14,
     opacity: 0.7,
     marginTop: 8,
     textAlign: "center",
   },
   providersContainer: {
-    flex: 1,
+    paddingHorizontal: 16,
   },
 });

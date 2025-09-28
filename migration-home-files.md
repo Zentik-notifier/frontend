@@ -51,9 +51,11 @@ Ordine consigliato (dalle entrypoint ai componenti annidati):
 ### Fase 4: Admin Components (Priorità Media)
 21. components/UserManagement.tsx ✅
 22. components/UserDetails.tsx ✅ (Nota: utilizzare ThemedInputSelect per selezione ruolo)
-23. components/OAuthProvidersSettings.tsx
-24. components/SystemAccessTokensSettings.tsx
-25. components/EventsReview.tsx
+23. components/OAuthConnections.tsx ✅ (già migrato a Paper)
+24. components/CreateOAuthProviderForm.tsx ✅
+25. components/OAuthProvidersSettings.tsx ✅
+26. components/SystemAccessTokensSettings.tsx
+27. components/EventsReview.tsx
 
 ### Fase 5: Pagine Settings (Priorità Bassa)
 25. app/(mobile)/(settings)/*.tsx

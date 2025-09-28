@@ -38,6 +38,9 @@ export default function PaperScrollView({
       contentContainerStyle={contentContainerStyle}
       showsVerticalScrollIndicator={showsVerticalScrollIndicator}
       showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      automaticallyAdjustKeyboardInsets={true}
       refreshControl={
         onRefresh ? (
           <RefreshControl
