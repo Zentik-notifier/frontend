@@ -108,6 +108,10 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(tablet)/(admin)/oauth-providers/[id]": "administration.oauthProviderForm.editTitle",
   "/(mobile)/(admin)/oauth-providers/list": "administration.oauthProviders",
   "/(tablet)/(admin)/oauth-providers/list": "administration.oauthProviders",
+  "/(tablet)/(admin)/system-access-tokens/list": "administration.systemTokensTitle",
+  "/(mobile)/(admin)/system-access-tokens/list": "administration.systemTokensTitle",
+  "/(tablet)/(admin)/system-access-tokens/create": "systemAccessTokens.form.title",
+  "/(mobile)/(admin)/system-access-tokens/create": "systemAccessTokens.form.title",
 };
 
 export default function Header() {

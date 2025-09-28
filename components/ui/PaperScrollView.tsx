@@ -27,7 +27,6 @@ export default function PaperScrollView({
   showsHorizontalScrollIndicator = false,
 }: PaperScrollViewProps) {
   const theme = useTheme();
-  console.log(theme.dark, theme.colors.primary)
 
   return (
     <ScrollView

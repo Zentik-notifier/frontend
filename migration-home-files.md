@@ -54,8 +54,9 @@ Ordine consigliato (dalle entrypoint ai componenti annidati):
 23. components/OAuthConnections.tsx ✅ (già migrato a Paper)
 24. components/CreateOAuthProviderForm.tsx ✅
 25. components/OAuthProvidersSettings.tsx ✅
-26. components/SystemAccessTokensSettings.tsx
-27. components/EventsReview.tsx
+26. components/SystemAccessTokens.tsx ✅ (già migrato a Paper)
+27. components/CreateSystemAccessTokenForm.tsx ✅
+28. components/EventsReview.tsx
 
 ### Fase 5: Pagine Settings (Priorità Bassa)
 25. app/(mobile)/(settings)/*.tsx

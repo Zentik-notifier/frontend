@@ -10,9 +10,10 @@ import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import SettingsScrollView from "./SettingsScrollView";
+import PaperScrollView from "./ui/PaperScrollView";
 import SwipeableItem from "./SwipeableItem";
 import {
+  ActivityIndicator,
   Button,
   Card,
   Dialog,
@@ -30,16 +31,26 @@ export default function SystemAccessTokens() {
   const { formatDate: formatDateService } = useDateFormat();
   const {
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
-    setMainLoading,
   } = useAppContext();
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const disabledActions = isOfflineAuth || isBackendUnreachable;
 
   const { data, loading, refetch } = useGetSystemAccessTokensQuery();
   const [revokeSystemToken] = useRevokeSystemAccessTokenMutation();
-  useEffect(() => setMainLoading(loading), [loading]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } catch (error) {
+      console.error("Error refreshing tokens:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const tokens = data?.listSystemTokens || [];
   const sortedTokens = useEntitySorting(tokens, "desc");
@@ -47,7 +58,7 @@ export default function SystemAccessTokens() {
   const deleteToken = async (id: string) => {
     try {
       await revokeSystemToken({ variables: { id } });
-      refetch();
+      await handleRefresh();
     } catch (error) {
       console.error("Error deleting token:", error);
       setErrorMessage(t("systemAccessTokens.deleteError"));
@@ -86,67 +97,62 @@ export default function SystemAccessTokens() {
             : undefined
         }
       >
-        <View
-          style={[
-            styles.tokenItem,
-            isExpired && styles.expiredToken,
-          ]}
-        >
-            <View style={styles.tokenHeader}>
-              <Text variant="titleMedium" style={styles.tokenName}>
-                {item.description ||
-                  (item.requester
-                    ? item.requester.username ||
-                      item.requester.email ||
-                      item.requester.id
-                    : null) ||
-                  item.id}
-              </Text>
-              {isExpired && (
-                <View style={styles.expiredBadge}>
-                  <Text variant="bodySmall" style={styles.expiredText}>
-                    {t("systemAccessTokens.item.expired")}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.tokenDetails}>
-              <Text variant="bodySmall" style={styles.tokenDetail}>
-                {t("systemAccessTokens.item.created")}:{" "}
-                {formatTokenDate(item.createdAt)}
-              </Text>
-
-              <Text variant="bodySmall" style={styles.tokenDetail}>
-                {t("systemAccessTokens.item.calls")}: {item.calls}/
-                {item.maxCalls || "-"}
-              </Text>
-
-              {item.requester ? (
-                <Text variant="bodySmall" style={styles.tokenDetail}>
-                  {t("systemAccessTokens.item.requester")}:{" "}
-                  {item.requester.username ||
+        <View style={[styles.tokenItem, isExpired && styles.expiredToken]}>
+          <View style={styles.tokenHeader}>
+            <Text variant="titleMedium" style={styles.tokenName}>
+              {item.description ||
+                (item.requester
+                  ? item.requester.username ||
                     item.requester.email ||
-                    item.requester.id}
+                    item.requester.id
+                  : null) ||
+                item.id}
+            </Text>
+            {isExpired && (
+              <View style={styles.expiredBadge}>
+                <Text variant="bodySmall" style={styles.expiredText}>
+                  {t("systemAccessTokens.item.expired")}
                 </Text>
-              ) : null}
+              </View>
+            )}
+          </View>
 
-              {item.description ? (
-                <Text variant="bodySmall" style={styles.tokenDetail}>
-                  {t("systemAccessTokens.item.description")}: {item.description}
-                </Text>
-              ) : null}
+          <View style={styles.tokenDetails}>
+            <Text variant="bodySmall" style={styles.tokenDetail}>
+              {t("systemAccessTokens.item.created")}:{" "}
+              {formatTokenDate(item.createdAt)}
+            </Text>
 
-              {item.expiresAt && (
-                <Text
-                  variant="bodySmall"
-                  style={[styles.tokenDetail, isExpired && styles.expiredDetail]}
-                >
-                  {t("systemAccessTokens.item.expires")}:{" "}
-                  {formatTokenDate(item.expiresAt)}
-                </Text>
-              )}
-            </View>
+            <Text variant="bodySmall" style={styles.tokenDetail}>
+              {t("systemAccessTokens.item.calls")}: {item.calls}/
+              {item.maxCalls || "-"}
+            </Text>
+
+            {item.requester ? (
+              <Text variant="bodySmall" style={styles.tokenDetail}>
+                {t("systemAccessTokens.item.requester")}:{" "}
+                {item.requester.username ||
+                  item.requester.email ||
+                  item.requester.id}
+              </Text>
+            ) : null}
+
+            {item.description ? (
+              <Text variant="bodySmall" style={styles.tokenDetail}>
+                {t("systemAccessTokens.item.description")}: {item.description}
+              </Text>
+            ) : null}
+
+            {item.expiresAt && (
+              <Text
+                variant="bodySmall"
+                style={[styles.tokenDetail, isExpired && styles.expiredDetail]}
+              >
+                {t("systemAccessTokens.item.expires")}:{" "}
+                {formatTokenDate(item.expiresAt)}
+              </Text>
+            )}
+          </View>
         </View>
       </SwipeableItem>
     );
@@ -156,30 +162,58 @@ export default function SystemAccessTokens() {
 
   return (
     <View style={styles.container}>
-      <SettingsScrollView
-        showsVerticalScrollIndicator={false}
-        onRefresh={refetch}
-      >
-        {sortedTokens.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Icon
-              source="key"
-              size={64}
-              color={theme.colors.onSurfaceVariant}
-            />
-            <Text variant="headlineSmall" style={styles.emptyText}>
-              {t("systemAccessTokens.noTokensTitle")}
-            </Text>
-            <Text variant="bodyMedium" style={styles.emptySubtext}>
-              {t("systemAccessTokens.noTokensSubtext")}
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.tokensContainer}>
-            {sortedTokens.map((item) => renderTokenItem(item))}
-          </View>
-        )}
-      </SettingsScrollView>
+      {/* Header with refresh button */}
+      <View style={styles.header}>
+        <Text variant="headlineSmall" style={styles.headerTitle}>
+          {t("systemAccessTokens.title")}
+        </Text>
+        <Button
+          mode="outlined"
+          onPress={handleRefresh}
+          disabled={isRefreshing || loading}
+          style={styles.refreshButton}
+        >
+          {isRefreshing || loading ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          ) : (
+            <Icon source="refresh" size={20} />
+          )}
+        </Button>
+      </View>
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text variant="bodyLarge" style={styles.loadingText}>
+            {t("common.loading")}
+          </Text>
+        </View>
+      ) : (
+        <PaperScrollView
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+        >
+          {sortedTokens.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Icon
+                source="key"
+                size={64}
+                color={theme.colors.onSurfaceVariant}
+              />
+              <Text variant="headlineSmall" style={styles.emptyText}>
+                {t("systemAccessTokens.noTokensTitle")}
+              </Text>
+              <Text variant="bodyMedium" style={styles.emptySubtext}>
+                {t("systemAccessTokens.noTokensSubtext")}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.tokensContainer}>
+              {sortedTokens.map((item) => renderTokenItem(item))}
+            </View>
+          )}
+        </PaperScrollView>
+      )}
 
       <FAB
         icon="plus"
@@ -213,6 +247,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: "relative",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "transparent",
+  },
+  headerTitle: {
+    flex: 1,
+    fontWeight: "600",
+  },
+  refreshButton: {
+    minWidth: 48,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+  },
+  loadingText: {
+    marginTop: 8,
+    opacity: 0.7,
   },
   fab: {
     position: "absolute",
