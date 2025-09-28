@@ -3,7 +3,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
-import SettingsScrollView from "@/components/SettingsScrollView";
+import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useGetUserWebhooksQuery } from "../generated/gql-operations-generated";
 import SwipeableWebhookItem from "./SwipeableWebhookItem";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -58,7 +58,12 @@ export default function WebhooksSettings({
 
   return (
     <View style={styles.container}>
-      <SettingsScrollView onRefresh={handleRefresh}>
+      <PaperScrollView 
+        refreshing={loading} 
+        onRefresh={handleRefresh}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+      >
         {webhooks.length === 0 ? (
           <View style={styles.emptyState}>
             <Icon
@@ -80,7 +85,7 @@ export default function WebhooksSettings({
             ))}
           </View>
         )}
-      </SettingsScrollView>
+      </PaperScrollView>
 
       {/* FAB per creare nuovo webhook */}
       <FAB
@@ -97,6 +102,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: "relative",
+  },
+  scrollView: {
+    paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
+  },
+  scrollContent: {
+    paddingHorizontal: 16, // Aggiunge il padding orizzontale solo al contenuto
+    paddingVertical: 8, // Aggiunge padding verticale per evitare gap
   },
   emptyState: {
     flex: 1,

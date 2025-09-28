@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { ThemedText } from "./ThemedText";
+import { Text } from "react-native-paper";
 import { IconButton } from "./ui";
 import ThemedInputSelect from "./ui/ThemedInputSelect";
 import WebhookMethodUrlSelector from "./WebhookMethodUrlSelector";
@@ -111,9 +111,9 @@ export default function NotificationActionForm({
       />
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>
+        <Text style={styles.label}>
           {t("notifications.actions.actionValue")}
-        </ThemedText>
+        </Text>
         {actionType === NotificationActionType.Webhook ? (
           hasWebhooks ? (
             <ThemedInputSelect
@@ -136,7 +136,7 @@ export default function NotificationActionForm({
                 },
               ]}
             >
-              <ThemedText
+              <Text
                 style={[
                   styles.noWebhooksText,
                   {
@@ -147,7 +147,7 @@ export default function NotificationActionForm({
                 {t("notifications.noWebhooks.message", {
                   type: "ACTION",
                 })}
-              </ThemedText>
+              </Text>
             </View>
           )
         ) : actionType === NotificationActionType.BackgroundCall ? (
@@ -178,9 +178,9 @@ export default function NotificationActionForm({
       </View>
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>
+        <Text style={styles.label}>
           {t("notifications.actions.actionTitle")}
-        </ThemedText>
+        </Text>
         <TextInput
           style={[
             styles.textInput,
@@ -201,22 +201,22 @@ export default function NotificationActionForm({
       </View>
 
       <View style={styles.inputContainer}>
-        <ThemedText
+        <Text
           style={[
             styles.inputLabel,
             { color: Colors[colorScheme ?? "light"].text },
           ]}
         >
           {t("notifications.actions.iconName")}
-        </ThemedText>
-        <ThemedText
+        </Text>
+        <Text
           style={[
             styles.inputHint,
             { color: Colors[colorScheme ?? "light"].textSecondary },
           ]}
         >
           {t("notifications.actions.iconHint")}
-        </ThemedText>
+        </Text>
         <TextInput
           style={[
             styles.textInput,
@@ -244,14 +244,14 @@ export default function NotificationActionForm({
           },
         ]}
       >
-        <ThemedText
+        <Text
           style={[
             styles.switchLabel,
             { color: Colors[colorScheme ?? "light"].text },
           ]}
         >
           {t("notifications.actions.destructiveAction")}
-        </ThemedText>
+        </Text>
         <Switch
           value={actionDestructive}
           onValueChange={onActionDestructiveChange}

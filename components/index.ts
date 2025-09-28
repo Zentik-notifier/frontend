@@ -1,7 +1,5 @@
 // Main UI Components
 export { default as BucketIcon } from './BucketIcon';
-export { ThemedText } from './ThemedText';
-export { ThemedView } from './ThemedView';
 export { default as Icon } from './ui/Icon';
 
 // Layout Components
@@ -27,7 +25,6 @@ export { default as NotificationTapActionSelector } from './NotificationTapActio
 
 // Settings Components
 export { AppSettings } from './AppSettings';
-export { ThemeSettings } from './ThemeSettings';
 export { default as UserSection } from './UserSection';
 
 // Utility Components

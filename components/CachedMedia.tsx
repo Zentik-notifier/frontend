@@ -16,17 +16,16 @@ import {
   PanResponder,
   StyleProp,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
   ViewStyle,
 } from "react-native";
+import { Text } from "react-native-paper";
 import { Pressable } from "react-native-gesture-handler";
 import { MediaType } from "../generated/gql-operations-generated";
 import { useI18n } from "../hooks/useI18n";
 import { useCachedItem } from "../hooks/useMediaCache";
 import { MediaTypeIcon } from "./MediaTypeIcon";
-import { ThemedText } from "./ThemedText";
 
 interface CachedMediaProps {
   url: string;
@@ -397,9 +396,9 @@ export const CachedMedia = React.memo(function CachedMedia({
       return (
         <View style={getStateContainerStyle("failed") as any}>
           <View style={defaultStyles.stateContent}>
-            <ThemedText style={{ color: stateColors.failed }}>
+            <Text style={{ color: stateColors.failed }}>
               {!isCompact && mediaSource?.errorCode}
-            </ThemedText>
+            </Text>
             <Ionicons
               name="warning-outline"
               size={isCompact ? 20 : 24}

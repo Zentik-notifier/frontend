@@ -16,7 +16,7 @@ import { getHttpMethodColor } from "@/utils/webhookUtils";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import SettingsScrollView from "@/components/SettingsScrollView";
+import PaperScrollView from "@/components/ui/PaperScrollView";
 import IdWithCopyButton from "./IdWithCopyButton";
 import ThemedInputSelect from "./ui/ThemedInputSelect";
 import {
@@ -282,10 +282,9 @@ export default function CreateWebhookForm({
   };
 
   return (
-    <SettingsScrollView
-      style={styles.container}
+    <PaperScrollView
+      style={[styles.container, styles.scrollView]}
       contentContainerStyle={styles.scrollContent}
-      keyboardShouldPersistTaps="handled"
     >
       <Card style={styles.formContainer} elevation={0}>
         <Card.Content>
@@ -500,7 +499,7 @@ export default function CreateWebhookForm({
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </SettingsScrollView>
+    </PaperScrollView>
   );
 }
 
@@ -508,7 +507,11 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
   },
+  scrollView: {
+    paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
+  },
   scrollContent: {
+    paddingHorizontal: 16, // Aggiunge il padding orizzontale solo al contenuto
     paddingBottom: 20,
   },
   description: {

@@ -165,15 +165,9 @@ export default function SystemAccessTokens() {
       <PaperScrollView
         refreshing={isRefreshing || loading}
         onRefresh={handleRefresh}
+        loading={loading && sortedTokens.length === 0}
       >
-        {loading && sortedTokens.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text variant="bodyLarge" style={styles.loadingText}>
-              {t("common.loading")}
-            </Text>
-          </View>
-        ) : sortedTokens.length === 0 ? (
+        {sortedTokens.length === 0 ? (
           <View style={styles.emptyState}>
             <Icon
               source="key"
@@ -241,16 +235,6 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     minWidth: 48,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 16,
-  },
-  loadingText: {
-    marginTop: 8,
-    opacity: 0.7,
   },
   fab: {
     position: "absolute",

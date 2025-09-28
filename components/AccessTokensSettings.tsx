@@ -10,7 +10,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import SwipeableItem from "./SwipeableItem";
-import SettingsScrollView from "@/components/SettingsScrollView";
+import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useNavigationUtils } from "@/utils/navigation";
 import {
   Badge,
@@ -155,7 +155,12 @@ export function AccessTokensSettings() {
 
   return (
     <View style={styles.container}>
-      <SettingsScrollView onRefresh={handleRefresh}>
+      <PaperScrollView 
+        refreshing={loading} 
+        onRefresh={handleRefresh}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+      >
         {sortedTokens.length === 0 ? (
           <View style={styles.emptyState}>
             <Icon
@@ -175,7 +180,7 @@ export function AccessTokensSettings() {
             {sortedTokens.map((item) => renderTokenItem(item))}
           </View>
         )}
-      </SettingsScrollView>
+      </PaperScrollView>
 
       {/* FAB per creare nuovo token */}
       <FAB
@@ -211,6 +216,13 @@ const styles = StyleSheet.create({
     flex: 1,
     position: "relative",
   },
+  scrollView: {
+    paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
+  },
+  scrollContent: {
+    paddingHorizontal: 16, // Aggiunge il padding orizzontale solo al contenuto
+    paddingVertical: 8, // Aggiunge padding verticale per evitare gap
+  },
   emptyState: {
     flex: 1,
     justifyContent: "center",
@@ -229,8 +241,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tokenItem: {
-    marginHorizontal: 16,
-    marginBottom: 8,
+    marginBottom: 8, // Rimosso marginHorizontal perché ora gestito da scrollContent
   },
   tokenHeader: {
     flexDirection: "row",

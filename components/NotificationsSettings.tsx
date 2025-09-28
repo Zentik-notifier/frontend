@@ -8,7 +8,7 @@ import {
   useGetBucketsQuery,
   useGetUserWebhooksQuery,
 } from "@/generated/gql-operations-generated";
-import { useLocaleOptions, useNotificationUtils } from "@/hooks";
+import { useLanguageSync, useNotificationUtils } from "@/hooks";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -32,13 +32,7 @@ import BucketSelector from "./BucketSelector";
 import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
 import NotificationActionsSelector from "./NotificationActionsSelector";
 import NotificationTapActionSelector from "./NotificationTapActionSelector";
-import {
-  Surface,
-  Text,
-  useTheme,
-  Button,
-  Icon,
-} from "react-native-paper";
+import { Surface, Text, useTheme, Button, Icon } from "react-native-paper";
 import ThemedInputSelect from "./ui/ThemedInputSelect";
 
 export default function NotificationsSettings() {
@@ -269,15 +263,15 @@ export default function NotificationsSettings() {
   };
 
   // Delivery type options for the picker - generated dynamically from enum
-  const deliveryTypeOptions = Object.values(NotificationDeliveryType).map((deliveryType) => ({
-    id: deliveryType,
-    name: getDeliveryTypeFriendlyName(deliveryType),
-  }));
+  const deliveryTypeOptions = Object.values(NotificationDeliveryType).map(
+    (deliveryType) => ({
+      id: deliveryType,
+      name: getDeliveryTypeFriendlyName(deliveryType),
+    })
+  );
 
   // Webhook options for the picker - when action type is ACTION (external webhook)
-  const webhookOptions = (
-    webhooksData?.userWebhooks || []
-  ).map((webhook) => ({
+  const webhookOptions = (webhooksData?.userWebhooks || []).map((webhook) => ({
     id: webhook.id,
     name: webhook.name,
     description: `${webhook.method} ${webhook.url}`,
@@ -286,22 +280,19 @@ export default function NotificationsSettings() {
   // Check if webhooks are available
   const hasWebhooks = webhookOptions.length > 0;
 
-  // Locale options for the picker - use the same locales supported by the i18n system
-  const localeOptions = useLocaleOptions().map(option => ({
-    id: option.value,
-    name: option.label,
+  const { availableLocales, getLocaleDisplayName } = useLanguageSync();
+
+  const localeOptions = availableLocales.map((locale) => ({
+    value: locale,
+    label: getLocaleDisplayName(locale),
+    icon: "language",
   }));
 
   return (
     <PaperScrollView>
       <View style={styles.section}>
         <View style={styles.loadDataBtnRow}>
-          <Button
-            mode="outlined"
-            icon="plus"
-            onPress={loadTestData}
-            compact
-          >
+          <Button mode="outlined" icon="plus" onPress={loadTestData} compact>
             {t("notifications.loadTestData")}
           </Button>
         </View>
@@ -314,15 +305,12 @@ export default function NotificationsSettings() {
           ]}
         >
           <View style={styles.field}>
-            <Text style={styles.label}>
-              {t("notifications.content.title")}
-            </Text>
+            <Text style={styles.label}>{t("notifications.content.title")}</Text>
             <TextInput
               style={[
                 styles.textInput,
                 {
-                  backgroundColor:
-                    theme.colors.surface,
+                  backgroundColor: theme.colors.surface,
                   borderColor: theme.colors.outline,
                   color: theme.colors.onSurface,
                 },
@@ -330,9 +318,7 @@ export default function NotificationsSettings() {
               value={title}
               onChangeText={setTitle}
               placeholder={t("notifications.content.titlePlaceholder")}
-              placeholderTextColor={
-                theme.colors.onSurfaceVariant
-              }
+              placeholderTextColor={theme.colors.onSurfaceVariant}
               maxLength={100}
             />
           </View>
@@ -345,8 +331,7 @@ export default function NotificationsSettings() {
               style={[
                 styles.textInput,
                 {
-                  backgroundColor:
-                    theme.colors.surface,
+                  backgroundColor: theme.colors.surface,
                   borderColor: theme.colors.outline,
                   color: theme.colors.onSurface,
                 },
@@ -354,24 +339,19 @@ export default function NotificationsSettings() {
               value={subtitle}
               onChangeText={setSubtitle}
               placeholder={t("notifications.content.subtitlePlaceholder")}
-              placeholderTextColor={
-                theme.colors.onSurfaceVariant
-              }
+              placeholderTextColor={theme.colors.onSurfaceVariant}
               maxLength={100}
             />
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>
-              {t("notifications.content.body")}
-            </Text>
+            <Text style={styles.label}>{t("notifications.content.body")}</Text>
             <TextInput
               style={[
                 styles.textInput,
                 styles.textArea,
                 {
-                  backgroundColor:
-                    theme.colors.surface,
+                  backgroundColor: theme.colors.surface,
                   borderColor: theme.colors.outline,
                   color: theme.colors.onSurface,
                 },
@@ -379,9 +359,7 @@ export default function NotificationsSettings() {
               value={body}
               onChangeText={setBody}
               placeholder={t("notifications.content.bodyPlaceholder")}
-              placeholderTextColor={
-                theme.colors.onSurfaceVariant
-              }
+              placeholderTextColor={theme.colors.onSurfaceVariant}
               multiline
               maxLength={500}
             />
@@ -408,7 +386,9 @@ export default function NotificationsSettings() {
               optionLabel="name"
               optionValue="id"
               selectedValue={deliveryType}
-              onValueChange={(value) => setDeliveryType(value as NotificationDeliveryType)}
+              onValueChange={(value) =>
+                setDeliveryType(value as NotificationDeliveryType)
+              }
               isSearchable={false}
             />
           </View>
@@ -421,8 +401,7 @@ export default function NotificationsSettings() {
               style={[
                 styles.textInput,
                 {
-                  backgroundColor:
-                    theme.colors.surface,
+                  backgroundColor: theme.colors.surface,
                   borderColor: theme.colors.outline,
                   color: theme.colors.onSurface,
                 },
@@ -430,9 +409,7 @@ export default function NotificationsSettings() {
               value={sound}
               onChangeText={setSound}
               placeholder={t("notifications.settings.soundPlaceholder")}
-              placeholderTextColor={
-                theme.colors.onSurfaceVariant
-              }
+              placeholderTextColor={theme.colors.onSurfaceVariant}
             />
           </View>
 
@@ -482,8 +459,7 @@ export default function NotificationsSettings() {
               style={[
                 styles.switchRow,
                 {
-                  backgroundColor:
-                    theme.colors.surfaceVariant,
+                  backgroundColor: theme.colors.surfaceVariant,
                 },
               ]}
             >
@@ -522,8 +498,7 @@ export default function NotificationsSettings() {
               style={[
                 styles.switchRow,
                 {
-                  backgroundColor:
-                    theme.colors.surfaceVariant,
+                  backgroundColor: theme.colors.surfaceVariant,
                 },
               ]}
             >
@@ -562,8 +537,7 @@ export default function NotificationsSettings() {
               style={[
                 styles.switchRow,
                 {
-                  backgroundColor:
-                    theme.colors.surfaceVariant,
+                  backgroundColor: theme.colors.surfaceVariant,
                 },
               ]}
             >
@@ -622,8 +596,7 @@ export default function NotificationsSettings() {
                       style={[
                         styles.snoozeTimeItem,
                         {
-                          backgroundColor:
-                            theme.colors.surfaceVariant,
+                          backgroundColor: theme.colors.surfaceVariant,
                           borderColor: theme.colors.outline,
                         },
                       ]}
@@ -654,8 +627,7 @@ export default function NotificationsSettings() {
                     styles.textInput,
                     styles.snoozeTimeInput,
                     {
-                      backgroundColor:
-                        theme.colors.surface,
+                      backgroundColor: theme.colors.surface,
                       borderColor: theme.colors.outline,
                       color: theme.colors.onSurface,
                     },
@@ -665,9 +637,7 @@ export default function NotificationsSettings() {
                   placeholder={t(
                     "notifications.automaticActions.snoozeTimePlaceholder"
                   )}
-                  placeholderTextColor={
-                    theme.colors.onSurfaceVariant
-                  }
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
                   keyboardType="numeric"
                   maxLength={4}
                 />
@@ -716,12 +686,7 @@ export default function NotificationsSettings() {
                 <Text style={styles.label}>
                   {t("notifications.targeting.bucket")}
                 </Text>
-                <Text
-                  style={[
-                    styles.errorText,
-                    { color: theme.colors.error },
-                  ]}
-                >
+                <Text style={[styles.errorText, { color: theme.colors.error }]}>
                   {t("notifications.targeting.bucketRequired")}
                 </Text>
               </View>
@@ -737,8 +702,7 @@ export default function NotificationsSettings() {
               style={[
                 styles.textInput,
                 {
-                  backgroundColor:
-                    theme.colors.surface,
+                  backgroundColor: theme.colors.surface,
                   borderColor: theme.colors.outline,
                   color: theme.colors.onSurface,
                 },
@@ -746,9 +710,7 @@ export default function NotificationsSettings() {
               value={groupId}
               onChangeText={setGroupId}
               placeholder={t("notifications.targeting.groupIdPlaceholder")}
-              placeholderTextColor={
-                theme.colors.onSurfaceVariant
-              }
+              placeholderTextColor={theme.colors.onSurfaceVariant}
             />
             <Text
               style={[
@@ -768,8 +730,7 @@ export default function NotificationsSettings() {
               style={[
                 styles.textInput,
                 {
-                  backgroundColor:
-                    theme.colors.surface,
+                  backgroundColor: theme.colors.surface,
                   borderColor: theme.colors.outline,
                   color: theme.colors.onSurface,
                 },
@@ -777,9 +738,7 @@ export default function NotificationsSettings() {
               value={collapseId}
               onChangeText={setCollapseId}
               placeholder={t("notifications.targeting.collapseIdPlaceholder")}
-              placeholderTextColor={
-                theme.colors.onSurfaceVariant
-              }
+              placeholderTextColor={theme.colors.onSurfaceVariant}
             />
           </View>
 
@@ -925,11 +884,7 @@ export default function NotificationsSettings() {
             onPress={() => setShowJsonPreview(!showJsonPreview)}
           >
             <View style={styles.previewHeaderContent}>
-              <Icon
-                source="eye"
-                size={20}
-                color={theme.colors.primary}
-              />
+              <Icon source="eye" size={20} color={theme.colors.primary} />
               <Text style={styles.previewHeaderTitle}>
                 {t("notifications.preview.title")}
               </Text>
@@ -983,12 +938,7 @@ export default function NotificationsSettings() {
 
         <View style={styles.buttonContainer}>
           {!push.isReady() && (
-            <Text
-              style={[
-                styles.warningText,
-                { color: theme.colors.error },
-              ]}
-            >
+            <Text style={[styles.warningText, { color: theme.colors.error }]}>
               {t("notifications.warningNotRegistered")}
             </Text>
           )}
@@ -1001,7 +951,9 @@ export default function NotificationsSettings() {
             loading={sending}
             style={styles.sendButton}
           >
-            {sending ? t("notifications.sending") : t("notifications.sendButton")}
+            {sending
+              ? t("notifications.sending")
+              : t("notifications.sendButton")}
           </Button>
 
           <Button

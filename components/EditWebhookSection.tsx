@@ -8,7 +8,7 @@ import {
   Button,
   useTheme,
 } from "react-native-paper";
-import SettingsScrollView from "@/components/SettingsScrollView";
+import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useRouter } from "expo-router";
 
 interface EditWebhookSectionProps {
@@ -81,7 +81,10 @@ export default function EditWebhookSection({ webhookId }: EditWebhookSectionProp
 
   return (
     <Surface style={styles.container}>
-      <SettingsScrollView>
+      <PaperScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+      >
         <CreateWebhookForm webhookId={webhookId} />
         <View style={styles.deleteSection}>
           <Button
@@ -97,13 +100,20 @@ export default function EditWebhookSection({ webhookId }: EditWebhookSectionProp
 {deletingWebhook ? "Deleting..." : t("webhooks.delete")}
           </Button>
         </View>
-      </SettingsScrollView>
+      </PaperScrollView>
     </Surface>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  scrollView: {
+    paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
+  },
+  scrollContent: {
+    paddingHorizontal: 16, // Aggiunge il padding orizzontale solo al contenuto
+    paddingVertical: 8, // Aggiunge padding verticale per evitare gap
+  },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   loadingText: { fontSize: 16, opacity: 0.7 },
   errorContainer: { flex: 1, justifyContent: "center", alignItems: "center" },

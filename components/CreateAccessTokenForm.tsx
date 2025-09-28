@@ -10,7 +10,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import SettingsScrollView from "@/components/SettingsScrollView";
+import PaperScrollView from "@/components/ui/PaperScrollView";
 import CopyButton from "@/components/ui/CopyButton";
 import {
   Button,
@@ -88,7 +88,10 @@ export default function CreateAccessTokenForm() {
   const isFormValid = newTokenName.trim();
 
   return (
-    <SettingsScrollView style={styles.container}>
+    <PaperScrollView 
+      style={[styles.container, styles.scrollView]}
+      contentContainerStyle={styles.scrollContent}
+    >
       <Card style={styles.formContainer} elevation={0}>
         <Card.Content>
           <View style={styles.inputGroup}>
@@ -216,13 +219,20 @@ export default function CreateAccessTokenForm() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </SettingsScrollView>
+    </PaperScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     padding: 16,
+  },
+  scrollView: {
+    paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
+  },
+  scrollContent: {
+    paddingHorizontal: 16, // Aggiunge il padding orizzontale solo al contenuto
+    paddingVertical: 8, // Aggiunge padding verticale per evitare gap
   },
   formContainer: {
     marginBottom: 16,

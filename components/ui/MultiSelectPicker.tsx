@@ -4,11 +4,10 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
     StyleSheet,
-    Text,
     TouchableOpacity,
     View,
 } from "react-native";
-import { ThemedText } from "../ThemedText";
+import { Text } from "react-native-paper";
 
 export interface MultiSelectOption {
   value: string;
@@ -76,7 +75,7 @@ export default function MultiSelectPicker({
   return (
     <View style={styles.container}>
       {label && (
-        <ThemedText style={styles.label}>{label}</ThemedText>
+        <Text style={styles.label}>{label}</Text>
       )}
       
       <TouchableOpacity

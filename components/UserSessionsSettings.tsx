@@ -12,7 +12,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import React, { useEffect, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
 import SwipeableItem from "./SwipeableItem";
-import SettingsScrollView from "@/components/SettingsScrollView";
+import PaperScrollView from "@/components/ui/PaperScrollView";
 import {
   Button,
   Card,
@@ -286,7 +286,12 @@ export function UserSessionsSettings() {
 
   return (
     <View style={styles.container}>
-      <SettingsScrollView onRefresh={refetch}>
+      <PaperScrollView 
+        refreshing={loading} 
+        onRefresh={refetch}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+      >
         {sortedSessions.length > 1 && (
           <Button
             mode="contained"
@@ -319,7 +324,7 @@ export function UserSessionsSettings() {
             {sortedSessions.map((item) => renderSessionItem(item))}
           </View>
         )}
-      </SettingsScrollView>
+      </PaperScrollView>
 
       {/* Confirmation Dialog */}
       <Portal>
@@ -376,6 +381,13 @@ export function UserSessionsSettings() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollView: {
+    paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
+  },
+  scrollContent: {
+    paddingHorizontal: 16, // Aggiunge il padding orizzontale solo al contenuto
+    paddingVertical: 8, // Aggiunge padding verticale per evitare gap
   },
   revokeAllButton: {
     marginBottom: 24,

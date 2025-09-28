@@ -15,7 +15,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import SwipeableBucketItem from "./SwipeableBucketItem";
-import SettingsScrollView from "@/components/SettingsScrollView";
+import PaperScrollView from "@/components/ui/PaperScrollView";
 import BucketSelector from "./BucketSelector";
 import { useNavigationUtils } from "@/utils/navigation";
 import {
@@ -339,30 +339,33 @@ export default function BucketsSettings() {
 
   return (
     <View style={styles.container}>
-      <SettingsScrollView
+      {/* Header Actions */}
+      {danglingBuckets.length > 0 && (
+        <View style={styles.headerActions}>
+          <IconButton
+            icon="alert"
+            size={20}
+            iconColor={
+              showDanglingBuckets
+                ? theme.colors.onPrimary
+                : theme.colors.primary
+            }
+            containerColor={
+              showDanglingBuckets
+                ? theme.colors.primary
+                : theme.colors.surface
+            }
+            onPress={() => setShowDanglingBuckets(!showDanglingBuckets)}
+            style={styles.danglingButton}
+          />
+        </View>
+      )}
+      
+      <PaperScrollView 
+        refreshing={loading} 
         onRefresh={refetch}
-        headerActions={
-          <>
-            {danglingBuckets.length > 0 && (
-              <IconButton
-                icon="alert"
-                size={20}
-                iconColor={
-                  showDanglingBuckets
-                    ? theme.colors.onPrimary
-                    : theme.colors.primary
-                }
-                containerColor={
-                  showDanglingBuckets
-                    ? theme.colors.primary
-                    : theme.colors.surface
-                }
-                onPress={() => setShowDanglingBuckets(!showDanglingBuckets)}
-                style={styles.danglingButton}
-              />
-            )}
-          </>
-        }
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
       >
         {/* Sezione Dangling Buckets */}
         {showDanglingBuckets && (
@@ -680,7 +683,7 @@ export default function BucketsSettings() {
             </Dialog.Actions>
           </Dialog>
         </Portal>
-      </SettingsScrollView>
+      </PaperScrollView>
 
       {/* FAB per creare nuovo bucket */}
       <FAB
@@ -697,6 +700,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: "relative",
+  },
+  headerActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  scrollView: {
+    paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
+  },
+  scrollContent: {
+    paddingHorizontal: 16, // Aggiunge il padding orizzontale solo al contenuto
+    paddingVertical: 8, // Aggiunge padding verticale per evitare gap
   },
   emptyState: {
     flex: 1,
@@ -719,8 +737,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   danglingSection: {
-    marginHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 16, // Rimosso marginHorizontal perché ora gestito da scrollContent
     backgroundColor: "rgba(255, 193, 7, 0.1)",
     borderWidth: 1,
     borderColor: "rgba(255, 193, 7, 0.3)",
