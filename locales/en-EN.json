@@ -179,11 +179,27 @@
   },
   "compose": {
     "messageBuilder": {
+      "title": "Create Message",
       "flags": "Flags",
       "priority": "Priority",
       "important": "Important",
       "normal": "Normal",
-      "low": "Low"
+      "low": "Low",
+      "stepsCompleted": "steps completed",
+      "steps": {
+        "basic": "Basic Info",
+        "priority": "Priority",
+        "actions": "Actions",
+        "attachments": "Media",
+        "flags": "Flags"
+      },
+      "sections": {
+        "basic": "Basic Information",
+        "priority": "Message Priority",
+        "actions": "Notification Actions",
+        "attachments": "Media Attachments",
+        "flags": "Automatic Actions"
+      }
     }
   },
   "userProfile": {

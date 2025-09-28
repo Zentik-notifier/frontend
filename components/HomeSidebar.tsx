@@ -84,8 +84,10 @@ export default function HomeSidebar() {
           {
             backgroundColor: theme.colors.background,
             width: isDesktop ? 350 : 300,
+            borderWidth: 0,
           },
         ]}
+        elevation={0}
       >
         <ScrollView style={styles.scrollView}>
           {sidebarItems.map((item) => {

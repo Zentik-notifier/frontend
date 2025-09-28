@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Alert,
   RefreshControl,
@@ -14,6 +20,8 @@ import {
   Text,
   Button,
   ActivityIndicator,
+  Dialog,
+  Portal,
 } from "react-native-paper";
 import { FlashList } from "@shopify/flash-list";
 import { openSharedCacheDb } from "@/services/media-cache-db";
@@ -22,6 +30,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useI18n } from "@/hooks/useI18n";
 import * as Sharing from "expo-sharing";
 import { File, Paths } from "expo-file-system";
+import PaperScrollView from "./ui/PaperScrollView";
 
 export default function AppLogs() {
   const { t } = useI18n();
@@ -31,6 +40,8 @@ export default function AppLogs() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [query, setQuery] = useState<string>("");
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [selectedLog, setSelectedLog] = useState<AppLog | null>(null);
+  const [showLogDialog, setShowLogDialog] = useState<boolean>(false);
 
   const loadLogs = useCallback(async () => {
     setIsLoading(true);
@@ -56,6 +67,16 @@ export default function AppLogs() {
     }
   }, [loadLogs]);
 
+  const handleShowLog = useCallback((log: AppLog) => {
+    setSelectedLog(log);
+    setShowLogDialog(true);
+  }, []);
+
+  const handleCloseLogDialog = useCallback(() => {
+    setShowLogDialog(false);
+    setSelectedLog(null);
+  }, []);
+
   useEffect(() => {
     loadLogs();
   }, [loadLogs]);
@@ -77,8 +98,13 @@ export default function AppLogs() {
       try {
         meta = item.metaJson ? JSON.parse(item.metaJson) : null;
       } catch {}
+
+      const hasLongContent =
+        item.message.length > 100 ||
+        (meta && JSON.stringify(meta).length > 200);
+
       return (
-        <View
+        <TouchableOpacity
           style={[
             styles.logItem,
             {
@@ -86,6 +112,8 @@ export default function AppLogs() {
               backgroundColor: theme.colors.surface,
             },
           ]}
+          onPress={() => handleShowLog(item)}
+          activeOpacity={0.7}
         >
           <View style={styles.logHeader}>
             <View style={styles.levelBadgeContainer}>
@@ -95,13 +123,20 @@ export default function AppLogs() {
                   { backgroundColor: levelToColor[item.level] },
                 ]}
               />
-              <Text style={styles.levelText}>
-                {item.level.toUpperCase()}
-              </Text>
+              <Text style={styles.levelText}>{item.level.toUpperCase()}</Text>
             </View>
-            <Text style={styles.dateText}>
-              {new Date(item.timestamp).toLocaleString()}
-            </Text>
+            <View style={styles.headerRight}>
+              <Text style={styles.dateText}>
+                {new Date(item.timestamp).toLocaleString()}
+              </Text>
+              {hasLongContent && (
+                <Icon
+                  source="open-in-new"
+                  size={16}
+                  color={theme.colors.primary}
+                />
+              )}
+            </View>
           </View>
           {!!item.tag && (
             <View style={styles.metaRow}>
@@ -111,20 +146,20 @@ export default function AppLogs() {
           )}
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>message:</Text>
-            <Text style={styles.metaValue}>{item.message}</Text>
+            <Text style={styles.metaValue}>{truncate(item.message, 150)}</Text>
           </View>
           {!!meta && (
             <View style={styles.metaRow}>
               <Text style={styles.metaLabel}>meta:</Text>
               <Text style={styles.metaValue}>
-                {truncate(JSON.stringify(meta))}
+                {truncate(JSON.stringify(meta), 150)}
               </Text>
             </View>
           )}
-        </View>
+        </TouchableOpacity>
       );
     },
-    [theme.colors, levelToColor]
+    [theme.colors, levelToColor, handleShowLog]
   );
 
   const filteredLogs = useMemo(() => {
@@ -157,7 +192,9 @@ export default function AppLogs() {
       };
 
       const json = JSON.stringify(payload, null, 2);
-      const fileName = `app-logs-${new Date().toISOString().replace(/[:]/g, "-")}.json`;
+      const fileName = `app-logs-${new Date()
+        .toISOString()
+        .replace(/[:]/g, "-")}.json`;
       const destPath = `${Paths.document.uri}${fileName}`;
       const file = new File(destPath);
       file.write(json);
@@ -214,11 +251,7 @@ export default function AppLogs() {
           </TouchableOpacity>
         </View>
 
-        <Surface
-          style={[
-            styles.searchContainer,
-          ]}
-        >
+        <Surface style={[styles.searchContainer]}>
           <Icon source="magnify" size={20} color="#666" />
           <TextInput
             style={[styles.searchInput, { color: theme.colors.onSurface }]}
@@ -230,7 +263,10 @@ export default function AppLogs() {
             autoCorrect={false}
           />
           {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery("")} style={styles.clearBtn}>
+            <TouchableOpacity
+              onPress={() => setQuery("")}
+              style={styles.clearBtn}
+            >
               <Icon source="close" size={20} color="#666" />
             </TouchableOpacity>
           )}
@@ -258,6 +294,95 @@ export default function AppLogs() {
           />
         )}
       </Surface>
+
+      {/* Log Detail Dialog */}
+      <Portal>
+        <Dialog
+          visible={showLogDialog}
+          onDismiss={handleCloseLogDialog}
+          style={styles.dialog}
+        >
+          <Dialog.Title>
+            <View style={styles.dialogHeader}>
+              <View style={styles.levelBadgeContainer}>
+                <View
+                  style={[
+                    styles.levelBadge,
+                    {
+                      backgroundColor: selectedLog
+                        ? levelToColor[selectedLog.level]
+                        : theme.colors.primary,
+                    },
+                  ]}
+                />
+                <Text style={styles.levelText}>
+                  {selectedLog?.level.toUpperCase()}
+                </Text>
+              </View>
+              <Text style={styles.dialogDate}>
+                {selectedLog
+                  ? new Date(selectedLog.timestamp).toLocaleString()
+                  : ""}
+              </Text>
+            </View>
+          </Dialog.Title>
+          <Dialog.ScrollArea style={styles.dialogContent}>
+            <PaperScrollView showsVerticalScrollIndicator={true}>
+              {selectedLog && (
+                <>
+                  {selectedLog.tag && (
+                    <View style={styles.dialogMetaRow}>
+                      <Text style={styles.dialogMetaLabel}>Tag:</Text>
+                      <Text style={styles.dialogMetaValue}>
+                        {selectedLog.tag}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.dialogMetaRow}>
+                    <Text style={styles.dialogMetaLabel}>Message:</Text>
+                    <Text style={styles.dialogMetaValue}>
+                      {selectedLog.message}
+                    </Text>
+                  </View>
+
+                  {selectedLog.metaJson && (
+                    <View style={styles.dialogMetaRow}>
+                      <Text style={styles.dialogMetaLabel}>Meta:</Text>
+                      <Text style={styles.dialogMetaValue}>
+                        {JSON.stringify(
+                          JSON.parse(selectedLog.metaJson),
+                          null,
+                          2
+                        )}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.dialogMetaRow}>
+                    <Text style={styles.dialogMetaLabel}>Timestamp:</Text>
+                    <Text style={styles.dialogMetaValue}>
+                      {selectedLog.timestamp}
+                    </Text>
+                  </View>
+
+                  {selectedLog.id && (
+                    <View style={styles.dialogMetaRow}>
+                      <Text style={styles.dialogMetaLabel}>ID:</Text>
+                      <Text style={styles.dialogMetaValue}>
+                        {selectedLog.id}
+                      </Text>
+                    </View>
+                  )}
+                </>
+              )}
+            </PaperScrollView>
+          </Dialog.ScrollArea>
+          <Dialog.Actions>
+            <Button onPress={handleCloseLogDialog}>{t("common.close")}</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </SafeAreaView>
   );
 }
@@ -339,6 +464,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 6,
   },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  expandIcon: {
+    marginLeft: 4,
+  },
   levelBadgeContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -375,6 +508,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.9,
   },
+  dialog: {
+    maxHeight: "80%",
+  },
+  dialogHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+  },
+  dialogDate: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
+  dialogContent: {
+    maxHeight: 400,
+    paddingHorizontal: 16,
+  },
+  dialogMetaRow: {
+    marginBottom: 16,
+  },
+  dialogMetaLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 4,
+    opacity: 0.8,
+  },
+  dialogMetaValue: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: "monospace",
+    backgroundColor: "rgba(0,0,0,0.05)",
+    padding: 8,
+    borderRadius: 4,
+  },
 });
-
-

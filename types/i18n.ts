@@ -613,11 +613,27 @@ export interface TranslationKey {
   };
   compose: {
     messageBuilder: {
+      title: string;
       flags: string;
       important: string;
       low: string;
       normal: string;
       priority: string;
+      stepsCompleted: string;
+      steps: {
+        basic: string;
+        priority: string;
+        actions: string;
+        attachments: string;
+        flags: string;
+      };
+      sections: {
+        basic: string;
+        priority: string;
+        actions: string;
+        attachments: string;
+        flags: string;
+      };
     };
   };
   devices: {
