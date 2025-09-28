@@ -637,6 +637,8 @@ export interface TranslationKey {
     snoozeMessage: string;
     search: string;
     selectOption: string;
+    noResults: string;
+    noOptions: string;
     success: string;
     unableToShare: string;
     updateAvailable: string;

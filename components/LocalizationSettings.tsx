@@ -407,7 +407,6 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
             selectedValue={selectedLanguage?.id}
             onValueChange={(value) => handleLanguageSelect(value as Locale)}
             isSearchable={true}
-            helperText={t("appSettings.localization.selectLanguage")}
           />
         </View>
       </Card>
@@ -420,11 +419,11 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
             placeholder={t("appSettings.timezone.selectPlaceholder")}
             options={timezoneOptions}
             optionLabel="name"
+            mode="inline"
             optionValue="id"
             selectedValue={selectedTimezone?.id}
             onValueChange={(value) => handleTimezoneSelect(value as string)}
             isSearchable={true}
-            helperText={t("appSettings.timezone.description")}
           />
         </View>
       </Card>
@@ -443,7 +442,6 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
               handleDateFormatStyleChange(value as DateFormatStyle)
             }
             isSearchable={false}
-            helperText={t("appSettings.dateFormat.description")}
           />
         </View>
 

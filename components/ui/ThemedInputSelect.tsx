@@ -4,15 +4,12 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Modal,
   FlatList,
-  ScrollView,
   TextInput,
-  Animated,
   Dimensions,
   StyleSheet,
 } from "react-native";
-import { useTheme, Icon } from "react-native-paper";
+import { useTheme, Icon, Portal } from "react-native-paper";
 import ThemedBottomSheet from "./ThemedBottomSheet";
 
 interface ThemedInputSelectProps {
@@ -24,11 +21,12 @@ interface ThemedInputSelectProps {
   selectedValue?: any;
   onValueChange: (value: any) => void;
   isSearchable?: boolean;
+  searchPlaceholder?: string;
   disabled?: boolean;
   helperText?: string;
   error?: boolean;
   errorText?: string;
-  mode?: "modal" | "inline"; // Nuova prop per la modalità
+  mode?: "modal" | "inline"; // Modalità modal o inline
 }
 
 const { height: screenHeight } = Dimensions.get("window");
@@ -42,6 +40,7 @@ export default function ThemedInputSelect({
   selectedValue,
   onValueChange,
   isSearchable = false,
+  searchPlaceholder,
   disabled = false,
   helperText,
   error = false,
@@ -49,11 +48,12 @@ export default function ThemedInputSelect({
   mode = "modal", // Default alla modalità modal
 }: ThemedInputSelectProps) {
   const theme = useTheme();
+  const { t } = useI18n();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isInlineDropdownOpen, setIsInlineDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const containerRef = useRef<View>(null);
-  const { t } = useI18n();
 
   const selectedOption = options.find(
     (option) => option[optionValue] === selectedValue
@@ -63,7 +63,7 @@ export default function ThemedInputSelect({
     if (!isSearchable || !searchQuery.trim()) {
       return options;
     }
-
+    
     return options.filter((option) =>
       option[optionLabel].toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -71,10 +71,28 @@ export default function ThemedInputSelect({
 
   const showModal = () => {
     setIsModalVisible(true);
+    setSearchQuery("");
   };
 
   const hideModal = () => {
     setIsModalVisible(false);
+  };
+
+  const toggleInlineDropdown = () => {
+    if (!isInlineDropdownOpen) {
+      // Calcola la posizione del dropdown
+      containerRef.current?.measure((x, y, width, height, pageX, pageY) => {
+        setDropdownPosition({
+          top: pageY + height,
+          left: pageX,
+          width: width,
+        });
+      });
+    }
+    setIsInlineDropdownOpen(!isInlineDropdownOpen);
+    if (!isInlineDropdownOpen) {
+      setSearchQuery("");
+    }
   };
 
   const handleSelectOption = (option: any) => {
@@ -86,31 +104,11 @@ export default function ThemedInputSelect({
     }
   };
 
-  const toggleInlineDropdown = () => {
-    setIsInlineDropdownOpen(!isInlineDropdownOpen);
-    setSearchQuery("");
-  };
-
-  const closeInlineDropdown = () => {
-    setIsInlineDropdownOpen(false);
-    setSearchQuery("");
-  };
-
-  // Gestione semplice per chiudere il dropdown quando si clicca fuori
-  useEffect(() => {
-    if (mode === "inline" && isInlineDropdownOpen) {
-      const timer = setTimeout(() => {
-        // Chiudi automaticamente dopo 5 secondi se non viene interagito
-        closeInlineDropdown();
-      }, 5000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [mode, isInlineDropdownOpen]);
-
   const styles = StyleSheet.create({
     container: {
-      marginVertical: 8,
+      marginBottom: 16,
+      position: "relative",
+      zIndex: 1,
     },
     label: {
       fontSize: 16,
@@ -121,26 +119,29 @@ export default function ThemedInputSelect({
     inputContainer: {
       flexDirection: "row",
       alignItems: "center",
+      justifyContent: "space-between",
       backgroundColor: theme.colors.surface,
       borderWidth: 1,
-      borderColor: error ? theme.colors.error : theme.colors.outlineVariant,
-      borderRadius: 12,
+      borderColor: error ? theme.colors.error : theme.colors.outline,
+      borderRadius: 8,
       paddingHorizontal: 16,
       paddingVertical: 12,
-      minHeight: 56,
+      minHeight: 48,
+    },
+    disabledInput: {
+      backgroundColor: theme.colors.surfaceDisabled,
+      borderColor: theme.colors.outlineVariant,
+    },
+    errorInput: {
+      borderColor: theme.colors.error,
     },
     inputText: {
       flex: 1,
       fontSize: 16,
-      color: selectedOption
-        ? theme.colors.onSurface
-        : theme.colors.onSurfaceVariant,
+      color: theme.colors.onSurface,
     },
     placeholder: {
       color: theme.colors.onSurfaceVariant,
-    },
-    chevronIcon: {
-      marginLeft: 8,
     },
     helperText: {
       fontSize: 12,
@@ -152,6 +153,82 @@ export default function ThemedInputSelect({
       color: theme.colors.error,
       marginTop: 4,
     },
+    // Stili per modalità inline
+    inlineOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "transparent",
+      zIndex: 9998,
+    },
+    inlineDropdown: {
+      position: "absolute",
+      top: dropdownPosition.top,
+      left: dropdownPosition.left,
+      width: dropdownPosition.width,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.outline,
+      borderRadius: 8,
+      maxHeight: 200,
+      zIndex: 9999,
+      elevation: 10,
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 4.65,
+    },
+    inlineSearchContainer: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.outlineVariant,
+    },
+    inlineSearchInput: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.outline,
+      borderRadius: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      fontSize: 14,
+      color: theme.colors.onSurface,
+    },
+    inlineOptionsList: {
+      maxHeight: 150,
+    },
+    inlineOptionItem: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.outlineVariant,
+    },
+    inlineSelectedOption: {
+      backgroundColor: theme.colors.primaryContainer,
+    },
+    inlineOptionText: {
+      fontSize: 16,
+      color: theme.colors.onSurface,
+    },
+    inlineSelectedOptionText: {
+      color: theme.colors.onPrimaryContainer,
+      fontWeight: "500",
+    },
+    inlineEmptyState: {
+      padding: 16,
+      alignItems: "center",
+    },
+    inlineEmptyStateText: {
+      fontSize: 14,
+      color: theme.colors.onSurfaceVariant,
+      textAlign: "center",
+    },
+    // Stili per modalità modal
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -188,15 +265,15 @@ export default function ThemedInputSelect({
     searchInput: {
       backgroundColor: theme.colors.surface,
       borderWidth: 1,
-      borderColor: theme.colors.outlineVariant,
-      borderRadius: 12,
+      borderColor: theme.colors.outline,
+      borderRadius: 8,
       paddingHorizontal: 16,
       paddingVertical: 12,
       fontSize: 16,
       color: theme.colors.onSurface,
     },
     optionsList: {
-      flexGrow: 1,
+      maxHeight: 300,
     },
     optionItem: {
       paddingHorizontal: 20,
@@ -204,19 +281,19 @@ export default function ThemedInputSelect({
       borderBottomWidth: 1,
       borderBottomColor: theme.colors.outlineVariant,
     },
+    selectedOption: {
+      backgroundColor: theme.colors.primaryContainer,
+    },
     optionText: {
       fontSize: 16,
       color: theme.colors.onSurface,
-    },
-    selectedOption: {
-      backgroundColor: theme.colors.primaryContainer,
     },
     selectedOptionText: {
       color: theme.colors.onPrimaryContainer,
       fontWeight: "500",
     },
     emptyState: {
-      padding: 40,
+      padding: 20,
       alignItems: "center",
     },
     emptyStateText: {
@@ -224,90 +301,153 @@ export default function ThemedInputSelect({
       color: theme.colors.onSurfaceVariant,
       textAlign: "center",
     },
-    inlineDropdownContainer: {
-      position: "relative",
-      zIndex: 1000,
-    },
-    inlineDropdown: {
-      position: "absolute",
-      top: "100%",
-      left: 0,
-      right: 0,
-      backgroundColor: theme.colors.surface,
-      borderWidth: 1,
-      borderColor: theme.colors.outlineVariant,
-      borderRadius: 12,
-      marginTop: 4,
-      maxHeight: 200,
-      zIndex: 1001,
-      elevation: 1000,
-      shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.25,
-      shadowRadius: 3.84,
-      overflow: "hidden",
-    },
-    inlineDropdownItem: {
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.outlineVariant,
-    },
-    inlineDropdownItemLast: {
-      borderBottomWidth: 0,
-    },
-    inlineDropdownItemText: {
-      fontSize: 16,
-      color: theme.colors.onSurface,
-    },
-    inlineDropdownItemSelected: {
-      backgroundColor: theme.colors.primaryContainer,
-    },
-    inlineDropdownItemTextSelected: {
-      color: theme.colors.onPrimaryContainer,
-      fontWeight: "500",
-    },
-    inlineSearchContainer: {
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.outlineVariant,
-      backgroundColor: theme.colors.surface,
-    },
-    inlineSearchInput: {
-      backgroundColor: theme.colors.surface,
-      borderWidth: 1,
-      borderColor: theme.colors.outlineVariant,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      fontSize: 14,
-      color: theme.colors.onSurface,
-    },
-    inlineEmptyState: {
-      padding: 20,
-      alignItems: "center",
-    },
-    inlineEmptyStateText: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-      textAlign: "center",
-    },
   });
 
-  const renderInlineDropdown = () => {
-    if (!isInlineDropdownOpen) return null;
+  // Render per modalità inline
+  const renderInlineMode = () => (
+    <View style={styles.container} ref={containerRef}>
+      {label && <Text style={styles.label}>{label}</Text>}
+      
+      <TouchableOpacity
+        style={[
+          styles.inputContainer,
+          disabled && styles.disabledInput,
+          error && styles.errorInput,
+        ]}
+        onPress={toggleInlineDropdown}
+        disabled={disabled}
+      >
+        <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
+          {selectedOption ? selectedOption[optionLabel] : placeholder || t("common.selectOption")}
+        </Text>
+        <Icon
+          source={isInlineDropdownOpen ? "chevron-up" : "chevron-down"}
+          size={20}
+          color={theme.colors.onSurfaceVariant}
+        />
+      </TouchableOpacity>
+
+      {helperText && !error && (
+        <Text style={styles.helperText}>{helperText}</Text>
+      )}
+      
+      {errorText && error && (
+        <Text style={styles.errorText}>{errorText}</Text>
+      )}
+
+      {/* Dropdown inline con Portal */}
+      {isInlineDropdownOpen && (
+        <Portal>
+          {/* Overlay per click esterno */}
+          <TouchableOpacity
+            style={styles.inlineOverlay}
+            activeOpacity={1}
+            onPress={() => setIsInlineDropdownOpen(false)}
+          />
+          
+          <View style={styles.inlineDropdown}>
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={() => {}} // Previene la chiusura quando si clicca sul dropdown
+            >
+              {isSearchable && (
+                <View style={styles.inlineSearchContainer}>
+                  <TextInput
+                    style={styles.inlineSearchInput}
+                    placeholder={searchPlaceholder || t("common.search")}
+                    placeholderTextColor={theme.colors.onSurfaceVariant}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                </View>
+              )}
+
+              <FlatList
+                style={styles.inlineOptionsList}
+                data={filteredOptions}
+                keyExtractor={(item) => item[optionValue].toString()}
+                renderItem={({ item }) => {
+                  const isSelected = item[optionValue] === selectedValue;
+                  return (
+                    <TouchableOpacity
+                      style={[
+                        styles.inlineOptionItem,
+                        isSelected && styles.inlineSelectedOption,
+                      ]}
+                      onPress={() => handleSelectOption(item)}
+                    >
+                      <Text
+                        style={[
+                          styles.inlineOptionText,
+                          isSelected && styles.inlineSelectedOptionText,
+                        ]}
+                      >
+                        {item[optionLabel]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  <View style={styles.inlineEmptyState}>
+                    <Text style={styles.inlineEmptyStateText}>
+                      {searchQuery.trim()
+                        ? t("common.noResults")
+                        : t("common.noOptions")}
+                    </Text>
+                  </View>
+                }
+              />
+            </TouchableOpacity>
+          </View>
+        </Portal>
+      )}
+    </View>
+  );
+
+  // Render per modalità modal
+  const renderModalMode = () => {
+    const trigger = (
+      <View style={styles.container}>
+        {label && <Text style={styles.label}>{label}</Text>}
+        
+        <TouchableOpacity
+          style={[
+            styles.inputContainer,
+            disabled && styles.disabledInput,
+            error && styles.errorInput,
+          ]}
+          onPress={showModal}
+          disabled={disabled}
+        >
+          <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
+            {selectedOption ? selectedOption[optionLabel] : placeholder || t("common.selectOption")}
+          </Text>
+          <Icon
+            source="chevron-down"
+            size={20}
+            color={theme.colors.onSurfaceVariant}
+          />
+        </TouchableOpacity>
+        {helperText && !error && (
+          <Text style={styles.helperText}>{helperText}</Text>
+        )}
+        {errorText && error && <Text style={styles.errorText}>{errorText}</Text>}
+      </View>
+    );
 
     return (
-      <View style={styles.inlineDropdown}>
+      <ThemedBottomSheet
+        title={label || t("common.selectOption")}
+        trigger={trigger}
+        isVisible={isModalVisible}
+        onShown={showModal}
+        onHidden={hideModal}
+      >
         {isSearchable && (
-          <View style={styles.inlineSearchContainer}>
+          <View style={styles.searchContainer}>
             <TextInput
-              style={styles.inlineSearchInput}
-              placeholder={t("bucketSelector.searchBuckets")}
+              style={styles.searchInput}
+              placeholder={searchPlaceholder || t("common.search")}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -315,165 +455,41 @@ export default function ThemedInputSelect({
           </View>
         )}
 
-        <ScrollView
-          style={{ maxHeight: 200 }}
-          showsVerticalScrollIndicator={true}
-          nestedScrollEnabled={true}
-        >
-          {filteredOptions.length === 0 ? (
-            <View style={styles.inlineEmptyState}>
-              <Text style={styles.inlineEmptyStateText}>
+        <FlatList
+          style={styles.optionsList}
+          data={filteredOptions}
+          keyExtractor={(item) => item[optionValue].toString()}
+          renderItem={({ item }) => {
+            const isSelected = item[optionValue] === selectedValue;
+            return (
+              <TouchableOpacity
+                style={[styles.optionItem, isSelected && styles.selectedOption]}
+                onPress={() => handleSelectOption(item)}
+              >
+                <Text
+                  style={[
+                    styles.optionText,
+                    isSelected && styles.selectedOptionText,
+                  ]}
+                >
+                  {item[optionLabel]}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>
                 {searchQuery.trim()
-                  ? "Nessun risultato trovato"
-                  : "Nessuna opzione disponibile"}
+                  ? t("common.noResults")
+                  : t("common.noOptions")}
               </Text>
             </View>
-          ) : (
-            filteredOptions.map((item, index) => {
-              const isSelected = item[optionValue] === selectedValue;
-              const isLast = index === filteredOptions.length - 1;
-
-              return (
-                <TouchableOpacity
-                  key={item[optionValue].toString()}
-                  style={[
-                    styles.inlineDropdownItem,
-                    isLast && styles.inlineDropdownItemLast,
-                    isSelected && styles.inlineDropdownItemSelected,
-                  ]}
-                  onPress={() => handleSelectOption(item)}
-                >
-                  <Text
-                    style={[
-                      styles.inlineDropdownItemText,
-                      isSelected && styles.inlineDropdownItemTextSelected,
-                    ]}
-                  >
-                    {item[optionLabel]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </ScrollView>
-      </View>
+          }
+        />
+      </ThemedBottomSheet>
     );
   };
 
-  if (mode === "inline") {
-    return (
-      <View style={styles.container}>
-        {label && <Text style={styles.label}>{label}</Text>}
-
-        <View ref={containerRef} style={styles.inlineDropdownContainer}>
-          <TouchableOpacity
-            style={styles.inputContainer}
-            onPress={toggleInlineDropdown}
-            disabled={disabled}
-          >
-            <Text
-              style={[styles.inputText, !selectedOption && styles.placeholder]}
-            >
-              {selectedOption
-                ? selectedOption[optionLabel]
-                : placeholder || "Seleziona un'opzione"}
-            </Text>
-            <Icon
-              source={isInlineDropdownOpen ? "chevron-up" : "chevron-down"}
-              size={20}
-              color={theme.colors.onSurfaceVariant}
-            />
-          </TouchableOpacity>
-
-          {renderInlineDropdown()}
-        </View>
-
-        {helperText && !error && (
-          <Text style={styles.helperText}>{helperText}</Text>
-        )}
-
-        {errorText && error && (
-          <Text style={styles.errorText}>{errorText}</Text>
-        )}
-      </View>
-    );
-  }
-
-  const trigger = (
-    <>
-      <TouchableOpacity
-        style={styles.inputContainer}
-        onPress={showModal}
-        disabled={disabled}
-      >
-        <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
-          {selectedOption ? selectedOption[optionLabel] : placeholder}
-        </Text>
-        <Icon
-          source="chevron-down"
-          size={20}
-          color={theme.colors.onSurfaceVariant}
-        />
-      </TouchableOpacity>
-      {helperText && !error && (
-        <Text style={styles.helperText}>{helperText}</Text>
-      )}
-      {errorText && error && <Text style={styles.errorText}>{errorText}</Text>}
-    </>
-  );
-
-  return (
-    <ThemedBottomSheet
-      title={label}
-      trigger={trigger}
-      onShown={showModal}
-      onHidden={hideModal}
-      isVisible={isModalVisible}
-    >
-      {isSearchable && (
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder={t("bucketSelector.searchBuckets")}
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-      )}
-
-      <FlatList
-        style={styles.optionsList}
-        data={filteredOptions}
-        keyExtractor={(item) => item[optionValue].toString()}
-        renderItem={({ item }) => {
-          const isSelected = item[optionValue] === selectedValue;
-          return (
-            <TouchableOpacity
-              style={[styles.optionItem, isSelected && styles.selectedOption]}
-              onPress={() => handleSelectOption(item)}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  isSelected && styles.selectedOptionText,
-                ]}
-              >
-                {item[optionLabel]}
-              </Text>
-            </TouchableOpacity>
-          );
-        }}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>
-              {searchQuery.trim()
-                ? "Nessun risultato trovato"
-                : "Nessuna opzione disponibile"}
-            </Text>
-          </View>
-        }
-      />
-    </ThemedBottomSheet>
-  );
+  return mode === "inline" ? renderInlineMode() : renderModalMode();
 }

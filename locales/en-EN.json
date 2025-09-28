@@ -779,6 +779,8 @@
     "snoozeMessage": "Notification snoozed for {{minutes}} minutes",
     "search": "Search",
     "selectOption": "Select option",
+    "noResults": "No results found",
+    "noOptions": "No options available",
     "snoozeGeneric": "Notification snoozed",
     "deviceNotRegistered": "PUSH not registered",
     "notAvailableOnWeb": "Feature not available on Web",
