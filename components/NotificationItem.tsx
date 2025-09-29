@@ -241,7 +241,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   };
 
   const deleteAction = {
-    icon: "delete" as const,
+    icon: "delete",
     label: t("swipeActions.delete.label"),
     backgroundColor: "#ff4444",
     onPress: handleDelete,
@@ -255,13 +255,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
   const toggleReadAction = isRead
     ? {
-        icon: "eye" as const,
+        icon: "eye-outline",
         label: t("swipeActions.markAsUnread.label"),
         backgroundColor: "#007AFF",
         onPress: handleMarkAsUnread,
       }
     : {
-        icon: "eye-off" as const,
+        icon: "eye-off",
         label: t("swipeActions.markAsRead.label"),
         backgroundColor: "#28a745",
         onPress: handleMarkAsRead,

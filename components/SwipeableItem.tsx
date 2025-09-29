@@ -19,43 +19,6 @@ import {
   Text,
   useTheme,
 } from "react-native-paper";
-import { Menu, MenuOptions, MenuOption, MenuTrigger } from "react-native-popup-menu";
-
-// Map icon names to Paper Icons
-const mapIconToPaper = (iconName: string): string => {
-  const iconMap: Record<string, string> = {
-    "delete": "delete",
-    "edit": "pencil",
-    "share": "share",
-    "copy": "content-copy",
-    "download": "download",
-    "upload": "upload",
-    "add": "plus",
-    "remove": "minus",
-    "check": "check",
-    "close": "close",
-    "menu": "menu",
-    "more": "dots-vertical",
-    "settings": "cog",
-    "info": "information",
-    "warning": "alert",
-    "error": "alert-circle",
-    "success": "check-circle",
-    "refresh": "refresh",
-    "search": "magnify",
-    "filter": "filter",
-    "sort": "sort",
-    "back": "arrow-left",
-    "forward": "arrow-right",
-    "up": "chevron-up",
-    "down": "chevron-down",
-    "left": "chevron-left",
-    "right": "chevron-right",
-  };
-  
-  return iconMap[iconName] || "help-circle";
-};
-
 
 // Fallback to screen width if container width is not available
 const { width: screenWidth } = Dimensions.get("window");
@@ -99,6 +62,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   borderRadius = 12,
 }) => {
   const translateX = useRef(new Animated.Value(0)).current;
+  const scaleValue = useRef(new Animated.Value(1)).current;
   const panRef = useRef<PanGestureHandler>(null);
   const [currentSwipeDirection, setCurrentSwipeDirection] = useState<
     "left" | "right" | null
@@ -117,17 +81,22 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     action: SwipeAction;
     direction: "left" | "right";
   } | null>(null);
-  
+
   // Calculate swipe threshold based on container width
   const SWIPE_THRESHOLD = containerWidth * 0.3; // 30% of container width
 
-  // Listen to translateX changes to update swipe direction
+  // Listen to translateX changes to update swipe direction - optimized
   React.useEffect(() => {
+    let lastValue = 0;
     const listener = translateX.addListener(({ value }) => {
-      if (Math.abs(value) > 10) {
-        setCurrentSwipeDirection(value > 0 ? "right" : "left");
-      } else {
-        setCurrentSwipeDirection(null);
+      // Only update if there's a significant change to reduce re-renders
+      if (Math.abs(value - lastValue) > 5) {
+        lastValue = value;
+        if (Math.abs(value) > 10) {
+          setCurrentSwipeDirection(value > 0 ? "right" : "left");
+        } else {
+          setCurrentSwipeDirection(null);
+        }
       }
     });
 
@@ -145,7 +114,10 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
 
   const onGestureEvent = Animated.event(
     [{ nativeEvent: { translationX: translateX } }],
-    { useNativeDriver: true }
+    { 
+      useNativeDriver: true,
+      listener: undefined, // Remove any additional listeners for better performance
+    }
   );
 
   const onHandlerStateChange = (event: PanGestureHandlerStateChangeEvent) => {
@@ -181,9 +153,26 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     Animated.spring(translateX, {
       toValue: position,
       useNativeDriver: true,
-      tension: 100,
-      friction: 8,
+      tension: 300,
+      friction: 10,
+      overshootClamping: true,
     }).start();
+  };
+
+  const animateActionFeedback = () => {
+    // Quick scale animation for feedback
+    Animated.sequence([
+      Animated.timing(scaleValue, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleValue, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
   const handleAction = (action: SwipeAction, direction: "left" | "right") => {
@@ -204,23 +193,16 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     direction: "left" | "right"
   ) => {
     try {
-      const animationDistance =
-        direction === "left" ? screenWidth * 0.8 : -screenWidth * 0.8;
-
-      Animated.sequence([
-        Animated.timing(translateX, {
-          toValue: animationDistance,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateX, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
+      // Trigger feedback animation immediately
+      animateActionFeedback();
+      
+      // Execute action immediately
       await action.onPress();
+      
+      // Return to original position immediately after action
+      animateToPosition(0);
+      
+      // Clear action background
       setShowActionBackground(null);
     } catch (error) {
       console.error("Error during action:", error);
@@ -233,13 +215,15 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   const handleMenuActionPress = async (action?: SwipeAction) => {
     if (!action) return;
     try {
+      // Trigger feedback animation immediately
+      animateActionFeedback();
+      
       await action.onPress();
     } catch (error) {
       console.error("Error during action:", error);
       // Error handling will be done via dialog
     }
   };
-
 
   return (
     <View
@@ -269,7 +253,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
           ]}
         >
           <View style={styles.actionLeft}>
-            <Icon source={mapIconToPaper(leftAction.icon)} size={24} color="white" />
+            <Icon source={leftAction.icon} size={24} color="white" />
             <Text style={styles.actionLabel}>{leftAction.label}</Text>
           </View>
         </View>
@@ -290,7 +274,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
           ]}
         >
           <View style={styles.actionRight}>
-            <Icon source={mapIconToPaper(rightAction.icon)} size={24} color="white" />
+            <Icon source={rightAction.icon} size={24} color="white" />
             <Text style={styles.actionLabel}>{rightAction.label}</Text>
           </View>
         </View>
@@ -319,7 +303,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
             }
           >
             <Icon
-              source={mapIconToPaper(showActionBackground.action.icon)}
+              source={showActionBackground.action.icon}
               size={24}
               color="white"
             />
@@ -335,18 +319,20 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
         ref={panRef}
         onGestureEvent={onGestureEvent}
         onHandlerStateChange={onHandlerStateChange}
-        activeOffsetX={[-10, 10]}
+        activeOffsetX={[-5, 5]}
         minPointers={1}
         maxPointers={1}
         shouldCancelWhenOutside={true}
         enableTrackpadTwoFingerGesture={false}
+        avgTouches={true}
+        failOffsetX={[-50, 50]}
       >
         <Animated.View
           style={[
             styles.contentContainer,
             contentStyle,
             {
-              transform: [{ translateX }],
+              transform: [{ translateX }, { scale: scaleValue }],
               borderRadius,
               overflow: "hidden",
               backgroundColor: theme.colors.surface,
@@ -360,20 +346,29 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
               ref={burgerButtonRef}
               style={[
                 styles.burgerButton,
-                { 
+                {
                   backgroundColor: theme.colors.surface,
                   borderColor: theme.colors.outlineVariant,
-                }
+                },
               ]}
               onPress={() => {
                 if (burgerButtonRef.current) {
-                  burgerButtonRef.current.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
-                    setMenuPosition({
-                      top: pageY + height + 8, // Sotto il pulsante
-                      right: screenWidth - pageX - width, // Allineato a destra
-                    });
-                    setIsMenuVisible(true);
-                  });
+                  burgerButtonRef.current.measure(
+                    (
+                      x: number,
+                      y: number,
+                      width: number,
+                      height: number,
+                      pageX: number,
+                      pageY: number
+                    ) => {
+                      setMenuPosition({
+                        top: pageY + height + 8, // Sotto il pulsante
+                        right: screenWidth - pageX - width, // Allineato a destra
+                      });
+                      setIsMenuVisible(true);
+                    }
+                  );
                 }
               }}
               activeOpacity={0.7}
@@ -394,19 +389,19 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
         <Portal>
           <TouchableOpacity
             style={{
-              position: 'absolute',
+              position: "absolute",
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: 'transparent',
+              backgroundColor: "transparent",
             }}
             onPress={() => setIsMenuVisible(false)}
             activeOpacity={1}
           />
           <Surface
             style={{
-              position: 'absolute',
+              position: "absolute",
               top: menuPosition.top,
               right: menuPosition.right,
               backgroundColor: theme.colors.surface,
@@ -415,7 +410,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
               borderColor: theme.colors.outlineVariant,
               padding: 8,
               elevation: 8,
-              shadowColor: '#000',
+              shadowColor: "#000",
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.25,
               shadowRadius: 3.84,
@@ -425,7 +420,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
               <TouchableOpacity
                 style={[
                   styles.menuItem,
-                  { backgroundColor: theme.colors.surface }
+                  { backgroundColor: theme.colors.surface },
                 ]}
                 onPress={() => {
                   setIsMenuVisible(false);
@@ -434,11 +429,17 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
                 activeOpacity={0.7}
               >
                 <Icon
-                  source={mapIconToPaper(leftAction.icon)}
+                  source={leftAction.icon}
                   size={16}
                   color={leftAction.backgroundColor}
                 />
-                <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]} numberOfLines={1}>
+                <Text
+                  style={[
+                    styles.menuItemText,
+                    { color: theme.colors.onSurface },
+                  ]}
+                  numberOfLines={1}
+                >
                   {leftAction.label}
                 </Text>
               </TouchableOpacity>
@@ -447,7 +448,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
               <TouchableOpacity
                 style={[
                   styles.menuItem,
-                  { backgroundColor: theme.colors.surface }
+                  { backgroundColor: theme.colors.surface },
                 ]}
                 onPress={() => {
                   setIsMenuVisible(false);
@@ -456,11 +457,17 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
                 activeOpacity={0.7}
               >
                 <Icon
-                  source={mapIconToPaper(rightAction.icon)}
+                  source={rightAction.icon}
                   size={16}
                   color={rightAction.backgroundColor}
                 />
-                <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]} numberOfLines={1}>
+                <Text
+                  style={[
+                    styles.menuItemText,
+                    { color: theme.colors.onSurface },
+                  ]}
+                  numberOfLines={1}
+                >
                   {rightAction.label}
                 </Text>
               </TouchableOpacity>
@@ -485,7 +492,8 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
           </Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium">
-              {pendingAction?.action.showAlert?.message || "Are you sure you want to perform this action?"}
+              {pendingAction?.action.showAlert?.message ||
+                "Are you sure you want to perform this action?"}
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
@@ -503,12 +511,14 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
             <Text
               onPress={async () => {
                 if (!pendingAction) return;
-                
+
                 setShowConfirmDialog(false);
                 try {
                   // Animate based on direction
                   const targetPosition =
-                    pendingAction.direction === "left" ? -screenWidth : screenWidth;
+                    pendingAction.direction === "left"
+                      ? -screenWidth
+                      : screenWidth;
                   Animated.timing(translateX, {
                     toValue: targetPosition,
                     duration: 300,
@@ -524,8 +534,11 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
                 }
                 setPendingAction(null);
               }}
-              style={{ 
-                color: pendingAction?.direction === "left" ? theme.colors.error : theme.colors.primary 
+              style={{
+                color:
+                  pendingAction?.direction === "left"
+                    ? theme.colors.error
+                    : theme.colors.primary,
               }}
             >
               {pendingAction?.action.showAlert?.confirmText || "Confirm"}

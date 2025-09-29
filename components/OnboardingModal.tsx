@@ -600,7 +600,7 @@ export default function OnboardingModal({
     borderRadius: 12,
     marginHorizontal: 16,
     marginVertical: 24,
-    maxHeight: deviceHeight * 0.8,
+    maxHeight: deviceHeight,
   } as const;
 
   return (

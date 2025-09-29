@@ -6,8 +6,8 @@ import { useDownloadQueue } from "@/hooks/useMediaCache";
 import { TranslationKeyPath } from "@/utils";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useSegments } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
-import { Animated, Platform, StyleSheet, View } from "react-native";
+import React, { useState } from "react";
+import { Platform, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Appbar,
@@ -164,8 +164,7 @@ export default function Header() {
 
   const currentTitle = ROUTE_TITLES[currentRoute];
 
-  const downloadBlinkAnim = useRef(new Animated.Value(1)).current;
-  const markBlinkAnim = useRef(new Animated.Value(1)).current;
+  // Removed movement animations, keeping only loading indicators
 
   // Status badge logic
   const status = getPriorityStatus();
@@ -225,53 +224,6 @@ export default function Header() {
     (status.type === "update" && status.action) ||
     (status.type === "push-notifications" && !isRegistering) ||
     status.type === "push-permissions";
-
-  useEffect(() => {
-    if (inProcessing) {
-      const blinkAnimation = Animated.loop(
-        Animated.sequence([
-          Animated.timing(downloadBlinkAnim, {
-            toValue: 0.3,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(downloadBlinkAnim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      blinkAnimation.start();
-
-      return () => blinkAnimation.stop();
-    } else {
-      downloadBlinkAnim.setValue(1);
-    }
-  }, [inProcessing, downloadBlinkAnim]);
-
-  useEffect(() => {
-    if (hasUnreadNotifications && !isMarkingAllAsRead) {
-      const blinkAnimation = Animated.loop(
-        Animated.sequence([
-          Animated.timing(markBlinkAnim, {
-            toValue: 0.7,
-            duration: 900,
-            useNativeDriver: true,
-          }),
-          Animated.timing(markBlinkAnim, {
-            toValue: 1,
-            duration: 900,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      blinkAnimation.start();
-      return () => blinkAnimation.stop();
-    } else {
-      markBlinkAnim.setValue(1);
-    }
-  }, [hasUnreadNotifications, isMarkingAllAsRead, markBlinkAnim]);
 
   return (
     <>
@@ -372,20 +324,18 @@ export default function Header() {
               hasUnreadNotifications &&
               !isLoadingGqlData && (
                 <View style={styles.markAllButtonContainer}>
-                  <Animated.View style={{ opacity: markBlinkAnim }}>
-                    <Appbar.Action
-                      onPress={handleMarkAllAsRead}
-                      disabled={!hasUnreadNotifications || isMarkingAllAsRead}
-                      icon={() =>
-                        isMarkingAllAsRead ? (
-                          <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                          <Icon source="check-all" size={20} color="#fff" />
-                        )
-                      }
-                      style={styles.markAllIcon}
-                    />
-                  </Animated.View>
+                  <Appbar.Action
+                    onPress={handleMarkAllAsRead}
+                    disabled={!hasUnreadNotifications || isMarkingAllAsRead}
+                    icon={() =>
+                      isMarkingAllAsRead ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Icon source="check-all" size={20} color="#fff" />
+                      )
+                    }
+                    style={styles.markAllIcon}
+                  />
                   {unreadCount > 0 && (
                     <Surface style={styles.badge} elevation={3}>
                       {isLoadingGqlData ? (
@@ -404,11 +354,7 @@ export default function Header() {
             {shouldShowStatusBadges && inProcessing && (
               <View style={styles.downloadQueueContainer}>
                 <Appbar.Action
-                  icon={() => (
-                    <Animated.View style={{ opacity: downloadBlinkAnim }}>
-                      <Icon source="download" size={20} color="#fff" />
-                    </Animated.View>
-                  )}
+                  icon={() => <Icon source="download" size={20} color="#fff" />}
                   disabled
                   style={styles.downloadIcon}
                 />

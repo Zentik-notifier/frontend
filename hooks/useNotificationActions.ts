@@ -1,8 +1,8 @@
 import { UpdateUserDeviceInput, useUpdateUserDeviceMutation } from '@/generated/gql-operations-generated';
 import { clearPendingNavigationIntent } from '@/services/auth-storage';
 import { mediaCache } from '@/services/media-cache';
+import { useNavigationUtils } from '@/utils/navigation';
 import * as Notifications from 'expo-notifications';
-import { router } from 'expo-router';
 import { useCallback } from 'react';
 import { Alert, Linking } from 'react-native';
 import {
@@ -17,7 +17,6 @@ import {
 } from '../generated/gql-operations-generated';
 import { useI18n } from './useI18n';
 import { useDeleteNotification, useFetchNotifications, useMarkNotificationRead } from './useNotifications';
-import { useNavigationUtils } from '@/utils/navigation';
 
 /**
  * Hook that provides callbacks for handling notification actions
@@ -202,27 +201,6 @@ export function useNotificationActions() {
     }
   }, [getNotification, setBucketSnoozeMinutes, t]);
 
-  // Helper function to wait for router to be ready
-  const waitForRouter = async (maxAttempts = 10): Promise<boolean> => {
-    for (let i = 0; i < maxAttempts; i++) {
-      try {
-        // Test if router is ready by checking if we can access current route
-        if (router && typeof router.push === 'function') {
-          console.log(`🧭 Router ready after ${i} attempts`);
-          return true;
-        }
-      } catch (error) {
-        console.log(`🧭 Router not ready, attempt ${i + 1}/${maxAttempts}`);
-      }
-
-      // Wait 100ms before next attempt
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    console.warn('🧭 Router not ready after maximum attempts');
-    return false;
-  };
-
   const onOpenNotification = useCallback(async (action: NotificationActionFragment) => {
     console.log('📂 Opening notification:', JSON.stringify(action));
 
@@ -232,14 +210,6 @@ export function useNotificationActions() {
       console.log('📱 Cleared pending navigation intent');
     } catch (error) {
       console.warn('⚠️ Failed to clear pending navigation intent:', error);
-    }
-
-    // Wait for router to be ready (important when app starts from killed state)
-    const routerReady = await waitForRouter();
-    if (!routerReady) {
-      console.error('❌ Router not ready, cannot navigate');
-      Alert.alert(t('common.navigationError'), t('common.navigationFailed'));
-      return;
     }
 
     try {

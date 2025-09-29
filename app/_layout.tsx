@@ -194,8 +194,8 @@ export default function RootLayout() {
         console.log("🔄 [LayoutInit] App config initialized");
         openSharedCacheDb().catch();
         console.log("🔄 [LayoutInit] Shared cache DB opened");
-        await processPendingNavigationIntent();
-        console.log("🔄 [LayoutInit] Pending navigation intent processed");
+        // await processPendingNavigationIntent();
+        // console.log("🔄 [LayoutInit] Pending navigation intent processed");
       })();
     }
   }, [loaded]);
