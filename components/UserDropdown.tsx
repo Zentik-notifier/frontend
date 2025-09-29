@@ -4,7 +4,7 @@ import { useAppTheme } from "@/hooks/useTheme";
 import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useMemo, useState } from "react";
-import { Image, StyleSheet, View } from "react-native";
+import { Image, StyleSheet, View, TouchableOpacity } from "react-native";
 import { Avatar, Icon, Text, useTheme, Surface } from "react-native-paper";
 import {
   Menu,
@@ -90,8 +90,14 @@ export default function UserDropdown() {
   return (
     <Surface style={styles.container} elevation={2}>
       <Menu>
-        <MenuTrigger>
-          <View style={styles.avatarButton}>
+        <MenuTrigger customStyles={{
+          TriggerTouchableComponent: TouchableOpacity,
+          triggerTouchable: {
+            activeOpacity: 0.7,
+            style: { borderRadius: 18, overflow: 'hidden' }
+          }
+        }}>
+          <View style={[styles.avatarButton, { borderRadius: 18, overflow: 'hidden' }]}>
             {user?.avatar && !showInitials ? (
               <Avatar.Image source={{ uri: user.avatar }} size={36} />
             ) : (

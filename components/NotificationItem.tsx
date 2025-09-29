@@ -292,7 +292,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                   isMultiSelectionMode && isSelected
                     ? theme.colors.secondaryContainer
                     : theme.colors.elevation?.level1 || theme.colors.surface,
-                borderColor: theme.colors.outline,
+                // Remove base border to avoid double border with priority state
+                borderColor: "transparent",
               },
               // Priority border
               (notification.message?.deliveryType ===

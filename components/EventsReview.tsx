@@ -15,16 +15,8 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import {
-  Button,
-  Card,
-  Dialog,
-  Icon,
-  Portal,
-  Surface,
-  Text,
-  useTheme
-} from "react-native-paper";
+import { Button, Card, Dialog, Icon, Portal, Surface, Text, useTheme } from "react-native-paper";
+import ThemedBottomSheet, { ThemedBottomSheetRef } from "./ui/ThemedBottomSheet";
 
 export default function EventsReview() {
   const theme = useTheme();
@@ -39,8 +31,8 @@ export default function EventsReview() {
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const [objectId, setObjectId] = useState("");
   const [targetId, setTargetId] = useState("");
-  const [showTypeModal, setShowTypeModal] = useState(false);
-  const [showUserModal, setShowUserModal] = useState(false);
+  const typeSheetRef = React.useRef<ThemedBottomSheetRef>(null);
+  const userSheetRef = React.useRef<ThemedBottomSheetRef>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const pageSize = 20;
 
@@ -274,7 +266,7 @@ export default function EventsReview() {
   return (
     <Surface style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header with refresh button */}
-      <Surface style={[styles.header, { backgroundColor: theme.colors.surface }]} elevation={1}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
         <Text variant="headlineSmall" style={styles.headerTitle}>
           {t("eventsReview.title")}
         </Text>
@@ -290,18 +282,18 @@ export default function EventsReview() {
             <Icon source="refresh" size={20} />
           )}
         </Button>
-      </Surface>
+      </View>
 
-      <Surface style={[styles.pageContent, { backgroundColor: theme.colors.background }]}>
-        <Surface style={[styles.statsContainer, { backgroundColor: theme.colors.surface }]} elevation={0}>
+      <View style={[styles.pageContent, { backgroundColor: theme.colors.background }]}>
+        <View style={[styles.statsContainer, { backgroundColor: theme.colors.surface }]}>
           <Text variant="bodyMedium" style={styles.statsText}>
             {t("common.showing")} {events.length} {t("common.of")} {total}{" "}
             {t("common.results")}
           </Text>
-        </Surface>
+        </View>
 
         <View style={styles.filtersContainer}>
-          <Surface style={[styles.searchContainer, { backgroundColor: theme.colors.surface }]} elevation={1}>
+          <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface }]}>
             <View style={styles.searchIcon}>
               <Icon source="magnify" size={18} />
             </View>
@@ -322,11 +314,11 @@ export default function EventsReview() {
                 <Icon source="close-circle" size={18} />
               </TouchableOpacity>
             )}
-          </Surface>
+          </View>
         </View>
 
         <View style={styles.filtersContainer}>
-          <Surface style={[styles.searchContainer, { backgroundColor: theme.colors.surface }]} elevation={1}>
+          <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface }]}>
             <View style={styles.searchIcon}>
               <Icon source="cellphone" size={18} />
             </View>
@@ -347,7 +339,7 @@ export default function EventsReview() {
                 <Icon source="close-circle" size={18} />
               </TouchableOpacity>
             )}
-          </Surface>
+          </View>
 
         <TouchableOpacity
           style={[
@@ -359,7 +351,7 @@ export default function EventsReview() {
                 : theme.colors.surface,
             },
           ]}
-          onPress={() => setShowTypeModal(true)}
+          onPress={() => typeSheetRef.current?.show()}
           activeOpacity={0.7}
           disabled={disabledActions}
         >
@@ -394,7 +386,7 @@ export default function EventsReview() {
                 : theme.colors.surface,
             },
           ]}
-          onPress={() => setShowUserModal(true)}
+          onPress={() => userSheetRef.current?.show()}
           activeOpacity={0.7}
           disabled={loadingUsers || disabledActions}
         >
@@ -442,14 +434,14 @@ export default function EventsReview() {
         </View>
 
         {isLoading && events.length === 0 ? (
-          <Surface style={[styles.loadingContainer, { backgroundColor: theme.colors.surface }]} elevation={0}>
+          <View style={[styles.loadingContainer, { backgroundColor: theme.colors.surface }]}>
             <ActivityIndicator size="large" color={theme.colors.primary} />
             <Text variant="bodyLarge" style={styles.loadingText}>
               {t("common.loading")}
             </Text>
-          </Surface>
+          </View>
         ) : events.length === 0 ? (
-          <Surface style={[styles.emptyState, { backgroundColor: theme.colors.surface }]} elevation={0}>
+          <View style={[styles.emptyState, { backgroundColor: theme.colors.surface }]}>
             <Icon source="magnify" size={64} color={theme.colors.onSurfaceVariant} />
             <Text variant="headlineSmall" style={styles.emptyTitle}>
               {t("eventsReview.empty.title")}
@@ -457,7 +449,7 @@ export default function EventsReview() {
             <Text variant="bodyMedium" style={styles.emptyDescription}>
               {t("eventsReview.empty.description")}
             </Text>
-          </Surface>
+          </View>
         ) : (
           <FlatList
             data={events}
@@ -501,109 +493,73 @@ export default function EventsReview() {
           />
         )}
 
-        <Portal>
-          <Dialog
-            visible={showTypeModal}
-            onDismiss={() => setShowTypeModal(false)}
-            style={styles.dialog}
-          >
-            <Dialog.Title>{t("eventsReview.filters.type")}</Dialog.Title>
-            <Dialog.ScrollArea>
-              <ScrollView contentContainerStyle={styles.dialogContent}>
-                {allEventTypeOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option.value || "all"}
-                    style={[
-                      styles.modalOption,
-                      {
-                        backgroundColor:
-                          selectedType === option.value
-                            ? theme.colors.primaryContainer
-                            : theme.colors.surface,
-                      },
-                    ]}
-                    onPress={() => {
-                      setSelectedType(option.value);
-                      setShowTypeModal(false);
-                    }}
-                  >
-                    <Text variant="bodyMedium" style={styles.modalOptionText}>
-                      {option.label}
-                    </Text>
-                    {selectedType === option.value && (
-                      <Icon
-                        source="check"
-                        size={20}
-                        color={theme.colors.primary}
-                      />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </Dialog.ScrollArea>
-            <Dialog.Actions>
-              <Button onPress={() => setShowTypeModal(false)}>
-                {t("common.close")}
-              </Button>
-            </Dialog.Actions>
-          </Dialog>
-        </Portal>
+        <ThemedBottomSheet ref={typeSheetRef} title={t("eventsReview.filters.type")} trigger={() => null}>
+          <ScrollView contentContainerStyle={styles.dialogContent}>
+            {allEventTypeOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value || "all"}
+                style={[
+                  styles.modalOption,
+                  {
+                    backgroundColor:
+                      selectedType === option.value
+                        ? theme.colors.primaryContainer
+                        : theme.colors.surface,
+                  },
+                ]}
+                onPress={() => {
+                  setSelectedType(option.value);
+                  typeSheetRef.current?.hide();
+                }}
+              >
+                <Text variant="bodyMedium" style={styles.modalOptionText}>
+                  {option.label}
+                </Text>
+                {selectedType === option.value && (
+                  <Icon source="check" size={20} color={theme.colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </ThemedBottomSheet>
 
-        <Portal>
-          <Dialog
-            visible={showUserModal}
-            onDismiss={() => setShowUserModal(false)}
-            style={styles.dialog}
-          >
-            <Dialog.Title>{t("eventsReview.filters.userId")}</Dialog.Title>
-            <Dialog.ScrollArea>
-              <ScrollView contentContainerStyle={styles.dialogContent}>
-                {userOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option.value || "all"}
-                    style={[
-                      styles.modalOption,
-                      {
-                        backgroundColor:
-                          userId === option.value
-                            ? theme.colors.primaryContainer
-                            : theme.colors.surface,
-                      },
-                    ]}
-                    onPress={() => {
-                      setUserId(option.value);
-                      setShowUserModal(false);
-                    }}
-                  >
-                    <View style={styles.modalOptionContent}>
-                      <Text variant="bodyMedium" style={styles.modalOptionText}>
-                        {option.label}
-                      </Text>
-                      {"subtitle" in option && option.subtitle && (
-                        <Text variant="bodySmall" style={styles.modalOptionSubtitle}>
-                          {option.subtitle}
-                        </Text>
-                      )}
-                    </View>
-                    {userId === option.value && (
-                      <Icon
-                        source="check"
-                        size={20}
-                        color={theme.colors.primary}
-                      />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </Dialog.ScrollArea>
-            <Dialog.Actions>
-              <Button onPress={() => setShowUserModal(false)}>
-                {t("common.close")}
-              </Button>
-            </Dialog.Actions>
-          </Dialog>
-        </Portal>
-      </Surface>
+        <ThemedBottomSheet ref={userSheetRef} title={t("eventsReview.filters.userId")} trigger={() => null}>
+          <ScrollView contentContainerStyle={styles.dialogContent}>
+            {userOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value || "all"}
+                style={[
+                  styles.modalOption,
+                  {
+                    backgroundColor:
+                      userId === option.value
+                        ? theme.colors.primaryContainer
+                        : theme.colors.surface,
+                  },
+                ]}
+                onPress={() => {
+                  setUserId(option.value);
+                  userSheetRef.current?.hide();
+                }}
+              >
+                <View style={styles.modalOptionContent}>
+                  <Text variant="bodyMedium" style={styles.modalOptionText}>
+                    {option.label}
+                  </Text>
+                  {"subtitle" in option && option.subtitle && (
+                    <Text variant="bodySmall" style={styles.modalOptionSubtitle}>
+                      {option.subtitle}
+                    </Text>
+                  )}
+                </View>
+                {userId === option.value && (
+                  <Icon source="check" size={20} color={theme.colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </ThemedBottomSheet>
+      </View>
     </Surface>
   );
 }
