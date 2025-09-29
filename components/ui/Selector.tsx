@@ -181,7 +181,7 @@ export default function Selector({
       borderWidth: 1,
       borderColor: theme.colors.outline,
       borderRadius: 8,
-      maxHeight: 200,
+      maxHeight: 300,
       zIndex: 9999,
       elevation: 10,
       shadowColor: "#000",
@@ -209,7 +209,7 @@ export default function Selector({
       color: theme.colors.onSurface,
     },
     inlineOptionsList: {
-      maxHeight: 150,
+      maxHeight: 300,
     },
     inlineOptionItem: {
       flexDirection: "row",

@@ -8,18 +8,14 @@ import { useI18n } from "@/hooks/useI18n";
 import React, { useState } from "react";
 import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import NotificationActionForm from "./NotificationActionForm";
-import {
-  Text,
-  Icon,
-  Button,
-  useTheme,
-} from "react-native-paper";
+import { Text, Icon, Button, useTheme } from "react-native-paper";
+import { SelectorOption } from "./ui/Selector";
 
 interface NotificationActionsSelectorProps {
   actions: NotificationActionDto[];
   onActionsChange: (actions: NotificationActionDto[]) => void;
   label?: string;
-  webhookOptions?: Array<{ id: string; name: string; description?: string }>;
+  webhookOptions?: SelectorOption[];
   hasWebhooks?: boolean;
 }
 
@@ -121,31 +117,23 @@ export default function NotificationActionsSelector({
           style={[
             styles.actionItem,
             {
-              backgroundColor:
-                theme.colors.surfaceVariant,
+              backgroundColor: theme.colors.surfaceVariant,
               borderColor: theme.colors.outline,
             },
           ]}
         >
           <View style={styles.actionInfo}>
-            <Icon
-              source="action"
-              size={20}
-              color={theme.colors.primary}
-            />
+            <Icon source="action" size={20} color={theme.colors.primary} />
             <View style={styles.actionDetails}>
               <Text
-                style={[
-                  styles.actionValue,
-                  { color: theme.colors.onSurface },
-                ]}
+                style={[styles.actionValue, { color: theme.colors.onSurface }]}
               >
                 {action.title || action.value}
               </Text>
               <Text
                 style={[
                   styles.actionMeta,
-                  { color: theme.colors.onSurfaceSecondary },
+                  { color: theme.colors.onSurfaceVariant },
                 ]}
               >
                 {getActionTypeFriendlyName(action.type)} • {action.value}{" "}
@@ -183,7 +171,6 @@ export default function NotificationActionsSelector({
           saveButtonTitle={t("notifications.actions.addAction")}
           webhookOptions={webhookOptions}
           hasWebhooks={hasWebhooks}
-          isEditing={false}
         />
       )}
 

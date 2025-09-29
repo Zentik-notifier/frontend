@@ -33,7 +33,7 @@ import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
 import NotificationActionsSelector from "./NotificationActionsSelector";
 import NotificationTapActionSelector from "./NotificationTapActionSelector";
 import { Surface, Text, useTheme, Button, Icon } from "react-native-paper";
-import Selector from "./ui/Selector";
+import Selector, { SelectorOption } from "./ui/Selector";
 
 export default function NotificationsSettings() {
   const {
@@ -278,10 +278,9 @@ export default function NotificationsSettings() {
   );
 
   // Webhook options for the picker - when action type is ACTION (external webhook)
-  const webhookOptions = (webhooksData?.userWebhooks || []).map((webhook) => ({
+  const webhookOptions: SelectorOption[] = (webhooksData?.userWebhooks || []).map((webhook) => ({
     id: webhook.id,
     name: webhook.name,
-    description: `${webhook.method} ${webhook.url}`,
   }));
 
   // Check if webhooks are available
@@ -289,10 +288,10 @@ export default function NotificationsSettings() {
 
   const { availableLocales, getLocaleDisplayName } = useLanguageSync();
 
-  const localeOptions = availableLocales.map((locale) => ({
-    value: locale,
-    label: getLocaleDisplayName(locale),
-    icon: "language",
+  const localeOptions: SelectorOption[] = availableLocales.map((locale) => ({
+    id: locale,
+    name: getLocaleDisplayName(locale),
+    iconName: "language",
   }));
 
   const handleRefresh = async () => {

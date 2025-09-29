@@ -22,7 +22,7 @@ import {
   TouchableRipple,
   List,
 } from "react-native-paper";
-import Selector from "./ui/Selector";
+import Selector, { SelectorOption } from "./ui/Selector";
 import NotificationActionsSelector from "./NotificationActionsSelector";
 import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
 
@@ -134,18 +134,18 @@ export default function MessageBuilder({
     setSnoozeTimes([]);
   }, []);
 
-  const deliveryTypeOptions = [
+  const deliveryTypeOptions: SelectorOption[] = [
     {
-      value: NotificationDeliveryType.Normal,
-      label: t("compose.messageBuilder.deliveryType.normal" as any),
+      id: NotificationDeliveryType.Normal,
+      name: t("compose.messageBuilder.deliveryType.normal" as any),
     },
     {
-      value: NotificationDeliveryType.Critical,
-      label: t("compose.messageBuilder.deliveryType.critical" as any),
+      id: NotificationDeliveryType.Critical,
+      name: t("compose.messageBuilder.deliveryType.critical" as any),
     },
     {
-      value: NotificationDeliveryType.Silent,
-      label: t("compose.messageBuilder.deliveryType.silent" as any),
+      id: NotificationDeliveryType.Silent,
+      name: t("compose.messageBuilder.deliveryType.silent" as any),
     },
   ];
 

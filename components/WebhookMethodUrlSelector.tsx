@@ -3,7 +3,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { getHttpMethodColor } from "@/utils/webhookUtils";
 import React from "react";
 import { TextInput, View, StyleSheet } from "react-native";
-import Selector from "./ui/Selector";
+import Selector, { SelectorOption } from "./ui/Selector";
 import { Text, useTheme } from "react-native-paper";
 
 interface WebhookMethodUrlSelectorProps {
@@ -34,32 +34,36 @@ export default function WebhookMethodUrlSelector({
     return t(`webhooks.methods.${method}`);
   };
 
-  const httpMethodOptions = httpMethods.map(method => ({
+  const httpMethodOptions: SelectorOption[] = httpMethods.map((method) => ({
     id: method,
     name: getMethodDisplayName(method),
-    color: getHttpMethodColor(method),
+    iconColor: getHttpMethodColor(method),
+    iconName: "circle",
   }));
 
-  const selectedMethod = httpMethodOptions.find(option => option.id === method);
+  const selectedMethod = httpMethodOptions.find(
+    (option) => option.id === method
+  );
 
   return (
     <>
       {/* HTTP Method Selection */}
       <View style={styles.container}>
         <Selector
-          label={t('webhooks.form.method')}
-          placeholder={t('webhooks.form.method')}
+          label={t("webhooks.form.method")}
+          placeholder={t("webhooks.form.method")}
           options={httpMethodOptions}
           selectedValue={selectedMethod?.id}
           onValueChange={(value) => onMethodChange(value as HttpMethod)}
           isSearchable={false}
+          mode="inline"
         />
       </View>
-      
+
       {/* Webhook URL Input */}
       <View style={styles.container}>
         <Text variant="titleMedium" style={styles.label}>
-          {t('webhooks.form.url')}
+          {t("webhooks.form.url")}
         </Text>
         <TextInput
           style={[
@@ -68,11 +72,11 @@ export default function WebhookMethodUrlSelector({
               backgroundColor: theme.colors.surface,
               borderColor: theme.colors.outlineVariant,
               color: theme.colors.onSurface,
-            }
+            },
           ]}
           value={url}
           onChangeText={onUrlChange}
-          placeholder={t('webhooks.form.urlPlaceholder')}
+          placeholder={t("webhooks.form.urlPlaceholder")}
           placeholderTextColor={theme.colors.onSurfaceVariant}
           keyboardType="url"
           autoCapitalize="none"

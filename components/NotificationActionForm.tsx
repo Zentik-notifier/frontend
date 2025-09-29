@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { Text, useTheme, Button } from "react-native-paper";
-import Selector from "./ui/Selector";
+import Selector, { SelectorOption } from "./ui/Selector";
 import WebhookMethodUrlSelector from "./WebhookMethodUrlSelector";
 
 interface NotificationActionFormProps {
@@ -33,9 +33,8 @@ interface NotificationActionFormProps {
   onCancel: () => void;
   onSave: () => void;
   saveButtonTitle: string;
-  webhookOptions?: Array<{ id: string; name: string; description?: string }>;
+  webhookOptions?: SelectorOption[];
   hasWebhooks?: boolean;
-  isEditing?: boolean;
 }
 
 export default function NotificationActionForm({
@@ -58,7 +57,6 @@ export default function NotificationActionForm({
   saveButtonTitle,
   webhookOptions = [],
   hasWebhooks = false,
-  isEditing = false,
 }: NotificationActionFormProps) {
   const { t } = useI18n();
   const theme = useTheme();
@@ -103,6 +101,7 @@ export default function NotificationActionForm({
           onActionTypeChange(value as NotificationActionType);
         }}
         isSearchable={false}
+        mode="inline"
       />
 
       <View style={styles.field}>
@@ -117,6 +116,7 @@ export default function NotificationActionForm({
               options={webhookOptions}
               onValueChange={onActionValueChange}
               isSearchable={true}
+              mode="inline"
             />
           ) : (
             <View

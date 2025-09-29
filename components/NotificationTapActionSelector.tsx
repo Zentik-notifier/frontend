@@ -313,7 +313,6 @@ export default function NotificationTapActionSelector({
           saveButtonTitle={t("notifications.tapAction.saveTapAction")}
           webhookOptions={webhookOptions}
           hasWebhooks={hasWebhooks}
-          isEditing={true}
         />
       )}
     </View>
