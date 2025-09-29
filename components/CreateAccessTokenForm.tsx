@@ -84,7 +84,7 @@ export default function CreateAccessTokenForm() {
   const isFormValid = newTokenName.trim();
 
   return (
-    <PaperScrollView contentContainerStyle={styles.scrollContent}>
+    <PaperScrollView>
       <Card style={styles.formContainer} elevation={0}>
         <Card.Content>
           <View style={styles.inputGroup}>
@@ -224,10 +224,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
-  },
-  scrollContent: {
-    paddingHorizontal: 16, // Aggiunge il padding orizzontale solo al contenuto
-    paddingVertical: 8, // Aggiunge padding verticale per evitare gap
   },
   formContainer: {
     marginBottom: 16,

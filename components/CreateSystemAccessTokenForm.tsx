@@ -18,7 +18,7 @@ import {
   TextInput,
   useTheme,
 } from "react-native-paper";
-import ThemedInputSelect from "./ui/ThemedInputSelect";
+import Selector from "./ui/Selector";
 import PaperScrollView from "./ui/PaperScrollView";
 
 export default function CreateSystemAccessTokenForm() {
@@ -166,12 +166,10 @@ export default function CreateSystemAccessTokenForm() {
             <Text variant="titleMedium" style={styles.inputLabel}>
               {t("systemAccessTokens.form.requester")}
             </Text>
-            <ThemedInputSelect
+            <Selector
               selectedValue={requesterId}
               placeholder={t("systemAccessTokens.form.requesterPlaceholder")}
               options={userOptions}
-              optionLabel="name"
-              optionValue="id"
               onValueChange={setRequesterId}
               isSearchable={true}
             />

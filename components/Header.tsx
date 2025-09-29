@@ -1,36 +1,39 @@
-import { useBadgeSync } from "@/hooks";
-import { useDownloadQueue } from "@/hooks/useMediaCache";
-import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
+import { useBadgeSync } from "@/hooks";
+import { useDeviceType } from "@/hooks/useDeviceType";
+import { useI18n } from "@/hooks/useI18n";
+import { useDownloadQueue } from "@/hooks/useMediaCache";
+import { TranslationKeyPath } from "@/utils";
 import { useNavigationUtils } from "@/utils/navigation";
+import { useSegments } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Platform, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
+  Appbar,
   Button,
+  Icon,
   Surface,
   Text,
-  Icon,
-  Appbar,
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Href, useSegments } from "expo-router";
 import { LoginModal } from "./LoginModal";
 import UserDropdown from "./UserDropdown";
-import { TranslationKey, TranslationKeyPath } from "@/utils";
-import { useDeviceType } from "@/hooks/useDeviceType";
 
-// Routes that should show home button instead of back button
 const ROUTES_WITH_HOME_BUTTON: string[] = [
-  "/(mobile)/(admin)",
   "/(mobile)/(settings)",
-  "/(tablet)/(admin)",
+  "/(mobile)/(admin)",
   "/(tablet)/(settings)",
+  "/(tablet)/(admin)",
 ];
 
-const HOME_ROUTES: string[] = ["/(mobile)/(home)", "/(tablet)/(home)"];
+const HOME_ROUTES: string[] = [
+  "/(mobile)/(home)/(tabs)/notifications",
+  "/(mobile)/(home)/(tabs)/buckets",
+  "/(mobile)/(home)/(tabs)/gallery",
+];
 
 // Routes that should show back button
 const ROUTES_WITH_BACK_BUTTON: string[] = [
@@ -39,8 +42,19 @@ const ROUTES_WITH_BACK_BUTTON: string[] = [
   "/(mobile)/(home)/notification/[id]",
   "/(mobile)/(home)/bucket/settings/create",
   "/(mobile)/(home)/bucket/create",
-  "/(mobile)/(admin)/",
-  "/(mobile)/(settings)/",
+  "/(mobile)/(settings)/user/",
+  "/(mobile)/(settings)/app-settings/",
+  "/(mobile)/(settings)/bucket/",
+  "/(mobile)/(settings)/access-token/",
+  "/(mobile)/(settings)/webhook/",
+  "/(mobile)/(settings)/devices/",
+  "/(mobile)/(settings)/user-sessions",
+  "/(mobile)/(settings)/notifications",
+  "/(mobile)/(settings)/logs",
+  "/(mobile)/(admin)/user-management/",
+  "/(mobile)/(admin)/oauth-providers/",
+  "/(mobile)/(admin)/system-access-tokens/",
+  "/(mobile)/(admin)/events-review",
 ];
 
 // Route-based title mapping
@@ -58,6 +72,7 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(mobile)/(settings)/webhook/list": "webhooks.title",
   "/(mobile)/(settings)/webhook/create": "webhooks.create",
   "/(mobile)/(settings)/webhook/[id]": "webhooks.edit",
+  "/(mobile)/(home)/bucket/settings/create": "webhooks.create",
   "/(tablet)/(settings)/webhook/create": "webhooks.create",
   "/(tablet)/(settings)/webhook/[id]": "webhooks.edit",
   "/(mobile)/(settings)/access-token/list": "accessTokens.title",
@@ -67,13 +82,13 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(mobile)/(settings)/notifications": "notifications.title",
   "/(mobile)/(settings)/user-sessions": "userSessions.title",
   "/(mobile)/(settings)/logs": "appLogs.title",
-  "/(mobile)/(settings)/change-password": "changePassword.title",
-  "/(mobile)/(settings)/user-profile": "userProfile.title",
-  "/(mobile)/(home)/bucket/[id]": "buckets.form.editTitle",
+  "/(mobile)/(settings)/user/change-password": "changePassword.title",
+  "/(mobile)/(settings)/user/profile": "userProfile.title",
   "/(mobile)/(home)/notification/[id]": "notificationDetail.title",
   "/(tablet)/(admin)/user-management/list": "administration.userManagement",
   "/(mobile)/(admin)/user-management/list": "administration.userManagement",
   "/(tablet)/(settings)/bucket/list": "buckets.title",
+  "/(mobile)/(home)/bucket/[id]": "buckets.title",
   "/(tablet)/(settings)/app-settings": "appSettings.title",
   "/(tablet)/(settings)/access-token/list": "accessTokens.title",
   "/(tablet)/(settings)/webhook/list": "webhooks.title",
@@ -137,14 +152,15 @@ export default function Header() {
   // Determine current route
   const currentRoute = `/${segments.join("/")}`;
   const shouldShowHomeButton = ROUTES_WITH_HOME_BUTTON.some((route) =>
-    currentRoute.includes(route)
+    currentRoute.startsWith(route)
   );
   const shouldShowBackButton = ROUTES_WITH_BACK_BUTTON.some((route) =>
-    currentRoute.includes(route)
+    currentRoute.startsWith(route)
   );
   const shouldShowStatusBadges = HOME_ROUTES.some((route) =>
-    currentRoute.includes(route)
+    currentRoute.startsWith(route)
   );
+  console.log(shouldShowStatusBadges, currentRoute);
 
   const currentTitle = ROUTE_TITLES[currentRoute];
 

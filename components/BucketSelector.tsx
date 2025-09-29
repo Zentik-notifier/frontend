@@ -2,7 +2,7 @@ import { BucketFragment } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import ThemedInputSelect from "./ui/ThemedInputSelect";
+import Selector from "./ui/Selector";
 import { useTheme } from "react-native-paper";
 
 interface BucketSelectorProps {
@@ -62,12 +62,10 @@ export default function BucketSelector({
 
   return (
     <View style={styles.container}>
-      <ThemedInputSelect
+      <Selector
         label={label}
         placeholder={defaultPlaceholder}
         options={bucketOptions.filter(option => option.id !== null) as any}
-        optionLabel="name"
-        optionValue="id"
         selectedValue={selectedOption?.id || ""}
         onValueChange={(value) => onBucketChange(value as string || null)}
         isSearchable={searchable}

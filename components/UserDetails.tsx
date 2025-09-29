@@ -17,7 +17,7 @@ import {
   Text,
   useTheme,
 } from "react-native-paper";
-import ThemedInputSelect from "./ui/ThemedInputSelect";
+import Selector from "./ui/Selector";
 import PaperScrollView from "./ui/PaperScrollView";
 
 interface UserDetailsProps {
@@ -239,12 +239,10 @@ export default function UserDetails({ userId }: UserDetailsProps) {
             <Text variant="titleMedium" style={styles.roleLabel}>
               {t("administration.currentRole", { role: "" }).replace(": ", "")}
             </Text>
-            <ThemedInputSelect
+            <Selector
               selectedValue={user.role}
               placeholder={t("administration.selectNewRole")}
               options={roleOptions}
-              optionLabel="name"
-              optionValue="id"
               onValueChange={handleRoleChange}
               isSearchable={false}
             />

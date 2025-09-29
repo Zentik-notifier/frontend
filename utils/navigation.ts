@@ -106,7 +106,7 @@ export function useNavigationUtils() {
 
         navigateToUserProfile: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/user-profile`);
+                router.push(`/(mobile)/(settings)/user/profile`);
             } else {
                 router.push(`/(tablet)/(settings)/user/profile`);
             }
@@ -281,7 +281,7 @@ export function useNavigationUtils() {
 
         navigateToChangePassword: () => {
             if (isMobile) {
-                router.push("/(mobile)/(settings)/change-password");
+                router.push("/(mobile)/(settings)/user/change-password");
             } else {
                 router.push("/(tablet)/(settings)/user/change-password");
             }

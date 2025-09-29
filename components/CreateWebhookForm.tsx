@@ -16,9 +16,8 @@ import { getHttpMethodColor } from "@/utils/webhookUtils";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import PaperScrollView from "@/components/ui/PaperScrollView";
 import IdWithCopyButton from "./IdWithCopyButton";
-import ThemedInputSelect from "./ui/ThemedInputSelect";
+import Selector, { SelectorOption } from "./ui/Selector";
 import {
   Button,
   Card,
@@ -262,9 +261,11 @@ export default function CreateWebhookForm({
     return t(`webhooks.methods.${method}`);
   };
 
-  const httpMethodOptions = httpMethods.map((method) => ({
+  const httpMethodOptions: SelectorOption[] = httpMethods.map((method) => ({
     id: method,
     name: getMethodDisplayName(method),
+    iconColor: getHttpMethodColor(method),
+    iconName: "circle",
   }));
 
   // Header management functions
@@ -288,11 +289,7 @@ export default function CreateWebhookForm({
   };
 
   return (
-    <PaperScrollView
-      loading={loadingWebhook}
-      onRefresh={handleRefresh}
-      contentContainerStyle={styles.scrollContent}
-    >
+    <View>
       <Card style={styles.formContainer} elevation={0}>
         <Card.Content>
           {/* Webhook Name */}
@@ -312,12 +309,10 @@ export default function CreateWebhookForm({
 
           {/* HTTP Method */}
           <View style={styles.inputGroup}>
-            <ThemedInputSelect
+            <Selector
               label={t("webhooks.form.method")}
               placeholder={t("webhooks.form.method")}
               options={httpMethodOptions}
-              optionLabel="name"
-              optionValue="id"
               selectedValue={method}
               onValueChange={(value) => setMethod(value as HttpMethod)}
               isSearchable={false}
@@ -502,20 +497,13 @@ export default function CreateWebhookForm({
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </PaperScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-  },
-  scrollView: {
-    paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
-  },
-  scrollContent: {
-    paddingHorizontal: 16, // Aggiunge il padding orizzontale solo al contenuto
-    paddingBottom: 20,
   },
   description: {
     marginTop: 8,

@@ -17,13 +17,19 @@ import {
 } from "react-native";
 import { useTheme, Icon, Portal } from "react-native-paper";
 import ThemedBottomSheet, { ThemedBottomSheetRef } from "./ThemedBottomSheet";
+import { IconSource } from "react-native-paper/lib/typescript/components/Icon";
 
-interface ThemedInputSelectProps {
+export interface SelectorOption {
+  id: any;
+  name: string;
+  iconName?: IconSource;
+  iconColor?: string;
+}
+
+interface SelectorProps {
   label?: string;
   placeholder?: string;
-  options: any[];
-  optionLabel: string;
-  optionValue: string;
+  options: SelectorOption[];
   selectedValue?: any;
   onValueChange: (value: any) => void;
   isSearchable?: boolean;
@@ -32,17 +38,15 @@ interface ThemedInputSelectProps {
   helperText?: string;
   error?: boolean;
   errorText?: string;
-  mode?: "modal" | "inline"; // Modalità modal o inline
+  mode?: "modal" | "inline";
 }
 
 const { height: screenHeight } = Dimensions.get("window");
 
-export default function ThemedInputSelect({
+export default function Selector({
   label,
   placeholder,
   options,
-  optionLabel,
-  optionValue,
   selectedValue,
   onValueChange,
   isSearchable = false,
@@ -51,8 +55,8 @@ export default function ThemedInputSelect({
   helperText,
   error = false,
   errorText,
-  mode = "modal", // Default alla modalità modal
-}: ThemedInputSelectProps) {
+  mode = "modal",
+}: SelectorProps) {
   const theme = useTheme();
   const { t } = useI18n();
   const [isInlineDropdownOpen, setIsInlineDropdownOpen] = useState(false);
@@ -65,9 +69,7 @@ export default function ThemedInputSelect({
   const containerRef = useRef<View>(null);
   const sheetRef = useRef<ThemedBottomSheetRef>(null);
 
-  const selectedOption = options.find(
-    (option) => option[optionValue] === selectedValue
-  );
+  const selectedOption = options.find((option) => option.id === selectedValue);
 
   const filteredOptions = useMemo(() => {
     if (!isSearchable || !searchQuery.trim()) {
@@ -75,13 +77,13 @@ export default function ThemedInputSelect({
     }
 
     return options.filter((option) =>
-      option[optionLabel].toLowerCase().includes(searchQuery.toLowerCase())
+      option.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [options, searchQuery, optionLabel, isSearchable]);
+  }, [options, searchQuery, isSearchable]);
 
   const toggleInlineDropdown = () => {
     if (!isInlineDropdownOpen) {
-      // Calcola la posizione del dropdown
+      // Calculate the position of the dropdown
       containerRef.current?.measure((x, y, width, height, pageX, pageY) => {
         setDropdownPosition({
           top: pageY + height,
@@ -96,8 +98,8 @@ export default function ThemedInputSelect({
     }
   };
 
-  const handleSelectOption = (option: any) => {
-    onValueChange(option[optionValue]);
+  const handleSelectOption = (option: SelectorOption) => {
+    onValueChange(option.id);
     if (mode === "modal") {
       sheetRef.current?.hide();
     } else {
@@ -129,6 +131,12 @@ export default function ThemedInputSelect({
       paddingVertical: 12,
       minHeight: 48,
     },
+    valueRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      flexShrink: 1,
+    },
     disabledInput: {
       backgroundColor: theme.colors.surfaceDisabled,
       borderColor: theme.colors.outlineVariant,
@@ -154,7 +162,7 @@ export default function ThemedInputSelect({
       color: theme.colors.error,
       marginTop: 4,
     },
-    // Stili per modalità inline
+
     inlineOverlay: {
       position: "absolute",
       top: 0,
@@ -204,6 +212,8 @@ export default function ThemedInputSelect({
       maxHeight: 150,
     },
     inlineOptionItem: {
+      flexDirection: "row",
+      alignItems: "center",
       paddingHorizontal: 16,
       paddingVertical: 12,
       borderBottomWidth: 1,
@@ -229,7 +239,7 @@ export default function ThemedInputSelect({
       color: theme.colors.onSurfaceVariant,
       textAlign: "center",
     },
-    // Stili per modalità modal
+
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -304,7 +314,25 @@ export default function ThemedInputSelect({
     },
   });
 
-  // Render per modalità inline
+  const renderItem = (item?: SelectorOption) => (
+    <View style={styles.valueRow}>
+      {item?.iconName && (
+        <View style={{ marginRight: 8 }}>
+          <Icon
+            source={item.iconName as any}
+            size={16}
+            color={item.iconColor || theme.colors.onSurfaceVariant}
+          />
+        </View>
+      )}
+      <Text style={[styles.inputText, !item && styles.placeholder]}>
+        {item ? item.name : placeholder || t("common.selectOption")}
+      </Text>
+    </View>
+  );
+
+  const selectedItem = renderItem(selectedOption);
+
   const renderInlineMode = () => (
     <View style={styles.container} ref={containerRef}>
       {label && <Text style={styles.label}>{label}</Text>}
@@ -318,11 +346,7 @@ export default function ThemedInputSelect({
         onPress={toggleInlineDropdown}
         disabled={disabled}
       >
-        <Text style={[styles.inputText, !selectedOption && styles.placeholder]}>
-          {selectedOption
-            ? selectedOption[optionLabel]
-            : placeholder || t("common.selectOption")}
-        </Text>
+        {selectedItem}
         <Icon
           source={isInlineDropdownOpen ? "chevron-up" : "chevron-down"}
           size={20}
@@ -336,7 +360,6 @@ export default function ThemedInputSelect({
 
       {errorText && error && <Text style={styles.errorText}>{errorText}</Text>}
 
-      {/* Dropdown inline con Portal */}
       {isInlineDropdownOpen && (
         <Portal>
           {/* Overlay per click esterno */}
@@ -347,10 +370,7 @@ export default function ThemedInputSelect({
           />
 
           <View style={styles.inlineDropdown}>
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={() => {}} // Previene la chiusura quando si clicca sul dropdown
-            >
+            <TouchableOpacity activeOpacity={1} onPress={() => {}}>
               {isSearchable && (
                 <View style={styles.inlineSearchContainer}>
                   <TextInput
@@ -366,9 +386,9 @@ export default function ThemedInputSelect({
               <FlatList
                 style={styles.inlineOptionsList}
                 data={filteredOptions}
-                keyExtractor={(item) => item[optionValue].toString()}
+                keyExtractor={(item) => String(item.id)}
                 renderItem={({ item }) => {
-                  const isSelected = item[optionValue] === selectedValue;
+                  const isSelected = item.id === selectedValue;
                   return (
                     <TouchableOpacity
                       style={[
@@ -377,14 +397,7 @@ export default function ThemedInputSelect({
                       ]}
                       onPress={() => handleSelectOption(item)}
                     >
-                      <Text
-                        style={[
-                          styles.inlineOptionText,
-                          isSelected && styles.inlineSelectedOptionText,
-                        ]}
-                      >
-                        {item[optionLabel]}
-                      </Text>
+                      {renderItem(item)}
                     </TouchableOpacity>
                   );
                 }}
@@ -419,13 +432,26 @@ export default function ThemedInputSelect({
           onPress={show}
           disabled={disabled}
         >
-          <Text
-            style={[styles.inputText, !selectedOption && styles.placeholder]}
-          >
-            {selectedOption
-              ? selectedOption[optionLabel]
-              : placeholder || t("common.selectOption")}
-          </Text>
+          <View style={styles.valueRow}>
+            {selectedOption?.iconName && (
+              <View style={{ marginRight: 8 }}>
+                <Icon
+                  source={selectedOption.iconName}
+                  size={16}
+                  color={
+                    selectedOption.iconColor || theme.colors.onSurfaceVariant
+                  }
+                />
+              </View>
+            )}
+            <Text
+              style={[styles.inputText, !selectedOption && styles.placeholder]}
+            >
+              {selectedOption
+                ? selectedOption.name
+                : placeholder || t("common.selectOption")}
+            </Text>
+          </View>
           <Icon
             source="chevron-down"
             size={20}
@@ -440,16 +466,7 @@ export default function ThemedInputSelect({
         )}
       </View>
     ),
-    [
-      errorText,
-      error,
-      label,
-      placeholder,
-      selectedOption,
-      optionLabel,
-      optionValue,
-      t,
-    ]
+    [errorText, error, label, placeholder, selectedOption, t]
   );
 
   const renderModalMode = () => {
@@ -474,22 +491,15 @@ export default function ThemedInputSelect({
         <FlatList
           style={styles.optionsList}
           data={filteredOptions}
-          keyExtractor={(item) => item[optionValue].toString()}
+          keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => {
-            const isSelected = item[optionValue] === selectedValue;
+            const isSelected = item.id === selectedValue;
             return (
               <TouchableOpacity
                 style={[styles.optionItem, isSelected && styles.selectedOption]}
                 onPress={() => handleSelectOption(item)}
               >
-                <Text
-                  style={[
-                    styles.optionText,
-                    isSelected && styles.selectedOptionText,
-                  ]}
-                >
-                  {item[optionLabel]}
-                </Text>
+                {renderItem(item)}
               </TouchableOpacity>
             );
           }}

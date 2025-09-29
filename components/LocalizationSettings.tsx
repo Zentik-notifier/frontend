@@ -8,7 +8,7 @@ import {
 import { Locale } from "@/types/i18n";
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import ThemedInputSelect from "./ui/ThemedInputSelect";
+import Selector from "./ui/Selector";
 import { Card, Switch, Text, useTheme } from "react-native-paper";
 
 interface LocalizationSettingsProps {
@@ -398,12 +398,10 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
       {/* Language Settings */}
       <Card style={styles.settingCard} elevation={0}>
         <View style={styles.dropdownContainer}>
-          <ThemedInputSelect
+          <Selector
             label={t("appSettings.localization.selectLanguage")}
             placeholder={t("appSettings.localization.selectPlaceholder")}
             options={languageOptions}
-            optionLabel="name"
-            optionValue="id"
             selectedValue={selectedLanguage?.id}
             onValueChange={(value) => handleLanguageSelect(value as Locale)}
             isSearchable={true}
@@ -414,12 +412,10 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
       {/* Timezone Settings */}
       <Card style={styles.settingCard} elevation={0}>
         <View style={styles.dropdownContainer}>
-          <ThemedInputSelect
+          <Selector
             label={t("appSettings.timezone.title")}
             placeholder={t("appSettings.timezone.selectPlaceholder")}
             options={timezoneOptions}
-            optionLabel="name"
-            optionValue="id"
             selectedValue={selectedTimezone?.id}
             onValueChange={(value) => handleTimezoneSelect(value as string)}
             isSearchable={true}
@@ -430,12 +426,10 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
       {/* Date Format Settings */}
       <Card style={styles.settingCard} elevation={0}>
         <View style={styles.dropdownContainer}>
-          <ThemedInputSelect
+          <Selector
             label={t("appSettings.dateFormat.title")}
             placeholder={t("appSettings.dateFormat.selectPlaceholder")}
             options={dateFormatOptions}
-            optionLabel="name"
-            optionValue="id"
             selectedValue={selectedDateFormat?.id}
             onValueChange={(value) =>
               handleDateFormatStyleChange(value as DateFormatStyle)

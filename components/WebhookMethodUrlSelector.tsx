@@ -3,7 +3,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { getHttpMethodColor } from "@/utils/webhookUtils";
 import React from "react";
 import { TextInput, View, StyleSheet } from "react-native";
-import ThemedInputSelect from "./ui/ThemedInputSelect";
+import Selector from "./ui/Selector";
 import { Text, useTheme } from "react-native-paper";
 
 interface WebhookMethodUrlSelectorProps {
@@ -46,12 +46,10 @@ export default function WebhookMethodUrlSelector({
     <>
       {/* HTTP Method Selection */}
       <View style={styles.container}>
-        <ThemedInputSelect
+        <Selector
           label={t('webhooks.form.method')}
           placeholder={t('webhooks.form.method')}
           options={httpMethodOptions}
-          optionLabel="name"
-          optionValue="id"
           selectedValue={selectedMethod?.id}
           onValueChange={(value) => onMethodChange(value as HttpMethod)}
           isSearchable={false}

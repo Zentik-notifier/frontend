@@ -1,4 +1,4 @@
-import EditWebhookSection from "@/components/EditWebhookSection";
+import EditWebhook from "@/components/EditWebhook";
 import { useI18n } from "@/hooks/useI18n";
 import { Stack, useLocalSearchParams } from "expo-router";
 import React from "react";
@@ -10,7 +10,7 @@ export default function EditWebhookScreen() {
   return (
     <>
       <Stack.Screen options={{ title: t("webhooks.edit") }} />
-      <EditWebhookSection webhookId={id as string} />
+      <EditWebhook webhookId={id as string} />
     </>
   );
 }

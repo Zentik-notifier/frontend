@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { Text, useTheme, Button } from "react-native-paper";
-import ThemedInputSelect from "./ui/ThemedInputSelect";
+import Selector from "./ui/Selector";
 import WebhookMethodUrlSelector from "./WebhookMethodUrlSelector";
 
 interface NotificationActionFormProps {
@@ -94,12 +94,10 @@ export default function NotificationActionForm({
         },
       ]}
     >
-      <ThemedInputSelect
+      <Selector
         label={t("notifications.actions.actionType")}
         placeholder={t("notifications.actions.selectActionType")}
         options={actionTypeOptions}
-        optionLabel="name"
-        optionValue="id"
         selectedValue={actionType}
         onValueChange={(value) => {
           onActionTypeChange(value as NotificationActionType);
@@ -113,12 +111,10 @@ export default function NotificationActionForm({
         </Text>
         {actionType === NotificationActionType.Webhook ? (
           hasWebhooks ? (
-            <ThemedInputSelect
+            <Selector
               selectedValue={actionValue}
               placeholder={t("notifications.actions.selectWebhook")}
               options={webhookOptions}
-              optionLabel="name"
-              optionValue="id"
               onValueChange={onActionValueChange}
               isSearchable={true}
             />

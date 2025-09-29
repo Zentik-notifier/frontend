@@ -1,22 +1,20 @@
 import CreateWebhookForm from "@/components/CreateWebhookForm";
+import PaperScrollView from "@/components/ui/PaperScrollView";
 import {
   useDeleteWebhookMutation,
   useGetWebhookQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import React, { useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
-import { Surface, Button, useTheme } from "react-native-paper";
-import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useRouter } from "expo-router";
+import React from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import { Button, Surface, useTheme } from "react-native-paper";
 
-interface EditWebhookSectionProps {
+interface EditWebhookProps {
   webhookId: string;
 }
 
-export default function EditWebhookSection({
-  webhookId,
-}: EditWebhookSectionProps) {
+export default function EditWebhook({ webhookId }: EditWebhookProps) {
   const router = useRouter();
   const theme = useTheme();
   const { t } = useI18n();

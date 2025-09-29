@@ -1,5 +1,5 @@
 import CloseHeader from "@/components/CloseHeader";
-import EditWebhookSection from "@/components/EditWebhookSection";
+import EditWebhook from "@/components/EditWebhook";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useLocalSearchParams } from "expo-router";
 import React from "react";
@@ -13,7 +13,7 @@ export default function EditWebhookScreen() {
   return (
     <>
       <CloseHeader onClose={navigateBack} />
-      <EditWebhookSection webhookId={id as string} />
+      <EditWebhook webhookId={id as string} />
     </>
   );
 }

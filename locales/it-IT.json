@@ -469,7 +469,7 @@
       "description": "Descrizione"
     },
     "form": {
-      "title": "Crea Token di Accesso di Sistema",
+      "title": "Crea Token di Sistema",
       "description": "Crea un nuovo token di accesso di sistema per consentire alle applicazioni esterne di accedere all'API di sistema in modo sicuro.",
       "maxCalls": "Chiamate massime",
       "maxCallsPlaceholder": "Numero massimo di chiamate API consentite",

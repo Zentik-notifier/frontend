@@ -33,7 +33,7 @@ import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
 import NotificationActionsSelector from "./NotificationActionsSelector";
 import NotificationTapActionSelector from "./NotificationTapActionSelector";
 import { Surface, Text, useTheme, Button, Icon } from "react-native-paper";
-import ThemedInputSelect from "./ui/ThemedInputSelect";
+import Selector from "./ui/Selector";
 
 export default function NotificationsSettings() {
   const {
@@ -391,12 +391,10 @@ export default function NotificationsSettings() {
 
           {/* Settings Section */}
           <View style={styles.field}>
-            <ThemedInputSelect
+            <Selector
               label={t("notifications.settings.deliveryType")}
               placeholder={t("notifications.settings.selectDeliveryType")}
               options={deliveryTypeOptions}
-              optionLabel="name"
-              optionValue="id"
               selectedValue={deliveryType}
               onValueChange={(value) =>
                 setDeliveryType(value as NotificationDeliveryType)
@@ -437,12 +435,10 @@ export default function NotificationsSettings() {
             >
               {t("notifications.settings.localeDescription")}
             </Text>
-            <ThemedInputSelect
+            <Selector
               selectedValue={locale}
               placeholder={t("notifications.settings.selectLocale")}
               options={localeOptions}
-              optionLabel="name"
-              optionValue="id"
               onValueChange={(value) => setLocale(value as string)}
               isSearchable={true}
             />

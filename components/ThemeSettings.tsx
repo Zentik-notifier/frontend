@@ -13,7 +13,7 @@ import {
   TextInput,
   useTheme
 } from "react-native-paper";
-import ThemedInputSelect from "./ui/ThemedInputSelect";
+import Selector from "./ui/Selector";
 
 const THEME_PRESETS = getAllThemePresets();
 
@@ -140,12 +140,10 @@ export default function ThemeSettings() {
         <Card.Content>
           {/* Preset Selection */}
           <View style={styles.section}>
-            <ThemedInputSelect
+            <Selector
               label={t("appSettings.theme.selectPreset")}
               placeholder={t("appSettings.theme.selectPresetPlaceholder")}
               options={presetOptions}
-              optionLabel="name"
-              optionValue="id"
               selectedValue={selectedPreset}
               onValueChange={(value) => handlePresetChange(value as ThemePreset)}
               isSearchable={false}

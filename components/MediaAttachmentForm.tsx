@@ -4,7 +4,7 @@ import { useI18n } from "@/hooks/useI18n";
 import React from "react";
 import { StyleSheet, TextInput, View } from "react-native";
 import { Text, Surface, Button, useTheme } from "react-native-paper";
-import ThemedInputSelect from "./ui/ThemedInputSelect";
+import Selector from "./ui/Selector";
 
 interface MediaAttachmentFormProps {
   attachmentType: MediaType | undefined;
@@ -57,12 +57,10 @@ export default function MediaAttachmentForm({
         },
       ]}
     >
-      <ThemedInputSelect
+      <Selector
         label={t("notifications.attachments.mediaType")}
         placeholder={t("notifications.attachments.selectMediaType")}
         options={mediaTypeOptions}
-        optionLabel="name"
-        optionValue="id"
         selectedValue={attachmentType!}
         onValueChange={onAttachmentTypeChange}
         isSearchable={false}

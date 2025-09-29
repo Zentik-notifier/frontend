@@ -22,7 +22,7 @@ import {
   TouchableRipple,
   List,
 } from "react-native-paper";
-import ThemedInputSelect from "./ui/ThemedInputSelect";
+import Selector from "./ui/Selector";
 import NotificationActionsSelector from "./NotificationActionsSelector";
 import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
 
@@ -350,10 +350,8 @@ export default function MessageBuilder({
                     <Text style={styles.inputLabel}>
                       {t("notifications.settings.deliveryType")}
                     </Text>
-                    <ThemedInputSelect
+                    <Selector
                       options={deliveryTypeOptions}
-                      optionLabel="label"
-                      optionValue="value"
                       selectedValue={messageData.deliveryType}
                       onValueChange={(value) =>
                         setMessageData((prev) => ({
