@@ -41,23 +41,6 @@ const ROUTES_WITH_BACK_BUTTON: string[] = [
   "/(mobile)/(home)/bucket/create",
   "/(mobile)/(admin)/",
   "/(mobile)/(settings)/",
-  // "/(mobile)/(settings)/bucket/settings/create",
-  // "/(mobile)/(settings)/change-password",
-  // "/(mobile)/(settings)/user-profile",
-  // "/(mobile)/(settings)/app-settings",
-  // "/(mobile)/(settings)/bucket/list",
-  // "/(mobile)/(settings)/webhook/[id]",
-  // "/(mobile)/(settings)/bucket/[id]",
-  // "/(mobile)/(settings)/bucket/create",
-  // "/(mobile)/(settings)/webhook/list",
-  // "/(mobile)/(settings)/webhook/create",
-  // "/(mobile)/(settings)/access-token/list",
-  // "/(mobile)/(settings)/access-token/create",
-  // "/(mobile)/(settings)/devices",
-  // "/(mobile)/(settings)/notifications",
-  // "/(mobile)/(settings)/user-sessions",
-  // "/(mobile)/(settings)/logs",
-  // "/(mobile)/(admin)/user-management/[id]",
 ];
 
 // Route-based title mapping
@@ -102,16 +85,24 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(tablet)/(settings)/user/change-password": "changePassword.title",
   "/(tablet)/(admin)/user-management/[id]": "administration.userDetails",
   "/(mobile)/(admin)/user-management/[id]": "administration.userDetails",
-  "/(mobile)/(admin)/oauth-providers/create": "administration.oauthProviderForm.createTitle",
-  "/(tablet)/(admin)/oauth-providers/create": "administration.oauthProviderForm.createTitle",
-  "/(mobile)/(admin)/oauth-providers/[id]": "administration.oauthProviderForm.editTitle",
-  "/(tablet)/(admin)/oauth-providers/[id]": "administration.oauthProviderForm.editTitle",
+  "/(mobile)/(admin)/oauth-providers/create":
+    "administration.oauthProviderForm.createTitle",
+  "/(tablet)/(admin)/oauth-providers/create":
+    "administration.oauthProviderForm.createTitle",
+  "/(mobile)/(admin)/oauth-providers/[id]":
+    "administration.oauthProviderForm.editTitle",
+  "/(tablet)/(admin)/oauth-providers/[id]":
+    "administration.oauthProviderForm.editTitle",
   "/(mobile)/(admin)/oauth-providers/list": "administration.oauthProviders",
   "/(tablet)/(admin)/oauth-providers/list": "administration.oauthProviders",
-  "/(tablet)/(admin)/system-access-tokens/list": "administration.systemTokensTitle",
-  "/(mobile)/(admin)/system-access-tokens/list": "administration.systemTokensTitle",
-  "/(tablet)/(admin)/system-access-tokens/create": "systemAccessTokens.form.title",
-  "/(mobile)/(admin)/system-access-tokens/create": "systemAccessTokens.form.title",
+  "/(tablet)/(admin)/system-access-tokens/list":
+    "administration.systemTokensTitle",
+  "/(mobile)/(admin)/system-access-tokens/list":
+    "administration.systemTokensTitle",
+  "/(tablet)/(admin)/system-access-tokens/create":
+    "systemAccessTokens.form.title",
+  "/(mobile)/(admin)/system-access-tokens/create":
+    "systemAccessTokens.form.title",
   "/(mobile)/(admin)/events-review": "eventsReview.title",
   "/(tablet)/(admin)/events-review": "eventsReview.title",
 };
@@ -148,8 +139,8 @@ export default function Header() {
   const shouldShowHomeButton = ROUTES_WITH_HOME_BUTTON.some((route) =>
     currentRoute.includes(route)
   );
-  const shouldShowBackButton = ROUTES_WITH_BACK_BUTTON.some(
-    (route) => currentRoute.includes(route)
+  const shouldShowBackButton = ROUTES_WITH_BACK_BUTTON.some((route) =>
+    currentRoute.includes(route)
   );
   const shouldShowStatusBadges = HOME_ROUTES.some((route) =>
     currentRoute.includes(route)
@@ -284,8 +275,11 @@ export default function Header() {
           <View style={styles.leftSection}>
             {/* Navigation Button */}
             {shouldShowBackButton && (
-              <Surface 
-                style={[styles.buttonWrapper, { backgroundColor: theme.colors.surface }]} 
+              <Surface
+                style={[
+                  styles.buttonWrapper,
+                  { backgroundColor: theme.colors.surface },
+                ]}
                 elevation={2}
               >
                 <TouchableRipple
@@ -314,8 +308,11 @@ export default function Header() {
             )}
 
             {shouldShowHomeButton && (
-              <Surface 
-                style={[styles.buttonWrapper, { backgroundColor: theme.colors.surface }]} 
+              <Surface
+                style={[
+                  styles.buttonWrapper,
+                  { backgroundColor: theme.colors.surface },
+                ]}
                 elevation={2}
               >
                 <TouchableRipple
