@@ -1,32 +1,22 @@
-import { MediaType } from "@/generated/gql-operations-generated";
+import { useAppContext } from "@/contexts/AppContext";
+import { GalleryProvider, useGalleryContext } from "@/contexts/GalleryContext";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useAppContext } from "@/contexts/AppContext";
-import { CacheItem, mediaCache } from "@/services/media-cache";
-import { saveMediaToGallery } from "@/services/media-gallery";
-import { formatFileSize } from "@/utils";
-import { GalleryProvider, useGalleryContext } from "@/contexts/GalleryContext";
-import React, { useMemo, useState, useEffect } from "react";
+import { CacheItem } from "@/services/media-cache";
+import React, { useMemo, useState } from "react";
 import {
-  Alert,
   Dimensions,
   Pressable,
   RefreshControl,
-  SectionList,
+  // SectionList,
   StyleSheet,
   View,
 } from "react-native";
-import {
-  Surface,
-  Text,
-  TouchableRipple,
-  Icon,
-  useTheme,
-} from "react-native-paper";
+import { FlashList, ListRenderItemInfo } from "@shopify/flash-list";
+import { Icon, Surface, Text, useTheme } from "react-native-paper";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
 import GalleryFilters from "./GalleryFilters";
-import { MediaTypeIcon } from "./MediaTypeIcon";
 
 export function GallerySectionWithContext() {
   return (
@@ -179,6 +169,45 @@ export default function GallerySection() {
     );
   };
 
+  // Build FlashList data from sections (headers + rows)
+  const flashData = useMemo(
+    () =>
+      sections.flatMap((section) => [
+        {
+          type: "header" as const,
+          key: `h-${section.title}`,
+          title: section.title,
+        },
+        ...section.data.map((row: CacheItem[], idx: number) => ({
+          type: "row" as const,
+          key: `r-${section.title}-${idx}`,
+          items: row,
+        })),
+      ]),
+    [sections]
+  );
+
+  const renderFlashItem = ({ item }: ListRenderItemInfo<any>) => {
+    if (item.type === "header") {
+      return (
+        <View style={styles.dateSection}>
+          <Text
+            style={[
+              styles.dateSectionTitle,
+              { color: theme.colors.onBackground },
+            ]}
+          >
+            {item.title}
+          </Text>
+        </View>
+      );
+    }
+    // row with media items
+    return renderMediaRow({ item: item.items as CacheItem[] });
+  };
+
+  const getItemType = (item: any) => item.type;
+
   return (
     <Surface
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -189,16 +218,15 @@ export default function GallerySection() {
     >
       <GalleryFilters />
 
-      <SectionList
-        sections={sections}
-        keyExtractor={(row, index) => `${row[0]?.key || "row"}-${index}`}
-        renderItem={renderMediaRow}
-        renderSectionHeader={renderSectionHeader}
+      <FlashList
+        data={flashData}
+        keyExtractor={(item) => item.key}
+        renderItem={renderFlashItem}
         contentContainerStyle={[
           styles.galleryContainer,
           filteredMedia.length === 0 && styles.emptyListContainer,
         ]}
-        windowSize={3}
+        getItemType={getItemType}
         refreshControl={
           <RefreshControl
             refreshing={false}
@@ -209,7 +237,6 @@ export default function GallerySection() {
         }
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmptyState}
-        stickySectionHeadersEnabled={false}
       />
 
       {fullscreenIndex >= 0 && flatOrder[fullscreenIndex] && (
