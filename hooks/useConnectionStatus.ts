@@ -3,8 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as Updates from 'expo-updates';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDeviceRegistrationStatus } from './useDeviceRegistrationStatus';
-import { UsePushNotifications, usePushNotifications } from './usePushNotifications';
-import { useAppContext } from '@/contexts/AppContext';
+import { UsePushNotifications } from './usePushNotifications';
 
 
 export type GetPriorityStatus = () => {
@@ -181,7 +180,7 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
     if (push?.pushPermissionError) {
       return {
         type: 'push-permissions',
-        icon: 'notifications-outline',
+        icon: 'bell-outline',
         label: 'Notifiche disabilitate',
         action: null,
         color: '#FF3B30'
@@ -190,7 +189,7 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
     if (isDeviceRegistered === false && !isDeviceRegistrationLoading) {
       return {
         type: 'push-notifications',
-        icon: 'notifications-off',
+        icon: 'bell-off',
         label: 'Dispositivo non registrato per le notifiche push',
         action: null,
         color: '#FF3B30'
@@ -200,7 +199,7 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
     if (hasUpdateAvailable) {
       return {
         type: 'update',
-        icon: 'refresh-circle',
+        icon: 'refresh',
         label: 'Aggiornamento disponibile',
         action: applyUpdate,
         color: '#007AFF'
@@ -210,7 +209,7 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
     if (isOfflineAuth) {
       return {
         type: 'offline',
-        icon: 'cloud-offline',
+        icon: 'cloud-off',
         label: 'Modalità offline',
         action: null, // Si aprirà il modal di login
         color: '#FF3B30'
@@ -220,7 +219,7 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
     if (isBackendUnreachable) {
       return {
         type: 'backend',
-        icon: 'server-outline',
+        icon: 'server',
         label: 'Backend non raggiungibile',
         action: null,
         color: '#FF9500'
@@ -230,7 +229,7 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
     if (!isOnline) {
       return {
         type: 'network',
-        icon: 'wifi-outline',
+        icon: 'wifi-off',
         label: 'Nessuna connessione',
         action: null,
         color: '#FF3B30'

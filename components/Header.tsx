@@ -33,6 +33,7 @@ const HOME_ROUTES: string[] = [
   "/(mobile)/(home)/(tabs)/notifications",
   "/(mobile)/(home)/(tabs)/buckets",
   "/(mobile)/(home)/(tabs)/gallery",
+  "/(tablet)/(home)/",
 ];
 
 // Routes that should show back button
@@ -433,7 +434,6 @@ export default function Header() {
                   { backgroundColor: status.color },
                   !isStatusClickable && styles.statusBadgeNonClickable,
                 ]}
-                contentStyle={styles.statusBadgeContent}
               >
                 <Icon source={getStatusIcon() as any} size={16} color="#fff" />
                 <Text variant="labelSmall" style={styles.statusText}>
@@ -679,14 +679,6 @@ const styles = StyleSheet.create({
   statusBadge: {
     marginRight: 8,
     minHeight: 28,
-  },
-  statusBadgeContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
   },
   statusBadgeNonClickable: {
     opacity: 0.9,
