@@ -255,13 +255,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
   const toggleReadAction = isRead
     ? {
-        icon: "view" as const,
+        icon: "eye" as const,
         label: t("swipeActions.markAsUnread.label"),
         backgroundColor: "#007AFF",
         onPress: handleMarkAsUnread,
       }
     : {
-        icon: "view-off" as const,
+        icon: "eye-off" as const,
         label: t("swipeActions.markAsRead.label"),
         backgroundColor: "#28a745",
         onPress: handleMarkAsRead,

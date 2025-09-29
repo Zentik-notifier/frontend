@@ -32,7 +32,9 @@ import {
   Text,
   TouchableRipple,
   useTheme,
+  IconButton,
 } from "react-native-paper";
+import ButtonGroup from "./ui/ButtonGroup";
 import { NotificationActionsMenu } from "./NotificationActionsMenu";
 
 interface NotificationDetailProps {
@@ -243,84 +245,33 @@ export default function NotificationDetail({
             <View style={styles.headerRight}>
               {/* Actions */}
               <View style={styles.actionsContainer}>
-                <TouchableRipple
-                  style={[
-                    styles.actionButton,
-                    {
-                      backgroundColor: theme.colors.surfaceVariant,
-                    },
-                  ]}
-                  onPress={copyNotificationToClipboard}
-                >
-                  <View>
-                    <Icon
-                      source="content-copy"
-                      size={16}
-                      color={theme.colors.onSurfaceVariant}
-                    />
-                  </View>
-                </TouchableRipple>
-                <TouchableRipple
-                  style={[
-                    styles.actionButton,
-                    {
-                      backgroundColor: theme.colors.surfaceVariant,
-                    },
-                  ]}
-                  onPress={shareNotification}
-                >
-                  <View>
-                    <Icon
-                      source="share"
-                      size={16}
-                      color={theme.colors.onSurfaceVariant}
-                    />
-                  </View>
-                </TouchableRipple>
-                <TouchableRipple
-                  style={[
-                    styles.actionButton,
-                    {
-                      backgroundColor: theme.colors.error,
-                    },
-                  ]}
-                  onPress={handleDeleteNotification}
-                >
-                  <View>
-                    <Icon
-                      source="delete"
-                      size={16}
-                      color={theme.colors.onError}
-                    />
-                  </View>
-                </TouchableRipple>
-
-                {message?.deliveryType !== NotificationDeliveryType.Normal && (
-                  <TouchableRipple
-                    style={[
-                      styles.actionButton,
-                      {
-                        backgroundColor: getDeliveryTypeColor(
-                          message?.deliveryType as NotificationDeliveryType
-                        ),
-                      },
-                    ]}
-                    disabled
-                  >
-                    <View>
-                      <Text
-                        style={[
-                          styles.statusText,
-                          { color: theme.colors.onPrimary },
-                        ]}
-                      >
-                        {getDeliveryTypeFriendlyName(
-                          message?.deliveryType as NotificationDeliveryType
-                        )}
-                      </Text>
-                    </View>
-                  </TouchableRipple>
-                )}
+                <ButtonGroup>
+                  <IconButton
+                    icon="content-copy"
+                    size={18}
+                    iconColor={theme.colors.onSurfaceVariant}
+                    style={styles.actionButton}
+                    onPress={copyNotificationToClipboard}
+                    accessibilityLabel="copy-notification"
+                  />
+                  <IconButton
+                    icon="share"
+                    size={18}
+                    iconColor={theme.colors.onSurfaceVariant}
+                    style={styles.actionButton}
+                    onPress={shareNotification}
+                    accessibilityLabel="share-notification"
+                  />
+                  <IconButton
+                    icon="delete"
+                    size={18}
+                    iconColor={theme.colors.error}
+                    style={styles.actionButton}
+                    onPress={handleDeleteNotification}
+                    accessibilityLabel="delete-notification"
+                  />
+                {/* priority badge removed from this group */}
+                </ButtonGroup>
               </View>
 
               {/* Timestamps */}
@@ -517,6 +468,19 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: "500",
+  },
+  priorityBadge: {
+    paddingHorizontal: 4,
+    height: 30,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+  },
+  priorityBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    textTransform: "uppercase",
   },
   timestampsContainer: {
     flexDirection: "column",

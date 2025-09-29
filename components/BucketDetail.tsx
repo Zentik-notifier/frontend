@@ -14,7 +14,9 @@ import {
   Text,
   TouchableRipple,
   useTheme,
+  IconButton,
 } from "react-native-paper";
+import ButtonGroup from "./ui/ButtonGroup";
 import BucketIcon from "./BucketIcon";
 import MessageBuilder from "./MessageBuilder";
 import { NotificationsListWithContext } from "./NotificationsList";
@@ -129,94 +131,77 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
       {/* Action Block (Top row: mark/edit/copy; Bottom row: snooze) */}
       <View style={styles.actionBlock}>
         <View style={styles.actionTopRow}>
-          {/* Mark All as Read - rectangular button with badge */}
-          <View style={{ position: "relative" }}>
-            <TouchableRipple
+          <ButtonGroup>
+            <View style={{ position: "relative" }}>
+              <IconButton
+                icon="check-all"
+                size={18}
+                iconColor={
+                  unreadNotifications.length > 0
+                    ? theme.colors.onPrimary
+                    : theme.colors.onSurfaceVariant
+                }
+                style={[
+                  styles.actionButton,
+                  {
+                    backgroundColor:
+                      unreadNotifications.length > 0
+                        ? theme.colors.primary
+                        : theme.colors.surfaceVariant,
+                    width: 32,
+                    height: 32,
+                  },
+                ]}
+                onPress={handleMarkAllAsRead}
+                disabled={
+                  unreadNotifications.length === 0 || markAllAsReadLoading
+                }
+                accessibilityLabel="mark-all-as-read"
+              />
+              {unreadNotifications.length > 0 && (
+                <Badge
+                  size={16}
+                  style={{ position: "absolute", top: -2, right: -2 }}
+                >
+                  {unreadNotifications.length}
+                </Badge>
+              )}
+            </View>
+
+            <IconButton
+              icon="pencil"
+              size={18}
+              iconColor={theme.colors.onSurfaceVariant}
+              style={[
+                styles.actionButton,
+                { backgroundColor: theme.colors.surfaceVariant, width: 32, height: 32 },
+              ]}
+              onPress={() => navigateToEditBucket(bucketId, true)}
+              accessibilityLabel="edit-bucket"
+            />
+
+            <CopyButton
+              text={bucketId}
+              size={16}
               style={[
                 styles.actionButton,
                 {
-                  backgroundColor:
-                    unreadNotifications.length > 0
-                      ? theme.colors.primary
-                      : theme.colors.surfaceVariant,
+                  backgroundColor: theme.colors.surfaceVariant,
                   width: 32,
                   height: 32,
+                  margin: 0,
+                  padding: 0,
                 },
               ]}
-              onPress={handleMarkAllAsRead}
-              disabled={
-                unreadNotifications.length === 0 || markAllAsReadLoading
-              }
-            >
-              <View>
-                <Icon
-                  source="check-all"
-                  size={16}
-                  color={
-                    unreadNotifications.length > 0
-                      ? theme.colors.onPrimary
-                      : theme.colors.onSurfaceVariant
-                  }
-                />
-              </View>
-            </TouchableRipple>
-            {unreadNotifications.length > 0 && (
-              <Badge
-                size={16}
-                style={{ position: "absolute", top: -2, right: -2 }}
-              >
-                {unreadNotifications.length}
-              </Badge>
-            )}
-          </View>
+            />
 
-          {/* Edit Button */}
-          <TouchableRipple
-            style={[
-              styles.actionButton,
-              {
-                backgroundColor: theme.colors.surfaceVariant,
-                width: 32,
-                height: 32,
-              },
-            ]}
-            onPress={() => navigateToEditBucket(bucketId, true)}
-          >
-            <View>
-              <Icon
-                source="pencil"
-                size={16}
-                color={theme.colors.onSurfaceVariant}
-              />
-            </View>
-          </TouchableRipple>
-
-          {/* Copy Bucket ID Button */}
-          <CopyButton
-            text={bucketId}
-            size={16}
-            style={[
-              styles.actionButton,
-              {
-                backgroundColor: theme.colors.surfaceVariant,
-                width: 32,
-                height: 32,
-                margin: 0,
-                padding: 0,
-              },
-            ]}
-          />
-
-          {/* Snooze Button */}
-          <NotificationSnoozeButton
-            bucketId={bucketId}
-            variant="detail"
-            showText={false}
-            style={{
-              width: 32,
-              height: 32,
-            }}
-          />
+            <NotificationSnoozeButton
+              bucketId={bucketId}
+              variant="detail"
+              showText={false}
+              style={{ width: 32, height: 32 }}
+            />
+          </ButtonGroup>
         </View>
       </View>
     </Surface>

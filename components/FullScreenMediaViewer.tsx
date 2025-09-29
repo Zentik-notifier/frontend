@@ -90,7 +90,7 @@ export default function FullScreenMediaViewer({
     opacity: backdropOpacity.value,
   }));
 
-  // Pan gesture for moving, closing, and navigation
+  // Pan gesture for moving and closing (no horizontal navigation)
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       // If zoomed in, allow panning
@@ -98,16 +98,13 @@ export default function FullScreenMediaViewer({
         translateX.value = e.translationX;
         translateY.value = e.translationY;
       } else {
-        // If not zoomed, allow vertical swipe to close and horizontal swipe to navigate
+        // If not zoomed, allow vertical swipe to close
         if (Math.abs(e.translationY) > Math.abs(e.translationX)) {
           // Vertical swipe - close gesture
           if (e.translationY > 0) {
             translateY.value = e.translationY;
             backdropOpacity.value = 1 - Math.min(e.translationY / 300, 0.5);
           }
-        } else if (enableSwipeNavigation) {
-          // Horizontal swipe - navigation gesture (only if enabled)
-          translateX.value = e.translationX;
         }
       }
     })
@@ -116,10 +113,11 @@ export default function FullScreenMediaViewer({
         // Save pan position when zoomed
         savedTranslateX.value += translateX.value;
         savedTranslateY.value += translateY.value;
-        translateX.value = withSpring(0);
-        translateY.value = withSpring(0);
+        // Reset immediately to avoid bounce effect
+        translateX.value = 0;
+        translateY.value = 0;
       } else {
-        // Handle gestures based on primary direction
+        // Handle gestures based on primary direction (no horizontal navigation)
         if (Math.abs(e.translationY) > Math.abs(e.translationX)) {
           // Vertical swipe - handle close
           if (e.translationY > 120 || e.velocityY > 800) {
@@ -130,22 +128,9 @@ export default function FullScreenMediaViewer({
             translateY.value = withSpring(0);
             backdropOpacity.value = withSpring(1);
           }
-        } else if (enableSwipeNavigation) {
-          // Horizontal swipe - handle navigation (circolare)
-          if (e.translationX > 100 && onSwipeRight) {
-            // Swipe right - call onSwipeRight (navigazione circolare)
-            translateX.value = withTiming(0, { duration: 200 }, () => {
-              runOnJS(onSwipeRight)();
-            });
-          } else if (e.translationX < -100 && onSwipeLeft) {
-            // Swipe left - call onSwipeLeft (navigazione circolare)
-            translateX.value = withTiming(0, { duration: 200 }, () => {
-              runOnJS(onSwipeLeft)();
-            });
-          } else {
-            // Reset position
-            translateX.value = withSpring(0);
-          }
+        } else {
+          // Reset horizontal position if minor horizontal movement occurred
+          translateX.value = withSpring(0);
         }
       }
     });
