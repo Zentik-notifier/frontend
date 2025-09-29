@@ -25,7 +25,6 @@ export interface ThemedBottomSheetProps {
   title?: string;
   children: ReactNode;
   trigger: ThemedBottomSheetTrigger;
-  footer?: ReactNode;
 }
 
 export interface ThemedBottomSheetRef {
@@ -36,7 +35,7 @@ export interface ThemedBottomSheetRef {
 const ThemedBottomSheet = forwardRef<
   ThemedBottomSheetRef,
   ThemedBottomSheetProps
->(({ title, children, trigger, footer }, ref) => {
+>(({ title, children, trigger }, ref) => {
   const theme = useTheme();
   const [slideAnim] = useState(new Animated.Value(screenHeight));
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -99,13 +98,6 @@ const ThemedBottomSheet = forwardRef<
     closeButton: {
       padding: 8,
     },
-    footer: {
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-      paddingBottom: 32,
-      borderTopWidth: 1,
-      borderTopColor: theme.colors.outlineVariant,
-    },
   });
 
   const handleTriggerPress = useCallback(() => {
@@ -153,8 +145,6 @@ const ThemedBottomSheet = forwardRef<
               </View>
 
               {children}
-
-              {footer && <View style={styles.footer}>{footer}</View>}
             </TouchableOpacity>
           </Animated.View>
         </TouchableOpacity>
