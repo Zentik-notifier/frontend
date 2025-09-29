@@ -220,6 +220,8 @@
       "title": "Title",
       "subtitle": "Subtitle",
       "body": "Message",
+      "more": "More",
+      "moreDescription": "Additional options",
       "actions": "Actions",
       "attachments": "Attachments",
       "titlePlaceholder": "Enter message title",
@@ -753,6 +755,7 @@
     "undefined": "Others"
   },
   "common": {
+    "add": "Add",
     "home": "Homepage",
     "cancel": "Cancel",
     "save": "Save",

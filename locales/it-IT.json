@@ -220,6 +220,8 @@
       "title": "Titolo",
       "subtitle": "Sottotitolo",
       "body": "Messaggio",
+      "more": "Altro",
+      "moreDescription": "Opzioni aggiuntive",
       "actions": "Azioni",
       "attachments": "Allegati",
       "titlePlaceholder": "Inserisci il titolo del messaggio",
@@ -754,6 +756,7 @@
   },
   "common": {
     "home": "Homepage",
+    "add": "Aggiungi",
     "cancel": "Annulla",
     "importing": "Importo...",
     "save": "Salva",

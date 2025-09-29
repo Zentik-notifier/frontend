@@ -661,7 +661,7 @@ export default function NotificationsSettings() {
                     !snoozeTimeInput.trim() || parseInt(snoozeTimeInput) <= 0
                   }
                 >
-                  Add
+                  {t("common.add")}
                 </Button>
               </View>
             </View>

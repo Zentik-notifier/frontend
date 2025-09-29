@@ -122,6 +122,10 @@ export const NotificationActionsMenu: React.FC<
     notification.id,
   ]);
 
+  if (!hasActions) {
+    return null;
+  }
+
   return (
     <Menu>
       <MenuTrigger>

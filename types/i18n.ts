@@ -597,6 +597,7 @@ export interface TranslationKey {
   };
   common: {
     home: string;
+    add: string;
     actionError: string;
     actionFailed: string;
     all: string;
