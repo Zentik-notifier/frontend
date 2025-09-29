@@ -4,11 +4,7 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useRef, useState } from "react";
-import {
-  FlatList,
-  StyleSheet,
-  View,
-} from "react-native";
+import { FlatList, StyleSheet, View } from "react-native";
 import { Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
 import { CachedMedia } from "./CachedMedia";
 import { MediaTypeIcon } from "./MediaTypeIcon";
@@ -42,7 +38,7 @@ const AttachmentItem: React.FC<AttachmentItemProps> = ({
 }) => {
   const getDynamicItemStyles = (containerWidth: number) => {
     if (containerWidth === 0) return {};
-    
+
     return {
       attachmentContainer: {
         width: "100%",
@@ -58,9 +54,15 @@ const AttachmentItem: React.FC<AttachmentItemProps> = ({
   };
 
   const dynamicItemStyles = getDynamicItemStyles(containerWidth);
-  const containerStyle = [styles.attachmentContainer, dynamicItemStyles.attachmentContainer];
+  const containerStyle = [
+    styles.attachmentContainer,
+    dynamicItemStyles.attachmentContainer,
+  ];
   const singleAttachmentStyle = isSingle
-    ? [styles.singleAttachmentContainer, dynamicItemStyles.singleAttachmentContainer]
+    ? [
+        styles.singleAttachmentContainer,
+        dynamicItemStyles.singleAttachmentContainer,
+      ]
     : [];
   const finalContainerStyle = [...containerStyle, ...singleAttachmentStyle];
 
@@ -93,7 +95,7 @@ const AttachmentItem: React.FC<AttachmentItemProps> = ({
   };
 
   const itemContainerStyle = isSingle
-    ? [styles.itemContainer, styles.singleItemContainer]
+    ? [styles.itemContainer]
     : [styles.itemContainer];
 
   return (
@@ -142,14 +144,13 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
 
   const getDynamicStyles = (containerWidth: number) => {
     if (containerWidth === 0) return {};
-    
+
     return {
       itemContainer: {
-        width: containerWidth * 0.4,
+        width: containerWidth,
       },
       singleItemContainer: {
-        width: containerWidth - 32, // Account for container padding
-        paddingHorizontal: 16, // Internal padding for content
+        width: containerWidth,
       },
       attachmentContainer: {
         width: "100%",
@@ -173,7 +174,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
     item: NotificationAttachmentDto;
     index: number;
   }) => (
-    <View style={[styles.singleItemContainer, dynamicStyles.singleItemContainer]}>
+    <View style={[dynamicStyles.singleItemContainer]}>
       <AttachmentItem
         attachment={item}
         onPress={() => handleAttachmentPress(item)}
@@ -186,22 +187,30 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   );
 
   return (
-    <Surface 
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    <View
+      style={[styles.container]}
       onLayout={(event) => {
         const { width } = event.nativeEvent.layout;
         setContainerWidth(width);
       }}
     >
       <View style={styles.headerContainer}>
-        <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
+        <Text
+          style={[styles.sectionTitle, { color: theme.colors.onBackground }]}
+        >
           {t("attachmentGallery.attachments", { count: attachments.length })}
         </Text>
       </View>
 
       {/* Attachment Selector */}
       {attachments.length > 1 && (
-        <View style={styles.selectorContainer}>
+        <Surface
+          style={[
+            styles.selectorContainer,
+            { backgroundColor: theme.colors.surface },
+          ]}
+          elevation={0}
+        >
           <View style={styles.selectorScrollView}>
             {attachments.map((attachment, index) => {
               const isActive = currentIndex !== -1 && index === currentIndex;
@@ -224,7 +233,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
                   <View>
                     <MediaTypeIcon
                       mediaType={attachment.mediaType}
-                      size={16}
+                      size={14}
                       base
                       showLabel
                       label={attachment.name}
@@ -234,34 +243,39 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
               );
             })}
           </View>
-        </View>
+        </Surface>
       )}
 
-      <FlatList
-        ref={flatListRef}
-        data={attachments}
-        renderItem={renderAttachment}
-        keyExtractor={(item, index) => `${item.url}-${index}`}
-        horizontal={true}
-        showsHorizontalScrollIndicator={false}
-        onScrollBeginDrag={() => {
-          // Pause all media when user starts scrolling
-          setCurrentIndex(-1);
-        }}
-        onMomentumScrollEnd={(event) => {
-          if (containerWidth > 0) {
-            const newIndex = Math.round(
-              event.nativeEvent.contentOffset.x / (containerWidth - 32)
-            );
-            setCurrentIndex(newIndex);
-          }
-        }}
-        pagingEnabled={true}
-        scrollEnabled={true}
-        decelerationRate="fast"
-        snapToInterval={containerWidth > 0 ? containerWidth - 32 : undefined}
-        snapToAlignment="start"
-      />
+      <Surface
+        style={[styles.mediaSurface, { backgroundColor: theme.colors.surface }]}
+        elevation={0}
+      >
+        <FlatList
+          ref={flatListRef}
+          data={attachments}
+          renderItem={renderAttachment}
+          keyExtractor={(item, index) => `${item.url}-${index}`}
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          onScrollBeginDrag={() => {
+            // Pause all media when user starts scrolling
+            setCurrentIndex(-1);
+          }}
+          onMomentumScrollEnd={(event) => {
+            if (containerWidth > 0) {
+              const newIndex = Math.round(
+                event.nativeEvent.contentOffset.x / containerWidth
+              );
+              setCurrentIndex(newIndex);
+            }
+          }}
+          pagingEnabled={true}
+          scrollEnabled={true}
+          decelerationRate="fast"
+          snapToInterval={containerWidth > 0 ? containerWidth : undefined}
+          snapToAlignment="start"
+        />
+      </Surface>
 
       {attachments.length > 1 && (
         <View style={styles.paginationContainer}>
@@ -287,7 +301,7 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           ))}
         </View>
       )}
-    </Surface>
+    </View>
   );
 };
 
@@ -307,8 +321,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   selectorContainer: {
-    paddingHorizontal: 16,
+    paddingVertical: 8,
     marginBottom: 12,
+    borderRadius: 12,
   },
   selectorScrollView: {
     flexDirection: "row",
@@ -325,6 +340,10 @@ const styles = StyleSheet.create({
     borderColor: "#E5E5E5",
     backgroundColor: "transparent",
     gap: 6,
+  },
+  mediaSurface: {
+    borderRadius: 12,
+    overflow: "hidden",
   },
   selectorButtonText: {
     fontSize: 12,
@@ -354,10 +373,6 @@ const styles = StyleSheet.create({
   },
   itemContainer: {
     // Dynamic width will be set via getDynamicStyles
-  },
-  singleItemContainer: {
-    // Dynamic width and padding will be set via getDynamicStyles
-    paddingHorizontal: 0, // Will be overridden by dynamic styles
   },
   attachmentContainer: {
     width: "100%",

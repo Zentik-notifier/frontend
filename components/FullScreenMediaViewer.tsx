@@ -18,6 +18,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { CachedMedia } from "./CachedMedia";
+import ButtonGroup from "./ui/ButtonGroup";
 
 interface FullScreenMediaViewerProps {
   visible: boolean;
@@ -63,6 +64,10 @@ export default function FullScreenMediaViewer({
     y: number;
     width: number;
     height: number;
+  } | null>(null);
+  const [cacheInfo, setCacheInfo] = useState<{
+    localPath?: string;
+    size?: number;
   } | null>(null);
 
   // Swipe down to close: animate media container
@@ -208,6 +213,24 @@ export default function FullScreenMediaViewer({
     }
   }, [visible]);
 
+  // Load cache info when modal opens
+  useEffect(() => {
+    if (visible && url && mediaType) {
+      const loadCacheInfo = async () => {
+        try {
+          const source = await mediaCache.getCachedItem(url, mediaType);
+          setCacheInfo({
+            localPath: source?.localPath,
+            size: source?.size,
+          });
+        } catch {
+          setCacheInfo(null);
+        }
+      };
+      loadCacheInfo();
+    }
+  }, [visible, url, mediaType]);
+
   const handleCopyUrl = async () => {
     try {
       await Clipboard.setStringAsync(url);
@@ -303,15 +326,12 @@ export default function FullScreenMediaViewer({
           ]}
         >
           {enableSwipeNavigation && (
-            <View style={styles.navigationSection}>
+            <ButtonGroup style={styles.navigationSection}>
               <IconButton
                 icon="chevron-left"
                 size={18}
                 iconColor={textColor}
-                style={[
-                  styles.iconButton,
-                  { backgroundColor: bgSecondary },
-                ]}
+                style={styles.iconButton}
                 onPress={onSwipeRight}
                 accessibilityLabel="previous-media"
               />
@@ -324,23 +344,20 @@ export default function FullScreenMediaViewer({
                 icon="chevron-right"
                 size={18}
                 iconColor={textColor}
-                style={[
-                  styles.iconButton,
-                  { backgroundColor: bgSecondary },
-                ]}
+                style={styles.iconButton}
                 onPress={onSwipeLeft}
                 accessibilityLabel="next-media"
               />
-            </View>
+            </ButtonGroup>
           )}
 
-          {/* Action buttons */}
-          <View style={styles.actionButtons}>
+          {/* Action buttons (grouped) */}
+          <ButtonGroup>
             <IconButton
               icon="content-copy"
               size={18}
               iconColor={textColor}
-              style={[styles.iconButton, { backgroundColor: bgSecondary }]}
+              style={styles.iconButton}
               onPress={handleCopyUrl}
               accessibilityLabel="copy-url"
             />
@@ -348,7 +365,7 @@ export default function FullScreenMediaViewer({
               icon="download"
               size={18}
               iconColor={textColor}
-              style={[styles.iconButton, { backgroundColor: bgSecondary }]}
+              style={styles.iconButton}
               onPress={handleSave}
               accessibilityLabel="save-to-gallery"
             />
@@ -356,7 +373,7 @@ export default function FullScreenMediaViewer({
               icon="share"
               size={18}
               iconColor={textColor}
-              style={[styles.iconButton, { backgroundColor: bgSecondary }]}
+              style={styles.iconButton}
               onPress={handleShare}
               accessibilityLabel="share"
             />
@@ -364,7 +381,7 @@ export default function FullScreenMediaViewer({
               icon="delete"
               size={18}
               iconColor={theme.colors.error}
-              style={[styles.iconButton, { backgroundColor: bgSecondary }]}
+              style={styles.iconButton}
               onPress={handleDelete}
               accessibilityLabel="delete"
             />
@@ -372,21 +389,13 @@ export default function FullScreenMediaViewer({
               icon="close"
               size={18}
               iconColor={textColor}
-              style={[styles.iconButton, { backgroundColor: bgSecondary }]}
+              style={styles.iconButton}
               onPress={onClose}
               accessibilityLabel="close"
             />
-          </View>
+          </ButtonGroup>
         </View>
 
-        {/* Second row with cached date */}
-        {notificationDate && (
-          <View style={[styles.secondRow, { backgroundColor: bgSecondary }]}>
-            <Text style={[styles.cachedDateText, { color: textColor }]}>
-              {t("gallery.cachedOn")}: {formatDate(new Date(notificationDate))}
-            </Text>
-          </View>
-        )}
 
         {/* Content with tap-to-close only outside media and gesture support on media */}
         <View
@@ -439,8 +448,8 @@ export default function FullScreenMediaViewer({
           </GestureDetector>
         </View>
 
-        {/* Bottom description with title */}
-        {(description || originalFileName) && (
+        {/* Bottom description with title and cache info */}
+        {(description || originalFileName || cacheInfo || notificationDate) && (
           <View style={[styles.bottomBar, { bottom: insets.bottom + 16 }]}>
             {originalFileName ? (
               <Text
@@ -458,6 +467,30 @@ export default function FullScreenMediaViewer({
                 {description}
               </Text>
             ) : null}
+            
+            {/* Cache info section */}
+            <View style={styles.cacheInfoSection}>
+              {notificationDate && (
+                <Text style={[styles.cacheInfoText, { color: textColor }]}>
+                  {t("gallery.cachedOn")}: {formatDate(new Date(notificationDate))}
+                </Text>
+              )}
+              {cacheInfo?.localPath && (
+                <Text style={[styles.cacheInfoText, { color: textColor }]}>
+                  Local: {cacheInfo.localPath.split('/').pop()}
+                </Text>
+              )}
+              {url && (
+                <Text style={[styles.cacheInfoText, { color: textColor }]} numberOfLines={1}>
+                  URL: {url}
+                </Text>
+              )}
+              {cacheInfo?.size && (
+                <Text style={[styles.cacheInfoText, { color: textColor }]}>
+                  Size: {(cacheInfo.size / 1024 / 1024).toFixed(2)} MB
+                </Text>
+              )}
+            </View>
           </View>
         )}
       </View>
@@ -480,26 +513,11 @@ const styles = StyleSheet.create({
   },
   topBarWithNavigation: { justifyContent: "space-between" },
   topBarActionsOnly: { justifyContent: "flex-end" },
-  navigationSection: { flexDirection: "row", alignItems: "center", gap: 12 },
-  actionButtons: { flexDirection: "row", alignItems: "center", gap: 10 },
-  secondRow: {
-    position: "absolute",
-    top: 100,
-    left: 16,
-    right: 16,
-    zIndex: 1,
-    padding: 8,
-    borderRadius: 8,
-  },
-  cachedDateText: {
-    fontSize: 12,
-    opacity: 0.7,
-    textAlign: "center",
-  },
+  navigationSection: { flexDirection: "row", alignItems: "center" },
   iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
   },
   counterText: {
     fontSize: 14,
@@ -517,6 +535,17 @@ const styles = StyleSheet.create({
     right: 16,
     padding: 12,
     borderRadius: 12,
+  },
+  cacheInfoSection: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.1)",
+  },
+  cacheInfoText: {
+    fontSize: 13,
+    opacity: 0.6,
+    marginBottom: 2,
   },
   descTitle: { fontSize: 16, fontWeight: "600", marginBottom: 4 },
   descText: { fontSize: 13 },

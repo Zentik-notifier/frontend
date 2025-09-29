@@ -28,7 +28,7 @@ import {
   View,
 } from "react-native";
 import PaperScrollView from "@/components/ui/PaperScrollView";
-import BucketSelector from "./BucketSelector";
+import BucketSelector, { BUCKET_ALL } from "./BucketSelector";
 import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
 import NotificationActionsSelector from "./NotificationActionsSelector";
 import NotificationTapActionSelector from "./NotificationTapActionSelector";
@@ -134,6 +134,7 @@ export default function NotificationsSettings() {
 
     if (
       !bucketId.trim() ||
+      bucketId === BUCKET_ALL ||
       !bucketsData?.buckets ||
       bucketsData.buckets.length === 0
     ) {
@@ -278,7 +279,9 @@ export default function NotificationsSettings() {
   );
 
   // Webhook options for the picker - when action type is ACTION (external webhook)
-  const webhookOptions: SelectorOption[] = (webhooksData?.userWebhooks || []).map((webhook) => ({
+  const webhookOptions: SelectorOption[] = (
+    webhooksData?.userWebhooks || []
+  ).map((webhook) => ({
     id: webhook.id,
     name: webhook.name,
   }));
@@ -679,13 +682,11 @@ export default function NotificationsSettings() {
             ) : bucketsData?.buckets && bucketsData.buckets.length > 0 ? (
               <BucketSelector
                 label={t("notifications.targeting.bucket")}
-                selectedBucketId={bucketId || null}
+                selectedBucketId={bucketId || BUCKET_ALL}
                 onBucketChange={(id) => setBucketId(id || "")}
                 buckets={bucketsData.buckets}
-                placeholder={t("notifications.targeting.selectBucket")}
                 includeAllOption={false}
                 searchable={true}
-                searchPlaceholder="Search buckets..."
               />
             ) : (
               <View style={styles.field}>

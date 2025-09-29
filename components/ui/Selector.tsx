@@ -16,6 +16,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useTheme, Icon, Portal } from "react-native-paper";
+import { Image } from "expo-image";
 import ThemedBottomSheet, { ThemedBottomSheetRef } from "./ThemedBottomSheet";
 import { IconSource } from "react-native-paper/lib/typescript/components/Icon";
 
@@ -24,6 +25,7 @@ export interface SelectorOption {
   name: string;
   iconName?: IconSource;
   iconColor?: string;
+  iconUrl?: string;
 }
 
 interface SelectorProps {
@@ -316,7 +318,14 @@ export default function Selector({
 
   const renderItem = (item?: SelectorOption) => (
     <View style={styles.valueRow}>
-      {item?.iconName && (
+      {item?.iconUrl ? (
+        <Image
+          source={item.iconUrl}
+          cachePolicy="memory-disk"
+          style={{ width: 24, height: 24, marginRight: 8, borderRadius: 12 }}
+          contentFit="fill"
+        />
+      ) : item?.iconName ? (
         <View style={{ marginRight: 8 }}>
           <Icon
             source={item.iconName as any}
@@ -324,7 +333,7 @@ export default function Selector({
             color={item.iconColor || theme.colors.onSurfaceVariant}
           />
         </View>
-      )}
+      ) : null}
       <Text style={[styles.inputText, !item && styles.placeholder]}>
         {item ? item.name : placeholder || t("common.selectOption")}
       </Text>
@@ -432,26 +441,7 @@ export default function Selector({
           onPress={show}
           disabled={disabled}
         >
-          <View style={styles.valueRow}>
-            {selectedOption?.iconName && (
-              <View style={{ marginRight: 8 }}>
-                <Icon
-                  source={selectedOption.iconName}
-                  size={16}
-                  color={
-                    selectedOption.iconColor || theme.colors.onSurfaceVariant
-                  }
-                />
-              </View>
-            )}
-            <Text
-              style={[styles.inputText, !selectedOption && styles.placeholder]}
-            >
-              {selectedOption
-                ? selectedOption.name
-                : placeholder || t("common.selectOption")}
-            </Text>
-          </View>
+          <View style={styles.valueRow}>{renderItem(selectedOption)}</View>
           <Icon
             source="chevron-down"
             size={20}

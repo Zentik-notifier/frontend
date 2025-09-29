@@ -160,7 +160,6 @@ export default function Header() {
   const shouldShowStatusBadges = HOME_ROUTES.some((route) =>
     currentRoute.startsWith(route)
   );
-  console.log(shouldShowStatusBadges, currentRoute);
 
   const currentTitle = ROUTE_TITLES[currentRoute];
 

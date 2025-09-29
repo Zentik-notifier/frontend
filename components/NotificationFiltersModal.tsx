@@ -14,7 +14,7 @@ import {
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
-import BucketSelector from "./BucketSelector";
+import BucketSelector, { BUCKET_ALL } from "./BucketSelector";
 
 export default function NotificationFiltersModal() {
   const { data: bucketsData } = useGetBucketsQuery();
@@ -150,9 +150,7 @@ export default function NotificationFiltersModal() {
                 <BucketSelector
                   selectedBucketId={
                     filters.selectedBucketIds.length === 0
-                      ? null
-                      : filters.selectedBucketIds[0] === ""
-                      ? ""
+                      ? BUCKET_ALL
                       : filters.selectedBucketIds[0]
                   }
                   onBucketChange={handleBucketChange}

@@ -24,7 +24,7 @@ import {
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
-import BucketSelector from "./BucketSelector";
+import BucketSelector, { BUCKET_ALL } from "./BucketSelector";
 import SwipeableBucketItem from "./SwipeableBucketItem";
 
 export default function BucketsSettings() {
@@ -599,10 +599,9 @@ export default function BucketsSettings() {
                             {t("buckets.migrateToExisting")}
                           </Text>
                           <BucketSelector
-                            selectedBucketId={null}
+                            selectedBucketId={BUCKET_ALL}
                             onBucketChange={handleMigrateToExisting}
                             buckets={buckets}
-                            placeholder={t("bucketSelector.selectBucket")}
                             searchable={true}
                           />
                         </View>

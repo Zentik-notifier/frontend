@@ -1,19 +1,18 @@
 import { BucketFragment } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet } from "react-native";
-import Selector from "./ui/Selector";
-import { useTheme } from "react-native-paper";
+import { StyleSheet, View } from "react-native";
+import Selector, { SelectorOption } from "./ui/Selector";
+
+export const BUCKET_ALL = "ALL";
 
 interface BucketSelectorProps {
-  selectedBucketId: string | null;
-  onBucketChange: (bucketId: string | null) => void;
+  selectedBucketId: string | typeof BUCKET_ALL;
+  onBucketChange: (bucketId: string | typeof BUCKET_ALL) => void;
   buckets: BucketFragment[];
   label?: string;
-  placeholder?: string;
   includeAllOption?: boolean;
   searchable?: boolean;
-  searchPlaceholder?: string;
 }
 
 export default function BucketSelector({
@@ -21,25 +20,16 @@ export default function BucketSelector({
   onBucketChange,
   buckets,
   label,
-  placeholder,
   includeAllOption = false,
   searchable = false,
-  searchPlaceholder,
 }: BucketSelectorProps) {
   const { t } = useI18n();
-  const theme = useTheme();
-
-  // Use translations for default placeholders
-  const defaultPlaceholder = placeholder || t("bucketSelector.selectBucket");
-
-  // Prepare options for the dropdown
   const bucketOptions = useMemo(() => {
-    const options: Array<{ id: string | null; name: string; description?: string; icon?: string; color?: string }> = [];
+    const options: SelectorOption[] = [];
 
-    // Add "All Buckets" option if requested
     if (includeAllOption) {
       options.push({
-        id: null,
+        id: "ALL",
         name: t("bucketSelector.allBuckets"),
       });
     }
@@ -49,25 +39,27 @@ export default function BucketSelector({
       options.push({
         id: bucket.id,
         name: bucket.name,
-        description: bucket.description || undefined,
-        icon: bucket.icon || undefined,
-        color: bucket.color || undefined,
+        iconUrl: bucket.icon ?? undefined,
+        iconColor: bucket.color ?? undefined,
+        iconName: "circle",
       });
     });
 
     return options;
   }, [buckets, includeAllOption, t]);
 
-  const selectedOption = bucketOptions.find(option => option.id === selectedBucketId);
+  const selectedOption = bucketOptions.find(
+    (option) => option.id === selectedBucketId
+  );
 
   return (
     <View style={styles.container}>
       <Selector
         label={label}
-        placeholder={defaultPlaceholder}
-        options={bucketOptions.filter(option => option.id !== null) as any}
+        placeholder={t("bucketSelector.selectBucket")}
+        options={bucketOptions.filter((option) => option.id !== BUCKET_ALL)}
         selectedValue={selectedOption?.id || ""}
-        onValueChange={(value) => onBucketChange(value as string || null)}
+        onValueChange={(value) => onBucketChange(value)}
         isSearchable={searchable}
       />
     </View>
