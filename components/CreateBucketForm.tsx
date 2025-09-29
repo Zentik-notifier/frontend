@@ -51,7 +51,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const isEditing = !!bucketId;
 
-  const { bucket, refetch, canWrite, loading } = useGetBucketData(bucketId);
+  const { bucket, refetch, canWrite } = useGetBucketData(bucketId);
   const { data: appConfig } = usePublicAppConfigQuery();
 
   const [createBucketMutation, { loading: creatingBucket }] =
@@ -182,7 +182,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   };
 
   return (
-    <PaperScrollView loading={loading} onRefresh={handleRefresh}>
+    <View>
       <Card style={styles.formContainer}>
         <Card.Content>
           {/* Read-only warning */}
@@ -282,10 +282,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                     <Image
                       source={{ uri: bucketIcon }}
                       style={styles.previewIcon}
-                      contentFit="contain"
-                      onError={() => {
-                        // If image fails to load, it will show the color indicator as fallback
-                      }}
+                      contentFit="fill"
                     />
                   </View>
                 </Surface>
@@ -385,15 +382,11 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           onClose={handleCloseIconEditor}
         />
       )}
-    </PaperScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  contentContainer: {},
   formContainer: {
     marginBottom: 16,
   },
@@ -460,10 +453,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     width: 48,
     height: 48,
+    alignItems: "center",
+    justifyContent: "center",
   },
   previewIcon: {
-    width: 44,
-    height: 44,
+    width: "100%",
+    height: "100%",
   },
   previewColorIndicator: {
     width: 48,

@@ -119,21 +119,8 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     );
   }
 
-  const onDeleteComplete = async () => {
-    onBack?.();
-  };
-
   if (error) {
     console.error("Error loading bucket:", error);
-  }
-
-  if (loading) {
-    return (
-      <Surface style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
-        <Text style={styles.loadingText}>{t("common.loading")}</Text>
-      </Surface>
-    );
   }
 
   if (!bucket) {
@@ -148,35 +135,30 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
 
   return (
     <PaperScrollView onRefresh={handleRefresh} loading={loading}>
-      <View style={styles.content}>
-        <CreateBucketForm bucketId={bucketId} />
+      <CreateBucketForm bucketId={bucketId} />
 
-        {canAdmin && (
-          <Card style={styles.sharingSection}>
-            <Card.Content>
-              <BucketSharingSection bucketId={bucketId} />
-              <Button
-                mode="contained"
-                buttonColor={theme.colors.error}
-                textColor={theme.colors.onError}
-                icon="delete"
-                onPress={showDeleteAlert}
-                style={styles.deleteButton}
-              >
-                {t("buckets.form.deleteBucket")}
-              </Button>
-            </Card.Content>
-          </Card>
-        )}
-      </View>
+      {canAdmin && (
+        <Card style={styles.sharingSection}>
+          <Card.Content>
+            <BucketSharingSection bucketId={bucketId} />
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.error}
+              textColor={theme.colors.onError}
+              icon="delete"
+              onPress={showDeleteAlert}
+              style={styles.deleteButton}
+            >
+              {t("buckets.form.deleteBucket")}
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
     </PaperScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    gap: 24,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",

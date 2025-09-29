@@ -1,10 +1,11 @@
 import React from "react";
 import CreateBucketForm from "./CreateBucketForm";
+import PaperScrollView from "./ui/PaperScrollView";
 
-interface CreateBucketProps {
-  bucketId?: string;
-}
-
-export default function CreateBucket({ bucketId }: CreateBucketProps) {
-  return <CreateBucketForm bucketId={bucketId} />;
+export default function CreateBucket() {
+  return (
+    <PaperScrollView>
+      <CreateBucketForm />
+    </PaperScrollView>
+  );
 }
