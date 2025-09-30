@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # --- Builder: create static PWA inside container ---
 FROM node:22-alpine AS builder
 WORKDIR /app
