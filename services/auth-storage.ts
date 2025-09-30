@@ -1,5 +1,5 @@
 
-import AsyncStorage from 'expo-sqlite/kv-store';
+import AsyncStorage from '@/utils/async-storage-wrapper';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import * as Keychain from 'react-native-keychain';
@@ -9,14 +9,14 @@ const TERMS_ACCEPTED_KEY = 'terms_accepted';
 const TERMS_VERSION_KEY = 'terms_version';
 const DEVICE_TOKEN_KEY = 'device_token';
 const LAST_USER_ID_KEY = 'last_user_id';
-const ACCESS_TOKEN_KEY = 'accessToken';
-const REFRESH_TOKEN_KEY = 'refreshToken';
 const PUBLIC_KEY_KEY = 'public_key';
 const PRIVATE_KEY_KEY = 'private_key';
 const PUSH_NOTIFICATIONS_INITIALIZED_KEY = 'push_notifications_initialized';
 const PENDING_NAVIGATION_INTENT_KEY = 'pending_navigation_intent';
 const BADGE_COUNT_KEY = 'badge_count';
 const API_ENDPOINT_KEY = 'api_endpoint';
+const ACCESS_TOKEN_KEY = 'access_token';
+const REFRESH_TOKEN_KEY = 'refresh_token';
 
 // Event emitter for terms acceptance changes
 class TermsEventEmitter {
@@ -40,10 +40,10 @@ class TermsEventEmitter {
 
 const termsEventEmitter = new TermsEventEmitter();
 
-let saveTokens: (accessToken: string, refreshToken: string) => Promise<void>;
-let getAccessToken: () => Promise<string | null>;
-let getRefreshToken: () => Promise<string | null>;
-let clearTokens: () => Promise<void>;
+export let saveTokens: (accessToken: string, refreshToken: string) => Promise<void>;
+export let getAccessToken: () => Promise<string | null>;
+export let getRefreshToken: () => Promise<string | null>;
+export let clearTokens: () => Promise<void>;
 export let clearDeviceTokens: () => Promise<void>;
 export let saveDeviceToken: (deviceToken: string) => Promise<void>;
 export let getStoredDeviceToken: () => Promise<string | null>;
@@ -87,43 +87,7 @@ const bundleIdentifier = process.env.EXPO_PUBLIC_APP_VARIANT === 'development' ?
 const KEYCHAIN_ACCESS_GROUP = `C3F24V5NS5.${bundleIdentifier}.keychain`;
 const ACCESSIBLE = Keychain.ACCESSIBLE.AFTER_FIRST_UNLOCK;
 
-saveTokens = async (accessToken, refreshToken) => {
-  const options: Keychain.SetOptions = Device.isDevice
-    ? { service: SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
-    : { service: SERVICE, accessible: ACCESSIBLE };
-  await Keychain.setGenericPassword(accessToken, refreshToken, options);
-};
-getAccessToken = async () => {
-  const options: Keychain.GetOptions = Device.isDevice
-    ? { service: SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-    : { service: SERVICE };
-  const creds = await Keychain.getGenericPassword(options);
-  return creds ? creds.username : null;
-};
-getRefreshToken = async () => {
-  const options: Keychain.GetOptions = Device.isDevice
-    ? { service: SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-    : { service: SERVICE };
-  const creds = await Keychain.getGenericPassword(options);
-  return creds ? creds.password : null;
-};
-clearTokens = async () => {
-  const options: Keychain.SetOptions = Device.isDevice
-    ? { service: SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-    : { service: SERVICE };
-  await Keychain.resetGenericPassword(options);
-};
-clearDeviceTokens = async () => {
-  const publicKeyOptions: Keychain.SetOptions = Device.isDevice
-    ? { service: PUBLIC_KEY_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-    : { service: PUBLIC_KEY_SERVICE };
-  const privateKeyOptions: Keychain.SetOptions = Device.isDevice
-    ? { service: PRIVATE_KEY_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-    : { service: PRIVATE_KEY_SERVICE };
-  await Keychain.resetGenericPassword(publicKeyOptions);
-  await Keychain.resetGenericPassword(privateKeyOptions);
-  await AsyncStorage.removeItem(DEVICE_TOKEN_KEY);
-};
+// Implementations assigned per-platform below (iOS/macOS vs others)
 // Device token is not secret; store via AsyncStorage
 saveDeviceToken = async (deviceToken: string) => {
   await AsyncStorage.setItem(DEVICE_TOKEN_KEY, deviceToken);
@@ -177,8 +141,49 @@ clearPushNotificationsInitialized = async () => {
 };
 
 
-// Public key - use keychain for iOS (more secure), AsyncStorage for Android
+// Tokens, keys, and other secure data: use Keychain for iOS/macOS, AsyncStorage otherwise
 if (Platform.OS === 'ios' || Platform.OS === 'macos') {
+  // Auth tokens - use keychain for iOS (more secure)
+  saveTokens = async (accessToken, refreshToken) => {
+    const options: Keychain.SetOptions = Device.isDevice
+      ? { service: SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
+      : { service: SERVICE, accessible: ACCESSIBLE };
+    await Keychain.setGenericPassword(accessToken, refreshToken, options);
+  };
+  getAccessToken = async () => {
+    const options: Keychain.GetOptions = Device.isDevice
+      ? { service: SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
+      : { service: SERVICE };
+    const creds = await Keychain.getGenericPassword(options);
+    return creds ? creds.username : null;
+  };
+  getRefreshToken = async () => {
+    const options: Keychain.GetOptions = Device.isDevice
+      ? { service: SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
+      : { service: SERVICE };
+    const creds = await Keychain.getGenericPassword(options);
+    return creds ? creds.password : null;
+  };
+  clearTokens = async () => {
+    const options: Keychain.SetOptions = Device.isDevice
+      ? { service: SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
+      : { service: SERVICE };
+    await Keychain.resetGenericPassword(options);
+  };
+
+  clearDeviceTokens = async () => {
+    const publicKeyOptions: Keychain.SetOptions = Device.isDevice
+      ? { service: PUBLIC_KEY_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
+      : { service: PUBLIC_KEY_SERVICE };
+    const privateKeyOptions: Keychain.SetOptions = Device.isDevice
+      ? { service: PRIVATE_KEY_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
+      : { service: PRIVATE_KEY_SERVICE };
+    await Keychain.resetGenericPassword(publicKeyOptions);
+    await Keychain.resetGenericPassword(privateKeyOptions);
+    await AsyncStorage.removeItem(DEVICE_TOKEN_KEY);
+  };
+
+  // Public key - use keychain for iOS (more secure), AsyncStorage fallback
   savePublicKey = async (publicKey: string) => {
     try {
       const options: Keychain.SetOptions = Device.isDevice
@@ -220,7 +225,7 @@ if (Platform.OS === 'ios' || Platform.OS === 'macos') {
     } catch { }
   };
 
-  // Private key - use keychain for iOS (more secure), AsyncStorage for Android
+  // Private key - use keychain for iOS (more secure), AsyncStorage fallback
   savePrivateKey = async (privateKey: string) => {
     try {
       const options: Keychain.SetOptions = Device.isDevice
@@ -437,6 +442,39 @@ if (Platform.OS === 'ios' || Platform.OS === 'macos') {
     }
   };
 } else {
+  // Auth tokens - use AsyncStorage for Android/Web
+  saveTokens = async (accessToken, refreshToken) => {
+    await AsyncStorage.multiSet([
+      [ACCESS_TOKEN_KEY, accessToken],
+      [REFRESH_TOKEN_KEY, refreshToken],
+    ]);
+  };
+  getAccessToken = async () => {
+    try {
+      return await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  };
+  getRefreshToken = async () => {
+    try {
+      return await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  };
+  clearTokens = async () => {
+    try {
+      await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+    } catch { }
+  };
+
+  clearDeviceTokens = async () => {
+    try { await AsyncStorage.removeItem(DEVICE_TOKEN_KEY); } catch {}
+    try { await AsyncStorage.removeItem(PUBLIC_KEY_KEY); } catch {}
+    try { await AsyncStorage.removeItem(PRIVATE_KEY_KEY); } catch {}
+  };
+
   savePublicKey = async (publicKey: string) => {
     await AsyncStorage.setItem(PUBLIC_KEY_KEY, publicKey);
   };
@@ -549,8 +587,6 @@ if (Platform.OS === 'ios' || Platform.OS === 'macos') {
     } catch { }
   };
 }
-
-export { clearTokens, getAccessToken, getRefreshToken, saveTokens };
 
 /**
  * Terms and conditions management

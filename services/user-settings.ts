@@ -1,6 +1,6 @@
 import { NotificationFragment } from '@/generated/gql-operations-generated';
 import { Locale } from '@/types/i18n';
-import AsyncStorage from 'expo-sqlite/kv-store';
+import AsyncStorage from '@/utils/async-storage-wrapper';
 import * as Localization from 'expo-localization';
 import { UserSettingType, useGetUserSettingsLazyQuery, useUpsertUserSettingMutation } from '@/generated/gql-operations-generated';
 import React, { useEffect } from 'react';

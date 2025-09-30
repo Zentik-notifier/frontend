@@ -1,10 +1,15 @@
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
+import { IS_FS_SUPPORTED } from '@/utils';
 
 let dbPromise: Promise<SQLiteDatabase> | null = null;
 
 export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
   if (dbPromise) return dbPromise;
+
+  if (!IS_FS_SUPPORTED) {
+    return {} as SQLiteDatabase;
+  }
 
   dbPromise = (async () => {
     const sharedDir = await getSharedMediaCacheDirectoryAsync();

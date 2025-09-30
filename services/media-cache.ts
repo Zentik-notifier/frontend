@@ -6,6 +6,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { openSharedCacheDb } from './media-cache-db';
 import { MediaCacheRepository } from './media-cache-repository';
+import { IS_FS_SUPPORTED, IS_SQLITE_SUPPORTED } from '@/utils';
 
 export interface CacheItem {
     key: string;
@@ -224,11 +225,18 @@ class MediaCacheService {
 
         try {
             this.initializing = true;
-            console.log('[MediaCache] Initializating DB');
-            this.cacheDir = await getSharedMediaCacheDirectoryAsync();
-            await this.ensureDirectories();
-            const db = await openSharedCacheDb();
-            this.repo = new MediaCacheRepository(db);
+
+            if (IS_SQLITE_SUPPORTED) {
+                console.log('[MediaCache] Initializating DB');
+                this.cacheDir = await getSharedMediaCacheDirectoryAsync();
+                const db = await openSharedCacheDb();
+                this.repo = new MediaCacheRepository(db);
+            }
+
+            if (IS_FS_SUPPORTED) {
+                await this.ensureDirectories();
+            }
+
             await this.loadMetadata();
             console.log('[MediaCache] DB initialized successfull');
         } catch (error) {
@@ -291,8 +299,11 @@ class MediaCacheService {
     private async loadMetadata(): Promise<void> {
         await this.initialize();
         try {
-            if (!this.repo) throw new Error('Repository not initialized');
-            const items = await this.repo.listCacheItems();
+            let items: CacheItem[] = [];
+            if (IS_SQLITE_SUPPORTED) {
+                if (!this.repo) throw new Error('Repository not initialized');
+                items = await this.repo.listCacheItems();
+            }
             this.metadata = {};
             const pendingDownloads: CacheItem[] = [];
             const pendingThumbnails: CacheItem[] = [];

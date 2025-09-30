@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 export function formatFileSize(bytes: number, decimals: number = 1): string {
 	if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
 	const k = 1024;
@@ -7,4 +9,5 @@ export function formatFileSize(bytes: number, decimals: number = 1): string {
 	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
-
+export const IS_FS_SUPPORTED = Platform.OS !== 'web';
+export const IS_SQLITE_SUPPORTED = Platform.OS !== 'web';

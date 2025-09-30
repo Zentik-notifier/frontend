@@ -9,7 +9,7 @@ import { onError } from '@apollo/client/link/error';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { loadDevMessages, loadErrorMessages } from "@apollo/client/dev";
-import AsyncStorage from 'expo-sqlite/kv-store';
+import AsyncStorage from '@/utils/async-storage-wrapper';
 import { createClient } from 'graphql-ws';
 import { ApiConfigService } from '../services/api-config';
 

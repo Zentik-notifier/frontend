@@ -1,4 +1,4 @@
-import AsyncStorage from 'expo-sqlite/kv-store';
+import AsyncStorage from '@/utils/async-storage-wrapper';
 import { saveApiEndpoint } from './auth-storage';
 
 const CUSTOM_API_URL_KEY = 'custom_api_url';

@@ -1,3 +1,4 @@
+import { IS_SQLITE_SUPPORTED } from '@/utils';
 import { logger } from './logger';
 
 type ConsoleMethod = (...args: any[]) => void;
@@ -12,7 +13,7 @@ const shouldFilterMessage = (msg: string): boolean => {
   if (msg.includes('is deprecated and will be removed in Apollo Client 4.0')) {
     return true;
   }
-  
+
   // Aggiungi altri filtri qui se necessario
   return false;
 };
@@ -20,6 +21,10 @@ const shouldFilterMessage = (msg: string): boolean => {
 export function installConsoleLoggerBridge(): void {
   if (installed) return;
   installed = true;
+
+  if (!IS_SQLITE_SUPPORTED) {
+    return;
+  }
 
   const original = {
     log: console.log.bind(console) as ConsoleMethod,
@@ -49,57 +54,57 @@ export function installConsoleLoggerBridge(): void {
   };
 
   console.log = (...args: any[]) => {
-    try { 
-      const { msg, meta, shouldFilter } = toMessage(args); 
+    try {
+      const { msg, meta, shouldFilter } = toMessage(args);
       if (!shouldFilter) {
         logger.info(msg, meta, 'console');
         original.log(...args);
       }
-    } catch { 
+    } catch {
       original.log(...args);
     }
   };
   console.info = (...args: any[]) => {
-    try { 
-      const { msg, meta, shouldFilter } = toMessage(args); 
+    try {
+      const { msg, meta, shouldFilter } = toMessage(args);
       if (!shouldFilter) {
         logger.info(msg, meta, 'console');
         original.info(...args);
       }
-    } catch { 
+    } catch {
       original.info(...args);
     }
   };
   console.warn = (...args: any[]) => {
-    try { 
-      const { msg, meta, shouldFilter } = toMessage(args); 
+    try {
+      const { msg, meta, shouldFilter } = toMessage(args);
       if (!shouldFilter) {
         logger.warn(msg, meta, 'console');
         original.warn(...args);
       }
-    } catch { 
+    } catch {
       original.warn(...args);
     }
   };
   console.error = (...args: any[]) => {
-    try { 
-      const { msg, meta, shouldFilter } = toMessage(args); 
+    try {
+      const { msg, meta, shouldFilter } = toMessage(args);
       if (!shouldFilter) {
         logger.error(msg, meta, 'console');
         original.error(...args);
       }
-    } catch { 
+    } catch {
       original.error(...args);
     }
   };
   console.debug = (...args: any[]) => {
-    try { 
-      const { msg, meta, shouldFilter } = toMessage(args); 
+    try {
+      const { msg, meta, shouldFilter } = toMessage(args);
       if (!shouldFilter) {
         logger.debug(msg, meta, 'console');
         original.debug(...args);
       }
-    } catch { 
+    } catch {
       original.debug(...args);
     }
   };
