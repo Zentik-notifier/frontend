@@ -1,5 +1,4 @@
 import LoginForm from "@/components/LoginForm";
-import UnauthenticatedHeader from "@/components/UnauthenticatedHeader";
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -10,17 +9,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
-  View,
+  View
 } from "react-native";
+import { Button, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Text, Button } from "react-native-paper";
 
 export default function LoginScreen() {
   const { t } = useI18n();
-  const insets = useSafeAreaInsets();
   const { data } = usePublicAppConfigQuery();
   const emailEnabled = data?.publicAppConfig.emailEnabled;
   const { email } = useLocalSearchParams<{ email?: string }>();
@@ -38,8 +34,6 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar barStyle="default" />
-      <UnauthenticatedHeader />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -49,7 +43,6 @@ export default function LoginScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContainer,
-            { paddingTop: Math.max(80, insets.top) },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}

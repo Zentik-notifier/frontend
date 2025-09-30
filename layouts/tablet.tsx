@@ -1,15 +1,16 @@
 import Header from "@/components/Header";
-import { useI18n } from "@/hooks";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { Stack } from "expo-router";
 import { StyleSheet, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabletLayout() {
   const { isDesktop } = useDeviceType();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+
+  console.log('caricato');
   
   // Ottieni i colori del tema
   const backgroundColor = theme.colors.surface;

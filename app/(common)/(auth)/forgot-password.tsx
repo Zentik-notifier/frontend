@@ -1,5 +1,4 @@
 import { ForgotPasswordFlow } from "@/components/ForgotPasswordFlow";
-import UnauthenticatedHeader from "@/components/UnauthenticatedHeader";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Stack } from "expo-router";
@@ -8,19 +7,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
-  View,
+  View
 } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
 import { Text } from "react-native-paper";
+import {
+  SafeAreaView
+} from "react-native-safe-area-context";
 
 export default function ForgotPasswordScreen() {
   const { t } = useI18n();
-  const insets = useSafeAreaInsets();
   const { navigateToLogin } = useNavigationUtils();
 
   const handleBackToLogin = () => {
@@ -30,8 +26,6 @@ export default function ForgotPasswordScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar barStyle="default" />
-      <UnauthenticatedHeader />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -41,7 +35,6 @@ export default function ForgotPasswordScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContainer,
-            { paddingTop: Math.max(100, insets.top + 50) },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}

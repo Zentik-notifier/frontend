@@ -2,20 +2,25 @@ import { useCallback, useEffect, useState } from 'react';
 import { Subscription } from 'rxjs';
 import { MediaType } from '../generated/gql-operations-generated';
 import { CacheItem, CacheStats, DownloadQueueState, mediaCache } from '../services/media-cache';
+import { IS_FS_SUPPORTED } from '@/utils';
 
 export const useCachedItem = (url: string, mediaType: MediaType) => {
   const [key] = useState(mediaCache.generateCacheKey(url, mediaType));
   const [item, setItem] = useState<CacheItem | undefined>();
 
   useEffect(() => {
-    const sub: Subscription = mediaCache.metadata$.subscribe(async (all) => {
-      const newItem = all[key];
-      if (newItem) {
-        setItem(newItem);
-      }
-    });
+    if (IS_FS_SUPPORTED) {
+      const sub: Subscription = mediaCache.metadata$.subscribe(async (all) => {
+        const newItem = all[key];
+        if (newItem) {
+          setItem(newItem);
+        }
+      });
 
-    return () => sub.unsubscribe();
+      return () => sub.unsubscribe();
+    } else {
+      setItem({ localPath: url, mediaType } as CacheItem);
+    }
   }, [mediaCache, key]);
 
   return { item };

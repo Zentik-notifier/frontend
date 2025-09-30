@@ -1,4 +1,3 @@
-import UnauthenticatedHeader from "@/components/UnauthenticatedHeader";
 import {
   useConfirmEmailMutation,
   useRequestEmailConfirmationMutation,
@@ -13,11 +12,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
-  View,
+  View
 } from "react-native";
-import { Button, Text, TextInput, Icon } from "react-native-paper";
+import { Button, Icon, Text, TextInput } from "react-native-paper";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -41,8 +39,6 @@ export default function EmailConfirmationScreen() {
   const [email, setEmail] = useState(initialEmail || "");
   const [showEmailInput, setShowEmailInput] = useState(!initialEmail);
   const { navigateToLogin } = useNavigationUtils();
-
-  const insets = useSafeAreaInsets();
 
   const [confirmEmailMutation] = useConfirmEmailMutation();
   const [requestEmailConfirmationMutation] =
@@ -334,8 +330,6 @@ export default function EmailConfirmationScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="default" />
-      <UnauthenticatedHeader />
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -343,7 +337,6 @@ export default function EmailConfirmationScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.container,
-            { paddingTop: Math.max(80, insets.top + 30) },
           ]}
           keyboardShouldPersistTaps="handled"
         >

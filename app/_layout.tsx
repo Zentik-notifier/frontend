@@ -3,7 +3,6 @@ import { I18nProvider } from "@/components/I18nProvider";
 import { TermsAcceptanceScreen } from "@/components/TermsAcceptanceScreen";
 import { AlertDialog } from "@/components/ui/AlertDialog";
 import { useDeviceType } from "@/hooks/useDeviceType";
-import { usePendingIntents } from "@/hooks/usePendingNotifications";
 import { ThemeProvider } from "@/hooks/useTheme";
 import MobileLayout from "@/layouts/mobile";
 import TabletLayout from "@/layouts/tablet";
@@ -16,11 +15,11 @@ import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, BackHandler, Platform, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { MenuProvider } from "react-native-popup-menu";
 import "react-native-reanimated";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { MenuProvider } from "react-native-popup-menu";
-import { ApiConfigService } from "../services/api-config";
 import { AppProvider, useAppContext } from "../contexts/AppContext";
+import { ApiConfigService } from "../services/api-config";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb } from "../services/media-cache-db";
 
@@ -122,7 +121,6 @@ export default function RootLayout() {
   const [webAlert, setWebAlert] = useState<WebAlertState>({ visible: false });
   const originalAlertRef = useRef<typeof Alert.alert>(null);
   const { isMobile } = useDeviceType();
-  const { processPendingNavigationIntent } = usePendingIntents();
 
   useEffect(() => {
     console.log("🔄 [RootLayout] Loaded");

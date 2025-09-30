@@ -6,7 +6,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { openSharedCacheDb } from './media-cache-db';
 import { MediaCacheRepository } from './media-cache-repository';
-import { IS_FS_SUPPORTED, IS_SQLITE_SUPPORTED } from '@/utils';
+import { IS_FS_SUPPORTED } from '@/utils/fileUtils';
 
 export interface CacheItem {
     key: string;
@@ -226,7 +226,7 @@ class MediaCacheService {
         try {
             this.initializing = true;
 
-            if (IS_SQLITE_SUPPORTED) {
+            if (IS_FS_SUPPORTED) {
                 console.log('[MediaCache] Initializating DB');
                 this.cacheDir = await getSharedMediaCacheDirectoryAsync();
                 const db = await openSharedCacheDb();
@@ -300,7 +300,7 @@ class MediaCacheService {
         await this.initialize();
         try {
             let items: CacheItem[] = [];
-            if (IS_SQLITE_SUPPORTED) {
+            if (IS_FS_SUPPORTED) {
                 if (!this.repo) throw new Error('Repository not initialized');
                 items = await this.repo.listCacheItems();
             }
@@ -368,6 +368,10 @@ class MediaCacheService {
 
     async getCachedItem(url: string, mediaType: MediaType): Promise<CacheItem | undefined> {
         if (!url) return undefined;
+
+        if (!IS_FS_SUPPORTED) {
+            return { localPath: url, mediaType } as CacheItem;
+        }
 
         const key = this.generateCacheKey(url, mediaType);
         let cachedItem: CacheItem | undefined = this.metadata[key];
@@ -514,6 +518,10 @@ class MediaCacheService {
     async markAsPermanentFailure(url: string, mediaType: MediaType, errorCode?: string): Promise<void> {
         await this.initialize();
         const key = this.generateCacheKey(url, mediaType);
+
+        if (!IS_FS_SUPPORTED) {
+            return;
+        }
 
         await this.upsertItem(key, {
             url,
@@ -783,7 +791,7 @@ class MediaCacheService {
     }
 
     isThumbnailSupported(mediaType: MediaType): boolean {
-        return [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType);
+        return IS_FS_SUPPORTED && [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType);
     }
 
     public async generateThumbnail(props: { url: string, mediaType: MediaType, force?: boolean }): Promise<void> {

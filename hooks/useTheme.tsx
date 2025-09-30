@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useColorScheme as useSystemColorScheme } from "react-native";
-import { userSettings, UserSettings } from "../services/user-settings";
 import { MD3DarkTheme, MD3LightTheme, PaperProvider } from "react-native-paper";
-import { ThemePreset, getPresetColors } from "../services/theme-presets";
 import { generateDynamicTheme } from "../services/theme-generator";
+import { getPresetColors, ThemePreset } from "../services/theme-presets";
+import { userSettings, UserSettings } from "../services/user-settings";
 
 export type ThemeMode = "light" | "dark" | "system";
 export type ColorScheme = "light" | "dark";
@@ -143,7 +143,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         isLight,
       }}
     >
-      <PaperProvider theme={theme}>{children}</PaperProvider>
+      <PaperProvider theme={theme}>
+        <React.Fragment>
+          {children}
+        </React.Fragment>
+      </PaperProvider>
     </ThemeContext.Provider>
   );
 }

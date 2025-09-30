@@ -175,11 +175,6 @@ export const CachedMedia = React.memo(function CachedMedia({
     await mediaCache.deleteCachedMedia(url, mediaType);
   }, [url, mediaType]);
 
-  const handleGenerateThumbnail = useCallback(async () => {
-    if (!supportsThumbnail) return;
-    await mediaCache.generateThumbnail({ url, mediaType });
-  }, [url, mediaType, supportsThumbnail]);
-
   const handleSeek = useCallback(
     (seekTime: number) => {
       if (audioPlayer && audioState.duration > 0) {

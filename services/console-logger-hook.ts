@@ -1,4 +1,4 @@
-import { IS_SQLITE_SUPPORTED } from '@/utils';
+import { IS_FS_SUPPORTED } from '@/utils';
 import { logger } from './logger';
 
 type ConsoleMethod = (...args: any[]) => void;
@@ -22,7 +22,7 @@ export function installConsoleLoggerBridge(): void {
   if (installed) return;
   installed = true;
 
-  if (!IS_SQLITE_SUPPORTED) {
+  if (!IS_FS_SUPPORTED) {
     return;
   }
 

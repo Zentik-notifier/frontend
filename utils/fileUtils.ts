@@ -10,4 +10,3 @@ export function formatFileSize(bytes: number, decimals: number = 1): string {
 }
 
 export const IS_FS_SUPPORTED = Platform.OS !== 'web';
-export const IS_SQLITE_SUPPORTED = Platform.OS !== 'web';

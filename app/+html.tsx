@@ -15,7 +15,14 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Service worker registration */}
         <script dangerouslySetInnerHTML={{ __html: sw }} />
 
-        {/* <ScrollViewStyleReset /> */}
+        <style type="text/css">{`
+              @font-face {
+                font-family: 'MaterialDesignIcons';
+                src: url(${require('@react-native-vector-icons/material-design-icons/fonts/MaterialDesignIcons.ttf')}) format('truetype');
+              }
+            `}</style>
+
+        <ScrollViewStyleReset />
       </head>
       <body>{children}</body>
     </html>

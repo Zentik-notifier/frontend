@@ -56,6 +56,7 @@ const ROUTES_WITH_BACK_BUTTON: string[] = [
   "/(mobile)/(admin)/oauth-providers/",
   "/(mobile)/(admin)/system-access-tokens/",
   "/(mobile)/(admin)/events-review",
+  "/(common)/(auth)/app-settings",
 ];
 
 // Route-based title mapping
@@ -63,6 +64,7 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(mobile)/(admin)": "administration.title",
   "/(mobile)/(settings)": "common.settings",
   "/(mobile)/(settings)/app-settings": "appSettings.title",
+  "/(common)/(auth)/app-settings": "appSettings.title",
   "/(mobile)/(settings)/bucket/list": "buckets.title",
   "/(mobile)/(settings)/bucket/create": "buckets.form.createTitle",
   "/(tablet)/(settings)/bucket/create": "buckets.form.createTitle",
@@ -143,12 +145,14 @@ export default function Header() {
     push,
     connectionStatus: { getPriorityStatus, isUpdating, isCheckingUpdate },
   } = useAppContext();
-  const { navigateToHome, navigateBack } = useNavigationUtils();
+  const { navigateToHome, navigateBack, navigateToAppSettings } =
+    useNavigationUtils();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const [isRegistering, setIsRegistering] = useState(false);
   const { isMobile } = useDeviceType();
+  const isPublic = segments[0] === "(common)";
 
   // Determine current route
   const currentRoute = `/${segments.join("/")}`;
@@ -423,7 +427,30 @@ export default function Header() {
 
           {/* SEZIONE DESTRA: User Profile */}
           <View style={styles.rightSection}>
-            <UserDropdown />
+            {isPublic ? (
+              <Surface style={styles.unauthButtonWrapper} elevation={2}>
+                <TouchableRipple
+                  style={[
+                    styles.unauthSettingsButton,
+                    {
+                      backgroundColor: theme.colors.surfaceVariant,
+                      borderColor: theme.colors.outline,
+                    },
+                  ]}
+                  onPress={() => navigateToAppSettings(false)}
+                  accessibilityLabel={t("common.settings")}
+                  accessibilityRole="button"
+                >
+                  <Icon
+                    source="cog"
+                    size={20}
+                    color={theme.colors.onSurfaceVariant}
+                  />
+                </TouchableRipple>
+              </Surface>
+            ) : (
+              <UserDropdown />
+            )}
           </View>
         </Appbar.Header>
       </View>
@@ -434,6 +461,49 @@ export default function Header() {
 }
 
 const styles = StyleSheet.create({
+  unauthContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+  unauthContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    height: 44,
+  },
+  unauthLeftSpace: {
+    width: 44,
+  },
+  unauthCenter: {
+    flex: 1,
+    alignItems: "center",
+  },
+  unauthRightSection: {
+    width: 44,
+    alignItems: "flex-end",
+  },
+  unauthButtonWrapper: {
+    borderRadius: 22,
+    overflow: "hidden",
+  },
+  unauthSettingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   safeArea: {
     zIndex: 1000,
     position: "absolute",

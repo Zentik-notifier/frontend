@@ -96,11 +96,15 @@ export function useNavigationUtils() {
             }
         },
 
-        navigateToAppSettings: () => {
-            if (isMobile) {
-                router.push(`/(mobile)/(settings)/app-settings`);
+        navigateToAppSettings: (fromHome: boolean) => {
+            if (fromHome) {
+                if (isMobile) {
+                    router.push(`/(mobile)/(settings)/app-settings`);
+                } else {
+                    router.push(`/(tablet)/(settings)/app-settings`);
+                }
             } else {
-                router.push(`/(tablet)/(settings)/app-settings`);
+                router.push(`/(common)/(auth)/app-settings`);
             }
         },
 

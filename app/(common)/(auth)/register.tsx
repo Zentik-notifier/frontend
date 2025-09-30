@@ -1,6 +1,5 @@
-import UnauthenticatedHeader from "@/components/UnauthenticatedHeader";
-import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
+import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Stack } from "expo-router";
 import React, { useState } from "react";
@@ -9,13 +8,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Text, TextInput, Button, HelperText } from "react-native-paper";
+import { Button, HelperText, Text, TextInput } from "react-native-paper";
+import {
+  SafeAreaView
+} from "react-native-safe-area-context";
 
 export default function RegisterScreen() {
   const { t } = useI18n();
@@ -35,7 +34,6 @@ export default function RegisterScreen() {
     confirmPassword?: string;
   }>({});
   const { register } = useAppContext();
-  const insets = useSafeAreaInsets();
   const { navigateToHome, navigateToLogin, navigateToEmailConfirmation } =
     useNavigationUtils();
 
@@ -120,17 +118,12 @@ export default function RegisterScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar barStyle="default" />
-      <UnauthenticatedHeader />
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
-          contentContainerStyle={[
-            styles.container,
-            { paddingTop: Math.max(100, insets.top + 50) },
-          ]}
+          contentContainerStyle={[styles.container]}
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.titleContainer}>
@@ -255,7 +248,9 @@ export default function RegisterScreen() {
               disabled={isLoading}
               style={styles.registerButton}
             >
-              {isLoading ? t("register.registering") : t("register.registerButton")}
+              {isLoading
+                ? t("register.registering")
+                : t("register.registerButton")}
             </Button>
           </View>
 
