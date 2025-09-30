@@ -15,6 +15,9 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Service worker registration */}
         <script dangerouslySetInnerHTML={{ __html: sw }} />
 
+        {/* On hard refresh, always start from index (/) to let app route appropriately */}
+        <script dangerouslySetInnerHTML={{ __html: forceIndexOnReload }} />
+
         <style type="text/css">{`
               @font-face {
                 font-family: 'MaterialDesignIcons';
@@ -35,5 +38,19 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
 }
+`;
+
+const forceIndexOnReload = `
+(function(){
+  try {
+    var navEntries = (performance && performance.getEntriesByType) ? performance.getEntriesByType('navigation') : [];
+    var nav = navEntries && navEntries[0];
+    var isReload = nav ? nav.type === 'reload' : (performance && performance.navigation && performance.navigation.type === 1);
+    if (isReload && window.location && window.location.pathname !== '/') {
+      try { sessionStorage.setItem('originalPath', window.location.pathname + window.location.search + window.location.hash); } catch(e) {}
+      window.history.replaceState(null, '', '/');
+    }
+  } catch (e) {}
+})();
 `;
 

@@ -22,6 +22,8 @@ import { AppProvider, useAppContext } from "../contexts/AppContext";
 import { ApiConfigService } from "../services/api-config";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb } from "../services/media-cache-db";
+import { useRouter, useSegments } from "expo-router";
+import { se } from "date-fns/locale";
 
 type AlertButton = {
   text?: string;
@@ -221,8 +223,8 @@ export default function RootLayout() {
                         message={webAlert.message || ""}
                         onDismiss={handleCloseAlert}
                         confirmText={
-                          webAlert.buttons?.[webAlert.buttons.length - 1]?.text ||
-                          "OK"
+                          webAlert.buttons?.[webAlert.buttons.length - 1]
+                            ?.text || "OK"
                         }
                         onConfirm={() => {
                           const lastButton =

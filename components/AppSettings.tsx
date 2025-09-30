@@ -1,9 +1,6 @@
 import { useI18n } from "@/hooks/useI18n";
 import React, { useEffect, useState } from "react";
-import {
-  StyleSheet,
-  View,
-} from "react-native";
+import { StyleSheet, View } from "react-native";
 import {
   Button,
   Card,
@@ -23,6 +20,7 @@ import { LocalizationSettings } from "./LocalizationSettings";
 import ThemeSettings from "./ThemeSettings";
 import UnifiedCacheSettings from "./UnifiedCacheSettings";
 import { VersionInfo } from "./VersionInfo";
+import { IS_FS_SUPPORTED } from "@/utils";
 
 export function AppSettings() {
   const theme = useTheme();
@@ -93,7 +91,13 @@ export function AppSettings() {
             <Text variant="headlineSmall" style={styles.sectionTitle}>
               {t("appSettings.apiUrl.serverUrl")}
             </Text>
-            <Text variant="bodyMedium" style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 16 }]}>
+            <Text
+              variant="bodyMedium"
+              style={[
+                styles.sectionDescription,
+                { color: theme.colors.onSurfaceVariant, marginBottom: 16 },
+              ]}
+            >
               {t("appSettings.apiUrl.serverUrlDescription")}
             </Text>
             <TextInput
@@ -141,7 +145,7 @@ export function AppSettings() {
         </Surface>
 
         {/* Unified Cache Settings */}
-        <UnifiedCacheSettings />
+        {IS_FS_SUPPORTED && <UnifiedCacheSettings />}
 
         {/* Legal Documents */}
         <Surface style={styles.settingsSurface} elevation={1}>
@@ -168,7 +172,10 @@ export function AppSettings() {
 
       {/* Success Dialog */}
       <Portal>
-        <Dialog visible={showSuccessDialog} onDismiss={() => setShowSuccessDialog(false)}>
+        <Dialog
+          visible={showSuccessDialog}
+          onDismiss={() => setShowSuccessDialog(false)}
+        >
           <Dialog.Title>{t("appSettings.apiUrl.success")}</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium">{dialogMessage}</Text>
@@ -183,7 +190,10 @@ export function AppSettings() {
 
       {/* Error Dialog */}
       <Portal>
-        <Dialog visible={showErrorDialog} onDismiss={() => setShowErrorDialog(false)}>
+        <Dialog
+          visible={showErrorDialog}
+          onDismiss={() => setShowErrorDialog(false)}
+        >
           <Dialog.Title>{t("common.error")}</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium">{dialogMessage}</Text>
@@ -195,7 +205,6 @@ export function AppSettings() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-
     </>
   );
 }

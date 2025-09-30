@@ -10,8 +10,6 @@ export default function TabletLayout() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
 
-  console.log('caricato');
-  
   // Ottieni i colori del tema
   const backgroundColor = theme.colors.surface;
   const cardBackground = theme.colors.background;

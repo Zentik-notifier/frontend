@@ -1,9 +1,7 @@
 import Header from "@/components/Header";
 import { Stack } from "expo-router";
 import { View } from "react-native";
-import {
-  useSafeAreaInsets
-} from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabletLayout() {
   const insets = useSafeAreaInsets();
@@ -19,36 +17,6 @@ export default function TabletLayout() {
             headerShown: false,
           }}
         >
-          {/* <Stack.Screen
-            name="(mobile)/(home)/(tabs)"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="(mobile)/(settings)/index"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="(mobile)/(admin)/index"
-            options={{
-              headerShown: false,
-            }}
-          /> */}
-          {/* <Stack.Screen
-            name="(mobile)/(home)/notification/[id]"
-            options={{
-              headerShown: false,
-            }}
-          /> */}
-          {/* <Stack.Screen
-            name="(mobile)/(home)/bucket/settings/[id]"
-            options={{
-              headerShown: false,
-            }}
-          /> */}
         </Stack>
       </View>
     </View>
