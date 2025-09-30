@@ -428,26 +428,28 @@ export default function Header() {
           {/* SEZIONE DESTRA: User Profile */}
           <View style={styles.rightSection}>
             {isPublic ? (
-              <Surface style={styles.unauthButtonWrapper} elevation={2}>
-                <TouchableRipple
-                  style={[
-                    styles.unauthSettingsButton,
-                    {
-                      backgroundColor: theme.colors.surfaceVariant,
-                      borderColor: theme.colors.outline,
-                    },
-                  ]}
-                  onPress={() => navigateToAppSettings(false)}
-                  accessibilityLabel={t("common.settings")}
-                  accessibilityRole="button"
-                >
-                  <Icon
-                    source="cog"
-                    size={20}
-                    color={theme.colors.onSurfaceVariant}
-                  />
-                </TouchableRipple>
-              </Surface>
+              segments[1] !== "terms-acceptance" && (
+                <Surface style={styles.unauthButtonWrapper} elevation={2}>
+                  <TouchableRipple
+                    style={[
+                      styles.unauthSettingsButton,
+                      {
+                        backgroundColor: theme.colors.surfaceVariant,
+                        borderColor: theme.colors.outline,
+                      },
+                    ]}
+                    onPress={() => navigateToAppSettings(false)}
+                    accessibilityLabel={t("common.settings")}
+                    accessibilityRole="button"
+                  >
+                    <Icon
+                      source="cog"
+                      size={20}
+                      color={theme.colors.onSurfaceVariant}
+                    />
+                  </TouchableRipple>
+                </Surface>
+              )
             ) : (
               <UserDropdown />
             )}

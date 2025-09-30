@@ -38,8 +38,6 @@ class TermsEventEmitter {
   }
 }
 
-const termsEventEmitter = new TermsEventEmitter();
-
 export let saveTokens: (accessToken: string, refreshToken: string) => Promise<void>;
 export let getAccessToken: () => Promise<string | null>;
 export let getRefreshToken: () => Promise<string | null>;
@@ -593,21 +591,6 @@ if (Platform.OS === 'ios' || Platform.OS === 'macos') {
  */
 
 /**
- * Check if user has accepted the current version of terms
- */
-export const hasAcceptedTerms = async (): Promise<boolean> => {
-  try {
-    const accepted = await AsyncStorage.getItem(TERMS_ACCEPTED_KEY);
-    const acceptedVersion = await AsyncStorage.getItem(TERMS_VERSION_KEY);
-
-    return accepted === 'true' && acceptedVersion === CURRENT_TERMS_VERSION;
-  } catch (error) {
-    console.error('Error checking terms acceptance:', error);
-    return false;
-  }
-};
-
-/**
  * Mark terms as accepted for current version
  */
 export const acceptTerms = async (): Promise<void> => {
@@ -616,8 +599,11 @@ export const acceptTerms = async (): Promise<void> => {
       [TERMS_ACCEPTED_KEY, 'true'],
       [TERMS_VERSION_KEY, CURRENT_TERMS_VERSION],
     ]);
-    // Emit event to notify listeners
-    termsEventEmitter.emit();
+    // Sync user settings (dynamic import to avoid circular deps)
+    try {
+      const { userSettings } = await import('./user-settings');
+      await userSettings.acceptTerms();
+    } catch {}
   } catch (error) {
     console.error('Error saving terms acceptance:', error);
     throw error;
@@ -630,19 +616,14 @@ export const acceptTerms = async (): Promise<void> => {
 export const clearTermsAcceptance = async (): Promise<void> => {
   try {
     await AsyncStorage.multiRemove([TERMS_ACCEPTED_KEY, TERMS_VERSION_KEY]);
-    // Emit event to notify listeners
-    termsEventEmitter.emit();
+    try {
+      const { userSettings } = await import('./user-settings');
+      await userSettings.clearTermsAcceptance();
+    } catch {}
   } catch (error) {
     console.error('Error clearing terms acceptance:', error);
     throw error;
   }
-};
-
-/**
- * Subscribe to terms acceptance changes
- */
-export const subscribeToTermsChanges = (listener: () => void): (() => void) => {
-  return termsEventEmitter.subscribe(listener);
 };
 
 /**
@@ -653,7 +634,7 @@ export const getCurrentTermsVersion = (): string => {
 };
 
 // Current version of terms (update this when terms change)
-const CURRENT_TERMS_VERSION = '1.0.0';
+export const CURRENT_TERMS_VERSION = '1.0.0';
 
 /**
  * Key pair management utilities

@@ -1,5 +1,5 @@
-import { ScrollViewStyleReset } from 'expo-router/html';
-import type { PropsWithChildren } from 'react';
+import { ScrollViewStyleReset } from "expo-router/html";
+import type { PropsWithChildren } from "react";
 
 export default function Root({ children }: PropsWithChildren) {
   return (
@@ -7,7 +7,10 @@ export default function Root({ children }: PropsWithChildren) {
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, shrink-to-fit=no"
+        />
 
         {/* PWA manifest */}
         <link rel="manifest" href="/manifest.json" />
@@ -17,11 +20,15 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* On hard refresh, always start from index (/) to let app route appropriately */}
         <script dangerouslySetInnerHTML={{ __html: forceIndexOnReload }} />
+        <style>{`
+          html, body, #root { height: 100%; }
+          body { overflow: auto; }
+        `}</style>
 
         <style type="text/css">{`
               @font-face {
                 font-family: 'MaterialDesignIcons';
-                src: url(${require('@react-native-vector-icons/material-design-icons/fonts/MaterialDesignIcons.ttf')}) format('truetype');
+                src: url(${require("@react-native-vector-icons/material-design-icons/fonts/MaterialDesignIcons.ttf")}) format('truetype');
               }
             `}</style>
 
@@ -53,4 +60,3 @@ const forceIndexOnReload = `
   } catch (e) {}
 })();
 `;
-

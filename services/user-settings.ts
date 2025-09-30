@@ -876,21 +876,6 @@ class UserSettingsService {
       acceptedVersion: CURRENT_TERMS_VERSION,
     });
   }
-
-  /**
-   * Check if user has accepted the current version of terms
-   */
-  hasAcceptedTerms(): boolean {
-    return this.settings.termsAcceptance.termsAccepted &&
-      this.settings.termsAcceptance.acceptedVersion === CURRENT_TERMS_VERSION;
-  }
-
-  /**
-   * Get current terms version
-   */
-  getCurrentTermsVersion(): string {
-    return CURRENT_TERMS_VERSION;
-  }
 }
 
 // Export singleton instance
@@ -1009,7 +994,5 @@ export function useUserSettings() {
     updateTermsAcceptanceSettings: userSettings.updateTermsAcceptanceSettings.bind(userSettings),
     acceptTerms: userSettings.acceptTerms.bind(userSettings),
     clearTermsAcceptance: userSettings.clearTermsAcceptance.bind(userSettings),
-    hasAcceptedTerms: userSettings.hasAcceptedTerms.bind(userSettings),
-    getCurrentTermsVersion: userSettings.getCurrentTermsVersion.bind(userSettings),
   };
 }

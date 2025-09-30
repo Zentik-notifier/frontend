@@ -1,6 +1,6 @@
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
-import { IS_FS_SUPPORTED } from '@/utils';
+import { IS_FS_SUPPORTED } from '@/utils/fileUtils';
 
 let dbPromise: Promise<SQLiteDatabase> | null = null;
 

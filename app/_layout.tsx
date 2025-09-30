@@ -11,19 +11,16 @@ import { useUserSettings } from "@/services/user-settings";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useFonts } from "expo-font";
 import * as Linking from "expo-linking";
-import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, BackHandler, Platform, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { MenuProvider } from "react-native-popup-menu";
 import "react-native-reanimated";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppProvider, useAppContext } from "../contexts/AppContext";
 import { ApiConfigService } from "../services/api-config";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb } from "../services/media-cache-db";
-import { useRouter, useSegments } from "expo-router";
-import { se } from "date-fns/locale";
 
 type AlertButton = {
   text?: string;
@@ -71,47 +68,6 @@ function DeepLinkHandler() {
 
     return () => subscription.remove();
   }, [refreshUserData]);
-
-  return null;
-}
-
-function TermsGuard({ children }: { children: React.ReactNode }) {
-  const { hasAcceptedTerms, acceptTerms } = useUserSettings();
-
-  const handleTermsAccepted = async () => {
-    await acceptTerms();
-  };
-
-  const handleTermsDeclined = () => {
-    console.log("Terms declined - handling platform-specific behavior");
-    if (Platform.OS === "android") {
-      BackHandler.exitApp();
-    } else {
-      console.log(
-        "iOS detected - delegating closure handling to TermsAcceptanceScreen"
-      );
-    }
-  };
-
-  if (!hasAcceptedTerms()) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <TermsAcceptanceScreen
-          onAccepted={handleTermsAccepted}
-          onDeclined={handleTermsDeclined}
-        />
-        <StatusBar
-          style="auto"
-          backgroundColor="transparent"
-          translucent={Platform.OS === "android"}
-        />
-      </SafeAreaView>
-    );
-  }
-
-  if (hasAcceptedTerms()) {
-    return <>{children}</>;
-  }
 
   return null;
 }
@@ -194,8 +150,6 @@ export default function RootLayout() {
         console.log("🔄 [LayoutInit] App config initialized");
         openSharedCacheDb().catch();
         console.log("🔄 [LayoutInit] Shared cache DB opened");
-        // await processPendingNavigationIntent();
-        // console.log("🔄 [LayoutInit] Pending navigation intent processed");
       })();
     }
   }, [loaded]);
@@ -206,50 +160,48 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
+      <SafeAreaProvider style={{ flex: 1 }}>
         <ThemeProvider>
           <I18nProvider>
             <GraphQLProvider>
-              <TermsGuard>
-                <AppProvider>
-                  <MenuProvider>
-                    <DeepLinkHandler />
-                    <RequireAuth>
-                      {isMobile ? <MobileLayout /> : <TabletLayout />}
+              <AppProvider>
+                <MenuProvider>
+                  <DeepLinkHandler />
+                  <RequireAuth>
+                    {isMobile ? <MobileLayout /> : <TabletLayout />}
 
-                      <AlertDialog
-                        visible={webAlert.visible}
-                        title={webAlert.title || ""}
-                        message={webAlert.message || ""}
-                        onDismiss={handleCloseAlert}
-                        confirmText={
-                          webAlert.buttons?.[webAlert.buttons.length - 1]
-                            ?.text || "OK"
-                        }
-                        onConfirm={() => {
-                          const lastButton =
-                            webAlert.buttons?.[webAlert.buttons.length - 1];
-                          if (lastButton) handleButtonPress(lastButton);
-                        }}
-                        cancelText={
-                          webAlert.buttons?.length === 2
-                            ? webAlert.buttons[0]?.text
-                            : undefined
-                        }
-                        onCancel={
-                          webAlert.buttons?.length === 2
-                            ? () => {
-                                const firstButton = webAlert.buttons?.[0];
-                                if (firstButton) handleButtonPress(firstButton);
-                              }
-                            : undefined
-                        }
-                        type={webAlert.type || "info"}
-                      />
-                    </RequireAuth>
-                  </MenuProvider>
-                </AppProvider>
-              </TermsGuard>
+                    <AlertDialog
+                      visible={webAlert.visible}
+                      title={webAlert.title || ""}
+                      message={webAlert.message || ""}
+                      onDismiss={handleCloseAlert}
+                      confirmText={
+                        webAlert.buttons?.[webAlert.buttons.length - 1]?.text ||
+                        "OK"
+                      }
+                      onConfirm={() => {
+                        const lastButton =
+                          webAlert.buttons?.[webAlert.buttons.length - 1];
+                        if (lastButton) handleButtonPress(lastButton);
+                      }}
+                      cancelText={
+                        webAlert.buttons?.length === 2
+                          ? webAlert.buttons[0]?.text
+                          : undefined
+                      }
+                      onCancel={
+                        webAlert.buttons?.length === 2
+                          ? () => {
+                              const firstButton = webAlert.buttons?.[0];
+                              if (firstButton) handleButtonPress(firstButton);
+                            }
+                          : undefined
+                      }
+                      type={webAlert.type || "info"}
+                    />
+                  </RequireAuth>
+                </MenuProvider>
+              </AppProvider>
             </GraphQLProvider>
           </I18nProvider>
         </ThemeProvider>

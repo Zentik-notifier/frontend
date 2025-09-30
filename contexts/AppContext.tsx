@@ -18,11 +18,11 @@ import {
   useFetchNotifications,
   useSaveNotificationsToStorage,
 } from "@/hooks/useNotifications";
-import { usePendingIntents } from "@/hooks/usePendingNotifications";
 import {
   UsePushNotifications,
   usePushNotifications,
 } from "@/hooks/usePushNotifications";
+import { useReactiveVar } from "@apollo/client";
 import React, {
   createContext,
   ReactNode,
@@ -30,7 +30,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { Alert, AppState, StyleSheet } from "react-native";
+import { Alert, AppState } from "react-native";
 import OnboardingModal from "../components/OnboardingModal";
 import {
   clearLastUserId,
@@ -44,7 +44,6 @@ import {
 } from "../services/auth-storage";
 import { mediaCache } from "../services/media-cache";
 import { useUserSettings } from "../services/user-settings";
-import { useReactiveVar } from "@apollo/client";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 

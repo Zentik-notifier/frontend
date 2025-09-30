@@ -266,6 +266,10 @@ export function useNavigationUtils() {
             router.push({ pathname: `/(common)/(auth)/login`, params: email ? { email } : undefined });
         },
 
+        navigateToTerms: () => {
+            router.push({ pathname: `/(common)/terms-acceptance` });
+        },
+
         navigateToEmailConfirmation: (props: { email?: string, code?: string }) => {
             const { code, email } = props;
             router.push({ pathname: `/(common)/(auth)/email-confirmation`, params: { code, email } });

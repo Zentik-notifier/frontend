@@ -1,6 +1,8 @@
+import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  BackHandler,
   Platform,
   ScrollView,
   StyleSheet,
@@ -13,30 +15,20 @@ import {
   Icon,
   Text,
   TouchableRipple,
-  useTheme
+  useTheme,
 } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useI18n } from "../hooks/useI18n";
 import {
-  acceptTerms,
-  getCurrentTermsVersion,
-  hasAcceptedTerms,
-} from "../services/auth-storage";
+  useSafeAreaInsets
+} from "react-native-safe-area-context";
+import { useI18n } from "../hooks/useI18n";
+import { acceptTerms, getCurrentTermsVersion } from "../services/auth-storage";
 import {
   getLegalDocumentContent,
   LEGAL_DOCUMENTS,
   LegalDocument,
 } from "../services/legal-documents";
 
-interface TermsAcceptanceScreenProps {
-  onAccepted: () => void;
-  onDeclined: () => void;
-}
-
-export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
-  onAccepted,
-  onDeclined,
-}) => {
+export const TermsAcceptanceScreen: React.FC = () => {
   const { t } = useI18n();
   const theme = useTheme();
   const [currentDocument, setCurrentDocument] = useState<LegalDocument | null>(
@@ -45,30 +37,15 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
   const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
-  const [documentsAccepted, setDocumentsAccepted] = useState<Set<string>>(
-    new Set()
-  );
+  const { navigateToHome } = useNavigationUtils();
+  const insets = useSafeAreaInsets();
+  const [footerHeight, setFooterHeight] = useState(0);
 
   const currentVersion = getCurrentTermsVersion();
-  const requiredDocuments = LEGAL_DOCUMENTS.filter(
-    (doc) => doc.fileName === "terms-of-service"
-  );
 
   useEffect(() => {
-    checkExistingAcceptance();
     loadInitialDocument();
   }, []);
-
-  const checkExistingAcceptance = async () => {
-    try {
-      const accepted = await hasAcceptedTerms();
-      if (accepted) {
-        onAccepted();
-      }
-    } catch (error) {
-      console.error("Error checking terms acceptance:", error);
-    }
-  };
 
   const loadInitialDocument = async () => {
     const termsDocument = LEGAL_DOCUMENTS.find(
@@ -97,7 +74,6 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
     try {
       setAccepting(true);
       await acceptTerms();
-      onAccepted();
     } catch (error) {
       console.error("Error accepting terms:", error);
       Alert.alert(t("legal.errorTitle"), t("legal.errorAcceptingTerms"), [
@@ -105,6 +81,13 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
       ]);
     } finally {
       setAccepting(false);
+      navigateToHome();
+    }
+  };
+
+  const handleDeclined = () => {
+    if (Platform.OS === "android") {
+      BackHandler.exitApp();
     }
   };
 
@@ -117,7 +100,7 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
       {
         text: t("legal.exitApp"),
         style: "destructive",
-        onPress: onDeclined,
+        onPress: handleDeclined,
       },
     ]);
   };
@@ -180,10 +163,6 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
       backgroundColor: theme.colors.surfaceVariant,
       color: theme.colors.primary,
       fontSize: 12,
-      fontFamily:
-        Platform.OS === "ios" || Platform.OS === "macos"
-          ? "Menlo"
-          : "monospace",
       paddingHorizontal: 4,
       paddingVertical: 2,
       borderRadius: 4,
@@ -200,34 +179,33 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
 
   if (loading) {
     return (
-      <SafeAreaView
-        style={[
-          styles.container,
-          { backgroundColor: theme.colors.background },
-        ]}
-      >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text variant="bodyLarge" style={styles.loadingText}>
-            {t("legal.loading")}
-          </Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text variant="bodyLarge" style={styles.loadingText}>
+          {t("legal.loading")}
+        </Text>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView
+    <View
       style={[
         styles.container,
-        { backgroundColor: theme.colors.background },
+        {
+          backgroundColor: theme.colors.background,
+          paddingBottom: footerHeight + insets.bottom,
+        },
       ]}
     >
-      {/* Header */}
+      {/* Header (fixed) */}
       <View
         style={[
           styles.header,
-          { borderBottomColor: theme.colors.outline },
+          {
+            borderBottomColor: theme.colors.outline,
+            backgroundColor: theme.colors.background,
+          },
         ]}
       >
         <View style={styles.headerContent}>
@@ -240,12 +218,15 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
         </View>
       </View>
 
-      {/* Document Navigation */}
+      {/* Document Navigation (fixed) */}
       {LEGAL_DOCUMENTS.length > 1 && (
         <View
           style={[
             styles.navigationContainer,
-            { borderBottomColor: theme.colors.outline },
+            {
+              borderBottomColor: theme.colors.outline,
+              backgroundColor: theme.colors.background,
+            },
           ]}
         >
           <ScrollView
@@ -296,42 +277,57 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
         </View>
       )}
 
-      {/* Current Document */}
-      {currentDocument && (
-        <View
-          style={[
-            styles.documentHeader,
-            { borderBottomColor: theme.colors.outline },
-          ]}
-        >
-          <View style={styles.documentInfo}>
-            <Icon
-              source={currentDocument.icon}
-              size={20}
-              color={theme.colors.primary}
-            />
-            <Text variant="titleMedium" style={styles.documentTitle}>
-              {currentDocument.title}
+      {/* Scrollable document content ONLY */}
+      <ScrollView
+        contentContainerStyle={{
+          paddingBottom: (footerHeight || 80) + insets.bottom + 24,
+        }}
+        showsVerticalScrollIndicator
+        keyboardShouldPersistTaps="handled"
+      >
+        {currentDocument && (
+          <View
+            style={[
+              styles.documentHeader,
+              { borderBottomColor: theme.colors.outline },
+            ]}
+          >
+            <View style={styles.documentInfo}>
+              <Icon
+                source={currentDocument.icon}
+                size={20}
+                color={theme.colors.primary}
+              />
+              <Text variant="titleMedium" style={styles.documentTitle}>
+                {currentDocument.title}
+              </Text>
+            </View>
+            <Text variant="bodySmall" style={styles.documentVersion}>
+              {t("legal.version", { version: currentVersion })}
             </Text>
           </View>
-          <Text variant="bodySmall" style={styles.documentVersion}>
-            {t("legal.version", { version: currentVersion })}
-          </Text>
-        </View>
-      )}
+        )}
 
-      {/* Content */}
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={true}
-      >
-        <Markdown style={markdownStyle}>{content}</Markdown>
+        <View style={styles.contentContainer}>
+          <Markdown style={markdownStyle}>{content}</Markdown>
+        </View>
       </ScrollView>
 
-      {/* Acceptance Footer */}
+      {/* Footer (fixed) */}
       <View
-        style={[styles.footer, { borderTopColor: theme.colors.outline }]}
+        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+        style={[
+          styles.footer,
+          {
+            borderTopColor: theme.colors.outline,
+            backgroundColor: theme.colors.background,
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            paddingBottom: insets.bottom + 12,
+          },
+        ]}
       >
         <Text variant="bodySmall" style={styles.footerText}>
           {t("legal.acceptanceFooterText")}
@@ -359,7 +355,7 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
           </Button>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -442,7 +438,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
-    paddingBottom: 40,
   },
   footer: {
     borderTopWidth: 1,
