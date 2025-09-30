@@ -155,7 +155,6 @@ export default function UserDropdown({
               },
             ]}
           >
-            {renderSmallAvatar()}
             <View style={styles.userDetails}>
               <Text
                 variant="titleMedium"
@@ -202,6 +201,32 @@ export default function UserDropdown({
                 style={[styles.menuItemText, { color: theme.colors.onSurface }]}
               >
                 {t("userDropdown.gettingStarted")}
+              </Text>
+            </View>
+          </MenuOption>
+
+          {/* Documentation */}
+          <MenuOption
+            onSelect={() => {
+              window.open('https://notifier-docs.zentik.app', '_blank');
+              closeMenu();
+            }}
+          >
+            <View
+              style={[
+                styles.menuItem,
+                { backgroundColor: theme.colors.surface },
+              ]}
+            >
+              <Icon
+                source="book-outline"
+                size={20}
+                color={theme.colors.onSurface}
+              />
+              <Text
+                style={[styles.menuItemText, { color: theme.colors.onSurface }]}
+              >
+                {t("userDropdown.documentation")}
               </Text>
             </View>
           </MenuOption>
@@ -371,7 +396,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   menuItemText: {
     marginLeft: 12,

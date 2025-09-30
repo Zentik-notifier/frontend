@@ -1279,6 +1279,7 @@ export interface TranslationKey {
   };
   userDropdown: {
     administration: string;
+    documentation: string;
     gettingStarted: string;
     logout: string;
     offlineMode: string;
