@@ -13,7 +13,15 @@ import {
   MenuTrigger,
 } from "react-native-popup-menu";
 
-export default function UserDropdown() {
+interface UserDropdownProps {
+  isMenuOpen: boolean;
+  setIsMenuOpen: (isMenuOpen: boolean) => void;
+}
+
+export default function UserDropdown({
+  isMenuOpen,
+  setIsMenuOpen,
+}: UserDropdownProps) {
   const { logout, showOnboarding } = useAppContext();
   const [showInitials, setShowInitials] = useState(false);
   const [showInitialsSmall, setShowInitialsSmall] = useState(false);
@@ -60,6 +68,14 @@ export default function UserDropdown() {
     return "weather-night";
   }
 
+  function closeMenu() {
+    setIsMenuOpen(false);
+  }
+
+  function toggleMenu() {
+    setIsMenuOpen(!isMenuOpen);
+  }
+
   function renderSmallAvatar() {
     if (user?.avatar && !showInitialsSmall) {
       return (
@@ -89,15 +105,23 @@ export default function UserDropdown() {
 
   return (
     <Surface style={styles.container} elevation={2}>
-      <Menu>
-        <MenuTrigger customStyles={{
-          TriggerTouchableComponent: TouchableOpacity,
-          triggerTouchable: {
-            activeOpacity: 0.7,
-            style: { borderRadius: 18, overflow: 'hidden' }
-          }
-        }}>
-          <View style={[styles.avatarButton, { borderRadius: 18, overflow: 'hidden' }]}>
+      <Menu opened={isMenuOpen} onBackdropPress={closeMenu}>
+        <MenuTrigger
+          customStyles={{
+            TriggerTouchableComponent: TouchableOpacity,
+            triggerTouchable: {
+              activeOpacity: 0.7,
+              style: { borderRadius: 18, overflow: "hidden" },
+            },
+          }}
+          onPress={toggleMenu}
+        >
+          <View
+            style={[
+              styles.avatarButton,
+              { borderRadius: 18, overflow: "hidden" },
+            ]}
+          >
             {user?.avatar && !showInitials ? (
               <Avatar.Image source={{ uri: user.avatar }} size={36} />
             ) : (
@@ -157,7 +181,12 @@ export default function UserDropdown() {
           </View>
 
           {/* Getting Started */}
-          <MenuOption onSelect={() => showOnboarding()}>
+          <MenuOption
+            onSelect={() => {
+              showOnboarding();
+              closeMenu();
+            }}
+          >
             <View
               style={[
                 styles.menuItem,
@@ -178,7 +207,11 @@ export default function UserDropdown() {
           </MenuOption>
 
           {/* Theme Toggle */}
-          <MenuOption onSelect={() => setThemeMode(getNextThemeMode())}>
+          <MenuOption
+            onSelect={() => {
+              setThemeMode(getNextThemeMode());
+            }}
+          >
             <View
               style={[
                 styles.menuItem,
@@ -199,7 +232,12 @@ export default function UserDropdown() {
           </MenuOption>
 
           {/* Settings */}
-          <MenuOption onSelect={() => navigateToSettings()}>
+          <MenuOption
+            onSelect={() => {
+              navigateToSettings();
+              closeMenu();
+            }}
+          >
             <View
               style={[
                 styles.menuItem,
@@ -217,7 +255,12 @@ export default function UserDropdown() {
 
           {/* Administration (Admin only) */}
           {user?.role === UserRole.Admin && (
-            <MenuOption onSelect={() => navigateToAdmin()}>
+            <MenuOption
+              onSelect={() => {
+                navigateToAdmin();
+                closeMenu();
+              }}
+            >
               <View
                 style={[
                   styles.menuItem,
@@ -242,7 +285,12 @@ export default function UserDropdown() {
           )}
 
           {/* Logout */}
-          <MenuOption onSelect={() => logout()}>
+          <MenuOption
+            onSelect={() => {
+              logout();
+              closeMenu();
+            }}
+          >
             <View
               style={[
                 styles.menuItem,

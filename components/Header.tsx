@@ -154,6 +154,7 @@ export default function Header() {
   const [isRegistering, setIsRegistering] = useState(false);
   const { isMobile } = useDeviceType();
   const isPublic = segments[0] === "(common)";
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Determine current route
   const currentRoute = `/${segments.join("/")}`;
@@ -243,6 +244,11 @@ export default function Header() {
           elevated
           statusBarHeight={0}
           style={styles.appbar}
+          onTouchStart={() => {
+            if (isMenuOpen) {
+              setIsMenuOpen(false);
+            }
+          }}
         >
           {/* SEZIONE SINISTRA: Navigation + Badge di Status */}
           <View style={styles.leftSection}>
@@ -351,10 +357,12 @@ export default function Header() {
             {/* Download Queue Progress Icon */}
             {shouldShowStatusBadges && inProcessing && (
               <View style={styles.downloadQueueContainer}>
-                <Appbar.Action
-                  icon={() => <Icon source="download" size={20} color="#fff" />}
-                  disabled
+                <IconButton
+                  icon="download"
+                  size={20}
+                  iconColor="#fff"
                   style={styles.downloadIcon}
+                  disabled
                 />
                 <Surface style={styles.downloadQueueBadge} elevation={3}>
                   <Text
@@ -445,7 +453,10 @@ export default function Header() {
                 </Surface>
               )
             ) : (
-              <UserDropdown />
+              <UserDropdown
+                isMenuOpen={isMenuOpen}
+                setIsMenuOpen={setIsMenuOpen}
+              />
             )}
           </View>
         </Appbar.Header>
