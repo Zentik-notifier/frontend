@@ -64,17 +64,6 @@ ok('package.json version bumped');
 
 async function main() {
   try {
-    // Pull production environment from EAS
-    info('Pulling EAS production environment...');
-    // Requires EAS CLI; use npx to avoid global prerequisite
-    await run('npx', ['eas', 'env:pull', '--environment', 'production']);
-    ok('EAS environment pulled');
-
-    // Build PWA (export + service worker)
-    info('Building PWA for web (output: PWA/)...');
-    await run('npm', ['run', 'build:web']);
-    ok('PWA built');
-
     // Ensure Railway CLI
     try {
       await run('railway', ['--version']);

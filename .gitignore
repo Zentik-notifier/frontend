@@ -19,7 +19,6 @@ keys/*.json
 
 # Build artifacts
 dist/
-PWA/
 .expo/
 
 # Dependencies

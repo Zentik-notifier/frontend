@@ -4,8 +4,8 @@
   "version": "0.0.97",
   "scripts": {
     "start": "expo start",
-    "export:web": "npx expo export --platform web --output-dir PWA",
-    "build:web": "npx expo export -p web --output-dir PWA && npx workbox-cli generateSW workbox-config.js",
+    "export:web": "npx expo export --platform web --output-dir dist",
+    "build:web": "npx expo export -p web --output-dir dist && npx workbox-cli generateSW workbox-config.js",
     "deploy:patch": "node scripts/deploy-pwa.js patch",
     "deploy:minor": "node scripts/deploy-pwa.js minor",
     "deploy:major": "node scripts/deploy-pwa.js major",
