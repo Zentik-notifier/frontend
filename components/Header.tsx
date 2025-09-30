@@ -2,6 +2,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import { useBadgeSync } from "@/hooks";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { useI18n } from "@/hooks/useI18n";
+import { useAppTheme } from "@/hooks/useTheme";
 import { useDownloadQueue } from "@/hooks/useMediaCache";
 import { TranslationKeyPath } from "@/utils";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -39,17 +40,20 @@ const HOME_ROUTES: string[] = [
 
 // Routes that should show back button
 const ROUTES_WITH_BACK_BUTTON: string[] = [
+  "/(common)/(auth)/register",
+  "/(common)/(auth)/forgot-password",
+  "/(common)/(auth)/email-confirmation",
   "/(mobile)/(home)/bucket/settings/[id]",
   "/(mobile)/(home)/bucket/[id]",
   "/(mobile)/(home)/notification/[id]",
   "/(mobile)/(home)/bucket/settings/create",
   "/(mobile)/(home)/bucket/create",
   "/(mobile)/(settings)/user/",
-  "/(mobile)/(settings)/app-settings/",
+  "/(mobile)/(settings)/app-settings",
   "/(mobile)/(settings)/bucket/",
   "/(mobile)/(settings)/access-token/",
   "/(mobile)/(settings)/webhook/",
-  "/(mobile)/(settings)/devices/",
+  "/(mobile)/(settings)/devices",
   "/(mobile)/(settings)/user-sessions",
   "/(mobile)/(settings)/notifications",
   "/(mobile)/(settings)/logs",
@@ -151,6 +155,7 @@ export default function Header() {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { themeMode, setThemeMode } = useAppTheme();
   const [isRegistering, setIsRegistering] = useState(false);
   const { isMobile } = useDeviceType();
   const isPublic = segments[0] === "(common)";
@@ -167,6 +172,7 @@ export default function Header() {
   const shouldShowStatusBadges = HOME_ROUTES.some((route) =>
     currentRoute.startsWith(route)
   );
+  console.log(currentRoute);
 
   const currentTitle = ROUTE_TITLES[currentRoute];
 
@@ -230,6 +236,25 @@ export default function Header() {
     (status.type === "update" && status.action) ||
     (status.type === "push-notifications" && !isRegistering) ||
     status.type === "push-permissions";
+
+  // Theme toggle functions (copied from UserDropdown)
+  function getNextThemeMode(): "system" | "light" | "dark" {
+    // ciclo: System -> Light -> Dark -> System
+    if (themeMode === "system") return "light";
+    if (themeMode === "light") return "dark";
+    return "system";
+  }
+
+  function getThemeCycleIcon(): string {
+    const next = getNextThemeMode();
+    if (next === "system") return "theme-light-dark";
+    if (next === "light") return "white-balance-sunny";
+    return "weather-night";
+  }
+
+  function handleThemeToggle() {
+    setThemeMode(getNextThemeMode());
+  }
 
   return (
     <>
@@ -431,26 +456,51 @@ export default function Header() {
           <View style={styles.rightSection}>
             {isPublic ? (
               segments[1] !== "terms-acceptance" && (
-                <Surface style={styles.unauthButtonWrapper} elevation={2}>
-                  <TouchableRipple
-                    style={[
-                      styles.unauthSettingsButton,
-                      {
-                        backgroundColor: theme.colors.surfaceVariant,
-                        borderColor: theme.colors.outline,
-                      },
-                    ]}
-                    onPress={() => navigateToAppSettings(false)}
-                    accessibilityLabel={t("common.settings")}
-                    accessibilityRole="button"
-                  >
-                    <Icon
-                      source="cog"
-                      size={20}
-                      color={theme.colors.onSurfaceVariant}
-                    />
-                  </TouchableRipple>
-                </Surface>
+                <View style={styles.publicButtonsContainer}>
+                  {/* Theme Toggle Button */}
+                  <Surface style={styles.unauthButtonWrapper} elevation={2}>
+                    <TouchableRipple
+                      style={[
+                        styles.unauthSettingsButton,
+                        {
+                          backgroundColor: theme.colors.surfaceVariant,
+                          borderColor: theme.colors.outline,
+                        },
+                      ]}
+                      onPress={handleThemeToggle}
+                      accessibilityLabel={t("userDropdown.themes.theme")}
+                      accessibilityRole="button"
+                    >
+                      <Icon
+                        source={getThemeCycleIcon()}
+                        size={20}
+                        color={theme.colors.onSurfaceVariant}
+                      />
+                    </TouchableRipple>
+                  </Surface>
+                  
+                  {/* Settings Button */}
+                  <Surface style={styles.unauthButtonWrapper} elevation={2}>
+                    <TouchableRipple
+                      style={[
+                        styles.unauthSettingsButton,
+                        {
+                          backgroundColor: theme.colors.surfaceVariant,
+                          borderColor: theme.colors.outline,
+                        },
+                      ]}
+                      onPress={() => navigateToAppSettings(false)}
+                      accessibilityLabel={t("common.settings")}
+                      accessibilityRole="button"
+                    >
+                      <Icon
+                        source="cog"
+                        size={20}
+                        color={theme.colors.onSurfaceVariant}
+                      />
+                    </TouchableRipple>
+                  </Surface>
+                </View>
               )
             ) : (
               <UserDropdown
@@ -493,6 +543,11 @@ const styles = StyleSheet.create({
   unauthRightSection: {
     width: 44,
     alignItems: "flex-end",
+  },
+  publicButtonsContainer: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
   },
   unauthButtonWrapper: {
     borderRadius: 22,

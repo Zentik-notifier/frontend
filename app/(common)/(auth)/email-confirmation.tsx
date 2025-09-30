@@ -13,9 +13,9 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  View
+  View,
 } from "react-native";
-import { Button, Icon, Text, TextInput } from "react-native-paper";
+import { Button, Icon, Text, TextInput, useTheme } from "react-native-paper";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -23,6 +23,7 @@ import {
 
 export default function EmailConfirmationScreen() {
   const { t } = useI18n();
+  const theme = useTheme();
   const { currentLocale } = useLanguageSync();
   const { email: initialEmail, code } = useLocalSearchParams<{
     email?: string;
@@ -148,13 +149,22 @@ export default function EmailConfirmationScreen() {
           <View style={styles.iconContainer}>
             <Icon source="check-circle" size={40} />
           </View>
-          <Text variant="headlineMedium" style={styles.title}>
+          <Text
+            variant="headlineMedium"
+            style={[styles.title, { color: theme.colors.onBackground }]}
+          >
             {t("auth.emailConfirmation.success")}
           </Text>
-          <Text variant="bodyLarge" style={styles.description}>
+          <Text
+            variant="bodyLarge"
+            style={[styles.description, { color: theme.colors.onBackground }]}
+          >
             {t("auth.emailConfirmation.successMessage")}
           </Text>
-          <Text variant="bodyMedium" style={styles.redirectText}>
+          <Text
+            variant="bodyMedium"
+            style={[styles.redirectText, { color: theme.colors.onBackground }]}
+          >
             {t("common.loading")}
           </Text>
           <Button
@@ -174,10 +184,16 @@ export default function EmailConfirmationScreen() {
           <View style={styles.iconContainer}>
             <Icon source="alert-circle" size={40} />
           </View>
-          <Text variant="headlineMedium" style={styles.title}>
+          <Text
+            variant="headlineMedium"
+            style={[styles.title, { color: theme.colors.onBackground }]}
+          >
             {t("auth.emailConfirmation.error")}
           </Text>
-          <Text variant="bodyLarge" style={styles.description}>
+          <Text
+            variant="bodyLarge"
+            style={[styles.description, { color: theme.colors.onBackground }]}
+          >
             {t("auth.emailConfirmation.errorMessage")}
           </Text>
           <Button
@@ -197,19 +213,34 @@ export default function EmailConfirmationScreen() {
         <View style={styles.iconContainer}>
           <Icon source="email" size={40} />
         </View>
-        <Text variant="headlineMedium" style={styles.title}>
+        <Text
+          variant="headlineMedium"
+          style={[styles.title, { color: theme.colors.onBackground }]}
+        >
           {t("register.emailConfirmation.title")}
         </Text>
-        <Text variant="bodyLarge" style={styles.description}>
+        <Text
+          variant="bodyLarge"
+          style={[styles.description, { color: theme.colors.onBackground }]}
+        >
           {t("register.emailConfirmation.description")}
         </Text>
 
         {showEmailInput && (
           <View style={styles.inputContainer}>
-            <Text variant="titleMedium" style={styles.emailInputLabel}>
+            <Text
+              variant="titleMedium"
+              style={[
+                styles.emailInputLabel,
+                { color: theme.colors.onBackground },
+              ]}
+            >
               {t("auth.emailConfirmation.title")}
             </Text>
-            <Text variant="bodyMedium" style={styles.description}>
+            <Text
+              variant="bodyMedium"
+              style={[styles.description, { color: theme.colors.onBackground }]}
+            >
               {t("auth.emailConfirmation.description")}
             </Text>
             <TextInput
@@ -247,23 +278,44 @@ export default function EmailConfirmationScreen() {
         {email && !showEmailInput && (
           <>
             <View style={styles.emailInfo}>
-              <Text variant="bodyLarge" style={styles.emailLabel}>
+              <Text
+                variant="bodyLarge"
+                style={[
+                  styles.emailLabel,
+                  { color: theme.colors.onBackground },
+                ]}
+              >
                 {t("register.emailConfirmation.checkEmail")}
               </Text>
-              <Text variant="titleMedium" style={styles.emailText}>
+              <Text
+                variant="titleMedium"
+                style={[styles.emailText, { color: theme.colors.onBackground }]}
+              >
                 {email}
               </Text>
             </View>
             <View style={styles.helpSection}>
-              <Text variant="titleSmall" style={styles.helpTitle}>
+              <Text
+                variant="titleSmall"
+                style={[styles.helpTitle, { color: theme.colors.onBackground }]}
+              >
                 {t("register.emailConfirmation.notReceived")}
               </Text>
-              <Text variant="bodyMedium" style={styles.helpText}>
+              <Text
+                variant="bodyMedium"
+                style={[styles.helpText, { color: theme.colors.onBackground }]}
+              >
                 {t("register.emailConfirmation.spamFolder")}
               </Text>
             </View>
             {emailSent && (
-              <Text variant="bodyMedium" style={styles.successMessage}>
+              <Text
+                variant="bodyMedium"
+                style={[
+                  styles.successMessage,
+                  { color: theme.colors.onBackground },
+                ]}
+              >
                 {t("register.emailConfirmation.emailSentMessage")}
               </Text>
             )}
@@ -272,7 +324,13 @@ export default function EmailConfirmationScreen() {
 
         {showCodeInput && (
           <View style={styles.codeInputContainer}>
-            <Text variant="titleMedium" style={styles.codeInputLabel}>
+            <Text
+              variant="titleMedium"
+              style={[
+                styles.codeInputLabel,
+                { color: theme.colors.onBackground },
+              ]}
+            >
               {t("auth.emailConfirmation.enterCode")}
             </Text>
             <TextInput
@@ -329,21 +387,24 @@ export default function EmailConfirmationScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View
+      style={[styles.safeArea, { backgroundColor: theme.colors.background }]}
+    >
       <KeyboardAvoidingView
-        style={styles.keyboardView}
+        style={[
+          styles.keyboardView,
+          { backgroundColor: theme.colors.background },
+        ]}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
-          contentContainerStyle={[
-            styles.container,
-          ]}
+          contentContainerStyle={[styles.container]}
           keyboardShouldPersistTaps="handled"
         >
           {renderContent()}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 

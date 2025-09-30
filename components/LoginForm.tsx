@@ -135,22 +135,20 @@ export default function LoginForm({
         {errors.password}
       </HelperText>
 
-      <View style={styles.buttonsContainer}>
-        <Button
-          mode="contained"
-          onPress={handleLogin}
-          loading={isLoading}
-          disabled={isLoading}
-          style={styles.loginButton}
-        >
-          {isLoading ? t("login.loggingIn") : t("login.loginButton")}
-        </Button>
+      <Button
+        mode="contained"
+        onPress={handleLogin}
+        loading={isLoading}
+        disabled={isLoading}
+        style={styles.loginButton}
+      >
+        {isLoading ? t("login.loggingIn") : t("login.loginButton")}
+      </Button>
 
-        <OAuthSelector
-          onProviderSelect={openProviderLogin}
-          disabled={isLoading}
-        />
-      </View>
+      <OAuthSelector
+        onProviderSelect={openProviderLogin}
+        disabled={isLoading}
+      />
       
       {onCancel && (
         <Button
@@ -179,15 +177,10 @@ const styles = StyleSheet.create({
     maxWidth: 500,
     textAlign: "left",
   },
-  buttonsContainer: {
-    flexDirection: "row",
-    gap: 8,
+  loginButton: {
     width: "100%",
     maxWidth: 500,
     marginTop: 16,
-  },
-  loginButton: {
-    width: 200,
   },
   oauthButton: {
     flex: 1,

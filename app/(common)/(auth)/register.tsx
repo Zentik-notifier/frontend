@@ -11,13 +11,14 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { Button, HelperText, Text, TextInput } from "react-native-paper";
+import { Button, HelperText, Text, TextInput, useTheme } from "react-native-paper";
 import {
   SafeAreaView
 } from "react-native-safe-area-context";
 
 export default function RegisterScreen() {
   const { t } = useI18n();
+  const theme = useTheme();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -116,10 +117,10 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
-        style={styles.keyboardView}
+        style={[styles.keyboardView, { backgroundColor: theme.colors.background }]}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
@@ -127,7 +128,7 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.titleContainer}>
-            <Text variant="headlineMedium" style={styles.title}>
+            <Text variant="headlineMedium" style={[styles.title, { color: theme.colors.onBackground }]}>
               {t("register.title")}
             </Text>
           </View>
@@ -268,7 +269,7 @@ export default function RegisterScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 

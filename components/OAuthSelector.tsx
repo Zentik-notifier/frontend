@@ -1,15 +1,9 @@
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import React, { useMemo } from "react";
-import { StyleSheet, View, ViewStyle } from "react-native";
-import { Button, Text, useTheme, Icon } from "react-native-paper";
 import { Image } from "expo-image";
-import {
-  Menu,
-  MenuOptions,
-  MenuOption,
-  MenuTrigger,
-} from "react-native-popup-menu";
+import React, { useMemo } from "react";
+import { StyleSheet, View } from "react-native";
+import { Button, Text, useTheme } from "react-native-paper";
 
 interface OAuthSelectorProps {
   onProviderSelect: (providerId: string) => void;
@@ -28,92 +22,74 @@ export function OAuthSelector({
 
   const { t } = useI18n();
 
-  const menuItems = useMemo(() => {
-    return providers.map((provider) => ({
-      id: provider.id,
-      label: provider.name,
-      imageUrl: provider.iconUrl || undefined,
-      onPress: () => onProviderSelect(provider.providerId),
-    }));
-  }, [providers, onProviderSelect]);
-
   if (providers.length === 0) return null;
 
   return (
     <View style={[styles.container]}>
-      <Menu>
-        <MenuTrigger>
+      <Text style={[styles.orText, { color: theme.colors.onSurfaceVariant }]}>
+        {t("login.orContinueWith")}
+      </Text>
+      <View style={styles.providersContainer}>
+        {providers.map((provider) => (
           <Button
-            mode="outlined"
+            key={provider.id}
+            mode="contained"
             disabled={disabled}
-            style={styles.selectorButton}
-            contentStyle={styles.buttonContent}
-            icon={() => (
-              <Icon source="chevron-down" size={20} color="currentColor" />
-            )}
+            onPress={() => onProviderSelect(provider.providerId)}
+            style={[
+              styles.providerButton,
+              {
+                backgroundColor: provider.color || theme.colors.primary,
+              }
+            ]}
+            labelStyle={[
+              styles.providerLabel,
+              {
+                color: provider.textColor || theme.colors.onPrimary,
+              }
+            ]}
+            icon={() => 
+              provider.iconUrl ? (
+                <Image
+                  source={{ uri: provider.iconUrl }}
+                  style={styles.providerIcon}
+                />
+              ) : null
+            }
           >
-            {t("login.orContinueWith")}
+            {provider.name}
           </Button>
-        </MenuTrigger>
-        <MenuOptions
-          optionsContainerStyle={{
-            marginTop: 50,
-            backgroundColor: theme.colors.surface,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: theme.colors.outlineVariant,
-          }}
-        >
-          {menuItems.map((item) => (
-            <MenuOption key={item.id} onSelect={() => item.onPress()}>
-              <View style={styles.menuItem}>
-                {item.imageUrl && (
-                  <Image
-                    source={{ uri: item.imageUrl }}
-                    style={styles.providerIcon}
-                  />
-                )}
-                <Text style={styles.providerName}>{item.label}</Text>
-              </View>
-            </MenuOption>
-          ))}
-        </MenuOptions>
-      </Menu>
+        ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    width: "100%",
+    maxWidth: 500,
+    marginTop: 16,
   },
-  selectorButton: {
-    flex: 1,
+  orText: {
+    textAlign: "center",
+    marginBottom: 16,
+    fontSize: 14,
+    opacity: 0.7,
   },
-  buttonContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  providersContainer: {
+    flexDirection: "column",
+    gap: 12,
   },
-  menu: {
-    marginTop: 8,
+  providerButton: {
+    width: "100%",
   },
-  providerInfo: {
-    flexDirection: "row",
-    alignItems: "center",
+  providerLabel: {
+    fontWeight: "500",
   },
   providerIcon: {
     width: 20,
     height: 20,
     marginRight: 8,
-  },
-  providerName: {
-    fontWeight: "500",
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
 });

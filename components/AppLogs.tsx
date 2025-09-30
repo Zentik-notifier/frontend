@@ -26,7 +26,10 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { openSharedCacheDb } from "@/services/media-cache-db";
 import { AppLog, LogRepository } from "@/services/log-repository";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useI18n } from "@/hooks/useI18n";
 import * as Sharing from "expo-sharing";
 import { File, Paths } from "expo-file-system";
@@ -222,10 +225,7 @@ export default function AppLogs() {
   }, [t]);
 
   return (
-    <SafeAreaView
-      edges={["left", "right", "bottom"]}
-      style={[styles.safe, { backgroundColor: theme.colors.background }]}
-    >
+    <View style={[styles.safe, { backgroundColor: theme.colors.background }]}>
       <Surface style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity
@@ -303,9 +303,19 @@ export default function AppLogs() {
         onRequestClose={handleCloseLogDialog}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}>
+          <View
+            style={[
+              styles.modalContainer,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
             {/* Header */}
-            <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outline }]}>
+            <View
+              style={[
+                styles.modalHeader,
+                { borderBottomColor: theme.colors.outline },
+              ]}
+            >
               {/* Level badge a sinistra */}
               <View style={styles.levelBadgeContainer}>
                 <View
@@ -322,7 +332,7 @@ export default function AppLogs() {
                   {selectedLog?.level.toUpperCase()}
                 </Text>
               </View>
-              
+
               {/* Data in mezzo */}
               <View style={styles.dateContainer}>
                 <Text style={styles.dialogDate}>
@@ -331,7 +341,7 @@ export default function AppLogs() {
                     : ""}
                 </Text>
               </View>
-              
+
               {/* Close button a destra */}
               <TouchableOpacity
                 style={styles.closeButton}
@@ -343,8 +353,8 @@ export default function AppLogs() {
             </View>
 
             {/* Content */}
-            <ScrollView 
-              style={styles.modalContent} 
+            <ScrollView
+              style={styles.modalContent}
               showsVerticalScrollIndicator={true}
               indicatorStyle="default"
             >
@@ -375,7 +385,7 @@ export default function AppLogs() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 

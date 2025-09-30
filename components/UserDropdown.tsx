@@ -4,7 +4,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useAppTheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
-import { Image, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Image, Linking, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Avatar, Icon, Surface, Text, useTheme } from "react-native-paper";
 import {
   Menu,
@@ -208,7 +208,7 @@ export default function UserDropdown({
           {/* Documentation */}
           <MenuOption
             onSelect={() => {
-              window.open('https://notifier-docs.zentik.app', '_blank');
+              Linking.openURL('https://notifier-docs.zentik.app');
               closeMenu();
             }}
           >

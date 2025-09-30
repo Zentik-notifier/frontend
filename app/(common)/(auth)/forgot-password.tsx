@@ -10,13 +10,14 @@ import {
   StyleSheet,
   View
 } from "react-native";
-import { Text } from "react-native-paper";
+import { Text, useTheme } from "react-native-paper";
 import {
   SafeAreaView
 } from "react-native-safe-area-context";
 
 export default function ForgotPasswordScreen() {
   const { t } = useI18n();
+  const theme = useTheme();
   const { navigateToLogin } = useNavigationUtils();
 
   const handleBackToLogin = () => {
@@ -24,10 +25,10 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         enabled
@@ -40,10 +41,10 @@ export default function ForgotPasswordScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerContainer}>
-            <Text variant="headlineMedium" style={styles.title}>
+            <Text variant="headlineMedium" style={[styles.title, { color: theme.colors.onBackground }]}>
               {t("auth.forgotPassword.title")}
             </Text>
-            <Text variant="bodyLarge" style={styles.subtitle}>
+            <Text variant="bodyLarge" style={[styles.subtitle, { color: theme.colors.onBackground }]}>
               {t("auth.forgotPassword.description")}
             </Text>
           </View>
@@ -51,7 +52,7 @@ export default function ForgotPasswordScreen() {
           <ForgotPasswordFlow onBackToLogin={handleBackToLogin} />
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 

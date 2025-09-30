@@ -18,21 +18,21 @@ export default function NotFoundScreen() {
             size={120} 
             color={theme.colors.error} 
           />
-          <Text variant="displaySmall" style={styles.title}>
+          <Text variant="displaySmall" style={[styles.title, { color: theme.colors.onBackground }]}>
             404
           </Text>
-          <Text variant="headlineSmall" style={styles.subtitle}>
+          <Text variant="headlineSmall" style={[styles.subtitle, { color: theme.colors.onBackground }]}>
             {t("notFound.title")}
           </Text>
-          <Text variant="bodyLarge" style={styles.description}>
+          <Text variant="bodyLarge" style={[styles.description, { color: theme.colors.onBackground }]}>
             {t("notFound.description")}
           </Text>
-          <Text variant="bodyMedium" style={styles.path}>
+          <Text variant="bodyMedium" style={[styles.path, { color: theme.colors.onBackground, backgroundColor: theme.colors.surface }]}>
             {pathname}
           </Text>
           <Link href="/" style={styles.link}>
             <Surface style={[styles.button, { backgroundColor: theme.colors.primary }]} elevation={2}>
-              <Text variant="titleMedium" style={styles.buttonText}>
+              <Text variant="titleMedium" style={[styles.buttonText, { color: theme.colors.onPrimary }]}>
                 {t("notFound.goHome")}
               </Text>
             </Surface>
@@ -71,7 +71,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     opacity: 0.6,
     fontFamily: "monospace",
-    backgroundColor: "rgba(0,0,0,0.05)",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -88,7 +87,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   buttonText: {
-    color: "white",
     fontWeight: "600",
   },
 });

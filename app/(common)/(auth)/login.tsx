@@ -12,11 +12,12 @@ import {
   StyleSheet,
   View
 } from "react-native";
-import { Button, Text } from "react-native-paper";
+import { Button, Text, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LoginScreen() {
   const { t } = useI18n();
+  const theme = useTheme();
   const { data } = usePublicAppConfigQuery();
   const emailEnabled = data?.publicAppConfig.emailEnabled;
   const { email } = useLocalSearchParams<{ email?: string }>();
@@ -32,10 +33,10 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         enabled
@@ -48,7 +49,7 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.logoContainer}>
-            <Text variant="headlineLarge" style={styles.appName}>
+            <Text variant="headlineLarge" style={[styles.appName, { color: theme.colors.onBackground }]}>
               Zentik
             </Text>
             <View style={styles.logoPlaceholder}>
@@ -60,7 +61,7 @@ export default function LoginScreen() {
                 />
               </View>
             </View>
-            <Text variant="titleMedium" style={styles.subtitle}>
+            <Text variant="titleMedium" style={[styles.subtitle, { color: theme.colors.onBackground }]}>
               {t("login.welcomeBack")}
             </Text>
           </View>
@@ -71,7 +72,7 @@ export default function LoginScreen() {
           />
 
           <View style={styles.registerContainer}>
-            <Text variant="bodyLarge" style={styles.registerText}>
+            <Text variant="bodyLarge" style={[styles.registerText, { color: theme.colors.onBackground }]}>
               {t("login.noAccount")}
             </Text>
             <Button
@@ -96,7 +97,7 @@ export default function LoginScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
