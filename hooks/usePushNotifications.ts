@@ -80,11 +80,6 @@ export function usePushNotifications() {
         } else if (isReady()) {
           setPushPermissionError(false);
           setDeviceRegistered(true);
-          const deviceInfo = result?.deviceInfo;
-
-          if (deviceInfo) {
-            await registerDeviceMutation({ variables: { input: deviceInfo } });
-          }
         } else {
           setDeviceRegistered(false);
         }
