@@ -70,10 +70,12 @@ export default function NotificationsList({
   const { t } = useI18n();
   const { refetchNotifications } = useAppContext();
   const {
+    setMainLoading,
     userSettings: { settings },
   } = useAppContext();
 
-  const { massDelete: massDeleteNotifications } = useMassDeleteNotifications();
+  const { massDelete: massDeleteNotifications, loading: isMassDeleteLoading } =
+    useMassDeleteNotifications();
   const { massMarkAsRead } = useMassMarkNotificationsAsRead();
   const { massMarkAsUnread } = useMassMarkNotificationsAsUnread();
 
@@ -90,6 +92,10 @@ export default function NotificationsList({
   useEffect(() => {
     handleSetAllNotifications(notifications);
   }, [notifications]);
+
+  useEffect(() => {
+    setMainLoading(isMassDeleteLoading);
+  }, [isMassDeleteLoading]);
 
   const {
     userSettings: {
@@ -194,8 +200,8 @@ export default function NotificationsList({
           style: "destructive",
           onPress: async () => {
             const notificationIds = Array.from(selectedItems);
-            await massDeleteNotifications(notificationIds);
             handleCloseSelectionMode();
+            massDeleteNotifications(notificationIds).catch(console.error);
           },
         },
       ]
