@@ -17,7 +17,6 @@ import {
 } from '../generated/gql-operations-generated';
 import { useI18n } from './useI18n';
 import { useDeleteNotification, useFetchNotifications, useMarkNotificationRead } from './useNotifications';
-import { useDeviceRegistrationStatus } from './useDeviceRegistrationStatus';
 
 /**
  * Hook that provides callbacks for handling notification actions

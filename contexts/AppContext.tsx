@@ -93,7 +93,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
   const loadedFromPersistedCache = useReactiveVar(loadedFromPersistedCacheVar);
-  const connectionStatus = useConnectionStatus(!userId, push);
+  const connectionStatus = useConnectionStatus(push);
   const userSettings = useUserSettings();
 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -203,7 +203,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLastUserId(newUserId);
 
       await push.initialize();
-      connectionStatus.refreshDeviceRegistration();
 
       setIsInitializing(false);
       await refetchNotifications();

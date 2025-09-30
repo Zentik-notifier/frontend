@@ -13,6 +13,7 @@ import {
   Appbar,
   Button,
   Icon,
+  IconButton,
   Surface,
   Text,
   TouchableRipple,
@@ -315,9 +316,9 @@ export default function Header() {
             {/* Main Loading Indicator */}
             {(isMainLoading || isLoadingGqlData) && !currentTitle && (
               <View style={styles.mainLoadingContainer}>
-                <Appbar.Action
-                  icon={() => <ActivityIndicator size="small" color="#fff" />}
-                  disabled
+                <ActivityIndicator
+                  size="small"
+                  color="#fff"
                   style={styles.loadingIcon}
                 />
               </View>
@@ -328,27 +329,20 @@ export default function Header() {
               hasUnreadNotifications &&
               !isLoadingGqlData && (
                 <View style={styles.markAllButtonContainer}>
-                  <Appbar.Action
+                  <IconButton
+                    icon="check-all"
+                    loading={isMarkingAllAsRead}
+                    size={20}
+                    iconColor="#fff"
                     onPress={handleMarkAllAsRead}
                     disabled={!hasUnreadNotifications || isMarkingAllAsRead}
-                    icon={() =>
-                      isMarkingAllAsRead ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Icon source="check-all" size={20} color="#fff" />
-                      )
-                    }
                     style={styles.markAllIcon}
                   />
                   {unreadCount > 0 && (
                     <Surface style={styles.badge} elevation={3}>
-                      {isLoadingGqlData ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Text variant="labelSmall" style={styles.badgeText}>
-                          {unreadCount > 99 ? "99+" : unreadCount.toString()}
-                        </Text>
-                      )}
+                      <Text variant="labelSmall" style={styles.badgeText}>
+                        {unreadCount > 99 ? "99+" : unreadCount.toString()}
+                      </Text>
                     </Surface>
                   )}
                 </View>

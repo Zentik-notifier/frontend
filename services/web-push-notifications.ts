@@ -14,53 +14,62 @@ export interface WebPushInitOptions {
 }
 
 class WebPushNotificationService {
-  private ready = false;
   private pushSubscription: PushSubscription | null = null;
   private swRegistration: ServiceWorkerRegistration | null = null;
   private callbacks: NotificationActionCallbacks | null = null;
   private listenerAttached = false;
+  private isInitialized = false;
 
-  async initialize(callbacks: NotificationActionCallbacks): Promise<{ deviceInfo: RegisterDeviceDto | null; hasPermissionError: boolean }> {
-    if (typeof window === 'undefined') return { deviceInfo: null, hasPermissionError: false };
+  async checkPermissions() {
+    if (typeof window === 'undefined') return false;
+    if (!('Notification' in window)) return false;
+    if (Notification.permission === 'default') {
+      const res = await Notification.requestPermission();
+      if (res !== 'granted') {
+        return false;
+      }
+    } else if (Notification.permission !== 'granted') {
+      return { deviceInfo: null, hasPermissionError: true };
+    }
 
+    return true;
+  }
+
+  async initialize(callbacks: NotificationActionCallbacks) {
     try {
       this.callbacks = callbacks;
-      // Request Notification permission
-      if ('Notification' in window) {
-        if (Notification.permission === 'default') {
-          const res = await Notification.requestPermission();
-          if (res !== 'granted') {
-            console.error('PUSH_PERMISSION_DENIED: Web notification permission not granted');
-            return { deviceInfo: null, hasPermissionError: true };
-          }
-        } else if (Notification.permission !== 'granted') {
-          console.error('PUSH_PERMISSION_DENIED: Web notification permission not granted');
-          return { deviceInfo: null, hasPermissionError: true };
-        }
+
+      const hasPermission = await this.checkPermissions();
+
+      if (!hasPermission) {
+        console.error('[WebPushNotificationService] Web notification permission not granted');
+        return { deviceInfo: null, hasPermissionError: true };
       }
 
       // Register SW and subscribe to push if supported and permitted
       if ('serviceWorker' in navigator && 'PushManager' in window) {
         const swPath = '/sw.js';
         const reg = await navigator.serviceWorker.register(swPath);
+
+        console.log('[WebPushNotificationService] ServiceWorker registered status:', reg.active?.state);
         // Ensure active registration
         this.swRegistration = reg.active ? reg : await navigator.serviceWorker.ready;
         this.pushSubscription = await this.swRegistration.pushManager.getSubscription();
+        console.log(reg, this.pushSubscription)
+
+        console.log('[WebPushNotificationService] PushSubscription endpoint generated', this.pushSubscription?.endpoint);
 
         // Attach listener for actions coming from Service Worker
         this.attachServiceWorkerActionListener();
+      } else {
+        console.error('[WebPushNotificationService] ServiceWorker not found in /sw.js');
       }
-      this.ready = true;
-      return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false };
     } catch (e) {
-      this.ready = false;
-      console.error('❌ Web Push initialization failed:', e);
-      return { deviceInfo: null, hasPermissionError: false };
+      console.error('[WebPushNotificationService] Error initializing:', e);
+    } finally {
+      this.isInitialized = true;
+      return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false };
     }
-  }
-
-  isReady() {
-    return this.ready;
   }
 
   getDeviceToken(): string | null {
@@ -71,40 +80,44 @@ class WebPushNotificationService {
     return this.pushSubscription?.unsubscribe();
   }
 
-  async registerDevice(device: UserDeviceFragment): Promise<{ deviceToken: string | null; hasPermissionError: boolean }> {
+  async registerDevice(device: UserDeviceFragment) {
+    const hasPermission = await this.checkPermissions();
+    let infoJson: PushSubscriptionJSON | null = null;
+
+    if (!hasPermission) {
+      console.error('[WebPushNotificationService] Web notification permission not granted');
+      return { infoJson, hasPermissionError: true };
+    }
+
     const publicKey = device.publicKey;
 
-    if (this.pushSubscription) {
-      this.pushSubscription.unsubscribe();
-      this.pushSubscription = null;
-    }
-
-    if (this.swRegistration && publicKey && this.callbacks) {
-      const applicationServerKey = this.urlBase64ToUint8Array(publicKey);
-      const newSub = await this.swRegistration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
-
-      if (newSub) {
-        const json = newSub.toJSON();
-
-        const endpoint = json.endpoint || newSub?.endpoint || undefined;
-        await this.callbacks.useUpdateUserDevice({
-          deviceId: device.id,
-          subscriptionFields: {
-            endpoint,
-            p256dh: json.keys?.p256dh,
-            auth: json.keys?.auth,
-          },
-          deviceToken: endpoint
-        });
-
-        this.ready = true;
-        this.pushSubscription = await this.swRegistration.pushManager.getSubscription();
+    try {
+      if (this.pushSubscription) {
+        console.log('🔄 Unsubscribing from web push subscription');
+        await this.pushSubscription.unsubscribe();
+        this.pushSubscription = null;
       }
 
-      return { deviceToken: this.pushSubscription?.endpoint ?? null, hasPermissionError: false };
-    }
+      if (this.swRegistration && publicKey) {
+        const applicationServerKey = this.urlBase64ToUint8Array(publicKey);
+        const newSub = await this.swRegistration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
 
-    return { deviceToken: null, hasPermissionError: false };
+        const json = newSub?.toJSON();
+
+        console.log('[WebPushNotificationService] New subscription registration', JSON.stringify({
+          applicationServerKey,
+          publicKey,
+          newSub: json
+        }));
+
+        infoJson = json;
+        this.pushSubscription = await this.swRegistration.pushManager.getSubscription();
+      }
+    } catch (e) {
+      console.error('[WebPushNotificationService] Registration failed:', e);
+    } finally {
+      return { infoJson, hasPermissionError: false };
+    }
   }
 
   getDeviceInfo(): RegisterDeviceDto | null {
@@ -173,6 +186,10 @@ class WebPushNotificationService {
       outputArray[i] = rawData.charCodeAt(i);
     }
     return outputArray;
+  }
+
+  isReady(): boolean {
+    return this.isInitialized && !!this.getDeviceToken();
   }
 }
 

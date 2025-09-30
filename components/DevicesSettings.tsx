@@ -12,11 +12,18 @@ export default function DevicesSettings() {
   const { t } = useI18n();
   const theme = useTheme();
   const [managingDevice, setManagingDevice] = useState(false);
-  const { deviceToken, push } = useAppContext();
 
-  const { data: userDevicesData, loading, refetch } = useGetUserDevicesQuery();
+  const {
+    data: userDevicesData,
+    loading,
+    refetch,
+  } = useGetUserDevicesQuery({
+    fetchPolicy: "network-only",
+  });
   const {
     setMainLoading,
+    deviceToken,
+    push,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
 
@@ -48,9 +55,9 @@ export default function DevicesSettings() {
     setManagingDevice(true);
     try {
       // Find the current device in the list
-      const currentDevice = sortedDevices.find(
-        (device) => device.deviceToken === deviceToken
-      );
+      const currentDevice = deviceToken
+        ? sortedDevices.find((device) => device.deviceToken === deviceToken)
+        : undefined;
 
       if (!currentDevice) {
         console.warn("⚠️ Current device not found in registered devices list");
@@ -95,63 +102,51 @@ export default function DevicesSettings() {
     }
   };
 
+  const disabledRegister =
+    managingDevice ||
+    isOfflineAuth ||
+    isBackendUnreachable ||
+    push.pushPermissionError;
+
+  const isCurrentRegistered = sortedDevices.some(
+    (device) => device.deviceToken === deviceToken
+  );
+  const disabledUnregister =
+    managingDevice ||
+    isOfflineAuth ||
+    isBackendUnreachable ||
+    disabledRegister ||
+    !isCurrentRegistered;
+
   return (
     <PaperScrollView onRefresh={handleRefresh} loading={loading}>
       <View style={styles.content}>
         <View style={styles.buttonContainer}>
-          {(() => {
-            const disabledRegister =
-              managingDevice ||
-              !push.isReady() ||
-              isOfflineAuth ||
-              isBackendUnreachable ||
-              push.pushPermissionError;
-            return (
-              <Button
-                mode="contained"
-                onPress={handleRegisterDevice}
-                disabled={disabledRegister}
-                loading={managingDevice}
-                style={styles.button}
-              >
-                {managingDevice
-                  ? t("devices.registering")
-                  : t("devices.registerDevice")}
-              </Button>
-            );
-          })()}
+          <Button
+            mode="contained"
+            onPress={handleRegisterDevice}
+            disabled={disabledRegister}
+            loading={managingDevice}
+            style={styles.button}
+          >
+            {managingDevice
+              ? t("devices.registering")
+              : t("devices.registerDevice")}
+          </Button>
 
-          {(() => {
-            const disabledRegister =
-              managingDevice ||
-              !push.isReady() ||
-              isOfflineAuth ||
-              isBackendUnreachable;
-            const isCurrentRegistered = sortedDevices.some(
-              (device) => device.deviceToken === deviceToken
-            );
-            const disabledUnregister =
-              managingDevice ||
-              isOfflineAuth ||
-              isBackendUnreachable ||
-              disabledRegister ||
-              !isCurrentRegistered;
-            return (
-              <Button
-                mode="outlined"
-                onPress={handleUnregisterDevice}
-                disabled={disabledUnregister}
-                loading={managingDevice}
-                buttonColor={theme.colors.errorContainer}
-                textColor={theme.colors.onErrorContainer}
-                style={styles.button}
-              >
-                {managingDevice
-                  ? t("devices.unregistering")
-                  : t("devices.unregisterDevice")}
-              </Button>
-            );
-          })()}
+          <Button
+            mode="outlined"
+            onPress={handleUnregisterDevice}
+            disabled={disabledUnregister}
+            loading={managingDevice}
+            buttonColor={theme.colors.errorContainer}
+            textColor={theme.colors.onErrorContainer}
+            style={styles.button}
+          >
+            {managingDevice
+              ? t("devices.unregistering")
+              : t("devices.unregisterDevice")}
+          </Button>
         </View>
 
         {/* Messaggio di errore per permessi push */}
@@ -186,7 +181,9 @@ export default function DevicesSettings() {
               <SwipeableDeviceItem
                 key={item.id}
                 device={item}
-                isCurrentDevice={deviceToken === item.deviceToken}
+                isCurrentDevice={
+                  !!deviceToken && deviceToken === item.deviceToken
+                }
               />
             ))}
           </View>

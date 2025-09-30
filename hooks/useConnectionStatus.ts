@@ -2,7 +2,6 @@ import { useGetMeQuery, useHealthcheckLazyQuery } from '@/generated/gql-operatio
 import NetInfo from '@react-native-community/netinfo';
 import * as Updates from 'expo-updates';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useDeviceRegistrationStatus } from './useDeviceRegistrationStatus';
 import { UsePushNotifications } from './usePushNotifications';
 
 
@@ -23,12 +22,7 @@ export interface ConnectionStatus {
   isDeviceRegistered: boolean;
 }
 
-export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications) {
-  const {
-    isRegistered: isDeviceRegistered,
-    isLoading: isDeviceRegistrationLoading,
-    refresh: refreshDeviceRegistration
-  } = useDeviceRegistrationStatus(skip);
+export function useConnectionStatus(push: UsePushNotifications) {
   const [isOnline, setIsOnline] = useState(true);
   const [hasUpdateAvailable, setHasUpdateAvailable] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
@@ -151,7 +145,7 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
         const update = await Updates.checkForUpdateAsync();
         setHasUpdateAvailable(update.isAvailable);
       } catch (error) {
-        console.error('Error checking for updates:', error);
+        console.error('[useConnectionStatus] Error checking for updates:', error);
         setHasUpdateAvailable(false);
       } finally {
         setIsCheckingUpdate(false);
@@ -170,13 +164,13 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
     try {
       await Updates.reloadAsync();
     } catch (error) {
-      console.error('Error applying update:', error);
+      console.error('[useConnectionStatus] Error applying update:', error);
       setIsUpdating(false);
     }
   };
 
   const getPriorityStatus: GetPriorityStatus = () => {
-    if (push?.pushPermissionError) {
+    if (push.pushPermissionError) {
       return {
         type: 'push-permissions',
         icon: 'bell-outline',
@@ -184,7 +178,7 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
         color: '#FF3B30'
       };
     }
-    if (isDeviceRegistered === false && !isDeviceRegistrationLoading) {
+    if (push.deviceRegistered === false && !push.registeringDevice) {
       return {
         type: 'push-notifications',
         icon: 'bell-off',
@@ -244,13 +238,11 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
     hasUpdateAvailable,
     isCheckingUpdate,
     isUpdating,
-    isDeviceRegistered,
     getPriorityStatus,
     applyUpdate,
     setOfflineAuth,
     setBackendUnreachable,
     checkForUpdates,
     isOtaUpdatesEnabled,
-    refreshDeviceRegistration
   };
 }

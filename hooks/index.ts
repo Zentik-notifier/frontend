@@ -1,6 +1,5 @@
 export { useBadgeSync } from './useBadgeSync';
 export { useDateFormat } from './useDateFormat';
-export { useDeviceRegistrationStatus } from './useDeviceRegistrationStatus';
 export { useGetBucketData } from './useGetBucketData';
 export { useI18n } from './useI18n';
 export { useLanguageSync } from './useLanguageSync';

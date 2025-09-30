@@ -25,12 +25,39 @@ class IOSNativePushNotificationService {
         this.actionCallbacks = callbacks;
     }
 
-    async registerDevice(): Promise<{ deviceToken: string | null; hasPermissionError: boolean }> {
+    async registerDevice() {
+        const hasPermission = await this.checkPermissions();
+
+        if (!hasPermission) {
+            console.error('[IOSNativePushNotificationService] Permissions not granted');
+            return { deviceToken: null, hasPermissionError: true };
+        }
+
         const token = await Notifications.getDevicePushTokenAsync();
         if (token) {
             this.deviceToken = token.data;
+            return { deviceToken: this.deviceToken, hasPermissionError: false };
+        } else {
+            console.error('[IOSNativePushNotificationService] Device token not found');
+            return { deviceToken: null, hasPermissionError: false };
         }
-        return { deviceToken: this.deviceToken, hasPermissionError: false };
+    }
+
+    async checkPermissions() {
+        const { status: existingStatus, ios } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+
+        if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+        }
+
+        if (finalStatus !== 'granted') {
+            console.error('[IOSNativePushNotificationService] Permissions not granted', finalStatus, JSON.stringify(ios));
+            return false
+        } else {
+            return true
+        }
     }
 
     /**
@@ -38,7 +65,7 @@ class IOSNativePushNotificationService {
      * Request permissions and register device token
      * Swift handles action buttons, React Native handles action responses
      */
-    async initialize(callbacks: NotificationActionCallbacks): Promise<{ deviceInfo: RegisterDeviceDto | null; hasPermissionError: boolean }> {
+    async initialize(callbacks: NotificationActionCallbacks) {
         if (this.isInitialized) {
             return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false };
         }
@@ -49,16 +76,10 @@ class IOSNativePushNotificationService {
             // Initialize API config to ensure endpoint is saved to keychain for NSE access
             await ApiConfigService.initialize();
 
-            const { status: existingStatus, ios } = await Notifications.getPermissionsAsync();
-            let finalStatus = existingStatus;
+            const hasPermission = await this.checkPermissions();
 
-            if (existingStatus !== 'granted') {
-                const { status } = await Notifications.requestPermissionsAsync();
-                finalStatus = status;
-            }
-
-            if (finalStatus !== 'granted') {
-                console.error('PUSH_PERMISSION_DENIED: iOS notification permissions not granted', finalStatus, JSON.stringify(ios));
+            if (!hasPermission) {
+                console.error('[IOSNativePushNotificationService] Permissions not granted');
                 return { deviceInfo: null, hasPermissionError: true };
             }
 
@@ -67,13 +88,17 @@ class IOSNativePushNotificationService {
             this.deviceToken = token.data;
             this.isInitialized = true;
 
-            console.debug(`✅ iOS push notifications initialized successfully`);
-
             this.setupNotificationListeners();
 
-            return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false };
+            if (this.deviceToken) {
+                console.debug(`[IOSNativePushNotificationService] Initialized successfully`);
+                return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false };
+            } else {
+                console.error('[IOSNativePushNotificationService] Device token not found');
+                return { deviceInfo: null, hasPermissionError: false };
+            }
         } catch (error) {
-            console.error('❌ Error initializing iOS native push notifications:', error);
+            console.error('[IOSNativePushNotificationService] Error initializing:', error);
             return { deviceInfo: null, hasPermissionError: false };
         }
     }

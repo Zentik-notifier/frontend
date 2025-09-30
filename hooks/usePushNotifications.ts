@@ -13,14 +13,13 @@ import { firebasePushNotificationService } from '@/services/firebase-push-notifi
 import { iosNativePushNotificationService } from '@/services/ios-push-notifications';
 import { localNotifications } from '@/services/local-notifications';
 import { webPushNotificationService } from '@/services/web-push-notifications';
+import * as BackgroundFetch from 'expo-background-task';
 import { getRandomBytesAsync } from 'expo-crypto';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import * as TaskManager from 'expo-task-manager';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import * as TaskManager from 'expo-task-manager';
-import * as BackgroundFetch from 'expo-background-task';
-import { useDeviceRegistrationStatus } from './useDeviceRegistrationStatus';
 
 const isWeb = Platform.OS === 'web';
 const isAndroid = Platform.OS === 'android';
@@ -31,9 +30,10 @@ const NOTIFICATION_REFRESH_TASK = 'zentik-notifications-refresh';
 
 export function usePushNotifications() {
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
-  const [pushPermissionError, setPushPermissionError] = useState<boolean>(false);
+  const [deviceRegistered, setDeviceRegistered] = useState<boolean | undefined>(undefined);
+  const [registeringDevice, setRegisteringDevice] = useState(false);
+  const [pushPermissionError, setPushPermissionError] = useState(false);
   const callbacks = useNotificationActions();
-  const { refresh: refreshDeviceRegistration } = useDeviceRegistrationStatus();
 
   useEffect(() => {
     Notifications.setNotificationHandler({
@@ -54,7 +54,6 @@ export function usePushNotifications() {
   const [getPushTypes] = useGetNotificationServicesLazyQuery();
 
   const initialize = async () => {
-
     const pushTypes = await getPushTypes({ fetchPolicy: 'network-only' });
     const pushType = pushTypes.data?.notificationServices?.find(
       (service) => service?.devicePlatform === (
@@ -74,10 +73,20 @@ export function usePushNotifications() {
         } else if (isIOS) {
           result = await iosNativePushNotificationService.initialize(callbacks);
         }
+        console.log(`[usePushNotifications] Initialize result:`, result)
         if (result?.hasPermissionError) {
           setPushPermissionError(true);
+          setDeviceRegistered(false);
         } else if (isReady()) {
           setPushPermissionError(false);
+          setDeviceRegistered(true);
+          const deviceInfo = result?.deviceInfo;
+
+          if (deviceInfo) {
+            await registerDeviceMutation({ variables: { input: deviceInfo } });
+          }
+        } else {
+          setDeviceRegistered(false);
         }
       } else if (pushType.service === NotificationServiceType.Local) {
         console.log("🔄 Initializing local notifications...");
@@ -101,7 +110,7 @@ export function usePushNotifications() {
     try {
       const status = await BackgroundFetch.getStatusAsync();
       if (status === BackgroundFetch.BackgroundTaskStatus.Restricted) {
-        console.warn('⚠️ Background fetch restricted on this device');
+        console.warn('[usePushNotifications] Background fetch restricted on this device');
         return;
       }
 
@@ -115,89 +124,99 @@ export function usePushNotifications() {
           try {
             await callbacks.fetchNotifications();
           } catch (e) {
-            console.warn('⚠️ Background fetch task failed:', e);
+            console.warn('[usePushNotifications] Background fetch task failed:', e);
           }
         });
       } catch (error) {
-        console.warn('⚠️ Failed to define background task:', error);
+        console.warn('[usePushNotifications] Failed to define background task:', error);
       }
 
       try {
         await BackgroundFetch.registerTaskAsync(NOTIFICATION_REFRESH_TASK, {
           minimumInterval: 60
         });
-        console.debug('✅ Background fetch task registered successfully');
+        console.debug('[usePushNotifications] Background fetch task registered successfully');
       } catch (e) {
         // already registered or not supported
-        console.debug('ℹ️ Background fetch task already registered or not supported', e);
+        console.debug('[usePushNotifications] Background fetch task already registered or not supported', e);
       }
     } catch (error) {
-      console.error('❌ Error enabling background fetch:', error);
+      console.error('[usePushNotifications] Error enabling background fetch:', error);
     }
   }
 
   const registerDevice = async (): Promise<boolean> => {
-    console.log('🔄 Registering device...');
+    console.log('[usePushNotifications] Registering device...');
+    setRegisteringDevice(true);
     let tokenToStore: string | null = null;
-
-    if (isIOS) {
-      const result = await iosNativePushNotificationService.registerDevice();
-      if (result?.hasPermissionError) {
-        setPushPermissionError(true);
-        return false;
-      }
-      tokenToStore = result?.deviceToken || null;
-      if (tokenToStore) setPushPermissionError(false);
-    }
+    let hasPermissionError = false;
 
     const info = await getDeviceInfo();
     if (!info) return false;
 
     try {
-      const res = await registerDeviceMutation({ variables: { input: info }, refetchQueries: [{ query: GetUserDevicesDocument }] });
+      const res = await registerDeviceMutation({ variables: { input: info } });
+      const device = res.data?.registerDevice;
 
-      if (res.data?.registerDevice) {
-        if (res.data.registerDevice.publicKey) {
-          await savePublicKey(res.data.registerDevice.publicKey);
+      console.log('[usePushNotifications] RegisterDevice response:', device);
+
+      if (device) {
+        if (device.publicKey) {
+          await savePublicKey(device.publicKey);
         }
 
-        if (res.data.registerDevice.privateKey) {
-          await savePrivateKey(res.data.registerDevice.privateKey);
+        if (device.privateKey) {
+          await savePrivateKey(device.privateKey);
         }
 
-        if (isWeb) {
-          const result = await webPushNotificationService.registerDevice(res.data.registerDevice);
-          if (result?.hasPermissionError) {
-            setPushPermissionError(true);
-            return false;
+        if (isIOS) {
+          const iosResult = await iosNativePushNotificationService.registerDevice();
+
+          hasPermissionError = iosResult?.hasPermissionError;
+          tokenToStore = iosResult?.deviceToken ?? null;
+        } else if (isWeb) {
+          const webResult = await webPushNotificationService.registerDevice(device);
+
+          hasPermissionError = webResult?.hasPermissionError
+
+          const json = webResult?.infoJson;
+
+          if (json) {
+            const endpoint = json.endpoint ?? null;
+            console.log('[usePushNotifications] Updating user device with json:', json, endpoint);
+            await callbacks.useUpdateUserDevice({
+              deviceId: device.id,
+              subscriptionFields: {
+                endpoint,
+                p256dh: json.keys?.p256dh,
+                auth: json.keys?.auth,
+              },
+              deviceToken: endpoint
+            });
+            tokenToStore = endpoint;
           }
-          if (result?.deviceToken) {
-            tokenToStore = result.deviceToken;
-            setPushPermissionError(false);
-          }
-        } else {
-          if (info.deviceToken) {
-            tokenToStore = info.deviceToken;
-            setPushPermissionError(false);
-          }
         }
-
-        if (tokenToStore) {
-          await saveDeviceToken(tokenToStore);
-          await savePushNotificationsInitialized(true);
-          setDeviceToken(tokenToStore);
-          await refreshDeviceRegistration();
-        }
-
-        console.log('🔄 Device registered successfully');
-
-        return true;
       }
 
-      return false;
+      setPushPermissionError(!!hasPermissionError);
+      setDeviceRegistered(!!tokenToStore);
+
+      if (tokenToStore) {
+        await saveDeviceToken(tokenToStore);
+        await savePushNotificationsInitialized(true);
+        setDeviceToken(tokenToStore);
+
+        console.log('[usePushNotifications] Device registered successfully');
+      } else {
+        console.log('[usePushNotifications] Device registration failed, token not found');
+      }
+
+      return !hasPermissionError && !!tokenToStore;
     } catch (e) {
-      console.error('❌ RegisterDevice failed:', e);
+      console.error('[usePushNotifications] RegisterDevice failed:', e);
       return false;
+    } finally {
+      setRegisteringDevice(false);
     }
   };
 
@@ -216,7 +235,7 @@ export function usePushNotifications() {
 
       await clearDeviceTokens();
       setDeviceToken(null);
-      console.log('🔄 Tokens cleared');
+      console.log('[usePushNotifications] Tokens cleared');
 
       return true;
     } catch (e) {
@@ -283,9 +302,9 @@ export function usePushNotifications() {
       if (current === count) return;
 
       await Notifications.setBadgeCountAsync(count);
-      console.log(`📱 Badge count set to ${count}`);
+      console.log(`[usePushNotifications] Badge count set to ${count}`);
     } catch (error) {
-      console.error('❌ Error setting badge count:', error);
+      console.error('[usePushNotifications] Error setting badge count:', error);
     }
   };
 
@@ -301,7 +320,9 @@ export function usePushNotifications() {
     setBadgeCount,
     clearBadge,
     deviceToken,
-    pushPermissionError
+    deviceRegistered,
+    registeringDevice,
+    pushPermissionError,
   };
 }
 
