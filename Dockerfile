@@ -5,6 +5,7 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 ENV EXPO_NO_TELEMETRY=1
 COPY package*.json ./
+COPY .npmrc ./.npmrc
 # Install all deps (including dev for build tools like workbox-cli)
 RUN npm ci || npm install
 COPY . .
