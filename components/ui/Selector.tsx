@@ -23,6 +23,7 @@ import { IconSource } from "react-native-paper/lib/typescript/components/Icon";
 export interface SelectorOption {
   id: any;
   name: string;
+  description?: string;
   iconName?: IconSource;
   iconColor?: string;
   iconUrl?: string;
@@ -232,6 +233,10 @@ export default function Selector({
       color: theme.colors.onPrimaryContainer,
       fontWeight: "500",
     },
+    inlineDescriptionText: {
+      fontSize: 12,
+      color: theme.colors.onSurfaceVariant,
+    },
     inlineEmptyState: {
       padding: 16,
       alignItems: "center",
@@ -305,6 +310,11 @@ export default function Selector({
       color: theme.colors.onPrimaryContainer,
       fontWeight: "500",
     },
+    descriptionText: {
+      fontSize: 12,
+      color: theme.colors.onSurfaceVariant,
+      marginTop: 2,
+    },
     emptyState: {
       padding: 20,
       alignItems: "center",
@@ -317,26 +327,33 @@ export default function Selector({
   });
 
   const renderItem = (item?: SelectorOption) => (
-    <View style={styles.valueRow}>
-      {item?.iconUrl ? (
-        <Image
-          source={item.iconUrl}
-          cachePolicy="memory-disk"
-          style={{ width: 24, height: 24, marginRight: 8, borderRadius: 12 }}
-          contentFit="fill"
-        />
-      ) : item?.iconName ? (
-        <View style={{ marginRight: 8 }}>
-          <Icon
-            source={item.iconName as any}
-            size={16}
-            color={item.iconColor || theme.colors.onSurfaceVariant}
+    <View style={{ flex: 1 }}>
+      <View style={styles.valueRow}>
+        {item?.iconUrl ? (
+          <Image
+            source={item.iconUrl}
+            cachePolicy="memory-disk"
+            style={{ width: 24, height: 24, marginRight: 8, borderRadius: 12 }}
+            contentFit="fill"
           />
-        </View>
-      ) : null}
-      <Text style={[styles.inputText, !item && styles.placeholder]}>
-        {item ? item.name : placeholder || t("common.selectOption")}
-      </Text>
+        ) : item?.iconName ? (
+          <View style={{ marginRight: 8 }}>
+            <Icon
+              source={item.iconName as any}
+              size={16}
+              color={item.iconColor || theme.colors.onSurfaceVariant}
+            />
+          </View>
+        ) : null}
+        <Text style={[styles.inputText, !item && styles.placeholder]} numberOfLines={1}>
+          {item ? item.name : placeholder || t("common.selectOption")}
+        </Text>
+      </View>
+      {!!item?.description && (
+        <Text style={styles.descriptionText} numberOfLines={2}>
+          {item.description}
+        </Text>
+      )}
     </View>
   );
 

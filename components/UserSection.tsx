@@ -347,13 +347,6 @@ export default function UserSection() {
                   <List.Icon {...props} icon="account-details" />
                 )}
               />
-              <Divider />
-
-              <IdWithCopyButton
-                id={user.id}
-                label="User ID"
-                copyMessage="User ID copied to clipboard"
-              />
             </View>
 
             {/* Edit Actions */}
@@ -404,6 +397,12 @@ export default function UserSection() {
                     />
                   )
                 }
+              />
+              <Divider style={{ marginVertical: 8 }} />
+              <IdWithCopyButton
+                id={user.id}
+                label={t("userProfile.userId")}
+                copyMessage={t("userProfile.userIdCopied")}
               />
             </Card.Content>
           </Card>

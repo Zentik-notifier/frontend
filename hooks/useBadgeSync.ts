@@ -1,10 +1,9 @@
 import { useAppContext } from '@/contexts/AppContext';
 import { saveBadgeCount } from '@/services/auth-storage';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { useI18n } from './useI18n';
 import { useMarkAllNotificationsAsRead } from './useNotifications';
-import { usePushNotifications } from './usePushNotifications';
 
 /**
  * Hook to sync app badge count with unread notifications
@@ -24,6 +23,7 @@ export function useBadgeSync() {
     const unreadCount = unreadNotifications.length;
 
     useEffect(() => {
+        // TODO: Implement PWA badges
         const exec = async () => {
             if (!isMarkingAllAsRead && !isLoadingGqlData) {
                 push.setBadgeCount(unreadCount);
@@ -32,7 +32,7 @@ export function useBadgeSync() {
             }
         }
 
-        exec();
+        Platform.OS !== 'web' && exec();
     }, [unreadCount, isMarkingAllAsRead, isLoadingGqlData]);
 
     // Return a function to manually clear the badge

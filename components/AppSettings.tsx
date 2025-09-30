@@ -1,3 +1,4 @@
+import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
@@ -5,14 +6,12 @@ import {
   Button,
   Card,
   Dialog,
-  List,
   Portal,
   Surface,
   Text,
   TextInput,
   useTheme,
 } from "react-native-paper";
-import PaperScrollView from "@/components/ui/PaperScrollView";
 import { reinitializeApolloClient } from "../config/apollo-client";
 import { ApiConfigService } from "../services/api-config";
 import { LegalDocumentsSettings } from "./LegalDocumentsSettings";
@@ -20,7 +19,6 @@ import { LocalizationSettings } from "./LocalizationSettings";
 import ThemeSettings from "./ThemeSettings";
 import UnifiedCacheSettings from "./UnifiedCacheSettings";
 import { VersionInfo } from "./VersionInfo";
-import { IS_FS_SUPPORTED } from "@/utils";
 
 export function AppSettings() {
   const theme = useTheme();
@@ -145,7 +143,7 @@ export function AppSettings() {
         </Surface>
 
         {/* Unified Cache Settings */}
-        {IS_FS_SUPPORTED && <UnifiedCacheSettings />}
+        <UnifiedCacheSettings />
 
         {/* Legal Documents */}
         <Surface style={styles.settingsSurface} elevation={1}>

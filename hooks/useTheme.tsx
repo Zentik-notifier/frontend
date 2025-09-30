@@ -121,17 +121,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     : MD3LightTheme;
 
   // Log theme changes for debugging
-  useEffect(() => {
-    if (themeSettings) {
-      console.debug("Theme applied:", {
-        themeMode,
-        colorScheme,
-        themePreset: themeSettings.themePreset,
-        useDynamicTheme: themeSettings.useDynamicTheme,
-        primaryColor: theme.colors.primary,
-      });
-    }
-  }, [themeSettings, themeMode, colorScheme, theme]);
+  // useEffect(() => {
+  //   if (themeSettings) {
+  //     console.debug("Theme applied:", {
+  //       themeMode,
+  //       colorScheme,
+  //       themePreset: themeSettings.themePreset,
+  //       useDynamicTheme: themeSettings.useDynamicTheme,
+  //       primaryColor: theme.colors.primary,
+  //     });
+  //   }
+  // }, [themeSettings, themeMode, colorScheme, theme]);
 
   return (
     <ThemeContext.Provider

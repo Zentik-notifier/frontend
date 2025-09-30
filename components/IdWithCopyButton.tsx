@@ -3,7 +3,7 @@ import {
     StyleSheet,
     View,
 } from "react-native";
-import { Card, Text, useTheme } from "react-native-paper";
+import { Text, useTheme } from "react-native-paper";
 import CopyButton from "./ui/CopyButton";
 
 interface IdWithCopyButtonProps {
@@ -24,23 +24,17 @@ export default function IdWithCopyButton({
   const theme = useTheme();
 
   return (
-    <Card style={[styles.container, style]}>
-      <Card.Content style={styles.content}>
-        <View style={styles.idRow}>
-          <Text style={[styles.label, { color: theme.colors.onSurface }]}>
-            {label}:
-          </Text>
-          <Text style={[styles.idValue, { color: theme.colors.onSurfaceVariant }, valueStyle]}>
-            {id || "N/A"}
-          </Text>
-          <CopyButton
-            text={id}
-            size={20}
-            style={styles.copyButton}
-          />
-        </View>
-      </Card.Content>
-    </Card>
+    <View style={[styles.container, style]}>
+      <View style={styles.idRow}>
+        <Text style={[styles.label, { color: theme.colors.onSurface }]}>
+          {label}:
+        </Text>
+        <Text style={[styles.idValue, { color: theme.colors.onSurfaceVariant }, valueStyle]}>
+          {id || "N/A"}
+        </Text>
+        <CopyButton text={id} size={20} style={styles.copyButton} />
+      </View>
+    </View>
   );
 }
 

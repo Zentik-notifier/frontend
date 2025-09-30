@@ -8,14 +8,10 @@ import {
 import { Locale } from "@/types/i18n";
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import Selector from "./ui/Selector";
+import Selector, { SelectorOption } from "./ui/Selector";
 import { Card, Switch, Text, useTheme } from "react-native-paper";
 
-interface LocalizationSettingsProps {
-  style?: any;
-}
-
-export function LocalizationSettings({ style }: LocalizationSettingsProps) {
+export function LocalizationSettings() {
   const theme = useTheme();
   const { t } = useI18n();
   const { currentLocale, setLocale, availableLocales, getLocaleDisplayName } =
@@ -314,7 +310,7 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
     }));
   }, [filteredTimezones, getTimezoneDisplayName]);
 
-  const dateFormatOptions = useMemo(() => {
+  const dateFormatOptions: SelectorOption[] = useMemo(() => {
     return Object.keys(DATE_FORMAT_STYLES).map((style) => {
       const styleInfo = DATE_FORMAT_STYLES[style as DateFormatStyle];
       return {
@@ -378,7 +374,7 @@ export function LocalizationSettings({ style }: LocalizationSettingsProps) {
   };
 
   return (
-    <View style={style}>
+    <View>
       {/* Section Header */}
       <View style={styles.sectionHeader}>
         <Text variant="headlineSmall" style={styles.sectionTitle}>
