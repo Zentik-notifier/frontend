@@ -1,9 +1,9 @@
 module.exports = {
-  globDirectory: 'dist/',
+  globDirectory: 'PWA/',
   globPatterns: [
     '**/*.{js,html,css,ico,png,jpg,jpeg,gif,svg,woff,woff2,ttf,eot}'
   ],
-  swDest: 'dist/sw.js',
+  swDest: 'PWA/sw.js',
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
