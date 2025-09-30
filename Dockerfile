@@ -11,7 +11,7 @@ ENV EXPO_NO_TELEMETRY=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Export static web build to dist
-RUN npx expo export --platform web --output-dir dist
+RUN npm run export:web
 
 FROM nginx:alpine AS runtime
 WORKDIR /usr/share/nginx/html
