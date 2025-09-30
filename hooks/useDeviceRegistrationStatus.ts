@@ -7,7 +7,7 @@ export function useDeviceRegistrationStatus(skip?: boolean) {
   const [isLoading, setIsLoading] = useState(true);
   const [refresh, setRefresh] = useState(false);
 
-  const { data: userDevicesData, loading: devicesLoading } = useGetUserDevicesQuery({
+  const { data: userDevicesData, loading: devicesLoading, refetch: refetchUserDevices } = useGetUserDevicesQuery({
     skip,
   });
 
@@ -46,6 +46,6 @@ export function useDeviceRegistrationStatus(skip?: boolean) {
   return {
     isRegistered,
     isLoading: isLoading || devicesLoading,
-    refresh: () => setRefresh(!refresh),
+    refresh: async () => await refetchUserDevices(),
   };
 }

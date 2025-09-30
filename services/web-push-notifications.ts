@@ -81,12 +81,12 @@ class WebPushNotificationService {
 
     if (this.swRegistration && publicKey && this.callbacks) {
       const applicationServerKey = this.urlBase64ToUint8Array(publicKey);
-      this.pushSubscription = await this.swRegistration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
+      const newSub = await this.swRegistration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
 
-      if (this.pushSubscription) {
-        const json = this.pushSubscription.toJSON();
+      if (newSub) {
+        const json = newSub.toJSON();
 
-        const endpoint = json.endpoint || this.pushSubscription?.endpoint || undefined;
+        const endpoint = json.endpoint || newSub?.endpoint || undefined;
         await this.callbacks.useUpdateUserDevice({
           deviceId: device.id,
           subscriptionFields: {
@@ -96,11 +96,14 @@ class WebPushNotificationService {
           },
           deviceToken: endpoint
         });
+
+        this.ready = true;
+        this.pushSubscription = await this.swRegistration.pushManager.getSubscription();
       }
 
-      return { deviceToken: this.pushSubscription.endpoint, hasPermissionError: false };
+      return { deviceToken: this.pushSubscription?.endpoint ?? null, hasPermissionError: false };
     }
-    
+
     return { deviceToken: null, hasPermissionError: false };
   }
 

@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import * as TaskManager from 'expo-task-manager';
 import * as BackgroundFetch from 'expo-background-task';
+import { useDeviceRegistrationStatus } from './useDeviceRegistrationStatus';
 
 const isWeb = Platform.OS === 'web';
 const isAndroid = Platform.OS === 'android';
@@ -32,6 +33,7 @@ export function usePushNotifications() {
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
   const [pushPermissionError, setPushPermissionError] = useState<boolean>(false);
   const callbacks = useNotificationActions();
+  const { refresh: refreshDeviceRegistration } = useDeviceRegistrationStatus();
 
   useEffect(() => {
     Notifications.setNotificationHandler({
@@ -184,6 +186,7 @@ export function usePushNotifications() {
           await saveDeviceToken(tokenToStore);
           await savePushNotificationsInitialized(true);
           setDeviceToken(tokenToStore);
+          await refreshDeviceRegistration();
         }
 
         console.log('🔄 Device registered successfully');

@@ -9,7 +9,6 @@ import { UsePushNotifications } from './usePushNotifications';
 export type GetPriorityStatus = () => {
   type: 'update' | 'offline' | 'backend' | 'network' | 'push-notifications' | 'push-permissions' | 'none';
   icon: string;
-  label: string;
   action: (() => void) | null;
   color: string;
 };
@@ -181,7 +180,6 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
       return {
         type: 'push-permissions',
         icon: 'bell-outline',
-        label: 'Notifiche disabilitate',
         action: null,
         color: '#FF3B30'
       };
@@ -190,7 +188,6 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
       return {
         type: 'push-notifications',
         icon: 'bell-off',
-        label: 'Dispositivo non registrato per le notifiche push',
         action: null,
         color: '#FF3B30'
       };
@@ -200,7 +197,6 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
       return {
         type: 'update',
         icon: 'refresh',
-        label: 'Aggiornamento disponibile',
         action: applyUpdate,
         color: '#007AFF'
       };
@@ -210,7 +206,6 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
       return {
         type: 'offline',
         icon: 'cloud-off',
-        label: 'Modalità offline',
         action: null, // Si aprirà il modal di login
         color: '#FF3B30'
       };
@@ -220,7 +215,6 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
       return {
         type: 'backend',
         icon: 'server',
-        label: 'Backend non raggiungibile',
         action: null,
         color: '#FF9500'
       };
@@ -230,7 +224,6 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
       return {
         type: 'network',
         icon: 'wifi-off',
-        label: 'Nessuna connessione',
         action: null,
         color: '#FF3B30'
       };
@@ -239,7 +232,6 @@ export function useConnectionStatus(skip?: boolean, push?: UsePushNotifications)
     return {
       type: 'none',
       icon: '',
-      label: '',
       action: null,
       color: ''
     };

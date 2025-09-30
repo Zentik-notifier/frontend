@@ -1,15 +1,15 @@
+import { useAppContext } from "@/contexts/AppContext";
 import { UserRole, useGetMeQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppTheme } from "@/hooks/useTheme";
-import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useEffect, useMemo, useState } from "react";
-import { Image, StyleSheet, View, TouchableOpacity } from "react-native";
-import { Avatar, Icon, Text, useTheme, Surface } from "react-native-paper";
+import React, { useEffect, useState } from "react";
+import { Image, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Avatar, Icon, Surface, Text, useTheme } from "react-native-paper";
 import {
   Menu,
-  MenuOptions,
   MenuOption,
+  MenuOptions,
   MenuTrigger,
 } from "react-native-popup-menu";
 
