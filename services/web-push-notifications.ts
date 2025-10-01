@@ -24,6 +24,7 @@ class WebPushNotificationService {
     let isPwa = false;
     let hasPermissions = false;
     if (window && Notification) {
+      isPwa = true;
       let finalResult = Notification.permission;
       if (finalResult === 'default') {
         finalResult = await Notification.requestPermission();
@@ -31,7 +32,11 @@ class WebPushNotificationService {
 
       if (finalResult === 'granted') {
         hasPermissions = true;
+      } else {
+        console.error('[WebPushNotificationService] Web notification permission not granted');
       }
+    } else {
+      console.error('[WebPushNotificationService] Web app is not PWA');
     }
 
     return { isPwa, hasPermissions };
@@ -46,7 +51,6 @@ class WebPushNotificationService {
       needsPwa = !isPwa;
 
       if (!hasPermissions) {
-        console.error('[WebPushNotificationService] Web notification permission not granted');
         return { deviceInfo: null, hasPermissionError: true, needsPwa };
       }
 
@@ -59,7 +63,6 @@ class WebPushNotificationService {
         // Ensure active registration
         this.swRegistration = reg.active ? reg : await navigator.serviceWorker.ready;
         this.pushSubscription = await this.swRegistration.pushManager.getSubscription();
-        console.log(reg, this.pushSubscription)
 
         console.log('[WebPushNotificationService] PushSubscription endpoint generated', this.pushSubscription?.endpoint);
 
@@ -85,11 +88,10 @@ class WebPushNotificationService {
   }
 
   async registerDevice(device: UserDeviceFragment) {
-    const hasPermission = await this.checkPermissions();
+    const { hasPermissions } = await this.checkPermissions();
     let infoJson: PushSubscriptionJSON | null = null;
 
-    if (!hasPermission) {
-      console.error('[WebPushNotificationService] Web notification permission not granted');
+    if (!hasPermissions) {
       return { infoJson, hasPermissionError: true };
     }
 

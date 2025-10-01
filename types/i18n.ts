@@ -652,6 +652,7 @@ export interface TranslationKey {
     notificationsDisabled: string;
     pushPermissionsHint: string;
     notice: string;
+    installApp: string;
     pushNeedsPwaHint: string;
     pushNeedsPwaDetails: string;
   };

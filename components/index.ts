@@ -28,7 +28,6 @@ export { default as UserSection } from './UserSection';
 export { ExternalLink } from './ExternalLink';
 export { default as IdWithCopyButton } from './IdWithCopyButton';
 export { MediaTypeIcon } from './MediaTypeIcon';
-export { StatusBadge } from './StatusBadge';
 export { HtmlTextRenderer } from './ui/HtmlTextRenderer';
 export { SmartTextRenderer } from './ui/SmartTextRenderer';
 export { TextRenderer } from './ui/TextRenderer';

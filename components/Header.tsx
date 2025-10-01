@@ -8,7 +8,7 @@ import { TranslationKeyPath } from "@/utils";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useSegments } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Platform, StyleSheet, View } from "react-native";
+import { Alert, Animated, Platform, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Appbar,
@@ -245,6 +245,8 @@ export default function Header() {
     } else if (status.type === "push-permissions") {
       // Alert will be handled by the global wrapper
       console.log("Push permissions needed");
+    } else if (status.type === "push-needs-pwa") {
+      Alert.alert(t("common.notice"), t("common.pushNeedsPwaDetails"));
     } else if (status.type === "offline") {
       openLoginModal();
     } else if (status.type === "update" && status.action) {
@@ -262,6 +264,8 @@ export default function Header() {
         return t("common.updateAvailable");
       case "push-permissions":
         return t("common.notificationsDisabled");
+      case "push-needs-pwa":
+        return t("common.installApp");
       case "offline":
         return t("common.offline");
       case "backend":
@@ -286,7 +290,8 @@ export default function Header() {
     status.type === "offline" ||
     (status.type === "update" && status.action) ||
     (status.type === "push-notifications" && !isRegistering) ||
-    status.type === "push-permissions";
+    status.type === "push-permissions" ||
+    status.type === "push-needs-pwa";
 
   // Theme toggle functions (copied from UserDropdown)
   function getNextThemeMode(): "system" | "light" | "dark" {
@@ -467,7 +472,15 @@ export default function Header() {
                   !isStatusClickable && styles.statusBadgeNonClickable,
                 ]}
               >
-                <Icon source={getStatusIcon() as any} size={16} color="#fff" />
+                <Icon
+                  source={
+                    status.type === "push-needs-pwa"
+                      ? "progress-download"
+                      : (getStatusIcon() as any)
+                  }
+                  size={16}
+                  color="#fff"
+                />
                 <Text variant="labelSmall" style={styles.statusText}>
                   {getStatusLabel()}
                 </Text>
@@ -533,7 +546,7 @@ export default function Header() {
                       />
                     </TouchableRipple>
                   </Surface>
-                  
+
                   {/* Settings Button */}
                   <Surface style={styles.unauthButtonWrapper} elevation={2}>
                     <TouchableRipple

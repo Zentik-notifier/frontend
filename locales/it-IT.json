@@ -811,6 +811,7 @@
     "notificationsDisabled": "Notifiche disabilitate",
     "pushPermissionsHint": "Controlla le impostazioni notifiche per Zentik e abilita gli avvisi",
     "notice": "Attenzione",
+    "installApp": "Installa app",
     "pushNeedsPwaHint": "Per abilitare le notifiche push sul web, aggiungi Zentik come app dal tuo browser (Installa App / Aggiungi alla schermata Home), poi riaprila.",
     "pushNeedsPwaDetails": "Per ricevere le notifiche push sul web, installa Zentik come app (PWA) e poi riaprila.\n\nCome installare:\n- Chrome/Edge (Windows/Linux): Menu > Installa Zentik (o 'Installa app').\n- Chrome (Android): Menu ••• > Aggiungi a schermata Home.\n- Safari (iOS/iPadOS): Condividi > Aggiungi a Home.\n- Safari (macOS): File > Aggiungi al Dock.\n\nDopo l'installazione, apri Zentik dalla nuova icona ed effettua l'accesso se richiesto."
   },

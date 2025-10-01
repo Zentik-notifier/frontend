@@ -174,7 +174,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
     if (push.needsPwa) {
       return {
         type: 'push-needs-pwa',
-        icon: 'download',
+        icon: 'progress-download',
         action: null,
         color: '#FF3B30'
       };

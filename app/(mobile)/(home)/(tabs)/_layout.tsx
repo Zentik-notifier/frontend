@@ -6,6 +6,7 @@ import { Tabs } from "expo-router";
 import { Platform } from "react-native";
 import { Icon, useTheme } from "react-native-paper";
 import { IS_FS_SUPPORTED } from "@/utils";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
   const theme = useTheme();
@@ -18,7 +19,7 @@ export default function TabsLayout() {
   const bucketsCount = bucketsData?.buckets?.length ?? 0;
   const galleryCount = cacheStats?.totalItems ?? 0;
 
-  return (
+  const content = (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: theme.colors.primary,
@@ -127,4 +128,10 @@ export default function TabsLayout() {
       />
     </Tabs>
   );
+
+  // if (Platform.OS === "web") {
+  // return <SafeAreaView edges={["bottom", "left", "right"]}>{content}</SafeAreaView>;
+  // } else {
+  return content;
+  // }
 }
