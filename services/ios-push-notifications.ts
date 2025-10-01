@@ -194,11 +194,7 @@ class IOSNativePushNotificationService {
 
         // Background reception (user tapped): report received before handling actions
         if (notificationId && this.actionCallbacks && this.deviceToken) {
-            try {
-                await this.actionCallbacks.pushNotificationReceived(notificationId);
-            } catch (e) {
-                console.warn('⚠️ iOS pushNotificationReceived (tap) failed:', e);
-            }
+            this.actionCallbacks.pushNotificationReceived(notificationId).catch(console.error);
         }
         const actionIdentifier = response.actionIdentifier;
 

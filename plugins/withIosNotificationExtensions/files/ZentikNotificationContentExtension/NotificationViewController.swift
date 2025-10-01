@@ -3698,8 +3698,7 @@ extension NotificationViewController {
     }
     
     private func getApiEndpoint() -> String? {
-        let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationContentExtension", with: "") ?? "com.apocaliss92.zentik"
-        let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+        let accessGroup = getKeychainAccessGroup()
         
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -3723,8 +3722,8 @@ extension NotificationViewController {
     }
     
     private func getStoredAuthToken() -> String? {
-        let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationContentExtension", with: "") ?? "com.apocaliss92.zentik"
-        let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+        let accessGroup = getKeychainAccessGroup()
+        let bundleIdentifier = getMainBundleIdentifier()
         
         print("📱 [ContentExtension] 🔍 Looking for auth token with bundle: \(bundleIdentifier)")
         print("📱 [ContentExtension] 🔍 Access group: \(accessGroup)")
@@ -3783,9 +3782,17 @@ extension NotificationViewController {
 
 extension NotificationViewController {
     
+    private func getMainBundleIdentifier() -> String {
+        return Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationContentExtension", with: "") ?? "{{MAIN_BUNDLE_ID}}"
+    }
+    
+    private func getKeychainAccessGroup() -> String {
+        let bundleIdentifier = getMainBundleIdentifier()
+        return "C3F24V5NS5.\(bundleIdentifier).keychain"
+    }
+    
     private func storeIntentInKeychain(data: [String: Any], service: String) throws {
-        let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationContentExtension", with: "") ?? "com.apocaliss92.zentik"
-        let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+        let accessGroup = getKeychainAccessGroup()
         
         let jsonData = try JSONSerialization.data(withJSONObject: data)
         
@@ -3817,8 +3824,7 @@ extension NotificationViewController {
     }
     
     private func getIntentFromKeychain(service: String) -> [String: Any]? {
-        let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationContentExtension", with: "") ?? "com.apocaliss92.zentik"
-        let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+        let accessGroup = getKeychainAccessGroup()
         
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -3852,8 +3858,7 @@ extension NotificationViewController {
     }
     
     private func clearIntentFromKeychain(service: String) {
-        let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationContentExtension", with: "") ?? "com.apocaliss92.zentik"
-        let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+        let accessGroup = getKeychainAccessGroup()
         
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -3873,8 +3878,7 @@ extension NotificationViewController {
     // MARK: - Badge Count Management
     
     private func getBadgeCountFromKeychain() -> Int {
-        let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationContentExtension", with: "") ?? "com.apocaliss92.zentik"
-        let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+        let accessGroup = getKeychainAccessGroup()
         
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -3901,8 +3905,7 @@ extension NotificationViewController {
     }
     
     private func saveBadgeCountToKeychain(count: Int) {
-        let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationContentExtension", with: "") ?? "com.apocaliss92.zentik"
-        let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+        let accessGroup = getKeychainAccessGroup()
         
         let countData = String(count).data(using: .utf8)!
         
@@ -4065,7 +4068,7 @@ extension NotificationViewController {
     
     private func getSharedMediaCacheDirectory() -> URL {
         // Use App Groups shared container for cross-process access
-        let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationContentExtension", with: "") ?? "{{MAIN_BUNDLE_ID}}"
+        let bundleIdentifier = getMainBundleIdentifier()
         let appGroupIdentifier = "group.\(bundleIdentifier)"
         
         print("📱 [ContentExtension] 🔍 App Group identifier: \(appGroupIdentifier)")

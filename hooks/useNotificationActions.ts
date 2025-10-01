@@ -17,6 +17,8 @@ import {
 } from '../generated/gql-operations-generated';
 import { useI18n } from './useI18n';
 import { useDeleteNotification, useFetchNotifications, useMarkNotificationRead } from './useNotifications';
+import { usePendingIntents } from './usePendingNotifications';
+import { useApolloClient } from '@apollo/client';
 
 /**
  * Hook that provides callbacks for handling notification actions
@@ -34,6 +36,8 @@ export function useNotificationActions() {
   const [updateUserDeviceMutation] = useUpdateUserDeviceMutation();
   const { fetchNotifications } = useFetchNotifications(true);
   const { navigateToNotificationDetail, navigateToHome } = useNavigationUtils();
+  const { processPendingNotificationIntents } = usePendingIntents();
+  const apolloClient = useApolloClient();
 
   const deleteNotification = useCallback(async (notificationId: string) => {
     deleteNotificationFn(notificationId);
@@ -286,9 +290,9 @@ export function useNotificationActions() {
   const pushNotificationReceived = useCallback(async (notificationId: string) => {
     try {
       await deviceReportReceived({ variables: { id: notificationId } });
-      const res = await getNotification({ variables: { id: notificationId }, fetchPolicy: 'network-only' });
-      const notif = res.data?.notification;
+
       try {
+        await processPendingNotificationIntents(apolloClient);
         await fetchNotifications();
 
         const currentCount = await Notifications.getBadgeCountAsync();
@@ -296,20 +300,23 @@ export function useNotificationActions() {
       } catch (e) {
         console.warn('⚠️ Failed to refetch notifications list after push receipt:', e);
       }
-      if (notif?.message?.attachments && notif.message.attachments.length > 0) {
-        await mediaCache.reloadMetadata();
-        const notificationDate = notif.createdAt ? new Date(notif.createdAt).getTime() : undefined;
-        for (const att of notif.message.attachments) {
-          if (att?.url && att?.mediaType) {
-            console.log(`[NotificationActions] Downloading ${JSON.stringify(att)}`);
-            await mediaCache.downloadMedia({
-              url: att.url,
-              mediaType: att.mediaType,
-              notificationDate,
-            });
-          }
-        }
-      }
+      
+      // const res = await getNotification({ variables: { id: notificationId }, fetchPolicy: 'network-only' });
+      // const notif = res.data?.notification;
+      // if (notif?.message?.attachments && notif.message.attachments.length > 0) {
+      //   await mediaCache.reloadMetadata();
+      //   const notificationDate = notif.createdAt ? new Date(notif.createdAt).getTime() : undefined;
+      //   for (const att of notif.message.attachments) {
+      //     if (att?.url && att?.mediaType) {
+      //       console.log(`[NotificationActions] Downloading ${JSON.stringify(att)}`);
+      //       await mediaCache.downloadMedia({
+      //         url: att.url,
+      //         mediaType: att.mediaType,
+      //         notificationDate,
+      //       });
+      //     }
+      //   }
+      // }
     } catch (error) {
       console.error('pushNotificationReceived error', error);
     }

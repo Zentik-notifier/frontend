@@ -117,7 +117,7 @@ export const processNotificationsToCacheWithQuery = (
         notifications
       }
     });
-    console.log(`🧭 [${context}] Query.notifications written directly with ${notifications.length} items`);
+    // console.log(`🧭 [${context}] Query.notifications written directly with ${notifications.length} items`);
   } catch (e) {
     console.warn(`⚠️ [${context}] Failed to write Query.notifications:`, e);
   }

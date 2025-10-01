@@ -405,10 +405,8 @@ class NotificationService: UNNotificationServiceExtension {
   }
 
   private func getPrivateKey() -> SecKey? {
-    let bundleIdentifier =
-      Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationService", with: "")
-      ?? "{{MAIN_BUNDLE_ID}}"
-    let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+    let accessGroup = getKeychainAccessGroup()
+    let bundleIdentifier = getMainBundleIdentifier()
 
     print("📱 [NotificationService] 🔍 Looking for private key with bundle: \(bundleIdentifier)")
     print("📱 [NotificationService] 🔍 Access group: \(accessGroup)")
@@ -1556,10 +1554,7 @@ class NotificationService: UNNotificationServiceExtension {
   }
 
   private func getBadgeCountFromKeychain() -> Int {
-    let bundleIdentifier =
-      Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationService", with: "")
-      ?? "com.apocaliss92.zentik"
-    let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+    let accessGroup = getKeychainAccessGroup()
 
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
@@ -1587,10 +1582,7 @@ class NotificationService: UNNotificationServiceExtension {
   }
 
   private func saveBadgeCountToKeychain(count: Int) {
-    let bundleIdentifier =
-      Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationService", with: "")
-      ?? "com.apocaliss92.zentik"
-    let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+    let accessGroup = getKeychainAccessGroup()
 
     let countData = String(count).data(using: .utf8)!
 
@@ -1980,9 +1972,7 @@ class NotificationService: UNNotificationServiceExtension {
 
   private func getSharedMediaCacheDirectory() -> URL {
     // Use App Groups shared container for cross-process access
-    let bundleIdentifier =
-      Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationService", with: "")
-      ?? "{{MAIN_BUNDLE_ID}}"
+    let bundleIdentifier = getMainBundleIdentifier()
     let appGroupIdentifier = "group.\(bundleIdentifier)"
 
     if let sharedContainerURL = FileManager.default.containerURL(
@@ -2063,11 +2053,13 @@ class NotificationService: UNNotificationServiceExtension {
   private func storePendingNotification(data: [String: Any]) throws {
     // Get existing pending notifications
     var pendingNotifications: [[String: Any]] = []
+    
+    let accessGroup = getKeychainAccessGroup()
 
     let options: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: "zentik-pending-notifications",
-      kSecAttrAccessGroup as String: "C3F24V5NS5.com.apocaliss92.zentik.dev.keychain",
+      kSecAttrAccessGroup as String: accessGroup,
       kSecReturnData as String: true,
     ]
 
@@ -2094,7 +2086,7 @@ class NotificationService: UNNotificationServiceExtension {
     let saveOptions: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: "zentik-pending-notifications",
-      kSecAttrAccessGroup as String: "C3F24V5NS5.com.apocaliss92.zentik.dev.keychain",
+      kSecAttrAccessGroup as String: accessGroup,
       kSecValueData as String: jsonData,
     ]
 
@@ -2216,9 +2208,17 @@ class NotificationService: UNNotificationServiceExtension {
   
   // MARK: - Keychain Helper Methods
   
+  private func getMainBundleIdentifier() -> String {
+    return Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationService", with: "") ?? "{{MAIN_BUNDLE_ID}}"
+  }
+  
+  private func getKeychainAccessGroup() -> String {
+    let bundleIdentifier = getMainBundleIdentifier()
+    return "C3F24V5NS5.\(bundleIdentifier).keychain"
+  }
+  
   private func readBoolFromKeychain(service: String) -> Bool? {
-    let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationService", with: "") ?? "{{MAIN_BUNDLE_ID}}"
-    let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+    let accessGroup = getKeychainAccessGroup()
     
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
@@ -2281,8 +2281,7 @@ class NotificationService: UNNotificationServiceExtension {
   }
   
   private func storeIntentInKeychain(data: [String: Any], service: String) throws {
-    let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationService", with: "") ?? "{{MAIN_BUNDLE_ID}}"
-    let accessGroup = "C3F24V5NS5.\(bundleIdentifier).keychain"
+    let accessGroup = getKeychainAccessGroup()
     
     let jsonData = try JSONSerialization.data(withJSONObject: data)
     
