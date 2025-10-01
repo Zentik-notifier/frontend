@@ -4,7 +4,6 @@ import {
   initApolloClient,
   loadNotificationsFromPersistedCache,
 } from "../config/apollo-client";
-import { ApiConfigService } from "../services/api-config";
 import { usePendingIntents } from "@/hooks/usePendingNotifications";
 
 interface GraphQLProviderProps {

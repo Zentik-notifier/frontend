@@ -22,7 +22,7 @@ import {
   UsePushNotifications,
   usePushNotifications,
 } from "@/hooks/usePushNotifications";
-import { useReactiveVar } from "@apollo/client";
+import { useApolloClient, useReactiveVar } from "@apollo/client";
 import React, {
   createContext,
   ReactNode,
@@ -44,6 +44,7 @@ import {
 } from "../services/auth-storage";
 import { mediaCache } from "../services/media-cache";
 import { useUserSettings } from "../services/user-settings";
+import { usePendingIntents } from "@/hooks/usePendingNotifications";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -95,7 +96,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loadedFromPersistedCache = useReactiveVar(loadedFromPersistedCacheVar);
   const connectionStatus = useConnectionStatus(push);
   const userSettings = useUserSettings();
-
+  const { processPendingNotificationIntents } = usePendingIntents();
+  const apolloClient = useApolloClient();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isMainLoading, setIsLoading] = useState(false);
@@ -337,7 +339,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
         console.log("📱 App became active - scheduling refresh");
-        await refetchNotifications();
+        await processPendingNotificationIntents(apolloClient);
+        // await refetchNotifications();
         await mediaCache.reloadMetadata();
       }
     };
