@@ -3,6 +3,7 @@ module.exports = {
   globPatterns: [
     '**/*.{js,html,css,ico,png,jpg,jpeg,gif,svg,woff,woff2,ttf,eot}'
   ],
+  swSrc: 'sw-src.js', // custom service worker with listeners
   swDest: 'dist/sw.js',
   runtimeCaching: [
     {
