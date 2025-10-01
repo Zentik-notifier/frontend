@@ -111,6 +111,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             },
         },
         plugins: [
+            "expo-web-browser",
             "expo-router",
             "expo-localization",
             "expo-background-task",
