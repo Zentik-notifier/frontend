@@ -4,23 +4,22 @@ import { useI18n } from "@/hooks/useI18n";
 import { useMassMarkNotificationsAsRead } from "@/hooks/useNotifications";
 import { useUserSettings, userSettings } from "@/services/user-settings";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 import {
   Badge,
   FAB,
   Icon,
+  IconButton,
   Surface,
   Text,
-  TouchableRipple,
-  useTheme,
-  IconButton,
+  useTheme
 } from "react-native-paper";
-import ButtonGroup from "./ui/ButtonGroup";
 import BucketIcon from "./BucketIcon";
 import MessageBuilder from "./MessageBuilder";
 import { NotificationsListWithContext } from "./NotificationsList";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
+import ButtonGroup from "./ui/ButtonGroup";
 import CopyButton from "./ui/CopyButton";
 
 interface BucketDetailProps {

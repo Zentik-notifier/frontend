@@ -151,33 +151,73 @@ class WebPushNotificationService {
 
     const handler = (event: MessageEvent) => {
       const payload = event.data;
-      if (!payload || payload.type !== 'notification-action') return;
+      if (!payload) return;
 
-      const actionStr: string = payload.action || '';
-      const notificationId: string | undefined = payload.data?.notificationId;
+      console.log('[WebPushNotificationService] Received message:', payload);
 
-      // Se non c'è un'azione esplicita, gestiamo il tapAction come navigate
-      if (!actionStr && payload?.data?.tapAction?.type === 'NAVIGATE') {
-        this.callbacks?.onNavigate?.(payload.data.tapAction.value);
+      // Handle notification-tap-action messages (from tapAction)
+      if (payload.type === 'notification-tap-action') {
+        const { action, value, notificationId, bucketId, data } = payload;
+        
+        console.log('[WebPushNotificationService] Handling tap action:', action, value);
+        
+        // Execute the action based on type
+        try {
+          this.callbacks?.executeAction(notificationId || '', {
+            __typename: 'NotificationAction',
+            type: action as any,
+            value,
+            title: '',
+            icon: '',
+            destructive: false,
+          } as any);
+        } catch (e) {
+          console.error('Failed to execute SW tap action', e);
+        }
         return;
       }
 
-      // Azione nel formato TYPE:value (es. NAVIGATE:/path)
-      const [type, ...rest] = actionStr.split(':');
-      const value = rest.join(':');
+      // Handle notification-action messages (from action buttons)
+      if (payload.type === 'notification-action') {
+        const actionStr: string = payload.action || '';
+        const notificationId: string | undefined = payload.notificationId;
 
-      // Esegue l'azione raw tramite executeAction costruendo un oggetto compatibile
-      try {
-        this.callbacks?.executeAction(notificationId || '', {
-          __typename: 'NotificationAction',
-          type: type as any,
-          value,
-          title: '',
-          icon: '',
-          destructive: false,
-        } as any);
-      } catch (e) {
-        console.error('Failed to execute SW notification action', e);
+        // Se non c'è un'azione esplicita, gestiamo il tapAction come navigate
+        if (!actionStr && payload?.data?.tapAction?.type === 'NAVIGATE') {
+          this.callbacks?.onNavigate?.(payload.data.tapAction.value);
+          return;
+        }
+
+        // Azione nel formato TYPE:value (es. NAVIGATE:/path)
+        const [type, ...rest] = actionStr.split(':');
+        const value = rest.join(':');
+
+        // Esegue l'azione raw tramite executeAction costruendo un oggetto compatibile
+        try {
+          this.callbacks?.executeAction(notificationId || '', {
+            __typename: 'NotificationAction',
+            type: type as any,
+            value,
+            title: '',
+            icon: '',
+            destructive: false,
+          } as any);
+        } catch (e) {
+          console.error('Failed to execute SW notification action', e);
+        }
+        return;
+      }
+
+      // Handle notification-click messages (fallback)
+      if (payload.type === 'notification-click') {
+        const { url, notificationId } = payload;
+        console.log('[WebPushNotificationService] Handling notification click:', url);
+        
+        // Navigate to the URL
+        if (url && url !== '/') {
+          this.callbacks?.onNavigate?.(url);
+        }
+        return;
       }
     };
 
