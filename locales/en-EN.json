@@ -810,6 +810,7 @@
     "endOfResults": "End of results",
     "notificationsDisabled": "Notifications disabled",
     "pushPermissionsHint": "Check notification settings for Zentik and enable alerts",
+    "pushPermissionsDetails": "Notifications permission was denied. To enable push notifications, you may need to uninstall and reinstall the app, then allow notifications when prompted. On iOS: delete the app and reinstall from TestFlight/App Store. On Android: long-press the app > App info > Notifications, or reinstall the app.",
     "notice": "Notice",
     "installApp": "Install app",
     "pushNeedsPwaHint": "To enable push notifications on the web, add Zentik as an app from your browser (Install App / Add to Home Screen), then reopen it.",

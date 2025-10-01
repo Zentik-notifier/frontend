@@ -810,6 +810,7 @@
     "endOfResults": "Fine dei risultati",
     "notificationsDisabled": "Notifiche disabilitate",
     "pushPermissionsHint": "Controlla le impostazioni notifiche per Zentik e abilita gli avvisi",
+    "pushPermissionsDetails": "L'autorizzazione alle notifiche è stata negata. Per abilitarle, potrebbe essere necessario disinstallare e reinstallare l'app, quindi consentire le notifiche quando richiesto. Su iOS: elimina l'app e reinstallala da TestFlight/App Store. Su Android: pressione prolungata sull'app > Info app > Notifiche, oppure reinstalla l'app.",
     "notice": "Attenzione",
     "installApp": "Installa app",
     "pushNeedsPwaHint": "Per abilitare le notifiche push sul web, aggiungi Zentik come app dal tuo browser (Installa App / Aggiungi alla schermata Home), poi riaprila.",

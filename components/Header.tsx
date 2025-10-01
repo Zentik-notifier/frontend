@@ -23,6 +23,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LoginModal } from "./LoginModal";
 import UserDropdown from "./UserDropdown";
+import StatusBadge from "./StatusBadge";
 
 const ROUTES_WITH_HOME_BUTTON: string[] = [
   "/(mobile)/(settings)",
@@ -461,50 +462,7 @@ export default function Header() {
             )}
 
             {/* Status Badge */}
-            {shouldShowStatusBadges && status.type !== "none" && (
-              <Button
-                mode="contained"
-                onPress={handleStatusPress}
-                disabled={!isStatusClickable}
-                style={[
-                  styles.statusBadge,
-                  { backgroundColor: status.color },
-                  !isStatusClickable && styles.statusBadgeNonClickable,
-                ]}
-              >
-                <Icon
-                  source={
-                    status.type === "push-needs-pwa"
-                      ? "progress-download"
-                      : (getStatusIcon() as any)
-                  }
-                  size={16}
-                  color="#fff"
-                />
-                <Text variant="labelSmall" style={styles.statusText}>
-                  {getStatusLabel()}
-                </Text>
-
-                {/* Indicatore di loading per aggiornamenti */}
-                {status.type === "update" &&
-                  (isCheckingUpdate || isUpdating) && (
-                    <View style={styles.loadingIndicator}>
-                      <Icon source="dots-horizontal" size={12} color="#fff" />
-                    </View>
-                  )}
-
-                {/* Indicatore per dispositivo non registrato */}
-                {status.type === "push-notifications" && (
-                  <View style={styles.loadingIndicator}>
-                    <Icon
-                      source={isRegistering ? "clock" : "alert"}
-                      size={12}
-                      color="#fff"
-                    />
-                  </View>
-                )}
-              </Button>
-            )}
+            {shouldShowStatusBadges && <StatusBadge />}
           </View>
 
           {/* SEZIONE CENTRO: Titolo sempre centrato */}

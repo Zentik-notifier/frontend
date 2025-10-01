@@ -31,4 +31,5 @@ export { MediaTypeIcon } from './MediaTypeIcon';
 export { HtmlTextRenderer } from './ui/HtmlTextRenderer';
 export { SmartTextRenderer } from './ui/SmartTextRenderer';
 export { TextRenderer } from './ui/TextRenderer';
+export { default as StatusBadge } from './StatusBadge';
 
