@@ -37,6 +37,8 @@ export function StatusBadge() {
       openLoginModal();
     } else if (status.type === "update" && status.action) {
       status.action();
+    } else if (status.type === "push-needs-pwa") {
+      Alert.alert(t("common.notice"), t("common.pushNeedsPwaDetails"));
     }
   };
 
@@ -50,6 +52,8 @@ export function StatusBadge() {
         return t("common.updateAvailable");
       case "push-permissions":
         return t("common.notificationsDisabled");
+      case "push-needs-pwa":
+        return t("common.notice");
       case "offline":
         return t("common.offline");
       case "backend":
@@ -74,7 +78,8 @@ export function StatusBadge() {
     status.type === "offline" ||
     (status.type === "update" && status.action) ||
     (status.type === "push-notifications" && !isRegistering) ||
-    status.type === "push-permissions";
+    status.type === "push-permissions" ||
+    status.type === "push-needs-pwa";
 
   return (
     <TouchableOpacity

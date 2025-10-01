@@ -106,6 +106,7 @@ export default function DevicesSettings() {
     managingDevice ||
     isOfflineAuth ||
     isBackendUnreachable ||
+    push.needsPwa ||
     push.pushPermissionError;
 
   const isCurrentRegistered = sortedDevices.some(
@@ -115,6 +116,7 @@ export default function DevicesSettings() {
     managingDevice ||
     isOfflineAuth ||
     isBackendUnreachable ||
+    push.needsPwa ||
     disabledRegister ||
     !isCurrentRegistered;
 
@@ -149,12 +151,16 @@ export default function DevicesSettings() {
           </Button>
         </View>
 
-        {/* Messaggio di errore per permessi push */}
-        {push.pushPermissionError && (
+        {/* Messaggio di errore per PWA */}
+        {push.needsPwa ? (
+          <Text style={[styles.errorMessage, { color: theme.colors.error }]}>
+            {t("common.pushNeedsPwaHint")}
+          </Text>
+        ) : push.pushPermissionError ? (
           <Text style={[styles.errorMessage, { color: theme.colors.error }]}>
             {t("common.pushPermissionsHint")}
           </Text>
-        )}
+        ) : null}
 
         {sortedDevices.length === 0 ? (
           <View style={styles.emptyState}>

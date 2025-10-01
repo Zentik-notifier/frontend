@@ -810,7 +810,9 @@
     "endOfResults": "End of results",
     "notificationsDisabled": "Notifications disabled",
     "pushPermissionsHint": "Check notification settings for Zentik and enable alerts",
-    "notice": "Notice"
+    "notice": "Notice",
+    "pushNeedsPwaHint": "To enable push notifications on the web, add Zentik as an app from your browser (Install App / Add to Home Screen), then reopen it.",
+    "pushNeedsPwaDetails": "To receive push notifications on the web, install Zentik as an app (PWA) and then reopen it.\n\nHow to install:\n- Chrome/Edge (Windows/Linux): Menu > Install Zentik (or 'Install app').\n- Chrome (Android): Menu ••• > Add to Home screen.\n- Safari (iOS/iPadOS): Share button > Add to Home Screen.\n- Safari (macOS): File > Add to Dock.\n\nAfter installation, open Zentik from the new icon and sign in if requested."
   },
   "notificationDetail": {
     "loading": "Loading notification...",

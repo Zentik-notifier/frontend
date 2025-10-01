@@ -33,6 +33,7 @@ export function usePushNotifications() {
   const [deviceRegistered, setDeviceRegistered] = useState<boolean | undefined>(undefined);
   const [registeringDevice, setRegisteringDevice] = useState(false);
   const [pushPermissionError, setPushPermissionError] = useState(false);
+  const [needsPwa, setNeedsPwa] = useState(false);
   const callbacks = useNotificationActions();
 
   useEffect(() => {
@@ -68,12 +69,13 @@ export function usePushNotifications() {
         let result;
         if (isWeb) {
           result = await webPushNotificationService.initialize(callbacks);
+          setNeedsPwa(result?.needsPwa ?? false);
         } else if (isAndroid) {
           result = await firebasePushNotificationService.initialize(callbacks);
         } else if (isIOS) {
           result = await iosNativePushNotificationService.initialize(callbacks);
         }
-        console.log(`[usePushNotifications] Initialize result:`, result)
+        console.log(`[usePushNotifications] Initialize result:`, result);
         if (result?.hasPermissionError) {
           setPushPermissionError(true);
           setDeviceRegistered(false);
@@ -318,6 +320,7 @@ export function usePushNotifications() {
     deviceRegistered,
     registeringDevice,
     pushPermissionError,
+    needsPwa,
   };
 }
 

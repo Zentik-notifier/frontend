@@ -5,6 +5,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import { Tabs } from "expo-router";
 import { Platform } from "react-native";
 import { Icon, useTheme } from "react-native-paper";
+import { IS_FS_SUPPORTED } from "@/utils";
 
 export default function TabsLayout() {
   const theme = useTheme();
@@ -104,6 +105,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="gallery"
         options={{
+          href: !IS_FS_SUPPORTED ? null : undefined,
           title: t("navigation.sections.gallery"),
           tabBarIcon: ({ color, focused }) => (
             <Icon

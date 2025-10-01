@@ -9,4 +9,4 @@ export function formatFileSize(bytes: number, decimals: number = 1): string {
 	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
-export const IS_FS_SUPPORTED = Platform.OS !== 'web';
+export const IS_FS_SUPPORTED = Platform.OS === 'android' || Platform.OS === 'ios';

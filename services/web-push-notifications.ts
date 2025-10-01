@@ -21,29 +21,33 @@ class WebPushNotificationService {
   private isInitialized = false;
 
   async checkPermissions() {
-    if (typeof window === 'undefined') return false;
-    if (!('Notification' in window)) return false;
-    if (Notification.permission === 'default') {
-      const res = await Notification.requestPermission();
-      if (res !== 'granted') {
-        return false;
+    let isPwa = false;
+    let hasPermissions = false;
+    if (window && Notification) {
+      let finalResult = Notification.permission;
+      if (finalResult === 'default') {
+        finalResult = await Notification.requestPermission();
       }
-    } else if (Notification.permission !== 'granted') {
-      return { deviceInfo: null, hasPermissionError: true };
+
+      if (finalResult === 'granted') {
+        hasPermissions = true;
+      }
     }
 
-    return true;
+    return { isPwa, hasPermissions };
   }
 
   async initialize(callbacks: NotificationActionCallbacks) {
+    let needsPwa = true;
     try {
       this.callbacks = callbacks;
 
-      const hasPermission = await this.checkPermissions();
+      const { hasPermissions, isPwa } = await this.checkPermissions();
+      needsPwa = !isPwa;
 
-      if (!hasPermission) {
+      if (!hasPermissions) {
         console.error('[WebPushNotificationService] Web notification permission not granted');
-        return { deviceInfo: null, hasPermissionError: true };
+        return { deviceInfo: null, hasPermissionError: true, needsPwa };
       }
 
       // Register SW and subscribe to push if supported and permitted
@@ -68,7 +72,7 @@ class WebPushNotificationService {
       console.error('[WebPushNotificationService] Error initializing:', e);
     } finally {
       this.isInitialized = true;
-      return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false };
+      return { deviceInfo: this.getDeviceInfo(), hasPermissionError: false, needsPwa };
     }
   }
 
@@ -112,6 +116,8 @@ class WebPushNotificationService {
 
         infoJson = json;
         this.pushSubscription = await this.swRegistration.pushManager.getSubscription();
+      } else {
+        console.error('[WebPushNotificationService] Public key not found');
       }
     } catch (e) {
       console.error('[WebPushNotificationService] Registration failed:', e);

@@ -652,6 +652,8 @@ export interface TranslationKey {
     notificationsDisabled: string;
     pushPermissionsHint: string;
     notice: string;
+    pushNeedsPwaHint: string;
+    pushNeedsPwaDetails: string;
   };
   compose: {
     messageBuilder: {

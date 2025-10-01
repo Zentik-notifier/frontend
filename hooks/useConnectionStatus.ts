@@ -6,7 +6,7 @@ import { UsePushNotifications } from './usePushNotifications';
 
 
 export type GetPriorityStatus = () => {
-  type: 'update' | 'offline' | 'backend' | 'network' | 'push-notifications' | 'push-permissions' | 'none';
+  type: 'update' | 'offline' | 'backend' | 'network' | 'push-notifications' | 'push-permissions' | 'push-needs-pwa' | 'none';
   icon: string;
   action: (() => void) | null;
   color: string;
@@ -170,6 +170,15 @@ export function useConnectionStatus(push: UsePushNotifications) {
   };
 
   const getPriorityStatus: GetPriorityStatus = () => {
+    // Highest priority: on Web, push requires PWA installation
+    if (push.needsPwa) {
+      return {
+        type: 'push-needs-pwa',
+        icon: 'download',
+        action: null,
+        color: '#FF3B30'
+      };
+    }
     if (push.pushPermissionError) {
       return {
         type: 'push-permissions',
