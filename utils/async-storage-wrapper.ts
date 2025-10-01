@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import BaseAsyncStorage from 'expo-sqlite/kv-store';
 import * as Device from 'expo-device';
 import * as Keychain from 'react-native-keychain';
+import { openWebStorageDb } from '../services/media-cache-db';
 
 export type KeyValuePair = [string, string];
 type StorageOptions = { secret?: boolean };
@@ -16,41 +17,85 @@ function getKeychainServiceForKey(key: string): string {
   return `zentik-kv:${key}`;
 }
 
-const WebStorage = {
+class WebStorageIndexedDB {
+
   async setItem(key: string, value: string, _options?: StorageOptions): Promise<void> {
-    if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
-  },
+    if (typeof window === 'undefined') return;
+    
+    const db = await openWebStorageDb();
+    await db.put('keyvalue', value, key);
+  }
+
   async getItem(key: string, _options?: StorageOptions): Promise<string | null> {
-    if (typeof localStorage === 'undefined') return null;
-    const v = localStorage.getItem(key);
-    return v === null ? null : v;
-  },
+    if (typeof window === 'undefined') return null;
+    
+    try {
+      const db = await openWebStorageDb();
+      const result = await db.get('keyvalue', key);
+      return result || null;
+    } catch {
+      return null;
+    }
+  }
+
   async removeItem(key: string, _options?: StorageOptions): Promise<void> {
-    if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
-  },
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const db = await openWebStorageDb();
+      await db.delete('keyvalue', key);
+    } catch {
+      // Ignore errors
+    }
+  }
+
   async clear(): Promise<void> {
-    if (typeof localStorage !== 'undefined') localStorage.clear();
-  },
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const db = await openWebStorageDb();
+      await db.clear('keyvalue');
+    } catch {
+      // Ignore errors
+    }
+  }
+
   async getAllKeys(): Promise<string[]> {
-    if (typeof localStorage === 'undefined') return [];
-    const keys: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k) keys.push(k);
+    if (typeof window === 'undefined') return [];
+    
+    try {
+      const db = await openWebStorageDb();
+      const allKeys = await db.getAllKeys('keyvalue');
+      return allKeys;
+    } catch {
+      return [];
     }
-    return keys;
-  },
+  }
+
   async multiSet(entries: KeyValuePair[], _options?: StorageOptions): Promise<void> {
-    for (const [k, v] of entries) {
-      await WebStorage.setItem(k, v);
+    const db = await openWebStorageDb();
+    const tx = db.transaction('keyvalue', 'readwrite');
+    
+    for (const [key, value] of entries) {
+      await tx.store.put(value, key);
     }
-  },
+    
+    await tx.done;
+  }
+
   async multiRemove(keys: string[], _options?: StorageOptions): Promise<void> {
-    for (const k of keys) {
-      await WebStorage.removeItem(k);
+    const db = await openWebStorageDb();
+    const tx = db.transaction('keyvalue', 'readwrite');
+    
+    for (const key of keys) {
+      await tx.store.delete(key);
     }
-  },
-};
+    
+    await tx.done;
+  }
+}
+
+const WebStorage = new WebStorageIndexedDB();
 
 const NativeStorage = {
   async setItem(key: string, value: string, options?: StorageOptions): Promise<void> {

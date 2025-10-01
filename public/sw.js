@@ -1,3 +1,90 @@
+function storeIntentInIndexedDB(intentData) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('zentik-storage', 2);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(['keyvalue'], 'readwrite');
+      const store = transaction.objectStore('keyvalue');
+
+      const putRequest = store.put(JSON.stringify(intentData), 'pending_navigation_intent');
+
+      putRequest.onsuccess = () => resolve();
+      putRequest.onerror = () => reject(putRequest.error);
+    };
+
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('keyvalue')) {
+        db.createObjectStore('keyvalue');
+      }
+      if (!db.objectStoreNames.contains('notifications')) {
+        db.createObjectStore('notifications');
+      }
+    };
+  });
+}
+
+// Store pending notification for processing when app opens
+function storePendingNotification(notificationData) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('zentik-storage', 2);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(['keyvalue'], 'readwrite');
+      const store = transaction.objectStore('keyvalue');
+
+      // Get existing pending notifications
+      const getRequest = store.get('pending_notifications');
+      getRequest.onsuccess = () => {
+        let pendingNotifications = [];
+        if (getRequest.result) {
+          try {
+            pendingNotifications = JSON.parse(getRequest.result);
+          } catch (e) {
+            pendingNotifications = [];
+          }
+        }
+
+        // Add new notification
+        pendingNotifications.push({
+          notificationId: notificationData.notificationId,
+          title: notificationData.title,
+          body: notificationData.body,
+          subtitle: notificationData.subtitle,
+          bucketId: notificationData.bucketId,
+          bucketName: notificationData.bucketName,
+          bucketIconUrl: notificationData.bucketIconUrl,
+          tapAction: notificationData.tapAction,
+          actions: notificationData.actions,
+          attachmentData: notificationData.attachmentData,
+          timestamp: notificationData.timestamp || Date.now()
+        });
+
+        // Save updated list
+        const putRequest = store.put(JSON.stringify(pendingNotifications), 'pending_notifications');
+        putRequest.onsuccess = () => resolve();
+        putRequest.onerror = () => reject(putRequest.error);
+      };
+      getRequest.onerror = () => reject(getRequest.error);
+    };
+
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('keyvalue')) {
+        db.createObjectStore('keyvalue');
+      }
+      // if (!db.objectStoreNames.contains('notifications')) {
+      //   db.createObjectStore('notifications');
+      // }
+    };
+  });
+}
+
+// Common method to handle notification actions (used by both tapAction and action buttons)
 function handleNotificationAction(actionType, actionValue, notificationData, event) {
   console.log('[Service Worker] Handling action:', actionType, actionValue);
 
@@ -18,6 +105,7 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
               value: actionValue,
               notificationId: notificationId,
               bucketId: bucketId,
+              data: notificationData
             });
             return focusedClient.focus();
           } else {
@@ -53,27 +141,22 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
               if (self.clients.openWindow) {
                 // Store navigation intent
                 const intentData = {
-                  type: 'navigation',
-                  action: 'NAVIGATE',
+                  type: 'NAVIGATE',
                   value: actionValue,
                   notificationId: notificationId,
                   bucketId: bucketId,
                   timestamp: Date.now()
                 };
-                
-                // Open app and send intent message after it loads
-                return self.clients.openWindow('/').then((newClient) => {
-                  if (newClient) {
-                    console.log('[Service Worker] Storing navigation intent:', intentData);
-                    // Send intent data to the new client after it loads
-                    setTimeout(() => {
-                      newClient.postMessage({
-                        type: 'pending-intent',
-                        intent: intentData,
-                        data: notificationData
-                      });
-                    }, 1500); // Wait for app to load
-                  }
+
+                // Store intent in IndexedDB and open app
+                return storeIntentInIndexedDB(intentData).then(() => {
+                  console.log('[Service Worker] Stored navigation intent:', intentData);
+                  // Open app and let it handle the intent from IndexedDB
+                  return self.clients.openWindow('/');
+                }).catch((error) => {
+                  console.error('[Service Worker] Failed to store intent:', error);
+                  // Still open app even if storage fails
+                  return self.clients.openWindow('/');
                 });
               }
             }
@@ -93,39 +176,35 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
               type: 'notification-tap-action',
               action: 'OPEN_NOTIFICATION',
               value: notificationId,
+              notificationId: notificationId,
               bucketId: bucketId,
               data: notificationData
             });
             return focusedClient.focus();
-            } else {
-              // App is closed, store intent and open app
-              if (self.clients.openWindow) {
-                // Store the notification intent
-                const intentData = {
-                  type: 'notification',
-                  notificationId: notificationId,
-                  action: 'OPEN_NOTIFICATION',
-                  value: value,
-                  bucketId: bucketId,
-                  timestamp: Date.now()
-                };
-                
-                // Open app and send intent message after it loads
-                return self.clients.openWindow('/').then((newClient) => {
-                  if (newClient) {
-                    console.log('[Service Worker] Storing notification intent:', intentData);
-                    // Send intent data to the new client after it loads
-                    setTimeout(() => {
-                      newClient.postMessage({
-                        type: 'pending-intent',
-                        intent: intentData,
-                        data: notificationData
-                      });
-                    }, 1500); // Wait for app to load
-                  }
-                });
-              }
+          } else {
+            // App is closed, store intent and open app
+            if (self.clients.openWindow) {
+              // Store the notification intent
+              const intentData = {
+                type: 'OPEN_NOTIFICATION',
+                notificationId: notificationId,
+                value: notificationId,
+                bucketId: bucketId,
+                timestamp: Date.now()
+              };
+
+              // Store intent in IndexedDB and open app
+              return storeIntentInIndexedDB(intentData).then(() => {
+                console.log('[Service Worker] Stored notification intent:', intentData);
+                // Open app and let it handle the intent from IndexedDB
+                return self.clients.openWindow('/');
+              }).catch((error) => {
+                console.error('[Service Worker] Failed to store intent:', error);
+                // Still open app even if storage fails
+                return self.clients.openWindow('/');
+              });
             }
+          }
         })
       );
       break;
@@ -260,7 +339,6 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
 }
 
 self.addEventListener('push', (event) => {
-  console.log('[Service Worker] Push Received:', event.data);
 
   let payload;
   if (event.data) {
@@ -274,10 +352,12 @@ self.addEventListener('push', (event) => {
     payload = {};
   }
 
+  console.log('[Service Worker] Push Received:', payload);
+
   const title = payload.title || 'Zentik';
   const body = payload.body || '';
-  const icon = payload.icon || '/icons/icon-192x192.png';
-  const image = payload.image;
+  const icon = payload.bucketIcon ?? '/icons/icon-192x192.png';
+  const image = payload.image ?? payload.bucketIcon ?? '/icons/icon-192x192.png';
   const url = payload.url || '/';
   const notificationId = payload.notificationId;
   const bucketId = payload.bucketId;
@@ -307,7 +387,50 @@ self.addEventListener('push', (event) => {
   };
 
   console.log('[Service Worker] Showing notification:', title, options);
-  event.waitUntil(self.registration.showNotification(title, options));
+
+  // Store notification as pending for processing when app opens
+  const pendingNotificationData = {
+    notificationId: notificationId,
+    title: title,
+    body: body,
+    subtitle: payload.subtitle,
+    bucketId: bucketId,
+    bucketName: payload.bucketName,
+    bucketIconUrl: payload.bucketIcon,
+    tapAction: payload.tapAction,
+    actions: actions,
+    attachmentData: payload.attachmentData || [],
+    timestamp: Date.now()
+  };
+
+  // Show notification, store as pending, and notify the app
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, options),
+      storePendingNotification(pendingNotificationData).catch(error => {
+        console.error('[Service Worker] Failed to store pending notification:', error);
+      }),
+      // Notify the app about the new notification
+      self.clients.matchAll({ includeUncontrolled: true }).then(clients => {
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'notification-received',
+            notificationId: notificationId,
+            title: title,
+            body: body,
+            bucketId: bucketId,
+            bucketName: payload.bucketName,
+            bucketIconUrl: payload.bucketIcon,
+            tapAction: payload.tapAction,
+            actions: actions,
+            timestamp: Date.now()
+          });
+        });
+      }).catch(error => {
+        console.error('[Service Worker] Failed to notify clients:', error);
+      })
+    ])
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {

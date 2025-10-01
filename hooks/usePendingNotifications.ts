@@ -176,7 +176,7 @@ export function usePendingIntents() {
           console.log('[PendingIntents] ⚠️ Unknown intent type, ignoring:', intent.type);
         }
       } else {
-        console.log('[PendingIntents] ⚠️ Intent value missing or invalid');
+        console.log('[PendingIntents] ⚠️ Intent value missing or invalid', intent?.value);
       }
 
       await clearPendingNavigationIntent();

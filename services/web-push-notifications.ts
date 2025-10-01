@@ -149,7 +149,7 @@ class WebPushNotificationService {
     if (!('serviceWorker' in navigator)) return;
     if (!this.callbacks) return;
 
-    const handler = (event: MessageEvent) => {
+    const handler = async (event: MessageEvent) => {
       const payload = event.data;
       if (!payload) return;
 
@@ -217,6 +217,23 @@ class WebPushNotificationService {
         if (url && url !== '/') {
           this.callbacks?.onNavigate?.(url);
         }
+        return;
+      }
+
+      // Handle notification-received messages (new notification arrived)
+      if (payload.type === 'notification-received') {
+        const { notificationId, title, body, bucketId, bucketName, bucketIconUrl, tapAction, actions, timestamp } = payload;
+        console.log('[WebPushNotificationService] New notification received:', {
+          notificationId,
+          title,
+          bucketId,
+          bucketName
+        });
+        
+        if (this.callbacks?.pushNotificationReceived) {
+          this.callbacks.pushNotificationReceived(notificationId);
+        }
+
         return;
       }
     };

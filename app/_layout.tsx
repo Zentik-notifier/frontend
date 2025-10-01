@@ -21,6 +21,7 @@ import { AppProvider, useAppContext } from "../contexts/AppContext";
 import { ApiConfigService } from "../services/api-config";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb } from "../services/media-cache-db";
+import { usePendingIntents } from "@/hooks/usePendingNotifications";
 
 type AlertButton = {
   text?: string;
@@ -79,6 +80,7 @@ export default function RootLayout() {
   const [webAlert, setWebAlert] = useState<WebAlertState>({ visible: false });
   const originalAlertRef = useRef<typeof Alert.alert>(null);
   const { isMobile } = useDeviceType();
+  const { processPendingNavigationIntent } = usePendingIntents();
 
   useEffect(() => {
     console.log("🔄 [RootLayout] Loaded");
@@ -150,6 +152,8 @@ export default function RootLayout() {
         console.log("🔄 [LayoutInit] App config initialized");
         openSharedCacheDb().catch();
         console.log("🔄 [LayoutInit] Shared cache DB opened");
+        await processPendingNavigationIntent();
+        console.log("🔄 [LayoutInit] Pending navigation intent processed");
       })();
     }
   }, [loaded]);

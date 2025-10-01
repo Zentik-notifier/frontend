@@ -1,8 +1,23 @@
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
 import { IS_FS_SUPPORTED } from '@/utils/fileUtils';
+import { Platform } from 'react-native';
+import { openDB, DBSchema, IDBPDatabase } from 'idb';
+
+// IndexedDB schema for web storage
+interface WebStorageDB extends DBSchema {
+  keyvalue: {
+    key: string;
+    value: string;
+  };
+  notifications: {
+    key: string; // notificationId
+    value: any; // GraphQL Notification object
+  };
+}
 
 let dbPromise: Promise<SQLiteDatabase> | null = null;
+let webDbPromise: Promise<IDBPDatabase<WebStorageDB>> | null = null;
 
 export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
   if (dbPromise) return dbPromise;
@@ -87,6 +102,99 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
   })();
 
   return dbPromise;
+}
+
+// Initialize IndexedDB for web
+export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
+  if (webDbPromise) return webDbPromise;
+
+  if (Platform.OS !== 'web') {
+    throw new Error('openWebStorageDb can only be used on web platform');
+  }
+
+  webDbPromise = openDB<WebStorageDB>('zentik-storage', 2, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains('keyvalue')) {
+        db.createObjectStore('keyvalue');
+      }
+      if (!db.objectStoreNames.contains('notifications')) {
+        db.createObjectStore('notifications');
+      }
+    },
+  });
+
+  return webDbPromise;
+}
+
+// Notification cache functions
+export async function saveNotificationToCache(notificationData: any): Promise<void> {
+  if (Platform.OS !== 'web') return;
+  
+  const db = await openWebStorageDb();
+  await db.put('notifications', notificationData, notificationData.id);
+}
+
+export async function getNotificationFromCache(notificationId: string): Promise<any | null> {
+  if (Platform.OS !== 'web') return null;
+  
+  try {
+    const db = await openWebStorageDb();
+    const result = await db.get('notifications', notificationId);
+    return result || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getAllNotificationsFromCache(): Promise<any[]> {
+  if (Platform.OS !== 'web') return [];
+  
+  try {
+    const db = await openWebStorageDb();
+    const results = await db.getAll('notifications');
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+export async function removeNotificationFromCache(notificationId: string): Promise<void> {
+  if (Platform.OS !== 'web') return;
+  
+  try {
+    const db = await openWebStorageDb();
+    await db.delete('notifications', notificationId);
+  } catch {
+    // Ignore errors
+  }
+}
+
+export async function clearAllNotificationsFromCache(): Promise<void> {
+  if (Platform.OS !== 'web') return;
+  
+  try {
+    const db = await openWebStorageDb();
+    await db.clear('notifications');
+  } catch {
+    // Ignore errors
+  }
+}
+
+export async function upsertNotificationsBatch(notifications: any[]): Promise<void> {
+  if (Platform.OS !== 'web' || notifications.length === 0) return;
+  
+  try {
+    const db = await openWebStorageDb();
+    const tx = db.transaction('notifications', 'readwrite');
+    
+    for (const notification of notifications) {
+      await tx.store.put(notification, notification.id);
+    }
+    
+    await tx.done;
+  } catch (error) {
+    console.error('Failed to upsert notifications batch:', error);
+  }
 }
 
 
