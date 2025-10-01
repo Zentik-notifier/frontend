@@ -1,15 +1,43 @@
-/* global self, workbox */
-import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute } from 'workbox-precaching';
+import { registerRoute } from 'workbox-routing';
+import { CacheFirst } from 'workbox-strategies';
+import { ExpirationPlugin } from 'workbox-expiration';
+import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
-// Take over immediately
-clientsClaim();
-self.skipWaiting();
+precacheAndRoute(self.__WB_MANIFEST);
 
-// Injected by workbox at build time
-precacheAndRoute(self.__WB_MANIFEST || []);
+registerRoute(
+  /^https:\/\/fonts\.googleapis\.com\/.*/i,
+  new CacheFirst({
+    cacheName: 'google-fonts-cache',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 10, maxAgeSeconds: 31536000 }),
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+    ],
+  })
+);
 
-// Custom listeners: keep your existing code below
+registerRoute(
+  /^https:\/\/fonts\.gstatic\.com\/.*/i,
+  new CacheFirst({
+    cacheName: 'gstatic-fonts-cache',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 10, maxAgeSeconds: 31536000 }),
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+    ],
+  })
+);
+
+registerRoute(
+  /\.(?:png|jpg|jpeg|svg|gif)$/,
+  new CacheFirst({
+    cacheName: 'images-cache',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 1000, maxAgeSeconds: 2592000 }),
+    ],
+  })
+);
+
 self.addEventListener('message', (event) => {
   // Example: postMessage from app to trigger actions
   if (!event || !event.data) return;

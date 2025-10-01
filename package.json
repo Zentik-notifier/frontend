@@ -5,7 +5,7 @@
   "scripts": {
     "start": "expo start",
     "export:web": "npx expo export --platform web --output-dir dist",
-    "build:web": "npx expo export -p web --output-dir dist && npx workbox-cli generateSW workbox-config.js",
+    "build:web": "npx expo export -p web --output-dir dist && npx workbox-cli injectManifest workbox-config.js",
     "release:web:patch": "node scripts/release-web.js patch",
     "release:web:minor": "node scripts/release-web.js minor",
     "release:web:major": "node scripts/release-web.js major",
