@@ -7,8 +7,8 @@ import { useDownloadQueue } from "@/hooks/useMediaCache";
 import { TranslationKeyPath } from "@/utils";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useSegments } from "expo-router";
-import React, { useState } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, Platform, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Appbar,
@@ -160,6 +160,58 @@ export default function Header() {
   const { isMobile } = useDeviceType();
   const isPublic = segments[0] === "(common)";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Pulsating animations
+  const markAllOpacity = useRef(new Animated.Value(1)).current;
+  const downloadOpacity = useRef(new Animated.Value(1)).current;
+
+  // Animate mark all as read icon
+  useEffect(() => {
+    if (hasUnreadNotifications && !isMarkingAllAsRead) {
+      const animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(markAllOpacity, {
+            toValue: 0.3,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(markAllOpacity, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      animation.start();
+      return () => animation.stop();
+    } else {
+      markAllOpacity.setValue(1);
+    }
+  }, [hasUnreadNotifications, isMarkingAllAsRead, markAllOpacity]);
+
+  // Animate download icon
+  useEffect(() => {
+    if (inProcessing) {
+      const animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(downloadOpacity, {
+            toValue: 0.3,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(downloadOpacity, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      animation.start();
+      return () => animation.stop();
+    } else {
+      downloadOpacity.setValue(1);
+    }
+  }, [inProcessing, downloadOpacity]);
 
   // Determine current route
   const currentRoute = `/${segments.join("/")}`;
@@ -359,15 +411,17 @@ export default function Header() {
               hasUnreadNotifications &&
               !isLoadingGqlData && (
                 <View style={styles.markAllButtonContainer}>
-                  <IconButton
-                    icon="check-all"
-                    loading={isMarkingAllAsRead}
-                    size={20}
-                    iconColor="#fff"
-                    onPress={handleMarkAllAsRead}
-                    disabled={!hasUnreadNotifications || isMarkingAllAsRead}
-                    style={styles.markAllIcon}
-                  />
+                  <Animated.View style={{ opacity: markAllOpacity }}>
+                    <IconButton
+                      icon="check-all"
+                      loading={isMarkingAllAsRead}
+                      size={20}
+                      iconColor="#fff"
+                      onPress={handleMarkAllAsRead}
+                      disabled={!hasUnreadNotifications || isMarkingAllAsRead}
+                      style={styles.markAllIcon}
+                    />
+                  </Animated.View>
                   {unreadCount > 0 && (
                     <Surface style={styles.badge} elevation={3}>
                       <Text variant="labelSmall" style={styles.badgeText}>
@@ -381,13 +435,15 @@ export default function Header() {
             {/* Download Queue Progress Icon */}
             {shouldShowStatusBadges && inProcessing && (
               <View style={styles.downloadQueueContainer}>
-                <IconButton
-                  icon="download"
-                  size={20}
-                  iconColor="#fff"
-                  style={styles.downloadIcon}
-                  disabled
-                />
+                <Animated.View style={{ opacity: downloadOpacity }}>
+                  <IconButton
+                    icon="download"
+                    size={20}
+                    iconColor="#fff"
+                    style={styles.downloadIcon}
+                    disabled
+                  />
+                </Animated.View>
                 <Surface style={styles.downloadQueueBadge} elevation={3}>
                   <Text
                     variant="labelSmall"
