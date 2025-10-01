@@ -30,6 +30,7 @@ export default function LoginForm({
   const [emailOrUsername, setEmailOrUsername] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{
     emailOrUsername?: string;
     password?: string;
@@ -122,7 +123,7 @@ export default function LoginForm({
         placeholder={t("login.passwordPlaceholder")}
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
+        secureTextEntry={!showPassword}
         autoCapitalize="none"
         autoCorrect={false}
         onSubmitEditing={handleLogin}
@@ -130,6 +131,12 @@ export default function LoginForm({
         mode="outlined"
         error={!!errors.password}
         style={styles.input}
+        right={
+          <TextInput.Icon
+            icon={showPassword ? "eye-off" : "eye"}
+            onPress={() => setShowPassword(!showPassword)}
+          />
+        }
       />
       <HelperText type="error" visible={!!errors.password} style={styles.errorText}>
         {errors.password}

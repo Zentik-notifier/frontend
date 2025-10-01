@@ -26,6 +26,9 @@ export function ChangePasswordForm() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const [changePassword, { loading: changingPassword }] =
     useChangePasswordMutation({
@@ -175,9 +178,15 @@ export function ChangePasswordForm() {
                 value={currentPassword}
                 onChangeText={setCurrentPassword}
                 placeholder={t("changePassword.currentPasswordPlaceholder")}
-                secureTextEntry
+                secureTextEntry={!showCurrent}
                 error={!!errors.currentPassword}
                 style={styles.input}
+                right={
+                  <TextInput.Icon
+                    icon={showCurrent ? "eye-off" : "eye"}
+                    onPress={() => setShowCurrent(!showCurrent)}
+                  />
+                }
               />
               {errors.currentPassword && (
                 <Text style={[styles.errorText, { color: theme.colors.error }]}>
@@ -198,9 +207,15 @@ export function ChangePasswordForm() {
                   ? t("changePassword.newPasswordPlaceholder")
                   : t("setPassword.newPasswordPlaceholder")
               }
-              secureTextEntry
+              secureTextEntry={!showNew}
               error={!!errors.newPassword}
               style={styles.input}
+              right={
+                <TextInput.Icon
+                  icon={showNew ? "eye-off" : "eye"}
+                  onPress={() => setShowNew(!showNew)}
+                />
+              }
             />
             {errors.newPassword && (
               <Text style={[styles.errorText, { color: theme.colors.error }]}>
@@ -230,9 +245,15 @@ export function ChangePasswordForm() {
                   ? t("changePassword.confirmPasswordPlaceholder")
                   : t("setPassword.confirmPasswordPlaceholder")
               }
-              secureTextEntry
+              secureTextEntry={!showConfirm}
               error={!!errors.confirmPassword}
               style={styles.input}
+              right={
+                <TextInput.Icon
+                  icon={showConfirm ? "eye-off" : "eye"}
+                  onPress={() => setShowConfirm(!showConfirm)}
+                />
+              }
             />
             {errors.confirmPassword && (
               <Text style={[styles.errorText, { color: theme.colors.error }]}>
