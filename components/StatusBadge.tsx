@@ -8,14 +8,12 @@ export default function StatusBadge() {
   const {
     openLoginModal,
     push,
-    connectionStatus: { getPriorityStatus, isUpdating, isCheckingUpdate },
+    connectionStatus: { isUpdating, isCheckingUpdate, status },
   } = useAppContext();
   const { t } = useI18n();
   const [isRegistering, setIsRegistering] = useState(false);
 
-  const status = getPriorityStatus();
-
-  if (status.type === "none") return null;
+  if (!status) return null;
 
   const handlePress = async () => {
     if (status.type === "push-notifications") {

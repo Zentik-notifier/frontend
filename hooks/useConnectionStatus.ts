@@ -5,28 +5,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UsePushNotifications } from './usePushNotifications';
 
 
-export type GetPriorityStatus = () => {
-  type: 'update' | 'offline' | 'backend' | 'network' | 'push-notifications' | 'push-permissions' | 'push-needs-pwa' | 'none';
+interface ConnectionStatus {
+  type: 'update' | 'offline' | 'backend' | 'network' | 'push-notifications' | 'push-permissions' | 'push-needs-pwa';
   icon: string;
   action: (() => void) | null;
   color: string;
 };
-
-export interface ConnectionStatus {
-  isOnline: boolean;
-  isBackendUnreachable: boolean;
-  isOfflineAuth: boolean;
-  hasUpdateAvailable: boolean;
-  isCheckingUpdate: boolean;
-  isUpdating: boolean;
-  isDeviceRegistered: boolean;
-}
 
 export function useConnectionStatus(push: UsePushNotifications) {
   const [isOnline, setIsOnline] = useState(true);
   const [hasUpdateAvailable, setHasUpdateAvailable] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [status, setStatus] = useState<ConnectionStatus | undefined>();
 
   // Manage auth state internally
   const [isOfflineAuth, setIsOfflineAuth] = useState(false);
@@ -37,6 +28,63 @@ export function useConnectionStatus(push: UsePushNotifications) {
   const pollingIntervalRef = useRef<number | null>(null);
   const isPollingRef = useRef(false);
   const { data: userData, loading } = useGetMeQuery();
+
+  useEffect(() => {
+    let newStatus: ConnectionStatus | undefined;
+
+    if (push.needsPwa) {
+      newStatus = {
+        type: 'push-needs-pwa',
+        icon: 'progress-download',
+        action: null,
+        color: '#FF3B30'
+      };
+    } else if (push.pushPermissionError) {
+      newStatus = {
+        type: 'push-permissions',
+        icon: 'bell-outline',
+        action: null,
+        color: '#FF3B30'
+      };
+    } else if (push.deviceRegistered === false && !push.registeringDevice) {
+      newStatus = {
+        type: 'push-notifications',
+        icon: 'bell-off',
+        action: null,
+        color: '#FF3B30'
+      };
+    } else if (hasUpdateAvailable) {
+      newStatus = {
+        type: 'update',
+        icon: 'refresh',
+        action: applyUpdate,
+        color: '#007AFF'
+      };
+    } else if (isOfflineAuth) {
+      newStatus = {
+        type: 'offline',
+        icon: 'cloud-off',
+        action: null, // Si aprirà il modal di login
+        color: '#FF3B30'
+      };
+    } else if (isBackendUnreachable) {
+      newStatus = {
+        type: 'backend',
+        icon: 'server',
+        action: null,
+        color: '#FF9500'
+      };
+    } else if (!isOnline) {
+      newStatus = {
+        type: 'network',
+        icon: 'wifi-off',
+        action: null,
+        color: '#FF3B30'
+      };
+    }
+
+    setStatus(newStatus);
+  }, [isOnline, isOfflineAuth, isBackendUnreachable, hasUpdateAvailable, push.needsPwa, push.pushPermissionError, push.deviceRegistered, push.registeringDevice])
 
   // Functions to update auth state (for external use)
   const setOfflineAuth = useCallback((value: boolean) => {
@@ -169,77 +217,6 @@ export function useConnectionStatus(push: UsePushNotifications) {
     }
   };
 
-  const getPriorityStatus: GetPriorityStatus = () => {
-    // Highest priority: on Web, push requires PWA installation
-    if (push.needsPwa) {
-      return {
-        type: 'push-needs-pwa',
-        icon: 'progress-download',
-        action: null,
-        color: '#FF3B30'
-      };
-    }
-    if (push.pushPermissionError) {
-      return {
-        type: 'push-permissions',
-        icon: 'bell-outline',
-        action: null,
-        color: '#FF3B30'
-      };
-    }
-    if (push.deviceRegistered === false && !push.registeringDevice) {
-      return {
-        type: 'push-notifications',
-        icon: 'bell-off',
-        action: null,
-        color: '#FF3B30'
-      };
-    }
-
-    if (hasUpdateAvailable) {
-      return {
-        type: 'update',
-        icon: 'refresh',
-        action: applyUpdate,
-        color: '#007AFF'
-      };
-    }
-
-    if (isOfflineAuth) {
-      return {
-        type: 'offline',
-        icon: 'cloud-off',
-        action: null, // Si aprirà il modal di login
-        color: '#FF3B30'
-      };
-    }
-
-    if (isBackendUnreachable) {
-      return {
-        type: 'backend',
-        icon: 'server',
-        action: null,
-        color: '#FF9500'
-      };
-    }
-
-    if (!isOnline) {
-      return {
-        type: 'network',
-        icon: 'wifi-off',
-        action: null,
-        color: '#FF3B30'
-      };
-    }
-
-    return {
-      type: 'none',
-      icon: '',
-      action: null,
-      color: ''
-    };
-  };
-
   return {
     isOnline,
     isBackendUnreachable,
@@ -247,7 +224,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
     hasUpdateAvailable,
     isCheckingUpdate,
     isUpdating,
-    getPriorityStatus,
+    status,
     applyUpdate,
     setOfflineAuth,
     setBackendUnreachable,

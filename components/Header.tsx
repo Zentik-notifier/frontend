@@ -2,28 +2,27 @@ import { useAppContext } from "@/contexts/AppContext";
 import { useBadgeSync } from "@/hooks";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppTheme } from "@/hooks/useTheme";
 import { useDownloadQueue } from "@/hooks/useMediaCache";
+import { useAppTheme } from "@/hooks/useTheme";
 import { TranslationKeyPath } from "@/utils";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useSegments } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Animated, Platform, StyleSheet, View } from "react-native";
+import { Animated, Platform, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Appbar,
-  Button,
   Icon,
   IconButton,
   Surface,
   Text,
   TouchableRipple,
-  useTheme,
+  useTheme
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LoginModal } from "./LoginModal";
-import UserDropdown from "./UserDropdown";
 import StatusBadge from "./StatusBadge";
+import UserDropdown from "./UserDropdown";
 
 const ROUTES_WITH_HOME_BUTTON: string[] = [
   "/(mobile)/(settings)",
@@ -228,73 +227,6 @@ export default function Header() {
 
   const currentTitle = ROUTE_TITLES[currentRoute];
 
-  // Removed movement animations, keeping only loading indicators
-
-  // Status badge logic
-  const status = getPriorityStatus();
-
-  const handleStatusPress = async () => {
-    if (status.type === "push-notifications") {
-      setIsRegistering(true);
-      try {
-        await push.registerDevice();
-      } catch (error) {
-        console.error("Error registering device:", error);
-      } finally {
-        setIsRegistering(false);
-      }
-    } else if (status.type === "push-permissions") {
-      // Alert will be handled by the global wrapper
-      console.log("Push permissions needed");
-    } else if (status.type === "push-needs-pwa") {
-      Alert.alert(t("common.notice"), t("common.pushNeedsPwaDetails"));
-    } else if (status.type === "offline") {
-      openLoginModal();
-    } else if (status.type === "update" && status.action) {
-      status.action();
-    }
-  };
-
-  const getStatusLabel = () => {
-    switch (status.type) {
-      case "push-notifications":
-        return isRegistering
-          ? t("common.loading")
-          : t("common.deviceNotRegistered");
-      case "update":
-        return t("common.updateAvailable");
-      case "push-permissions":
-        return t("common.notificationsDisabled");
-      case "push-needs-pwa":
-        return t("common.installApp");
-      case "offline":
-        return t("common.offline");
-      case "backend":
-        return t("common.backendUnreachable");
-      case "network":
-        return t("common.noConnection");
-      default:
-        return "";
-    }
-  };
-
-  const getStatusIcon = () => {
-    if (status.type === "update") {
-      if (isUpdating) return "hourglass";
-      if (isCheckingUpdate) return "sync";
-      return status.icon;
-    }
-    return status.icon;
-  };
-
-  const isStatusClickable =
-    status.type === "offline" ||
-    (status.type === "update" && status.action) ||
-    (status.type === "push-notifications" && !isRegistering) ||
-    status.type === "push-permissions" ||
-    status.type === "push-needs-pwa";
-
-  // Theme toggle functions (copied from UserDropdown)
   function getNextThemeMode(): "system" | "light" | "dark" {
     // ciclo: System -> Light -> Dark -> System
     if (themeMode === "system") return "light";
