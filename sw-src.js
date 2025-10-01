@@ -61,21 +61,31 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
                 });
               }
             } else {
-              // For internal routes, open app and navigate
-              console.log('[Service Worker] Opening internal route:', actionValue);
+              // For internal routes, store intent and open app
+              console.log('[Service Worker] Storing navigation intent:', actionValue);
               if (self.clients.openWindow) {
-                return self.clients.openWindow(actionValue).then((newClient) => {
+                // Store navigation intent
+                const intentData = {
+                  type: 'navigation',
+                  action: 'NAVIGATE',
+                  value: actionValue,
+                  notificationId: notificationId,
+                  bucketId: bucketId,
+                  timestamp: Date.now()
+                };
+                
+                // Open app and send intent message after it loads
+                return self.clients.openWindow('/').then((newClient) => {
                   if (newClient) {
+                    console.log('[Service Worker] Storing navigation intent:', intentData);
+                    // Send intent data to the new client after it loads
                     setTimeout(() => {
                       newClient.postMessage({
-                        type: 'notification-tap-action',
-                        action: 'NAVIGATE',
-                        value: actionValue,
-                        notificationId: notificationId,
-                        bucketId: bucketId,
+                        type: 'pending-intent',
+                        intent: intentData,
                         data: notificationData
                       });
-                    }, 1000);
+                    }, 1500); // Wait for app to load
                   }
                 });
               }
@@ -101,24 +111,35 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
               data: notificationData
             });
             return focusedClient.focus();
-          } else {
-            if (self.clients.openWindow) {
-              return self.clients.openWindow(notificationUrl).then((newClient) => {
-                if (newClient) {
-                  setTimeout(() => {
-                    newClient.postMessage({
-                      type: 'notification-tap-action',
-                      action: 'OPEN_NOTIFICATION',
-                      value: notificationUrl,
-                      notificationId: notificationId,
-                      bucketId: bucketId,
-                      data: notificationData
-                    });
-                  }, 1000);
-                }
-              });
+            } else {
+              // App is closed, store intent and open app
+              if (self.clients.openWindow) {
+                // Store the notification intent
+                const intentData = {
+                  type: 'notification',
+                  notificationId: notificationId,
+                  action: 'OPEN_NOTIFICATION',
+                  value: value,
+                  bucketId: bucketId,
+                  timestamp: Date.now()
+                };
+                
+                // Open app and send intent message after it loads
+                return self.clients.openWindow('/').then((newClient) => {
+                  if (newClient) {
+                    console.log('[Service Worker] Storing notification intent:', intentData);
+                    // Send intent data to the new client after it loads
+                    setTimeout(() => {
+                      newClient.postMessage({
+                        type: 'pending-intent',
+                        intent: intentData,
+                        data: notificationData
+                      });
+                    }, 1500); // Wait for app to load
+                  }
+                });
+              }
             }
-          }
         })
       );
       break;
