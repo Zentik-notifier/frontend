@@ -230,6 +230,7 @@ export default function UserSection() {
                     autoCorrect={false}
                     keyboardType="url"
                     style={styles.inlineInput}
+                    multiline
                   />
                 }
                 left={(props) => (

@@ -261,6 +261,7 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
               autoCapitalize="none"
               autoCorrect={false}
               style={styles.input}
+              multiline
             />
           </Dialog.Content>
           <Dialog.Actions>
