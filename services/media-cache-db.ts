@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 
 // IndexedDB schema for web storage
-interface WebStorageDB extends DBSchema {
+export interface WebStorageDB extends DBSchema {
   keyvalue: {
     key: string;
     value: string;
@@ -13,6 +13,16 @@ interface WebStorageDB extends DBSchema {
   notifications: {
     key: string; // notificationId
     value: any; // GraphQL Notification object
+  };
+  app_log: {
+    key: number; // timestamp
+    value: {
+      level: string;
+      tag?: string;
+      message: string;
+      meta_json?: string;
+      timestamp: number;
+    };
   };
 }
 
@@ -22,7 +32,7 @@ let webDbPromise: Promise<IDBPDatabase<WebStorageDB>> | null = null;
 export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
   if (dbPromise) return dbPromise;
 
-  if (!IS_FS_SUPPORTED) {
+  if (Platform.OS === 'web') {
     return {} as SQLiteDatabase;
   }
 
@@ -107,21 +117,30 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
 // Initialize IndexedDB for web
 export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
   if (webDbPromise) return webDbPromise;
+  console.log('OPENING WEB STORAGE DB');
 
   if (Platform.OS !== 'web') {
     throw new Error('openWebStorageDb can only be used on web platform');
   }
 
-  webDbPromise = openDB<WebStorageDB>('zentik-storage', 2, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('keyvalue')) {
-        db.createObjectStore('keyvalue');
-      }
-      if (!db.objectStoreNames.contains('notifications')) {
-        db.createObjectStore('notifications');
-      }
-    },
-  });
+  try {
+    webDbPromise = openDB<WebStorageDB>('zentik-storage', 3, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains('keyvalue')) {
+          db.createObjectStore('keyvalue');
+        }
+        if (!db.objectStoreNames.contains('notifications')) {
+          db.createObjectStore('notifications');
+        }
+        if (!db.objectStoreNames.contains('app_log')) {
+          db.createObjectStore('app_log', { keyPath: 'timestamp' });
+        }
+      },
+    });
+  } catch (error) {
+    console.error('Failed to open web storage db:', error);
+    throw error;
+  }
 
   return webDbPromise;
 }
@@ -129,14 +148,14 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
 // Notification cache functions
 export async function saveNotificationToCache(notificationData: any): Promise<void> {
   if (Platform.OS !== 'web') return;
-  
+
   const db = await openWebStorageDb();
   await db.put('notifications', notificationData, notificationData.id);
 }
 
 export async function getNotificationFromCache(notificationId: string): Promise<any | null> {
   if (Platform.OS !== 'web') return null;
-  
+
   try {
     const db = await openWebStorageDb();
     const result = await db.get('notifications', notificationId);
@@ -148,7 +167,7 @@ export async function getNotificationFromCache(notificationId: string): Promise<
 
 export async function getAllNotificationsFromCache(): Promise<any[]> {
   if (Platform.OS !== 'web') return [];
-  
+
   try {
     const db = await openWebStorageDb();
     const results = await db.getAll('notifications');
@@ -160,7 +179,7 @@ export async function getAllNotificationsFromCache(): Promise<any[]> {
 
 export async function removeNotificationFromCache(notificationId: string): Promise<void> {
   if (Platform.OS !== 'web') return;
-  
+
   try {
     const db = await openWebStorageDb();
     await db.delete('notifications', notificationId);
@@ -171,7 +190,7 @@ export async function removeNotificationFromCache(notificationId: string): Promi
 
 export async function clearAllNotificationsFromCache(): Promise<void> {
   if (Platform.OS !== 'web') return;
-  
+
   try {
     const db = await openWebStorageDb();
     await db.clear('notifications');
@@ -182,15 +201,15 @@ export async function clearAllNotificationsFromCache(): Promise<void> {
 
 export async function upsertNotificationsBatch(notifications: any[]): Promise<void> {
   if (Platform.OS !== 'web' || notifications.length === 0) return;
-  
+
   try {
     const db = await openWebStorageDb();
     const tx = db.transaction('notifications', 'readwrite');
-    
+
     for (const notification of notifications) {
       await tx.store.put(notification, notification.id);
     }
-    
+
     await tx.done;
   } catch (error) {
     console.error('Failed to upsert notifications batch:', error);

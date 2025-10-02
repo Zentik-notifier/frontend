@@ -20,7 +20,10 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppProvider, useAppContext } from "../contexts/AppContext";
 import { ApiConfigService } from "../services/api-config";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
-import { openSharedCacheDb } from "../services/media-cache-db";
+import {
+  openSharedCacheDb,
+  openWebStorageDb,
+} from "../services/media-cache-db";
 import { usePendingIntents } from "@/hooks/usePendingNotifications";
 
 type AlertButton = {
@@ -146,6 +149,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       (async () => {
+        await openWebStorageDb();
         installConsoleLoggerBridge();
         console.log("🔄 [LayoutInit] Console logger bridge installed");
         ApiConfigService.initialize().catch();

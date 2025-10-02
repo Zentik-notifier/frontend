@@ -3,10 +3,7 @@ import AttachmentGallery from "@/components/AttachmentGallery";
 import BucketIcon from "@/components/BucketIcon";
 import FullScreenMediaViewer from "@/components/FullScreenMediaViewer";
 import NotificationSnoozeButton from "@/components/NotificationSnoozeButton";
-import {
-  MediaType,
-  NotificationDeliveryType,
-} from "@/generated/gql-operations-generated";
+import { MediaType } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import {
@@ -26,16 +23,9 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import {
-  Icon,
-  Surface,
-  Text,
-  TouchableRipple,
-  useTheme,
-  IconButton,
-} from "react-native-paper";
-import ButtonGroup from "./ui/ButtonGroup";
+import { Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
 import { NotificationActionsMenu } from "./NotificationActionsMenu";
+import ButtonGroup from "./ui/ButtonGroup";
 
 interface NotificationDetailProps {
   notificationId: string;
@@ -144,7 +134,7 @@ export default function NotificationDetail({
         const fileName = `notification_${Date.now()}.txt`;
         const fileUri = `${Paths.document.uri}${fileName}`;
         const file = new File(fileUri);
-        file.write(fullText);
+        file.write(fullText, {});
 
         await Sharing.shareAsync(fileUri, {
           mimeType: "text/plain",
@@ -270,7 +260,7 @@ export default function NotificationDetail({
                     onPress={handleDeleteNotification}
                     accessibilityLabel="delete-notification"
                   />
-                {/* priority badge removed from this group */}
+                  {/* priority badge removed from this group */}
                 </ButtonGroup>
               </View>
 

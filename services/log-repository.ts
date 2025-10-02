@@ -1,15 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
+import { AppLog } from './logger';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-
-export interface AppLog {
-  id?: number;
-  level: LogLevel;
-  tag?: string;
-  message: string;
-  metaJson?: string;
-  timestamp: number;
-}
 
 export class LogRepository {
   constructor(private readonly db: SQLiteDatabase) {}

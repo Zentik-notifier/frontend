@@ -1,12 +1,12 @@
-import { GetNotificationsDocument, GetNotificationsQuery, NotificationFragmentDoc } from '@/generated/gql-operations-generated';
-import { useApolloClient, InMemoryCache } from '@apollo/client';
+import { GetNotificationsDocument, GetNotificationsQuery } from '@/generated/gql-operations-generated';
+import { cleanExportData, processJsonToCache } from '@/utils/cache-data-processor';
+import { InMemoryCache, useApolloClient } from '@apollo/client';
 import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import { useI18n } from './useI18n';
-import { cleanExportData, processJsonToCache } from '@/utils/cache-data-processor';
 
 export function useGraphQLCacheImportExport(onImportComplete?: (count: number) => void) {
   const { t } = useI18n();
@@ -205,7 +205,7 @@ export function useGraphQLCacheImportExport(onImportComplete?: (count: number) =
 
       fileContent += '\n]';
 
-      file.write(fileContent);
+      file.write(fileContent, {});
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, {

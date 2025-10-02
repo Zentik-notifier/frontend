@@ -1,11 +1,12 @@
+import { useAppContext } from "@/contexts/AppContext";
 import { useGetNotificationsQuery } from "@/generated/gql-operations-generated";
 import { useGraphQLCacheImportExport } from "@/hooks/useGraphQLCacheImportExport";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useAppContext } from "@/contexts/AppContext";
-import { formatFileSize, IS_FS_SUPPORTED } from "@/utils";
 import { openSharedCacheDb } from "@/services/media-cache-db";
 import { MediaCacheRepository } from "@/services/media-cache-repository";
+import { useUserSettings } from "@/services/user-settings";
+import { formatFileSize, IS_FS_SUPPORTED } from "@/utils";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useMemo, useState } from "react";
@@ -23,7 +24,6 @@ import {
   useTheme,
 } from "react-native-paper";
 import { CacheResetModal } from "./CacheResetModal";
-import { useUserSettings } from "@/services/user-settings";
 
 export default function UnifiedCacheSettings() {
   const theme = useTheme();
@@ -197,7 +197,7 @@ export default function UnifiedCacheSettings() {
       }.json`;
       const destPath = `${Paths.document.uri}${fileName}`;
       const file = new File(destPath);
-      file.write(json);
+      file.write(json, {});
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(destPath, {

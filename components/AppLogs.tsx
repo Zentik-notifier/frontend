@@ -1,10 +1,9 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useI18n } from "@/hooks/useI18n";
+import { AppLog, readLogs } from "@/services/logger";
+import { FlashList } from "@shopify/flash-list";
+import { File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Modal,
@@ -16,23 +15,13 @@ import {
   View,
 } from "react-native";
 import {
-  Surface,
-  useTheme,
-  Icon,
-  Text,
-  Button,
   ActivityIndicator,
+  Icon,
+  Surface,
+  Text,
+  useTheme,
 } from "react-native-paper";
-import { FlashList } from "@shopify/flash-list";
-import { openSharedCacheDb } from "@/services/media-cache-db";
-import { AppLog, LogRepository } from "@/services/log-repository";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
-import { useI18n } from "@/hooks/useI18n";
-import * as Sharing from "expo-sharing";
-import { File, Paths } from "expo-file-system";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function AppLogs() {
   const { t } = useI18n();
@@ -49,9 +38,7 @@ export default function AppLogs() {
   const loadLogs = useCallback(async () => {
     setIsLoading(true);
     try {
-      const db = await openSharedCacheDb();
-      const repo = new LogRepository(db);
-      const all = await repo.listSince(0);
+      const all = await readLogs(0);
       setLogs(all);
     } catch (e) {
       console.warn("Failed to load logs", e);
@@ -177,9 +164,7 @@ export default function AppLogs() {
   const handleExportLogs = useCallback(async () => {
     try {
       setIsExporting(true);
-      const db = await openSharedCacheDb();
-      const repo = new LogRepository(db);
-      const logs = await repo.listSince(0);
+      const logs = await readLogs(0);
 
       const formattedLogs = logs.map((l: any) => ({
         ...l,
@@ -200,7 +185,7 @@ export default function AppLogs() {
         .replace(/[:]/g, "-")}.json`;
       const destPath = `${Paths.document.uri}${fileName}`;
       const file = new File(destPath);
-      file.write(json);
+      file.write(json, {});
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(destPath, {

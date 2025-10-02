@@ -1,4 +1,3 @@
-import { IS_FS_SUPPORTED } from '@/utils';
 import { logger } from './logger';
 
 type ConsoleMethod = (...args: any[]) => void;
@@ -21,10 +20,6 @@ const shouldFilterMessage = (msg: string): boolean => {
 export function installConsoleLoggerBridge(): void {
   if (installed) return;
   installed = true;
-
-  if (!IS_FS_SUPPORTED) {
-    return;
-  }
 
   const original = {
     log: console.log.bind(console) as ConsoleMethod,
