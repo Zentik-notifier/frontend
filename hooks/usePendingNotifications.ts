@@ -8,6 +8,32 @@ import { useNavigationUtils } from '@/utils/navigation';
 export function usePendingIntents() {
   const { navigateToNotificationDetail } = useNavigationUtils();
 
+  // Normalize various timestamp formats (epoch number, numeric string, ISO string, Date)
+  const normalizeToISO = (input: unknown): string => {
+    const nowIso = new Date().toISOString();
+    if (input == null) return nowIso;
+    if (typeof input === 'number') {
+      const d = new Date(input);
+      return isNaN(d.getTime()) ? nowIso : d.toISOString();
+    }
+    if (typeof input === 'string') {
+      const trimmed = input.trim();
+      // Try numeric epoch first
+      const num = Number(trimmed);
+      if (!Number.isNaN(num) && trimmed !== '') {
+        const dNum = new Date(num);
+        if (!isNaN(dNum.getTime())) return dNum.toISOString();
+      }
+      // Fallback to Date parse (ISO or other supported formats)
+      const dStr = new Date(trimmed);
+      return isNaN(dStr.getTime()) ? nowIso : dStr.toISOString();
+    }
+    if (input instanceof Date) {
+      return isNaN(input.getTime()) ? nowIso : input.toISOString();
+    }
+    return nowIso;
+  };
+
   const processPendingNotificationIntents = useCallback(async (apolloClient: ApolloClient) => {
     try {
       console.log('[PendingIntents] 📱 Processing pending notifications');
@@ -40,15 +66,16 @@ export function usePendingIntents() {
 
       // Convert pending notifications to NotificationFragment format
       const newNotifications: NotificationFragment[] = pendingNotifications.map((pending: any) => {
+        const timestampISO = normalizeToISO(pending?.timestamp);
         // Create a minimal notification fragment with available data
         const notification: NotificationFragment = {
           __typename: 'Notification',
           id: pending.notificationId || `pending-${Date.now()}-${Math.random()}`,
-          createdAt: pending.timestamp || new Date().toISOString(),
-          updatedAt: pending.timestamp || new Date().toISOString(),
+          createdAt: timestampISO,
+          updatedAt: timestampISO,
           readAt: null,
-          receivedAt: pending.timestamp || new Date().toISOString(),
-          sentAt: pending.timestamp || new Date().toISOString(),
+          receivedAt: timestampISO,
+          sentAt: timestampISO,
           message: {
             __typename: 'Message',
             id: `message-${pending.notificationId || Date.now()}`,
@@ -59,8 +86,8 @@ export function usePendingIntents() {
             deliveryType: NotificationDeliveryType.Normal,
             locale: null,
             snoozes: [],
-            createdAt: pending.timestamp || new Date().toISOString(),
-            updatedAt: pending.timestamp || new Date().toISOString(),
+            createdAt: timestampISO,
+            updatedAt: timestampISO,
             bucket: pending.bucketId ? {
               __typename: 'Bucket' as const,
               id: pending.bucketId,

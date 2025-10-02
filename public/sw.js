@@ -1,6 +1,6 @@
 async function withIndexedDB(successCallback, mode = 'readonly') {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('zentik-storage', 2);
+    const request = indexedDB.open('zentik-storage', 3);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
@@ -625,37 +625,6 @@ async function executeApiCall(endpoint, method = 'GET', body = null) {
 
   return response;
 }
-
-// Remove notification from local IndexedDB cache
-// async function removeNotificationFromCache(notificationId) {
-//   return new Promise((resolve, reject) => {
-//     const request = indexedDB.open('zentik-storage', 2);
-
-//     request.onerror = () => reject(request.error);
-//     request.onsuccess = () => {
-//       const db = request.result;
-//       const transaction = db.transaction(['notifications'], 'readwrite');
-//       const store = transaction.objectStore('notifications');
-
-//       const deleteRequest = store.delete(notificationId);
-//       deleteRequest.onsuccess = () => {
-//         console.log('[Service Worker] Removed notification from cache:', notificationId);
-//         resolve();
-//       };
-//       deleteRequest.onerror = () => reject(deleteRequest.error);
-//     };
-
-//     request.onupgradeneeded = (event) => {
-//       const db = event.target.result;
-//       if (!db.objectStoreNames.contains('keyvalue')) {
-//         db.createObjectStore('keyvalue');
-//       }
-//       // if (!db.objectStoreNames.contains('notifications')) {
-//       //   db.createObjectStore('notifications');
-//       // }
-//     };
-//   });
-// }
 
 // Common function to get pending notifications from IndexedDB
 async function getPendingNotifications() {
