@@ -1,6 +1,5 @@
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
-import { IS_FS_SUPPORTED } from '@/utils/fileUtils';
 import { Platform } from 'react-native';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 

@@ -1,7 +1,7 @@
-import { NotificationFragmentDoc, GetNotificationsDocument } from '@/generated/gql-operations-generated';
-import { InMemoryCache } from '@apollo/client';
+import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc } from '@/generated/gql-operations-generated';
+import { ApolloCache } from '@apollo/client';
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 250;
 const BATCH_DELAY = 100;
 
 /**
@@ -46,7 +46,7 @@ export const extractAllEntities = (obj: any, entities = new Map<string, any>(), 
  * Scrive tutte le entità estratte nella cache Apollo
  */
 export const writeEntitiesToCache = (
-  cache: InMemoryCache,
+  cache: ApolloCache<any>,
   entities: Map<string, any>,
   context: string = 'cache'
 ): number => {
@@ -75,12 +75,10 @@ export const writeEntitiesToCache = (
  * Processa un array di notifiche complete e scrive tutte le entità nella cache
  */
 export const processNotificationsToCache = (
-  cache: InMemoryCache,
+  cache: ApolloCache<any>,
   notifications: any[],
   context: string = 'import'
 ): number => {
-  console.log(`🔄 [${context}] Processing ${notifications.length} notifications...`);
-
   const allEntities = new Map<string, any>();
 
   notifications.forEach(notification => {
@@ -104,7 +102,7 @@ export const processNotificationsToCache = (
  * Questa è la funzione completa che dovrebbe essere usata per import e caricamento cache
  */
 export const processNotificationsToCacheWithQuery = (
-  cache: InMemoryCache,
+  cache: ApolloCache<any>,
   notifications: any[],
   context: string = 'import',
 ): number => {
@@ -128,7 +126,7 @@ export const processNotificationsToCacheWithQuery = (
 /**
  * Valida che una notifica abbia i campi necessari
  */
-export const validateNotification = (notification: any, index?: number): boolean => {
+export const validateNotification = (notification: NotificationFragment, index?: number): boolean => {
   if (!notification.id) {
     console.warn(`⚠️ Notification at index ${index ?? 'unknown'} missing ID`);
     return false;
@@ -137,39 +135,15 @@ export const validateNotification = (notification: any, index?: number): boolean
     console.warn(`⚠️ Notification at index ${index ?? 'unknown'} missing or invalid __typename:`, notification.__typename);
     return false;
   }
+  if(notification.message.actions?.some(action => !action.type)) {
+    console.warn(`⚠️ Notification at index ${index ?? 'unknown'} missing action type`);
+    return false;
+  }
+  if(notification.message.tapAction && !notification.message.tapAction.type) {
+    console.warn(`⚠️ Notification at index ${index ?? 'unknown'} missing tap action type`);
+    return false;
+  }
   return true;
-};
-
-/**
- * Parsa il contenuto JSON e restituisce un array di notifiche
- */
-export const parseNotificationJson = (jsonContent: string): any[] => {
-  console.log('📄 JSON content length:', jsonContent.length);
-
-  if (!jsonContent || jsonContent.trim().length === 0) {
-    console.error('❌ Empty JSON content');
-    throw new Error('File JSON vuoto o non valido');
-  }
-
-  let parsed: any;
-  try {
-    parsed = JSON.parse(jsonContent);
-  } catch (parseError) {
-    console.error('❌ JSON parse error:', parseError);
-    throw new Error('Formato JSON non valido');
-  }
-
-  // Supporta sia array diretto che formato { notifications: [...] }
-  const notifications: any[] = Array.isArray(parsed)
-    ? parsed
-    : (Array.isArray(parsed?.notifications) ? parsed.notifications : []);
-
-  if (!Array.isArray(notifications)) {
-    console.error('❌ Invalid notifications payload:', parsed);
-    throw new Error('Array di notifiche non trovato nel JSON');
-  }
-
-  return notifications;
 };
 
 /**
@@ -177,25 +151,23 @@ export const parseNotificationJson = (jsonContent: string): any[] => {
  * Gestisce parsing, validazione, scrittura entità e aggiornamento query
  */
 export const processJsonToCache = async (
-  cache: InMemoryCache,
-  jsonContent: string,
+  cache: ApolloCache<any>,
+  notificationsParent: NotificationFragment[],
   context: string = 'import',
 ): Promise<number> => {
-  console.log(`🔄 [${context}] Processing JSON content...`);
+  const startTime = Date.now();
 
-  const notifications = parseNotificationJson(jsonContent);
-
-  const validNotifications = notifications.filter((notification, index) =>
+  const notifications = notificationsParent.filter((notification, index) =>
     validateNotification(notification, index)
   );
 
-  if (validNotifications.length !== notifications.length) {
-    console.warn(`⚠️ [${context}] Filtered out ${notifications.length - validNotifications.length} invalid notifications`);
+  if (notificationsParent.length !== notifications.length) {
+    console.warn(`⚠️ [${context}] Filtered out ${notifications.length - notificationsParent.length} invalid notifications`);
   }
 
   let totalCount = 0;
-  for (let i = 0; i < validNotifications.length; i += BATCH_SIZE) {
-    const batch = validNotifications.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < notifications.length; i += BATCH_SIZE) {
+    const batch = notifications.slice(i, i + BATCH_SIZE);
     const batchIndex = Math.floor(i / BATCH_SIZE) + 1;
     const batchContext = `${context} batch ${batchIndex}`;
 
@@ -204,12 +176,16 @@ export const processJsonToCache = async (
       batch,
       batchContext,
     );
+    console.log(`🔄 [${batchContext}] Processed ${batch.length} notifications...`);
     totalCount += count;
 
-    if (i + BATCH_SIZE < validNotifications.length) {
+    if (i + BATCH_SIZE < notifications.length) {
       await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
     }
   }
+
+  const endTime = Date.now();
+  console.log(`🔄 [${context}] Finish processing ${notifications.length} notifications in ${(endTime - startTime) / 1000} seconds`);
   return totalCount;
 };
 

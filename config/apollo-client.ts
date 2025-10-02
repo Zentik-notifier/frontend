@@ -380,11 +380,12 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
 
     if (Platform.OS === 'web') {
       // Load from IndexedDB notifications table
-      const cachedNotifications = await getAllNotificationsFromCache();
-      console.log(`📥 [Apollo Cache] Found ${cachedNotifications.length} notifications in IndexedDB`);
-      
-      // Use notifications directly from cache (already in GraphQL format)
-      notifications = cachedNotifications;
+      try {
+      notifications = await getAllNotificationsFromCache();
+      } catch (error) {
+        console.error('❌ [Apollo Cache] Error loading notifications from IndexedDB:', error);
+      }
+      console.log(`📥 [Apollo Cache] Found ${notifications.length} notifications in IndexedDB`);
     } else {
       // Load from AsyncStorage (mobile)
       const persistedCacheData = await AsyncStorage.getItem(APOLLO_CACHE_KEY);
@@ -394,19 +395,11 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
         return;
       }
 
-      // Parse, sort by createdAt desc, then import (ensures most recent first)
       try {
-        const parsed = JSON.parse(persistedCacheData);
-        const parsedNotifications = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.notifications) ? parsed.notifications : []);
-        if (Array.isArray(parsedNotifications)) {
-          parsedNotifications.sort((a, b) => {
-            const aTime = a?.createdAt ? Date.parse(a.createdAt) : 0;
-            const bTime = b?.createdAt ? Date.parse(b.createdAt) : 0;
-            return bTime - aTime;
-          });
-          notifications = parsedNotifications;
-        }
-      } catch { }
+        notifications = JSON.parse(persistedCacheData);
+      } catch (error) {
+        console.error('❌ [Apollo Cache] Error loading notifications from AsyncStorage:', error);
+      }
     }
 
     if (notifications.length === 0) {
@@ -415,8 +408,8 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
     }
 
     const successCount = await processJsonToCache(
-      apolloClient.cache as InMemoryCache,
-      JSON.stringify(notifications),
+      apolloClient.cache,
+      notifications,
       'Apollo Cache',
     );
 
