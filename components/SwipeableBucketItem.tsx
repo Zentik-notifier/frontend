@@ -8,12 +8,11 @@ import {
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
-import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
   StyleSheet,
-  TouchableWithoutFeedback,
+  Pressable,
   View,
 } from "react-native";
 import BucketIcon from "./BucketIcon";
@@ -148,7 +147,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
       marginBottom={8}
       borderRadius={12}
     >
-      <TouchableWithoutFeedback onPress={() => editBucket(bucket.id)}>
+      <Pressable onPress={() => editBucket(bucket.id)}>
         <View style={styles.itemCard}>
           <View style={styles.itemHeader}>
             <View style={styles.itemInfo}>
@@ -179,7 +178,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
             </Text>
           )}
         </View>
-      </TouchableWithoutFeedback>
+      </Pressable>
 
       {/* Success Dialog */}
       <Portal>

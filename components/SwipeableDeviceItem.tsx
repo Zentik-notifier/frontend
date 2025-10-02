@@ -8,11 +8,7 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import React, { useEffect, useState } from "react";
-import {
-  StyleSheet,
-  TouchableWithoutFeedback,
-  View,
-} from "react-native";
+import { StyleSheet, Pressable, View } from "react-native";
 import SwipeableItem, { SwipeAction } from "./SwipeableItem";
 import { Icon } from "react-native-paper";
 import {
@@ -172,86 +168,86 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
       contentStyle={styles.swipeContent}
       marginBottom={4}
     >
-      <TouchableWithoutFeedback>
+      <Pressable>
         <View style={styles.itemCard}>
-            <View style={styles.itemHeader}>
-              <View style={styles.itemInfo}>
-                <Icon
-                  name={getDeviceTypeIcon(device.platform)}
-                  size="md"
-                  color={theme.colors.primary}
-                  style={styles.deviceIcon}
-                />
-                <View style={styles.deviceTextInfo}>
-                  <View style={styles.deviceNameRow}>
-                    <View style={styles.nameAndEditContainer}>
-                      <Text variant="titleMedium" style={styles.itemName}>
-                        {device.deviceName || `${device.platform} Device`}
-                      </Text>
-                      <IconButton
-                        icon="pencil"
-                        size={16}
-                        onPress={handleEditName}
-                        style={styles.editButton}
-                      />
-                    </View>
-                    {isCurrentDevice && (
-                      <View
-                        style={[
-                          styles.currentDeviceBadge,
-                          { backgroundColor: theme.colors.primary },
-                        ]}
-                      >
-                        <Text variant="bodySmall" style={styles.currentDeviceText}>
-                          {t("devices.item.thisDevice")}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text variant="bodySmall" style={styles.devicePlatform}>
-                    {device.platform} • {t("devices.item.registered")}:{" "}
-                    {formatDeviceDate(device.createdAt)}
-                  </Text>
-                  {device.deviceModel && (
-                    <Text variant="bodySmall" style={styles.deviceModel}>
-                      {t("devices.item.model")}: {device.deviceModel}
-                      {device.osVersion && ` (${device.osVersion})`}
+          <View style={styles.itemHeader}>
+            <View style={styles.itemInfo}>
+              <Icon
+                source={getDeviceTypeIcon(device.platform)}
+                size={24}
+                color={theme.colors.primary}
+              />
+              <View style={styles.deviceTextInfo}>
+                <View style={styles.deviceNameRow}>
+                  <View style={styles.nameAndEditContainer}>
+                    <Text variant="titleMedium" style={styles.itemName}>
+                      {device.deviceName || `${device.platform} Device`}
                     </Text>
+                    <IconButton
+                      icon="pencil"
+                      size={16}
+                      onPress={handleEditName}
+                      style={styles.editButton}
+                    />
+                  </View>
+                  {isCurrentDevice && (
+                    <View
+                      style={[
+                        styles.currentDeviceBadge,
+                        { backgroundColor: theme.colors.primary },
+                      ]}
+                    >
+                      <Text
+                        variant="bodySmall"
+                        style={styles.currentDeviceText}
+                      >
+                        {t("devices.item.thisDevice")}
+                      </Text>
+                    </View>
                   )}
                 </View>
+                <Text variant="bodySmall" style={styles.devicePlatform}>
+                  {device.platform} • {t("devices.item.registered")}:{" "}
+                  {formatDeviceDate(device.createdAt)}
+                </Text>
+                {device.deviceModel && (
+                  <Text variant="bodySmall" style={styles.deviceModel}>
+                    {t("devices.item.model")}: {device.deviceModel}
+                    {device.osVersion && ` (${device.osVersion})`}
+                  </Text>
+                )}
               </View>
             </View>
+          </View>
 
-            <View style={styles.deviceDetails}>
-              <View style={styles.statusContainer}>
-                <View
-                  style={[
-                    styles.statusIndicator,
-                    { backgroundColor: isDeviceActive() ? "#4CAF50" : "#FF9800" },
-                  ]}
-                />
-                <Text variant="bodySmall" style={styles.statusText}>
-                  {isDeviceActive()
-                    ? t("devices.item.active")
-                    : t("devices.item.inactive")}
-                </Text>
-                <Text variant="bodySmall" style={styles.lastUsedText}>
-                  {" "}• {t("devices.item.lastUsed")}:{" "}
-                  {device.lastUsed
-                    ? formatDeviceDate(device.lastUsed)
-                    : t("devices.item.never")}
-                </Text>
-              </View>
+          <View style={styles.deviceDetails}>
+            <View style={styles.statusContainer}>
+              <View
+                style={[
+                  styles.statusIndicator,
+                  { backgroundColor: isDeviceActive() ? "#4CAF50" : "#FF9800" },
+                ]}
+              />
+              <Text variant="bodySmall" style={styles.statusText}>
+                {isDeviceActive()
+                  ? t("devices.item.active")
+                  : t("devices.item.inactive")}
+              </Text>
+              <Text variant="bodySmall" style={styles.lastUsedText}>
+                {" "}
+                • {t("devices.item.lastUsed")}:{" "}
+                {device.lastUsed
+                  ? formatDeviceDate(device.lastUsed)
+                  : t("devices.item.never")}
+              </Text>
             </View>
+          </View>
         </View>
-      </TouchableWithoutFeedback>
+      </Pressable>
 
       {/* Edit Device Name Dialog */}
       <Portal>
-        <Dialog
-          visible={showEditModal}
-          onDismiss={handleCancelEdit}
-        >
+        <Dialog visible={showEditModal} onDismiss={handleCancelEdit}>
           <Dialog.Title>{t("devices.editName.title")}</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium" style={styles.modalDescription}>
@@ -362,7 +358,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
     minWidth: 0,
-    maxWidth: '70%',
+    maxWidth: "70%",
   },
   editButton: {
     margin: 0,
@@ -375,7 +371,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 10,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     flexShrink: 0,
   },
   currentDeviceText: {

@@ -17,7 +17,7 @@ import {
   Surface,
   Text,
   TouchableRipple,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LoginModal } from "./LoginModal";
@@ -146,10 +146,6 @@ export default function Header() {
   } = useAppContext();
   const { itemsInQueue, inProcessing } = useDownloadQueue();
   const { t } = useI18n();
-  const {
-    push,
-    connectionStatus: { getPriorityStatus, isUpdating, isCheckingUpdate },
-  } = useAppContext();
   const { navigateToHome, navigateBack, navigateToAppSettings } =
     useNavigationUtils();
   const segments = useSegments();

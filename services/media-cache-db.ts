@@ -117,7 +117,6 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
 // Initialize IndexedDB for web
 export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
   if (webDbPromise) return webDbPromise;
-  console.log('OPENING WEB STORAGE DB');
 
   if (Platform.OS !== 'web') {
     throw new Error('openWebStorageDb can only be used on web platform');

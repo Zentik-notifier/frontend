@@ -7,23 +7,12 @@ import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import { getHttpMethodColor } from "@/utils/webhookUtils";
 import React, { useState } from "react";
-import {
-  StyleSheet,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
-} from "react-native";
+import { StyleSheet, TouchableOpacity, Pressable, View } from "react-native";
 import SwipeableItem from "./SwipeableItem";
 import { Icon } from "react-native-paper";
 import CopyButton from "./ui/CopyButton";
 import { useNavigationUtils } from "@/utils/navigation";
-import {
-  Card,
-  Dialog,
-  Portal,
-  Text,
-  useTheme,
-} from "react-native-paper";
+import { Card, Dialog, Portal, Text, useTheme } from "react-native-paper";
 
 interface SwipeableWebhookItemProps {
   webhook: UserWebhookFragment;
@@ -85,53 +74,57 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
       marginBottom={8}
       borderRadius={12}
     >
-      <TouchableWithoutFeedback onPress={() => handleEditWebhook(webhook.id)}>
+      <Pressable onPress={() => handleEditWebhook(webhook.id)}>
         <View style={styles.itemCard}>
-            <View style={styles.itemHeader}>
-              <View style={styles.itemInfo}>
-                <View
-                  style={[
-                    styles.methodBadge,
-                    { backgroundColor: getHttpMethodColor(webhook.method) },
-                  ]}
-                >
-                  <Text style={styles.methodText}>{webhook.method}</Text>
-                </View>
-                <View style={styles.webhookDetails}>
-                  <Text variant="titleMedium" style={styles.itemName}>
-                    {webhook.name}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.webhookUrl} numberOfLines={1}>
-                    {webhook.url}
-                  </Text>
-                </View>
+          <View style={styles.itemHeader}>
+            <View style={styles.itemInfo}>
+              <View
+                style={[
+                  styles.methodBadge,
+                  { backgroundColor: getHttpMethodColor(webhook.method) },
+                ]}
+              >
+                <Text style={styles.methodText}>{webhook.method}</Text>
               </View>
-              <CopyButton
-                text={webhook.id}
-                size={20}
-                style={styles.copyIdButton}
-              />
-            </View>
-
-            {webhook.headers && webhook.headers.length > 0 && (
-              <View style={styles.headersInfo}>
-                <Icon
-                  name="settings"
-                  size={12}
-                  color={theme.colors.onSurfaceVariant}
-                />
-                <Text variant="bodySmall" style={styles.headersText}>
-                  {webhook.headers.length} header
-                  {webhook.headers.length !== 1 ? "s" : ""}
+              <View style={styles.webhookDetails}>
+                <Text variant="titleMedium" style={styles.itemName}>
+                  {webhook.name}
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  style={styles.webhookUrl}
+                  numberOfLines={1}
+                >
+                  {webhook.url}
                 </Text>
               </View>
-            )}
+            </View>
+            <CopyButton
+              text={webhook.id}
+              size={20}
+              style={styles.copyIdButton}
+            />
+          </View>
 
-            <Text variant="bodySmall" style={styles.itemDetail}>
-              Created: {formatDate(webhook.createdAt)}
-            </Text>
+          {webhook.headers && webhook.headers.length > 0 && (
+            <View style={styles.headersInfo}>
+              <Icon
+                source="settings"
+                size={12}
+                color={theme.colors.onSurfaceVariant}
+              />
+              <Text variant="bodySmall" style={styles.headersText}>
+                {webhook.headers.length} header
+                {webhook.headers.length !== 1 ? "s" : ""}
+              </Text>
+            </View>
+          )}
+
+          <Text variant="bodySmall" style={styles.itemDetail}>
+            Created: {formatDate(webhook.createdAt)}
+          </Text>
         </View>
-      </TouchableWithoutFeedback>
+      </Pressable>
 
       {/* Success Dialog */}
       <Portal>
