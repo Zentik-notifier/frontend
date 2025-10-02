@@ -40,7 +40,7 @@ export default function SettingsSidebar() {
       description: t("appSettings.description"),
       icon: "cog",
       iconColor: "#F59E0B", // Amber
-      onPress: () => nav.navigateToAppSettings(false),
+      onPress: () => nav.navigateToAppSettings(true),
       selectionSegment: "app-settings",
     },
     {

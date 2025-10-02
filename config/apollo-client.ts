@@ -129,18 +129,6 @@ const createCacheDynamic = () => new InMemoryCache({
       },
     },
     Notification: {
-      // merge(existing, incoming) {
-      //   const safeExisting = (existing ?? {}) as Record<string, any>;
-      //   const safeIncoming = (incoming ?? {}) as Record<string, any>;
-      //   const result: Record<string, any> = { ...safeIncoming };
-      //   for (const key of Object.keys(safeExisting)) {
-      //     const value = safeExisting[key];
-      //     if (value !== undefined && value !== null) {
-      //       result[key] = value;
-      //     }
-      //   }
-      //   return result as any;
-      // },
       fields: {
         readAt: {
           merge(existing, incoming) {

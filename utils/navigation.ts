@@ -96,8 +96,8 @@ export function useNavigationUtils() {
             }
         },
 
-        navigateToAppSettings: (fromHome: boolean) => {
-            if (fromHome) {
+        navigateToAppSettings: (fromSettings: boolean) => {
+            if (fromSettings) {
                 if (isMobile) {
                     router.push(`/(mobile)/(settings)/app-settings`);
                 } else {
