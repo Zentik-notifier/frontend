@@ -226,6 +226,7 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
       event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
           if (clientList.length > 0) {
+            // App is open, send message to app
             const focusedClient = clientList.find(client => client.focused) || clientList[0];
             focusedClient.postMessage({
               type: 'notification-tap-action',
@@ -237,24 +238,31 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
             });
             return focusedClient.focus();
           } else {
-            // For background calls, we might want to execute them even if app is closed
-            // But for now, just open the app and send the message
-            if (self.clients.openWindow) {
-              return self.clients.openWindow('/').then((newClient) => {
-                if (newClient) {
-                  setTimeout(() => {
-                    newClient.postMessage({
-                      type: 'notification-tap-action',
-                      action: 'BACKGROUND_CALL',
-                      value: actionValue,
-                      notificationId: notificationId,
-                      bucketId: bucketId,
-                      data: notificationData
-                    });
-                  }, 1000);
-                }
-              });
+            // App is closed, execute background call directly
+            const [method, url] = actionValue.split('::');
+
+            if (!url) {
+              console.error('[Service Worker] ❌ Invalid background call format:', actionValue);
+              return Promise.resolve();
             }
+
+            console.log(`[Service Worker] 📞 Executing background call: ${method || 'GET'} ${url}`);
+
+            return fetch(url, {
+              method: method || 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            })
+              .then((response) => {
+                if (!response.ok) {
+                  throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                console.log('[Service Worker] ✅ Background call executed successfully');
+              })
+              .catch((error) => {
+                console.error('[Service Worker] ❌ Failed to execute background call:', error);
+              });
           }
         })
       );
@@ -263,60 +271,162 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
     case 'MARK_AS_READ':
       // Mark notification as read
       event.waitUntil(
-        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-          if (clientList.length > 0) {
-            const focusedClient = clientList.find(client => client.focused) || clientList[0];
-            focusedClient.postMessage({
-              type: 'notification-tap-action',
-              action: 'MARK_AS_READ',
-              value: actionValue,
-              notificationId: notificationId,
-              bucketId: bucketId,
-              data: notificationData
-            });
-            return focusedClient.focus();
-          }
-        })
+        executeApiCall(`/notifications/${notificationId}/mark-as-read`, 'POST')
+          .then(() => {
+            console.log('[Service Worker] ✅ Notification marked as read:', notificationId);
+          })
+          .catch((error) => {
+            console.error('[Service Worker] ❌ Failed to mark notification as read:', error);
+          })
+        // self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        // if (clientList.length > 0) {
+        //   // App is open, send message to app
+        //   const focusedClient = clientList.find(client => client.focused) || clientList[0];
+        //   focusedClient.postMessage({
+        //     type: 'notification-tap-action',
+        //     action: 'MARK_AS_READ',
+        //     value: actionValue,
+        //     notificationId: notificationId,
+        //     bucketId: bucketId,
+        //     data: notificationData
+        //   });
+        //   return focusedClient.focus();
+        // } else {
+        // App is closed, execute API call directly
+        // return executeApiCall(`/notifications/${notificationId}/mark-as-read`, 'POST')
+        //   .then(() => {
+        //     console.log('[Service Worker] ✅ Notification marked as read:', notificationId);
+        //   })
+        //   .catch((error) => {
+        //     console.error('[Service Worker] ❌ Failed to mark notification as read:', error);
+        //   });
+        // }
+        // })
       );
       break;
 
     case 'DELETE':
       // Delete notification
       event.waitUntil(
-        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-          if (clientList.length > 0) {
-            const focusedClient = clientList.find(client => client.focused) || clientList[0];
-            focusedClient.postMessage({
-              type: 'notification-tap-action',
-              action: 'DELETE',
-              value: actionValue,
-              notificationId: notificationId,
-              bucketId: bucketId,
-              data: notificationData
-            });
-            return focusedClient.focus();
-          }
-        })
+        executeApiCall(`/notifications/${notificationId}`, 'DELETE')
+          .then(() => {
+            console.log('[Service Worker] ✅ Notification deleted:', notificationId);
+          })
+          .catch((error) => {
+            console.error('[Service Worker] ❌ Failed to delete notification:', error);
+          })
+        // self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        //   if (clientList.length > 0) {
+        //     // App is open, send message to app
+        //     const focusedClient = clientList.find(client => client.focused) || clientList[0];
+        //     focusedClient.postMessage({
+        //       type: 'notification-tap-action',
+        //       action: 'DELETE',
+        //       value: actionValue,
+        //       notificationId: notificationId,
+        //       bucketId: bucketId,
+        //       data: notificationData
+        //     });
+        //     return focusedClient.focus();
+        //   } else {
+        //     // App is closed, execute API call directly
+        //     return executeApiCall(`/notifications/${notificationId}`, 'DELETE')
+        //       .then(() => {
+        //         console.log('[Service Worker] ✅ Notification deleted:', notificationId);
+        //       })
+        //       .catch((error) => {
+        //         console.error('[Service Worker] ❌ Failed to delete notification:', error);
+        //       });
+        //   }
+        // })
       );
       break;
 
-    case 'SNOOZE':
-      // Snooze notification
-      event.waitUntil(
-        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-          if (clientList.length > 0) {
-            const focusedClient = clientList.find(client => client.focused) || clientList[0];
-            focusedClient.postMessage({
-              type: 'notification-tap-action',
-              action: 'SNOOZE',
-              value: actionValue,
-              notificationId: notificationId,
-              bucketId: bucketId,
-              data: notificationData
-            });
-            return focusedClient.focus();
-          }
+    case 'SNOOZE': {
+      const minutes = parseInt(actionValue, 10);
+      if (isNaN(minutes) || minutes <= 0) {
+        console.error('[Service Worker] ❌ Invalid snooze duration:', actionValue);
+        return Promise.resolve();
+      }
+
+      executeApiCall(`/buckets/${bucketId}/snooze`, 'POST', { minutes })
+        .then(() => {
+          console.log(`[Service Worker] ✅ Bucket ${bucketId} snoozed for ${minutes} minutes`);
         })
+        .catch((error) => {
+          console.error('[Service Worker] ❌ Failed to snooze bucket:', error);
+        });
+      // }
+    }
+      // Snooze notification
+      // event.waitUntil(
+      //   self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      //     // if (clientList.length > 0) {
+      //     //   // App is open, send message to app
+      //     //   const focusedClient = clientList.find(client => client.focused) || clientList[0];
+      //     //   focusedClient.postMessage({
+      //     //     type: 'notification-tap-action',
+      //     //     action: 'SNOOZE',
+      //     //     value: actionValue,
+      //     //     notificationId: notificationId,
+      //     //     bucketId: bucketId,
+      //     //     data: notificationData
+      //     //   });
+      //     //   return focusedClient.focus();
+      //     // } else {
+      //     // App is closed, execute API call directly
+      //     const minutes = parseInt(actionValue, 10);
+      //     if (isNaN(minutes) || minutes <= 0) {
+      //       console.error('[Service Worker] ❌ Invalid snooze duration:', actionValue);
+      //       return Promise.resolve();
+      //     }
+
+      //     return executeApiCall(`/buckets/${bucketId}/snooze`, 'POST', { minutes })
+      //       .then(() => {
+      //         console.log(`[Service Worker] ✅ Bucket ${bucketId} snoozed for ${minutes} minutes`);
+      //       })
+      //       .catch((error) => {
+      //         console.error('[Service Worker] ❌ Failed to snooze bucket:', error);
+      //       });
+      //     // }
+      //   })
+      // );
+      break;
+
+    case 'WEBHOOK':
+      // Execute webhook
+      event.waitUntil(
+        executeApiCall(`/webhooks/${actionValue}/execute`, 'POST')
+          .then(() => {
+            console.log('[Service Worker] ✅ Webhook executed:', actionValue);
+          })
+          .catch((error) => {
+            console.error('[Service Worker] ❌ Failed to execute webhook:', error);
+          })
+        // self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        // if (clientList.length > 0) {
+        //   // App is open, send message to app
+        //   const focusedClient = clientList.find(client => client.focused) || clientList[0];
+        //   focusedClient.postMessage({
+        //     type: 'notification-tap-action',
+        //     action: 'WEBHOOK',
+        //     value: actionValue,
+        //     notificationId: notificationId,
+        //     bucketId: bucketId,
+        //     data: notificationData
+        //   });
+        //   return focusedClient.focus();
+        // } else {
+        // App is closed, execute webhook via API directly
+        // return executeApiCall(`/webhooks/${actionValue}/execute`, 'POST')
+        //   .then(() => {
+        //     console.log('[Service Worker] ✅ Webhook executed:', actionValue);
+        //   })
+        //   .catch((error) => {
+        //     console.error('[Service Worker] ❌ Failed to execute webhook:', error);
+        //   });
+        // }
+        // })
       );
       break;
 
@@ -368,8 +478,6 @@ self.addEventListener('push', (event) => {
 
   const title = payload.title || 'Zentik';
   const body = payload.body || '';
-  const icon = payload.bucketIcon ?? '/icons/icon-192x192.png';
-  const image = payload.image ?? payload.bucketIcon ?? '/icons/icon-192x192.png';
   const url = payload.url || '/';
   const notificationId = payload.notificationId;
   const bucketId = payload.bucketId;
@@ -378,9 +486,9 @@ self.addEventListener('push', (event) => {
   // Build notification options with media attachments and actions
   const options = {
     body: body,
-    icon: icon,
-    badge: '/icons/badge-72x72.png',
-    image: image, // Large image attachment (if available)
+    icon: '/logo192.png',
+    badge: '/logo72.png',
+    image: payload.image ?? payload.bucketIcon,
     data: {
       url: url,
       notificationId: notificationId,
@@ -502,6 +610,92 @@ self.addEventListener('notificationclick', (event) => {
   }
 });
 
+// Helper function to get stored data from IndexedDB
+function getStoredData(key) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('zentik-storage', 2);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(['keyvalue'], 'readonly');
+      const store = transaction.objectStore('keyvalue');
+
+      const getRequest = store.get(key);
+      getRequest.onsuccess = () => {
+        if (getRequest.result) {
+          try {
+            resolve(JSON.parse(getRequest.result));
+          } catch (e) {
+            resolve(getRequest.result);
+          }
+        } else {
+          resolve(null);
+        }
+      };
+      getRequest.onerror = () => reject(getRequest.error);
+    };
+
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('keyvalue')) {
+        db.createObjectStore('keyvalue');
+      }
+      if (!db.objectStoreNames.contains('notifications')) {
+        db.createObjectStore('notifications');
+      }
+    };
+  });
+}
+
+// Get API endpoint and auth token for making authenticated requests
+async function getApiCredentials() {
+  try {
+    const apiEndpoint = await getStoredData('api_endpoint');
+    const authToken = await getStoredData('auth_token');
+
+    if (!apiEndpoint || !authToken) {
+      console.warn('[Service Worker] Missing API credentials');
+      return null;
+    }
+
+    return { apiEndpoint, authToken };
+  } catch (error) {
+    console.error('[Service Worker] Failed to get API credentials:', error);
+    return null;
+  }
+}
+
+// Execute API calls with authentication
+async function executeApiCall(endpoint, method = 'GET', body = null) {
+  const credentials = await getApiCredentials();
+  if (!credentials) {
+    throw new Error('No API credentials available');
+  }
+
+  const url = `${credentials.apiEndpoint}${endpoint}`;
+  const options = {
+    method,
+    headers: {
+      'Authorization': `Bearer ${credentials.authToken}`,
+      'Content-Type': 'application/json',
+    },
+  };
+
+  if (body) {
+    options.body = JSON.stringify(body);
+  }
+
+  console.log('[Service Worker] Making API call:', url, options);
+
+  const response = await fetch(url, options);
+
+  if (!response.ok) {
+    throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+  }
+
+  return response;
+}
 
 // --- GESTIONE DEL CICLO DI VITA DEL SERVICE WORKER (Best Practice) ---
 
