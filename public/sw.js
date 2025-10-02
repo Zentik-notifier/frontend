@@ -1,17 +1,17 @@
-function storeIntentInIndexedDB(intentData) {
+async function withIndexedDB(successCallback, mode = 'readonly') {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('zentik-storage', 2);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
       const db = request.result;
-      const transaction = db.transaction(['keyvalue'], 'readwrite');
+      const transaction = db.transaction(['keyvalue'], mode);
       const store = transaction.objectStore('keyvalue');
-
-      const putRequest = store.put(JSON.stringify(intentData), 'pending_navigation_intent');
-
-      putRequest.onsuccess = () => resolve();
-      putRequest.onerror = () => reject(putRequest.error);
+      try {
+        successCallback(store, resolve, reject);
+      } catch (error) {
+        reject(error);
+      }
     };
 
     request.onupgradeneeded = (event) => {
@@ -24,6 +24,16 @@ function storeIntentInIndexedDB(intentData) {
       }
     };
   });
+}
+
+// IndexedDB helper for service worker
+async function storeIntentInIndexedDB(intentData) {
+  return withIndexedDB((store, resolve, reject) => {
+    const putRequest = store.put(JSON.stringify(intentData), 'pending_navigation_intent');
+
+    putRequest.onsuccess = () => resolve();
+    putRequest.onerror = () => reject(putRequest.error);
+  }, 'readwrite');
 }
 
 // Store pending notification for processing when app opens
@@ -284,9 +294,9 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
             await executeApiCall(`/notifications/${notificationId}`, 'DELETE');
             console.log('[Service Worker] ✅ Notification deleted from server:', notificationId);
 
-            // Also remove from local IndexedDB cache
-            await removeNotificationFromCache(notificationId);
-            console.log('[Service Worker] ✅ Notification removed from local cache:', notificationId);
+            // // Also remove from local IndexedDB cache
+            // await removeNotificationFromCache(notificationId);
+            // console.log('[Service Worker] ✅ Notification removed from local cache:', notificationId);
 
             // Also remove from pending notifications if it exists
             await removePendingNotification(notificationId);
@@ -550,39 +560,20 @@ self.addEventListener('notificationclick', (event) => {
 
 // Helper function to get stored data from IndexedDB
 async function getStoredData(key) {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('zentik-storage', 2);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(['keyvalue'], 'readonly');
-      const store = transaction.objectStore('keyvalue');
-
-      const getRequest = store.get(key);
-      getRequest.onsuccess = () => {
-        if (getRequest.result) {
-          try {
-            resolve(JSON.parse(getRequest.result));
-          } catch (e) {
-            resolve(getRequest.result);
-          }
-        } else {
-          resolve(null);
+  return withIndexedDB((store, resolve, reject) => {
+    const getRequest = store.get(key);
+    getRequest.onsuccess = () => {
+      if (getRequest.result) {
+        try {
+          resolve(JSON.parse(getRequest.result));
+        } catch (e) {
+          resolve(getRequest.result);
         }
-      };
-      getRequest.onerror = () => reject(getRequest.error);
-    };
-
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('keyvalue')) {
-        db.createObjectStore('keyvalue');
-      }
-      if (!db.objectStoreNames.contains('notifications')) {
-        db.createObjectStore('notifications');
+      } else {
+        resolve(null);
       }
     };
+    getRequest.onerror = () => reject(getRequest.error);
   });
 }
 
@@ -636,101 +627,54 @@ async function executeApiCall(endpoint, method = 'GET', body = null) {
 }
 
 // Remove notification from local IndexedDB cache
-async function removeNotificationFromCache(notificationId) {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('zentik-storage', 2);
+// async function removeNotificationFromCache(notificationId) {
+//   return new Promise((resolve, reject) => {
+//     const request = indexedDB.open('zentik-storage', 2);
 
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(['notifications'], 'readwrite');
-      const store = transaction.objectStore('notifications');
+//     request.onerror = () => reject(request.error);
+//     request.onsuccess = () => {
+//       const db = request.result;
+//       const transaction = db.transaction(['notifications'], 'readwrite');
+//       const store = transaction.objectStore('notifications');
 
-      const deleteRequest = store.delete(notificationId);
-      deleteRequest.onsuccess = () => {
-        console.log('[Service Worker] Removed notification from cache:', notificationId);
-        resolve();
-      };
-      deleteRequest.onerror = () => reject(deleteRequest.error);
-    };
+//       const deleteRequest = store.delete(notificationId);
+//       deleteRequest.onsuccess = () => {
+//         console.log('[Service Worker] Removed notification from cache:', notificationId);
+//         resolve();
+//       };
+//       deleteRequest.onerror = () => reject(deleteRequest.error);
+//     };
 
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('keyvalue')) {
-        db.createObjectStore('keyvalue');
-      }
-      if (!db.objectStoreNames.contains('notifications')) {
-        db.createObjectStore('notifications');
-      }
-    };
-  });
-}
+//     request.onupgradeneeded = (event) => {
+//       const db = event.target.result;
+//       if (!db.objectStoreNames.contains('keyvalue')) {
+//         db.createObjectStore('keyvalue');
+//       }
+//       // if (!db.objectStoreNames.contains('notifications')) {
+//       //   db.createObjectStore('notifications');
+//       // }
+//     };
+//   });
+// }
 
 // Common function to get pending notifications from IndexedDB
 async function getPendingNotifications() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('zentik-storage', 2);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(['keyvalue'], 'readonly');
-      const store = transaction.objectStore('keyvalue');
-
-      const getRequest = store.get('pending_notifications');
-      getRequest.onsuccess = () => {
-        let pendingNotifications = [];
-        if (getRequest.result) {
-          try {
-            pendingNotifications = JSON.parse(getRequest.result);
-          } catch (e) {
-            console.error('[Service Worker] Failed to parse pending notifications:', e);
-            pendingNotifications = [];
-          }
-        }
-        resolve(pendingNotifications);
-      };
-      getRequest.onerror = () => reject(getRequest.error);
-    };
-
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('keyvalue')) {
-        db.createObjectStore('keyvalue');
-      }
-      if (!db.objectStoreNames.contains('notifications')) {
-        db.createObjectStore('notifications');
-      }
-    };
-  });
+  try {
+    const result = await getStoredData('pending_notifications');
+    return result || [];
+  } catch (e) {
+    console.error('[Service Worker] Failed to get pending notifications:', e);
+    return [];
+  }
 }
 
 // Common function to save pending notifications to IndexedDB
 async function savePendingNotifications(pendingNotifications) {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('zentik-storage', 2);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(['keyvalue'], 'readwrite');
-      const store = transaction.objectStore('keyvalue');
-
-      const putRequest = store.put(JSON.stringify(pendingNotifications), 'pending_notifications');
-      putRequest.onsuccess = () => resolve();
-      putRequest.onerror = () => reject(putRequest.error);
-    };
-
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('keyvalue')) {
-        db.createObjectStore('keyvalue');
-      }
-      if (!db.objectStoreNames.contains('notifications')) {
-        db.createObjectStore('notifications');
-      }
-    };
-  });
+  return withIndexedDB((store, resolve, reject) => {
+    const putRequest = store.put(JSON.stringify(pendingNotifications), 'pending_notifications');
+    putRequest.onsuccess = () => resolve();
+    putRequest.onerror = () => reject(putRequest.error);
+  }, 'readwrite');
 }
 
 // Remove pending notification for a specific notification ID
