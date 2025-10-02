@@ -67,14 +67,12 @@ const AttachmentItem: React.FC<AttachmentItemProps> = ({
   const finalContainerStyle = [...containerStyle, ...singleAttachmentStyle];
 
   const renderContent = () => {
-    const url = attachment.url!;
-
     return (
       <View style={finalContainerStyle}>
         <CachedMedia
-          url={url}
+          url={attachment.url!}
           mediaType={attachment.mediaType}
-          style={styles.image}
+          style={finalContainerStyle}
           originalFileName={attachment.name || undefined}
           onPress={onPress}
           notificationDate={notificationDate}

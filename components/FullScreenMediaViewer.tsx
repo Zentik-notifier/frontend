@@ -58,7 +58,6 @@ export default function FullScreenMediaViewer({
   const insets = useSafeAreaInsets();
 
   const textColor = theme.colors.onSurface;
-  const bgSecondary = theme.colors.surfaceVariant;
   const [mediaLayout, setMediaLayout] = useState<{
     x: number;
     y: number;
@@ -381,7 +380,6 @@ export default function FullScreenMediaViewer({
           </ButtonGroup>
         </View>
 
-
         {/* Content with tap-to-close only outside media and gesture support on media */}
         <View
           style={styles.content}
@@ -418,7 +416,7 @@ export default function FullScreenMediaViewer({
                 key={url}
                 mediaType={mediaType}
                 url={url}
-                style={{ width: "100%", height: "100%" }}
+                style={{ width: "100%", height: mediaLayout?.height }}
                 originalFileName={originalFileName}
                 videoProps={{
                   isMuted: false,
@@ -452,21 +450,25 @@ export default function FullScreenMediaViewer({
                 {description}
               </Text>
             ) : null}
-            
+
             {/* Cache info section */}
             <View style={styles.cacheInfoSection}>
               {notificationDate && (
                 <Text style={[styles.cacheInfoText, { color: textColor }]}>
-                  {t("gallery.cachedOn")}: {formatDate(new Date(notificationDate))}
+                  {t("gallery.cachedOn")}:{" "}
+                  {formatDate(new Date(notificationDate))}
                 </Text>
               )}
               {cacheInfo?.localPath && (
                 <Text style={[styles.cacheInfoText, { color: textColor }]}>
-                  Local: {cacheInfo.localPath.split('/').pop()}
+                  Local: {cacheInfo.localPath.split("/").pop()}
                 </Text>
               )}
               {url && (
-                <Text style={[styles.cacheInfoText, { color: textColor }]} numberOfLines={1}>
+                <Text
+                  style={[styles.cacheInfoText, { color: textColor }]}
+                  numberOfLines={1}
+                >
                   URL: {url}
                 </Text>
               )}

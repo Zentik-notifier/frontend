@@ -18,7 +18,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import {
   Alert,
   StyleSheet,
-  Pressable,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import {
@@ -279,7 +279,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         marginHorizontal={16}
         borderRadius={8}
       >
-        <Pressable onPress={handlePress}>
+        <TouchableWithoutFeedback onPress={handlePress}>
           <Surface
             onStartShouldSetResponder={() => true}
             elevation={0}
@@ -561,7 +561,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               </Surface>
             </View>
           </Surface>
-        </Pressable>
+        </TouchableWithoutFeedback>
 
         {fullScreenIndex >= 0 && attachments[fullScreenIndex] && (
           <FullScreenMediaViewer

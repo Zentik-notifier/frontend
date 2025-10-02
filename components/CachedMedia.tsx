@@ -101,7 +101,10 @@ export const CachedMedia = React.memo(function CachedMedia({
   });
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekTime, setSeekTime] = useState(0);
-  const [videoSize, setVideoSize] = useState<{ width: number; height: number } | null>(null);
+  const [videoSize, setVideoSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const { item: mediaSource } = useCachedItem(url, mediaType);
   const isVideoType = mediaType === MediaType.Video && !useThumbnail;
   const isAudioType = mediaType === MediaType.Audio && !useThumbnail;
@@ -122,8 +125,8 @@ export const CachedMedia = React.memo(function CachedMedia({
   });
 
   // Get video dimensions when video track changes
-  const { videoTrack } = useEvent(videoPlayer, 'videoTrackChange', { 
-    videoTrack: videoPlayer.videoTrack 
+  const { videoTrack } = useEvent(videoPlayer, "videoTrackChange", {
+    videoTrack: videoPlayer.videoTrack,
   });
 
   // Update video size when track changes
@@ -532,14 +535,15 @@ export const CachedMedia = React.memo(function CachedMedia({
                           maxWidth: "100%",
                           maxHeight: "100%",
                           // Use actual video dimensions if available, otherwise fallback to 16:9
-                          aspectRatio: videoSize 
-                            ? videoSize.width / videoSize.height 
+                          aspectRatio: videoSize
+                            ? videoSize.width / videoSize.height
                             : 16 / 9,
                           // Set specific dimensions based on video size when available
-                          ...(videoSize && !isCompact && {
-                            width: Math.min(videoSize.width, 400), // Max width constraint
-                            height: Math.min(videoSize.height, 300), // Max height constraint
-                          }),
+                          ...(videoSize &&
+                            !isCompact && {
+                              width: Math.min(videoSize.width, 400), // Max width constraint
+                              height: Math.min(videoSize.height, 300), // Max height constraint
+                            }),
                         },
                       ]
                 }
