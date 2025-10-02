@@ -42,7 +42,7 @@ function storeIntentInIndexedDB(intentData) {
 async function storePendingNotification(notificationData) {
   try {
     const pendingNotifications = await getPendingNotifications();
-    
+
     // Add new notification
     pendingNotifications.push({
       notificationId: notificationData.notificationId,
@@ -59,8 +59,8 @@ async function storePendingNotification(notificationData) {
     });
 
     // Limit to last 50 notifications
-    const limitedNotifications = pendingNotifications.length > 50 
-      ? pendingNotifications.slice(-50) 
+    const limitedNotifications = pendingNotifications.length > 50
+      ? pendingNotifications.slice(-50)
       : pendingNotifications;
 
     await savePendingNotifications(limitedNotifications);
@@ -85,7 +85,7 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
         (async () => {
           try {
             const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-            
+
             if (clientList.length > 0) {
               // App is open, send navigation message
               const focusedClient = clientList.find(client => client.focused) || clientList[0];
@@ -166,7 +166,7 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
         (async () => {
           try {
             const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-            
+
             if (clientList.length > 0) {
               const focusedClient = clientList.find(client => client.focused) || clientList[0];
               focusedClient.postMessage({
@@ -215,7 +215,7 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
         (async () => {
           try {
             const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-            
+
             if (clientList.length > 0) {
               // App is open, send message to app
               const focusedClient = clientList.find(client => client.focused) || clientList[0];
@@ -269,7 +269,7 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
           try {
             await executeApiCall(`/notifications/${notificationId}/read`, 'PATCH');
             console.log('[Service Worker] ✅ Notification marked as read:', notificationId);
-            
+
             // Notify app to refresh cache
             const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
             if (clientList.length > 0) {
@@ -299,11 +299,11 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
             // Also remove from local IndexedDB cache
             await removeNotificationFromCache(notificationId);
             console.log('[Service Worker] ✅ Notification removed from local cache:', notificationId);
-            
+
             // Also remove from pending notifications if it exists
             await removePendingNotification(notificationId);
             console.log('[Service Worker] ✅ Pending notification removed for notification:', notificationId);
-            
+
             // Notify app to refresh cache
             const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
             if (clientList.length > 0) {
@@ -362,7 +362,7 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
         (async () => {
           try {
             const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-            
+
             if (clientList.length > 0) {
               const focusedClient = clientList.find(client => client.focused) || clientList[0];
               focusedClient.postMessage({
@@ -432,8 +432,7 @@ self.addEventListener('push', (event) => {
     },
     actions: actions.map(action => ({
       action: `${action.type}___${action.value}`,
-      title: action.title || action.value,
-      icon: action.icon || icon,
+      title: `${action.icon ? action.icon + ' ' : ''}${action.title || action.value}`,
     })),
     tag: `notification-${notificationId}`, // Prevent duplicate notifications
     requireInteraction: payload.deliveryType === 'CRITICAL', // Critical notifications stay visible
@@ -463,14 +462,14 @@ self.addEventListener('push', (event) => {
       try {
         // Show notification
         await self.registration.showNotification(title, options);
-        
+
         // Store as pending notification
         try {
           await storePendingNotification(pendingNotificationData);
         } catch (error) {
           console.error('[Service Worker] Failed to store pending notification:', error);
         }
-        
+
         // Notify the app about the new notification
         try {
           const clients = await self.clients.matchAll({ includeUncontrolled: true });
@@ -537,7 +536,7 @@ self.addEventListener('notificationclick', (event) => {
       (async () => {
         try {
           const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-          
+
           if (clientList.length > 0) {
             const focusedClient = clientList.find(client => client.focused) || clientList[0];
             focusedClient.postMessage({
@@ -750,7 +749,7 @@ async function savePendingNotifications(pendingNotifications) {
 async function removePendingNotification(notificationId) {
   try {
     const pendingNotifications = await getPendingNotifications();
-    
+
     // Filter out the notification to remove
     const filteredNotifications = pendingNotifications.filter(
       notification => notification.notificationId !== notificationId
