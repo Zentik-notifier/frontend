@@ -23,7 +23,6 @@ export function useBadgeSync() {
     const unreadCount = unreadNotifications.length;
 
     useEffect(() => {
-        // TODO: Implement PWA badges
         const exec = async () => {
             if (!isMarkingAllAsRead && !isLoadingGqlData) {
                 push.setBadgeCount(unreadCount);
@@ -32,7 +31,14 @@ export function useBadgeSync() {
             }
         }
 
-        Platform.OS !== 'web' && exec();
+        if (Platform.OS !== 'web') {
+            exec();
+        } else {
+            if (navigator.setAppBadge) {
+                navigator.setAppBadge(unreadCount);
+            }
+        }
+        // Platform.OS !== 'web' && exec();
     }, [unreadCount, isMarkingAllAsRead, isLoadingGqlData]);
 
     // Return a function to manually clear the badge

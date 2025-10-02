@@ -61,7 +61,7 @@ export const NotificationActionsMenu: React.FC<
   const { t } = useI18n();
 
   const actions = filteredActions(notification);
-  const hasActions = actions.length > 0;
+  const hasActions = onlyActions ? actions.length > 0 : true;
 
   const { executeAction } = useNotificationActions();
   const { getActionTypeIcon } = useNotificationUtils();

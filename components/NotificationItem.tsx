@@ -365,7 +365,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                         size={"lg"}
                       />
                     </View>
-                    {/* Removed legacy inline actions button under bucket icon */}
                   </View>
                 )}
 
