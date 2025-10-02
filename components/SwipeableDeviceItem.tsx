@@ -56,13 +56,13 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
   const getDeviceTypeIcon = (platform: string) => {
     switch (platform.toLowerCase()) {
       case "ios":
-        return "ios";
+        return "apple";
       case "android":
         return "android";
       case "web":
-        return "device";
+        return "web";
       default:
-        return "mobile";
+        return "cellphone";
     }
   };
 
