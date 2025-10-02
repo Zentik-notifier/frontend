@@ -939,54 +939,54 @@ class UserSettingsService {
    * ```
    */
   async migrateNotificationsToIndexedDB(): Promise<void> {
-    if (Platform.OS === 'web') {
-      console.log('🔄 [Migration] Starting notifications migration to IndexedDB...');
+    if (Platform.OS !== 'web') {
+      console.log('🔄 [Migration] Starting notifications migration to SQLite...');
 
       try {
         // Check if already migrated
         if (this.isNotificationsMigratedToIndexedDB()) {
-          console.log('✅ [Migration] Notifications already migrated to IndexedDB');
+          console.log('✅ [Migration] Notifications already migrated to SQLite');
           return;
         }
 
-        // Load notifications from AsyncStorage
-        const APOLLO_CACHE_KEY = 'apollo-cache-notifications';
-        const persistedCacheData = await AsyncStorage.getItem(APOLLO_CACHE_KEY);
-
-        if (!persistedCacheData) {
-          console.log('📥 [Migration] No notifications found in AsyncStorage to migrate');
-          // Mark as migrated since there's nothing to migrate
-          await this.updateMigrationSettings({ notificationsMigratedToIndexedDB: true });
-          return;
+        let notifications: NotificationFragment[] = [];
+        const persistedCacheData = await AsyncStorage.getItem('apollo-cache-notifications');
+        if (persistedCacheData) {
+          notifications = JSON.parse(persistedCacheData);
         }
-
-        const notifications: NotificationFragment[] = JSON.parse(persistedCacheData);
 
         if (notifications.length === 0) {
-          console.log('📥 [Migration] No notifications to migrate');
+          console.log('📥 [Migration] No notifications to migrate to SQLite');
           // Mark as migrated since there's nothing to migrate
           await this.updateMigrationSettings({ notificationsMigratedToIndexedDB: true });
           return;
         }
 
-        console.log(`📦 [Migration] Migrating ${notifications.length} notifications to IndexedDB...`);
+        console.log(`📦 [Migration] Migrating ${notifications.length} notifications to SQLite...`);
 
-        // Save to IndexedDB
+        // Save to SQLite using the repository
         await upsertNotificationsBatch(notifications);
 
         // Mark migration as completed
         await this.updateMigrationSettings({ notificationsMigratedToIndexedDB: true });
 
-        console.log('✅ [Migration] Successfully migrated notifications to IndexedDB');
+        console.log('✅ [Migration] Successfully migrated notifications to SQLite');
 
       } catch (error) {
-        console.error('❌ [Migration] Error migrating notifications to IndexedDB:', error);
+        console.error('❌ [Migration] Error migrating notifications to SQLite:', error);
         throw error;
       }
     } else {
-      console.log('📱 [Migration] Mobile platform - no migration needed (uses SQLite)');
-      // On mobile we use SQLite directly, so mark as migrated
-      await this.updateMigrationSettings({ notificationsMigratedToIndexedDB: true });
+      console.log('🔄 [Migration] Web platform - checking migration status...');
+
+      // On web we use IndexedDB directly, but check if migration flag is set
+      if (!this.isNotificationsMigratedToIndexedDB()) {
+        console.log('🌐 [Migration] Setting migration flag for web (IndexedDB is primary storage)');
+        // On web we use IndexedDB directly, so mark as migrated
+        await this.updateMigrationSettings({ notificationsMigratedToIndexedDB: true });
+      } else {
+        console.log('✅ [Migration] Web migration already completed');
+      }
     }
   }
 }

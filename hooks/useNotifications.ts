@@ -29,9 +29,9 @@ export const useSaveNotificationsToStorage = () => {
 		};
 	}, []);
 
-	useEffect(() => {
-		saveNotifications();
-	}, [notifications, saveNotifications]);
+	// useEffect(() => {
+	// 	saveNotifications();
+	// }, [notifications, saveNotifications]);
 }
 
 function useNotificationCacheUpdater() {

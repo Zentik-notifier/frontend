@@ -1,4 +1,4 @@
-import { GetNotificationsDocument, GetNotificationsQuery } from '@/generated/gql-operations-generated';
+import { GetNotificationsDocument, GetNotificationsQuery, NotificationFragment } from '@/generated/gql-operations-generated';
 import { authService } from '@/services/auth-service';
 import { getStoredDeviceToken } from '@/services/auth-storage';
 import { userSettings } from '@/services/user-settings';
@@ -198,11 +198,11 @@ const createCacheDynamic = () => new InMemoryCache({
 
             const arrayForSort = (typeof maxDays === 'number' && maxDays > 0)
               ? mergedArray.filter((n) => {
-                  const createdAt = readField<string>('createdAt', n);
-                  const createdTime = createdAt ? Date.parse(createdAt) : 0;
-                  const cutoff = Date.now() - maxDays * 24 * 60 * 60 * 1000;
-                  return createdTime >= cutoff;
-                })
+                const createdAt = readField<string>('createdAt', n);
+                const createdTime = createdAt ? Date.parse(createdAt) : 0;
+                const cutoff = Date.now() - maxDays * 24 * 60 * 60 * 1000;
+                return createdTime >= cutoff;
+              })
               : mergedArray;
 
             if (typeof maxDays === 'number' && maxDays > 0 && arrayForSort.length < mergedArray.length) {
@@ -365,8 +365,6 @@ export const initApolloClient = async () => {
   return apolloClient;
 }
 
-const APOLLO_CACHE_KEY = 'apollo-cache-notifications';
-
 export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
   try {
     console.log('📥 [Apollo Cache] Loading notifications from persisted cache...');
@@ -376,30 +374,16 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
       return;
     }
 
-    let notifications: any[] = [];
+    await userSettings.migrateNotificationsToIndexedDB();
 
-    if (Platform.OS === 'web') {
-      // Load from IndexedDB notifications table
-      try {
+    let notifications: NotificationFragment[] = [];
+
+    // Load from appropriate database based on platform
+    try {
       notifications = await getAllNotificationsFromCache();
-      } catch (error) {
-        console.error('❌ [Apollo Cache] Error loading notifications from IndexedDB:', error);
-      }
-      console.log(`📥 [Apollo Cache] Found ${notifications.length} notifications in IndexedDB`);
-    } else {
-      // Load from AsyncStorage (mobile)
-      const persistedCacheData = await AsyncStorage.getItem(APOLLO_CACHE_KEY);
-      
-      if (!persistedCacheData) {
-        console.log('📥 [Apollo Cache] No persisted cache found');
-        return;
-      }
-
-      try {
-        notifications = JSON.parse(persistedCacheData);
-      } catch (error) {
-        console.error('❌ [Apollo Cache] Error loading notifications from AsyncStorage:', error);
-      }
+      console.log(`📥 [Apollo Cache] Found ${notifications.length} notifications in ${Platform.OS === 'web' ? 'IndexedDB' : 'SQLite'}`);
+    } catch (error) {
+      console.error(`❌ [Apollo Cache] Error loading notifications from ${Platform.OS === 'web' ? 'IndexedDB' : 'SQLite'}:`, error);
     }
 
     if (notifications.length === 0) {
@@ -451,19 +435,10 @@ export const saveNotificationsToPersistedCache = async (): Promise<void> => {
 
     const notificationsToSave = queryData.notifications;
 
-    if (Platform.OS === 'web') {
-      await upsertNotificationsBatch(notificationsToSave);
-      
-      console.log(`✅ [Apollo Cache] Successfully upserted ${notificationsToSave.length} notifications to IndexedDB`);
-    } else {
-      // Save to AsyncStorage (mobile)
-      await AsyncStorage.setItem(
-        APOLLO_CACHE_KEY,
-        JSON.stringify(notificationsToSave)
-      );
+    // Save to appropriate database based on platform
+    await upsertNotificationsBatch(notificationsToSave);
 
-      console.log(`✅ [Apollo Cache] Successfully saved ${notificationsToSave.length} complete notifications to persisted cache`);
-    }
+    console.log(`✅ [Apollo Cache] Successfully saved ${notificationsToSave.length} notifications to ${Platform.OS === 'web' ? 'IndexedDB' : 'SQLite'}`);
   } catch (error) {
     console.error('❌ [Apollo Cache] Error saving notifications to persisted cache:', error);
   }
@@ -477,14 +452,9 @@ export const resetApolloCache = async () => {
     apolloClient.resetStore();
   } catch { }
   try { await apolloClient.clearStore(); } catch { }
-  
-  if (Platform.OS === 'web') {
-    // Clear IndexedDB notifications table
-    await clearAllNotificationsFromCache();
-  } else {
-    // Clear AsyncStorage (mobile)
-    await AsyncStorage.removeItem(APOLLO_CACHE_KEY);
-  }
+
+  // Clear notifications from appropriate database based on platform
+  await clearAllNotificationsFromCache();
 };
 
 export const reinitializeApolloClient = async () => {

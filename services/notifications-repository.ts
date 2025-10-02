@@ -1,6 +1,6 @@
 import { NotificationFragment } from '@/generated/gql-operations-generated';
 import { Platform } from 'react-native';
-import { openWebStorageDb } from './db-setup';
+import { openWebStorageDb, openSharedCacheDb } from './db-setup';
 import { parseNotificationForDB, parseNotificationFromDB } from './db-setup';
 
 /**
@@ -14,65 +14,30 @@ import { parseNotificationForDB, parseNotificationFromDB } from './db-setup';
  * - bucket_id: bucket ID from notification.message.bucket.id
  * - has_attachments: boolean flag (1/0) based on attachments.length
  * - fragment: complete NotificationFragment JSON string
- *
- * @example
- * ```typescript
- * import {
- *   saveNotificationToCache,
- *   getNotificationFromCache,
- *   upsertNotificationsBatch,
- *   updateNotificationReadStatus,
- *   deleteNotificationFromCache
- * } from '@/services/notifications-repository';
- *
- * // ====================
- * // BASIC CRUD OPERATIONS
- * // ====================
- *
- * // Save single notification
- * const notification = await getNotificationFromGraphQL('id-123');
- * await saveNotificationToCache(notification);
- *
- * // Load single notification
- * const cachedNotification = await getNotificationFromCache('id-123');
- * if (cachedNotification) {
- *   console.log('Title:', cachedNotification.message.title);
- *   console.log('Read at:', cachedNotification.readAt);
- *   console.log('Bucket:', cachedNotification.message.bucket.name);
- * }
- *
- * // ====================
- * // BATCH OPERATIONS
- * // ====================
- *
- * // Batch save notifications
- * const notifications = await getNotificationsFromGraphQL();
- * await upsertNotificationsBatch(notifications);
- *
- * // ====================
- * // UPDATE OPERATIONS
- * // ====================
- *
- * // Mark single notification as read
- * await updateNotificationReadStatus('id-123', new Date().toISOString());
- *
- * // Mark single notification as unread
- * await updateNotificationReadStatus('id-123', null);
- *
- * // Batch mark multiple as read
- * await updateNotificationsReadStatus(['id1', 'id2'], new Date().toISOString());
- *
- * // ====================
- * // DELETE OPERATIONS
- * // ====================
- *
- * // Delete single notification
- * await deleteNotificationFromCache('id-123');
- *
- * // Batch delete multiple notifications
- * await deleteNotificationsFromCache(['id1', 'id2', 'id3']);
- * ```
  */
+
+// ====================
+// DATABASE HELPERS
+// ====================
+
+/**
+ * Get the appropriate database instance based on platform
+ */
+async function getDatabase() {
+  if (Platform.OS === 'web') {
+    return await openWebStorageDb();
+  } else {
+    return await openSharedCacheDb();
+  }
+}
+
+/**
+ * Execute a query on the appropriate database
+ */
+async function executeQuery<T>(queryFn: (db: any) => Promise<T>): Promise<T> {
+  const db = await getDatabase();
+  return await queryFn(db);
+}
 
 // ====================
 // SINGLE NOTIFICATION OPERATIONS
@@ -82,69 +47,111 @@ import { parseNotificationForDB, parseNotificationFromDB } from './db-setup';
  * Save a single notification to cache
  */
 export async function saveNotificationToCache(notificationData: NotificationFragment): Promise<void> {
-  if (Platform.OS !== 'web') return;
-
-  const db = await openWebStorageDb();
-  const parsedData = parseNotificationForDB(notificationData);
-  await db.put('notifications', parsedData, parsedData.id);
+  await executeQuery(async (db) => {
+    if (Platform.OS === 'web') {
+      // IndexedDB
+      const parsedData = parseNotificationForDB(notificationData);
+      await db.put('notifications', parsedData, parsedData.id);
+    } else {
+      // SQLite
+      const parsedData = parseNotificationForDB(notificationData);
+      await db.runAsync(
+        `INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, has_attachments, fragment)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          parsedData.id,
+          parsedData.created_at,
+          parsedData.read_at,
+          parsedData.bucket_id,
+          parsedData.has_attachments,
+          parsedData.fragment
+        ]
+      );
+    }
+  });
 }
 
 /**
  * Get a single notification from cache
  */
 export async function getNotificationFromCache(notificationId: string): Promise<NotificationFragment | null> {
-  if (Platform.OS !== 'web') return null;
-
-  try {
-    const db = await openWebStorageDb();
-    const result = await db.get('notifications', notificationId);
-    return result ? parseNotificationFromDB(result) : null;
-  } catch {
-    return null;
-  }
+  return await executeQuery(async (db) => {
+    try {
+      if (Platform.OS === 'web') {
+        // IndexedDB
+        const result = await db.get('notifications', notificationId);
+        return result ? parseNotificationFromDB(result) : null;
+      } else {
+        // SQLite
+        const result = await db.getFirstAsync(
+          'SELECT * FROM notifications WHERE id = ?',
+          [notificationId]
+        );
+        return result ? parseNotificationFromDB(result) : null;
+      }
+    } catch {
+      return null;
+    }
+  });
 }
 
 /**
  * Get all notifications from cache
  */
 export async function getAllNotificationsFromCache(): Promise<NotificationFragment[]> {
-  if (Platform.OS !== 'web') return [];
-
-  try {
-    const db = await openWebStorageDb();
-    const results = await db.getAll('notifications');
-    return results.map(parseNotificationFromDB);
-  } catch {
-    return [];
-  }
+  return await executeQuery(async (db) => {
+    try {
+      if (Platform.OS === 'web') {
+        // IndexedDB
+        const results = await db.getAll('notifications');
+        return results.map(parseNotificationFromDB);
+      } else {
+        // SQLite
+        const results = await db.getAllAsync('SELECT * FROM notifications ORDER BY created_at DESC');
+        return results.map(parseNotificationFromDB);
+      }
+    } catch {
+      return [];
+    }
+  });
 }
 
 /**
  * Remove a single notification from cache
  */
 export async function removeNotificationFromCache(notificationId: string): Promise<void> {
-  if (Platform.OS !== 'web') return;
-
-  try {
-    const db = await openWebStorageDb();
-    await db.delete('notifications', notificationId);
-  } catch {
-    // Ignore errors
-  }
+  await executeQuery(async (db) => {
+    try {
+      if (Platform.OS === 'web') {
+        // IndexedDB
+        await db.delete('notifications', notificationId);
+      } else {
+        // SQLite
+        await db.runAsync('DELETE FROM notifications WHERE id = ?', [notificationId]);
+      }
+    } catch {
+      // Ignore errors
+    }
+  });
 }
 
 /**
  * Clear all notifications from cache
  */
 export async function clearAllNotificationsFromCache(): Promise<void> {
-  if (Platform.OS !== 'web') return;
-
-  try {
-    const db = await openWebStorageDb();
-    await db.clear('notifications');
-  } catch {
-    // Ignore errors
-  }
+  await executeQuery(async (db) => {
+    try {
+      if (Platform.OS === 'web') {
+        // IndexedDB
+        await db.clear('notifications');
+      } else {
+        // SQLite
+        await db.runAsync('DELETE FROM notifications');
+      }
+    } catch {
+      // Ignore errors
+    }
+  });
 }
 
 // ====================
@@ -155,21 +162,42 @@ export async function clearAllNotificationsFromCache(): Promise<void> {
  * Upsert multiple notifications to cache in batch
  */
 export async function upsertNotificationsBatch(notifications: NotificationFragment[]): Promise<void> {
-  if (Platform.OS !== 'web' || notifications.length === 0) return;
+  if (notifications.length === 0) return;
 
-  try {
-    const db = await openWebStorageDb();
-    const tx = db.transaction('notifications', 'readwrite');
+  await executeQuery(async (db) => {
+    try {
+      if (Platform.OS === 'web') {
+        // IndexedDB
+        const tx = db.transaction('notifications', 'readwrite');
 
-    for (const notification of notifications) {
-      const parsedData = parseNotificationForDB(notification);
-      await tx.store.put(parsedData, parsedData.id);
+        for (const notification of notifications) {
+          const parsedData = parseNotificationForDB(notification);
+          await tx.store.put(parsedData, parsedData.id);
+        }
+
+        await tx.done;
+      } else {
+        // SQLite - use batch insert
+        for (const notification of notifications) {
+          const parsedData = parseNotificationForDB(notification);
+          await db.runAsync(
+            `INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, has_attachments, fragment)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+              parsedData.id,
+              parsedData.created_at,
+              parsedData.read_at,
+              parsedData.bucket_id,
+              parsedData.has_attachments,
+              parsedData.fragment
+            ]
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Failed to upsert notifications batch:', error);
     }
-
-    await tx.done;
-  } catch (error) {
-    console.error('Failed to upsert notifications batch:', error);
-  }
+  });
 }
 
 // ====================
@@ -192,42 +220,81 @@ export async function upsertNotificationsBatch(notifications: NotificationFragme
  * ```
  */
 export async function updateNotificationReadStatus(notificationId: string, readAt: string | null): Promise<void> {
-  if (Platform.OS !== 'web') return;
+  await executeQuery(async (db) => {
+    try {
+      if (Platform.OS === 'web') {
+        // IndexedDB
+        // Get current notification from database
+        const existingRecord = await db.get('notifications', notificationId);
+        if (!existingRecord) {
+          console.warn(`Notification ${notificationId} not found in cache for read status update`);
+          return;
+        }
 
-  try {
-    const db = await openWebStorageDb();
+        // Parse the current notification from fragment
+        const notification = parseNotificationFromDB(existingRecord);
 
-    // Get current notification from database
-    const existingRecord = await db.get('notifications', notificationId);
-    if (!existingRecord) {
-      console.warn(`Notification ${notificationId} not found in cache for read status update`);
-      return;
+        // Update read_at in the notification object
+        const updatedNotification: NotificationFragment = {
+          ...notification,
+          readAt: readAt
+        };
+
+        // Update the fragment JSON as well
+        const updatedRecord = {
+          ...existingRecord,
+          read_at: readAt,
+          fragment: JSON.stringify(updatedNotification)
+        };
+
+        // Save back to database
+        await db.put('notifications', updatedRecord, notificationId);
+      } else {
+        // SQLite
+        // First get the current notification
+        const existingRecord = await db.getFirstAsync(
+          'SELECT * FROM notifications WHERE id = ?',
+          [notificationId]
+        );
+
+        if (!existingRecord) {
+          console.warn(`Notification ${notificationId} not found in cache for read status update`);
+          return;
+        }
+
+        // Parse the current notification from fragment
+        const notification = parseNotificationFromDB(existingRecord);
+
+        // Update read_at in the notification object
+        const updatedNotification: NotificationFragment = {
+          ...notification,
+          readAt: readAt
+        };
+
+        // Update the fragment JSON as well
+        const updatedRecord = parseNotificationForDB(updatedNotification);
+
+        // Save back to database
+        await db.runAsync(
+          `UPDATE notifications SET created_at = ?, read_at = ?, bucket_id = ?, has_attachments = ?, fragment = ?
+           WHERE id = ?`,
+          [
+            updatedRecord.created_at,
+            updatedRecord.read_at,
+            updatedRecord.bucket_id,
+            updatedRecord.has_attachments,
+            updatedRecord.fragment,
+            notificationId
+          ]
+        );
+      }
+
+      console.log(`✅ Updated read status for notification ${notificationId}: ${readAt ? 'read' : 'unread'}`);
+    } catch (error) {
+      console.error('Failed to update notification read status:', error);
+      throw error;
     }
-
-    // Parse the current notification from fragment
-    const notification = parseNotificationFromDB(existingRecord);
-
-    // Update read_at in the notification object
-    const updatedNotification: NotificationFragment = {
-      ...notification,
-      readAt: readAt
-    };
-
-    // Update the fragment JSON as well
-    const updatedRecord = {
-      ...existingRecord,
-      read_at: readAt,
-      fragment: JSON.stringify(updatedNotification)
-    };
-
-    // Save back to database
-    await db.put('notifications', updatedRecord, notificationId);
-
-    console.log(`✅ Updated read status for notification ${notificationId}: ${readAt ? 'read' : 'unread'}`);
-  } catch (error) {
-    console.error('Failed to update notification read status:', error);
-    throw error;
-  }
+  });
 }
 
 /**
@@ -246,7 +313,7 @@ export async function updateNotificationReadStatus(notificationId: string, readA
  * ```
  */
 export async function updateNotificationsReadStatus(notificationIds: string[], readAt: string | null): Promise<void> {
-  if (Platform.OS !== 'web' || notificationIds.length === 0) return;
+  if (notificationIds.length === 0) return;
 
   // Use the single notification method for each ID to maintain consistency
   const promises = notificationIds.map(id => updateNotificationReadStatus(id, readAt));
@@ -267,17 +334,22 @@ export async function updateNotificationsReadStatus(notificationIds: string[], r
  * ```
  */
 export async function deleteNotificationFromCache(notificationId: string): Promise<void> {
-  if (Platform.OS !== 'web') return;
+  await executeQuery(async (db) => {
+    try {
+      if (Platform.OS === 'web') {
+        // IndexedDB
+        await db.delete('notifications', notificationId);
+      } else {
+        // SQLite
+        await db.runAsync('DELETE FROM notifications WHERE id = ?', [notificationId]);
+      }
 
-  try {
-    const db = await openWebStorageDb();
-    await db.delete('notifications', notificationId);
-
-    console.log(`✅ Deleted notification ${notificationId} from cache`);
-  } catch (error) {
-    console.error('Failed to delete notification from cache:', error);
-    throw error;
-  }
+      console.log(`✅ Deleted notification ${notificationId} from cache`);
+    } catch (error) {
+      console.error('Failed to delete notification from cache:', error);
+      throw error;
+    }
+  });
 }
 
 /**
@@ -292,7 +364,7 @@ export async function deleteNotificationFromCache(notificationId: string): Promi
  * ```
  */
 export async function deleteNotificationsFromCache(notificationIds: string[]): Promise<void> {
-  if (Platform.OS !== 'web' || notificationIds.length === 0) return;
+  if (notificationIds.length === 0) return;
 
   // Use the single notification method for each ID to maintain consistency
   const promises = notificationIds.map(id => deleteNotificationFromCache(id));
