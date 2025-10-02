@@ -1,18 +1,17 @@
 import { GraphQLProvider } from "@/components/GraphQLProvider";
 import { I18nProvider } from "@/components/I18nProvider";
-import { TermsAcceptanceScreen } from "@/components/TermsAcceptanceScreen";
 import { AlertDialog } from "@/components/ui/AlertDialog";
 import { useDeviceType } from "@/hooks/useDeviceType";
+import { usePendingIntents } from "@/hooks/usePendingNotifications";
 import { ThemeProvider } from "@/hooks/useTheme";
 import MobileLayout from "@/layouts/mobile";
 import TabletLayout from "@/layouts/tablet";
 import { RequireAuth } from "@/services/require-auth";
-import { useUserSettings } from "@/services/user-settings";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useFonts } from "expo-font";
 import * as Linking from "expo-linking";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, BackHandler, Platform, StyleSheet } from "react-native";
+import { Alert, Platform, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { MenuProvider } from "react-native-popup-menu";
 import "react-native-reanimated";
@@ -21,10 +20,8 @@ import { AppProvider, useAppContext } from "../contexts/AppContext";
 import { ApiConfigService } from "../services/api-config";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import {
-  openSharedCacheDb,
-  openWebStorageDb,
+  openSharedCacheDb
 } from "../services/media-cache-db";
-import { usePendingIntents } from "@/hooks/usePendingNotifications";
 
 type AlertButton = {
   text?: string;
@@ -149,7 +146,6 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       (async () => {
-        await openWebStorageDb();
         installConsoleLoggerBridge();
         console.log("🔄 [LayoutInit] Console logger bridge installed");
         ApiConfigService.initialize().catch();
