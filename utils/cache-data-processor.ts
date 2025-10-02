@@ -135,10 +135,6 @@ export const validateNotification = (notification: NotificationFragment, index?:
     console.warn(`⚠️ Notification at index ${index ?? 'unknown'} missing or invalid __typename:`, notification.__typename);
     return false;
   }
-  if(notification.message.actions?.some(action => !action.type)) {
-    console.warn(`⚠️ Notification at index ${index ?? 'unknown'} missing action type`);
-    return false;
-  }
   if(notification.message.tapAction && !notification.message.tapAction.type) {
     console.warn(`⚠️ Notification at index ${index ?? 'unknown'} missing tap action type`);
     return false;
