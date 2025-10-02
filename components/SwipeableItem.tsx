@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { Platform } from "react-native";
 import {
   Animated,
   Dimensions,
@@ -35,6 +36,8 @@ export interface SwipeAction {
     cancelText?: string;
   };
 }
+
+const enableSwipe = Platform.OS !== "web";
 
 interface SwipeableItemProps {
   children: React.ReactNode;
@@ -114,7 +117,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
 
   const onGestureEvent = Animated.event(
     [{ nativeEvent: { translationX: translateX } }],
-    { 
+    {
       useNativeDriver: true,
       listener: undefined, // Remove any additional listeners for better performance
     }
@@ -195,13 +198,13 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     try {
       // Trigger feedback animation immediately
       animateActionFeedback();
-      
+
       // Execute action immediately
       await action.onPress();
-      
+
       // Return to original position immediately after action
       animateToPosition(0);
-      
+
       // Clear action background
       setShowActionBackground(null);
     } catch (error) {
@@ -217,7 +220,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     try {
       // Trigger feedback animation immediately
       animateActionFeedback();
-      
+
       await action.onPress();
     } catch (error) {
       console.error("Error during action:", error);
@@ -315,24 +318,81 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
       )}
 
       {/* Main content */}
-      <PanGestureHandler
-        ref={panRef}
-        onGestureEvent={onGestureEvent}
-        onHandlerStateChange={onHandlerStateChange}
-        activeOffsetX={[-5, 5]}
-        minPointers={1}
-        maxPointers={1}
-        shouldCancelWhenOutside={true}
-        enableTrackpadTwoFingerGesture={false}
-        avgTouches={true}
-        failOffsetX={[-50, 50]}
-      >
-        <Animated.View
+      {enableSwipe ? (
+        <PanGestureHandler
+          ref={panRef}
+          onGestureEvent={onGestureEvent}
+          onHandlerStateChange={onHandlerStateChange}
+          activeOffsetX={[-5, 5]}
+          minPointers={1}
+          maxPointers={1}
+          shouldCancelWhenOutside={true}
+          enableTrackpadTwoFingerGesture={false}
+          avgTouches={true}
+          failOffsetX={[-50, 50]}
+        >
+          <Animated.View
+            style={[
+              styles.contentContainer,
+              contentStyle,
+              {
+                transform: [{ translateX }, { scale: scaleValue }],
+                borderRadius,
+                overflow: "hidden",
+                backgroundColor: theme.colors.surface,
+                borderWidth: 1,
+                borderColor: theme.colors.outlineVariant,
+              },
+            ]}
+          >
+            {(leftAction || rightAction) && withButton && (
+              <TouchableOpacity
+                ref={burgerButtonRef}
+                style={[
+                  styles.burgerButton,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.outlineVariant,
+                  },
+                ]}
+                onPress={() => {
+                  if (burgerButtonRef.current) {
+                    burgerButtonRef.current.measure(
+                      (
+                        x: number,
+                        y: number,
+                        width: number,
+                        height: number,
+                        pageX: number,
+                        pageY: number
+                      ) => {
+                        setMenuPosition({
+                          top: pageY + height + 8, // Sotto il pulsante
+                          right: screenWidth - pageX - width, // Allineato a destra
+                        });
+                        setIsMenuVisible(true);
+                      }
+                    );
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <Icon
+                  source="dots-vertical"
+                  size={18}
+                  color={theme.colors.onSurface}
+                />
+              </TouchableOpacity>
+            )}
+            {children}
+          </Animated.View>
+        </PanGestureHandler>
+      ) : (
+        <View
           style={[
             styles.contentContainer,
             contentStyle,
             {
-              transform: [{ translateX }, { scale: scaleValue }],
               borderRadius,
               overflow: "hidden",
               backgroundColor: theme.colors.surface,
@@ -381,8 +441,8 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
             </TouchableOpacity>
           )}
           {children}
-        </Animated.View>
-      </PanGestureHandler>
+        </View>
+      )}
 
       {/* Popup menu */}
       {(leftAction || rightAction) && withButton && isMenuVisible && (
