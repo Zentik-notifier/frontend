@@ -14,10 +14,7 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { useI18n } from "@/hooks/useI18n";
-import {
-  useFetchNotifications,
-  useSaveNotificationsToStorage,
-} from "@/hooks/useNotifications";
+import { useFetchNotifications } from "@/hooks/useNotifications";
 import {
   UsePushNotifications,
   usePushNotifications,
@@ -333,7 +330,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     notifications,
     loading: notificationsLoading,
   } = useFetchNotifications();
-  useSaveNotificationsToStorage();
+  // useSaveNotificationsToStorage();
 
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
