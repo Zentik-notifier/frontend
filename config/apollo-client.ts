@@ -13,7 +13,7 @@ import AsyncStorage from '@/utils/async-storage-wrapper';
 import { createClient } from 'graphql-ws';
 import { ApiConfigService } from '../services/api-config';
 import { Platform } from 'react-native';
-import { getAllNotificationsFromCache, clearAllNotificationsFromCache, saveNotificationToCache, upsertNotificationsBatch } from '../services/db-setup';
+import { getAllNotificationsFromCache, clearAllNotificationsFromCache, upsertNotificationsBatch } from '../services/notifications-repository';
 
 if (__DEV__) {
   loadDevMessages();

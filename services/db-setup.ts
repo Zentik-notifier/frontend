@@ -2,6 +2,7 @@ import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
 import { Platform } from 'react-native';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { NotificationFragment } from '@/generated/gql-operations-generated';
 
 // IndexedDB schema for web storage
 export interface WebStorageDB extends DBSchema {
@@ -161,75 +162,41 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
   return webDbPromise;
 }
 
-// Notification cache functions
-export async function saveNotificationToCache(notificationData: any): Promise<void> {
-  if (Platform.OS !== 'web') return;
-
-  const db = await openWebStorageDb();
-  await db.put('notifications', notificationData, notificationData.id);
+/**
+ * Helper function to parse NotificationFragment for database storage
+ *
+ * Maps NotificationFragment fields to database table structure:
+ * - id: notification.id (primary key)
+ * - created_at: notification.createdAt (required)
+ * - read_at: notification.readAt (nullable)
+ * - bucket_id: notification.message.bucket.id (required)
+ * - has_attachments: boolean flag based on notification.message.attachments.length
+ * - fragment: complete NotificationFragment as JSON string
+ *
+ * @param notification - The NotificationFragment to parse
+ * @returns Database record object
+ */
+export function parseNotificationForDB(notification: NotificationFragment) {
+  return {
+    id: notification.id,
+    created_at: notification.createdAt,
+    read_at: notification.readAt,
+    bucket_id: notification.message.bucket.id,
+    has_attachments: notification.message.attachments && notification.message.attachments.length > 0 ? 1 : 0,
+    fragment: JSON.stringify(notification)
+  };
 }
 
-export async function getNotificationFromCache(notificationId: string): Promise<any | null> {
-  if (Platform.OS !== 'web') return null;
-
-  try {
-    const db = await openWebStorageDb();
-    const result = await db.get('notifications', notificationId);
-    return result || null;
-  } catch {
-    return null;
-  }
+/**
+ * Helper function to parse database record back to NotificationFragment
+ *
+ * Reconstructs the complete NotificationFragment from database record.
+ * The database stores the full NotificationFragment as JSON in the 'fragment' field,
+ * so this function simply parses it back.
+ *
+ * @param dbRecord - The database record to parse
+ * @returns Reconstructed NotificationFragment
+ */
+export function parseNotificationFromDB(dbRecord: any): NotificationFragment {
+  return JSON.parse(dbRecord.fragment);
 }
-
-export async function getAllNotificationsFromCache(): Promise<any[]> {
-  if (Platform.OS !== 'web') return [];
-
-  try {
-    const db = await openWebStorageDb();
-    const results = await db.getAll('notifications');
-    return results;
-  } catch {
-    return [];
-  }
-}
-
-export async function removeNotificationFromCache(notificationId: string): Promise<void> {
-  if (Platform.OS !== 'web') return;
-
-  try {
-    const db = await openWebStorageDb();
-    await db.delete('notifications', notificationId);
-  } catch {
-    // Ignore errors
-  }
-}
-
-export async function clearAllNotificationsFromCache(): Promise<void> {
-  if (Platform.OS !== 'web') return;
-
-  try {
-    const db = await openWebStorageDb();
-    await db.clear('notifications');
-  } catch {
-    // Ignore errors
-  }
-}
-
-export async function upsertNotificationsBatch(notifications: any[]): Promise<void> {
-  if (Platform.OS !== 'web' || notifications.length === 0) return;
-
-  try {
-    const db = await openWebStorageDb();
-    const tx = db.transaction('notifications', 'readwrite');
-
-    for (const notification of notifications) {
-      await tx.store.put(notification, notification.id);
-    }
-
-    await tx.done;
-  } catch (error) {
-    console.error('Failed to upsert notifications batch:', error);
-  }
-}
-
-

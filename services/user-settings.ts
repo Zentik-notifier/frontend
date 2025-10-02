@@ -5,10 +5,11 @@ import * as Localization from 'expo-localization';
 import { UserSettingType, useGetUserSettingsLazyQuery, useUpsertUserSettingMutation } from '@/generated/gql-operations-generated';
 import React, { useEffect } from 'react';
 import { ThemePreset } from './theme-presets';
+import { upsertNotificationsBatch } from '@/services/notifications-repository';
+import { Platform } from 'react-native';
 
 // Current version of terms (update this when terms change)
 const CURRENT_TERMS_VERSION = '1.0.0';
-
 
 // Get device timezone with fallback
 const getDeviceTimezone = (): string => {
@@ -125,6 +126,12 @@ export interface UserSettings {
     termsAccepted: boolean;
     acceptedVersion: string;
   };
+
+  // Migration settings
+  migration: {
+    /** Whether notifications have been migrated from AsyncStorage to IndexedDB */
+    notificationsMigratedToIndexedDB: boolean;
+  };
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -182,6 +189,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   termsAcceptance: {
     termsAccepted: false,
     acceptedVersion: CURRENT_TERMS_VERSION,
+  },
+  migration: {
+    notificationsMigratedToIndexedDB: false,
   },
 };
 
@@ -712,6 +722,10 @@ class UserSettingsService {
       },
       onboarding: stored.onboarding || DEFAULT_SETTINGS.onboarding,
       termsAcceptance: stored.termsAcceptance || DEFAULT_SETTINGS.termsAcceptance,
+      migration: {
+        ...DEFAULT_SETTINGS.migration,
+        ...stored.migration,
+      },
     };
   }
 
@@ -876,6 +890,105 @@ class UserSettingsService {
       acceptedVersion: CURRENT_TERMS_VERSION,
     });
   }
+
+  /**
+   * Update migration settings
+   */
+  async updateMigrationSettings(updates: Partial<UserSettings['migration']>): Promise<void> {
+    this.settings.migration = {
+      ...this.settings.migration,
+      ...updates,
+    };
+    await this.saveSettings();
+    this.notifyListeners();
+  }
+
+  /**
+   * Check if notifications have been migrated to IndexedDB
+   */
+  isNotificationsMigratedToIndexedDB(): boolean {
+    return this.settings.migration.notificationsMigratedToIndexedDB;
+  }
+
+  /**
+   * Migrate notifications from AsyncStorage to IndexedDB
+   *
+   * This method migrates notification data stored in AsyncStorage (mobile/web)
+   * to the IndexedDB notifications table (web only). On mobile platforms,
+   * notifications are already stored in SQLite so no migration is needed.
+   *
+   * The migration process:
+   * 1. Checks if migration is already completed
+   * 2. Loads notifications from AsyncStorage (key: 'apollo-cache-notifications')
+   * 3. Saves them to IndexedDB using upsertNotificationsBatch
+   * 4. Updates the migration flag in user settings
+   *
+   * @example
+   * ```typescript
+   * import { userSettings } from '@/services/user-settings';
+   *
+   * // Check if migration is needed
+   * if (!userSettings.isNotificationsMigratedToIndexedDB()) {
+   *   try {
+   *     await userSettings.migrateNotificationsToIndexedDB();
+   *     console.log('Migration completed successfully');
+   *   } catch (error) {
+   *     console.error('Migration failed:', error);
+   *   }
+   * }
+   * ```
+   */
+  async migrateNotificationsToIndexedDB(): Promise<void> {
+    if (Platform.OS === 'web') {
+      console.log('🔄 [Migration] Starting notifications migration to IndexedDB...');
+
+      try {
+        // Check if already migrated
+        if (this.isNotificationsMigratedToIndexedDB()) {
+          console.log('✅ [Migration] Notifications already migrated to IndexedDB');
+          return;
+        }
+
+        // Load notifications from AsyncStorage
+        const APOLLO_CACHE_KEY = 'apollo-cache-notifications';
+        const persistedCacheData = await AsyncStorage.getItem(APOLLO_CACHE_KEY);
+
+        if (!persistedCacheData) {
+          console.log('📥 [Migration] No notifications found in AsyncStorage to migrate');
+          // Mark as migrated since there's nothing to migrate
+          await this.updateMigrationSettings({ notificationsMigratedToIndexedDB: true });
+          return;
+        }
+
+        const notifications: NotificationFragment[] = JSON.parse(persistedCacheData);
+
+        if (notifications.length === 0) {
+          console.log('📥 [Migration] No notifications to migrate');
+          // Mark as migrated since there's nothing to migrate
+          await this.updateMigrationSettings({ notificationsMigratedToIndexedDB: true });
+          return;
+        }
+
+        console.log(`📦 [Migration] Migrating ${notifications.length} notifications to IndexedDB...`);
+
+        // Save to IndexedDB
+        await upsertNotificationsBatch(notifications);
+
+        // Mark migration as completed
+        await this.updateMigrationSettings({ notificationsMigratedToIndexedDB: true });
+
+        console.log('✅ [Migration] Successfully migrated notifications to IndexedDB');
+
+      } catch (error) {
+        console.error('❌ [Migration] Error migrating notifications to IndexedDB:', error);
+        throw error;
+      }
+    } else {
+      console.log('📱 [Migration] Mobile platform - no migration needed (uses SQLite)');
+      // On mobile we use SQLite directly, so mark as migrated
+      await this.updateMigrationSettings({ notificationsMigratedToIndexedDB: true });
+    }
+  }
 }
 
 // Export singleton instance
@@ -994,5 +1107,9 @@ export function useUserSettings() {
     updateTermsAcceptanceSettings: userSettings.updateTermsAcceptanceSettings.bind(userSettings),
     acceptTerms: userSettings.acceptTerms.bind(userSettings),
     clearTermsAcceptance: userSettings.clearTermsAcceptance.bind(userSettings),
+
+    // Migration methods
+    migrateNotificationsToIndexedDB: userSettings.migrateNotificationsToIndexedDB.bind(userSettings),
+    isNotificationsMigratedToIndexedDB: userSettings.isNotificationsMigratedToIndexedDB.bind(userSettings),
   };
 }
