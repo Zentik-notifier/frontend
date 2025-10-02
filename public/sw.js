@@ -27,45 +27,40 @@ function storeIntentInIndexedDB(intentData) {
 }
 
 // Store pending notification for processing when app opens
-function storePendingNotification(notificationData) {
-  return new Promise((resolve, reject) => {
-    getPendingNotifications()
-      .then((pendingNotifications) => {
-        // Add new notification
-        pendingNotifications.push({
-          notificationId: notificationData.notificationId,
-          title: notificationData.title,
-          body: notificationData.body,
-          subtitle: notificationData.subtitle,
-          bucketId: notificationData.bucketId,
-          bucketName: notificationData.bucketName,
-          bucketIconUrl: notificationData.bucketIconUrl,
-          tapAction: notificationData.tapAction,
-          actions: notificationData.actions,
-          attachmentData: notificationData.attachmentData,
-          timestamp: notificationData.timestamp || Date.now()
-        });
+async function storePendingNotification(notificationData) {
+  try {
+    const pendingNotifications = await getPendingNotifications();
+    
+    // Add new notification
+    pendingNotifications.push({
+      notificationId: notificationData.notificationId,
+      title: notificationData.title,
+      body: notificationData.body,
+      subtitle: notificationData.subtitle,
+      bucketId: notificationData.bucketId,
+      bucketName: notificationData.bucketName,
+      bucketIconUrl: notificationData.bucketIconUrl,
+      tapAction: notificationData.tapAction,
+      actions: notificationData.actions,
+      attachmentData: notificationData.attachmentData,
+      timestamp: notificationData.timestamp || Date.now()
+    });
 
-        // Limit to last 50 notifications
-        if (pendingNotifications.length > 50) {
-          pendingNotifications = pendingNotifications.slice(-50);
-        }
+    // Limit to last 50 notifications
+    const limitedNotifications = pendingNotifications.length > 50 
+      ? pendingNotifications.slice(-50) 
+      : pendingNotifications;
 
-        return savePendingNotifications(pendingNotifications);
-      })
-      .then(() => {
-        console.log('[Service Worker] ✅ Pending notification stored:', notificationData.notificationId);
-        resolve();
-      })
-      .catch((error) => {
-        console.error('[Service Worker] Failed to store pending notification:', error);
-        reject(error);
-      });
-  });
+    await savePendingNotifications(limitedNotifications);
+    console.log('[Service Worker] ✅ Pending notification stored:', notificationData.notificationId);
+  } catch (error) {
+    console.error('[Service Worker] Failed to store pending notification:', error);
+    throw error;
+  }
 }
 
 // Common method to handle notification actions (used by both tapAction and action buttons)
-function handleNotificationAction(actionType, actionValue, notificationData, event) {
+async function handleNotificationAction(actionType, actionValue, notificationData, event) {
   console.log('[Service Worker] Handling action:', actionType, actionValue);
 
   const notificationId = notificationData?.notificationId;
@@ -75,31 +70,36 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
     case 'NAVIGATE':
       // Navigate to external URL or internal route
       event.waitUntil(
-        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-          if (clientList.length > 0) {
-            // App is open, send navigation message
-            const focusedClient = clientList.find(client => client.focused) || clientList[0];
-            focusedClient.postMessage({
-              type: 'notification-tap-action',
-              action: 'NAVIGATE',
-              value: actionValue,
-              notificationId: notificationId,
-              bucketId: bucketId,
-              data: notificationData
-            });
-            return focusedClient.focus();
-          } else {
-            // App not open, handle external vs internal URLs
-            const isExternalUrl = actionValue.startsWith('http://') || actionValue.startsWith('https://');
+        (async () => {
+          try {
+            const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+            
+            if (clientList.length > 0) {
+              // App is open, send navigation message
+              const focusedClient = clientList.find(client => client.focused) || clientList[0];
+              focusedClient.postMessage({
+                type: 'notification-tap-action',
+                action: 'NAVIGATE',
+                value: actionValue,
+                notificationId: notificationId,
+                bucketId: bucketId,
+                data: notificationData
+              });
+              await focusedClient.focus();
+            } else {
+              // App not open, handle external vs internal URLs
+              const isExternalUrl = actionValue.startsWith('http://') || actionValue.startsWith('https://');
 
-            if (isExternalUrl) {
-              // For external URLs, open in new tab/window
-              console.log('[Service Worker] Opening external URL:', actionValue);
-              if (self.clients.openWindow) {
-                return self.clients.openWindow(actionValue).catch((error) => {
-                  console.error('[Service Worker] Failed to open external URL:', error);
-                  // Fallback: open app and send message
-                  return self.clients.openWindow('/').then((newClient) => {
+              if (isExternalUrl) {
+                // For external URLs, open in new tab/window
+                console.log('[Service Worker] Opening external URL:', actionValue);
+                if (self.clients.openWindow) {
+                  try {
+                    await self.clients.openWindow(actionValue);
+                  } catch (error) {
+                    console.error('[Service Worker] Failed to open external URL:', error);
+                    // Fallback: open app and send message
+                    const newClient = await self.clients.openWindow('/');
                     if (newClient) {
                       setTimeout(() => {
                         newClient.postMessage({
@@ -112,36 +112,38 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
                         });
                       }, 1000);
                     }
-                  });
-                });
-              }
-            } else {
-              // For internal routes, store intent and open app
-              console.log('[Service Worker] Storing navigation intent:', actionValue);
-              if (self.clients.openWindow) {
-                // Store navigation intent
-                const intentData = {
-                  type: 'NAVIGATE',
-                  value: actionValue,
-                  notificationId: notificationId,
-                  bucketId: bucketId,
-                  timestamp: Date.now()
-                };
+                  }
+                }
+              } else {
+                // For internal routes, store intent and open app
+                console.log('[Service Worker] Storing navigation intent:', actionValue);
+                if (self.clients.openWindow) {
+                  // Store navigation intent
+                  const intentData = {
+                    type: 'NAVIGATE',
+                    value: actionValue,
+                    notificationId: notificationId,
+                    bucketId: bucketId,
+                    timestamp: Date.now()
+                  };
 
-                // Store intent in IndexedDB and open app
-                return storeIntentInIndexedDB(intentData).then(() => {
-                  console.log('[Service Worker] Stored navigation intent:', intentData);
-                  // Open app and let it handle the intent from IndexedDB
-                  return self.clients.openWindow('/');
-                }).catch((error) => {
-                  console.error('[Service Worker] Failed to store intent:', error);
-                  // Still open app even if storage fails
-                  return self.clients.openWindow('/');
-                });
+                  try {
+                    await storeIntentInIndexedDB(intentData);
+                    console.log('[Service Worker] Stored navigation intent:', intentData);
+                    // Open app and let it handle the intent from IndexedDB
+                    await self.clients.openWindow('/');
+                  } catch (error) {
+                    console.error('[Service Worker] Failed to store intent:', error);
+                    // Still open app even if storage fails
+                    await self.clients.openWindow('/');
+                  }
+                }
               }
             }
+          } catch (error) {
+            console.error('[Service Worker] Error in NAVIGATE action:', error);
           }
-        })
+        })()
       );
       break;
 
@@ -149,154 +151,162 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
       // Open notification detail page
       const value = actionValue || notificationId;
       event.waitUntil(
-        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-          if (clientList.length > 0) {
-            const focusedClient = clientList.find(client => client.focused) || clientList[0];
-            focusedClient.postMessage({
-              type: 'notification-tap-action',
-              action: 'OPEN_NOTIFICATION',
-              value: notificationId,
-              notificationId: notificationId,
-              bucketId: bucketId,
-              data: notificationData
-            });
-            return focusedClient.focus();
-          } else {
-            // App is closed, store intent and open app
-            if (self.clients.openWindow) {
-              // Store the notification intent
-              const intentData = {
-                type: 'OPEN_NOTIFICATION',
-                notificationId: notificationId,
+        (async () => {
+          try {
+            const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+            
+            if (clientList.length > 0) {
+              const focusedClient = clientList.find(client => client.focused) || clientList[0];
+              focusedClient.postMessage({
+                type: 'notification-tap-action',
+                action: 'OPEN_NOTIFICATION',
                 value: notificationId,
+                notificationId: notificationId,
                 bucketId: bucketId,
-                timestamp: Date.now()
-              };
-
-              // Store intent in IndexedDB and open app
-              return storeIntentInIndexedDB(intentData).then(() => {
-                console.log('[Service Worker] Stored notification intent:', intentData);
-                // Open app and let it handle the intent from IndexedDB
-                return self.clients.openWindow('/');
-              }).catch((error) => {
-                console.error('[Service Worker] Failed to store intent:', error);
-                // Still open app even if storage fails
-                return self.clients.openWindow('/');
+                data: notificationData
               });
+              await focusedClient.focus();
+            } else {
+              // App is closed, store intent and open app
+              if (self.clients.openWindow) {
+                // Store the notification intent
+                const intentData = {
+                  type: 'OPEN_NOTIFICATION',
+                  notificationId: notificationId,
+                  value: notificationId,
+                  bucketId: bucketId,
+                  timestamp: Date.now()
+                };
+
+                try {
+                  await storeIntentInIndexedDB(intentData);
+                  console.log('[Service Worker] Stored notification intent:', intentData);
+                  // Open app and let it handle the intent from IndexedDB
+                  await self.clients.openWindow('/');
+                } catch (error) {
+                  console.error('[Service Worker] Failed to store intent:', error);
+                  // Still open app even if storage fails
+                  await self.clients.openWindow('/');
+                }
+              }
             }
+          } catch (error) {
+            console.error('[Service Worker] Error in OPEN_NOTIFICATION action:', error);
           }
-        })
+        })()
       );
       break;
 
     case 'BACKGROUND_CALL':
       // Execute background API call
       event.waitUntil(
-        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-          if (clientList.length > 0) {
-            // App is open, send message to app
-            const focusedClient = clientList.find(client => client.focused) || clientList[0];
-            focusedClient.postMessage({
-              type: 'notification-tap-action',
-              action: 'BACKGROUND_CALL',
-              value: actionValue,
-              notificationId: notificationId,
-              bucketId: bucketId,
-              data: notificationData
-            });
-            return focusedClient.focus();
-          } else {
-            // App is closed, execute background call directly
-            const [method, url] = actionValue.split('::');
+        (async () => {
+          try {
+            const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+            
+            if (clientList.length > 0) {
+              // App is open, send message to app
+              const focusedClient = clientList.find(client => client.focused) || clientList[0];
+              focusedClient.postMessage({
+                type: 'notification-tap-action',
+                action: 'BACKGROUND_CALL',
+                value: actionValue,
+                notificationId: notificationId,
+                bucketId: bucketId,
+                data: notificationData
+              });
+              await focusedClient.focus();
+            } else {
+              // App is closed, execute background call directly
+              const [method, url] = actionValue.split('::');
 
-            if (!url) {
-              console.error('[Service Worker] ❌ Invalid background call format:', actionValue);
-              return Promise.resolve();
-            }
+              if (!url) {
+                console.error('[Service Worker] ❌ Invalid background call format:', actionValue);
+                return;
+              }
 
-            console.log(`[Service Worker] 📞 Executing background call: ${method || 'GET'} ${url}`);
+              console.log(`[Service Worker] 📞 Executing background call: ${method || 'GET'} ${url}`);
 
-            return fetch(url, {
-              method: method || 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            })
-              .then((response) => {
+              try {
+                const response = await fetch(url, {
+                  method: method || 'GET',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                });
+
                 if (!response.ok) {
                   throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 console.log('[Service Worker] ✅ Background call executed successfully');
-              })
-              .catch((error) => {
+              } catch (error) {
                 console.error('[Service Worker] ❌ Failed to execute background call:', error);
-              });
+              }
+            }
+          } catch (error) {
+            console.error('[Service Worker] Error in BACKGROUND_CALL action:', error);
           }
-        })
+        })()
       );
       break;
 
     case 'MARK_AS_READ':
       // Mark notification as read
       event.waitUntil(
-        executeApiCall(`/notifications/${notificationId}/read`, 'PATCH')
-          .then(() => {
+        (async () => {
+          try {
+            await executeApiCall(`/notifications/${notificationId}/read`, 'PATCH');
             console.log('[Service Worker] ✅ Notification marked as read:', notificationId);
             
             // Notify app to refresh cache
-            return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-              if (clientList.length > 0) {
-                const focusedClient = clientList.find(client => client.focused) || clientList[0];
-                focusedClient.postMessage({
-                  type: 'notification-action-completed',
-                  action: 'MARK_AS_READ',
-                  notificationId: notificationId,
-                  success: true
-                });
-              }
-            });
-          })
-          .catch((error) => {
+            const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+            if (clientList.length > 0) {
+              const focusedClient = clientList.find(client => client.focused) || clientList[0];
+              focusedClient.postMessage({
+                type: 'notification-action-completed',
+                action: 'MARK_AS_READ',
+                notificationId: notificationId,
+                success: true
+              });
+            }
+          } catch (error) {
             console.error('[Service Worker] ❌ Failed to mark notification as read:', error);
-          })
+          }
+        })()
       );
       break;
 
     case 'DELETE':
       // Delete notification
       event.waitUntil(
-        executeApiCall(`/notifications/${notificationId}`, 'DELETE')
-          .then(() => {
+        (async () => {
+          try {
+            await executeApiCall(`/notifications/${notificationId}`, 'DELETE');
             console.log('[Service Worker] ✅ Notification deleted from server:', notificationId);
 
             // Also remove from local IndexedDB cache
-            return removeNotificationFromCache(notificationId);
-          })
-          .then(() => {
+            await removeNotificationFromCache(notificationId);
             console.log('[Service Worker] ✅ Notification removed from local cache:', notificationId);
             
             // Also remove from pending notifications if it exists
-            return removePendingNotification(notificationId);
-          })
-          .then(() => {
+            await removePendingNotification(notificationId);
             console.log('[Service Worker] ✅ Pending notification removed for notification:', notificationId);
             
             // Notify app to refresh cache
-            return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-              if (clientList.length > 0) {
-                const focusedClient = clientList.find(client => client.focused) || clientList[0];
-                focusedClient.postMessage({
-                  type: 'notification-action-completed',
-                  action: 'DELETE',
-                  notificationId: notificationId,
-                  success: true
-                });
-              }
-            });
-          })
-          .catch((error) => {
+            const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+            if (clientList.length > 0) {
+              const focusedClient = clientList.find(client => client.focused) || clientList[0];
+              focusedClient.postMessage({
+                type: 'notification-action-completed',
+                action: 'DELETE',
+                notificationId: notificationId,
+                success: true
+              });
+            }
+          } catch (error) {
             console.error('[Service Worker] ❌ Failed to delete notification:', error);
-          })
+          }
+        })()
       );
       break;
 
@@ -304,28 +314,32 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
       const minutes = parseInt(actionValue, 10);
       if (isNaN(minutes) || minutes <= 0) {
         console.error('[Service Worker] ❌ Invalid snooze duration:', actionValue);
-        return Promise.resolve();
+        return;
       }
 
-      executeApiCall(`/buckets/${bucketId}/snooze-minutes`, 'POST', { minutes })
-        .then(() => {
-          console.log(`[Service Worker] ✅ Bucket ${bucketId} snoozed for ${minutes} minutes`);
-        })
-        .catch((error) => {
-          console.error('[Service Worker] ❌ Failed to snooze bucket:', error);
-        });
-    }
+      event.waitUntil(
+        (async () => {
+          try {
+            await executeApiCall(`/buckets/${bucketId}/snooze-minutes`, 'POST', { minutes });
+            console.log(`[Service Worker] ✅ Bucket ${bucketId} snoozed for ${minutes} minutes`);
+          } catch (error) {
+            console.error('[Service Worker] ❌ Failed to snooze bucket:', error);
+          }
+        })()
+      );
       break;
+    }
 
     case 'WEBHOOK':
       event.waitUntil(
-        executeApiCall(`/webhooks/${actionValue}/execute`, 'POST')
-          .then(() => {
+        (async () => {
+          try {
+            await executeApiCall(`/webhooks/${actionValue}/execute`, 'POST');
             console.log('[Service Worker] ✅ Webhook executed:', actionValue);
-          })
-          .catch((error) => {
+          } catch (error) {
             console.error('[Service Worker] ❌ Failed to execute webhook:', error);
-          })
+          }
+        })()
       );
       break;
 
@@ -333,28 +347,36 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
       console.warn('[Service Worker] Unknown action type:', actionType);
       // Fallback to default URL navigation
       event.waitUntil(
-        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-          if (clientList.length > 0) {
-            const focusedClient = clientList.find(client => client.focused) || clientList[0];
-            focusedClient.postMessage({
-              type: 'notification-click',
-              url: actionValue || '/',
-              notificationId: notificationId,
-              bucketId: bucketId,
-              data: notificationData
-            });
-            return focusedClient.focus();
-          } else {
-            if (self.clients.openWindow) {
-              // Try to open the actionValue if it's a valid URL, otherwise fallback to '/'
-              const fallbackUrl = actionValue || '/';
-              return self.clients.openWindow(fallbackUrl).catch((error) => {
-                console.error('[Service Worker] Failed to open fallback URL:', error);
-                return self.clients.openWindow('/');
+        (async () => {
+          try {
+            const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+            
+            if (clientList.length > 0) {
+              const focusedClient = clientList.find(client => client.focused) || clientList[0];
+              focusedClient.postMessage({
+                type: 'notification-click',
+                url: actionValue || '/',
+                notificationId: notificationId,
+                bucketId: bucketId,
+                data: notificationData
               });
+              await focusedClient.focus();
+            } else {
+              if (self.clients.openWindow) {
+                // Try to open the actionValue if it's a valid URL, otherwise fallback to '/'
+                const fallbackUrl = actionValue || '/';
+                try {
+                  await self.clients.openWindow(fallbackUrl);
+                } catch (error) {
+                  console.error('[Service Worker] Failed to open fallback URL:', error);
+                  await self.clients.openWindow('/');
+                }
+              }
             }
+          } catch (error) {
+            console.error('[Service Worker] Error in default action:', error);
           }
-        })
+        })()
       );
   }
 }
@@ -425,31 +447,42 @@ self.addEventListener('push', (event) => {
 
   // Show notification, store as pending, and notify the app
   event.waitUntil(
-    Promise.all([
-      self.registration.showNotification(title, options),
-      storePendingNotification(pendingNotificationData).catch(error => {
-        console.error('[Service Worker] Failed to store pending notification:', error);
-      }),
-      // Notify the app about the new notification
-      self.clients.matchAll({ includeUncontrolled: true }).then(clients => {
-        clients.forEach(client => {
-          client.postMessage({
-            type: 'notification-received',
-            notificationId: notificationId,
-            title: title,
-            body: body,
-            bucketId: bucketId,
-            bucketName: payload.bucketName,
-            bucketIconUrl: payload.bucketIcon,
-            tapAction: payload.tapAction,
-            actions: actions,
-            timestamp: Date.now()
+    (async () => {
+      try {
+        // Show notification
+        await self.registration.showNotification(title, options);
+        
+        // Store as pending notification
+        try {
+          await storePendingNotification(pendingNotificationData);
+        } catch (error) {
+          console.error('[Service Worker] Failed to store pending notification:', error);
+        }
+        
+        // Notify the app about the new notification
+        try {
+          const clients = await self.clients.matchAll({ includeUncontrolled: true });
+          clients.forEach(client => {
+            client.postMessage({
+              type: 'notification-received',
+              notificationId: notificationId,
+              title: title,
+              body: body,
+              bucketId: bucketId,
+              bucketName: payload.bucketName,
+              bucketIconUrl: payload.bucketIcon,
+              tapAction: payload.tapAction,
+              actions: actions,
+              timestamp: Date.now()
+            });
           });
-        });
-      }).catch(error => {
-        console.error('[Service Worker] Failed to notify clients:', error);
-      })
-    ])
+        } catch (error) {
+          console.error('[Service Worker] Failed to notify clients:', error);
+        }
+      } catch (error) {
+        console.error('[Service Worker] Error in push event handler:', error);
+      }
+    })()
   );
 });
 
@@ -489,29 +522,35 @@ self.addEventListener('notificationclick', (event) => {
   } else {
     // No tapAction, use default URL navigation
     event.waitUntil(
-      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-        if (clientList.length > 0) {
-          const focusedClient = clientList.find(client => client.focused) || clientList[0];
-          focusedClient.postMessage({
-            type: 'notification-click',
-            url: url,
-            notificationId: notificationId,
-            bucketId: bucketId,
-            data: notificationData
-          });
-          return focusedClient.focus();
-        } else {
-          if (self.clients.openWindow) {
-            return self.clients.openWindow(url);
+      (async () => {
+        try {
+          const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+          
+          if (clientList.length > 0) {
+            const focusedClient = clientList.find(client => client.focused) || clientList[0];
+            focusedClient.postMessage({
+              type: 'notification-click',
+              url: url,
+              notificationId: notificationId,
+              bucketId: bucketId,
+              data: notificationData
+            });
+            await focusedClient.focus();
+          } else {
+            if (self.clients.openWindow) {
+              await self.clients.openWindow(url);
+            }
           }
+        } catch (error) {
+          console.error('[Service Worker] Error in default notification click:', error);
         }
-      })
+      })()
     );
   }
 });
 
 // Helper function to get stored data from IndexedDB
-function getStoredData(key) {
+async function getStoredData(key) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('zentik-storage', 2);
 
@@ -598,7 +637,7 @@ async function executeApiCall(endpoint, method = 'GET', body = null) {
 }
 
 // Remove notification from local IndexedDB cache
-function removeNotificationFromCache(notificationId) {
+async function removeNotificationFromCache(notificationId) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('zentik-storage', 2);
 
@@ -629,7 +668,7 @@ function removeNotificationFromCache(notificationId) {
 }
 
 // Common function to get pending notifications from IndexedDB
-function getPendingNotifications() {
+async function getPendingNotifications() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('zentik-storage', 2);
 
@@ -668,7 +707,7 @@ function getPendingNotifications() {
 }
 
 // Common function to save pending notifications to IndexedDB
-function savePendingNotifications(pendingNotifications) {
+async function savePendingNotifications(pendingNotifications) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('zentik-storage', 2);
 
@@ -696,33 +735,27 @@ function savePendingNotifications(pendingNotifications) {
 }
 
 // Remove pending notification for a specific notification ID
-function removePendingNotification(notificationId) {
-  return new Promise((resolve, reject) => {
-    getPendingNotifications()
-      .then((pendingNotifications) => {
-        // Filter out the notification to remove
-        const filteredNotifications = pendingNotifications.filter(
-          notification => notification.notificationId !== notificationId
-        );
+async function removePendingNotification(notificationId) {
+  try {
+    const pendingNotifications = await getPendingNotifications();
+    
+    // Filter out the notification to remove
+    const filteredNotifications = pendingNotifications.filter(
+      notification => notification.notificationId !== notificationId
+    );
 
-        if (filteredNotifications.length === pendingNotifications.length) {
-          console.log('[Service Worker] No pending notification found for ID:', notificationId);
-          resolve();
-          return;
-        }
+    if (filteredNotifications.length === pendingNotifications.length) {
+      console.log('[Service Worker] No pending notification found for ID:', notificationId);
+      return;
+    }
 
-        console.log('[Service Worker] Removing pending notification:', notificationId);
-        return savePendingNotifications(filteredNotifications);
-      })
-      .then(() => {
-        console.log('[Service Worker] ✅ Pending notification removed:', notificationId);
-        resolve();
-      })
-      .catch((error) => {
-        console.error('[Service Worker] Failed to remove pending notification:', error);
-        reject(error);
-      });
-  });
+    console.log('[Service Worker] Removing pending notification:', notificationId);
+    await savePendingNotifications(filteredNotifications);
+    console.log('[Service Worker] ✅ Pending notification removed:', notificationId);
+  } catch (error) {
+    console.error('[Service Worker] Failed to remove pending notification:', error);
+    throw error;
+  }
 }
 
 // --- GESTIONE DEL CICLO DI VITA DEL SERVICE WORKER (Best Practice) ---

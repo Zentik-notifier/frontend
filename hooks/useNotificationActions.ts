@@ -130,8 +130,8 @@ export function useNotificationActions() {
     }
   }, [t]);
 
-  const onMarkAsRead = useCallback(async (notificationId: string, action?: NotificationActionFragment) => {
-    console.log('✅ Marking notification as read:', JSON.stringify(action ?? {}));
+  const onMarkAsRead = useCallback(async (notificationId: string) => {
+    console.log('✅ Marking notification as read:', notificationId);
 
     try {
       if (notificationId) {
@@ -147,8 +147,8 @@ export function useNotificationActions() {
     }
   }, [markAsRead, t]);
 
-  const onDelete = useCallback(async (notificationId: string, action?: NotificationActionFragment) => {
-    console.log('🗑️ Deleting notification:', JSON.stringify(action ?? {}));
+  const onDelete = useCallback(async (notificationId: string) => {
+    console.log('🗑️ Deleting notification:', notificationId);
 
     try {
       if (notificationId) {
@@ -252,11 +252,11 @@ export function useNotificationActions() {
         break;
       case NotificationActionType.MarkAsRead:
         console.log('✅ Mark as read action');
-        await onMarkAsRead(notificationId, action);
+        await onMarkAsRead(notificationId);
         break;
       case NotificationActionType.Delete:
         console.log('🗑️ Delete action');
-        await onDelete(notificationId, action);
+        await onDelete(notificationId);
         break;
       case NotificationActionType.Snooze:
         console.log('⏰ Snooze action');
