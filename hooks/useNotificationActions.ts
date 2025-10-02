@@ -130,8 +130,8 @@ export function useNotificationActions() {
     }
   }, [t]);
 
-  const onMarkAsRead = useCallback(async (notificationId: string, action: NotificationActionFragment) => {
-    console.log('✅ Marking notification as read:', JSON.stringify(action));
+  const onMarkAsRead = useCallback(async (notificationId: string, action?: NotificationActionFragment) => {
+    console.log('✅ Marking notification as read:', JSON.stringify(action ?? {}));
 
     try {
       if (notificationId) {
@@ -147,8 +147,8 @@ export function useNotificationActions() {
     }
   }, [markAsRead, t]);
 
-  const onDelete = useCallback(async (notificationId: string, action: NotificationActionFragment) => {
-    console.log('🗑️ Deleting notification:', JSON.stringify(action));
+  const onDelete = useCallback(async (notificationId: string, action?: NotificationActionFragment) => {
+    console.log('🗑️ Deleting notification:', JSON.stringify(action ?? {}));
 
     try {
       if (notificationId) {
@@ -289,7 +289,10 @@ export function useNotificationActions() {
 
   const pushNotificationReceived = useCallback(async (notificationId: string) => {
     try {
-      await deviceReportReceived({ variables: { id: notificationId } });
+      try {
+        await deviceReportReceived({ variables: { id: notificationId } });
+      } catch {
+      }
 
       try {
         await processPendingNotificationIntents(apolloClient);
@@ -300,7 +303,7 @@ export function useNotificationActions() {
       } catch (e) {
         console.warn('⚠️ Failed to refetch notifications list after push receipt:', e);
       }
-      
+
       // const res = await getNotification({ variables: { id: notificationId }, fetchPolicy: 'network-only' });
       // const notif = res.data?.notification;
       // if (notif?.message?.attachments && notif.message.attachments.length > 0) {

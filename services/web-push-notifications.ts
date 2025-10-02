@@ -158,9 +158,9 @@ class WebPushNotificationService {
       // Handle notification-tap-action messages (from tapAction)
       if (payload.type === 'notification-tap-action') {
         const { action, value, notificationId, bucketId, data } = payload;
-        
+
         console.log('[WebPushNotificationService] Handling tap action:', action, value);
-        
+
         // Execute the action based on type
         try {
           this.callbacks?.executeAction(notificationId || '', {
@@ -212,7 +212,7 @@ class WebPushNotificationService {
       if (payload.type === 'notification-click') {
         const { url, notificationId } = payload;
         console.log('[WebPushNotificationService] Handling notification click:', url);
-        
+
         // Navigate to the URL
         if (url && url !== '/') {
           this.callbacks?.onNavigate?.(url);
@@ -229,9 +229,44 @@ class WebPushNotificationService {
           bucketId,
           bucketName
         });
-        
+
         if (this.callbacks?.pushNotificationReceived) {
           this.callbacks.pushNotificationReceived(notificationId);
+        }
+
+        return;
+      }
+
+      // Handle notification-action-completed messages (action completed by service worker)
+      if (payload.type === 'notification-action-completed') {
+        const { action, notificationId, success, error } = payload;
+        console.log('[WebPushNotificationService] Action completed by service worker:', {
+          action,
+          notificationId,
+          success,
+          error
+        });
+
+        if (success) {
+          // Handle specific actions
+          if (action === 'DELETE') {
+            // Remove notification from GraphQL cache
+            if (this.callbacks?.onDelete) {
+              this.callbacks.onDelete(notificationId);
+            }
+          } else if (action === 'MARK_AS_READ') {
+            // Mark notification as read in GraphQL cache
+            if (this.callbacks?.onMarkAsRead) {
+              this.callbacks.onMarkAsRead(notificationId);
+            }
+          } else {
+            // For other actions, refresh the notification list
+            if (this.callbacks?.pushNotificationReceived) {
+              this.callbacks.pushNotificationReceived(notificationId);
+            }
+          }
+        } else {
+          console.error('[WebPushNotificationService] Action failed:', error);
         }
 
         return;

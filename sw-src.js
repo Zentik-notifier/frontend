@@ -41,26 +41,8 @@ function storeIntentInIndexedDB(intentData) {
 // Store pending notification for processing when app opens
 function storePendingNotification(notificationData) {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('zentik-storage', 2);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(['keyvalue'], 'readwrite');
-      const store = transaction.objectStore('keyvalue');
-
-      // Get existing pending notifications
-      const getRequest = store.get('pending_notifications');
-      getRequest.onsuccess = () => {
-        let pendingNotifications = [];
-        if (getRequest.result) {
-          try {
-            pendingNotifications = JSON.parse(getRequest.result);
-          } catch (e) {
-            pendingNotifications = [];
-          }
-        }
-
+    getPendingNotifications()
+      .then((pendingNotifications) => {
         // Add new notification
         pendingNotifications.push({
           notificationId: notificationData.notificationId,
@@ -76,23 +58,21 @@ function storePendingNotification(notificationData) {
           timestamp: notificationData.timestamp || Date.now()
         });
 
-        // Save updated list
-        const putRequest = store.put(JSON.stringify(pendingNotifications), 'pending_notifications');
-        putRequest.onsuccess = () => resolve();
-        putRequest.onerror = () => reject(putRequest.error);
-      };
-      getRequest.onerror = () => reject(getRequest.error);
-    };
+        // Limit to last 50 notifications
+        if (pendingNotifications.length > 50) {
+          pendingNotifications = pendingNotifications.slice(-50);
+        }
 
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('keyvalue')) {
-        db.createObjectStore('keyvalue');
-      }
-      // if (!db.objectStoreNames.contains('notifications')) {
-      //   db.createObjectStore('notifications');
-      // }
-    };
+        return savePendingNotifications(pendingNotifications);
+      })
+      .then(() => {
+        console.log('[Service Worker] ✅ Pending notification stored:', notificationData.notificationId);
+        resolve();
+      })
+      .catch((error) => {
+        console.error('[Service Worker] Failed to store pending notification:', error);
+        reject(error);
+      });
   });
 }
 
@@ -271,37 +251,26 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
     case 'MARK_AS_READ':
       // Mark notification as read
       event.waitUntil(
-        executeApiCall(`/notifications/${notificationId}/mark-as-read`, 'POST')
+        executeApiCall(`/notifications/${notificationId}/read`, 'PATCH')
           .then(() => {
             console.log('[Service Worker] ✅ Notification marked as read:', notificationId);
+            
+            // Notify app to refresh cache
+            return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+              if (clientList.length > 0) {
+                const focusedClient = clientList.find(client => client.focused) || clientList[0];
+                focusedClient.postMessage({
+                  type: 'notification-action-completed',
+                  action: 'MARK_AS_READ',
+                  notificationId: notificationId,
+                  success: true
+                });
+              }
+            });
           })
           .catch((error) => {
             console.error('[Service Worker] ❌ Failed to mark notification as read:', error);
           })
-        // self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-        // if (clientList.length > 0) {
-        //   // App is open, send message to app
-        //   const focusedClient = clientList.find(client => client.focused) || clientList[0];
-        //   focusedClient.postMessage({
-        //     type: 'notification-tap-action',
-        //     action: 'MARK_AS_READ',
-        //     value: actionValue,
-        //     notificationId: notificationId,
-        //     bucketId: bucketId,
-        //     data: notificationData
-        //   });
-        //   return focusedClient.focus();
-        // } else {
-        // App is closed, execute API call directly
-        // return executeApiCall(`/notifications/${notificationId}/mark-as-read`, 'POST')
-        //   .then(() => {
-        //     console.log('[Service Worker] ✅ Notification marked as read:', notificationId);
-        //   })
-        //   .catch((error) => {
-        //     console.error('[Service Worker] ❌ Failed to mark notification as read:', error);
-        //   });
-        // }
-        // })
       );
       break;
 
@@ -310,35 +279,36 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
       event.waitUntil(
         executeApiCall(`/notifications/${notificationId}`, 'DELETE')
           .then(() => {
-            console.log('[Service Worker] ✅ Notification deleted:', notificationId);
+            console.log('[Service Worker] ✅ Notification deleted from server:', notificationId);
+
+            // Also remove from local IndexedDB cache
+            return removeNotificationFromCache(notificationId);
+          })
+          .then(() => {
+            console.log('[Service Worker] ✅ Notification removed from local cache:', notificationId);
+            
+            // Also remove from pending notifications if it exists
+            return removePendingNotification(notificationId);
+          })
+          .then(() => {
+            console.log('[Service Worker] ✅ Pending notification removed for notification:', notificationId);
+            
+            // Notify app to refresh cache
+            return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+              if (clientList.length > 0) {
+                const focusedClient = clientList.find(client => client.focused) || clientList[0];
+                focusedClient.postMessage({
+                  type: 'notification-action-completed',
+                  action: 'DELETE',
+                  notificationId: notificationId,
+                  success: true
+                });
+              }
+            });
           })
           .catch((error) => {
             console.error('[Service Worker] ❌ Failed to delete notification:', error);
           })
-        // self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-        //   if (clientList.length > 0) {
-        //     // App is open, send message to app
-        //     const focusedClient = clientList.find(client => client.focused) || clientList[0];
-        //     focusedClient.postMessage({
-        //       type: 'notification-tap-action',
-        //       action: 'DELETE',
-        //       value: actionValue,
-        //       notificationId: notificationId,
-        //       bucketId: bucketId,
-        //       data: notificationData
-        //     });
-        //     return focusedClient.focus();
-        //   } else {
-        //     // App is closed, execute API call directly
-        //     return executeApiCall(`/notifications/${notificationId}`, 'DELETE')
-        //       .then(() => {
-        //         console.log('[Service Worker] ✅ Notification deleted:', notificationId);
-        //       })
-        //       .catch((error) => {
-        //         console.error('[Service Worker] ❌ Failed to delete notification:', error);
-        //       });
-        //   }
-        // })
       );
       break;
 
@@ -349,52 +319,17 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
         return Promise.resolve();
       }
 
-      executeApiCall(`/buckets/${bucketId}/snooze`, 'POST', { minutes })
+      executeApiCall(`/buckets/${bucketId}/snooze-minutes`, 'POST', { minutes })
         .then(() => {
           console.log(`[Service Worker] ✅ Bucket ${bucketId} snoozed for ${minutes} minutes`);
         })
         .catch((error) => {
           console.error('[Service Worker] ❌ Failed to snooze bucket:', error);
         });
-      // }
     }
-      // Snooze notification
-      // event.waitUntil(
-      //   self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      //     // if (clientList.length > 0) {
-      //     //   // App is open, send message to app
-      //     //   const focusedClient = clientList.find(client => client.focused) || clientList[0];
-      //     //   focusedClient.postMessage({
-      //     //     type: 'notification-tap-action',
-      //     //     action: 'SNOOZE',
-      //     //     value: actionValue,
-      //     //     notificationId: notificationId,
-      //     //     bucketId: bucketId,
-      //     //     data: notificationData
-      //     //   });
-      //     //   return focusedClient.focus();
-      //     // } else {
-      //     // App is closed, execute API call directly
-      //     const minutes = parseInt(actionValue, 10);
-      //     if (isNaN(minutes) || minutes <= 0) {
-      //       console.error('[Service Worker] ❌ Invalid snooze duration:', actionValue);
-      //       return Promise.resolve();
-      //     }
-
-      //     return executeApiCall(`/buckets/${bucketId}/snooze`, 'POST', { minutes })
-      //       .then(() => {
-      //         console.log(`[Service Worker] ✅ Bucket ${bucketId} snoozed for ${minutes} minutes`);
-      //       })
-      //       .catch((error) => {
-      //         console.error('[Service Worker] ❌ Failed to snooze bucket:', error);
-      //       });
-      //     // }
-      //   })
-      // );
       break;
 
     case 'WEBHOOK':
-      // Execute webhook
       event.waitUntil(
         executeApiCall(`/webhooks/${actionValue}/execute`, 'POST')
           .then(() => {
@@ -403,30 +338,6 @@ function handleNotificationAction(actionType, actionValue, notificationData, eve
           .catch((error) => {
             console.error('[Service Worker] ❌ Failed to execute webhook:', error);
           })
-        // self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-        // if (clientList.length > 0) {
-        //   // App is open, send message to app
-        //   const focusedClient = clientList.find(client => client.focused) || clientList[0];
-        //   focusedClient.postMessage({
-        //     type: 'notification-tap-action',
-        //     action: 'WEBHOOK',
-        //     value: actionValue,
-        //     notificationId: notificationId,
-        //     bucketId: bucketId,
-        //     data: notificationData
-        //   });
-        //   return focusedClient.focus();
-        // } else {
-        // App is closed, execute webhook via API directly
-        // return executeApiCall(`/webhooks/${actionValue}/execute`, 'POST')
-        //   .then(() => {
-        //     console.log('[Service Worker] ✅ Webhook executed:', actionValue);
-        //   })
-        //   .catch((error) => {
-        //     console.error('[Service Worker] ❌ Failed to execute webhook:', error);
-        //   });
-        // }
-        // })
       );
       break;
 
@@ -487,8 +398,9 @@ self.addEventListener('push', (event) => {
   const options = {
     body: body,
     icon: '/logo192.png',
-    badge: '/logo72.png',
+    // icon: payload.image ?? payload.bucketIcon,
     image: payload.image ?? payload.bucketIcon,
+    badge: '/logo72.png',
     data: {
       url: url,
       notificationId: notificationId,
@@ -652,7 +564,7 @@ function getStoredData(key) {
 async function getApiCredentials() {
   try {
     const apiEndpoint = await getStoredData('api_endpoint');
-    const authToken = await getStoredData('auth_token');
+    const authToken = await getStoredData('access_token');
 
     if (!apiEndpoint || !authToken) {
       console.warn('[Service Worker] Missing API credentials');
@@ -673,7 +585,7 @@ async function executeApiCall(endpoint, method = 'GET', body = null) {
     throw new Error('No API credentials available');
   }
 
-  const url = `${credentials.apiEndpoint}${endpoint}`;
+  const url = `${credentials.apiEndpoint}/api/v1${endpoint}`;
   const options = {
     method,
     headers: {
@@ -695,6 +607,134 @@ async function executeApiCall(endpoint, method = 'GET', body = null) {
   }
 
   return response;
+}
+
+// Remove notification from local IndexedDB cache
+function removeNotificationFromCache(notificationId) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('zentik-storage', 2);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(['notifications'], 'readwrite');
+      const store = transaction.objectStore('notifications');
+
+      const deleteRequest = store.delete(notificationId);
+      deleteRequest.onsuccess = () => {
+        console.log('[Service Worker] Removed notification from cache:', notificationId);
+        resolve();
+      };
+      deleteRequest.onerror = () => reject(deleteRequest.error);
+    };
+
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('keyvalue')) {
+        db.createObjectStore('keyvalue');
+      }
+      if (!db.objectStoreNames.contains('notifications')) {
+        db.createObjectStore('notifications');
+      }
+    };
+  });
+}
+
+// Common function to get pending notifications from IndexedDB
+function getPendingNotifications() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('zentik-storage', 2);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(['keyvalue'], 'readonly');
+      const store = transaction.objectStore('keyvalue');
+
+      const getRequest = store.get('pending_notifications');
+      getRequest.onsuccess = () => {
+        let pendingNotifications = [];
+        if (getRequest.result) {
+          try {
+            pendingNotifications = JSON.parse(getRequest.result);
+          } catch (e) {
+            console.error('[Service Worker] Failed to parse pending notifications:', e);
+            pendingNotifications = [];
+          }
+        }
+        resolve(pendingNotifications);
+      };
+      getRequest.onerror = () => reject(getRequest.error);
+    };
+
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('keyvalue')) {
+        db.createObjectStore('keyvalue');
+      }
+      if (!db.objectStoreNames.contains('notifications')) {
+        db.createObjectStore('notifications');
+      }
+    };
+  });
+}
+
+// Common function to save pending notifications to IndexedDB
+function savePendingNotifications(pendingNotifications) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('zentik-storage', 2);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(['keyvalue'], 'readwrite');
+      const store = transaction.objectStore('keyvalue');
+
+      const putRequest = store.put(JSON.stringify(pendingNotifications), 'pending_notifications');
+      putRequest.onsuccess = () => resolve();
+      putRequest.onerror = () => reject(putRequest.error);
+    };
+
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('keyvalue')) {
+        db.createObjectStore('keyvalue');
+      }
+      if (!db.objectStoreNames.contains('notifications')) {
+        db.createObjectStore('notifications');
+      }
+    };
+  });
+}
+
+// Remove pending notification for a specific notification ID
+function removePendingNotification(notificationId) {
+  return new Promise((resolve, reject) => {
+    getPendingNotifications()
+      .then((pendingNotifications) => {
+        // Filter out the notification to remove
+        const filteredNotifications = pendingNotifications.filter(
+          notification => notification.notificationId !== notificationId
+        );
+
+        if (filteredNotifications.length === pendingNotifications.length) {
+          console.log('[Service Worker] No pending notification found for ID:', notificationId);
+          resolve();
+          return;
+        }
+
+        console.log('[Service Worker] Removing pending notification:', notificationId);
+        return savePendingNotifications(filteredNotifications);
+      })
+      .then(() => {
+        console.log('[Service Worker] ✅ Pending notification removed:', notificationId);
+        resolve();
+      })
+      .catch((error) => {
+        console.error('[Service Worker] Failed to remove pending notification:', error);
+        reject(error);
+      });
+  });
 }
 
 // --- GESTIONE DEL CICLO DI VITA DEL SERVICE WORKER (Best Practice) ---
