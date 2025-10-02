@@ -1,7 +1,7 @@
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
-import { mediaCache } from "@/services/media-cache";
+import { mediaCache } from "@/services/media-cache-service";
 import { saveMediaToGallery } from "@/services/media-gallery";
 import * as Clipboard from "expo-clipboard";
 import * as Sharing from "expo-sharing";

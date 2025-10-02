@@ -21,7 +21,7 @@ import { ApiConfigService } from "../services/api-config";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import {
   openSharedCacheDb
-} from "../services/media-cache-db";
+} from "../services/db-setup";
 
 type AlertButton = {
   text?: string;

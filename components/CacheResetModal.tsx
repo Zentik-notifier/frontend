@@ -5,7 +5,7 @@ import {
 } from "@/hooks/useMediaCache";
 import { clearAllAuthData } from "@/services/auth-storage";
 import { localNotifications } from "@/services/local-notifications";
-import { mediaCache } from "@/services/media-cache";
+import { mediaCache } from "@/services/media-cache-service";
 import { userSettings } from "@/services/user-settings";
 import React, { useState } from "react";
 import {

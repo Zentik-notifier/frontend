@@ -42,7 +42,7 @@ import {
   savePushNotificationsInitialized,
   saveTokens,
 } from "../services/auth-storage";
-import { mediaCache } from "../services/media-cache";
+import { mediaCache } from "../services/media-cache-service";
 import { useUserSettings } from "../services/user-settings";
 import { usePendingIntents } from "@/hooks/usePendingNotifications";
 

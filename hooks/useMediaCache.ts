@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Subscription } from 'rxjs';
 import { MediaType } from '../generated/gql-operations-generated';
-import { CacheItem, CacheStats, DownloadQueueState, mediaCache } from '../services/media-cache';
+import { CacheItem, CacheStats, DownloadQueueState, mediaCache } from '../services/media-cache-service';
 import { IS_FS_SUPPORTED } from '@/utils';
 
 export const useCachedItem = (url: string, mediaType: MediaType) => {

@@ -3,7 +3,7 @@ import { useGetNotificationsQuery } from "@/generated/gql-operations-generated";
 import { useGraphQLCacheImportExport } from "@/hooks/useGraphQLCacheImportExport";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { openSharedCacheDb } from "@/services/media-cache-db";
+import { openSharedCacheDb } from "@/services/db-setup";
 import { MediaCacheRepository } from "@/services/media-cache-repository";
 import { useUserSettings } from "@/services/user-settings";
 import { formatFileSize, IS_FS_SUPPORTED } from "@/utils";

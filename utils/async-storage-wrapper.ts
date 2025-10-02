@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import BaseAsyncStorage from 'expo-sqlite/kv-store';
 import * as Device from 'expo-device';
 import * as Keychain from 'react-native-keychain';
-import { openWebStorageDb } from '../services/media-cache-db';
+import { openWebStorageDb } from '../services/db-setup';
 
 export type KeyValuePair = [string, string];
 type StorageOptions = { secret?: boolean };

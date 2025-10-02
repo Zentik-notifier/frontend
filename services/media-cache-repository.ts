@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import type { CacheItem } from './media-cache';
+import type { CacheItem } from './media-cache-service';
 
 export class MediaCacheRepository {
   constructor(private readonly db: SQLiteDatabase) { }

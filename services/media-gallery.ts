@@ -2,7 +2,7 @@ import { MediaType } from '@/generated/gql-operations-generated';
 import { File } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { Alert, Platform } from 'react-native';
-import { mediaCache } from './media-cache';
+import { mediaCache } from './media-cache-service';
 
 export async function saveMediaToGallery(
 	url: string,

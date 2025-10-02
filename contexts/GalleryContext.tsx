@@ -2,7 +2,7 @@ import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useAppContext } from "@/contexts/AppContext";
-import { CacheItem } from "@/services/media-cache";
+import { CacheItem } from "@/services/media-cache-service";
 import React, {
   createContext,
   useContext,

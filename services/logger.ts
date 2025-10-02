@@ -1,4 +1,4 @@
-import { openSharedCacheDb, openWebStorageDb } from './media-cache-db';
+import { openSharedCacheDb, openWebStorageDb } from './db-setup';
 import { LogRepository, LogLevel } from './log-repository';
 import { Platform } from 'react-native';
 

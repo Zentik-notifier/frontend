@@ -2,7 +2,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import { GalleryProvider, useGalleryContext } from "@/contexts/GalleryContext";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { CacheItem } from "@/services/media-cache";
+import { CacheItem } from "@/services/media-cache-service";
 import React, { useMemo, useState } from "react";
 import {
   Dimensions,

@@ -1,6 +1,6 @@
 import { UpdateUserDeviceInput, useUpdateUserDeviceMutation } from '@/generated/gql-operations-generated';
 import { clearPendingNavigationIntent } from '@/services/auth-storage';
-import { mediaCache } from '@/services/media-cache';
+import { mediaCache } from '@/services/media-cache-service';
 import { useNavigationUtils } from '@/utils/navigation';
 import * as Notifications from 'expo-notifications';
 import { useCallback } from 'react';

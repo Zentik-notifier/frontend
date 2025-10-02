@@ -4,7 +4,7 @@ import { MediaType } from '../generated/gql-operations-generated';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { openSharedCacheDb } from './media-cache-db';
+import { openSharedCacheDb } from './db-setup';
 import { MediaCacheRepository } from './media-cache-repository';
 import { IS_FS_SUPPORTED } from '@/utils/fileUtils';
 

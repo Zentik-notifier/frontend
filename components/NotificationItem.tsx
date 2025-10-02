@@ -11,7 +11,7 @@ import {
   useMarkNotificationRead,
   useMarkNotificationUnread,
 } from "@/hooks/useNotifications";
-import { mediaCache } from "@/services/media-cache";
+import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useRecyclingState } from "@shopify/flash-list";
 import React, { useEffect, useMemo, useRef } from "react";

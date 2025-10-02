@@ -1,5 +1,5 @@
 import { useAppContext } from "@/contexts/AppContext";
-import { mediaCache } from "@/services/media-cache";
+import { mediaCache } from "@/services/media-cache-service";
 import { Icon } from "react-native-paper";
 import { useEvent } from "expo";
 import { useAudioPlayer } from "expo-audio";

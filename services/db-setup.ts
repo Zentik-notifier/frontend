@@ -107,6 +107,24 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
     `);
     await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_app_log_timestamp ON app_log(timestamp);`);
 
+    // Notifications table for storing notification data
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        read_at TEXT,
+        bucket_id TEXT NOT NULL,
+        has_attachments INTEGER NOT NULL DEFAULT 0 CHECK (has_attachments IN (0,1)),
+        fragment TEXT NOT NULL
+      );
+    `);
+
+    // Create indexes for performance
+    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);`);
+    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_read_at ON notifications(read_at);`);
+    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_bucket_id ON notifications(bucket_id);`);
+    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_has_attachments ON notifications(has_attachments);`);
+
     return db;
   })();
 

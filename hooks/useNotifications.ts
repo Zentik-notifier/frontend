@@ -1,6 +1,6 @@
 import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetNotificationLazyQuery, useGetNotificationsLazyQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation, MediaType, useGetNotificationQuery, useGetNotificationsQuery, useGetBucketsQuery } from '@/generated/gql-operations-generated';
 import { saveNotificationsToPersistedCache } from '@/config/apollo-client';
-import { mediaCache } from '@/services/media-cache';
+import { mediaCache } from '@/services/media-cache-service';
 import { Reference, useApolloClient } from '@apollo/client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
