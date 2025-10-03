@@ -48,13 +48,13 @@ async function executeQuery<T>(queryFn: (db: any) => Promise<T>): Promise<T> {
  */
 export async function saveNotificationToCache(notificationData: NotificationFragment): Promise<void> {
   await executeQuery(async (db) => {
+    const parsedData = parseNotificationForDB(notificationData);
+
     if (Platform.OS === 'web') {
       // IndexedDB
-      const parsedData = parseNotificationForDB(notificationData);
       await db.put('notifications', parsedData, parsedData.id);
     } else {
       // SQLite
-      const parsedData = parseNotificationForDB(notificationData);
       await db.runAsync(
         `INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, has_attachments, fragment)
          VALUES (?, ?, ?, ?, ?, ?)`,

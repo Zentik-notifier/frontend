@@ -17,7 +17,7 @@ import {
 } from '../generated/gql-operations-generated';
 import { useI18n } from './useI18n';
 import { useDeleteNotification, useFetchNotifications, useMarkNotificationRead } from './useNotifications';
-import { usePendingIntents } from './usePendingNotifications';
+import { usePendingNotificationIntents } from './usePendingNotificationIntents';
 import { useApolloClient } from '@apollo/client';
 
 /**
@@ -36,7 +36,7 @@ export function useNotificationActions() {
   const [updateUserDeviceMutation] = useUpdateUserDeviceMutation();
   const { fetchNotifications } = useFetchNotifications(true);
   const { navigateToNotificationDetail, navigateToHome } = useNavigationUtils();
-  const { processPendingNotificationIntents } = usePendingIntents();
+  const { processPendingNotificationIntents } = usePendingNotificationIntents();
   const apolloClient = useApolloClient();
 
   const deleteNotification = useCallback(async (notificationId: string) => {

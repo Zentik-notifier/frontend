@@ -4,8 +4,9 @@ import { GetNotificationsDocument, GetNotificationsQuery, NotificationFragment, 
 import { clearPendingNavigationIntent, clearPendingNotifications, getPendingNavigationIntent, getPendingNotifications } from '../services/auth-storage';
 import { Linking } from 'react-native';
 import { useNavigationUtils } from '@/utils/navigation';
+import { saveNotificationToCache } from '../services/notifications-repository';
 
-export function usePendingIntents() {
+export function usePendingNotificationIntents() {
   const { navigateToNotificationDetail } = useNavigationUtils();
 
   // Normalize various timestamp formats (epoch number, numeric string, ISO string, Date)
@@ -166,6 +167,15 @@ export function usePendingIntents() {
           notifications: updatedNotifications
         }
       });
+
+      try {
+        for (const notification of uniqueNewNotifications) {
+          await saveNotificationToCache(notification);
+        }
+        console.log(`[PendingIntents] 💾 Saved ${uniqueNewNotifications.length} notifications to local database`);
+      } catch (dbError) {
+        console.error('[PendingIntents] ❌ Failed to save notifications to database:', dbError);
+      }
 
       // Clear processed notifications
       await clearPendingNotifications();

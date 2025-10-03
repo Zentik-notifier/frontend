@@ -2,7 +2,7 @@ import { GraphQLProvider } from "@/components/GraphQLProvider";
 import { I18nProvider } from "@/components/I18nProvider";
 import { AlertDialog } from "@/components/ui/AlertDialog";
 import { useDeviceType } from "@/hooks/useDeviceType";
-import { usePendingIntents } from "@/hooks/usePendingNotifications";
+import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
 import { ThemeProvider } from "@/hooks/useTheme";
 import MobileLayout from "@/layouts/mobile";
 import TabletLayout from "@/layouts/tablet";
@@ -80,7 +80,7 @@ export default function RootLayout() {
   const [webAlert, setWebAlert] = useState<WebAlertState>({ visible: false });
   const originalAlertRef = useRef<typeof Alert.alert>(null);
   const { isMobile } = useDeviceType();
-  const { processPendingNavigationIntent } = usePendingIntents();
+  const { processPendingNavigationIntent } = usePendingNotificationIntents();
 
   useEffect(() => {
     console.log("🔄 [RootLayout] Loaded");

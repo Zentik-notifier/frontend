@@ -41,7 +41,7 @@ import {
 } from "../services/auth-storage";
 import { mediaCache } from "../services/media-cache-service";
 import { useUserSettings } from "../services/user-settings";
-import { usePendingIntents } from "@/hooks/usePendingNotifications";
+import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -93,7 +93,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loadedFromPersistedCache = useReactiveVar(loadedFromPersistedCacheVar);
   const connectionStatus = useConnectionStatus(push);
   const userSettings = useUserSettings();
-  const { processPendingNotificationIntents } = usePendingIntents();
+  const { processPendingNotificationIntents } = usePendingNotificationIntents();
   const apolloClient = useApolloClient();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
