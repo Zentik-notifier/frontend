@@ -127,7 +127,6 @@ export default function CreateSystemAccessTokenForm() {
 
   return (
     <PaperScrollView
-      style={styles.container}
       loading={loading}
       onRefresh={handlerRefetch}
     >
@@ -267,7 +266,6 @@ export default function CreateSystemAccessTokenForm() {
 }
 
 const styles = StyleSheet.create({
-  container: {},
   formContainer: {
     marginBottom: 16,
   },

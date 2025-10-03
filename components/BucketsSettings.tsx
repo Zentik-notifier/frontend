@@ -360,8 +360,7 @@ export default function BucketsSettings() {
       <PaperScrollView
         onRefresh={handleRefresh}
         loading={loading}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        onAdd={() => navigateToCreateBucket(false)}
       >
         {/* Sezione Dangling Buckets */}
         {showDanglingBuckets && (
@@ -686,14 +685,6 @@ export default function BucketsSettings() {
           </Dialog>
         </Portal>
       </PaperScrollView>
-
-      {/* FAB per creare nuovo bucket */}
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => navigateToCreateBucket(false)}
-        disabled={isOfflineAuth || isBackendUnreachable}
-      />
     </View>
   );
 }
@@ -710,13 +701,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 8,
-  },
-  scrollView: {
-    paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
-  },
-  scrollContent: {
-    paddingHorizontal: 16, // Aggiunge il padding orizzontale solo al contenuto
-    paddingVertical: 8, // Aggiunge padding verticale per evitare gap
   },
   emptyState: {
     flex: 1,
@@ -841,10 +825,5 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     textAlign: "center",
-  },
-  fab: {
-    position: "absolute",
-    bottom: 24,
-    right: 24,
   },
 });

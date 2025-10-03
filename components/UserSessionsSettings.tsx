@@ -287,13 +287,8 @@ export function UserSessionsSettings() {
   };
 
   return (
-    <View style={styles.container}>
-      <PaperScrollView
-        onRefresh={handleRefresh}
-        loading={loading}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-      >
+    <View>
+      <PaperScrollView onRefresh={handleRefresh} loading={loading}>
         {sortedSessions.length > 1 && (
           <Button
             mode="contained"
@@ -381,16 +376,6 @@ export function UserSessionsSettings() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
-  },
-  scrollContent: {
-    paddingHorizontal: 16, // Aggiunge il padding orizzontale solo al contenuto
-    paddingVertical: 8, // Aggiunge padding verticale per evitare gap
-  },
   revokeAllButton: {
     marginBottom: 24,
   },

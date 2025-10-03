@@ -167,7 +167,6 @@ export default function UserDetails({ userId }: UserDetailsProps) {
     <PaperScrollView
       onRefresh={handleRefresh}
       loading={userLoading || statsLoading}
-      contentContainerStyle={styles.content}
     >
       {/* User Info Section */}
       <Card style={styles.section} mode="outlined">
@@ -346,7 +345,6 @@ export default function UserDetails({ userId }: UserDetailsProps) {
 }
 
 const styles = StyleSheet.create({
-  content: {},
   section: {
     marginBottom: 16,
   },

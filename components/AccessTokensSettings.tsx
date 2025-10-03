@@ -1,3 +1,5 @@
+import PaperScrollView from "@/components/ui/PaperScrollView";
+import { useAppContext } from "@/contexts/AppContext";
 import {
   AccessTokenListDto,
   useGetUserAccessTokensQuery,
@@ -6,23 +8,20 @@ import {
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/contexts/AppContext";
+import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import SwipeableItem from "./SwipeableItem";
-import PaperScrollView from "@/components/ui/PaperScrollView";
-import { useNavigationUtils } from "@/utils/navigation";
 import {
   Badge,
   Button,
   Card,
   Dialog,
-  FAB,
   Icon,
   Portal,
   Text,
-  useTheme,
+  useTheme
 } from "react-native-paper";
+import SwipeableItem from "./SwipeableItem";
 
 export function AccessTokensSettings() {
   const theme = useTheme();
@@ -102,7 +101,10 @@ export function AccessTokensSettings() {
               </Text>
               {isExpired && (
                 <Badge
-                  style={[styles.expiredBadge, { backgroundColor: theme.colors.error }]}
+                  style={[
+                    styles.expiredBadge,
+                    { backgroundColor: theme.colors.error },
+                  ]}
                 >
                   {t("accessTokens.item.expired")}
                 </Badge>
@@ -123,7 +125,10 @@ export function AccessTokensSettings() {
               )}
 
               {!item.lastUsed && (
-                <Text variant="bodySmall" style={[styles.tokenDetail, { fontStyle: "italic" }]}>
+                <Text
+                  variant="bodySmall"
+                  style={[styles.tokenDetail, { fontStyle: "italic" }]}
+                >
                   {t("accessTokens.item.neverUsed")}
                 </Text>
               )}
@@ -153,11 +158,10 @@ export function AccessTokensSettings() {
 
   return (
     <View style={styles.container}>
-      <PaperScrollView 
-        loading={loading} 
+      <PaperScrollView
+        onAdd={() => navigateToCreateAccessToken()}
+        loading={loading}
         onRefresh={handleRefresh}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
       >
         {sortedTokens.length === 0 ? (
           <View style={styles.emptyState}>
@@ -179,14 +183,6 @@ export function AccessTokensSettings() {
           </View>
         )}
       </PaperScrollView>
-
-      {/* FAB per creare nuovo token */}
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => navigateToCreateAccessToken()}
-        disabled={disabledAdd}
-      />
 
       {/* Error Dialog */}
       <Portal>
@@ -213,13 +209,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: "relative",
-  },
-  scrollView: {
-    paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
-  },
-  scrollContent: {
-    paddingHorizontal: 16, // Aggiunge il padding orizzontale solo al contenuto
-    paddingVertical: 8, // Aggiunge padding verticale per evitare gap
   },
   emptyState: {
     flex: 1,
@@ -259,10 +248,5 @@ const styles = StyleSheet.create({
   },
   tokenDetail: {
     // opacity handled by color
-  },
-  fab: {
-    position: "absolute",
-    bottom: 24,
-    right: 24,
   },
 });

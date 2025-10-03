@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 import {
   Icon,
   List,
@@ -78,6 +78,8 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   const theme = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { t } = useI18n();
+
+  const withActions = Platform.OS !== "web";
 
   const finalBorderColor = borderColor ?? theme.colors.outlineVariant;
 
@@ -217,7 +219,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   const hasMenu = showMenu && allMenuItems.length > 0;
 
   function LeftAction() {
-    if (!leftAction) return null;
+    if (!leftAction || !withActions) return null;
 
     return (
       <TouchableOpacity
@@ -238,7 +240,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   }
 
   function RightAction() {
-    if (!rightAction) return null;
+    if (!rightAction || !withActions) return null;
 
     return (
       <TouchableOpacity
@@ -267,8 +269,12 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
         enableTrackpadTwoFingerGesture
         rightThreshold={40}
         leftThreshold={40}
-        renderLeftActions={leftAction ? LeftAction : undefined}
-        renderRightActions={rightAction ? RightAction : undefined}
+        enableContextMenu
+        overshootLeft={false}
+        overshootRight={false}
+        renderLeftActions={leftAction && withActions ? LeftAction : undefined}
+        renderRightActions={rightAction && withActions ? RightAction : undefined}
+
       >
         <Surface
           elevation={0}

@@ -64,19 +64,9 @@ export default function EditWebhook({ webhookId }: EditWebhookProps) {
     console.error("Error loading webhooks:", error);
   }
 
-  if (loading) {
-    return (
-      <Surface style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading webhook...</Text>
-        </View>
-      </Surface>
-    );
-  }
-
   if (!webhook) {
     return (
-      <Surface style={styles.container}>
+      <Surface>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Webhook not found</Text>
         </View>
@@ -85,42 +75,27 @@ export default function EditWebhook({ webhookId }: EditWebhookProps) {
   }
 
   return (
-    <Surface style={styles.container}>
-      <PaperScrollView
-        onRefresh={handleRefresh}
-        loading={loading}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <CreateWebhookForm webhookId={webhookId} />
-        <View style={styles.deleteSection}>
-          <Button
-            mode="contained"
-            buttonColor={theme.colors.error}
-            textColor={theme.colors.onError}
-            icon="delete"
-            onPress={deleteWebhook}
-            loading={deletingWebhook}
-            disabled={deletingWebhook}
-            style={styles.deleteButton}
-          >
-            {deletingWebhook ? "Deleting..." : t("webhooks.delete")}
-          </Button>
-        </View>
-      </PaperScrollView>
-    </Surface>
+    <PaperScrollView onRefresh={handleRefresh} loading={loading}>
+      <CreateWebhookForm webhookId={webhookId} />
+      <View style={styles.deleteSection}>
+        <Button
+          mode="contained"
+          buttonColor={theme.colors.error}
+          textColor={theme.colors.onError}
+          icon="delete"
+          onPress={deleteWebhook}
+          loading={deletingWebhook}
+          disabled={deletingWebhook}
+          style={styles.deleteButton}
+        >
+          {deletingWebhook ? "Deleting..." : t("webhooks.delete")}
+        </Button>
+      </View>
+    </PaperScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollView: {
-    paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
-  },
-  scrollContent: {
-    paddingHorizontal: 16, // Aggiunge il padding orizzontale solo al contenuto
-    paddingVertical: 8, // Aggiunge padding verticale per evitare gap
-  },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   loadingText: { fontSize: 16, opacity: 0.7 },
   errorContainer: { flex: 1, justifyContent: "center", alignItems: "center" },

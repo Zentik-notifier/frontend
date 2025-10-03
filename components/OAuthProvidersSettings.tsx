@@ -11,12 +11,11 @@ import { Image, StyleSheet, View } from "react-native";
 import {
   Card,
   Chip,
-  FAB,
   Icon,
   IconButton,
   Surface,
   Text,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
 
@@ -179,9 +178,9 @@ export default function OAuthProvidersSettings() {
   return (
     <View style={styles.container}>
       <PaperScrollView
+        onAdd={handleCreateProvider}
         onRefresh={handleRefresh}
         loading={loading}
-        contentContainerStyle={styles.scrollContent}
       >
         {allProviders.length === 0 ? (
           <View style={styles.emptyState}>
@@ -203,9 +202,6 @@ export default function OAuthProvidersSettings() {
           </View>
         )}
       </PaperScrollView>
-
-      {/* FAB per creare nuovo provider */}
-      <FAB icon="plus" style={styles.fab} onPress={handleCreateProvider} />
     </View>
   );
 }
@@ -213,15 +209,6 @@ export default function OAuthProvidersSettings() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 100, // Space for FAB
-  },
-  fab: {
-    position: "absolute",
-    margin: 16,
-    right: 0,
-    bottom: 0,
   },
   errorContainer: {
     flex: 1,

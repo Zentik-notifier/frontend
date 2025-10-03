@@ -82,7 +82,7 @@ const UserListItem: React.FC<UserListItemProps> = ({ user }) => {
           >
             {getUserRoleDisplayName(user.role)?.toUpperCase()}
           </Chip>
-{/* 
+          {/* 
           <IconButton
             icon="eye"
             size={20}
@@ -140,11 +140,7 @@ export default function UserManagement() {
   }
 
   return (
-    <PaperScrollView
-      onRefresh={handleRefresh}
-      loading={loading}
-      contentContainerStyle={styles.pageContent}
-    >
+    <PaperScrollView onRefresh={handleRefresh} loading={loading}>
       <View style={styles.headerRow}>
         <Text variant="bodyMedium" style={styles.statsText}>
           {t("administration.totalUsers")}: {users.length}
@@ -220,10 +216,6 @@ const styles = StyleSheet.create({
   },
   usersList: {
     paddingBottom: 20,
-  },
-  pageContent: {
-    paddingTop: 8,
-    paddingBottom: 16,
   },
   headerRow: {
     flexDirection: "row",

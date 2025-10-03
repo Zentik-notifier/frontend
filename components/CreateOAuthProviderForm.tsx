@@ -172,7 +172,6 @@ export default function CreateOAuthProviderForm({
 
   return (
     <PaperScrollView
-      style={styles.container}
       loading={loading}
       onRefresh={isEditing ? handleRefresh : undefined}
     >
@@ -485,9 +484,6 @@ export default function CreateOAuthProviderForm({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-  },
   loadingContainer: {
     justifyContent: "center",
     alignItems: "center",

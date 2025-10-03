@@ -153,7 +153,13 @@ export default function SystemAccessTokens() {
 
   return (
     <View style={styles.container}>
-      <PaperScrollView onRefresh={handleRefresh} loading={loading}>
+      <PaperScrollView
+        onAdd={
+          disabledAdd ? undefined : () => navigateToCreateSystemAccessToken()
+        }
+        onRefresh={handleRefresh}
+        loading={loading}
+      >
         {sortedTokens.length === 0 ? (
           <View style={styles.emptyState}>
             <Icon
@@ -174,13 +180,6 @@ export default function SystemAccessTokens() {
           </View>
         )}
       </PaperScrollView>
-
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => navigateToCreateSystemAccessToken()}
-        disabled={disabledAdd}
-      />
 
       {/* Error Dialog */}
       <Portal>
@@ -222,12 +221,6 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     minWidth: 48,
-  },
-  fab: {
-    position: "absolute",
-    margin: 16,
-    right: 0,
-    bottom: 0,
   },
   emptyState: {
     flex: 1,

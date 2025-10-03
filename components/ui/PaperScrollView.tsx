@@ -1,33 +1,42 @@
 import React, { useState } from "react";
 import {
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   View,
   ViewStyle,
 } from "react-native";
-import { ActivityIndicator, Text, useTheme } from "react-native-paper";
+import {
+  ActivityIndicator,
+  IconButton,
+  Text,
+  useTheme,
+} from "react-native-paper";
 import { useI18n } from "../../hooks/useI18n";
 
 interface PaperScrollViewProps {
   children: React.ReactNode;
   onRefresh?: () => Promise<void>;
+  onAdd?: () => void;
   style?: ViewStyle;
   contentContainerStyle?: ViewStyle;
   showsVerticalScrollIndicator?: boolean;
   showsHorizontalScrollIndicator?: boolean;
   loading?: boolean;
+  withScroll?: boolean;
 }
 
 export default function PaperScrollView({
   children,
   onRefresh,
+  onAdd,
   style,
   contentContainerStyle,
   showsVerticalScrollIndicator = false,
   showsHorizontalScrollIndicator = false,
-  // Loading props
   loading = false,
+  withScroll = true,
 }: PaperScrollViewProps) {
   const theme = useTheme();
   const { t } = useI18n();
@@ -40,6 +49,36 @@ export default function PaperScrollView({
     setRefreshing(false);
   };
 
+  const scrollViewContent = withScroll ? (
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={contentContainerStyle}
+      showsVerticalScrollIndicator={showsVerticalScrollIndicator}
+      showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      automaticallyAdjustKeyboardInsets={true}
+      refreshControl={
+        onRefresh && Platform.OS !== "web" ? (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+            progressBackgroundColor={theme.colors.surface}
+            titleColor={theme.colors.onSurface}
+          />
+        ) : undefined
+      }
+    >
+      {children}
+    </ScrollView>
+  ) : (
+    children
+  );
+
+  const showFab = onRefresh || onAdd;
+
   return (
     <View
       style={[
@@ -48,29 +87,37 @@ export default function PaperScrollView({
         style,
       ]}
     >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={contentContainerStyle}
-        showsVerticalScrollIndicator={showsVerticalScrollIndicator}
-        showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-        automaticallyAdjustKeyboardInsets={true}
-        refreshControl={
-          onRefresh ? (
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[theme.colors.primary]}
-              tintColor={theme.colors.primary}
-              progressBackgroundColor={theme.colors.surface}
-              titleColor={theme.colors.onSurface}
+      {scrollViewContent}
+
+      {/* FAB buttons in bottom right corner (Web only) */}
+      {showFab && (
+        <View style={styles.fabContainer}>
+          {onAdd && (
+            <IconButton
+              icon="plus"
+              size={24}
+              onPress={onAdd}
+              mode="contained"
+              containerColor={theme.colors.primary}
+              iconColor={theme.colors.onPrimary}
+              style={styles.fabButton}
             />
-          ) : undefined
-        }
-      >
-        {children}
-      </ScrollView>
+          )}
+          {onRefresh && (
+            <IconButton
+              icon="refresh"
+              size={24}
+              onPress={handleRefresh}
+              disabled={refreshing}
+              loading={refreshing}
+              mode="contained"
+              containerColor={theme.colors.secondaryContainer}
+              iconColor={theme.colors.secondary}
+              style={styles.fabButton}
+            />
+          )}
+        </View>
+      )}
 
       {/* Loading overlay */}
       {loading && (
@@ -102,6 +149,25 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  fabContainer: {
+    position: "absolute",
+    bottom: 24,
+    right: 24,
+    flexDirection: "row",
+    gap: 12,
+    zIndex: 1000,
+  },
+  fabButton: {
+    margin: 0,
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   loadingContainer: {
     flex: 1,
