@@ -779,6 +779,7 @@
     "exporting": "Exporting...",
     "copied": "Copied!",
     "copiedToClipboard": "Copied to clipboard",
+    "copyToClipboard": "Copy ID to clipboard",
     "saved": "Saved",
     "savedToGallery": "Media saved to gallery",
     "back": "Back",

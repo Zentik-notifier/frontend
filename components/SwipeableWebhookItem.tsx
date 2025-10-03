@@ -1,18 +1,16 @@
+import { useAppContext } from "@/contexts/AppContext";
 import {
   UserWebhookFragment,
   useDeleteWebhookMutation,
 } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/contexts/AppContext";
+import { useNavigationUtils } from "@/utils/navigation";
 import { getHttpMethodColor } from "@/utils/webhookUtils";
 import React, { useMemo, useState } from "react";
-import { StyleSheet, TouchableOpacity, Pressable, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Dialog, Icon, Portal, Text, useTheme } from "react-native-paper";
 import SwipeableItem, { MenuItem } from "./SwipeableItem";
-import { Icon } from "react-native-paper";
-import CopyButton from "./ui/CopyButton";
-import { useNavigationUtils } from "@/utils/navigation";
-import { Card, Dialog, Portal, Text, useTheme } from "react-native-paper";
 
 interface SwipeableWebhookItemProps {
   webhook: UserWebhookFragment;
@@ -85,6 +83,7 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
 
   return (
     <SwipeableItem
+      copyId={webhook.id}
       rightAction={deleteAction}
       menuItems={menuItems}
       showMenu={!isOffline}
@@ -114,11 +113,6 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
                 </Text>
               </View>
             </View>
-            <CopyButton
-              text={webhook.id}
-              size={20}
-              style={styles.copyIdButton}
-            />
           </View>
 
           {webhook.headers && webhook.headers.length > 0 && (
@@ -189,9 +183,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
-  },
-  copyIdButton: {
-    margin: 0,
   },
   itemInfo: {
     flexDirection: "row",

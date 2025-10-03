@@ -604,6 +604,7 @@ export interface TranslationKey {
     };
   };
   common: {
+    copyToClipboard: string;
     home: string;
     add: string;
     actionError: string;

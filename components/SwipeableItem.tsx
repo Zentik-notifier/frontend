@@ -15,6 +15,8 @@ import {
   MenuOptions,
   MenuOption,
 } from "react-native-popup-menu";
+import * as Clipboard from "expo-clipboard";
+import { useI18n } from "@/utils/i18n";
 
 export interface SwipeAction {
   icon: string;
@@ -55,6 +57,7 @@ interface SwipeableItemProps {
   borderColor?: string;
   menuItems?: MenuItem[];
   showMenu?: boolean;
+  copyId?: string;
 }
 
 const SwipeableItem: React.FC<SwipeableItemProps> = ({
@@ -69,10 +72,12 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   borderColor,
   menuItems = [],
   showMenu = true,
+  copyId,
 }) => {
   const swipeableRef = useRef<any>(null);
   const theme = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { t } = useI18n();
 
   const finalBorderColor = borderColor ?? theme.colors.outlineVariant;
 
@@ -162,6 +167,12 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     }
   };
 
+  const handleCopy = async () => {
+    if (copyId) {
+      await Clipboard.setStringAsync(copyId);
+    }
+  };
+
   // Generate menu items from left and right actions
   const allMenuItems = React.useMemo(() => {
     const items: MenuItem[] = [];
@@ -187,6 +198,15 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
         onPress: rightAction.onPress,
         type: "destructive",
         showAlert: rightAction.showAlert,
+      });
+    }
+
+    if (copyId) {
+      items.push({
+        id: "copy-id",
+        label: t("common.copyToClipboard"),
+        icon: "content-copy",
+        onPress: () => handleCopy(),
       });
     }
 

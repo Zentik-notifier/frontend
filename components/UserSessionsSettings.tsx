@@ -172,8 +172,6 @@ export function UserSessionsSettings() {
               }
             : undefined
         }
-        marginBottom={12}
-        borderRadius={12}
       >
         <View
           style={[

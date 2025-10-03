@@ -940,14 +940,14 @@ class UserSettingsService {
    */
   async migrateNotificationsToIndexedDB(): Promise<void> {
     if (Platform.OS !== 'web') {
-      console.log('🔄 [Migration] Starting notifications migration to SQLite...');
-
       try {
         // Check if already migrated
         if (this.isNotificationsMigratedToIndexedDB()) {
           console.log('✅ [Migration] Notifications already migrated to SQLite');
           return;
         }
+
+        console.log('🔄 [Migration] Starting notifications migration to SQLite...');
 
         let notifications: NotificationFragment[] = [];
         const persistedCacheData = await AsyncStorage.getItem('apollo-cache-notifications');

@@ -17,12 +17,9 @@ import {
 } from "react-native";
 import BucketIcon from "./BucketIcon";
 import SwipeableItem, { MenuItem } from "./SwipeableItem";
-import { Icon } from "react-native-paper";
-import CopyButton from "./ui/CopyButton";
 import { useNavigationUtils } from "@/utils/navigation";
 import {
   Button,
-  Card,
   Dialog,
   Portal,
   Text,
@@ -118,16 +115,6 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
     );
   };
 
-  const deleteAction =
-    canDelete || isSharedWithMe
-      ? {
-          icon: "delete" as const,
-          label: t("buckets.item.delete"),
-          backgroundColor: "#ff4444",
-          onPress: showDeleteAlert,
-        }
-      : undefined;
-
   const menuItems = useMemo((): MenuItem[] => {
     const items: MenuItem[] = [];
 
@@ -138,8 +125,18 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
       onPress: () => editBucket(bucket.id),
     });
 
+    if (canDelete || isSharedWithMe) {
+      items.push({
+        id: "delete",
+        label: t("buckets.item.delete"),
+        icon: "delete",
+        onPress: showDeleteAlert,
+        type: "destructive",
+      });
+    }
+
     return items;
-  }, [t, bucket.id, editBucket]);
+  }, [t, bucket.id, editBucket, canDelete, isSharedWithMe, showDeleteAlert]);
 
   // Device info removed
 
@@ -156,7 +153,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
 
   return (
     <SwipeableItem
-      rightAction={deleteAction}
+      copyId={bucket.id}
       menuItems={menuItems}
       showMenu={true}
     >
@@ -170,11 +167,6 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
               </Text>
             </View>
             <View style={styles.headerRight}>
-              <CopyButton
-                text={bucket.id}
-                size={20}
-                style={styles.copyIdButton}
-              />
               {isSharedWithMe && (
                 <View style={styles.sharedWithMeTag}>
                   <Text variant="bodySmall" style={styles.sharedWithMeText}>
