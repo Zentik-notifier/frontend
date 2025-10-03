@@ -178,8 +178,8 @@
     "cacheReset": {
       "title": "Reset Cache",
       "subtitle": "Dimensione totale cache: {{size}}",
-      "graphql": "Cache GraphQL",
-      "graphqlDescription": "Notifiche e query memorizzate",
+      "notifications": "Notifiche in DB locale",
+      "notificationsDescription": "Notifiche e query memorizzate",
       "media": "Cache Media",
       "mediaDescription": "Immagini, video e file audio scaricati",
       "settings": "Impostazioni App",
@@ -199,7 +199,7 @@
       "completeReset": "Reset Completo",
       "completeResetSuccess": "Tutti i dati della cache sono stati completamente resettati.",
       "mediaInfo": "{{size}} ({{count}} elementi)",
-      "graphqlInfo": "{{count}} notifiche"
+      "notificationsInfo": "{{count}} notifiche"
     },
     "cache": {
       "title": "Gestione Cache",

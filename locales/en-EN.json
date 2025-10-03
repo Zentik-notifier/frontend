@@ -190,8 +190,8 @@
     "cacheReset": {
       "title": "Reset Cache",
       "subtitle": "Total cache size: {{size}}",
-      "graphql": "GraphQL Cache",
-      "graphqlDescription": "Stored notifications and queries",
+      "notifications": "Notification in local DB",
+      "notificationsDescription": "Stored notifications and queries",
       "media": "Media Cache",
       "mediaDescription": "Downloaded images, videos, and audio files",
       "settings": "App Settings",
@@ -211,7 +211,7 @@
       "completeReset": "Complete Reset",
       "completeResetSuccess": "All cache data has been completely reset.",
       "mediaInfo": "{{size}} ({{count}} items)",
-      "graphqlInfo": "{{count}} notifications"
+      "notificationsInfo": "{{count}} notifications"
     }
   },
   "compose": {

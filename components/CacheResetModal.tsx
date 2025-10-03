@@ -7,7 +7,8 @@ import { clearAllAuthData } from "@/services/auth-storage";
 import { localNotifications } from "@/services/local-notifications";
 import { mediaCache } from "@/services/media-cache-service";
 import { userSettings } from "@/services/user-settings";
-import React, { useState } from "react";
+import { getAllNotificationsFromCache, clearAllNotificationsFromCache } from "@/services/notifications-repository";
+import React, { useState, useEffect } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -59,31 +60,23 @@ export function CacheResetModal({
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [dialogMessage, setDialogMessage] = useState("");
+  const [dbNotificationsCount, setDbNotificationsCount] = useState(0);
 
-  // Get GraphQL cache info
-  const getGraphQLCacheInfo = () => {
-    try {
-      // We'll use a more direct approach to count cached notifications
-      const cache = apolloClient?.cache;
-      if (cache) {
-        // Extract all cached notifications from the cache
-        const cacheData = cache.extract();
-        let notificationCount = 0;
-
-        // Count notifications in cache
-        Object.values(cacheData).forEach((entity: any) => {
-          if (entity && entity.__typename === "Notification") {
-            notificationCount++;
-          }
-        });
-
-        return notificationCount;
+  // Load notifications count from database
+  useEffect(() => {
+    const loadNotificationsCount = async () => {
+      if (visible) {
+        try {
+          const notifications = await getAllNotificationsFromCache();
+          setDbNotificationsCount(notifications.length);
+        } catch (error) {
+          console.error("Error loading notifications count from DB:", error);
+        }
       }
-      return 0;
-    } catch {
-      return 0;
-    }
-  };
+    };
+
+    loadNotificationsCount();
+  }, [visible]);
 
   const handleCompleteReset = async () => {
     setShowCompleteResetDialog(true);
@@ -99,6 +92,7 @@ export function CacheResetModal({
         // Stop realtime/populators before purging GQL cache
         Promise.resolve().then(() => localNotifications.cleanup()),
         resetApolloCache(),
+        clearAllNotificationsFromCache(),
         mediaCache.clearCacheComplete(),
         userSettings.resetSettings(),
         clearAllAuthData(),
@@ -117,11 +111,11 @@ export function CacheResetModal({
 
   const cacheEntities: CacheEntity[] = [
     {
-      id: "gql",
-      title: t("appSettings.cacheReset.graphql"),
-      description: t("appSettings.cacheReset.graphqlDescription"),
-      icon: "database",
-      count: getGraphQLCacheInfo(),
+      id: "notifications",
+      title: t("appSettings.cacheReset.notifications"),
+      description: t("appSettings.cacheReset.notificationsDescription"),
+      icon: "bell",
+      count: dbNotificationsCount,
       selected: false,
     },
     {
@@ -178,10 +172,8 @@ export function CacheResetModal({
       setShowResetDialog(false);
 
       // Reset selected entities
-      if (selectedEntities.has("gql")) {
-        // Stop realtime/populators before purging GQL cache
-        // localNotifications.cleanup();
-        await resetApolloCache();
+      if (selectedEntities.has("notifications")) {
+        await clearAllNotificationsFromCache();
       }
 
       if (selectedEntities.has("media")) {
@@ -273,35 +265,38 @@ export function CacheResetModal({
         onDismiss={onClose}
         style={styles.modalDialog}
       >
-        <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outline }]}>
-          <View style={styles.headerLeft}>
-            <Text variant="headlineSmall" style={styles.modalTitle}>
-              {t("appSettings.cacheReset.title")}
-            </Text>
-            <Text variant="bodyMedium" style={[styles.modalSubtitle, { color: theme.colors.onSurfaceVariant }]}>
-              {t("appSettings.cacheReset.subtitle", { size: totalCacheSize })}
-            </Text>
-            <View style={styles.modalStats}>
-              <Text variant="bodySmall" style={[styles.modalStat, { color: theme.colors.onSurfaceVariant }]}>
-                {cacheStats &&
-                  t("appSettings.cacheReset.mediaInfo", {
-                    size: `${(cacheStats.totalSize / (1024 * 1024)).toFixed(1)} MB`,
-                    count: cacheStats.totalItems,
+        <Dialog.Title>
+          <View style={styles.headerContent}>
+            <View style={styles.headerLeft}>
+              <Text variant="headlineSmall" style={styles.modalTitle}>
+                {t("appSettings.cacheReset.title")}
+              </Text>
+              <Text variant="bodyMedium" style={[styles.modalSubtitle, { color: theme.colors.onSurfaceVariant }]}>
+                {t("appSettings.cacheReset.subtitle", { size: totalCacheSize })}
+              </Text>
+              <View style={styles.modalStats}>
+                <Text variant="bodySmall" style={[styles.modalStat, { color: theme.colors.onSurfaceVariant }]}>
+                  {cacheStats &&
+                    t("appSettings.cacheReset.mediaInfo", {
+                      size: `${(cacheStats.totalSize / (1024 * 1024)).toFixed(1)} MB`,
+                      count: cacheStats.totalItems,
+                    })}
+                </Text>
+                <Text variant="bodySmall" style={[styles.modalStat, { color: theme.colors.onSurfaceVariant }]}>
+                  {t("appSettings.cacheReset.notificationsInfo", {
+                    count: dbNotificationsCount,
                   })}
-              </Text>
-              <Text variant="bodySmall" style={[styles.modalStat, { color: theme.colors.onSurfaceVariant }]}>
-                {t("appSettings.cacheReset.graphqlInfo", {
-                  count: getGraphQLCacheInfo(),
-                })}
-              </Text>
+                </Text>
+              </View>
             </View>
+            <IconButton
+              icon="close"
+              size={20}
+              onPress={onClose}
+              style={styles.closeButton}
+            />
           </View>
-          <IconButton
-            icon="close"
-            size={20}
-            onPress={onClose}
-          />
-        </View>
+        </Dialog.Title>
 
         <Dialog.Content style={{ paddingTop: 16 }}>
           <ScrollView
@@ -449,20 +444,20 @@ export function CacheResetModal({
 
 const styles = StyleSheet.create({
   modalDialog: {
-    maxHeight: "80%",
+    // maxHeight: "80%",
   },
-  modalHeader: {
+  headerContent: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
+    paddingEnd: 16,
   },
   headerLeft: {
     flex: 1,
     marginRight: 16,
+  },
+  closeButton: {
+    margin: 0,
   },
   modalTitle: {
     marginBottom: 4,

@@ -1,11 +1,10 @@
 import { useAppContext } from "@/contexts/AppContext";
-import { useGetNotificationsQuery } from "@/generated/gql-operations-generated";
-import { useGraphQLCacheImportExport } from "@/hooks/useGraphQLCacheImportExport";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { openSharedCacheDb } from "@/services/db-setup";
 import { MediaCacheRepository } from "@/services/media-cache-repository";
 import { useUserSettings } from "@/services/user-settings";
+import { getAllNotificationsFromCache, exportAllNotifications, importAllNotifications } from "@/services/notifications-repository";
 import { formatFileSize, IS_FS_SUPPORTED } from "@/utils";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
@@ -66,6 +65,23 @@ export default function UnifiedCacheSettings() {
   const [isEditingMaxNotificationsDays, setIsEditingMaxNotificationsDays] =
     useState(false);
 
+  // Notifications from database
+  const [dbNotifications, setDbNotifications] = useState<any[]>([]);
+
+  // Load notifications from database
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const notifications = await getAllNotificationsFromCache();
+        setDbNotifications(notifications);
+      } catch (error) {
+        console.error("Error loading notifications from DB:", error);
+      }
+    };
+
+    loadNotifications();
+  }, []);
+
   // Sync when settings change externally
   useEffect(() => {
     setLocalMaxCacheSizeMB(
@@ -98,19 +114,6 @@ export default function UnifiedCacheSettings() {
   ]);
 
   const { cacheStats } = useGetCacheStats();
-  const { exportNotifications, importNotifications } =
-    useGraphQLCacheImportExport(async (count) => {
-      console.log(
-        `🎉 Import completed successfully with ${count} notifications`
-      );
-      // Force refetch of notifications query to update UI
-      try {
-        await refetch();
-        console.log("✅ Notifications query refetched");
-      } catch (error) {
-        console.warn("⚠️ Failed to refetch notifications:", error);
-      }
-    });
   const {
     userSettings: {
       updateMediaCacheDownloadSettings,
@@ -124,13 +127,10 @@ export default function UnifiedCacheSettings() {
     },
   } = useAppContext();
 
-  // Reactive notifications count from Apollo cache
-  const { data: notifData, refetch } = useGetNotificationsQuery({
-    fetchPolicy: "cache-only",
-  });
-  const graphqlCacheInfo = useMemo(
-    () => notifData?.notifications?.length ?? 0,
-    [notifData?.notifications?.length]
+  // Notifications count from database
+  const dbNotificationsCount = useMemo(
+    () => dbNotifications.length,
+    [dbNotifications.length]
   );
 
   // Calculate total cache size
@@ -140,9 +140,9 @@ export default function UnifiedCacheSettings() {
     }
     const mediaSize = cacheStats.totalSize;
     // Approximate GraphQL cache size: each notification is roughly 2KB
-    const gqlSize = graphqlCacheInfo * 2048; // 2KB per notification
+    const gqlSize = dbNotificationsCount * 2048; // 2KB per notification
     return formatFileSize(mediaSize + gqlSize);
-  }, [cacheStats, graphqlCacheInfo]);
+  }, [cacheStats, dbNotificationsCount]);
 
   const handleOpenResetModal = () => {
     setShowResetModal(true);
@@ -151,7 +151,7 @@ export default function UnifiedCacheSettings() {
   const handleExportNotifications = async () => {
     setIsExporting(true);
     try {
-      await exportNotifications();
+      await exportAllNotifications();
     } catch (error) {
       console.error("Export failed:", error);
     } finally {
@@ -162,7 +162,11 @@ export default function UnifiedCacheSettings() {
   const handleImportNotifications = async () => {
     setIsImporting(true);
     try {
-      await importNotifications();
+      const success = await importAllNotifications();
+      if (success) {
+        const notifications = await getAllNotificationsFromCache();
+        setDbNotifications(notifications);
+      }
     } catch (error) {
       console.error("Import failed:", error);
     } finally {
@@ -173,7 +177,6 @@ export default function UnifiedCacheSettings() {
   const handleExportMetadata = async () => {
     setIsExportingMetadata(true);
     try {
-      // Manteniamo per ora la restrizione iOS come in precedenza (può essere rimossa se serve cross-platform)
       if (Platform.OS !== "ios") {
         setDialogMessage(t("common.notAvailableOnWeb"));
         setShowErrorDialog(true);
@@ -305,7 +308,7 @@ export default function UnifiedCacheSettings() {
                       { color: theme.colors.primary },
                     ]}
                   >
-                    {graphqlCacheInfo}
+                    {dbNotificationsCount}
                   </Text>
                   <Text
                     variant="bodySmall"

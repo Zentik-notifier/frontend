@@ -2,6 +2,12 @@ import { NotificationFragment } from '@/generated/gql-operations-generated';
 import { Platform } from 'react-native';
 import { openWebStorageDb, openSharedCacheDb } from './db-setup';
 import { parseNotificationForDB, parseNotificationFromDB } from './db-setup';
+import { processJsonToCache } from '@/utils/cache-data-processor';
+import { apolloClient } from '@/config/apollo-client';
+import * as DocumentPicker from 'expo-document-picker';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { Alert } from 'react-native';
 
 /**
  * Notification repository for managing notification storage operations
@@ -112,6 +118,66 @@ export async function getAllNotificationsFromCache(): Promise<NotificationFragme
       }
     } catch {
       return [];
+    }
+  });
+}
+
+/**
+ * Get all raw notification records from database (for export)
+ */
+export async function getAllRawNotificationsFromDB(): Promise<any[]> {
+  return await executeQuery(async (db) => {
+    try {
+      if (Platform.OS === 'web') {
+        // IndexedDB
+        return await db.getAll('notifications');
+      } else {
+        // SQLite
+        return await db.getAllAsync('SELECT * FROM notifications ORDER BY created_at DESC');
+      }
+    } catch {
+      return [];
+    }
+  });
+}
+
+/**
+ * Import raw notification records directly to database (for import)
+ */
+export async function importRawNotificationsToDB(rawNotifications: any[]): Promise<void> {
+  if (rawNotifications.length === 0) return;
+
+  await executeQuery(async (db) => {
+    try {
+      if (Platform.OS === 'web') {
+        // IndexedDB
+        const tx = db.transaction('notifications', 'readwrite');
+
+        for (const notification of rawNotifications) {
+          await tx.store.put(notification, notification.id);
+        }
+
+        await tx.done;
+      } else {
+        // SQLite - use batch insert
+        for (const notification of rawNotifications) {
+          await db.runAsync(
+            `INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, has_attachments, fragment)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+              notification.id,
+              notification.created_at,
+              notification.read_at,
+              notification.bucket_id,
+              notification.has_attachments,
+              notification.fragment
+            ]
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Failed to import raw notifications to DB:', error);
+      throw error;
     }
   });
 }
@@ -371,4 +437,219 @@ export async function deleteNotificationsFromCache(notificationIds: string[]): P
   await Promise.allSettled(promises);
 
   console.log(`✅ Deleted ${notificationIds.length} notifications from cache`);
+}
+
+// ====================
+// NOTIFICATION IMPORT/EXPORT OPERATIONS
+// ====================
+
+/**
+ * Export all notifications from database to JSON file (raw DB format)
+ */
+export async function exportAllNotifications(): Promise<boolean> {
+  try {
+    const rawNotifications = await getAllRawNotificationsFromDB();
+
+    if (rawNotifications.length === 0) {
+      Alert.alert('Errore esportazione', 'Nessuna notifica da esportare');
+      return false;
+    }
+
+    const fileName = `notifications-${new Date().toISOString().split('T')[0]}.json`;
+
+    if (Platform.OS === 'web') {
+      return await exportNotificationsWeb(fileName, rawNotifications);
+    } else {
+      return await exportNotificationsMobile(fileName, rawNotifications);
+    }
+  } catch (error) {
+    console.error('Error exporting notifications:', error);
+    Alert.alert('Errore esportazione', 'Si è verificato un errore durante l\'esportazione');
+    return false;
+  }
+}
+
+/**
+ * Import notifications from JSON file to database (raw DB format)
+ */
+export async function importAllNotifications(): Promise<boolean> {
+  try {
+    let fileContent: string;
+
+    if (Platform.OS === 'web') {
+      // For web, use file input
+      fileContent = await importNotificationsWeb();
+    } else {
+      // For mobile, use DocumentPicker
+      fileContent = await importNotificationsMobile();
+    }
+
+    if (!fileContent) {
+      return false;
+    }
+
+    // Parse JSON content - expects raw DB format
+    const rawNotifications = JSON.parse(fileContent);
+
+    if (!Array.isArray(rawNotifications) || rawNotifications.length === 0) {
+      Alert.alert('Errore importazione', 'Nessuna notifica valida trovata nel file');
+      return false;
+    }
+
+    // Show confirmation dialog
+    return new Promise((resolve) => {
+      Alert.alert(
+        'Conferma importazione',
+        `Vuoi importare ${rawNotifications.length} notifiche?`,
+        [
+          {
+            text: 'Annulla',
+            style: 'cancel',
+            onPress: () => resolve(false),
+          },
+          {
+            text: 'Importa',
+            style: 'default',
+            onPress: async () => {
+              try {
+                // Import raw notifications directly to database
+                await importRawNotificationsToDB(rawNotifications);
+
+                // Update Apollo cache with the parsed notifications
+                if (apolloClient?.cache) {
+                  const notifications = rawNotifications.map(raw => {
+                    try {
+                      return JSON.parse(raw.fragment);
+                    } catch {
+                      return null;
+                    }
+                  }).filter(Boolean);
+
+                  if (notifications.length > 0) {
+                    await processJsonToCache(
+                      apolloClient.cache,
+                      notifications,
+                      'Import'
+                    );
+                  }
+                }
+
+                Alert.alert('Importazione completata', `Importate ${rawNotifications.length} notifiche con successo`);
+                resolve(true);
+              } catch (error) {
+                console.error('Error importing notifications:', error);
+                Alert.alert('Errore importazione', 'Si è verificato un errore durante l\'importazione');
+                resolve(false);
+              }
+            },
+          },
+        ]
+      );
+    });
+  } catch (error) {
+    console.error('Error importing notifications:', error);
+    Alert.alert('Errore importazione', 'Si è verificato un errore durante l\'importazione');
+    return false;
+  }
+}
+
+/**
+ * Export notifications for web platform
+ */
+async function exportNotificationsWeb(fileName: string, notifications: any[]): Promise<boolean> {
+  try {
+    const fileContent = JSON.stringify(notifications, null, 2);
+
+    const blob = new Blob([fileContent], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    return true;
+  } catch (error) {
+    console.error('Error in web export:', error);
+    throw error;
+  }
+}
+
+/**
+ * Export notifications for mobile platform
+ */
+async function exportNotificationsMobile(fileName: string, notifications: any[]): Promise<boolean> {
+  const fileUri = `${Paths.document.uri}${fileName}`;
+  const file = new File(fileUri);
+
+  try {
+    const fileContent = JSON.stringify(notifications, null, 2);
+    file.write(fileContent, {});
+
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'application/json',
+        dialogTitle: 'Export Notifications',
+      });
+    } else {
+      Alert.alert('Esportazione completata', `File salvato in: ${fileUri}`);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in mobile export:', error);
+    throw error;
+  }
+}
+
+/**
+ * Import notifications for web platform
+ */
+async function importNotificationsWeb(): Promise<string> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = async (event: any) => {
+      const file = event.target.files[0];
+      if (!file) {
+        resolve('');
+        return;
+      }
+
+      try {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          resolve(e.target?.result as string || '');
+        };
+        reader.readAsText(file);
+      } catch (error) {
+        console.error('Error reading file:', error);
+        resolve('');
+      }
+    };
+    document.body.appendChild(input);
+    input.click();
+    document.body.removeChild(input);
+  });
+}
+
+/**
+ * Import notifications for mobile platform
+ */
+async function importNotificationsMobile(): Promise<string> {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: 'application/json',
+    copyToCacheDirectory: true,
+  });
+
+  if (result.canceled || !result.assets || result.assets.length === 0) {
+    return '';
+  }
+
+  const fileUri = result.assets[0].uri;
+  const file = new File(fileUri);
+  return await file.text();
 }

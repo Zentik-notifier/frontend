@@ -211,8 +211,9 @@ export interface TranslationKey {
       confirmMessage: string;
       confirmTitle: string;
       deselectAll: string;
-      graphql: string;
-      graphqlDescription: string;
+      notifications: string;
+      notificationsDescription: string;
+      notificationsInfo: string;
       graphqlInfo: string;
       media: string;
       mediaDescription: string;
