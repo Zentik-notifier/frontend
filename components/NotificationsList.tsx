@@ -326,6 +326,8 @@ export default function NotificationsList({
           totalNotifications={filteredNotifications.length}
           onToggleReadStatus={handleToggleReadStatus}
           onDeleteSelected={handleDeleteSelected}
+          onRefresh={handleRefresh}
+          refreshing={isRefreshing}
         />
       </View>
 

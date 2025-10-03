@@ -2,7 +2,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import { useNotificationsContext } from "@/contexts/NotificationsContext";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Badge,
@@ -17,14 +17,18 @@ import NotificationFiltersModal from "./NotificationFiltersModal";
 
 interface NotificationFiltersProps {
   totalNotifications?: number;
+  refreshing?: boolean;
   onToggleReadStatus?: () => void;
   onDeleteSelected?: () => void;
+  onRefresh?: () => void;
 }
 
 export default function NotificationFilters({
   totalNotifications = 0,
+  refreshing,
   onToggleReadStatus,
   onDeleteSelected,
+  onRefresh,
 }: NotificationFiltersProps) {
   const { t } = useI18n();
   const theme = useTheme();
@@ -310,6 +314,31 @@ export default function NotificationFilters({
             />
           </TouchableRipple>
 
+          {/* Refresh Button (Web only) */}
+          {Platform.OS === "web" && onRefresh && (
+            <TouchableRipple
+              style={[
+                styles.refreshButton,
+                {
+                  borderColor: theme.colors.outline,
+                  backgroundColor: theme.colors.surfaceVariant,
+                },
+              ]}
+              onPress={onRefresh}
+              disabled={refreshing}
+            >
+              {refreshing ? (
+                <ActivityIndicator size={18} color={theme.colors.primary} />
+              ) : (
+                <Icon
+                  source="refresh"
+                  size={18}
+                  color={theme.colors.onSurfaceVariant}
+                />
+              )}
+            </TouchableRipple>
+          )}
+
           {/* Multi-Selection Toggle Button (seguendo pattern gallery) */}
           <TouchableRipple
             style={[
@@ -431,6 +460,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   compactToggle: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  refreshButton: {
     width: 44,
     height: 44,
     borderRadius: 8,

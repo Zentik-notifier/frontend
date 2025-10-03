@@ -3,16 +3,12 @@ import { getBucketStats } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useEffect, useMemo } from "react";
-import {
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { FAB, Icon, Text, TouchableRipple, useTheme } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
+import PaperScrollView from "./ui/PaperScrollView";
 
 const BucketsSection: React.FC = () => {
   const { t } = useI18n();
@@ -31,6 +27,7 @@ const BucketsSection: React.FC = () => {
   const buckets = bucketsData?.buckets ?? [];
   const { navigateToCreateBucket, navigateToBucketDetail } =
     useNavigationUtils();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loading = notificationsLoading || bucketsLoading;
 
@@ -66,47 +63,30 @@ const BucketsSection: React.FC = () => {
     }
   };
 
-  if (bucketStats.length === 0) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.emptyStateContainer}>
-          <View style={[
-            styles.emptyState,
-            { backgroundColor: theme.colors.surface },
-          ]}>
-            <Icon source="bucket" size={64} color={theme.colors.onSurfaceVariant} />
-            <Text 
-              variant="headlineSmall" 
-              style={[
-                styles.emptyTitle,
-                { color: theme.colors.onSurface },
-              ]}
-            >
-              {t("buckets.noBucketsYet")}
-            </Text>
-            <Text 
-              variant="bodyMedium" 
-              style={[
-                styles.emptyDescription,
-                { color: theme.colors.onSurfaceVariant },
-              ]}
-            >
-              {t("buckets.createFirstBucket")}
-            </Text>
-          </View>
-        </View>
-
-        {/* Floating Action Button per creare nuovo bucket */}
-        <FAB
-          icon="plus"
-          style={styles.fab}
-          onPress={() => {
-            navigateToCreateBucket(true);
-          }}
-        />
+  const emptyState = (
+    <View style={styles.emptyStateContainer}>
+      <View
+        style={[styles.emptyState, { backgroundColor: theme.colors.surface }]}
+      >
+        <Icon source="bucket" size={64} color={theme.colors.onSurfaceVariant} />
+        <Text
+          variant="headlineSmall"
+          style={[styles.emptyTitle, { color: theme.colors.onSurface }]}
+        >
+          {t("buckets.noBucketsYet")}
+        </Text>
+        <Text
+          variant="bodyMedium"
+          style={[
+            styles.emptyDescription,
+            { color: theme.colors.onSurfaceVariant },
+          ]}
+        >
+          {t("buckets.createFirstBucket")}
+        </Text>
       </View>
-    );
-  }
+    </View>
+  );
 
   const refetch = async () => {
     await refetchNotifications();
@@ -114,18 +94,14 @@ const BucketsSection: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={false}
-            onRefresh={refetch}
-            tintColor={theme.colors.primary}
-          />
-        }
-      >
+    <PaperScrollView
+      onRefresh={refetch}
+      loading={isRefreshing}
+      onAdd={() => navigateToCreateBucket(true)}
+    >
+      {bucketStats.length === 0 ? (
+        emptyState
+      ) : (
         <View style={styles.bucketsGrid}>
           {bucketStats.map((bucket) => (
             <TouchableRipple
@@ -183,7 +159,12 @@ const BucketsSection: React.FC = () => {
                         { backgroundColor: theme.colors.error },
                       ]}
                     >
-                      <Text style={[styles.unreadText, { color: theme.colors.onError }]}>
+                      <Text
+                        style={[
+                          styles.unreadText,
+                          { color: theme.colors.onError },
+                        ]}
+                      >
                         {bucket.unreadCount > 99 ? "99+" : bucket.unreadCount}
                       </Text>
                     </View>
@@ -193,7 +174,11 @@ const BucketsSection: React.FC = () => {
                 {/* Statistiche */}
                 <View style={styles.bucketStats}>
                   <View style={styles.statItem}>
-                    <Icon source="bell" size={16} color={theme.colors.onSurfaceVariant} />
+                    <Icon
+                      source="bell"
+                      size={16}
+                      color={theme.colors.onSurfaceVariant}
+                    />
                     <Text
                       variant="bodySmall"
                       style={[
@@ -206,7 +191,11 @@ const BucketsSection: React.FC = () => {
                   </View>
 
                   <View style={styles.statItem}>
-                    <Icon source="clock" size={16} color={theme.colors.onSurfaceVariant} />
+                    <Icon
+                      source="clock"
+                      size={16}
+                      color={theme.colors.onSurfaceVariant}
+                    />
                     <Text
                       variant="bodySmall"
                       style={[
@@ -222,30 +211,13 @@ const BucketsSection: React.FC = () => {
             </TouchableRipple>
           ))}
         </View>
-      </ScrollView>
-
-      {/* Floating Action Button per creare nuovo bucket */}
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => {
-          navigateToCreateBucket(true);
-        }}
-      />
-    </View>
+      )}
+    </PaperScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    position: "relative",
-  },
-  scrollView: {
-    flex: 1,
-  },
   bucketsGrid: {
-    padding: 16,
     gap: 12,
   },
   bucketCard: {

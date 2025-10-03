@@ -77,7 +77,7 @@ export default function PaperScrollView({
     children
   );
 
-  const showFab = onRefresh || onAdd;
+  const showFab = (onRefresh && Platform.OS === "web") || onAdd;
 
   return (
     <View
@@ -103,7 +103,7 @@ export default function PaperScrollView({
               style={styles.fabButton}
             />
           )}
-          {onRefresh && (
+          {onRefresh && Platform.OS === "web" && (
             <IconButton
               icon="refresh"
               size={24}
