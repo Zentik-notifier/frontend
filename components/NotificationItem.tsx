@@ -343,11 +343,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   return (
     <View>
       <SwipeableItem
+        marginHorizontal={16}
         leftAction={isMultiSelectionMode ? undefined : toggleReadAction}
         rightAction={isMultiSelectionMode ? undefined : deleteAction}
-        marginBottom={2}
-        marginHorizontal={16}
-        borderRadius={8}
         borderColor={borderColor}
         menuItems={isMultiSelectionMode ? [] : menuItems}
         showMenu={!isMultiSelectionMode}

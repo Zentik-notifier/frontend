@@ -71,8 +71,6 @@ export function AccessTokensSettings() {
     return (
       <SwipeableItem
         key={item.id}
-        marginHorizontal={0}
-        marginBottom={8}
         rightAction={
           !(isOfflineAuth || isBackendUnreachable)
             ? {

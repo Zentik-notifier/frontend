@@ -59,7 +59,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   rightAction,
   containerStyle,
   cardStyle,
-  marginBottom = 12,
+  marginBottom = 4,
   marginHorizontal = 0,
   borderRadius = 12,
   borderColor,

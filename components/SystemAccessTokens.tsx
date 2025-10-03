@@ -71,7 +71,6 @@ export default function SystemAccessTokens() {
     return (
       <SwipeableItem
         key={item.id}
-        marginBottom={8}
         rightAction={
           !disabledActions
             ? {

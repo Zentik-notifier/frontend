@@ -6,9 +6,9 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import { getHttpMethodColor } from "@/utils/webhookUtils";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, Pressable, View } from "react-native";
-import SwipeableItem from "./SwipeableItem";
+import SwipeableItem, { MenuItem } from "./SwipeableItem";
 import { Icon } from "react-native-paper";
 import CopyButton from "./ui/CopyButton";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -68,11 +68,33 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
       }
     : undefined;
 
+  const menuItems = useMemo((): MenuItem[] => {
+    const items: MenuItem[] = [];
+
+    if (!isOffline) {
+      items.push({
+        id: "edit",
+        label: t("webhooks.edit"),
+        icon: "pencil",
+        onPress: () => handleEditWebhook(webhook.id),
+      });
+      items.push({
+        id: "delete",
+        label: t("webhooks.delete"),
+        icon: "delete",
+        onPress: () => deleteWebhook(webhook.id),
+        type: "destructive",
+      });
+    }
+
+    return items;
+  }, [isOffline, t, webhook.id, handleEditWebhook, deleteWebhook]);
+
   return (
     <SwipeableItem
       rightAction={deleteAction}
-      marginBottom={8}
-      borderRadius={12}
+      menuItems={menuItems}
+      showMenu={!isOffline}
     >
       <Pressable onPress={() => handleEditWebhook(webhook.id)}>
         <View style={styles.itemCard}>

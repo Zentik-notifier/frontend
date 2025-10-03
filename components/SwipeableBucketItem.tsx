@@ -8,7 +8,7 @@ import {
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   StyleSheet,
@@ -16,7 +16,7 @@ import {
   View,
 } from "react-native";
 import BucketIcon from "./BucketIcon";
-import SwipeableItem from "./SwipeableItem";
+import SwipeableItem, { MenuItem } from "./SwipeableItem";
 import { Icon } from "react-native-paper";
 import CopyButton from "./ui/CopyButton";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -128,6 +128,57 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
         }
       : undefined;
 
+  const menuItems = useMemo((): MenuItem[] => {
+    const items: MenuItem[] = [];
+
+    items.push({
+      id: "edit",
+      label: t("webhooks.edit"),
+      icon: "pencil",
+      onPress: () => editBucket(bucket.id),
+    });
+
+    if (canDelete) {
+      items.push({
+        id: "delete",
+        label: t("buckets.delete.deleteBucket"),
+        icon: "delete",
+        onPress: () => deleteBucketMutation({ variables: { id: bucket.id } }),
+        type: "destructive",
+      });
+    }
+
+    if (isSharedWithMe) {
+      items.push({
+        id: "revoke",
+        label: t("buckets.delete.revokeSharing"),
+        icon: "share-off",
+        onPress: () =>
+          unshareBucket({
+            variables: {
+              input: {
+                resourceType: ResourceType.Bucket,
+                resourceId: bucket.id,
+                userId: userId,
+              },
+            },
+          }),
+        type: "destructive",
+      });
+    }
+
+    return items;
+  }, [
+    t,
+    bucket.id,
+    canDelete,
+    isSharedWithMe,
+    editBucket,
+    deleteBucketMutation,
+    unshareBucket,
+    userId,
+  ]);
+
   // Device info removed
 
   const getSharedUsersText = () => {
@@ -144,8 +195,8 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
   return (
     <SwipeableItem
       rightAction={deleteAction}
-      marginBottom={8}
-      borderRadius={12}
+      menuItems={menuItems}
+      showMenu={true}
     >
       <Pressable onPress={() => editBucket(bucket.id)}>
         <View style={styles.itemCard}>

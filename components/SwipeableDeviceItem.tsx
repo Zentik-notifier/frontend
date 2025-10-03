@@ -7,9 +7,9 @@ import {
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Pressable, View } from "react-native";
-import SwipeableItem, { SwipeAction } from "./SwipeableItem";
+import SwipeableItem, { SwipeAction, MenuItem } from "./SwipeableItem";
 import { Icon } from "react-native-paper";
 import {
   Button,
@@ -161,12 +161,33 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
       }
     : undefined;
 
+  const menuItems = useMemo((): MenuItem[] => {
+    const items: MenuItem[] = [];
+
+    if (!(isOfflineAuth || isBackendUnreachable)) {
+      items.push({
+        id: "edit",
+        label: t("devices.editName.title"),
+        icon: "pencil",
+        onPress: handleEditName,
+      });
+      items.push({
+        id: "delete",
+        label: t("devices.item.delete"),
+        icon: "delete",
+        onPress: handleDelete,
+        type: "destructive",
+      });
+    }
+
+    return items;
+  }, [isOfflineAuth, isBackendUnreachable, t, handleEditName, handleDelete]);
+
   return (
     <SwipeableItem
       rightAction={deleteAction}
-      containerStyle={styles.swipeContainer}
-      contentStyle={styles.swipeContent}
-      marginBottom={4}
+      menuItems={menuItems}
+      showMenu={!(isOfflineAuth || isBackendUnreachable)}
     >
       <Pressable>
         <View style={styles.itemCard}>
@@ -179,17 +200,9 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
               />
               <View style={styles.deviceTextInfo}>
                 <View style={styles.deviceNameRow}>
-                  <View style={styles.nameAndEditContainer}>
-                    <Text variant="titleMedium" style={styles.itemName}>
-                      {device.deviceName || `${device.platform} Device`}
-                    </Text>
-                    <IconButton
-                      icon="pencil"
-                      size={16}
-                      onPress={handleEditName}
-                      style={styles.editButton}
-                    />
-                  </View>
+                  <Text variant="titleMedium" style={styles.itemName}>
+                    {device.deviceName || `${device.platform} Device`}
+                  </Text>
                   {isCurrentDevice && (
                     <View
                       style={[
@@ -323,10 +336,6 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
 };
 
 const styles = StyleSheet.create({
-  swipeContainer: {
-    // marginBottom handled by SwipeableItem marginBottom prop
-    // marginHorizontal handled by SwipeableItem marginHorizontal prop
-  },
   swipeContent: {
     borderRadius: 12,
   },

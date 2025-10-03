@@ -245,8 +245,6 @@ export default function NotificationsList({
     ({ item }: { item: NotificationFragment }) => {
       const isSelected = selectedItems.has(item.id);
 
-      // return <Text>{item.message.title}</Text>
-
       return (
         <NotificationItem
           notification={item}
@@ -338,7 +336,6 @@ export default function NotificationsList({
         data={filteredNotifications}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        // overrideItemLayout={overrideItemLayout}
         onViewableItemsChanged={onViewableItemsChanged}
         onScroll={() => {
           didUserScrollRef.current = true;
