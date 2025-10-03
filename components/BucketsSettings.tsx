@@ -337,74 +337,82 @@ export default function BucketsSettings() {
 
   return (
     <View style={styles.container}>
-      {/* Header Actions */}
-      {danglingBuckets.length > 0 && (
-        <View style={styles.headerActions}>
-          <IconButton
-            icon="alert"
-            size={20}
-            iconColor={
-              showDanglingBuckets
-                ? theme.colors.onPrimary
-                : theme.colors.primary
-            }
-            containerColor={
-              showDanglingBuckets ? theme.colors.primary : theme.colors.surface
-            }
-            onPress={() => setShowDanglingBuckets(!showDanglingBuckets)}
-            style={styles.danglingButton}
-          />
-        </View>
-      )}
-
       <PaperScrollView
         onRefresh={handleRefresh}
         loading={loading}
         onAdd={() => navigateToCreateBucket(false)}
       >
-        {/* Sezione Dangling Buckets */}
-        {showDanglingBuckets && (
-          <Card style={styles.danglingSection} elevation={0}>
-            <Card.Content>
-              <Text
-                variant="titleMedium"
-                style={[styles.danglingTitle, { color: theme.colors.primary }]}
-              >
-                {t("buckets.danglingBuckets")}
-              </Text>
-              <Text
-                variant="bodyMedium"
-                style={[
-                  styles.danglingDescription,
-                  { color: theme.colors.onSurfaceVariant },
-                ]}
-              >
-                {t("buckets.danglingBucketsDescription")}
-              </Text>
-
-              {danglingBuckets.length === 0 ? (
-                <View style={styles.emptyDanglingState}>
+        {/* Header collassabile Dangling Buckets */}
+        {danglingBuckets.length > 0 && (
+          <Card
+            style={[
+              styles.danglingSection,
+              { backgroundColor: theme.colors.surfaceVariant },
+            ]}
+            elevation={0}
+          >
+            <TouchableRipple
+              onPress={() => setShowDanglingBuckets(!showDanglingBuckets)}
+            >
+              <Card.Content style={styles.collapsibleHeader}>
+                <View style={styles.headerLeft}>
                   <Icon
-                    source="check-circle"
-                    size={48}
-                    color={theme.colors.onSurfaceVariant}
+                    source="alert"
+                    size={24}
+                    color={theme.colors.error}
                   />
-                  <Text
-                    variant="bodyMedium"
-                    style={[
-                      styles.emptyDanglingText,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
-                  >
-                    {t("buckets.noDanglingBuckets")}
-                  </Text>
+                  <View style={styles.headerTextContainer}>
+                    <Text
+                      variant="titleMedium"
+                      style={[
+                        styles.danglingTitle,
+                        { color: theme.colors.onSurface },
+                      ]}
+                    >
+                      {t("buckets.danglingBuckets")}
+                    </Text>
+                    <Text
+                      variant="bodySmall"
+                      style={[
+                        styles.headerSubtitle,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {danglingBuckets.length}{" "}
+                      {danglingBuckets.length === 1
+                        ? "bucket"
+                        : "buckets"}
+                    </Text>
+                  </View>
                 </View>
-              ) : (
+                <Icon
+                  source={showDanglingBuckets ? "chevron-up" : "chevron-down"}
+                  size={24}
+                  color={theme.colors.onSurfaceVariant}
+                />
+              </Card.Content>
+            </TouchableRipple>
+
+            {showDanglingBuckets && (
+              <Card.Content style={styles.collapsibleContent}>
+                <Text
+                  variant="bodyMedium"
+                  style={[
+                    styles.danglingDescription,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  {t("buckets.danglingBucketsDescription")}
+                </Text>
+
                 <View style={styles.danglingBucketsContainer}>
                   {danglingBuckets.map((item) => (
                     <Card
                       key={item.bucket.id}
-                      style={styles.danglingBucketItem}
+                      style={[
+                        styles.danglingBucketItem,
+                        { backgroundColor: theme.colors.surface },
+                      ]}
                       elevation={0}
                     >
                       <TouchableRipple
@@ -448,8 +456,8 @@ export default function BucketsSettings() {
                     </Card>
                   ))}
                 </View>
-              )}
-            </Card.Content>
+              </Card.Content>
+            )}
           </Card>
         )}
 
@@ -694,14 +702,6 @@ const styles = StyleSheet.create({
     flex: 1,
     position: "relative",
   },
-  headerActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
   emptyState: {
     flex: 1,
     justifyContent: "center",
@@ -719,28 +719,37 @@ const styles = StyleSheet.create({
   bucketsContainer: {
     flex: 1,
   },
-  danglingButton: {
-    marginRight: 8,
-  },
   danglingSection: {
-    marginBottom: 16, // Rimosso marginHorizontal perché ora gestito da scrollContent
-    backgroundColor: "rgba(255, 193, 7, 0.1)",
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: "rgba(255, 193, 7, 0.3)",
   },
+  collapsibleHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 12,
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  headerSubtitle: {
+    marginTop: 2,
+  },
+  collapsibleContent: {
+    paddingTop: 8,
+  },
   danglingTitle: {
-    marginBottom: 4,
+    marginBottom: 0,
   },
   danglingDescription: {
     marginBottom: 16,
-  },
-  emptyDanglingState: {
-    alignItems: "center",
-    paddingVertical: 16,
-  },
-  emptyDanglingText: {
-    marginTop: 8,
-    textAlign: "center",
   },
   danglingBucketsContainer: {
     gap: 8,
