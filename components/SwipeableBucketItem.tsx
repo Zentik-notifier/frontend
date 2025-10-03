@@ -138,46 +138,8 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
       onPress: () => editBucket(bucket.id),
     });
 
-    if (canDelete) {
-      items.push({
-        id: "delete",
-        label: t("buckets.delete.deleteBucket"),
-        icon: "delete",
-        onPress: () => deleteBucketMutation({ variables: { id: bucket.id } }),
-        type: "destructive",
-      });
-    }
-
-    if (isSharedWithMe) {
-      items.push({
-        id: "revoke",
-        label: t("buckets.delete.revokeSharing"),
-        icon: "share-off",
-        onPress: () =>
-          unshareBucket({
-            variables: {
-              input: {
-                resourceType: ResourceType.Bucket,
-                resourceId: bucket.id,
-                userId: userId,
-              },
-            },
-          }),
-        type: "destructive",
-      });
-    }
-
     return items;
-  }, [
-    t,
-    bucket.id,
-    canDelete,
-    isSharedWithMe,
-    editBucket,
-    deleteBucketMutation,
-    unshareBucket,
-    userId,
-  ]);
+  }, [t, bucket.id, editBucket]);
 
   // Device info removed
 

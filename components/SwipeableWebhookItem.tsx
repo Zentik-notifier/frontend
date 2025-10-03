@@ -78,17 +78,10 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
         icon: "pencil",
         onPress: () => handleEditWebhook(webhook.id),
       });
-      items.push({
-        id: "delete",
-        label: t("webhooks.delete"),
-        icon: "delete",
-        onPress: () => deleteWebhook(webhook.id),
-        type: "destructive",
-      });
     }
 
     return items;
-  }, [isOffline, t, webhook.id, handleEditWebhook, deleteWebhook]);
+  }, [isOffline, t, webhook.id, handleEditWebhook]);
 
   return (
     <SwipeableItem

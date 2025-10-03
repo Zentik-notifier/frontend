@@ -282,27 +282,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   }, [notification.message]);
 
   const menuItems = useMemo((): MenuItem[] => {
-    const items: MenuItem[] = [
-      {
-        id: "toggleRead",
-        label: isRead
-          ? t("swipeActions.markAsUnread.label")
-          : t("swipeActions.markAsRead.label"),
-        icon: isRead ? "eye-off" : "eye",
-        onPress: () => {
-          isRead ? handleMarkAsUnread() : handleMarkAsRead();
-        },
-      },
-      {
-        id: "delete",
-        label: t("swipeActions.delete.label"),
-        icon: "delete",
-        onPress: () => {
-          handleDelete();
-        },
-        type: "destructive" as const,
-      },
-    ];
+    const items: MenuItem[] = [];
 
     if (filteredActions.length > 0) {
       filteredActions.forEach((action, index) => {
@@ -321,17 +301,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     }
 
     return items;
-  }, [
-    isRead,
-    t,
-    filteredActions,
-    getActionTypeIcon,
-    executeAction,
-    notification.id,
-    handleMarkAsRead,
-    handleMarkAsUnread,
-    handleDelete,
-  ]);
+  }, [filteredActions, getActionTypeIcon, executeAction, notification.id]);
   const deliveryType = notification.message?.deliveryType;
   const borderColor =
     deliveryType === NotificationDeliveryType.Critical

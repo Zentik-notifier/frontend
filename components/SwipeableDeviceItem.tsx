@@ -171,17 +171,10 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
         icon: "pencil",
         onPress: handleEditName,
       });
-      items.push({
-        id: "delete",
-        label: t("devices.item.delete"),
-        icon: "delete",
-        onPress: handleDelete,
-        type: "destructive",
-      });
     }
 
     return items;
-  }, [isOfflineAuth, isBackendUnreachable, t, handleEditName, handleDelete]);
+  }, [isOfflineAuth, isBackendUnreachable, t, handleEditName]);
 
   return (
     <SwipeableItem

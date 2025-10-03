@@ -1,10 +1,8 @@
 import React, { useRef, useState } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import {
-  Dialog,
   Icon,
   List,
-  Portal,
   Surface,
   Text,
   TouchableRipple,
@@ -35,8 +33,14 @@ export interface MenuItem {
   id: string;
   label: string;
   icon: string;
-  onPress: () => void;
+  onPress: () => Promise<void> | void;
   type?: "normal" | "destructive";
+  showAlert?: {
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+  };
 }
 
 interface SwipeableItemProps {
@@ -68,25 +72,50 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
 }) => {
   const swipeableRef = useRef<any>(null);
   const theme = useTheme();
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [pendingAction, setPendingAction] = useState<SwipeAction | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const hasMenu = showMenu && menuItems.length > 0;
   const finalBorderColor = borderColor ?? theme.colors.outlineVariant;
 
   const closeSwipeable = () => {
     swipeableRef.current?.close();
   };
 
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+  };
+
   const handleActionPress = async (action?: SwipeAction) => {
     if (!action) return;
 
     if (action.showAlert) {
-      setPendingAction(action);
-      setShowConfirmDialog(true);
+      Alert.alert(
+        action.showAlert.title,
+        action.showAlert.message,
+        [
+          {
+            text: action.showAlert.cancelText || "Cancel",
+            style: "cancel",
+            onPress: closeSwipeable,
+          },
+          {
+            text: action.showAlert.confirmText || "Confirm",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                action.onPress()?.catch(console.error);
+                closeSwipeable();
+              } catch (error) {
+                console.error("Error during action:", error);
+                closeSwipeable();
+              }
+            },
+          },
+        ],
+        { cancelable: true, onDismiss: closeSwipeable }
+      );
     } else {
       try {
-        await action.onPress();
+        action.onPress()?.catch(console.error);
         closeSwipeable();
       } catch (error) {
         console.error("Error during action:", error);
@@ -95,26 +124,77 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
     }
   };
 
-  const executeAction = async () => {
-    if (!pendingAction) return;
-
-    setShowConfirmDialog(false);
-    try {
-      await pendingAction.onPress();
-      closeSwipeable();
-    } catch (error) {
-      console.error("Error during action:", error);
-      closeSwipeable();
-    } finally {
-      setPendingAction(null);
+  const handleMenuItemPress = async (item: MenuItem) => {
+    if (item.showAlert) {
+      Alert.alert(
+        item.showAlert.title,
+        item.showAlert.message,
+        [
+          {
+            text: item.showAlert.cancelText || "Cancel",
+            style: "cancel",
+            onPress: closeMenu,
+          },
+          {
+            text: item.showAlert.confirmText || "Confirm",
+            style: item.type === "destructive" ? "destructive" : "default",
+            onPress: async () => {
+              try {
+                item.onPress()?.catch(console.error);
+                closeMenu();
+              } catch (error) {
+                console.error("Error during menu action:", error);
+                closeMenu();
+              }
+            },
+          },
+        ],
+        { cancelable: true, onDismiss: closeMenu }
+      );
+    } else {
+      try {
+        item.onPress()?.catch(console.error);
+        closeMenu();
+      } catch (error) {
+        console.error("Error during menu action:", error);
+        closeMenu();
+      }
     }
   };
 
-  const cancelAction = () => {
-    setShowConfirmDialog(false);
-    setPendingAction(null);
-    closeSwipeable();
-  };
+  // Generate menu items from left and right actions
+  const allMenuItems = React.useMemo(() => {
+    const items: MenuItem[] = [];
+
+    // Add left action to menu
+    if (leftAction) {
+      items.push({
+        id: "left-action",
+        label: leftAction.label,
+        icon: leftAction.icon,
+        onPress: leftAction.onPress,
+        type: "normal",
+        showAlert: leftAction.showAlert,
+      });
+    }
+
+    // Add right action to menu
+    if (rightAction) {
+      items.push({
+        id: "right-action",
+        label: rightAction.label,
+        icon: rightAction.icon,
+        onPress: rightAction.onPress,
+        type: "destructive",
+        showAlert: rightAction.showAlert,
+      });
+    }
+
+    // Add custom menu items
+    return [...items, ...menuItems];
+  }, [leftAction, rightAction, menuItems]);
+
+  const hasMenu = showMenu && allMenuItems.length > 0;
 
   function LeftAction() {
     if (!leftAction) return null;
@@ -189,8 +269,16 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
             {children}
             {hasMenu && (
               <View style={styles.menuButton}>
-                <Menu>
-                  <MenuTrigger>
+                <Menu opened={isMenuOpen} onBackdropPress={closeMenu}>
+                  <MenuTrigger
+                    customStyles={{
+                      TriggerTouchableComponent: TouchableOpacity,
+                      triggerTouchable: {
+                        activeOpacity: 0.7,
+                      },
+                    }}
+                    onPress={() => setIsMenuOpen(!isMenuOpen)}
+                  >
                     <Surface
                       style={{
                         backgroundColor: theme.colors.surface,
@@ -224,11 +312,14 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
                       },
                     }}
                   >
-                    {menuItems.map((item) => (
-                      <MenuOption key={item.id} onSelect={() => item.onPress()}>
+                    {allMenuItems.map((item) => (
+                      <MenuOption
+                        key={item.id}
+                        onSelect={() => handleMenuItemPress(item)}
+                      >
                         <Surface style={styles.menuItem} elevation={0}>
                           <TouchableRipple
-                            onPress={() => item.onPress()}
+                            onPress={() => handleMenuItemPress(item)}
                             style={styles.menuItemContent}
                           >
                             <View style={styles.menuItemInner}>
@@ -265,31 +356,6 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
           </View>
         </Surface>
       </ReanimatedSwipeable>
-
-      <Portal>
-        <Dialog visible={showConfirmDialog} onDismiss={cancelAction}>
-          <Dialog.Title>
-            {pendingAction?.showAlert?.title || "Confirm Action"}
-          </Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">
-              {pendingAction?.showAlert?.message ||
-                "Are you sure you want to perform this action?"}
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Text
-              onPress={cancelAction}
-              style={{ color: theme.colors.primary, marginRight: 16 }}
-            >
-              {pendingAction?.showAlert?.cancelText || "Cancel"}
-            </Text>
-            <Text onPress={executeAction} style={{ color: theme.colors.error }}>
-              {pendingAction?.showAlert?.confirmText || "Confirm"}
-            </Text>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
     </>
   );
 };
