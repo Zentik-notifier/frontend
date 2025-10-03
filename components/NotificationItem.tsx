@@ -268,7 +268,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const filteredActions = useMemo(() => {
     const message = notification.message;
     return (
-      ([...(message?.actions || []), message?.tapAction]?.filter(
+      [...(message?.actions || []), message?.tapAction]?.filter(
         (action) =>
           action &&
           [
@@ -277,7 +277,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             NotificationActionType.Snooze,
             NotificationActionType.Navigate,
           ].includes(action.type)
-      ) || [])
+      ) || []
     );
   }, [notification.message]);
 
@@ -332,6 +332,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     handleMarkAsUnread,
     handleDelete,
   ]);
+  const deliveryType = notification.message?.deliveryType;
+  const borderColor =
+    deliveryType === NotificationDeliveryType.Critical
+      ? theme.colors.error
+      : deliveryType === NotificationDeliveryType.Silent
+      ? theme.colors.secondary
+      : undefined;
 
   return (
     <View>
@@ -341,37 +348,20 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         marginBottom={2}
         marginHorizontal={16}
         borderRadius={8}
+        borderColor={borderColor}
         menuItems={isMultiSelectionMode ? [] : menuItems}
         showMenu={!isMultiSelectionMode}
+        cardStyle={[
+          isMultiSelectionMode &&
+            isSelected && {
+              backgroundColor: theme.colors.secondaryContainer,
+            },
+        ]}
       >
         <TouchableWithoutFeedback onPress={handlePress}>
-          <Surface
+          <View
             onStartShouldSetResponder={() => true}
-            elevation={0}
-            style={[
-              styles.itemCard,
-              { height: "100%" },
-              {
-                backgroundColor:
-                  isMultiSelectionMode && isSelected
-                    ? theme.colors.secondaryContainer
-                    : theme.colors.elevation?.level1 || theme.colors.surface,
-                // Remove base border to avoid double border with priority state
-                borderColor: "transparent",
-              },
-              // Priority border
-              (notification.message?.deliveryType ===
-                NotificationDeliveryType.Critical ||
-                notification.message?.deliveryType ===
-                  NotificationDeliveryType.Silent) && {
-                borderWidth: 2,
-                borderColor:
-                  notification.message?.deliveryType ===
-                  NotificationDeliveryType.Critical
-                    ? theme.colors.error
-                    : theme.colors.secondary,
-              },
-            ]}
+            style={{ height: "100%" }}
           >
             <View style={styles.itemCardContent}>
               {(notification.message?.deliveryType ===
@@ -622,7 +612,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 </Surface>
               </Surface>
             </View>
-          </Surface>
+          </View>
         </TouchableWithoutFeedback>
 
         {fullScreenIndex >= 0 && attachments[fullScreenIndex] && (
@@ -656,15 +646,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 const styles = StyleSheet.create({
   swipeContent: {
     borderRadius: 8,
-  },
-  itemCard: {
-    borderRadius: 8,
-    shadowColor: "transparent",
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 0,
-    borderWidth: 1,
   },
   itemCardContent: {
     overflow: "hidden",

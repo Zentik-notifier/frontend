@@ -44,9 +44,11 @@ interface SwipeableItemProps {
   leftAction?: SwipeAction;
   rightAction?: SwipeAction;
   containerStyle?: any;
+  cardStyle?: any[];
   marginBottom?: number;
   marginHorizontal?: number;
   borderRadius?: number;
+  borderColor?: string;
   menuItems?: MenuItem[];
   showMenu?: boolean;
 }
@@ -56,9 +58,11 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   leftAction,
   rightAction,
   containerStyle,
+  cardStyle,
   marginBottom = 12,
   marginHorizontal = 0,
   borderRadius = 12,
+  borderColor,
   menuItems = [],
   showMenu = true,
 }) => {
@@ -68,6 +72,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   const [pendingAction, setPendingAction] = useState<SwipeAction | null>(null);
 
   const hasMenu = showMenu && menuItems.length > 0;
+  const finalBorderColor = borderColor ?? theme.colors.outlineVariant;
 
   const closeSwipeable = () => {
     swipeableRef.current?.close();
@@ -165,84 +170,100 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
         renderLeftActions={leftAction ? LeftAction : undefined}
         renderRightActions={rightAction ? RightAction : undefined}
       >
-        <View style={styles.contentWrapper}>
-          {children}
-          {hasMenu && (
-            <View style={styles.menuButton}>
-              <Menu>
-                <MenuTrigger>
-                  <Surface
-                    style={{
-                      backgroundColor: theme.colors.surface,
-                      borderColor: theme.colors.outlineVariant,
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderWidth: 1,
+        <Surface
+          elevation={0}
+          style={[
+            styles.card,
+            {
+              borderRadius,
+              borderColor: finalBorderColor,
+            },
+            {
+              backgroundColor:
+                theme.colors.elevation?.level1 || theme.colors.surface,
+            },
+            ...(cardStyle ?? []),
+          ]}
+        >
+          <View style={styles.contentWrapper}>
+            {children}
+            {hasMenu && (
+              <View style={styles.menuButton}>
+                <Menu>
+                  <MenuTrigger>
+                    <Surface
+                      style={{
+                        backgroundColor: theme.colors.surface,
+                        borderColor: finalBorderColor,
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderWidth: 1,
+                      }}
+                      elevation={1}
+                    >
+                      <Icon
+                        source="dots-vertical"
+                        size={18}
+                        color={theme.colors.onSurface}
+                      />
+                    </Surface>
+                  </MenuTrigger>
+                  <MenuOptions
+                    customStyles={{
+                      optionsContainer: {
+                        backgroundColor: theme.colors.surface,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: finalBorderColor,
+                        padding: 4,
+                        minWidth: 180,
+                        marginLeft: -35,
+                      },
                     }}
-                    elevation={1}
                   >
-                    <Icon
-                      source="dots-vertical"
-                      size={18}
-                      color={theme.colors.onSurface}
-                    />
-                  </Surface>
-                </MenuTrigger>
-                <MenuOptions
-                  customStyles={{
-                    optionsContainer: {
-                      backgroundColor: theme.colors.surface,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: theme.colors.outlineVariant,
-                      padding: 4,
-                      minWidth: 180,
-                      marginLeft: -35,
-                    },
-                  }}
-                >
-                {menuItems.map((item) => (
-                  <MenuOption key={item.id} onSelect={() => item.onPress()}>
-                    <Surface style={styles.menuItem} elevation={0}>
-                      <TouchableRipple
-                        onPress={() => item.onPress()}
-                        style={styles.menuItemContent}
-                      >
-                        <View style={styles.menuItemInner}>
-                          <List.Icon
-                            icon={item.icon}
-                            color={
-                              item.type === "destructive"
-                                ? theme.colors.error
-                                : theme.colors.onSurface
-                            }
-                          />
-                          <Text
-                            style={[
-                              styles.menuItemText,
-                              {
-                                color:
+                    {menuItems.map((item) => (
+                      <MenuOption key={item.id} onSelect={() => item.onPress()}>
+                        <Surface style={styles.menuItem} elevation={0}>
+                          <TouchableRipple
+                            onPress={() => item.onPress()}
+                            style={styles.menuItemContent}
+                          >
+                            <View style={styles.menuItemInner}>
+                              <List.Icon
+                                icon={item.icon}
+                                color={
                                   item.type === "destructive"
                                     ? theme.colors.error
-                                    : theme.colors.onSurface,
-                              },
-                            ]}
-                          >
-                            {item.label}
-                          </Text>
-                        </View>
-                      </TouchableRipple>
-                    </Surface>
-                  </MenuOption>
-                ))}
-                </MenuOptions>
-              </Menu>
-            </View>
-          )}
-        </View>
+                                    : theme.colors.onSurface
+                                }
+                              />
+                              <Text
+                                style={[
+                                  styles.menuItemText,
+                                  {
+                                    color:
+                                      item.type === "destructive"
+                                        ? theme.colors.error
+                                        : theme.colors.onSurface,
+                                  },
+                                ]}
+                              >
+                                {item.label}
+                              </Text>
+                            </View>
+                          </TouchableRipple>
+                        </Surface>
+                      </MenuOption>
+                    ))}
+                  </MenuOptions>
+                </Menu>
+              </View>
+            )}
+          </View>
+        </Surface>
       </ReanimatedSwipeable>
 
       <Portal>
@@ -263,10 +284,7 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
             >
               {pendingAction?.showAlert?.cancelText || "Cancel"}
             </Text>
-            <Text
-              onPress={executeAction}
-              style={{ color: theme.colors.error }}
-            >
+            <Text onPress={executeAction} style={{ color: theme.colors.error }}>
               {pendingAction?.showAlert?.confirmText || "Confirm"}
             </Text>
           </Dialog.Actions>
@@ -277,6 +295,15 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
 };
 
 const styles = StyleSheet.create({
+  card: {
+    shadowColor: "transparent",
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
   contentWrapper: {
     position: "relative",
   },
