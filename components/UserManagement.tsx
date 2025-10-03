@@ -82,13 +82,13 @@ const UserListItem: React.FC<UserListItemProps> = ({ user }) => {
           >
             {getUserRoleDisplayName(user.role)?.toUpperCase()}
           </Chip>
-
+{/* 
           <IconButton
             icon="eye"
             size={20}
             iconColor={theme.colors.primary}
             onPress={() => navigateToUserDetails(user.id)}
-          />
+          /> */}
         </View>
       </Card.Content>
     </Card>

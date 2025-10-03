@@ -11,11 +11,10 @@ import {
   FlatList,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
-import { Button, Card, Dialog, Icon, Portal, Surface, Text, useTheme } from "react-native-paper";
+import { Button, Card, Dialog, Icon, Portal, Surface, Text, TextInput, useTheme } from "react-native-paper";
 import ThemedBottomSheet, { ThemedBottomSheetRef } from "./ui/ThemedBottomSheet";
 
 export default function EventsReview() {
@@ -293,53 +292,43 @@ export default function EventsReview() {
         </View>
 
         <View style={styles.filtersContainer}>
-          <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface }]}>
-            <View style={styles.searchIcon}>
-              <Icon source="magnify" size={18} />
-            </View>
-            <TextInput
-              style={[styles.searchInput, { color: theme.colors.onSurface }]}
-              placeholder={t("eventsReview.filters.objectId")}
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              value={objectId}
-              onChangeText={setObjectId}
-              editable={!disabledActions}
-            />
-            {objectId.length > 0 && (
-              <TouchableOpacity
-                onPress={() => setObjectId("")}
-                style={styles.clearButton}
-                disabled={disabledActions}
-              >
-                <Icon source="close-circle" size={18} />
-              </TouchableOpacity>
-            )}
-          </View>
+          <TextInput
+            mode="outlined"
+            placeholder={t("eventsReview.filters.objectId")}
+            value={objectId}
+            onChangeText={setObjectId}
+            disabled={disabledActions}
+            left={<TextInput.Icon icon="magnify" />}
+            right={
+              objectId.length > 0 ? (
+                <TextInput.Icon
+                  icon="close-circle"
+                  onPress={() => setObjectId("")}
+                />
+              ) : undefined
+            }
+            style={styles.searchInput}
+          />
         </View>
 
         <View style={styles.filtersContainer}>
-          <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface }]}>
-            <View style={styles.searchIcon}>
-              <Icon source="cellphone" size={18} />
-            </View>
-            <TextInput
-              style={[styles.searchInput, { color: theme.colors.onSurface }]}
-              placeholder={t("eventsReview.filters.targetId")}
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              value={targetId}
-              onChangeText={setTargetId}
-              editable={!disabledActions}
-            />
-            {targetId.length > 0 && (
-              <TouchableOpacity
-                onPress={() => setTargetId("")}
-                style={styles.clearButton}
-                disabled={disabledActions}
-              >
-                <Icon source="close-circle" size={18} />
-              </TouchableOpacity>
-            )}
-          </View>
+          <TextInput
+            mode="outlined"
+            placeholder={t("eventsReview.filters.targetId")}
+            value={targetId}
+            onChangeText={setTargetId}
+            disabled={disabledActions}
+            left={<TextInput.Icon icon="cellphone" />}
+            right={
+              targetId.length > 0 ? (
+                <TextInput.Icon
+                  icon="close-circle"
+                  onPress={() => setTargetId("")}
+                />
+              ) : undefined
+            }
+            style={styles.searchInput}
+          />
 
         <TouchableOpacity
           style={[
@@ -627,27 +616,12 @@ const styles = StyleSheet.create({
   filtersContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 10,
     gap: 8,
-  },
-  searchContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 40,
-  },
-  searchIcon: {
-    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
     height: 40,
-  },
-  clearButton: {
-    padding: 4,
   },
   filterButton: {
     width: 40,

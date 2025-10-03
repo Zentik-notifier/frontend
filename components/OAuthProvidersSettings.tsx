@@ -1,3 +1,4 @@
+import { useAppContext } from "@/contexts/AppContext";
 import {
   OAuthProviderFragment,
   useAllOAuthProvidersQuery,
@@ -8,8 +9,6 @@ import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
 import {
-  ActivityIndicator,
-  Button,
   Card,
   Chip,
   FAB,
@@ -17,9 +16,8 @@ import {
   IconButton,
   Surface,
   Text,
-  useTheme,
+  useTheme
 } from "react-native-paper";
-import { useAppContext } from "@/contexts/AppContext";
 import PaperScrollView from "./ui/PaperScrollView";
 
 function OAuthProviderItem({
@@ -90,27 +88,18 @@ function OAuthProviderItem({
               : t("administration.disabled")}
           </Chip>
         </View>
-      </Card.Content>
-
-      <Card.Actions style={styles.providerActions}>
         <IconButton
-          icon={provider.isEnabled ? "check" : "plus"}
-          size={20}
+          icon={provider.isEnabled ? "check-circle" : "plus-circle"}
+          size={24}
           iconColor={
-            provider.isEnabled ? theme.colors.primary : provider.color!
+            provider.isEnabled ? theme.colors.primary : theme.colors.error
           }
           onPress={() => onToggle(provider)}
           disabled={toggleLoading}
           loading={toggleLoading}
+          style={styles.toggleButton}
         />
-
-        <IconButton
-          icon="chevron-right"
-          size={20}
-          iconColor={theme.colors.onSurface}
-          onPress={() => onEdit(provider)}
-        />
-      </Card.Actions>
+      </Card.Content>
     </Card>
   );
 }
@@ -149,20 +138,9 @@ export default function OAuthProvidersSettings() {
         variables: {
           id: provider.id,
         },
-        refetchQueries: ["AllOAuthProviders"],
-        optimisticResponse: {
-          toggleOAuthProvider: {
-            __typename: "OAuthProvider",
-            id: provider.id,
-            name: provider.name,
-            providerId: provider.providerId,
-            isEnabled: !provider.isEnabled,
-          },
-        },
       });
     } catch (error) {
       console.error("Error toggling OAuth provider:", error);
-      // TODO: Show error message to user
     } finally {
       setTogglingProviderId(null);
     }
@@ -284,8 +262,8 @@ const styles = StyleSheet.create({
   statusChip: {
     alignSelf: "flex-start",
   },
-  providerActions: {
-    justifyContent: "flex-end",
+  toggleButton: {
+    borderRadius: 20,
   },
   emptyState: {
     flex: 1,
