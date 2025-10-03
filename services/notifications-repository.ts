@@ -8,7 +8,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Alert } from 'react-native';
-import { useI18n } from '@/utils';
+import { useI18n } from '@/utils/i18n';
 
 /**
  * Notification repository for managing notification storage operations

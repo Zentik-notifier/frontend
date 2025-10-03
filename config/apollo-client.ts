@@ -4,16 +4,15 @@ import { getStoredDeviceToken } from '@/services/auth-storage';
 import { userSettings } from '@/services/user-settings';
 import { processJsonToCache } from '@/utils/cache-data-processor';
 import { ApolloClient, createHttpLink, InMemoryCache, makeVar, NormalizedCacheObject, split } from '@apollo/client';
+import { loadDevMessages, loadErrorMessages } from "@apollo/client/dev";
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { getMainDefinition } from '@apollo/client/utilities';
-import { loadDevMessages, loadErrorMessages } from "@apollo/client/dev";
-import AsyncStorage from '@/utils/async-storage-wrapper';
 import { createClient } from 'graphql-ws';
-import { ApiConfigService } from '../services/api-config';
 import { Platform } from 'react-native';
-import { getAllNotificationsFromCache, clearAllNotificationsFromCache, upsertNotificationsBatch } from '../services/notifications-repository';
+import { ApiConfigService } from '../services/api-config';
+import { clearAllNotificationsFromCache, getAllNotificationsFromCache } from '../services/notifications-repository';
 
 if (__DEV__) {
   loadDevMessages();

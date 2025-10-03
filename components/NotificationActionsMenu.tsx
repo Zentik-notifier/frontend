@@ -245,8 +245,8 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   menuItem: {
-    borderBottomWidth: 0.5,
-    borderBottomColor: "rgba(0,0,0,0.1)",
+    // borderBottomWidth: 0.5,
+    // borderBottomColor: "rgba(0,0,0,0.1)",
   },
   menuItemContent: {
     flex: 1,
@@ -254,8 +254,8 @@ const styles = StyleSheet.create({
   menuItemInner: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 4 ,
+    paddingVertical: 4,
   },
   menuItemText: {
     flex: 1,

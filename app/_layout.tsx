@@ -19,9 +19,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppProvider, useAppContext } from "../contexts/AppContext";
 import { ApiConfigService } from "../services/api-config";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
-import {
-  openSharedCacheDb
-} from "../services/db-setup";
+import { openSharedCacheDb } from "../services/db-setup";
 
 type AlertButton = {
   text?: string;
@@ -163,8 +161,8 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider style={{ flex: 1 }}>
+    <GestureHandlerRootView>
+      <SafeAreaProvider>
         <ThemeProvider>
           <I18nProvider>
             <GraphQLProvider>

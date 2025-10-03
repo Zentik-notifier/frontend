@@ -170,12 +170,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     }
   }, [attachments, autoDownloadEnabled, notification]);
 
-  const [swipeActive, setSwipeActive] = useRecyclingState<boolean>(false, [
-    notification.id,
-  ]);
-
   const handlePress = () => {
-    if (swipeActive) return;
     if (mediaPressRef.current) {
       mediaPressRef.current = false;
       return;
@@ -268,13 +263,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       };
 
   return (
-    <View style={[styles.wrapper]}>
+    <View>
       <SwipeableItem
-        withButton={false}
+        // withButton={false}
         leftAction={isMultiSelectionMode ? undefined : toggleReadAction}
         rightAction={isMultiSelectionMode ? undefined : deleteAction}
-        onSwipeActiveChange={setSwipeActive}
-        contentStyle={styles.swipeContent}
+        // onSwipeActiveChange={setSwipeActive}
+        // contentStyle={styles.swipeContent}
         marginBottom={2}
         marginHorizontal={16}
         borderRadius={8}
@@ -595,7 +590,6 @@ const styles = StyleSheet.create({
   swipeContent: {
     borderRadius: 8,
   },
-  wrapper: {},
   itemCard: {
     borderRadius: 8,
     shadowColor: "transparent",
