@@ -367,12 +367,11 @@ export default function NotificationsList({
           style={[
             styles.scrollTopFab,
             {
-              backgroundColor:
-                theme.colors.elevation?.level2 || theme.colors.surface,
+              backgroundColor: theme.colors.primary,
             },
           ]}
         >
-          <Icon source="arrow-up" size={20} color={theme.colors.onSurface} />
+          <Icon source="arrow-up" size={20} color={theme.colors.onPrimary} />
         </TouchableRipple>
       )}
     </Surface>
