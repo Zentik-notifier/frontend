@@ -90,6 +90,13 @@
         "failedApply": "Impossibile applicare i dati importati alla cache",
         "importTitle": "Importa Notifiche",
         "importSuccessMessage": "Importate con successo {{count}} notifiche nella cache",
+        "noValidNotificationsFound": "Nessuna notifica valida trovata nel file",
+        "confirmImportTitle": "Conferma importazione",
+        "confirmImportQuestion": "Vuoi importare {{count}} notifiche?",
+        "importCompleted": "Importazione completata",
+        "importCompletedMessage": "Importate con successo {{count}} notifiche",
+        "exportCompleted": "Esportazione completata",
+        "exportCompletedMessage": "File salvato in: {{path}}",
         "buttons": {
           "cancel": "Annulla",
           "import": "Importa"

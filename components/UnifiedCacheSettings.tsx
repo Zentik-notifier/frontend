@@ -1,10 +1,11 @@
 import { useAppContext } from "@/contexts/AppContext";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
+import { useNotificationExportImport } from "@/hooks/useNotificationExportImport";
 import { openSharedCacheDb } from "@/services/db-setup";
 import { MediaCacheRepository } from "@/services/media-cache-repository";
 import { useUserSettings } from "@/services/user-settings";
-import { getAllNotificationsFromCache, exportAllNotifications, importAllNotifications } from "@/services/notifications-repository";
+import { getAllNotificationsFromCache } from "@/services/notifications-repository";
 import { formatFileSize, IS_FS_SUPPORTED } from "@/utils";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
@@ -127,6 +128,10 @@ export default function UnifiedCacheSettings() {
     },
   } = useAppContext();
 
+  const { handleExportNotifications, handleImportNotifications } = useNotificationExportImport((notifications) => {
+    setDbNotifications(notifications);
+  });
+
   // Notifications count from database
   const dbNotificationsCount = useMemo(
     () => dbNotifications.length,
@@ -148,31 +153,6 @@ export default function UnifiedCacheSettings() {
     setShowResetModal(true);
   };
 
-  const handleExportNotifications = async () => {
-    setIsExporting(true);
-    try {
-      await exportAllNotifications();
-    } catch (error) {
-      console.error("Export failed:", error);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleImportNotifications = async () => {
-    setIsImporting(true);
-    try {
-      const success = await importAllNotifications();
-      if (success) {
-        const notifications = await getAllNotificationsFromCache();
-        setDbNotifications(notifications);
-      }
-    } catch (error) {
-      console.error("Import failed:", error);
-    } finally {
-      setIsImporting(false);
-    }
-  };
 
   const handleExportMetadata = async () => {
     setIsExportingMetadata(true);

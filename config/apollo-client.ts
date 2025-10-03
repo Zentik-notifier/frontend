@@ -405,45 +405,6 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
   }
 };
 
-export const saveNotificationsToPersistedCache = async (): Promise<void> => {
-  try {
-    if (!loadedFromPersistedCacheVar()) {
-      console.log('💾 [Apollo Cache] Not saving notifications, waiting for initial loading from persisted cache');
-      return;
-    }
-    console.log('💾 [Apollo Cache] Saving notifications to persisted cache...');
-
-    if (!apolloClient) {
-      console.warn('⚠️ [Apollo Cache] Apollo client not initialized');
-      return;
-    }
-
-    let queryData: GetNotificationsQuery | null = null;
-    try {
-      queryData = apolloClient.cache.readQuery<GetNotificationsQuery>({
-        query: GetNotificationsDocument
-      });
-    } catch (error) {
-      console.warn('⚠️ [Apollo Cache] GetNotifications query not found in cache');
-      return;
-    }
-
-    if (!queryData?.notifications) {
-      console.log('💾 [Apollo Cache] No notifications data found');
-      return;
-    }
-
-    const notificationsToSave = queryData.notifications;
-
-    // Save to appropriate database based on platform
-    await upsertNotificationsBatch(notificationsToSave);
-
-    console.log(`✅ [Apollo Cache] Successfully saved ${notificationsToSave.length} notifications to ${Platform.OS === 'web' ? 'IndexedDB' : 'SQLite'}`);
-  } catch (error) {
-    console.error('❌ [Apollo Cache] Error saving notifications to persisted cache:', error);
-  }
-};
-
 export const resetApolloCache = async () => {
   if (!apolloClient) return;
   try {

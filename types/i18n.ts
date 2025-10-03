@@ -270,6 +270,13 @@ export interface TranslationKey {
         importTitle: string;
         invalidFileFormat: string;
         noNotificationsToExport: string;
+        noValidNotificationsFound: string;
+        confirmImportTitle: string;
+        confirmImportQuestion: string;
+        importCompleted: string;
+        importCompletedMessage: string;
+        exportCompleted: string;
+        exportCompletedMessage: string;
         title: string;
       };
       maxStoredDaysDescription: string;

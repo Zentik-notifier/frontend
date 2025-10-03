@@ -90,6 +90,13 @@
         "failedApply": "Failed to apply imported data to cache",
         "importTitle": "Import Notifications",
         "importSuccessMessage": "Successfully imported {{count}} notifications into the cache",
+        "noValidNotificationsFound": "No valid notifications found in file",
+        "confirmImportTitle": "Confirm Import",
+        "confirmImportQuestion": "Do you want to import {{count}} notifications?",
+        "importCompleted": "Import Completed",
+        "importCompletedMessage": "Successfully imported {{count}} notifications",
+        "exportCompleted": "Export Completed",
+        "exportCompletedMessage": "File saved to: {{path}}",
         "buttons": {
           "cancel": "Cancel",
           "import": "Import"

@@ -1,39 +1,8 @@
 import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetNotificationLazyQuery, useGetNotificationsLazyQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation, MediaType, useGetNotificationQuery, useGetNotificationsQuery, useGetBucketsQuery } from '@/generated/gql-operations-generated';
-import { saveNotificationsToPersistedCache } from '@/config/apollo-client';
 import { mediaCache } from '@/services/media-cache-service';
 import { Reference, useApolloClient } from '@apollo/client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { deleteNotificationFromCache, deleteNotificationsFromCache, updateNotificationReadStatus, updateNotificationsReadStatus } from '@/services/notifications-repository';
-
-// export const useSaveNotificationsToStorage = () => {
-// 	const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-// 	const DEBOUNCE_DELAY = 2000;
-// 	const {
-// 		notifications,
-// 	} = useFetchNotifications();
-
-// 	const saveNotifications = useCallback(() => {
-// 		if (debounceTimeoutRef.current) {
-// 			clearTimeout(debounceTimeoutRef.current);
-// 		}
-
-// 		debounceTimeoutRef.current = setTimeout(async () => {
-// 			await saveNotificationsToPersistedCache();
-// 		}, DEBOUNCE_DELAY);
-// 	}, []);
-
-// 	useEffect(() => {
-// 		return () => {
-// 			if (debounceTimeoutRef.current) {
-// 				clearTimeout(debounceTimeoutRef.current);
-// 			}
-// 		};
-// 	}, []);
-
-// 	useEffect(() => {
-// 		saveNotifications();
-// 	}, [notifications, saveNotifications]);
-// }
 
 function useNotificationCacheUpdater() {
 	const apollo = useApolloClient();
