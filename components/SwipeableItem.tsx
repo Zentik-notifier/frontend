@@ -1,7 +1,22 @@
 import React, { useRef, useState } from "react";
-import { StyleSheet, TouchableOpacity } from "react-native";
-import { Dialog, Icon, Portal, Text, useTheme } from "react-native-paper";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  Dialog,
+  Icon,
+  List,
+  Portal,
+  Surface,
+  Text,
+  TouchableRipple,
+  useTheme,
+} from "react-native-paper";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
+import {
+  Menu,
+  MenuTrigger,
+  MenuOptions,
+  MenuOption,
+} from "react-native-popup-menu";
 
 export interface SwipeAction {
   icon: string;
@@ -16,6 +31,14 @@ export interface SwipeAction {
   };
 }
 
+export interface MenuItem {
+  id: string;
+  label: string;
+  icon: string;
+  onPress: () => void;
+  type?: "normal" | "destructive";
+}
+
 interface SwipeableItemProps {
   children: React.ReactNode;
   leftAction?: SwipeAction;
@@ -24,6 +47,8 @@ interface SwipeableItemProps {
   marginBottom?: number;
   marginHorizontal?: number;
   borderRadius?: number;
+  menuItems?: MenuItem[];
+  showMenu?: boolean;
 }
 
 const SwipeableItem: React.FC<SwipeableItemProps> = ({
@@ -34,11 +59,15 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   marginBottom = 12,
   marginHorizontal = 0,
   borderRadius = 12,
+  menuItems = [],
+  showMenu = true,
 }) => {
   const swipeableRef = useRef<any>(null);
   const theme = useTheme();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<SwipeAction | null>(null);
+
+  const hasMenu = showMenu && menuItems.length > 0;
 
   const closeSwipeable = () => {
     swipeableRef.current?.close();
@@ -136,7 +165,84 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
         renderLeftActions={leftAction ? LeftAction : undefined}
         renderRightActions={rightAction ? RightAction : undefined}
       >
-        {children}
+        <View style={styles.contentWrapper}>
+          {children}
+          {hasMenu && (
+            <View style={styles.menuButton}>
+              <Menu>
+                <MenuTrigger>
+                  <Surface
+                    style={{
+                      backgroundColor: theme.colors.surface,
+                      borderColor: theme.colors.outlineVariant,
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderWidth: 1,
+                    }}
+                    elevation={1}
+                  >
+                    <Icon
+                      source="dots-vertical"
+                      size={18}
+                      color={theme.colors.onSurface}
+                    />
+                  </Surface>
+                </MenuTrigger>
+                <MenuOptions
+                  customStyles={{
+                    optionsContainer: {
+                      backgroundColor: theme.colors.surface,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: theme.colors.outlineVariant,
+                      padding: 4,
+                      minWidth: 180,
+                      marginLeft: -35,
+                    },
+                  }}
+                >
+                {menuItems.map((item) => (
+                  <MenuOption key={item.id} onSelect={() => item.onPress()}>
+                    <Surface style={styles.menuItem} elevation={0}>
+                      <TouchableRipple
+                        onPress={() => item.onPress()}
+                        style={styles.menuItemContent}
+                      >
+                        <View style={styles.menuItemInner}>
+                          <List.Icon
+                            icon={item.icon}
+                            color={
+                              item.type === "destructive"
+                                ? theme.colors.error
+                                : theme.colors.onSurface
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.menuItemText,
+                              {
+                                color:
+                                  item.type === "destructive"
+                                    ? theme.colors.error
+                                    : theme.colors.onSurface,
+                              },
+                            ]}
+                          >
+                            {item.label}
+                          </Text>
+                        </View>
+                      </TouchableRipple>
+                    </Surface>
+                  </MenuOption>
+                ))}
+                </MenuOptions>
+              </Menu>
+            </View>
+          )}
+        </View>
       </ReanimatedSwipeable>
 
       <Portal>
@@ -171,6 +277,9 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
 };
 
 const styles = StyleSheet.create({
+  contentWrapper: {
+    position: "relative",
+  },
   actionContainer: {
     justifyContent: "center",
     alignItems: "center",
@@ -183,6 +292,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     marginTop: 4,
+  },
+  menuButton: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    zIndex: 10,
+  },
+  menuItem: {
+    backgroundColor: "transparent",
+  },
+  menuItemContent: {
+    flex: 1,
+  },
+  menuItemInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  menuItemText: {
+    flex: 1,
+    fontSize: 16,
+    marginLeft: 12,
   },
 });
 

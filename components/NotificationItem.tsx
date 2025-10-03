@@ -1,6 +1,7 @@
 import { useAppContext } from "@/contexts/AppContext";
 import {
   MediaType,
+  NotificationActionType,
   NotificationDeliveryType,
   NotificationFragment,
 } from "@/generated/gql-operations-generated";
@@ -11,6 +12,7 @@ import {
   useMarkNotificationRead,
   useMarkNotificationUnread,
 } from "@/hooks/useNotifications";
+import { useNotificationActions, useNotificationUtils } from "@/hooks";
 import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useRecyclingState } from "@shopify/flash-list";
@@ -32,9 +34,8 @@ import BucketIcon from "./BucketIcon";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
 import { MediaTypeIcon } from "./MediaTypeIcon";
-import { NotificationActionsMenu } from "./NotificationActionsMenu";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
-import SwipeableItem from "./SwipeableItem";
+import SwipeableItem, { MenuItem } from "./SwipeableItem";
 import { SmartTextRenderer } from "./ui";
 
 // Dynamic height calculator to keep FlashList and item in sync
@@ -138,6 +139,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const deleteNotification = useDeleteNotification();
   const markAsRead = useMarkNotificationRead();
   const markAsUnread = useMarkNotificationUnread();
+  const { executeAction } = useNotificationActions();
+  const { getActionTypeIcon } = useNotificationUtils();
 
   const attachments = useMemo(
     () =>
@@ -262,17 +265,84 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         onPress: handleMarkAsRead,
       };
 
+  const filteredActions = useMemo(() => {
+    const message = notification.message;
+    return (
+      ([...(message?.actions || []), message?.tapAction]?.filter(
+        (action) =>
+          action &&
+          [
+            NotificationActionType.BackgroundCall,
+            NotificationActionType.Webhook,
+            NotificationActionType.Snooze,
+            NotificationActionType.Navigate,
+          ].includes(action.type)
+      ) || [])
+    );
+  }, [notification.message]);
+
+  const menuItems = useMemo((): MenuItem[] => {
+    const items: MenuItem[] = [
+      {
+        id: "toggleRead",
+        label: isRead
+          ? t("swipeActions.markAsUnread.label")
+          : t("swipeActions.markAsRead.label"),
+        icon: isRead ? "eye-off" : "eye",
+        onPress: () => {
+          isRead ? handleMarkAsUnread() : handleMarkAsRead();
+        },
+      },
+      {
+        id: "delete",
+        label: t("swipeActions.delete.label"),
+        icon: "delete",
+        onPress: () => {
+          handleDelete();
+        },
+        type: "destructive" as const,
+      },
+    ];
+
+    if (filteredActions.length > 0) {
+      filteredActions.forEach((action, index) => {
+        if (action) {
+          items.push({
+            id: `action-${index}`,
+            label: action.title || action.value?.slice(0, 50) || "Action",
+            icon: getActionTypeIcon(action.type) as string,
+            onPress: () => {
+              executeAction(notification.id!, action);
+            },
+            type: action.destructive ? "destructive" : ("normal" as const),
+          });
+        }
+      });
+    }
+
+    return items;
+  }, [
+    isRead,
+    t,
+    filteredActions,
+    getActionTypeIcon,
+    executeAction,
+    notification.id,
+    handleMarkAsRead,
+    handleMarkAsUnread,
+    handleDelete,
+  ]);
+
   return (
     <View>
       <SwipeableItem
-        // withButton={false}
         leftAction={isMultiSelectionMode ? undefined : toggleReadAction}
         rightAction={isMultiSelectionMode ? undefined : deleteAction}
-        // onSwipeActiveChange={setSwipeActive}
-        // contentStyle={styles.swipeContent}
         marginBottom={2}
         marginHorizontal={16}
         borderRadius={8}
+        menuItems={isMultiSelectionMode ? [] : menuItems}
+        showMenu={!isMultiSelectionMode}
       >
         <TouchableWithoutFeedback onPress={handlePress}>
           <Surface
@@ -550,9 +620,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                       })
                     ))}
                 </Surface>
-                <View style={styles.bottomRightActions}>
-                  <NotificationActionsMenu notification={notification} />
-                </View>
               </Surface>
             </View>
           </Surface>
@@ -709,10 +776,6 @@ const styles = StyleSheet.create({
     gap: 8,
     flexWrap: "nowrap",
     overflow: "hidden",
-  },
-  bottomRightActions: {
-    justifyContent: "center",
-    alignItems: "center",
   },
   mediaPreviewRow: {
     paddingHorizontal: 12,
