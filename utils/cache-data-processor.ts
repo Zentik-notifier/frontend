@@ -1,7 +1,7 @@
 import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc } from '@/generated/gql-operations-generated';
 import { ApolloCache } from '@apollo/client';
 
-const BATCH_SIZE = 250;
+const BATCH_SIZE = 3000;
 const BATCH_DELAY = 100;
 
 /**
