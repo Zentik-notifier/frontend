@@ -8,6 +8,73 @@ import * as Sharing from 'expo-sharing';
 import { useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 
+export const cleanExportData = (data: any): any => {
+  if (data === null || data === undefined) {
+    return data;
+  }
+
+  if (Array.isArray(data)) {
+    return data.map(item => cleanExportData(item));
+  }
+
+  if (typeof data === 'object') {
+    const cleaned: any = {};
+
+    Object.entries(data).forEach(([key, value]) => {
+      // Rimuovi metadati interni di Apollo Cache (mantieni solo __typename)
+      if (key.startsWith('__') && key !== '__typename') {
+        return;
+      }
+
+      // Maschera informazioni sensibili nei record del database
+      if (key === 'publicKey' || key === 'privateKey' || key === 'deviceToken' ||
+          key === 'accessToken' || key === 'refreshToken' || key === 'authToken' ||
+          key === 'password' || key === 'secret' || key === 'apiKey') {
+        cleaned[key] = '***';
+        return;
+      }
+
+      // Maschera URL sensibili nelle azioni (potrebbero contenere token o dati personali)
+      if (key === 'value' && typeof value === 'string' && (
+          value.includes('token=') ||
+          value.includes('key=') ||
+          value.includes('password=') ||
+          value.includes('secret=') ||
+          value.match(/https?:\/\/[^\s]+/)
+        )) {
+        // Se il valore sembra contenere dati sensibili o URL, maschera tutto o parte di esso
+        if (value.includes('?')) {
+          const baseUrl = value.split('?')[0];
+          cleaned[key] = `${baseUrl}?***`;
+        } else {
+          cleaned[key] = '***';
+        }
+        return;
+      }
+
+      // Se è il campo fragment (da database), parsalo e puliscilo
+      if (key === 'fragment' && typeof value === 'string') {
+        try {
+          const fragmentData = JSON.parse(value);
+          cleaned[key] = cleanExportData(fragmentData);
+          return;
+        } catch {
+          // Se non riesce a parsare, mantieni il valore originale
+          cleaned[key] = value;
+          return;
+        }
+      }
+
+      // Processa ricorsivamente gli altri valori
+      cleaned[key] = cleanExportData(value);
+    });
+
+    return cleaned;
+  }
+
+  return data;
+};
+
 export function useNotificationExportImport(onImportSuccess?: (notifications: any[]) => void) {
   const { t } = useI18n();
   const apolloClient = useApolloClient();
@@ -24,12 +91,15 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
         return false;
       }
 
+      // Applica cleanExportData per rimuovere metadati e mascherare dati sensibili
+      const cleanedNotifications = cleanExportData(rawNotifications);
+
       const fileName = `notifications-${new Date().toISOString().split('T')[0]}.json`;
 
       if (Platform.OS === 'web') {
-        return await exportNotificationsWeb(fileName, rawNotifications);
+        return await exportNotificationsWeb(fileName, cleanedNotifications);
       } else {
-        return await exportNotificationsMobile(fileName, rawNotifications);
+        return await exportNotificationsMobile(fileName, cleanedNotifications);
       }
     } catch (error) {
       console.error('Error exporting notifications:', error);
@@ -264,3 +334,4 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
     handleImportNotifications,
   };
 }
+

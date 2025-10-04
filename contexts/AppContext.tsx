@@ -42,6 +42,7 @@ import {
 import { mediaCache } from "../services/media-cache-service";
 import { useUserSettings } from "../services/user-settings";
 import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
+import { cleanupNotificationsBySettings } from "@/services/notifications-repository";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -101,6 +102,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     subscriptionsEnabledVar(true);
+
+    setTimeout(async () => {
+      try {
+        await cleanupNotificationsBySettings(notifications);
+      } catch (error) {
+        console.error(`❌ [Apollo Setup] Failed to cleanup database:`, error);
+      }
+    }, 5000);
   }, []);
 
   const logout = async () => {

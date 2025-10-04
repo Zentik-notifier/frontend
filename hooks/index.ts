@@ -8,3 +8,6 @@ export { useNotificationFilters } from './useNotificationFilters';
 export { useNotificationUtils } from './useNotificationUtils';
 export { useScreenFocus } from './useScreenFocus';
 
+// Export cleanup utilities
+export { cleanupNotificationsBySettings } from '@/services/notifications-repository';
+

@@ -184,38 +184,3 @@ export const processJsonToCache = async (
   console.log(`🔄 [${context}] Finish processing ${notifications.length} notifications in ${(endTime - startTime) / 1000} seconds`);
   return totalCount;
 };
-
-/**
- * Pulisce i dati rimuovendo campi non necessari per l'export
- */
-export const cleanExportData = (data: any): any => {
-  if (data === null || data === undefined) {
-    return data;
-  }
-
-  if (Array.isArray(data)) {
-    return data.map(item => cleanExportData(item));
-  }
-
-  if (typeof data === 'object') {
-    const cleaned: any = {};
-    Object.entries(data).forEach(([key, value]) => {
-      // Rimuovi metadati interni di Apollo Cache (mantieni solo __typename)
-      if (key.startsWith('__') && key !== '__typename') {
-        return;
-      }
-
-      // Maschera informazioni sensibili
-      if (key === 'publicKey' || key === 'privateKey' || key === 'deviceToken') {
-        cleaned[key] = '***';
-        return;
-      }
-
-      cleaned[key] = cleanExportData(value);
-    });
-
-    return cleaned;
-  }
-
-  return data;
-};

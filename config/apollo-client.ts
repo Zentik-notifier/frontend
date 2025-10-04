@@ -12,7 +12,7 @@ import { getMainDefinition } from '@apollo/client/utilities';
 import { createClient } from 'graphql-ws';
 import { Platform } from 'react-native';
 import { ApiConfigService } from '@/services/api-config';
-import { clearAllNotificationsFromCache, getAllNotificationsFromCache, upsertNotificationsBatch } from '@/services/notifications-repository';
+import { clearAllNotificationsFromCache, getAllNotificationsFromCache, upsertNotificationsBatch, cleanupNotificationsBySettings } from '@/services/notifications-repository';
 import AsyncStorage from '@/utils/async-storage-wrapper';
 
 if (__DEV__) {
@@ -99,20 +99,6 @@ const createCacheDynamic = () => new InMemoryCache({
     return undefined;
   },
   typePolicies: {
-    // Message: {
-    //   merge(existing, incoming) {
-    //     const safeExisting = (existing ?? {}) as Record<string, any>;
-    //     const safeIncoming = (incoming ?? {}) as Record<string, any>;
-    //     const result: Record<string, any> = { ...safeIncoming };
-    //     for (const key of Object.keys(safeExisting)) {
-    //       const value = safeExisting[key];
-    //       if (value !== undefined && value !== null) {
-    //         result[key] = value;
-    //       }
-    //     }
-    //     return result as any;
-    //   },
-    // },
     MessageAttachment: {
       fields: {
         url: {
@@ -147,12 +133,6 @@ const createCacheDynamic = () => new InMemoryCache({
         notifications: {
           keyArgs: false,
           merge(existing = [], incoming = [], { readField }) {
-            try {
-              // console.debug('[Apollo] Merge Query.notifications', {
-              //   existingCount: Array.isArray(existing) ? existing.length : 0,
-              //   incomingCount: Array.isArray(incoming) ? incoming.length : 0,
-              // });
-            } catch { }
             const byId = new Map<string, any>();
 
             for (const item of existing) {
@@ -165,62 +145,7 @@ const createCacheDynamic = () => new InMemoryCache({
               if (id && !byId.has(id)) byId.set(id, item);
             }
 
-            // Filter out dangling notifications (receivedAt null but older than 24 hours)
-            // These are notifications that were dismissed or marked as read in the content extension
-            // but haven't been synced with the UI yet
-            const now = new Date();
-            const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-            const filteredArray = Array.from(byId.values()).filter((notification) => {
-              const receivedAt = readField<string>('receivedAt', notification);
-              const createdAt = readField<string>('createdAt', notification);
-
-              // Keep notifications that have receivedAt set
-              if (receivedAt) {
-                return true;
-              }
-
-              // Keep notifications that are recent (less than 24 hours old)
-              if (createdAt && new Date(createdAt) > twentyFourHoursAgo) {
-                return true;
-              }
-
-              // Filter out dangling notifications (receivedAt null and older than 24 hours)
-              const id = readField<string>('id', notification);
-              console.log(`🗑️ [Apollo] Filtering out dangling notification ${id} (created: ${createdAt}, receivedAt: ${receivedAt})`);
-              return false;
-            });
-
-            // Compose merged array and sort by createdAt desc
-            const mergedArray = filteredArray;
-            const max = userSettings.getMaxCachedNotifications?.() ?? 500;
-            const maxDays = userSettings.getMaxCachedNotificationsDay?.();
-
-            const arrayForSort = (typeof maxDays === 'number' && maxDays > 0)
-              ? mergedArray.filter((n) => {
-                const createdAt = readField<string>('createdAt', n);
-                const createdTime = createdAt ? Date.parse(createdAt) : 0;
-                const cutoff = Date.now() - maxDays * 24 * 60 * 60 * 1000;
-                return createdTime >= cutoff;
-              })
-              : mergedArray;
-
-            if (typeof maxDays === 'number' && maxDays > 0 && arrayForSort.length < mergedArray.length) {
-              const removed = mergedArray.length - arrayForSort.length;
-              console.log(`🧹 [Apollo] Filtered ${removed} notifications older than ${maxDays} days`);
-            }
-
-            arrayForSort.sort((a, b) => {
-              const aCreated = readField<string>('createdAt', a);
-              const bCreated = readField<string>('createdAt', b);
-              const aTime = aCreated ? Date.parse(aCreated) : 0;
-              const bTime = bCreated ? Date.parse(bCreated) : 0;
-              return bTime - aTime;
-            });
-
-            const limited = max > 0 ? arrayForSort.slice(0, max) : arrayForSort;
-
-            return limited;
+            return Array.from(byId.values());
           },
         },
         buckets: {
@@ -257,7 +182,7 @@ export let apolloClient: ApolloClient<any> | null = null;
 /**
  * Controlla e pulisce le notifiche orfane dalla cache Apollo
  */
-const checkAndCleanOrphanedNotifications = (client: ApolloClient<NormalizedCacheObject>) => {
+const checkAndCleanOrphanedNotifications = async (client: ApolloClient<NormalizedCacheObject>) => {
   try {
     console.log('🧹 [Apollo Setup] Checking for orphaned notifications...');
 
@@ -418,13 +343,13 @@ export const resetApolloCache = async () => {
   await clearAllNotificationsFromCache();
 };
 
-export const reinitializeApolloClient = async () => {
+export const reinitializeApolloClient = async (): Promise<void> => {
   if (!apolloClient) return;
 
   try {
     await ApiConfigService.initialize();
 
-    checkAndCleanOrphanedNotifications(apolloClient);
+    await checkAndCleanOrphanedNotifications(apolloClient);
 
     console.log('🔄 Reinitializing Apollo Client with new API URL:', ApiConfigService.getApiUrlSync());
 
