@@ -243,5 +243,5 @@ export function parseNotificationForDB(notification: NotificationFragment) {
  * @returns Reconstructed NotificationFragment
  */
 export function parseNotificationFromDB(dbRecord: any): NotificationFragment {
-  return JSON.parse(dbRecord.fragment);
+  return typeof dbRecord.fragment === 'string' ? JSON.parse(dbRecord.fragment) : dbRecord.fragment;
 }

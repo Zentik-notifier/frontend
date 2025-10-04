@@ -28,20 +28,20 @@ export const cleanExportData = (data: any): any => {
 
       // Maschera informazioni sensibili nei record del database
       if (key === 'publicKey' || key === 'privateKey' || key === 'deviceToken' ||
-          key === 'accessToken' || key === 'refreshToken' || key === 'authToken' ||
-          key === 'password' || key === 'secret' || key === 'apiKey') {
+        key === 'accessToken' || key === 'refreshToken' || key === 'authToken' ||
+        key === 'password' || key === 'secret' || key === 'apiKey') {
         cleaned[key] = '***';
         return;
       }
 
       // Maschera URL sensibili nelle azioni (potrebbero contenere token o dati personali)
       if (key === 'value' && typeof value === 'string' && (
-          value.includes('token=') ||
-          value.includes('key=') ||
-          value.includes('password=') ||
-          value.includes('secret=') ||
-          value.match(/https?:\/\/[^\s]+/)
-        )) {
+        value.includes('token=') ||
+        value.includes('key=') ||
+        value.includes('password=') ||
+        value.includes('secret=') ||
+        value.match(/https?:\/\/[^\s]+/)
+      )) {
         // Se il valore sembra contenere dati sensibili o URL, maschera tutto o parte di esso
         if (value.includes('?')) {
           const baseUrl = value.split('?')[0];
@@ -116,15 +116,13 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
    */
   const importAllNotifications = async () => {
     try {
-      // let fileContent: string;
+      let fileContent: string;
 
-      // if (Platform.OS === 'web') {
-      //   // For web, use file input
-      //   fileContent = await importNotificationsWeb();
-      // } else {
-      //   // For mobile, use DocumentPicker
-      const fileContent = await importNotificationsMobile();
-      // }
+      if (Platform.OS === 'web') {
+        fileContent = await importNotificationsWeb();
+      } else {
+        fileContent = await importNotificationsMobile();
+      }
 
       if (!fileContent) {
         return false;

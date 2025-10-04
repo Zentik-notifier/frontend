@@ -150,13 +150,25 @@ export async function importRawNotificationsToDB(rawNotifications: any[]): Promi
         const tx = db.transaction('notifications', 'readwrite');
 
         for (const notification of rawNotifications) {
-          await tx.store.put(notification, notification.id);
+          // Ensure fragment is a string for both databases
+          const notificationWithStringFragment = {
+            ...notification,
+            fragment: typeof notification.fragment === 'string'
+              ? notification.fragment
+              : JSON.stringify(notification.fragment || notification)
+          };
+          await tx.store.put(notificationWithStringFragment, notificationWithStringFragment.id);
         }
 
         await tx.done;
       } else {
         // SQLite - use batch insert
         for (const notification of rawNotifications) {
+          // Ensure fragment is a string for both databases
+          const fragmentString = typeof notification.fragment === 'string'
+            ? notification.fragment
+            : JSON.stringify(notification.fragment || notification);
+
           await db.runAsync(
             `INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, has_attachments, fragment)
              VALUES (?, ?, ?, ?, ?, ?)`,
@@ -166,7 +178,7 @@ export async function importRawNotificationsToDB(rawNotifications: any[]): Promi
               notification.read_at,
               notification.bucket_id,
               notification.has_attachments,
-              notification.fragment
+              fragmentString
             ]
           );
         }

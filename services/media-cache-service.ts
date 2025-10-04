@@ -6,6 +6,7 @@ import { MediaType } from '../generated/gql-operations-generated';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
 import { MediaCacheRepository, MediaItem } from './media-cache-repository';
 import { Platform } from 'react-native';
+import { ca } from 'date-fns/locale';
 
 const isWeb = Platform.OS === 'web';
 
@@ -407,6 +408,8 @@ class MediaCacheService {
     }
 
     async checkMediaExists(props: { url: string, mediaType: MediaType, notificationDate: number }) {
+        await this.initialize();
+
         const { url, mediaType, notificationDate } = props;
         const key = this.generateCacheKey(url, mediaType);
         const cachedItem = this.metadata[key];
@@ -455,7 +458,7 @@ class MediaCacheService {
             cachedItem = await this.repo.getCacheItem(key) ?? undefined;
         }
 
-        if (cachedItem && (cachedItem.isUserDeleted || cachedItem.isPermanentFailure) && !force) {
+        if (cachedItem && (cachedItem.localPath || cachedItem.isUserDeleted || cachedItem.isPermanentFailure) && !force) {
             return;
         }
 

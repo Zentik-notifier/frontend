@@ -52,6 +52,7 @@ export default function NotificationDetail({
     notificationId,
     forceFetch
   );
+  const [isCopying, setIsCopying] = useState(false);
 
   const handleMediaPress = (imageUri: string) => {
     const attachments = notification?.message?.attachments || [];
@@ -118,10 +119,10 @@ export default function NotificationDetail({
     try {
       const fullText = buildNotificationText();
       await Clipboard.setStringAsync(fullText);
-      Alert.alert(
-        t("common.copied"),
-        t("notificationDetail.notificationCopied")
-      );
+      setIsCopying(true);
+      setTimeout(() => {
+        setIsCopying(false);
+      }, 2000);
     } catch (error) {
       console.error("Error copying notification:", error);
     }
@@ -237,9 +238,9 @@ export default function NotificationDetail({
               <View style={styles.actionsContainer}>
                 <ButtonGroup>
                   <IconButton
-                    icon="content-copy"
+                    icon={isCopying ? "check" : "content-copy"}
                     size={18}
-                    iconColor={theme.colors.onSurfaceVariant}
+                    iconColor={isCopying ? theme.colors.primary : theme.colors.onSurfaceVariant}
                     style={styles.actionButton}
                     onPress={copyNotificationToClipboard}
                     accessibilityLabel="copy-notification"

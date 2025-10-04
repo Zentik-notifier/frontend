@@ -238,7 +238,6 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
     // Load from appropriate database based on platform
     try {
       notifications = await getAllNotificationsFromCache();
-      console.log(`📥 [Apollo Cache] Found ${notifications.length} notifications in ${Platform.OS === 'web' ? 'IndexedDB' : 'SQLite'}`);
     } catch (error) {
       console.error(`❌ [Apollo Cache] Error loading notifications from ${Platform.OS === 'web' ? 'IndexedDB' : 'SQLite'}:`, error);
     }
@@ -247,6 +246,8 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
       console.log('📥 [Apollo Cache] No notifications found to load');
       return;
     }
+
+    console.log(`📥 [Apollo Cache] Found ${notifications.length} notifications in ${Platform.OS === 'web' ? 'IndexedDB' : 'SQLite'}`);
 
     const successCount = await processJsonToCache(
       apolloClient.cache,
