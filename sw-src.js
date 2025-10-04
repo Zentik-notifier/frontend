@@ -48,6 +48,156 @@ async function storeIntentInIndexedDB(intentData) {
   }, 'readwrite');
 }
 
+// Get attachment data from notification payload
+function getAttachmentData(payload) {
+  return payload.attachmentData || [];
+}
+
+// Priority order for media types: IMAGE > GIF > VIDEO > AUDIO
+function getMediaTypePriority(mediaType) {
+  const priorities = {
+    'IMAGE': 1,
+    'GIF': 2,
+    'VIDEO': 3,
+    'AUDIO': 4
+  };
+  return priorities[mediaType?.toUpperCase()] || 999;
+}
+
+// Select the first attachment based on priority
+function selectFirstAttachmentForPrefetch(attachmentData) {
+  if (!attachmentData || !Array.isArray(attachmentData) || attachmentData.length === 0) {
+    return null;
+  }
+
+  // Filter out invalid attachments
+  const validAttachments = attachmentData.filter(attachment =>
+    attachment &&
+    attachment.url &&
+    attachment.mediaType &&
+    typeof attachment.url === 'string' &&
+    attachment.url.startsWith('http')
+  );
+
+  if (validAttachments.length === 0) {
+    return null;
+  }
+
+  // Sort by priority and return the first one
+  validAttachments.sort((a, b) => {
+    const priorityA = getMediaTypePriority(a.mediaType);
+    const priorityB = getMediaTypePriority(b.mediaType);
+    return priorityA - priorityB;
+  });
+
+  return validAttachments[0];
+}
+
+// Generate cache key for media item
+function generateMediaCacheKey(url, mediaType) {
+  return `media_${btoa(url).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32)}_${mediaType}`;
+}
+
+// Prefetch media attachment and save to IndexedDB
+async function prefetchMediaAttachment(attachment, notificationId) {
+  if (!attachment || !attachment.url || !attachment.mediaType) {
+    console.log('[Service Worker] Invalid attachment for prefetch:', attachment);
+    return null;
+  }
+
+  const { url, mediaType } = attachment;
+  const cacheKey = generateMediaCacheKey(url, mediaType);
+
+  console.log(`[Service Worker] Prefetching media attachment: ${mediaType} from ${url}`);
+
+  try {
+    // Fetch the media data
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': '*/*',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const size = arrayBuffer.byteLength;
+
+    console.log(`[Service Worker] Media downloaded: ${size} bytes from ${url}`);
+
+    // Save to media_item table in IndexedDB
+    await saveMediaItemToIndexedDB(cacheKey, arrayBuffer, mediaType, size, url);
+
+    // Update cache_item with download status
+    await updateCacheItemForPrefetch(cacheKey, url, mediaType, size, notificationId);
+
+    console.log(`[Service Worker] Media prefetched successfully: ${cacheKey}`);
+    return { cacheKey, size, mediaType };
+
+  } catch (error) {
+    console.error(`[Service Worker] Failed to prefetch media attachment:`, error);
+    // Update cache item with error status
+    await updateCacheItemForPrefetch(cacheKey, url, mediaType, 0, notificationId, error.message);
+    throw error;
+  }
+}
+
+// Save media item to IndexedDB media_item table
+async function saveMediaItemToIndexedDB(key, data, mediaType, size, originalUrl) {
+  return withIndexedDB((store, resolve, reject) => {
+    const mediaItem = {
+      key,
+      data,
+      mediaType,
+      size,
+      timestamp: Date.now(),
+      originalFileName: undefined
+    };
+
+    const putRequest = store.put(mediaItem, key);
+
+    putRequest.onsuccess = () => {
+      console.log(`[Service Worker] Media item saved to IndexedDB: ${key}`);
+      resolve();
+    };
+    putRequest.onerror = () => reject(putRequest.error);
+  }, 'readwrite');
+}
+
+// Update cache_item table for prefetched media
+async function updateCacheItemForPrefetch(key, url, mediaType, size, notificationId, errorCode = undefined) {
+  return withIndexedDB((store, resolve, reject) => {
+    const cacheItem = {
+      key,
+      url,
+      localPath: undefined, // Will be set when accessed by the app
+      localThumbPath: undefined,
+      generatingThumbnail: false,
+      timestamp: Date.now(),
+      size,
+      mediaType,
+      originalFileName: undefined,
+      downloadedAt: errorCode ? undefined : Date.now(),
+      notificationDate: Date.now(),
+      isDownloading: false,
+      isPermanentFailure: !!errorCode,
+      isUserDeleted: false,
+      errorCode
+    };
+
+    const putRequest = store.put(cacheItem, key);
+
+    putRequest.onsuccess = () => {
+      console.log(`[Service Worker] Cache item updated for prefetch: ${key}`);
+      resolve();
+    };
+    putRequest.onerror = () => reject(putRequest.error);
+  }, 'readwrite');
+}
+
 // Store pending notification for processing when app opens
 async function storePendingNotification(notificationData) {
   try {
@@ -466,7 +616,7 @@ self.addEventListener('push', (event) => {
     timestamp: Date.now()
   };
 
-  // Show notification, store as pending, and notify the app
+  // Show notification, store as pending, notify the app, and prefetch media
   event.waitUntil(
     (async () => {
       try {
@@ -478,6 +628,23 @@ self.addEventListener('push', (event) => {
           await storePendingNotification(pendingNotificationData);
         } catch (error) {
           console.error('[Service Worker] Failed to store pending notification:', error);
+        }
+
+        // Prefetch media attachment if available
+        try {
+          const attachmentData = getAttachmentData(payload);
+          const attachmentToPrefetch = selectFirstAttachmentForPrefetch(attachmentData);
+
+          if (attachmentToPrefetch) {
+            console.log(`[Service Worker] Starting prefetch for notification ${notificationId}:`, attachmentToPrefetch.mediaType);
+            await prefetchMediaAttachment(attachmentToPrefetch, notificationId);
+            console.log(`[Service Worker] Prefetch completed for notification ${notificationId}`);
+          } else {
+            console.log(`[Service Worker] No suitable attachment found for prefetch in notification ${notificationId}`);
+          }
+        } catch (error) {
+          console.error('[Service Worker] Failed to prefetch media attachment:', error);
+          // Don't fail the entire notification process if prefetch fails
         }
 
         // Notify the app about the new notification
