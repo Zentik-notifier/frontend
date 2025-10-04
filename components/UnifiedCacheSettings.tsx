@@ -2,10 +2,9 @@ import { useAppContext } from "@/contexts/AppContext";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useNotificationExportImport } from "@/hooks/useNotificationExportImport";
-import { openSharedCacheDb } from "@/services/db-setup";
-import { MediaCacheRepository } from "@/services/media-cache-repository";
-import { useUserSettings } from "@/services/user-settings";
+import { mediaCache } from "@/services/media-cache-service";
 import { getAllNotificationsFromCache } from "@/services/notifications-repository";
+import { useUserSettings } from "@/services/user-settings";
 import { formatFileSize, IS_FS_SUPPORTED } from "@/utils";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
@@ -128,9 +127,10 @@ export default function UnifiedCacheSettings() {
     },
   } = useAppContext();
 
-  const { handleExportNotifications, handleImportNotifications } = useNotificationExportImport((notifications) => {
-    setDbNotifications(notifications);
-  });
+  const { handleExportNotifications, handleImportNotifications } =
+    useNotificationExportImport((notifications) => {
+      setDbNotifications(notifications);
+    });
 
   // Notifications count from database
   const dbNotificationsCount = useMemo(
@@ -153,7 +153,6 @@ export default function UnifiedCacheSettings() {
     setShowResetModal(true);
   };
 
-
   const handleExportMetadata = async () => {
     setIsExportingMetadata(true);
     try {
@@ -163,9 +162,7 @@ export default function UnifiedCacheSettings() {
         return;
       }
 
-      const db = await openSharedCacheDb();
-      const repo = new MediaCacheRepository(db);
-      const items = await repo.listCacheItems();
+      const items = await mediaCache.getMetadata();
 
       const payload = {
         version: 1,

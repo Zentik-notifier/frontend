@@ -24,6 +24,37 @@ export interface WebStorageDB extends DBSchema {
       timestamp: number;
     };
   };
+  cache_item: {
+    key: string; // cache key
+    value: {
+      key: string;
+      url: string;
+      localPath?: string;
+      localThumbPath?: string;
+      generatingThumbnail: boolean;
+      timestamp: number;
+      size: number;
+      mediaType: string;
+      originalFileName?: string;
+      downloadedAt?: number;
+      notificationDate?: number;
+      isDownloading: boolean;
+      isPermanentFailure: boolean;
+      isUserDeleted: boolean;
+      errorCode?: string;
+    };
+  };
+  media_item: {
+    key: string; // media key (same as cache_item key)
+    value: {
+      key: string;
+      data: ArrayBuffer; // binary data of the media file
+      mediaType: string;
+      size: number;
+      timestamp: number;
+      originalFileName?: string;
+    };
+  };
 }
 
 let dbPromise: Promise<SQLiteDatabase> | null = null;
@@ -126,6 +157,21 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
     await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_bucket_id ON notifications(bucket_id);`);
     await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_has_attachments ON notifications(has_attachments);`);
 
+    // Media items table for storing binary data
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS media_item (
+        key TEXT PRIMARY KEY,
+        data BLOB NOT NULL,
+        media_type TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        timestamp INTEGER NOT NULL,
+        original_file_name TEXT
+      );
+    `);
+
+    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_media_item_timestamp ON media_item(timestamp);`);
+    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_media_item_media_type ON media_item(media_type);`);
+
     return db;
   })();
 
@@ -140,8 +186,20 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
     throw new Error('openWebStorageDb can only be used on web platform');
   }
 
+  // Wait for IndexedDB to be available with retry logic
+  const waitForIndexedDB = async (maxRetries: number = 10, delayMs: number = 500): Promise<void> => {
+    for (let i = 0; i < maxRetries; i++) {
+      if (typeof indexedDB !== 'undefined') {
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+    throw new Error('IndexedDB is not available after waiting');
+  };
+
   try {
-    webDbPromise = openDB<WebStorageDB>('zentik-storage', 3, {
+    // await waitForIndexedDB();
+    webDbPromise = openDB<WebStorageDB>('zentik-storage', 5, {
       upgrade(db) {
         if (!db.objectStoreNames.contains('keyvalue')) {
           db.createObjectStore('keyvalue');
@@ -151,6 +209,12 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
         }
         if (!db.objectStoreNames.contains('app_log')) {
           db.createObjectStore('app_log', { keyPath: 'timestamp' });
+        }
+        if (!db.objectStoreNames.contains('cache_item')) {
+          db.createObjectStore('cache_item');
+        }
+        if (!db.objectStoreNames.contains('media_item')) {
+          db.createObjectStore('media_item');
         }
       },
     });

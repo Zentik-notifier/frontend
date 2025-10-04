@@ -4,9 +4,10 @@ import { MediaType } from '../generated/gql-operations-generated';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { openSharedCacheDb } from './db-setup';
-import { MediaCacheRepository } from './media-cache-repository';
+import { openSharedCacheDb, openWebStorageDb } from './db-setup';
+import { MediaCacheRepository, MediaItem } from './media-cache-repository';
 import { IS_FS_SUPPORTED } from '@/utils/fileUtils';
+import { Platform } from 'react-native';
 
 export interface CacheItem {
     key: string;
@@ -78,7 +79,7 @@ class MediaCacheService {
     });
 
     constructor() {
-        this.initialize();
+        // this.initialize();
     }
 
     private updateQueueState(): void {
@@ -229,9 +230,10 @@ class MediaCacheService {
             if (IS_FS_SUPPORTED) {
                 console.log('[MediaCache] Initializating DB');
                 this.cacheDir = await getSharedMediaCacheDirectoryAsync();
-                const db = await openSharedCacheDb();
-                this.repo = new MediaCacheRepository(db);
             }
+
+            // Initialize repository for metadata management (works on both web and mobile)
+            this.repo = await MediaCacheRepository.create();
 
             if (IS_FS_SUPPORTED) {
                 await this.ensureDirectories();
@@ -300,8 +302,8 @@ class MediaCacheService {
         await this.initialize();
         try {
             let items: CacheItem[] = [];
-            if (IS_FS_SUPPORTED) {
-                if (!this.repo) throw new Error('Repository not initialized');
+            if (this.repo) {
+                // Ensure repository is initialized before using it
                 items = await this.repo.listCacheItems();
             }
             this.metadata = {};
@@ -376,7 +378,7 @@ class MediaCacheService {
         const key = this.generateCacheKey(url, mediaType);
         let cachedItem: CacheItem | undefined = this.metadata[key];
 
-        if (!cachedItem) {
+        if (!cachedItem && IS_FS_SUPPORTED) {
             const { filePath: localPath } = this.getLocalPath(url, mediaType);
             const file = new File(localPath);
 
@@ -461,16 +463,17 @@ class MediaCacheService {
             cachedItem = await this.repo?.getCacheItem(key) ?? undefined;
         }
 
-        if (cachedItem && !cachedItem.isUserDeleted && !force) {
+        if (cachedItem && cachedItem.isUserDeleted && !force) {
             return;
         }
 
         try {
-            const { filePath } = this.getLocalPath(url, mediaType);
-            const file = new File(filePath);
+            if (IS_FS_SUPPORTED) {
+                const { filePath } = this.getLocalPath(url, mediaType);
+                const file = new File(filePath);
 
-            const minValidSizeBytes = 512;
-            if (!force && file.exists && (file.size || 0) > minValidSizeBytes) {
+                const minValidSizeBytes = 512;
+                if (!force && file.exists && (file.size || 0) > minValidSizeBytes) {
                 await this.upsertItem(key, {
                     inDownload: false,
                     isDownloading: false,
@@ -487,9 +490,10 @@ class MediaCacheService {
                     notificationDate: notificationDate ?? this.metadata[key]?.notificationDate,
                 });
 
-                // Ensure thumbnail exists or generate it
-                await this.generateThumbnail({ url, mediaType, force });
-                return;
+                    // Ensure thumbnail exists or generate it
+                    await this.generateThumbnail({ url, mediaType, force });
+                    return;
+                }
             }
         } catch (e) {
             // If any error occurs while checking existing file, proceed with download as fallback
@@ -822,6 +826,121 @@ class MediaCacheService {
         }
 
         await this.addToQueue({ url, mediaType, op: 'thumbnail' });
+    }
+
+    // ====================
+    // MEDIA ITEM METHODS (for binary data storage)
+    // ====================
+
+    /**
+     * Download media as binary data and store in media_item table
+     * This is an alternative to filesystem storage
+     */
+    async downloadMediaAsBinary(props: {
+        url: string,
+        mediaType: MediaType,
+        originalFileName?: string,
+    }): Promise<MediaItem | null> {
+        await this.initialize();
+
+        if (!props.url || !props.mediaType) return null;
+
+        const key = this.generateCacheKey(props.url, props.mediaType);
+
+        try {
+            // Fetch binary data
+            const response = await fetch(props.url);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const arrayBuffer = await response.arrayBuffer();
+            const blob = new Blob([arrayBuffer]);
+
+            const mediaItem: MediaItem = {
+                key,
+                data: arrayBuffer,
+                mediaType: String(props.mediaType),
+                size: blob.size,
+                timestamp: Date.now(),
+                originalFileName: props.originalFileName,
+            };
+
+            // Save to media_item table
+            if (this.repo) {
+                await this.repo.saveMediaItem(mediaItem);
+            }
+
+            // Also update cache_item metadata
+            await this.upsertItem(key, {
+                url: props.url,
+                mediaType: props.mediaType,
+                size: blob.size,
+                timestamp: Date.now(),
+                downloadedAt: Date.now(),
+                isDownloading: false,
+                generatingThumbnail: false,
+            });
+
+            console.log('[MediaCache] Binary media saved:', key, blob.size, 'bytes');
+            return mediaItem;
+
+        } catch (error) {
+            console.error('[MediaCache] Binary download failed:', key, error);
+
+            // Mark as permanent failure
+            await this.upsertItem(key, {
+                isPermanentFailure: true,
+                isDownloading: false,
+                errorCode: error instanceof Error ? error.message : String(error),
+                timestamp: Date.now(),
+            });
+
+            return null;
+        }
+    }
+
+    /**
+     * Get media binary data from media_item table
+     */
+    async getMediaBinary(key: string): Promise<MediaItem | null> {
+        if (!this.repo) return null;
+
+        try {
+            return await this.repo.getMediaItem(key);
+        } catch (error) {
+            console.error('[MediaCache] Failed to get media binary:', key, error);
+            return null;
+        }
+    }
+
+    /**
+     * Delete media binary data
+     */
+    async deleteMediaBinary(key: string): Promise<boolean> {
+        if (!this.repo) return false;
+
+        try {
+            await this.repo.deleteMediaItem(key);
+            return true;
+        } catch (error) {
+            console.error('[MediaCache] Failed to delete media binary:', key, error);
+            return false;
+        }
+    }
+
+    /**
+     * Clear all binary media data
+     */
+    async clearAllBinaryMedia(): Promise<void> {
+        if (!this.repo) return;
+
+        try {
+            await this.repo.clearAllMediaItems();
+            console.log('[MediaCache] All binary media cleared');
+        } catch (error) {
+            console.error('[MediaCache] Failed to clear binary media:', error);
+        }
     }
 }
 
