@@ -203,8 +203,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const previousUserId = await getLastUserId();
       if (previousUserId && previousUserId !== newUserId) {
-        // await resetApolloCache();
-        // await mediaCache.clearCache();
         await savePushNotificationsInitialized(false);
       }
       await saveLastUserId(newUserId);
