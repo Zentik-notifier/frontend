@@ -1,14 +1,16 @@
-import { Platform, useWindowDimensions } from "react-native";
 import * as Device from 'expo-device';
+import { useWindowDimensions } from "react-native";
 
 export function useDeviceType() {
   const { width } = useWindowDimensions();
 
+  const isVerySmallDevice = width > 0 && width < 1500;
+
   const isReady = width > 0;
   const deviceType = Device.deviceType;
-  const isTablet = deviceType === Device.DeviceType.TABLET;
-  const isMobile = deviceType === Device.DeviceType.PHONE;
-  const isDesktop = deviceType === Device.DeviceType.DESKTOP;
+  const isMobile = deviceType === Device.DeviceType.PHONE || isVerySmallDevice;
+  const isTablet = !isMobile && deviceType === Device.DeviceType.TABLET;
+  const isDesktop = !isMobile && deviceType === Device.DeviceType.DESKTOP;
 
   return {
     deviceType,
