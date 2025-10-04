@@ -167,20 +167,9 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
     throw new Error('openWebStorageDb can only be used on web platform');
   }
 
-  // Wait for IndexedDB to be available with retry logic
-  const waitForIndexedDB = async (maxRetries: number = 10, delayMs: number = 500): Promise<void> => {
-    for (let i = 0; i < maxRetries; i++) {
-      if (typeof indexedDB !== 'undefined') {
-        return;
-      }
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-    }
-    throw new Error('IndexedDB is not available after waiting');
-  };
-
   try {
     // await waitForIndexedDB();
-    webDbPromise = openDB<WebStorageDB>('zentik-storage', 5, {
+    webDbPromise = openDB<WebStorageDB>('zentik-storage', 6, {
       upgrade(db) {
         if (!db.objectStoreNames.contains('keyvalue')) {
           db.createObjectStore('keyvalue');

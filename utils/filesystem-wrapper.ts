@@ -19,6 +19,7 @@ class WebFile {
   private path: string;
   private _exists: boolean = false;
   private _size: number = 0;
+  private _checked: boolean = false;
 
   constructor(path: string) {
     this.path = path;
@@ -27,11 +28,38 @@ class WebFile {
   }
 
   get exists(): boolean {
+    if (!this._checked) {
+      this.checkExistence();
+    }
     return this._exists;
   }
 
   get size(): number {
+    if (!this._checked) {
+      this.checkExistence();
+    }
     return this._size;
+  }
+
+  private async checkExistence(): Promise<void> {
+    if (!isWeb || this._checked) return;
+
+    try {
+      const repo = await getWebRepo();
+      const item = await repo.getMediaItem(this.path);
+      if (item) {
+        this._exists = true;
+        this._size = item.data.byteLength;
+      } else {
+        this._exists = false;
+        this._size = 0;
+      }
+    } catch (error) {
+      console.warn('[WebFS] Failed to check file existence:', error);
+      this._exists = false;
+      this._size = 0;
+    }
+    this._checked = true;
   }
 
   async delete(): Promise<void> {
@@ -42,6 +70,7 @@ class WebFile {
       await repo.deleteMediaItem(this.path);
       this._exists = false;
       this._size = 0;
+      this._checked = true; // Mark as checked since we know it doesn't exist now
     } catch (error) {
       console.warn('[WebFS] Failed to delete file:', error);
       throw error;
@@ -59,7 +88,10 @@ class WebFile {
           key: destination.path,
           data: sourceItem.data,
         });
+        // Update destination state
         destination._exists = true;
+        destination._size = sourceItem.data.byteLength;
+        destination._checked = true;
       }
     } catch (error) {
       console.warn('[WebFS] Failed to copy file:', error);
@@ -119,6 +151,12 @@ class WebFile {
       return parts[parts.length - 1];
     }
     return undefined;
+  }
+
+  // Force refresh of file state from database
+  async refresh(): Promise<void> {
+    this._checked = false;
+    // Accessing exists/size will trigger checkExistence()
   }
 }
 

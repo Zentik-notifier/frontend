@@ -7,6 +7,7 @@
 
 import { DevicePlatform, RegisterDeviceDto, UserDeviceFragment } from '@/generated/gql-operations-generated';
 import { NotificationActionCallbacks } from '@/hooks/useNotificationActions';
+import { mediaCache } from './media-cache-service';
 
 export interface WebPushInitOptions {
   vapidPublicKey?: string;
@@ -155,12 +156,13 @@ class WebPushNotificationService {
 
       console.log('[WebPushNotificationService] Received message:', payload);
 
+      await mediaCache.reloadMetadata();
+
       // Handle notification-tap-action messages (from tapAction)
       if (payload.type === 'notification-tap-action') {
-        const { action, value, notificationId, bucketId, data } = payload;
+        const { action, value, notificationId } = payload;
 
         console.log('[WebPushNotificationService] Handling tap action:', action, value);
-
         // Execute the action based on type
         try {
           this.callbacks?.executeAction(notificationId || '', {

@@ -10,15 +10,15 @@ workbox.precaching.precacheAndRoute(self.__WB_MANIFEST);
 // --- LOGICA PER LE NOTIFICHE PUSH ---
 
 // Common IndexedDB helper function
-async function withIndexedDB(successCallback, mode = 'readonly') {
+async function withIndexedDB(successCallback, mode = 'readonly', storeName = 'keyvalue') {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('zentik-storage', 3);
+    const request = indexedDB.open('zentik-storage', 6);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
       const db = request.result;
-      const transaction = db.transaction(['keyvalue'], mode);
-      const store = transaction.objectStore('keyvalue');
+      const transaction = db.transaction([storeName], mode);
+      const store = transaction.objectStore(storeName);
       try {
         successCallback(store, resolve, reject);
       } catch (error) {
@@ -34,6 +34,12 @@ async function withIndexedDB(successCallback, mode = 'readonly') {
       if (!db.objectStoreNames.contains('notifications')) {
         db.createObjectStore('notifications');
       }
+      if (!db.objectStoreNames.contains('media_item')) {
+        db.createObjectStore('media_item');
+      }
+      if (!db.objectStoreNames.contains('cache_item')) {
+        db.createObjectStore('cache_item');
+      }
     };
   });
 }
@@ -46,11 +52,6 @@ async function storeIntentInIndexedDB(intentData) {
     putRequest.onsuccess = () => resolve();
     putRequest.onerror = () => reject(putRequest.error);
   }, 'readwrite');
-}
-
-// Get attachment data from notification payload
-function getAttachmentData(payload) {
-  return payload.attachmentData || [];
 }
 
 // Priority order for media types: IMAGE > GIF > VIDEO > AUDIO
@@ -66,11 +67,8 @@ function getMediaTypePriority(mediaType) {
 
 // Select the first attachment based on priority
 function selectFirstAttachmentForPrefetch(attachmentData) {
-  if (!attachmentData || !Array.isArray(attachmentData) || attachmentData.length === 0) {
-    return null;
-  }
-
   // Filter out invalid attachments
+  console.log('[Service Worker] Selecting first attachment for prefetch:', attachmentData);
   const validAttachments = attachmentData.filter(attachment =>
     attachment &&
     attachment.url &&
@@ -93,9 +91,43 @@ function selectFirstAttachmentForPrefetch(attachmentData) {
   return validAttachments[0];
 }
 
-// Generate cache key for media item
+// Generate cache key for cache_item table - must match React app implementation
+function generateCacheItemKey(url, mediaType) {
+  return `${String(mediaType).toUpperCase()}_${url}`;
+}
+
+// Generate cache key for media_item table - must match React app implementation
 function generateMediaCacheKey(url, mediaType) {
-  return `media_${btoa(url).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32)}_${mediaType}`;
+  // Generate hash like React app does
+  function generateLongHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash * 31 + char) >>> 0;
+    }
+    return hash.toString(16).padStart(8, '0');
+  }
+
+  // Get file extension like React app does
+  function getFileExtension(url, mediaType) {
+    switch (mediaType) {
+      case 'VIDEO':
+        return 'mp4';
+      case 'IMAGE':
+        return 'jpg';
+      case 'GIF':
+        return 'gif';
+      case 'AUDIO':
+        return 'mp3';
+      default:
+        return 'jpg';
+    }
+  }
+
+  const hash = generateLongHash(url);
+  const safeFileName = `${String(mediaType).toLowerCase()}_${hash}`;
+  const extension = getFileExtension(url, mediaType);
+  return `${String(mediaType).toUpperCase()}/${safeFileName}.${extension}`;
 }
 
 // Prefetch media attachment and save to IndexedDB
@@ -106,9 +138,12 @@ async function prefetchMediaAttachment(attachment, notificationId) {
   }
 
   const { url, mediaType } = attachment;
-  const cacheKey = generateMediaCacheKey(url, mediaType);
+  const cacheItemKey = generateCacheItemKey(url, mediaType);
+  const mediaItemKey = generateMediaCacheKey(url, mediaType);
 
   console.log(`[Service Worker] Prefetching media attachment: ${mediaType} from ${url}`);
+  console.log(`[Service Worker] Cache item key: ${cacheItemKey}`);
+  console.log(`[Service Worker] Media item key: ${mediaItemKey}`);
 
   try {
     // Fetch the media data
@@ -128,33 +163,29 @@ async function prefetchMediaAttachment(attachment, notificationId) {
 
     console.log(`[Service Worker] Media downloaded: ${size} bytes from ${url}`);
 
-    // Save to media_item table in IndexedDB
-    await saveMediaItemToIndexedDB(cacheKey, arrayBuffer, mediaType, size, url);
+    // Save to media_item table in IndexedDB with media_item key
+    await saveMediaItemToIndexedDB(mediaItemKey, arrayBuffer);
 
-    // Update cache_item with download status
-    await updateCacheItemForPrefetch(cacheKey, url, mediaType, size, notificationId);
+    // Update cache_item with download status using cache_item key and media_item key as localPath
+    await updateCacheItemForPrefetch(cacheItemKey, url, mediaType, size, notificationId, undefined, mediaItemKey);
 
-    console.log(`[Service Worker] Media prefetched successfully: ${cacheKey}`);
-    return { cacheKey, size, mediaType };
+    console.log(`[Service Worker] Media prefetched successfully: ${mediaItemKey}`);
+    return { cacheKey: cacheItemKey, mediaKey: mediaItemKey, size, mediaType };
 
   } catch (error) {
     console.error(`[Service Worker] Failed to prefetch media attachment:`, error);
     // Update cache item with error status
-    await updateCacheItemForPrefetch(cacheKey, url, mediaType, 0, notificationId, error.message);
+    await updateCacheItemForPrefetch(cacheItemKey, url, mediaType, 0, notificationId, error.message);
     throw error;
   }
 }
 
 // Save media item to IndexedDB media_item table
-async function saveMediaItemToIndexedDB(key, data, mediaType, size, originalUrl) {
+async function saveMediaItemToIndexedDB(key, data) {
   return withIndexedDB((store, resolve, reject) => {
     const mediaItem = {
       key,
       data,
-      mediaType,
-      size,
-      timestamp: Date.now(),
-      originalFileName: undefined
     };
 
     const putRequest = store.put(mediaItem, key);
@@ -164,16 +195,16 @@ async function saveMediaItemToIndexedDB(key, data, mediaType, size, originalUrl)
       resolve();
     };
     putRequest.onerror = () => reject(putRequest.error);
-  }, 'readwrite');
+  }, 'readwrite', 'media_item');
 }
 
 // Update cache_item table for prefetched media
-async function updateCacheItemForPrefetch(key, url, mediaType, size, notificationId, errorCode = undefined) {
+async function updateCacheItemForPrefetch(key, url, mediaType, size, notificationId, errorCode = undefined, localPath = undefined) {
   return withIndexedDB((store, resolve, reject) => {
     const cacheItem = {
       key,
       url,
-      localPath: undefined, // Will be set when accessed by the app
+      localPath: localPath, // The media_item key that contains the actual data
       localThumbPath: undefined,
       generatingThumbnail: false,
       timestamp: Date.now(),
@@ -185,7 +216,8 @@ async function updateCacheItemForPrefetch(key, url, mediaType, size, notificatio
       isDownloading: false,
       isPermanentFailure: !!errorCode,
       isUserDeleted: false,
-      errorCode
+      errorCode,
+      notificationId
     };
 
     const putRequest = store.put(cacheItem, key);
@@ -195,7 +227,7 @@ async function updateCacheItemForPrefetch(key, url, mediaType, size, notificatio
       resolve();
     };
     putRequest.onerror = () => reject(putRequest.error);
-  }, 'readwrite');
+  }, 'readwrite', 'cache_item');
 }
 
 // Store pending notification for processing when app opens
@@ -554,7 +586,6 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
 }
 
 self.addEventListener('push', (event) => {
-
   let payload;
   if (event.data) {
     try {
@@ -579,8 +610,8 @@ self.addEventListener('push', (event) => {
   // Build notification options with media attachments and actions
   const options = {
     body: body,
-    icon: '/logo192.png',
-    // icon: payload.image ?? payload.bucketIcon,
+    // icon: '/logo192.png',
+    icon: payload.bucketIcon ?? '/logo192.png',
     image: payload.image ?? payload.bucketIcon,
     badge: '/logo72.png',
     data: {
@@ -612,7 +643,7 @@ self.addEventListener('push', (event) => {
     bucketIconUrl: payload.bucketIcon,
     tapAction: payload.tapAction,
     actions: actions,
-    attachmentData: payload.attachmentData || [],
+    attachmentData: payload.attachments || [],
     timestamp: Date.now()
   };
 
@@ -632,7 +663,7 @@ self.addEventListener('push', (event) => {
 
         // Prefetch media attachment if available
         try {
-          const attachmentData = getAttachmentData(payload);
+          const attachmentData = payload.attachments || [];
           const attachmentToPrefetch = selectFirstAttachmentForPrefetch(attachmentData);
 
           if (attachmentToPrefetch) {
