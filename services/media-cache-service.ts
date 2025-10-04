@@ -1,11 +1,13 @@
-import { IS_FS_SUPPORTED } from '@/utils/fileUtils';
-import { Directory, File } from 'expo-file-system';
+import { Directory, File } from '../utils/filesystem-wrapper';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { BehaviorSubject } from "rxjs";
 import { MediaType } from '../generated/gql-operations-generated';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
 import { MediaCacheRepository, MediaItem } from './media-cache-repository';
+import { Platform } from 'react-native';
+
+const isWeb = Platform.OS === 'web';
 
 export interface CacheItem {
     key: string;
@@ -170,7 +172,7 @@ class MediaCacheService {
                     console.log('[MediaCache] File exists:', filePath, file.size);
                     file.delete();
                 }
-                const downloadResult = await File.downloadFileAsync(url, file);
+                const downloadResult = await File.downloadFileAsync(url, file as any);
                 console.log('[MediaCache] Download result:', url, downloadResult);
 
                 console.log('[MediaCache] Media saved at:', downloadResult.uri, url);
@@ -225,15 +227,12 @@ class MediaCacheService {
         try {
             this.initializing = true;
 
-            if (IS_FS_SUPPORTED) {
-                console.log('[MediaCache] Initializating DB');
-                this.cacheDir = await getSharedMediaCacheDirectoryAsync();
-            }
-
             // Initialize repository for metadata management (works on both web and mobile)
             this.repo = await MediaCacheRepository.create();
 
-            if (IS_FS_SUPPORTED) {
+            if (isWeb) {
+            } else {
+                this.cacheDir = await getSharedMediaCacheDirectoryAsync();
                 await this.ensureDirectories();
             }
 
@@ -347,7 +346,6 @@ class MediaCacheService {
         const next: CacheItem = { ...current, ...patch };
         this.metadata[key] = next;
 
-
         try {
             if (!this.repo) throw new Error('Repository not initialized');
             const item = this.metadata[key];
@@ -369,14 +367,14 @@ class MediaCacheService {
     async getCachedItem(url: string, mediaType: MediaType): Promise<CacheItem | undefined> {
         if (!url) return undefined;
 
-        if (!IS_FS_SUPPORTED) {
-            return { localPath: url, mediaType } as CacheItem;
-        }
+        // if (!IS_FS_SUPPORTED) {
+        //     return { localPath: url, mediaType } as CacheItem;
+        // }
 
         const key = this.generateCacheKey(url, mediaType);
         let cachedItem: CacheItem | undefined = this.metadata[key];
 
-        if (!cachedItem && IS_FS_SUPPORTED) {
+        if (!cachedItem) {
             const { filePath: localPath } = this.getLocalPath(url, mediaType);
             const file = new File(localPath);
 
@@ -452,13 +450,13 @@ class MediaCacheService {
         const { url, mediaType, force, notificationDate } = props;
         await this.initialize();
 
-        if (!url || !mediaType) return;
+        if (!url || !mediaType || !this.repo) return;
 
         let cachedItem = await this.getCachedItem(url, mediaType);
         const key = this.generateCacheKey(url, mediaType);
 
         if (!cachedItem) {
-            cachedItem = await this.repo?.getCacheItem(key) ?? undefined;
+            cachedItem = await this.repo.getCacheItem(key) ?? undefined;
         }
 
         if (cachedItem && cachedItem.isUserDeleted && !force) {
@@ -466,12 +464,11 @@ class MediaCacheService {
         }
 
         try {
-            if (IS_FS_SUPPORTED) {
-                const { filePath } = this.getLocalPath(url, mediaType);
-                const file = new File(filePath);
+            const { filePath } = this.getLocalPath(url, mediaType);
+            const file = new File(filePath);
 
-                const minValidSizeBytes = 512;
-                if (!force && file.exists && (file.size || 0) > minValidSizeBytes) {
+            const minValidSizeBytes = 512;
+            if (!force && file.exists && (file.size || 0) > minValidSizeBytes) {
                 await this.upsertItem(key, {
                     inDownload: false,
                     isDownloading: false,
@@ -488,10 +485,9 @@ class MediaCacheService {
                     notificationDate: notificationDate ?? this.metadata[key]?.notificationDate,
                 });
 
-                    // Ensure thumbnail exists or generate it
-                    await this.generateThumbnail({ url, mediaType, force });
-                    return;
-                }
+                // Ensure thumbnail exists or generate it
+                await this.generateThumbnail({ url, mediaType, force });
+                return;
             }
         } catch (e) {
             // If any error occurs while checking existing file, proceed with download as fallback
@@ -520,10 +516,6 @@ class MediaCacheService {
     async markAsPermanentFailure(url: string, mediaType: MediaType, errorCode?: string): Promise<void> {
         await this.initialize();
         const key = this.generateCacheKey(url, mediaType);
-
-        if (!IS_FS_SUPPORTED) {
-            return;
-        }
 
         await this.upsertItem(key, {
             url,
@@ -757,7 +749,7 @@ class MediaCacheService {
 
             const src = new File(tempUri);
             const dest = new File(thumbPath);
-            src.copy(dest);
+            src.copy(dest as any);
             await this.upsertItem(key, { localThumbPath: thumbPath, timestamp: Date.now() });
             console.log('[MediaCache] Thumbnail saved at:', thumbPath, url);
             return thumbPath;
@@ -793,7 +785,7 @@ class MediaCacheService {
     }
 
     isThumbnailSupported(mediaType: MediaType): boolean {
-        return IS_FS_SUPPORTED && [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType);
+        return [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType);
     }
 
     public async generateThumbnail(props: { url: string, mediaType: MediaType, force?: boolean }): Promise<void> {
@@ -858,10 +850,6 @@ class MediaCacheService {
             const mediaItem: MediaItem = {
                 key,
                 data: arrayBuffer,
-                mediaType: String(props.mediaType),
-                size: blob.size,
-                timestamp: Date.now(),
-                originalFileName: props.originalFileName,
             };
 
             // Save to media_item table

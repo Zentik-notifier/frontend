@@ -346,18 +346,34 @@ export const CachedMedia = React.memo(function CachedMedia({
           onPress={ignoreClicks ? undefined : handleForceDownload}
           style={defaultStyles.forceDownloadButton}
         >
-          <Text style={defaultStyles.forceDownloadButtonText}>
-            {t("cachedMedia.forceDownload")}
-          </Text>
+          {isCompact ? (
+            <Icon
+              source="download"
+              size={10}
+              color={theme.colors.onSurfaceVariant}
+            />
+          ) : (
+            <Text style={defaultStyles.forceDownloadButtonText}>
+              {t("cachedMedia.forceDownload")}
+            </Text>
+          )}
         </Pressable>
         {withDelete && (
           <Pressable
             onPress={ignoreClicks ? undefined : handleDeleteCachedMedia}
             style={defaultStyles.deleteButton}
           >
-            <Text style={defaultStyles.deleteButtonText}>
-              {t("cachedMedia.delete")}
-            </Text>
+            {isCompact ? (
+              <Icon
+                source="delete"
+                size={10}
+                color={theme.colors.onSurfaceVariant}
+              />
+            ) : (
+              <Text style={defaultStyles.deleteButtonText}>
+                {t("cachedMedia.delete")}
+              </Text>
+            )}
           </Pressable>
         )}
       </View>
@@ -404,7 +420,7 @@ export const CachedMedia = React.memo(function CachedMedia({
               color={stateColors.failed}
             />
           </View>
-          {!isCompact ? renderForceDownloadButton(true) : null}
+          {renderForceDownloadButton(true)}
         </View>
       );
     }
@@ -420,7 +436,7 @@ export const CachedMedia = React.memo(function CachedMedia({
               color={stateColors.deleted}
             />
           </View>
-          {!isCompact && renderForceDownloadButton(false)}
+          {renderForceDownloadButton(false)}
         </View>
       );
     }
@@ -436,7 +452,7 @@ export const CachedMedia = React.memo(function CachedMedia({
               color={stateColors.deleted}
             />
           </View>
-          {!isCompact && renderForceDownloadButton(!!mediaSource)}
+          {renderForceDownloadButton(!!mediaSource)}
         </View>
       );
     }
@@ -473,7 +489,7 @@ export const CachedMedia = React.memo(function CachedMedia({
               color={stateColors.loading}
             />
           </View>
-          {!isCompact ? renderForceDownloadButton(true) : null}
+          {renderForceDownloadButton(true)}
         </View>
       );
     }

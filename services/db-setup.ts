@@ -45,14 +45,10 @@ export interface WebStorageDB extends DBSchema {
     };
   };
   media_item: {
-    key: string; // media key (same as cache_item key)
+    key: string;
     value: {
+      data: ArrayBuffer;
       key: string;
-      data: ArrayBuffer; // binary data of the media file
-      mediaType: string;
-      size: number;
-      timestamp: number;
-      originalFileName?: string;
     };
   };
 }
@@ -156,21 +152,6 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
     await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_read_at ON notifications(read_at);`);
     await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_bucket_id ON notifications(bucket_id);`);
     await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_has_attachments ON notifications(has_attachments);`);
-
-    // Media items table for storing binary data
-    await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS media_item (
-        key TEXT PRIMARY KEY,
-        data BLOB NOT NULL,
-        media_type TEXT NOT NULL,
-        size INTEGER NOT NULL,
-        timestamp INTEGER NOT NULL,
-        original_file_name TEXT
-      );
-    `);
-
-    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_media_item_timestamp ON media_item(timestamp);`);
-    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_media_item_media_type ON media_item(media_type);`);
 
     return db;
   })();

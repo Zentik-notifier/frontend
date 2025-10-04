@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import { IS_FS_SUPPORTED } from './filesystem-wrapper';
 
 export function formatFileSize(bytes: number, decimals: number = 1): string {
 	if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -9,4 +10,5 @@ export function formatFileSize(bytes: number, decimals: number = 1): string {
 	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
-export const IS_FS_SUPPORTED = Platform.OS === 'android' || Platform.OS === 'ios';
+// Export enhanced IS_FS_SUPPORTED that supports web platforms
+export { IS_FS_SUPPORTED };

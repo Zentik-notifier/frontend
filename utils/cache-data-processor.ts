@@ -1,9 +1,6 @@
 import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc } from '@/generated/gql-operations-generated';
 import { ApolloCache } from '@apollo/client';
 
-const BATCH_SIZE = 3000;
-const BATCH_DELAY = 100;
-
 /**
  * Estrae tutte le entità da un oggetto e le restituisce come mappa
  * Ogni entità con __typename e id viene estratta e mappata con la sua chiave cache
@@ -135,13 +132,15 @@ export const validateNotification = (notification: NotificationFragment, index?:
     console.warn(`⚠️ Notification at index ${index ?? 'unknown'} missing or invalid __typename:`, notification.__typename);
     return false;
   }
-  if(notification.message.tapAction && !notification.message.tapAction.type) {
+  if (notification.message.tapAction && !notification.message.tapAction.type) {
     console.warn(`⚠️ Notification at index ${index ?? 'unknown'} missing tap action type`);
     return false;
   }
   return true;
 };
 
+
+const INIT_BATCH_SIZE = 50;
 /**
  * Funzione completa per processare JSON raw e scrivere tutto nella cache
  * Gestisce parsing, validazione, scrittura entità e aggiornamento query
@@ -153,31 +152,44 @@ export const processJsonToCache = async (
 ): Promise<number> => {
   const startTime = Date.now();
 
-  const notifications = notificationsParent.filter((notification, index) =>
-    validateNotification(notification, index)
-  );
+  // const notifications = notificationsParent.filter((notification, index) =>
+  //   validateNotification(notification, index)
+  // );
+  const notifications = notificationsParent;
 
   if (notificationsParent.length !== notifications.length) {
     console.warn(`⚠️ [${context}] Filtered out ${notifications.length - notificationsParent.length} invalid notifications`);
   }
 
   let totalCount = 0;
-  for (let i = 0; i < notifications.length; i += BATCH_SIZE) {
-    const batch = notifications.slice(i, i + BATCH_SIZE);
-    const batchIndex = Math.floor(i / BATCH_SIZE) + 1;
-    const batchContext = `${context} batch ${batchIndex}`;
+  const firstBatch = notifications.slice(0, INIT_BATCH_SIZE);
+  const firstBatchContext = `${context} batch 1`;
 
-    const count = processNotificationsToCacheWithQuery(
+  const firstCount = processNotificationsToCacheWithQuery(
+    cache,
+    firstBatch,
+    firstBatchContext,
+  );
+  console.log(`🔄 [${firstBatchContext}] Processed ${firstBatch.length} notifications...`);
+  totalCount += firstCount;
+
+  // Wait before processing remaining notifications
+  if (notifications.length > INIT_BATCH_SIZE) {
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+
+  // Process remaining notifications in second batch
+  if (notifications.length > INIT_BATCH_SIZE) {
+    const remainingBatch = notifications.slice(INIT_BATCH_SIZE);
+    const remainingBatchContext = `${context} batch 2`;
+
+    const remainingCount = processNotificationsToCacheWithQuery(
       cache,
-      batch,
-      batchContext,
+      remainingBatch,
+      remainingBatchContext,
     );
-    console.log(`🔄 [${batchContext}] Processed ${batch.length} notifications...`);
-    totalCount += count;
-
-    if (i + BATCH_SIZE < notifications.length) {
-      await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
-    }
+    console.log(`🔄 [${remainingBatchContext}] Processed ${remainingBatch.length} notifications...`);
+    totalCount += remainingCount;
   }
 
   const endTime = Date.now();

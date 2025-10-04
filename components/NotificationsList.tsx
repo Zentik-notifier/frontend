@@ -40,6 +40,7 @@ import NotificationFilters from "./NotificationFilters";
 import NotificationItem, {
   getNotificationItemHeight,
 } from "./NotificationItem";
+import PaperScrollView from "./ui/PaperScrollView";
 
 interface NotificationsListProps {
   notifications: NotificationFragment[];
@@ -71,6 +72,7 @@ export default function NotificationsList({
   const { refetchNotifications } = useAppContext();
   const {
     setMainLoading,
+    isLoadingGqlData,
     userSettings: { settings },
   } = useAppContext();
 

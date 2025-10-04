@@ -5,14 +5,10 @@ import { openWebStorageDb, openSharedCacheDb } from './db-setup';
 import type { WebStorageDB } from './db-setup';
 import type { CacheItem } from './media-cache-service';
 
-export interface MediaItem {
-  key: string;
+export type MediaItem = {
   data: ArrayBuffer;
-  mediaType: string;
-  size: number;
-  timestamp: number;
-  originalFileName?: string;
-}
+  key: string;
+};
 
 /**
  * Media cache repository for managing media cache storage operations
@@ -317,30 +313,7 @@ export class MediaCacheRepository {
     await this.ensureInitialized();
 
     if (this.isWeb()) {
-      // IndexedDB
-      await this.getWebDb().put('media_item', {
-        key: item.key,
-        data: item.data,
-        mediaType: item.mediaType,
-        size: item.size,
-        timestamp: item.timestamp,
-        originalFileName: item.originalFileName ?? undefined,
-      }, item.key);
-    } else {
-      // SQLite - store binary data as BLOB
-      const sqliteDb = this.getSQLiteDb();
-      await sqliteDb.runAsync(
-        `INSERT OR REPLACE INTO media_item (key, data, media_type, size, timestamp, original_file_name) VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          item.key,
-          // Convert ArrayBuffer to Uint8Array for SQLite
-          new Uint8Array(item.data),
-          item.mediaType,
-          item.size,
-          item.timestamp,
-          item.originalFileName ?? null,
-        ]
-      );
+      await this.getWebDb().put('media_item', item, item.key);
     }
   }
 
@@ -351,15 +324,9 @@ export class MediaCacheRepository {
       // IndexedDB
       const result = await this.getWebDb().get('media_item', key);
       return result ? mapWebRecordToMediaItem(result) : null;
-    } else {
-      // SQLite
-      const sqliteDb = this.getSQLiteDb();
-      const row = await sqliteDb.getFirstAsync(
-        `SELECT * FROM media_item WHERE key = ?`,
-        [key],
-      );
-      return row ? mapSQLiteRowToMediaItem(row) : null;
     }
+
+    return null;
   }
 
   async deleteMediaItem(key: string): Promise<void> {
@@ -382,12 +349,9 @@ export class MediaCacheRepository {
       // IndexedDB
       const results = await this.getWebDb().getAll('media_item');
       return results.map(mapWebRecordToMediaItem);
-    } else {
-      // SQLite
-      const sqliteDb = this.getSQLiteDb();
-      const rows = await sqliteDb.getAllAsync(`SELECT * FROM media_item ORDER BY timestamp DESC`);
-      return rows.map(mapSQLiteRowToMediaItem);
     }
+
+    return [];
   }
 
   async clearAllMediaItems(): Promise<void> {
@@ -450,23 +414,8 @@ function mapSQLiteRowToCacheItem(row: any): CacheItem {
 
 function mapWebRecordToMediaItem(record: any): MediaItem {
   return {
-    key: record.key,
     data: record.data,
-    mediaType: record.mediaType,
-    size: Number(record.size),
-    timestamp: Number(record.timestamp),
-    originalFileName: record.originalFileName ?? undefined,
-  };
-}
-
-function mapSQLiteRowToMediaItem(row: any): MediaItem {
-  return {
-    key: row.key,
-    data: row.data, // SQLite stores binary data as Uint8Array
-    mediaType: row.media_type,
-    size: Number(row.size),
-    timestamp: Number(row.timestamp),
-    originalFileName: row.original_file_name ?? undefined,
+    key: record.key,
   };
 }
 
