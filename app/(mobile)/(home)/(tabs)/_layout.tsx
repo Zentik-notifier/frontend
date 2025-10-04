@@ -2,7 +2,6 @@ import { useAppContext } from "@/contexts/AppContext";
 import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { IS_FS_SUPPORTED } from "@/utils";
 import { Tabs } from "expo-router";
 import { Platform } from "react-native";
 import { Icon, useTheme } from "react-native-paper";
@@ -109,7 +108,6 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="gallery"
         options={{
-          href: !IS_FS_SUPPORTED ? null : undefined,
           title: t("navigation.sections.gallery"),
           tabBarIcon: ({ color, focused }) => (
             <Icon

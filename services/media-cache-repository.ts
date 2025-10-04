@@ -19,12 +19,20 @@ export type MediaItem = {
 export class MediaCacheRepository {
   private db: SQLiteDatabase | IDBPDatabase<WebStorageDB> | null = null;
   private initialized = false;
+  private objectUrlCache = new Map<string, string>();
 
   constructor() {
     // this.initialize().catch(error => {
     //   console.error('[MediaCacheRepository] Failed to initialize database:', error);
     //   throw error;
     // });
+  }
+
+  /**
+   * Dispose of the repository and clean up all cached object URLs
+   */
+  dispose(): void {
+    this.revokeAllObjectUrls();
   }
 
   /**
@@ -335,11 +343,10 @@ export class MediaCacheRepository {
     if (this.isWeb()) {
       // IndexedDB
       await this.getWebDb().delete('media_item', key);
-    } else {
-      // SQLite
-      const sqliteDb = this.getSQLiteDb();
-      await sqliteDb.runAsync(`DELETE FROM media_item WHERE key = ?`, [key]);
     }
+
+    // Revoke the object URL if it exists to prevent memory leaks
+    this.revokeObjectUrl(key);
   }
 
   async listMediaItems(): Promise<MediaItem[]> {
@@ -369,6 +376,52 @@ export class MediaCacheRepository {
       const sqliteDb = this.getSQLiteDb();
       await sqliteDb.execAsync('DELETE FROM media_item;');
     }
+
+    // Revoke all cached object URLs to prevent memory leaks
+    this.revokeAllObjectUrls();
+  }
+
+  async getMediaUrl(key: string): Promise<string | null> {
+    await this.ensureInitialized();
+
+    if (this.isWeb()) {
+      // Check if we already have a cached object URL for this key
+      const cachedUrl = this.objectUrlCache.get(key);
+      if (cachedUrl) {
+        return cachedUrl;
+      }
+
+      const mediaItem = await this.getMediaItem(key);
+      if (mediaItem) {
+        const blob = new Blob([mediaItem.data]);
+        const objectUrl = URL.createObjectURL(blob);
+        this.objectUrlCache.set(key, objectUrl);
+        return objectUrl;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Revoke a specific object URL from the cache
+   */
+  revokeObjectUrl(key: string): void {
+    const objectUrl = this.objectUrlCache.get(key);
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+      this.objectUrlCache.delete(key);
+    }
+  }
+
+  /**
+   * Revoke all cached object URLs
+   */
+  revokeAllObjectUrls(): void {
+    for (const [key, objectUrl] of this.objectUrlCache.entries()) {
+      URL.revokeObjectURL(objectUrl);
+    }
+    this.objectUrlCache.clear();
   }
 }
 

@@ -19,6 +19,7 @@ import { useRecyclingState } from "@shopify/flash-list";
 import React, { useEffect, useMemo, useRef } from "react";
 import {
   Alert,
+  Pressable,
   StyleSheet,
   TouchableWithoutFeedback,
   View,
@@ -311,314 +312,273 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       : undefined;
 
   return (
-    <View>
-      <SwipeableItem
-        marginHorizontal={16}
-        leftAction={isMultiSelectionMode ? undefined : toggleReadAction}
-        rightAction={isMultiSelectionMode ? undefined : deleteAction}
-        borderColor={borderColor}
-        menuItems={isMultiSelectionMode ? [] : menuItems}
-        showMenu={!isMultiSelectionMode}
-        cardStyle={[
-          isMultiSelectionMode &&
-            isSelected && {
-              backgroundColor: theme.colors.secondaryContainer,
-            },
-        ]}
-      >
-        <TouchableWithoutFeedback onPress={handlePress}>
-          <View
-            onStartShouldSetResponder={() => true}
-            style={{ height: "100%" }}
+    <SwipeableItem
+      marginHorizontal={16}
+      leftAction={isMultiSelectionMode ? undefined : toggleReadAction}
+      rightAction={isMultiSelectionMode ? undefined : deleteAction}
+      borderColor={borderColor}
+      menuItems={isMultiSelectionMode ? [] : menuItems}
+      showMenu={!isMultiSelectionMode}
+      cardStyle={[
+        isMultiSelectionMode &&
+          isSelected && {
+            backgroundColor: theme.colors.secondaryContainer,
+          },
+      ]}
+    >
+      {/* First row */}
+      <Pressable style={[styles.firstRow]} onPress={handlePress}>
+        {isMultiSelectionMode ? (
+          <TouchableRipple
+            onPress={onToggleSelection}
+            borderless
+            style={styles.checkboxContainer}
           >
-            <View style={styles.itemCardContent}>
-              {(notification.message?.deliveryType ===
-                NotificationDeliveryType.Critical ||
-                notification.message?.deliveryType ===
-                  NotificationDeliveryType.Silent) && (
-                <Surface
-                  style={[
-                    styles.priorityBackground,
-                    {
-                      backgroundColor:
-                        notification.message?.deliveryType ===
-                        NotificationDeliveryType.Critical
-                          ? theme.colors.error
-                          : theme.colors.secondary,
-                    },
-                  ]}
-                >
-                  <></>
-                </Surface>
-              )}
-
-              {/* First row */}
-              <Surface style={[styles.firstRow]} elevation={0}>
-                {isMultiSelectionMode ? (
-                  <TouchableRipple
-                    onPress={onToggleSelection}
-                    borderless
-                    style={styles.checkboxContainer}
-                  >
-                    <Surface
-                      style={[
-                        styles.checkbox,
-                        {
-                          backgroundColor: isSelected
-                            ? theme.colors.primary
-                            : "transparent",
-                          borderColor: theme.colors.outline,
-                        },
-                      ]}
-                    >
-                      {isSelected && (
-                        <Icon source="check" size={16} color={"#fff"} />
-                      )}
-                    </Surface>
-                  </TouchableRipple>
-                ) : (
-                  <View style={styles.leftColumn}>
-                    <View
-                      style={styles.bucketIconContainer}
-                      onStartShouldSetResponder={() => true}
-                    >
-                      <BucketIcon
-                        key={notification.message?.bucket?.id}
-                        bucketId={notification.message?.bucket?.id ?? ""}
-                        size={"lg"}
-                      />
-                    </View>
-                  </View>
-                )}
-
-                {/* Text content */}
-                <Surface style={[styles.textContent]} elevation={0}>
-                  <View style={styles.titleAndDateRow}>
-                    <View style={styles.titleSection}>
-                      {!hideBucketInfo && (
-                        <Text
-                          style={styles.bucketName}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {bucketName}
-                        </Text>
-                      )}
-                      <SmartTextRenderer
-                        content={notification.message?.title}
-                        maxLines={1}
-                        style={[styles.title, !isRead && styles.titleUnread]}
-                      />
-                    </View>
-                    <View style={styles.rightMeta}>
-                      <Text style={styles.date}>
-                        {formatRelativeTime(notification.createdAt)}
-                      </Text>
-                      <NotificationSnoozeButton
-                        bucketId={notification.message?.bucket?.id}
-                        variant="inline"
-                        showText
-                      />
-                    </View>
-                  </View>
-
-                  {!!notification.message?.subtitle && (
-                    <SmartTextRenderer
-                      content={notification.message.subtitle}
-                      maxLines={1}
-                      style={styles.subtitle}
-                    />
-                  )}
-
-                  {!!notification.message?.body && (
-                    <SmartTextRenderer
-                      content={notification.message.body}
-                      maxLines={bodyMaxLines}
-                      style={styles.body}
-                    />
-                  )}
-                </Surface>
-
-                {!isMultiSelectionMode && !isRead && (
-                  <Surface
-                    style={[
-                      styles.unreadIndicator,
-                      { backgroundColor: theme.colors.primary },
-                    ]}
-                  >
-                    <></>
-                  </Surface>
-                )}
-              </Surface>
-
-              {!!visibleAttachment && (
-                <Surface style={[styles.mediaPreviewRow]} elevation={0}>
-                  {attachments.map((attachment, index) => {
-                    const isPreviewSelected = index === selectedPreviewIndex;
-                    return (
-                      <View
-                        key={`${attachment.url}-${index}`}
-                        style={[
-                          isPreviewSelected
-                            ? styles.expandedImage
-                            : {
-                                width: 0,
-                                height: 0,
-                                opacity: 0,
-                                position: "absolute",
-                              },
-                        ]}
-                      >
-                        {(isItemVisible || !loadOnlyVisible) && (
-                          <CachedMedia
-                            notificationDate={new Date(
-                              notification.createdAt
-                            ).getTime()}
-                            mediaType={attachment.mediaType}
-                            url={attachment.url || ""}
-                            style={
-                              isPreviewSelected
-                                ? styles.expandedImage
-                                : { width: 0, height: 0 }
-                            }
-                            originalFileName={attachment.name || undefined}
-                            videoProps={{
-                              autoPlay: isPreviewSelected,
-                              isMuted: true,
-                              isLooping: true,
-                              showControls: false,
-                            }}
-                            audioProps={{
-                              shouldPlay: false,
-                              showControls: true,
-                            }}
-                            onPress={() => {
-                              mediaPressRef.current = true;
-                              handleVisualPress(attachment.url!);
-                            }}
-                          />
-                        )}
-                      </View>
-                    );
-                  })}
-                </Surface>
-              )}
-
-              <Surface style={[styles.bottomRow]} elevation={0}>
-                <Surface style={[styles.mediaIndicators]} elevation={0}>
-                  {attachments.length > 0 &&
-                    (isCompactMode ? (
-                      <View style={styles.inlinePillsRow}>
-                        <Surface
-                          style={[
-                            styles.mediaIndicator,
-                            {
-                              backgroundColor: theme.colors.secondaryContainer,
-                            },
-                          ]}
-                          elevation={0}
-                        >
-                          <Icon
-                            source="image"
-                            size={16}
-                            color={theme.colors.onSurfaceVariant}
-                          />
-                          <Text
-                            style={styles.mediaText}
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
-                          >
-                            {t("attachmentGallery.attachments", {
-                              count: attachments.length,
-                            })}
-                          </Text>
-                        </Surface>
-                      </View>
-                    ) : (
-                      attachments.map((attachment, index) => {
-                        const isPreviewSelected =
-                          index === selectedPreviewIndex;
-                        const pill = (
-                          <Surface
-                            key={index}
-                            style={[
-                              styles.mediaIndicator,
-                              {
-                                backgroundColor:
-                                  theme.colors.secondaryContainer,
-                                borderWidth: isPreviewSelected ? 1.5 : 0,
-                                borderColor: isPreviewSelected
-                                  ? theme.colors.primary
-                                  : "transparent",
-                              },
-                            ]}
-                            elevation={0}
-                          >
-                            <MediaTypeIcon
-                              mediaType={attachment.mediaType}
-                              size={12}
-                              base
-                              showLabel
-                              label={attachment.name}
-                            />
-                          </Surface>
-                        );
-
-                        return (
-                          <TouchableRipple
-                            key={index}
-                            onPress={() => {
-                              if (index >= 0) setSelectedPreviewIndex(index);
-                            }}
-                            borderless
-                          >
-                            {pill}
-                          </TouchableRipple>
-                        );
-                      })
-                    ))}
-                </Surface>
-              </Surface>
+            <Surface
+              style={[
+                styles.checkbox,
+                {
+                  backgroundColor: isSelected
+                    ? theme.colors.primary
+                    : "transparent",
+                  borderColor: theme.colors.outline,
+                },
+              ]}
+            >
+              {isSelected && <Icon source="check" size={16} color={"#fff"} />}
+            </Surface>
+          </TouchableRipple>
+        ) : (
+          <View style={styles.leftColumn}>
+            <View
+              style={styles.bucketIconContainer}
+              onStartShouldSetResponder={() => true}
+            >
+              <BucketIcon
+                key={notification.message?.bucket?.id}
+                bucketId={notification.message?.bucket?.id ?? ""}
+                size={"lg"}
+              />
             </View>
           </View>
-        </TouchableWithoutFeedback>
-
-        {fullScreenIndex >= 0 && attachments[fullScreenIndex] && (
-          <FullScreenMediaViewer
-            visible
-            notificationDate={new Date(notification.createdAt).getTime()}
-            url={attachments[fullScreenIndex].url || ""}
-            mediaType={attachments[fullScreenIndex].mediaType}
-            originalFileName={attachments[fullScreenIndex].name || undefined}
-            onClose={handleCloseFullScreenImage}
-            enableSwipeNavigation={attachments.length > 1}
-            onSwipeLeft={() => {
-              setFullScreenIndex((fullScreenIndex + 1) % attachments.length);
-            }}
-            onSwipeRight={() => {
-              setFullScreenIndex(
-                fullScreenIndex === 0
-                  ? attachments.length - 1
-                  : fullScreenIndex - 1
-              );
-            }}
-            currentPosition={`${fullScreenIndex + 1} / ${attachments.length}`}
-          />
         )}
-      </SwipeableItem>
-      {/* Menu gestito da react-native-paper al posto del Modal personalizzato */}
-    </View>
+
+        {/* Text content */}
+        <Surface style={[styles.textContent]} elevation={0}>
+          <View style={styles.titleAndDateRow}>
+            <View style={styles.titleSection}>
+              {!hideBucketInfo && (
+                <Text
+                  style={styles.bucketName}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {bucketName}
+                </Text>
+              )}
+              <SmartTextRenderer
+                content={notification.message?.title}
+                maxLines={1}
+                style={[styles.title, !isRead && styles.titleUnread]}
+              />
+            </View>
+            <View style={styles.rightMeta}>
+              <Text style={styles.date}>
+                {formatRelativeTime(notification.createdAt)}
+              </Text>
+              <NotificationSnoozeButton
+                bucketId={notification.message?.bucket?.id}
+                variant="inline"
+                showText
+              />
+            </View>
+          </View>
+
+          {!!notification.message?.subtitle && (
+            <SmartTextRenderer
+              content={notification.message.subtitle}
+              maxLines={1}
+              style={styles.subtitle}
+            />
+          )}
+
+          {!!notification.message?.body && (
+            <SmartTextRenderer
+              content={notification.message.body}
+              maxLines={bodyMaxLines}
+              style={styles.body}
+            />
+          )}
+        </Surface>
+
+        {!isMultiSelectionMode && !isRead && (
+          <Surface
+            style={[
+              styles.unreadIndicator,
+              { backgroundColor: theme.colors.primary },
+            ]}
+          >
+            <></>
+          </Surface>
+        )}
+      </Pressable>
+
+      {!!visibleAttachment && (
+        <View pointerEvents="auto">
+          <Surface style={[styles.mediaPreviewRow]} elevation={0}>
+            {attachments.map((attachment, index) => {
+              const isPreviewSelected = index === selectedPreviewIndex;
+              return (
+                <View
+                  key={`${attachment.url}-${index}`}
+                  style={[
+                    isPreviewSelected
+                      ? styles.expandedImage
+                      : {
+                          width: 0,
+                          height: 0,
+                          opacity: 0,
+                          position: "absolute",
+                        },
+                  ]}
+                >
+                  {(isItemVisible || !loadOnlyVisible) && (
+                    <CachedMedia
+                      notificationDate={new Date(
+                        notification.createdAt
+                      ).getTime()}
+                      mediaType={attachment.mediaType}
+                      url={attachment.url || ""}
+                      style={
+                        isPreviewSelected
+                          ? styles.expandedImage
+                          : { width: 0, height: 0 }
+                      }
+                      originalFileName={attachment.name || undefined}
+                      videoProps={{
+                        autoPlay: isPreviewSelected,
+                        isMuted: true,
+                        isLooping: true,
+                        showControls: false,
+                      }}
+                      audioProps={{
+                        shouldPlay: false,
+                        showControls: true,
+                      }}
+                      onPress={() => {
+                        mediaPressRef.current = true;
+                        handleVisualPress(attachment.url!);
+                      }}
+                    />
+                  )}
+                </View>
+              );
+            })}
+          </Surface>
+        </View>
+      )}
+
+      <Surface style={[styles.bottomRow]} elevation={0}>
+        <Surface style={[styles.mediaIndicators]} elevation={0}>
+          {attachments.length > 0 &&
+            (isCompactMode ? (
+              <View style={styles.inlinePillsRow}>
+                <Surface
+                  style={[
+                    styles.mediaIndicator,
+                    {
+                      backgroundColor: theme.colors.secondaryContainer,
+                    },
+                  ]}
+                  elevation={0}
+                >
+                  <Icon
+                    source="image"
+                    size={16}
+                    color={theme.colors.onSurfaceVariant}
+                  />
+                  <Text
+                    style={styles.mediaText}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {t("attachmentGallery.attachments", {
+                      count: attachments.length,
+                    })}
+                  </Text>
+                </Surface>
+              </View>
+            ) : (
+              attachments.map((attachment, index) => {
+                const isPreviewSelected = index === selectedPreviewIndex;
+                const pill = (
+                  <Surface
+                    key={index}
+                    style={[
+                      styles.mediaIndicator,
+                      {
+                        backgroundColor: theme.colors.secondaryContainer,
+                        borderWidth: isPreviewSelected ? 1.5 : 0,
+                        borderColor: isPreviewSelected
+                          ? theme.colors.primary
+                          : "transparent",
+                      },
+                    ]}
+                    elevation={0}
+                  >
+                    <MediaTypeIcon
+                      mediaType={attachment.mediaType}
+                      size={12}
+                      base
+                      showLabel
+                      label={attachment.name}
+                    />
+                  </Surface>
+                );
+
+                return (
+                  <TouchableRipple
+                    key={index}
+                    onPress={() => {
+                      if (index >= 0) setSelectedPreviewIndex(index);
+                    }}
+                    borderless
+                  >
+                    {pill}
+                  </TouchableRipple>
+                );
+              })
+            ))}
+        </Surface>
+      </Surface>
+
+      {fullScreenIndex >= 0 && attachments[fullScreenIndex] && (
+        <FullScreenMediaViewer
+          visible
+          notificationDate={new Date(notification.createdAt).getTime()}
+          url={attachments[fullScreenIndex].url || ""}
+          mediaType={attachments[fullScreenIndex].mediaType}
+          originalFileName={attachments[fullScreenIndex].name || undefined}
+          onClose={handleCloseFullScreenImage}
+          enableSwipeNavigation={attachments.length > 1}
+          onSwipeLeft={() => {
+            setFullScreenIndex((fullScreenIndex + 1) % attachments.length);
+          }}
+          onSwipeRight={() => {
+            setFullScreenIndex(
+              fullScreenIndex === 0
+                ? attachments.length - 1
+                : fullScreenIndex - 1
+            );
+          }}
+          currentPosition={`${fullScreenIndex + 1} / ${attachments.length}`}
+        />
+      )}
+    </SwipeableItem>
   );
 };
 
 const styles = StyleSheet.create({
-  swipeContent: {
-    borderRadius: 8,
-  },
-  itemCardContent: {
-    overflow: "hidden",
-    borderRadius: 8,
-  },
   firstRow: {
     paddingTop: 12,
     paddingHorizontal: 12,
@@ -756,14 +716,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   // Paper Menu styles no longer needed
-  priorityBackground: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0.06,
-  },
   checkboxContainer: {
     width: 40,
     height: 40,

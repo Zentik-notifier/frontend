@@ -2,25 +2,33 @@ import { useCallback, useEffect, useState } from 'react';
 import { Subscription } from 'rxjs';
 import { MediaType } from '../generated/gql-operations-generated';
 import { CacheItem, CacheStats, DownloadQueueState, mediaCache } from '../services/media-cache-service';
-import { IS_FS_SUPPORTED } from '@/utils';
+import { Platform } from 'react-native';
+
+const isWeb = Platform.OS === 'web';
 
 export const useCachedItem = (url: string, mediaType: MediaType) => {
   const [key] = useState(mediaCache.generateCacheKey(url, mediaType));
   const [item, setItem] = useState<CacheItem | undefined>();
 
   useEffect(() => {
-    if (IS_FS_SUPPORTED) {
-      const sub: Subscription = mediaCache.metadata$.subscribe(async (all) => {
-        const newItem = all[key];
+    const sub: Subscription = mediaCache.metadata$.subscribe(async (all) => {
+      const newItem = all[key];
+
+      if (!isWeb) {
         if (newItem) {
           setItem(newItem);
         }
-      });
+      } else {
+        if (newItem?.localPath) {
+          const url = await mediaCache.getMediaUrl(newItem?.localPath);
+          if (url) {
+            setItem({ localPath: url, mediaType } as CacheItem);
+          }
+        }
+      }
+    });
 
-      return () => sub.unsubscribe();
-    } else {
-      setItem({ localPath: url, mediaType } as CacheItem);
-    }
+    return () => sub.unsubscribe();
   }, [mediaCache, key]);
 
   return { item };

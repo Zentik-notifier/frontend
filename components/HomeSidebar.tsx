@@ -16,7 +16,6 @@ import {
   Icon,
   useTheme,
 } from "react-native-paper";
-import { IS_FS_SUPPORTED } from "@/utils";
 
 export default function HomeSidebar() {
   const theme = useTheme();
@@ -70,16 +69,14 @@ export default function HomeSidebar() {
     },
   ];
 
-  if (IS_FS_SUPPORTED) {
-    sidebarItems.push({
-      id: "gallery",
-      title: t("navigation.sections.gallery"),
-      icon: "image",
-      count: galleryCount,
-      route: "/gallery",
-      onPress: navigateToGallery,
-    });
-  }
+  sidebarItems.push({
+    id: "gallery",
+    title: t("navigation.sections.gallery"),
+    icon: "image",
+    count: galleryCount,
+    route: "/gallery",
+    onPress: navigateToGallery,
+  });
 
   const renderSidebar = () => {
     return (

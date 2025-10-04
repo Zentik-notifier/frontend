@@ -159,6 +159,3 @@ export const Directory = isWeb ? WebDirectory : ExpoFileSystem.Directory;
 export const downloadFileAsync = isWeb
   ? WebFile.downloadFileAsync
   : ExpoFileSystem.downloadAsync;
-
-// Enhanced IS_FS_SUPPORTED that includes web support
-export const IS_FS_SUPPORTED = true; // Enable support for both web and mobile

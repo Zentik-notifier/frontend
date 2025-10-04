@@ -5,7 +5,7 @@ import { useNotificationExportImport } from "@/hooks/useNotificationExportImport
 import { mediaCache } from "@/services/media-cache-service";
 import { getAllNotificationsFromCache } from "@/services/notifications-repository";
 import { useUserSettings } from "@/services/user-settings";
-import { formatFileSize, IS_FS_SUPPORTED } from "@/utils";
+import { formatFileSize } from "@/utils";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useMemo, useState } from "react";
@@ -214,177 +214,213 @@ export default function UnifiedCacheSettings() {
   return (
     <View style={styles.sectionContainer}>
       {/* Cache Overview Section */}
-      {IS_FS_SUPPORTED && (
-        <Surface style={styles.surfaceSection} elevation={1}>
-          <View style={styles.sectionHeader}>
-            <Text variant="headlineSmall" style={styles.sectionTitle}>
-              {t("appSettings.cache.title")}
-            </Text>
-            <Text
-              variant="bodyMedium"
-              style={[
-                styles.sectionDescription,
-                { color: theme.colors.onSurfaceVariant },
-              ]}
-            >
-              {t("appSettings.cache.description")}
-            </Text>
-          </View>
+      <Surface style={styles.surfaceSection} elevation={1}>
+        <View style={styles.sectionHeader}>
+          <Text variant="headlineSmall" style={styles.sectionTitle}>
+            {t("appSettings.cache.title")}
+          </Text>
+          <Text
+            variant="bodyMedium"
+            style={[
+              styles.sectionDescription,
+              { color: theme.colors.onSurfaceVariant },
+            ]}
+          >
+            {t("appSettings.cache.description")}
+          </Text>
+        </View>
 
-          {/* Cache Summary */}
-          <Card style={styles.summaryCard} elevation={0}>
-            <Card.Content>
-              <View style={styles.summaryHeader}>
-                <Icon
-                  source="chart-line"
-                  size={24}
-                  color={theme.colors.primary}
-                />
-                <Text variant="titleMedium" style={styles.summaryTitle}>
-                  {t("appSettings.cache.summary")}
+        {/* Cache Summary */}
+        <Card style={styles.summaryCard} elevation={0}>
+          <Card.Content>
+            <View style={styles.summaryHeader}>
+              <Icon
+                source="chart-line"
+                size={24}
+                color={theme.colors.primary}
+              />
+              <Text variant="titleMedium" style={styles.summaryTitle}>
+                {t("appSettings.cache.summary")}
+              </Text>
+            </View>
+
+            <View style={styles.summaryStats}>
+              <View style={styles.summaryStat}>
+                <Text
+                  variant="headlineMedium"
+                  style={[
+                    styles.summaryStatValue,
+                    { color: theme.colors.primary },
+                  ]}
+                >
+                  {cacheStats ? formatFileSize(cacheStats.totalSize) : "0"}
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    styles.summaryStatLabel,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  {t("appSettings.cache.mediaSize")}
+                </Text>
+                <Text
+                  variant="labelSmall"
+                  style={[
+                    styles.summaryStatSubtext,
+                    { color: theme.colors.outline },
+                  ]}
+                >
+                  {cacheStats ? cacheStats.totalItems : 0}{" "}
+                  {t("appSettings.cache.items")}
                 </Text>
               </View>
 
-              <View style={styles.summaryStats}>
-                <View style={styles.summaryStat}>
-                  <Text
-                    variant="headlineMedium"
-                    style={[
-                      styles.summaryStatValue,
-                      { color: theme.colors.primary },
-                    ]}
-                  >
-                    {cacheStats ? formatFileSize(cacheStats.totalSize) : "0"}
-                  </Text>
-                  <Text
-                    variant="bodySmall"
-                    style={[
-                      styles.summaryStatLabel,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
-                  >
-                    {t("appSettings.cache.mediaSize")}
-                  </Text>
-                  <Text
-                    variant="labelSmall"
-                    style={[
-                      styles.summaryStatSubtext,
-                      { color: theme.colors.outline },
-                    ]}
-                  >
-                    {cacheStats ? cacheStats.totalItems : 0}{" "}
-                    {t("appSettings.cache.items")}
-                  </Text>
-                </View>
+              <View style={styles.summaryStat}>
+                <Text
+                  variant="headlineMedium"
+                  style={[
+                    styles.summaryStatValue,
+                    { color: theme.colors.primary },
+                  ]}
+                >
+                  {dbNotificationsCount}
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    styles.summaryStatLabel,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  {t("appSettings.cache.notificationsCount")}
+                </Text>
+                <Text
+                  variant="labelSmall"
+                  style={[
+                    styles.summaryStatSubtext,
+                    { color: theme.colors.outline },
+                  ]}
+                >
+                  {t("appSettings.cache.inCache")}
+                </Text>
+              </View>
 
-                <View style={styles.summaryStat}>
-                  <Text
-                    variant="headlineMedium"
-                    style={[
-                      styles.summaryStatValue,
-                      { color: theme.colors.primary },
-                    ]}
-                  >
-                    {dbNotificationsCount}
-                  </Text>
-                  <Text
-                    variant="bodySmall"
-                    style={[
-                      styles.summaryStatLabel,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
-                  >
-                    {t("appSettings.cache.notificationsCount")}
-                  </Text>
-                  <Text
-                    variant="labelSmall"
-                    style={[
-                      styles.summaryStatSubtext,
-                      { color: theme.colors.outline },
-                    ]}
-                  >
-                    {t("appSettings.cache.inCache")}
-                  </Text>
-                </View>
+              <View style={styles.summaryStat}>
+                <Text
+                  variant="headlineMedium"
+                  style={[
+                    styles.summaryStatValue,
+                    { color: theme.colors.primary },
+                  ]}
+                >
+                  {totalCacheSize}
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    styles.summaryStatLabel,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  {t("appSettings.cache.totalSize")}
+                </Text>
+                <Text
+                  variant="labelSmall"
+                  style={[
+                    styles.summaryStatSubtext,
+                    { color: theme.colors.outline },
+                  ]}
+                >
+                  {t("appSettings.cache.approximate")}
+                </Text>
+              </View>
+            </View>
 
-                <View style={styles.summaryStat}>
-                  <Text
-                    variant="headlineMedium"
-                    style={[
-                      styles.summaryStatValue,
-                      { color: theme.colors.primary },
-                    ]}
-                  >
-                    {totalCacheSize}
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.error}
+              textColor={theme.colors.onError}
+              onPress={handleOpenResetModal}
+              icon="delete"
+              style={styles.resetButton}
+            >
+              {t("appSettings.cache.resetCache")}
+            </Button>
+          </Card.Content>
+        </Card>
+      </Surface>
+
+      {/* Auto Download Settings */}
+      <Surface style={styles.surfaceSection} elevation={1}>
+        <View style={styles.sectionHeader}>
+          <Text variant="headlineSmall" style={styles.sectionTitle}>
+            {t("appSettings.autoDownload.title")}
+          </Text>
+          <Text
+            variant="bodyMedium"
+            style={[
+              styles.sectionDescription,
+              { color: theme.colors.onSurfaceVariant },
+            ]}
+          >
+            {t("appSettings.autoDownload.description")}
+          </Text>
+        </View>
+
+        <Card style={styles.settingCard} elevation={0}>
+          <Card.Content>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <View style={styles.settingIcon}>
+                  <Icon
+                    source="download"
+                    size={20}
+                    color={theme.colors.primary}
+                  />
+                </View>
+                <View style={styles.settingTextContainer}>
+                  <Text variant="titleMedium" style={styles.settingTitle}>
+                    {t("appSettings.autoDownload.enableAutoDownload")}
                   </Text>
                   <Text
-                    variant="bodySmall"
+                    variant="bodyMedium"
                     style={[
-                      styles.summaryStatLabel,
+                      styles.settingDescription,
                       { color: theme.colors.onSurfaceVariant },
                     ]}
                   >
-                    {t("appSettings.cache.totalSize")}
-                  </Text>
-                  <Text
-                    variant="labelSmall"
-                    style={[
-                      styles.summaryStatSubtext,
-                      { color: theme.colors.outline },
-                    ]}
-                  >
-                    {t("appSettings.cache.approximate")}
+                    {t(
+                      "appSettings.autoDownload.enableAutoDownloadDescription"
+                    )}
                   </Text>
                 </View>
               </View>
+              <Switch
+                value={downloadSettings.autoDownloadEnabled}
+                onValueChange={(v) =>
+                  updateMediaCacheDownloadSettings({ autoDownloadEnabled: v })
+                }
+              />
+            </View>
+          </Card.Content>
+        </Card>
 
-              <Button
-                mode="contained"
-                buttonColor={theme.colors.error}
-                textColor={theme.colors.onError}
-                onPress={handleOpenResetModal}
-                icon="delete"
-                style={styles.resetButton}
-              >
-                {t("appSettings.cache.resetCache")}
-              </Button>
-            </Card.Content>
-          </Card>
-        </Surface>
-      )}
-
-      {/* Auto Download Settings */}
-      {IS_FS_SUPPORTED && (
-        <Surface style={styles.surfaceSection} elevation={1}>
-          <View style={styles.sectionHeader}>
-            <Text variant="headlineSmall" style={styles.sectionTitle}>
-              {t("appSettings.autoDownload.title")}
-            </Text>
-            <Text
-              variant="bodyMedium"
-              style={[
-                styles.sectionDescription,
-                { color: theme.colors.onSurfaceVariant },
-              ]}
-            >
-              {t("appSettings.autoDownload.description")}
-            </Text>
-          </View>
-
+        {downloadSettings?.autoDownloadEnabled && (
           <Card style={styles.settingCard} elevation={0}>
             <Card.Content>
               <View style={styles.settingRow}>
                 <View style={styles.settingInfo}>
                   <View style={styles.settingIcon}>
                     <Icon
-                      source="download"
+                      source="wifi"
                       size={20}
                       color={theme.colors.primary}
                     />
                   </View>
                   <View style={styles.settingTextContainer}>
                     <Text variant="titleMedium" style={styles.settingTitle}>
-                      {t("appSettings.autoDownload.enableAutoDownload")}
+                      {t("appSettings.autoDownload.downloadOnWiFiOnly")}
                     </Text>
                     <Text
                       variant="bodyMedium"
@@ -394,62 +430,22 @@ export default function UnifiedCacheSettings() {
                       ]}
                     >
                       {t(
-                        "appSettings.autoDownload.enableAutoDownloadDescription"
+                        "appSettings.autoDownload.downloadOnWiFiOnlyDescription"
                       )}
                     </Text>
                   </View>
                 </View>
                 <Switch
-                  value={downloadSettings.autoDownloadEnabled}
+                  value={downloadSettings.wifiOnlyDownload}
                   onValueChange={(v) =>
-                    updateMediaCacheDownloadSettings({ autoDownloadEnabled: v })
+                    updateMediaCacheDownloadSettings({ wifiOnlyDownload: v })
                   }
                 />
               </View>
             </Card.Content>
           </Card>
-
-          {downloadSettings?.autoDownloadEnabled && (
-            <Card style={styles.settingCard} elevation={0}>
-              <Card.Content>
-                <View style={styles.settingRow}>
-                  <View style={styles.settingInfo}>
-                    <View style={styles.settingIcon}>
-                      <Icon
-                        source="wifi"
-                        size={20}
-                        color={theme.colors.primary}
-                      />
-                    </View>
-                    <View style={styles.settingTextContainer}>
-                      <Text variant="titleMedium" style={styles.settingTitle}>
-                        {t("appSettings.autoDownload.downloadOnWiFiOnly")}
-                      </Text>
-                      <Text
-                        variant="bodyMedium"
-                        style={[
-                          styles.settingDescription,
-                          { color: theme.colors.onSurfaceVariant },
-                        ]}
-                      >
-                        {t(
-                          "appSettings.autoDownload.downloadOnWiFiOnlyDescription"
-                        )}
-                      </Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={downloadSettings.wifiOnlyDownload}
-                    onValueChange={(v) =>
-                      updateMediaCacheDownloadSettings({ wifiOnlyDownload: v })
-                    }
-                  />
-                </View>
-              </Card.Content>
-            </Card>
-          )}
-        </Surface>
-      )}
+        )}
+      </Surface>
 
       {/* Retention Policies */}
       <Surface style={styles.surfaceSection} elevation={1}>

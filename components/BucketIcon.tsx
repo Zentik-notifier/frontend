@@ -143,7 +143,7 @@ export default function BucketIcon({
           ) : (
             <Icon
               source={icon?.replace("sfsymbols:", "") || "folder"}
-              size={sizeMap[size].icon}
+              size={currentSize.text}
               color={theme.colors.onPrimary}
             />
           )}

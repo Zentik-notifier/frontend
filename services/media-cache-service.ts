@@ -367,10 +367,6 @@ class MediaCacheService {
     async getCachedItem(url: string, mediaType: MediaType): Promise<CacheItem | undefined> {
         if (!url) return undefined;
 
-        // if (!IS_FS_SUPPORTED) {
-        //     return { localPath: url, mediaType } as CacheItem;
-        // }
-
         const key = this.generateCacheKey(url, mediaType);
         let cachedItem: CacheItem | undefined = this.metadata[key];
 
@@ -459,7 +455,7 @@ class MediaCacheService {
             cachedItem = await this.repo.getCacheItem(key) ?? undefined;
         }
 
-        if (cachedItem && cachedItem.isUserDeleted && !force) {
+        if (cachedItem && (cachedItem.isUserDeleted || cachedItem.isPermanentFailure) && !force) {
             return;
         }
 
@@ -785,7 +781,7 @@ class MediaCacheService {
     }
 
     isThumbnailSupported(mediaType: MediaType): boolean {
-        return [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType);
+        return isWeb ? false : [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType);
     }
 
     public async generateThumbnail(props: { url: string, mediaType: MediaType, force?: boolean }): Promise<void> {
@@ -887,20 +883,6 @@ class MediaCacheService {
     }
 
     /**
-     * Get media binary data from media_item table
-     */
-    async getMediaBinary(key: string): Promise<MediaItem | null> {
-        if (!this.repo) return null;
-
-        try {
-            return await this.repo.getMediaItem(key);
-        } catch (error) {
-            console.error('[MediaCache] Failed to get media binary:', key, error);
-            return null;
-        }
-    }
-
-    /**
      * Delete media binary data
      */
     async deleteMediaBinary(key: string): Promise<boolean> {
@@ -926,6 +908,18 @@ class MediaCacheService {
             console.log('[MediaCache] All binary media cleared');
         } catch (error) {
             console.error('[MediaCache] Failed to clear binary media:', error);
+        }
+    }
+
+    async getMediaUrl(key: string): Promise<string | null> {
+        await this.initialize();
+        if (!this.repo) return null;
+
+        try {
+            return await this.repo.getMediaUrl(key);
+        } catch (error) {
+            console.error('[MediaCache] Failed to get media url:', key, error);
+            return null;
         }
     }
 }

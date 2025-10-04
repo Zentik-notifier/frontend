@@ -159,13 +159,17 @@ export const CachedMedia = React.memo(function CachedMedia({
     localSource && isAudioType ? localSource : ""
   );
 
-  const handleForceDownload = useCallback(async () => {
-    await mediaCache.forceMediaDownload({
-      url,
-      mediaType,
-      notificationDate,
-    });
-  }, [url, mediaType, notificationDate]);
+  const handleForceDownload = useCallback(
+    async (event?: any) => {
+      event?.stopPropagation?.();
+      await mediaCache.forceMediaDownload({
+        url,
+        mediaType,
+        notificationDate,
+      });
+    },
+    [url, mediaType, notificationDate]
+  );
 
   const handleFrameClick = useCallback(
     async (event?: any) => {
@@ -174,9 +178,13 @@ export const CachedMedia = React.memo(function CachedMedia({
     [onPressParent]
   );
 
-  const handleDeleteCachedMedia = useCallback(async () => {
-    await mediaCache.deleteCachedMedia(url, mediaType);
-  }, [url, mediaType]);
+  const handleDeleteCachedMedia = useCallback(
+    async (event?: any) => {
+      event?.stopPropagation?.();
+      await mediaCache.deleteCachedMedia(url, mediaType);
+    },
+    [url, mediaType]
+  );
 
   const handleSeek = useCallback(
     (seekTime: number) => {
@@ -339,41 +347,56 @@ export const CachedMedia = React.memo(function CachedMedia({
     return [baseStyle, dashed, style];
   };
 
-  const renderForceDownloadButton = (withDelete?: boolean) => {
+  const renderForceDownloadButton = (icon: string, withDelete?: boolean) => {
+    const primaryColor = theme.colors.primary;
+    const errorColor = theme.colors.error;
+    const onPrimaryColor = theme.colors.onPrimary;
+    const onErrorColor = theme.colors.onError;
+
     return (
       <View style={defaultStyles.buttonContainer}>
+        {/* Pulsante sinistro (download/refresh) */}
         <Pressable
           onPress={ignoreClicks ? undefined : handleForceDownload}
-          style={defaultStyles.forceDownloadButton}
+          style={[
+            defaultStyles.actionButton,
+            isCompact
+              ? {
+                  ...defaultStyles.compactButton,
+                }
+              : {
+                  ...defaultStyles.rectangularButton,
+                  backgroundColor: primaryColor,
+                  borderColor: primaryColor,
+                },
+          ]}
         >
-          {isCompact ? (
-            <Icon
-              source="download"
-              size={10}
-              color={theme.colors.onSurfaceVariant}
-            />
-          ) : (
-            <Text style={defaultStyles.forceDownloadButtonText}>
+          <Icon
+            source={icon}
+            size={isCompact ? 16 : 20}
+            color={onPrimaryColor}
+          />
+          {!isCompact && (
+            <Text style={[defaultStyles.buttonText, { color: onPrimaryColor }]}>
               {t("cachedMedia.forceDownload")}
             </Text>
           )}
         </Pressable>
-        {withDelete && (
+
+        {/* Pulsante destro (delete) */}
+        {withDelete && !isCompact && (
           <Pressable
             onPress={ignoreClicks ? undefined : handleDeleteCachedMedia}
-            style={defaultStyles.deleteButton}
+            style={[
+              defaultStyles.actionButton,
+              defaultStyles.rectangularButton,
+              { backgroundColor: errorColor },
+            ]}
           >
-            {isCompact ? (
-              <Icon
-                source="delete"
-                size={10}
-                color={theme.colors.onSurfaceVariant}
-              />
-            ) : (
-              <Text style={defaultStyles.deleteButtonText}>
-                {t("cachedMedia.delete")}
-              </Text>
-            )}
+            <Icon source="delete" size={20} color={onErrorColor} />
+            <Text style={[defaultStyles.buttonText, { color: onErrorColor }]}>
+              {t("cachedMedia.delete")}
+            </Text>
           </Pressable>
         )}
       </View>
@@ -409,18 +432,14 @@ export const CachedMedia = React.memo(function CachedMedia({
     // Permanent failure - click to retry
     if (mediaSource?.isPermanentFailure || isVideoError) {
       return (
-        <View style={getStateContainerStyle("failed") as any}>
-          <View style={defaultStyles.stateContent}>
-            <Text style={{ color: stateColors.failed }}>
-              {!isCompact && mediaSource?.errorCode}
-            </Text>
-            <Icon
-              source="alert-circle-outline"
-              size={isCompact ? 20 : 24}
-              color={stateColors.failed}
-            />
-          </View>
-          {renderForceDownloadButton(true)}
+        <View
+          style={[
+            getStateContainerStyle("failed") as any,
+            defaultStyles.stateContent,
+            { color: stateColors.failed },
+          ]}
+        >
+          {renderForceDownloadButton("alert-circle-outline", true)}
         </View>
       );
     }
@@ -428,15 +447,14 @@ export const CachedMedia = React.memo(function CachedMedia({
     // User deleted - click to redownload
     if (mediaSource?.isUserDeleted) {
       return (
-        <View style={getStateContainerStyle("deleted") as any}>
-          <View style={defaultStyles.stateContent}>
-            <Icon
-              source="refresh"
-              size={isCompact ? 20 : 24}
-              color={stateColors.deleted}
-            />
-          </View>
-          {renderForceDownloadButton(false)}
+        <View
+          style={[
+            getStateContainerStyle("deleted") as any,
+            defaultStyles.stateContent,
+            { color: stateColors.failed },
+          ]}
+        >
+          {renderForceDownloadButton("refresh", false)}
         </View>
       );
     }
@@ -444,15 +462,14 @@ export const CachedMedia = React.memo(function CachedMedia({
     // LocalPath not present ??
     if (!mediaSource?.localPath) {
       return (
-        <View style={getStateContainerStyle("deleted") as any}>
-          <View style={defaultStyles.stateContent}>
-            <Icon
-              source="download"
-              size={isCompact ? 20 : 24}
-              color={stateColors.deleted}
-            />
-          </View>
-          {renderForceDownloadButton(!!mediaSource)}
+        <View
+          style={[
+            getStateContainerStyle("deleted") as any,
+            defaultStyles.stateContent,
+            { color: stateColors.failed },
+          ]}
+        >
+          {renderForceDownloadButton("download", false)}
         </View>
       );
     }
@@ -481,15 +498,14 @@ export const CachedMedia = React.memo(function CachedMedia({
       }
 
       return (
-        <View style={getStateContainerStyle("videoError") as any}>
-          <View style={defaultStyles.stateContent}>
-            <Icon
-              source="image-outline"
-              size={isCompact ? 20 : 24}
-              color={stateColors.loading}
-            />
-          </View>
-          {renderForceDownloadButton(true)}
+        <View
+          style={[
+            getStateContainerStyle("videoError") as any,
+            defaultStyles.stateContent,
+            { color: stateColors.failed },
+          ]}
+        >
+          {renderForceDownloadButton("image-outline", true)}
         </View>
       );
     }
@@ -837,10 +853,6 @@ const defaultStyles = StyleSheet.create({
     elevation: 2,
   },
 
-  // Stili per contenuti specifici
-  genericText: {
-    fontSize: 24,
-  },
   typeIndicator: {
     position: "absolute",
     bottom: 8,
@@ -861,11 +873,6 @@ const defaultStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  typeIndicatorText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "white",
-  },
 
   // Audio button per modalità compatta
   compactAudioButton: {
@@ -879,64 +886,37 @@ const defaultStyles = StyleSheet.create({
     borderColor: "#007AFF",
   },
 
-  // Container per i pulsanti
+  // Container per i pulsanti di azione
   buttonContainer: {
     flexDirection: "row",
     gap: 8,
-    marginTop: 8,
   },
 
-  // Pulsante per forzare il download
-  forceDownloadButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#007AFF",
-    borderRadius: 4,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  // Testo del pulsante di download forzato
-  forceDownloadButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "white",
-  },
-
-  // Pulsante per eliminare
-  deleteButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#FF3B30",
-    borderRadius: 4,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  // Testo del pulsante di eliminazione
-  deleteButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "white",
-  },
-
-  // Pulsante piccolo download
-  smallDownloadButton: {
+  // Pulsante circolare per modalità compatta
+  compactButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#007AFF",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "transparent",
+    borderColor: "transparent",
+    borderWidth: 2,
   },
 
-  // Pulsante piccolo elimina
-  smallDeleteButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#FF3B30",
+  // Pulsante rettangolare per modalità normale
+  rectangularButton: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+
+  // Testo del pulsante
+  buttonText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

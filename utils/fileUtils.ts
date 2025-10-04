@@ -1,6 +1,3 @@
-import { Platform } from "react-native";
-import { IS_FS_SUPPORTED } from './filesystem-wrapper';
-
 export function formatFileSize(bytes: number, decimals: number = 1): string {
 	if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
 	const k = 1024;
@@ -9,6 +6,3 @@ export function formatFileSize(bytes: number, decimals: number = 1): string {
 	const dm = Math.max(0, Math.min(4, Math.floor(decimals)));
 	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
-
-// Export enhanced IS_FS_SUPPORTED that supports web platforms
-export { IS_FS_SUPPORTED };
