@@ -360,23 +360,22 @@ export const CachedMedia = React.memo(function CachedMedia({
           onPress={ignoreClicks ? undefined : handleForceDownload}
           style={[
             defaultStyles.actionButton,
-            {
-              backgroundColor: primaryColor,
-              borderColor: primaryColor,
-            },
             isCompact
               ? {
-                  ...defaultStyles.compactButton,
+                  backgroundColor: "transparent",
                 }
               : {
-                  ...defaultStyles.rectangularButton,
+                  backgroundColor: primaryColor,
                 },
+            isCompact
+              ? defaultStyles.compactButton
+              : defaultStyles.rectangularButton,
           ]}
         >
           <Icon
             source={icon}
-            size={isCompact ? 16 : 20}
-            color={onPrimaryColor}
+            size={isCompact ? 25 : 20}
+            color={isCompact ? primaryColor : onPrimaryColor}
           />
           {!isCompact && (
             <Text style={[defaultStyles.buttonText, { color: onPrimaryColor }]}>
@@ -481,17 +480,19 @@ export const CachedMedia = React.memo(function CachedMedia({
       if (thumbPath) {
         return (
           <Pressable onPress={handleFrameClick}>
-              <ExpoImage
-                source={{ uri: thumbPath }}
-                style={
-                  isCompact
-                    ? ([
-                        defaultStyles.stateContainerCompact,
-                        style,
-                      ] as StyleProp<ImageStyle>)
-                    : (style as StyleProp<ImageStyle>)
-                }
-                contentFit={isCompact ? "cover" : (imageProps?.contentFit ?? contentFit)}
+            <ExpoImage
+              source={{ uri: thumbPath }}
+              style={
+                isCompact
+                  ? ([
+                      defaultStyles.stateContainerCompact,
+                      style,
+                    ] as StyleProp<ImageStyle>)
+                  : (style as StyleProp<ImageStyle>)
+              }
+              contentFit={
+                isCompact ? "cover" : imageProps?.contentFit ?? contentFit
+              }
               transition={imageProps?.transition ?? 150}
               cachePolicy={imageProps?.cachePolicy || "memory"}
             />
@@ -530,7 +531,9 @@ export const CachedMedia = React.memo(function CachedMedia({
                       ] as StyleProp<ImageStyle>)
                     : (style as StyleProp<ImageStyle>)
                 }
-                contentFit={isCompact ? "cover" : (imageProps?.contentFit ?? contentFit)}
+                contentFit={
+                  isCompact ? "cover" : imageProps?.contentFit ?? contentFit
+                }
                 transition={imageProps?.transition ?? 200}
                 placeholder={imageProps?.placeholder}
                 blurRadius={imageProps?.blurRadius}
@@ -899,10 +902,6 @@ const defaultStyles = StyleSheet.create({
   compactButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
   },
 
   // Pulsante rettangolare per modalità normale

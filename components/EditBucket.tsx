@@ -1,23 +1,22 @@
 import BucketSharingSection from "@/components/BucketSharingSection";
 import CreateBucketForm from "@/components/CreateBucketForm";
-import { useGetBucketData } from "@/hooks/useGetBucketData";
-import { useI18n } from "@/hooks/useI18n";
+import { useAppContext } from "@/contexts/AppContext";
 import {
   GetBucketsDocument,
   ResourceType,
   useDeleteBucketMutation,
   useUnshareBucketMutation,
 } from "@/generated/gql-operations-generated";
-import { useAppContext } from "@/contexts/AppContext";
-import React, { useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { useGetBucketData } from "@/hooks/useGetBucketData";
+import { useI18n } from "@/hooks/useI18n";
+import React from "react";
+import { Alert, StyleSheet } from "react-native";
 import {
-  ActivityIndicator,
   Button,
   Card,
   Surface,
   Text,
-  useTheme,
+  useTheme
 } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
 
