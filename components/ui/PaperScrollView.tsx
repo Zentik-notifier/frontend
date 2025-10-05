@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import {
   ActivityIndicator,
+  Button,
   IconButton,
   Text,
   useTheme,
@@ -25,6 +26,10 @@ interface PaperScrollViewProps {
   showsHorizontalScrollIndicator?: boolean;
   loading?: boolean;
   withScroll?: boolean;
+  error?: boolean;
+  errorTitle?: string;
+  errorMessage?: string;
+  onRetry?: () => void;
 }
 
 export default function PaperScrollView({
@@ -37,6 +42,10 @@ export default function PaperScrollView({
   showsHorizontalScrollIndicator = false,
   loading = false,
   withScroll = true,
+  error = false,
+  errorTitle,
+  errorMessage,
+  onRetry,
 }: PaperScrollViewProps) {
   const theme = useTheme();
   const { t } = useI18n();
@@ -90,7 +99,7 @@ export default function PaperScrollView({
       {scrollViewContent}
 
       {/* FAB buttons in bottom right corner (Web only) */}
-      {showFab && (
+      {showFab && !error && (
         <View style={styles.fabContainer}>
           {onAdd && (
             <IconButton
@@ -120,7 +129,7 @@ export default function PaperScrollView({
       )}
 
       {/* Loading overlay */}
-      {loading && (
+      {loading && !error && (
         <View style={styles.loadingOverlay}>
           <View
             style={[
@@ -135,6 +144,41 @@ export default function PaperScrollView({
             >
               {t("common.loading")}
             </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Error overlay */}
+      {error && (
+        <View style={styles.errorOverlay}>
+          <View
+            style={[
+              styles.errorContent,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
+            <Text
+              variant="headlineSmall"
+              style={[styles.errorTitle, { color: theme.colors.error }]}
+            >
+              {errorTitle || t("common.error")}
+            </Text>
+            <Text
+              variant="bodyMedium"
+              style={[styles.errorMessage, { color: theme.colors.onSurface }]}
+            >
+              {errorMessage || t("common.error")}
+            </Text>
+            {onRetry && (
+              <Button
+                mode="contained"
+                onPress={onRetry}
+                style={styles.retryButton}
+                buttonColor={theme.colors.primary}
+              >
+                {t("common.retry")}
+              </Button>
+            )}
           </View>
         </View>
       )}
@@ -201,5 +245,41 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 8,
+  },
+  errorOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+  },
+  errorContent: {
+    padding: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    maxWidth: 300,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  errorTitle: {
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  errorMessage: {
+    marginBottom: 16,
+    textAlign: "center",
+    opacity: 0.8,
+  },
+  retryButton: {
+    marginTop: 8,
   },
 });

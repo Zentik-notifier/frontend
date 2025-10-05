@@ -1,121 +1,22 @@
-import { useAppContext } from "@/contexts/AppContext";
 import {
   OAuthProviderFragment,
-  useAllOAuthProvidersQuery,
-  useToggleOAuthProviderMutation,
+  useAllOAuthProvidersQuery
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useEffect, useState } from "react";
-import { Image, StyleSheet, View } from "react-native";
-import {
-  Card,
-  Chip,
-  Icon,
-  IconButton,
-  Surface,
-  Text,
-  useTheme,
-} from "react-native-paper";
+import React from "react";
+import { StyleSheet, View } from "react-native";
+import { Icon, Surface, Text, useTheme } from "react-native-paper";
+import SwipeableOauthProviderItem from "./SwipeableOauthProviderItem";
 import PaperScrollView from "./ui/PaperScrollView";
-
-function OAuthProviderItem({
-  provider,
-  onEdit,
-  onToggle,
-  toggleLoading,
-}: {
-  provider: OAuthProviderFragment;
-  onEdit: (provider: OAuthProviderFragment) => void;
-  onToggle: (provider: OAuthProviderFragment) => void;
-  toggleLoading?: boolean;
-}) {
-  const theme = useTheme();
-  const { t } = useI18n();
-
-  return (
-    <Card
-      style={[
-        styles.providerCard,
-        {
-          opacity: provider.isEnabled ? 1 : 0.7,
-        },
-      ]}
-      onPress={() => onEdit(provider)}
-      mode="outlined"
-    >
-      <Card.Content style={[styles.providerInfo, { paddingVertical: 8 }]}>
-        <View
-          style={[
-            styles.providerIcon,
-            {
-              backgroundColor: `${provider.color}15`,
-            },
-          ]}
-        >
-          {provider.iconUrl && (
-            <Image
-              source={{ uri: provider.iconUrl }}
-              style={{ width: 24, height: 24 }}
-              resizeMode="contain"
-            />
-          )}
-        </View>
-        <View style={styles.providerDetails}>
-          <Text variant="titleMedium" style={styles.providerName}>
-            {provider.name}
-          </Text>
-          <Chip
-            mode="flat"
-            compact
-            style={[
-              styles.statusChip,
-              {
-                backgroundColor: provider.isEnabled
-                  ? theme.colors.primaryContainer
-                  : theme.colors.surfaceVariant,
-              },
-            ]}
-            textStyle={{
-              color: provider.isEnabled
-                ? theme.colors.primary
-                : theme.colors.onSurfaceVariant,
-            }}
-          >
-            {provider.isEnabled
-              ? t("administration.enabled")
-              : t("administration.disabled")}
-          </Chip>
-        </View>
-        <IconButton
-          icon={provider.isEnabled ? "check-circle" : "plus-circle"}
-          size={24}
-          iconColor={
-            provider.isEnabled ? theme.colors.primary : theme.colors.error
-          }
-          onPress={() => onToggle(provider)}
-          disabled={toggleLoading}
-          loading={toggleLoading}
-          style={styles.toggleButton}
-        />
-      </Card.Content>
-    </Card>
-  );
-}
 
 export default function OAuthProvidersSettings() {
   const { navigateToCreateOAuthProvider, navigateToEditOAuthProvider } =
     useNavigationUtils();
   const theme = useTheme();
   const { t } = useI18n();
-  const [togglingProviderId, setTogglingProviderId] = useState<string | null>(
-    null
-  );
-  const { setMainLoading } = useAppContext();
 
   const { data, loading, error, refetch } = useAllOAuthProvidersQuery({});
-  const [toggleOAuthProvider] = useToggleOAuthProviderMutation();
-  useEffect(() => setMainLoading(loading), [loading]);
 
   const allProviders = data?.allOAuthProviders || [];
 
@@ -123,34 +24,10 @@ export default function OAuthProvidersSettings() {
     navigateToCreateOAuthProvider();
   };
 
-  const handleEditProvider = (provider: OAuthProviderFragment) => {
-    navigateToEditOAuthProvider(provider.id);
-  };
-
-  const handleToggleProvider = async (provider: OAuthProviderFragment) => {
-    if (togglingProviderId === provider.id) return;
-
-    setTogglingProviderId(provider.id);
-
-    try {
-      await toggleOAuthProvider({
-        variables: {
-          id: provider.id,
-        },
-      });
-    } catch (error) {
-      console.error("Error toggling OAuth provider:", error);
-    } finally {
-      setTogglingProviderId(null);
-    }
-  };
-
   const renderProviderItem = ({ item }: { item: OAuthProviderFragment }) => (
-    <OAuthProviderItem
+    <SwipeableOauthProviderItem
       provider={item}
-      onEdit={handleEditProvider}
-      onToggle={handleToggleProvider}
-      toggleLoading={togglingProviderId === item.id}
+      onDelete={() => refetch()}
       key={item.id}
     />
   );
@@ -224,33 +101,6 @@ const styles = StyleSheet.create({
   errorText: {
     opacity: 0.7,
     textAlign: "center",
-  },
-  providerCard: {
-    marginBottom: 8,
-  },
-  providerInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  providerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  providerDetails: {
-    flex: 1,
-  },
-  providerName: {
-    marginBottom: 4,
-  },
-  statusChip: {
-    alignSelf: "flex-start",
-  },
-  toggleButton: {
-    borderRadius: 20,
   },
   emptyState: {
     flex: 1,

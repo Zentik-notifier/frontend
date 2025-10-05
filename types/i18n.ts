@@ -93,6 +93,14 @@ export interface TranslationKey {
     noOAuthProviders: string;
     noOAuthProvidersDescription: string;
     oauthProviderForm: {
+      confirmDeleteProviderMessage: string;
+      confirmDeleteProviderTitle: string;
+      deleteProvider: string;
+      disable: string;
+      editProvider: string;
+      enable: string;
+      errorDeletingOAuthProvider: string;
+      errorTogglingOAuthProvider: string;
       appearance: string;
       authorizationUrl: string;
       authorizationUrlPlaceholder: string;
@@ -607,6 +615,7 @@ export interface TranslationKey {
   common: {
     copyToClipboard: string;
     home: string;
+    retry: string;
     add: string;
     actionError: string;
     actionFailed: string;
@@ -1250,6 +1259,15 @@ export interface TranslationKey {
   systemAccessTokens: {
     deleteError: string;
     description: string;
+    edit: {
+      currentTokenInfo: string;
+      title: string;
+      tokenNotFound: string;
+      updateButton: string;
+      updateError: string;
+      updateSuccess: string;
+      updating: string;
+    };
     form: {
       copied: string;
       copy: string;

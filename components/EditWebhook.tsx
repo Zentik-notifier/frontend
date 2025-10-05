@@ -60,22 +60,12 @@ export default function EditWebhook({ webhookId }: EditWebhookProps) {
     );
   };
 
-  if (error) {
-    console.error("Error loading webhooks:", error);
-  }
-
-  if (!webhook) {
-    return (
-      <Surface>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Webhook not found</Text>
-        </View>
-      </Surface>
-    );
-  }
-
   return (
-    <PaperScrollView onRefresh={handleRefresh} loading={loading}>
+    <PaperScrollView
+      onRefresh={handleRefresh}
+      loading={loading}
+      error={!!error}
+    >
       <CreateWebhookForm webhookId={webhookId} />
       <View style={styles.deleteSection}>
         <Button

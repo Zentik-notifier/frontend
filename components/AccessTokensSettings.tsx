@@ -19,7 +19,7 @@ import {
   Icon,
   Portal,
   Text,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import SwipeableItem from "./SwipeableItem";
 
@@ -44,6 +44,7 @@ export function AccessTokensSettings() {
 
   const tokens = data?.getUserAccessTokens || [];
   const sortedTokens = useEntitySorting(tokens, "desc");
+  console.log("sortedTokens", sortedTokens);
 
   const deleteToken = async (tokenId: string) => {
     try {
@@ -75,7 +76,7 @@ export function AccessTokensSettings() {
             ? {
                 icon: "delete",
                 label: t("accessTokens.item.delete"),
-                backgroundColor: "#ff6b6b",
+                backgroundColor: theme.colors.error,
                 onPress: () => deleteToken(item.id),
                 showAlert: {
                   title: t("accessTokens.item.deleteTokenTitle"),

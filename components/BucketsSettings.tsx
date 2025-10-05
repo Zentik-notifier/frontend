@@ -22,11 +22,8 @@ export default function BucketsSettings() {
     notifications,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
-  const {
-    navigateToCreateBucket,
-    navigateToBucketsSettings,
-    navigateToDanglingBucket,
-  } = useNavigationUtils();
+  const { navigateToCreateBucket, navigateToDanglingBucket } =
+    useNavigationUtils();
 
   const [showDanglingBuckets, setShowDanglingBuckets] = useState(false);
 

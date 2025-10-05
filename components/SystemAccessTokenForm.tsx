@@ -1,11 +1,14 @@
 import {
+  GetSystemAccessTokensDocument,
   useCreateSystemAccessTokenMutation,
   useGetAllUsersQuery,
+  useGetSystemTokenQuery,
+  useUpdateSystemAccessTokenMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { useNavigationUtils } from "@/utils/navigation";
 import * as Clipboard from "expo-clipboard";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Platform, StyleSheet, View } from "react-native";
 import {
   Button,
@@ -18,16 +21,22 @@ import {
   TextInput,
   useTheme,
 } from "react-native-paper";
-import Selector from "./ui/Selector";
 import PaperScrollView from "./ui/PaperScrollView";
+import Selector from "./ui/Selector";
 
-export default function CreateSystemAccessTokenForm() {
-  const router = useRouter();
+interface SystemAccessTokenFormProps {
+  id?: string;
+}
+
+export default function SystemAccessTokenForm({
+  id,
+}: SystemAccessTokenFormProps) {
   const theme = useTheme();
   const { t } = useI18n();
   const [creating, setCreating] = useState(false);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [newToken, setNewToken] = useState<string>("");
+  const { navigateToSystemAccessTokens } = useNavigationUtils();
 
   // form fields
   const [maxCalls, setMaxCalls] = useState("0");
@@ -35,14 +44,49 @@ export default function CreateSystemAccessTokenForm() {
   const [requesterId, setRequesterId] = useState("");
   const [description, setDescription] = useState("");
 
-  const [createSystemToken] = useCreateSystemAccessTokenMutation();
+  const [createSystemToken] = useCreateSystemAccessTokenMutation({
+    refetchQueries: [GetSystemAccessTokensDocument],
+  });
+  const [updateSystemToken] = useUpdateSystemAccessTokenMutation();
 
   const {
     data: usersData,
-    loading,
+    loading: usersLoading,
     refetch: refetchUsers,
   } = useGetAllUsersQuery();
   const users = usersData?.users || [];
+  const isEdit = !!id;
+
+  const {
+    data: singleTokenData,
+    loading: singleTokenLoading,
+    refetch: refetchSingleToken,
+  } = useGetSystemTokenQuery({
+    variables: { id: id! },
+    skip: !isEdit || !id, // Only fetch when in edit mode with valid id
+  });
+
+  // Find the token to edit - use single query in edit mode, list query in create mode
+  const tokenToEdit = isEdit ? singleTokenData?.getSystemToken : null;
+
+  // Pre-fill form when token data is loaded (only in edit mode)
+  useEffect(() => {
+    if (isEdit && tokenToEdit) {
+      setMaxCalls(tokenToEdit.maxCalls.toString());
+      if (tokenToEdit.expiresAt) {
+        const expiresDate = new Date(tokenToEdit.expiresAt);
+        const today = new Date();
+        const daysDiff = Math.ceil(
+          (expiresDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        setExpirationDays(daysDiff > 0 ? daysDiff.toString() : "");
+      } else {
+        setExpirationDays("");
+      }
+      setRequesterId(tokenToEdit.requester?.id || "");
+      setDescription(tokenToEdit.description || "");
+    }
+  }, [isEdit, tokenToEdit]);
 
   const userOptions = [
     { id: "", name: t("systemAccessTokens.form.requesterPlaceholder") },
@@ -52,7 +96,7 @@ export default function CreateSystemAccessTokenForm() {
     })),
   ];
 
-  const createToken = async () => {
+  const handleSubmit = async () => {
     const parsedMax = parseFloat(maxCalls || "0");
     if (isNaN(parsedMax) || parsedMax < 0) {
       Alert.alert(
@@ -75,30 +119,52 @@ export default function CreateSystemAccessTokenForm() {
     try {
       setCreating(true);
 
-      const res = await createSystemToken({
-        variables: {
-          maxCalls: parsedMax,
-          expiresAt,
-          requesterId: requesterId || null,
-          description: description || null,
-        },
-        refetchQueries: ["GetSystemAccessTokens"],
-      });
+      if (isEdit && tokenToEdit) {
+        // Update existing token
+        await updateSystemToken({
+          variables: {
+            id: tokenToEdit.id,
+            maxCalls: parsedMax,
+            expiresAt,
+            description: description || null,
+          },
+        });
 
-      const created = res.data?.createSystemToken;
-      if (created?.rawToken) {
-        setNewToken(created.rawToken);
-        setShowTokenModal(true);
+        navigateToSystemAccessTokens();
+      } else {
+        // Create new token
+        const res = await createSystemToken({
+          variables: {
+            maxCalls: parsedMax,
+            expiresAt,
+            requesterId: requesterId || null,
+            description: description || null,
+          },
+        });
 
-        // reset form
-        setMaxCalls("0");
-        setExpirationDays("");
-        setRequesterId("");
-        setDescription("");
+        const created = res.data?.createSystemToken;
+        if (created?.rawToken) {
+          setNewToken(created.rawToken);
+          setShowTokenModal(true);
+
+          // reset form
+          setMaxCalls("0");
+          setExpirationDays("");
+          setRequesterId("");
+          setDescription("");
+        }
       }
     } catch (error) {
-      console.error("Error creating system token:", error);
-      Alert.alert(t("common.error"), t("systemAccessTokens.form.createError"));
+      console.error(
+        `Error ${isEdit ? "updating" : "creating"} system token:`,
+        error
+      );
+      Alert.alert(
+        t("common.error"),
+        isEdit
+          ? t("systemAccessTokens.edit.updateError")
+          : t("systemAccessTokens.form.createError")
+      );
     } finally {
       setCreating(false);
     }
@@ -106,32 +172,71 @@ export default function CreateSystemAccessTokenForm() {
 
   const copyToClipboard = async (text: string) => {
     await Clipboard.setStringAsync(text);
-    Alert.alert(
-      t("systemAccessTokens.form.copied"),
-      t("systemAccessTokens.form.tokenCopied")
-    );
   };
 
   const resetForm = () => {
-    setMaxCalls("0");
-    setExpirationDays("");
-    setRequesterId("");
-    setDescription("");
+    if (isEdit && tokenToEdit) {
+      setMaxCalls(tokenToEdit.maxCalls.toString());
+      if (tokenToEdit.expiresAt) {
+        const expiresDate = new Date(tokenToEdit.expiresAt);
+        const today = new Date();
+        const daysDiff = Math.ceil(
+          (expiresDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        setExpirationDays(daysDiff > 0 ? daysDiff.toString() : "");
+      } else {
+        setExpirationDays("");
+      }
+      setRequesterId(tokenToEdit.requester?.id || "");
+      setDescription(tokenToEdit.description || "");
+    } else {
+      setMaxCalls("0");
+      setExpirationDays("");
+      setRequesterId("");
+      setDescription("");
+    }
   };
 
   const isFormValid = !isNaN(parseFloat(maxCalls || "0"));
+  const loading = usersLoading || (isEdit ? singleTokenLoading : false);
 
   const handlerRefetch = async () => {
-    await refetchUsers();
+    const promises: Promise<any>[] = [refetchUsers()];
+    if (isEdit) {
+      promises.push(refetchSingleToken());
+    }
+    await Promise.all(promises);
   };
+
+  // Handle error state through PaperScrollView props
+  const showError = isEdit && !tokenToEdit;
 
   return (
     <PaperScrollView
       loading={loading}
       onRefresh={handlerRefetch}
+      error={showError}
+      errorTitle={t("systemAccessTokens.edit.tokenNotFound")}
+      onRetry={handlerRefetch}
     >
       <Card style={styles.formContainer} mode="outlined">
         <Card.Content>
+          {/* Token Info (only in edit mode) */}
+          {isEdit && tokenToEdit && (
+            <View style={styles.tokenInfo}>
+              <Text variant="titleMedium" style={styles.infoTitle}>
+                {t("systemAccessTokens.edit.currentTokenInfo")}
+              </Text>
+              <Text variant="bodySmall" style={styles.tokenId}>
+                ID: {tokenToEdit.id}
+              </Text>
+              <Text variant="bodySmall" style={styles.tokenCalls}>
+                {t("systemAccessTokens.item.calls")}: {tokenToEdit.calls}/
+                {tokenToEdit.maxCalls}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.inputGroup}>
             <Text variant="titleMedium" style={styles.inputLabel}>
               {t("systemAccessTokens.form.maxCalls")}
@@ -165,13 +270,27 @@ export default function CreateSystemAccessTokenForm() {
             <Text variant="titleMedium" style={styles.inputLabel}>
               {t("systemAccessTokens.form.requester")}
             </Text>
-            <Selector
-              selectedValue={requesterId}
-              placeholder={t("systemAccessTokens.form.requesterPlaceholder")}
-              options={userOptions}
-              onValueChange={setRequesterId}
-              isSearchable={true}
-            />
+            {isEdit ? (
+              // Readonly display in edit mode
+              <View style={styles.readonlyRequester}>
+                <Text variant="bodyMedium">
+                  {tokenToEdit?.requester
+                    ? tokenToEdit.requester.username ||
+                      tokenToEdit.requester.email ||
+                      tokenToEdit.requester.id
+                    : t("systemAccessTokens.form.requesterPlaceholder")}
+                </Text>
+              </View>
+            ) : (
+              // Editable selector in create mode
+              <Selector
+                selectedValue={requesterId}
+                placeholder={t("systemAccessTokens.form.requesterPlaceholder")}
+                options={userOptions}
+                onValueChange={setRequesterId}
+                isSearchable={true}
+              />
+            )}
             <Text variant="bodySmall" style={styles.inputHint}>
               {t("systemAccessTokens.form.requesterHint")}
             </Text>
@@ -192,13 +311,17 @@ export default function CreateSystemAccessTokenForm() {
           <View style={styles.buttonRow}>
             <Button
               mode="contained"
-              onPress={createToken}
+              onPress={handleSubmit}
               disabled={!isFormValid || creating}
               loading={creating}
-              style={styles.createButton}
+              style={styles.primaryButton}
             >
               {creating
-                ? t("systemAccessTokens.form.creating")
+                ? isEdit
+                  ? t("systemAccessTokens.edit.updating")
+                  : t("systemAccessTokens.form.creating")
+                : isEdit
+                ? t("systemAccessTokens.edit.updateButton")
                 : t("systemAccessTokens.form.createButton")}
             </Button>
 
@@ -253,7 +376,7 @@ export default function CreateSystemAccessTokenForm() {
             <Button
               onPress={() => {
                 setShowTokenModal(false);
-                router.back();
+                navigateToSystemAccessTokens();
               }}
             >
               {t("systemAccessTokens.form.done")}
@@ -269,6 +392,23 @@ const styles = StyleSheet.create({
   formContainer: {
     marginBottom: 16,
   },
+  tokenInfo: {
+    backgroundColor: "#f5f5f5",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 24,
+  },
+  infoTitle: {
+    marginBottom: 8,
+    fontWeight: "600",
+  },
+  tokenId: {
+    opacity: 0.7,
+    marginBottom: 4,
+  },
+  tokenCalls: {
+    opacity: 0.7,
+  },
   inputGroup: {
     marginBottom: 24,
   },
@@ -279,15 +419,27 @@ const styles = StyleSheet.create({
     marginTop: 4,
     opacity: 0.7,
   },
+  readonlyRequester: {
+    padding: 12,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
   buttonRow: {
     flexDirection: "row",
     gap: 12,
+    marginTop: 16,
   },
-  createButton: {
+  primaryButton: {
     flex: 1,
   },
   resetButton: {
     flex: 1,
+  },
+  warningText: {
+    flex: 1,
+    color: "#856404",
   },
   tokenModalHeader: {
     alignItems: "center",

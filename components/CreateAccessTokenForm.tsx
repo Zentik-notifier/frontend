@@ -1,5 +1,8 @@
 import {
+  AccessTokenListDto,
   CreateAccessTokenDto,
+  GetUserAccessTokensDocument,
+  GetUserAccessTokensQuery,
   useCreateAccessTokenMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
@@ -31,7 +34,35 @@ export default function CreateAccessTokenForm() {
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const [createAccessToken] = useCreateAccessTokenMutation();
+  const [createAccessToken] = useCreateAccessTokenMutation({
+    update: (cache, { data }) => {
+      console.log("createAccessToken", data);
+      if (data?.createAccessToken) {
+        const existingAccessTokens = cache.readQuery<GetUserAccessTokensQuery>({
+          query: GetUserAccessTokensDocument,
+        });
+        if (existingAccessTokens?.getUserAccessTokens) {
+          cache.writeQuery({
+            query: GetUserAccessTokensDocument,
+            data: {
+              getUserAccessTokens: [
+                ...existingAccessTokens.getUserAccessTokens,
+                {
+                  id: data.createAccessToken.id,
+                  name: data.createAccessToken.name,
+                  expiresAt: data.createAccessToken.expiresAt,
+                  createdAt: data.createAccessToken.createdAt,
+                  lastUsed: null,
+                  isExpired: false,
+                  __typename: "AccessTokenListDto",
+                } satisfies AccessTokenListDto
+              ],
+            },
+          });
+        }
+      }
+    },
+  });
 
   const createToken = async () => {
     if (!newTokenName.trim()) {
@@ -58,7 +89,6 @@ export default function CreateAccessTokenForm() {
 
       const response = await createAccessToken({
         variables: { input: createData },
-        // refetchQueries: ["GetUserAccessTokens"], // Aggiorna automaticamente la lista
       });
 
       if (response.data?.createAccessToken) {

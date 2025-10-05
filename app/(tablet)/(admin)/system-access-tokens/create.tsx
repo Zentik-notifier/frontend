@@ -1,5 +1,5 @@
 import CloseHeader from "@/components/CloseHeader";
-import CreateSystemAccessTokenForm from "@/components/CreateSystemAccessTokenForm";
+import SystemAccessTokenForm from "@/components/SystemAccessTokenForm";
 import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
 
@@ -9,7 +9,7 @@ export default function CreateSystemAccessTokenScreen() {
   return (
     <>
       <CloseHeader onClose={navigateBack} />
-      <CreateSystemAccessTokenForm />
+      <SystemAccessTokenForm isEdit={false} />
     </>
   );
 }

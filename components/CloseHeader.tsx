@@ -1,4 +1,5 @@
 import { useI18n } from "@/hooks/useI18n";
+import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import {
@@ -9,12 +10,13 @@ import {
 } from "react-native-paper";
 
 interface CloseHeaderProps {
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 export default function CloseHeader({ onClose }: CloseHeaderProps) {
   const { t } = useI18n();
   const theme = useTheme();
+  const { navigateBack } = useNavigationUtils();
 
   return (
     <Surface
@@ -29,7 +31,7 @@ export default function CloseHeader({ onClose }: CloseHeaderProps) {
     >
       <TouchableOpacity
         style={styles.content}
-        onPress={onClose}
+        onPress={onClose || navigateBack}
         accessibilityLabel={t("common.back")}
         accessibilityRole="button"
       >

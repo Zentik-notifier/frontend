@@ -1,3 +1,4 @@
+import { useAppContext } from "@/contexts/AppContext";
 import {
   SystemAccessTokenFragment,
   useGetSystemAccessTokensQuery,
@@ -6,27 +7,24 @@ import {
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
-import PaperScrollView from "./ui/PaperScrollView";
-import SwipeableItem from "./SwipeableItem";
+import React, { useState } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 import {
-  ActivityIndicator,
   Button,
-  Card,
   Dialog,
-  FAB,
   Icon,
   Portal,
   Text,
-  useTheme,
+  useTheme
 } from "react-native-paper";
+import SwipeableItem from "./SwipeableItem";
+import PaperScrollView from "./ui/PaperScrollView";
 
 export default function SystemAccessTokens() {
   const theme = useTheme();
-  const { navigateToCreateSystemAccessToken } = useNavigationUtils();
+  const { navigateToCreateSystemAccessToken, navigateToEditSystemAccessToken } =
+    useNavigationUtils();
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
   const {
@@ -88,7 +86,12 @@ export default function SystemAccessTokens() {
             : undefined
         }
       >
-        <View style={[styles.tokenItem, isExpired && styles.expiredToken]}>
+        <Pressable
+          style={[styles.tokenItem, isExpired && styles.expiredToken]}
+          onPress={() =>
+            !disabledActions && navigateToEditSystemAccessToken(item.id)
+          }
+        >
           <View style={styles.tokenHeader}>
             <Text variant="titleMedium" style={styles.tokenName}>
               {item.description ||
@@ -99,13 +102,15 @@ export default function SystemAccessTokens() {
                   : null) ||
                 item.id}
             </Text>
-            {isExpired && (
-              <View style={styles.expiredBadge}>
-                <Text variant="bodySmall" style={styles.expiredText}>
-                  {t("systemAccessTokens.item.expired")}
-                </Text>
-              </View>
-            )}
+            <View style={styles.headerActions}>
+              {isExpired && (
+                <View style={styles.expiredBadge}>
+                  <Text variant="bodySmall" style={styles.expiredText}>
+                    {t("systemAccessTokens.item.expired")}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
 
           <View style={styles.tokenDetails}>
@@ -144,7 +149,7 @@ export default function SystemAccessTokens() {
               </Text>
             )}
           </View>
-        </View>
+        </Pressable>
       </SwipeableItem>
     );
   };
@@ -251,6 +256,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   tokenName: {
     flex: 1,

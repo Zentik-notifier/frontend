@@ -500,6 +500,15 @@
       "copied": "Copiato",
       "tokenCopied": "Token copiato negli appunti",
       "done": "Fatto"
+    },
+    "edit": {
+      "title": "Modifica Token di Accesso di Sistema",
+      "currentTokenInfo": "Informazioni Token Corrente",
+      "updating": "Aggiornamento...",
+      "updateButton": "Aggiorna Token",
+      "updateSuccess": "Token di accesso di sistema aggiornato con successo",
+      "updateError": "Impossibile aggiornare il token di accesso di sistema",
+      "tokenNotFound": "Token di accesso di sistema non trovato"
     }
   },
   "accessTokens": {
@@ -763,6 +772,7 @@
     "undefined": "Others"
   },
   "common": {
+    "retry": "Riprova",
     "home": "Homepage",
     "add": "Aggiungi",
     "cancel": "Annulla",
@@ -1257,6 +1267,14 @@
         "deleting": "Eliminazione...",
         "error": "Impossibile eliminare il provider OAuth"
       },
+      "confirmDeleteProviderTitle": "Elimina Provider OAuth",
+      "confirmDeleteProviderMessage": "Sei sicuro di voler eliminare \"{providerName}\"? Questa azione non può essere annullata.",
+      "editProvider": "Modifica",
+      "deleteProvider": "Elimina Provider",
+      "enable": "Abilita",
+      "disable": "Disabilita",
+      "errorDeletingOAuthProvider": "Impossibile eliminare il provider OAuth",
+      "errorTogglingOAuthProvider": "Impossibile cambiare stato del provider OAuth",
       "loading": "Caricamento provider OAuth...",
       "notFound": "Provider OAuth non trovato",
       "noIdProvided": "Nessun ID provider OAuth fornito"

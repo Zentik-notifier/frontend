@@ -705,30 +705,19 @@ query OAuthProvider($id: String!) {
 
 mutation CreateOAuthProvider($input: CreateOAuthProviderDto!) {
   createOAuthProvider(input: $input) {
-    id
-    name
-    providerId
-    type
-    isEnabled
+    ...OAuthProviderFragment
   }
 }
 
 mutation UpdateOAuthProvider($id: String!, $input: UpdateOAuthProviderDto!) {
   updateOAuthProvider(id: $id, input: $input) {
-    id
-    name
-    providerId
-    type
-    isEnabled
+    ...OAuthProviderFragment
   }
 }
 
 mutation ToggleOAuthProvider($id: String!) {
   toggleOAuthProvider(id: $id) {
-    id
-    name
-    providerId
-    isEnabled
+    ...OAuthProviderFragment
   }
 }
 
@@ -837,6 +826,12 @@ query GetSystemAccessTokens {
   }
 }
 
+query GetSystemToken($id: String!) {
+  getSystemToken(id: $id) {
+    ...SystemAccessTokenFragment
+  }
+}
+
 mutation CreateSystemAccessToken($maxCalls: Float!, $expiresAt: String, $requesterId: String, $description: String) {
   createSystemToken(
     maxCalls: $maxCalls
@@ -846,6 +841,18 @@ mutation CreateSystemAccessToken($maxCalls: Float!, $expiresAt: String, $request
   ) {
     ...SystemAccessTokenFragment
     rawToken
+  }
+}
+
+mutation UpdateSystemAccessToken($id: String!, $maxCalls: Float, $expiresAt: String, $requesterId: String, $description: String) {
+  updateSystemToken(
+    id: $id
+    maxCalls: $maxCalls
+    expiresAt: $expiresAt
+    requesterId: $requesterId
+    description: $description
+  ) {
+    ...SystemAccessTokenFragment
   }
 }
 

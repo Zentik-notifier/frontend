@@ -1,27 +1,26 @@
+import PaperScrollView from "@/components/ui/PaperScrollView";
+import { useAppContext } from "@/contexts/AppContext";
 import {
   SessionInfoDto,
   useGetUserSessionsQuery,
   usePublicAppConfigQuery,
-  useRevokeSessionMutation,
   useRevokeAllOtherSessionsMutation,
+  useRevokeSessionMutation,
 } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/contexts/AppContext";
 import React, { useEffect, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
-import SwipeableItem from "./SwipeableItem";
-import PaperScrollView from "@/components/ui/PaperScrollView";
 import {
   Button,
-  Card,
   Dialog,
   Icon,
   Portal,
   Text,
-  useTheme,
+  useTheme
 } from "react-native-paper";
+import SwipeableItem from "./SwipeableItem";
 
 export function UserSessionsSettings() {
   const theme = useTheme();
@@ -287,7 +286,7 @@ export function UserSessionsSettings() {
   };
 
   return (
-    <View>
+    <>
       <PaperScrollView onRefresh={handleRefresh} loading={loading}>
         {sortedSessions.length > 1 && (
           <Button
@@ -371,7 +370,7 @@ export function UserSessionsSettings() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </View>
+    </>
   );
 }
 

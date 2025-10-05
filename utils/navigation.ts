@@ -236,6 +236,14 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToEditSystemAccessToken: (tokenId: string) => {
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)/system-access-tokens/${tokenId}`);
+            } else {
+                router.push(`/(tablet)/(admin)/system-access-tokens/${tokenId}`);
+            }
+        },
+
         navigateToUserDetails: (userId: string) => {
             if (isMobile) {
                 router.push(`/(mobile)/(admin)/user-management/${userId}`);

@@ -1,5 +1,8 @@
 import {
+  AllOAuthProvidersDocument,
+  AllOAuthProvidersQuery,
   CreateOAuthProviderDto,
+  OAuthProviderFragment,
   OAuthProviderType,
   UpdateOAuthProviderDto,
   useCreateOAuthProviderMutation,
@@ -11,12 +14,11 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import {
-  ActivityIndicator,
   Button,
   Card,
   Text,
   TextInput,
-  useTheme,
+  useTheme
 } from "react-native-paper";
 import ColorPicker, { ColorPickerRef } from "./ColorPicker";
 import PaperScrollView from "./ui/PaperScrollView";
@@ -150,6 +152,24 @@ export default function CreateOAuthProviderForm({
         // Create new provider
         await createOAuthProvider({
           variables: { input: input as CreateOAuthProviderDto },
+          update: (cache, { data }) => {
+            if (data?.createOAuthProvider) {
+              const existingProviders = cache.readQuery<AllOAuthProvidersQuery>({
+                query: AllOAuthProvidersDocument,
+              });
+              if (existingProviders?.allOAuthProviders) {
+                cache.writeQuery({
+                  query: AllOAuthProvidersDocument,
+                  data: {
+                    allOAuthProviders: [
+                      ...existingProviders.allOAuthProviders,
+                      data.createOAuthProvider,
+                    ] satisfies OAuthProviderFragment[],
+                  },
+                });
+              }
+            }
+          },
         });
 
         router.back();

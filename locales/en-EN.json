@@ -500,6 +500,15 @@
       "copied": "Copied",
       "tokenCopied": "Token copied to clipboard",
       "done": "Done"
+    },
+    "edit": {
+      "title": "Edit System Access Token",
+      "currentTokenInfo": "Current Token Information",
+      "updating": "Updating...",
+      "updateButton": "Update Token",
+      "updateSuccess": "System access token updated successfully",
+      "updateError": "Failed to update system access token",
+      "tokenNotFound": "System access token not found"
     }
   },
   "accessTokens": {
@@ -763,6 +772,7 @@
     "undefined": "Others"
   },
   "common": {
+    "retry": "Retry",
     "add": "Add",
     "home": "Homepage",
     "cancel": "Cancel",
@@ -1257,6 +1267,14 @@
         "deleting": "Deleting...",
         "error": "Failed to delete OAuth provider"
       },
+      "confirmDeleteProviderTitle": "Delete OAuth Provider",
+      "confirmDeleteProviderMessage": "Are you sure you want to delete \"{providerName}\"? This action cannot be undone.",
+      "editProvider": "Edit",
+      "deleteProvider": "Delete Provider",
+      "enable": "Enable",
+      "disable": "Disable",
+      "errorDeletingOAuthProvider": "Failed to delete OAuth provider",
+      "errorTogglingOAuthProvider": "Failed to toggle OAuth provider",
       "loading": "Loading OAuth provider...",
       "notFound": "OAuth provider not found",
       "noIdProvided": "No OAuth provider ID provided"

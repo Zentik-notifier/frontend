@@ -7,7 +7,7 @@ import {
 import { useGetBucketData, useDeleteBucketWithNotifications } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import {
   Alert,
   StyleSheet,
@@ -18,9 +18,6 @@ import BucketIcon from "./BucketIcon";
 import SwipeableItem, { MenuItem } from "./SwipeableItem";
 import { useNavigationUtils } from "@/utils/navigation";
 import {
-  Button,
-  Dialog,
-  Portal,
   Text,
   useTheme,
 } from "react-native-paper";
@@ -36,12 +33,10 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
   bucketDeleted,
   onSharingRevoked,
 }) => {
-  const theme = useTheme();
   const { t } = useI18n();
-  const { userId } = useAppContext();
+  const theme = useTheme();
+  const { userId, connectionStatus: { isOfflineAuth, isBackendUnreachable } } = useAppContext();
   const { navigateToEditBucket } = useNavigationUtils();
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
 
   // Use the bucket permissions hook to check permissions
   const { canDelete, isSharedWithMe, sharedCount } = useGetBucketData(
@@ -73,44 +68,20 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
     navigateToEditBucket(bucketId, false);
   };
 
-  const showDeleteAlert = () => {
-    const actions = [];
-
+  const handleDeletePress = async () => {
     if (canDelete) {
-      actions.push({
-        text: t("buckets.delete.deleteBucket"),
-        onPress: () => deleteBucketWithNotifications(bucket.id),
-        style: "destructive" as const,
+      await deleteBucketWithNotifications(bucket.id);
+    } else if (isSharedWithMe) {
+      await unshareBucket({
+        variables: {
+          input: {
+            resourceType: ResourceType.Bucket,
+            resourceId: bucket.id,
+            userId: userId,
+          },
+        },
       });
     }
-
-    if (isSharedWithMe) {
-      actions.push({
-        text: t("buckets.delete.revokeSharing"),
-        onPress: () =>
-          unshareBucket({
-            variables: {
-              input: {
-                resourceType: ResourceType.Bucket,
-                resourceId: bucket.id,
-                userId: userId,
-              },
-            },
-          }),
-        style: "destructive" as const,
-      });
-    }
-
-    actions.push({
-      text: t("common.cancel"),
-      style: "cancel" as const,
-    });
-
-    Alert.alert(
-      t("buckets.delete.modalTitle"),
-      t("buckets.delete.modalDescription", { bucketName: bucket.name }),
-      actions
-    );
   };
 
   const menuItems = useMemo((): MenuItem[] => {
@@ -123,18 +94,8 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
       onPress: () => editBucket(bucket.id),
     });
 
-    if (canDelete || isSharedWithMe) {
-      items.push({
-        id: "delete",
-        label: t("buckets.item.delete"),
-        icon: "delete",
-        onPress: showDeleteAlert,
-        type: "destructive",
-      });
-    }
-
     return items;
-  }, [t, bucket.id, editBucket, canDelete, isSharedWithMe, showDeleteAlert]);
+  }, [t, bucket.id, bucket.name, editBucket, canDelete, isSharedWithMe, handleDeletePress, theme]);
 
   // Device info removed
 
@@ -154,6 +115,24 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
       copyId={bucket.id}
       menuItems={menuItems}
       showMenu={true}
+      rightAction={
+        !(isOfflineAuth || isBackendUnreachable) && (canDelete || isSharedWithMe)
+          ? {
+              icon: "delete",
+              label: t("buckets.item.delete"),
+              backgroundColor: theme.colors.error,
+              onPress: handleDeletePress,
+              showAlert: {
+                title: t("buckets.delete.modalTitle"),
+                message: t("buckets.delete.modalDescription", { bucketName: bucket.name }),
+                confirmText: canDelete
+                  ? t("buckets.delete.deleteBucket")
+                  : t("buckets.delete.revokeSharing"),
+                cancelText: t("common.cancel"),
+              },
+            }
+          : undefined
+      }
     >
       <Pressable onPress={() => editBucket(bucket.id)}>
         <View style={styles.itemCard}>
@@ -182,24 +161,6 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
           )}
         </View>
       </Pressable>
-
-      {/* Success Dialog */}
-      <Portal>
-        <Dialog
-          visible={showSuccessDialog}
-          onDismiss={() => setShowSuccessDialog(false)}
-        >
-          <Dialog.Title>{t("common.success")}</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{successMessage}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowSuccessDialog(false)}>
-              {t("common.ok")}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
     </SwipeableItem>
   );
 };

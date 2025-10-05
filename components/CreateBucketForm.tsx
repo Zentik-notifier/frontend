@@ -1,5 +1,7 @@
 import {
   CreateBucketDto,
+  GetBucketsDocument,
+  GetBucketsQuery,
   UpdateBucketDto,
   useCreateBucketMutation,
   usePublicAppConfigQuery,
@@ -55,7 +57,24 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
 
   const [createBucketMutation, { loading: creatingBucket }] =
     useCreateBucketMutation({
-      refetchQueries: ["GetBuckets"],
+      update: (cache, { data }) => {
+        if (data?.createBucket) {
+          const existingBuckets = cache.readQuery<GetBucketsQuery>({
+            query: GetBucketsDocument,
+          });
+          if (existingBuckets?.buckets) {
+            cache.writeQuery({
+              query: GetBucketsDocument,
+              data: {
+                buckets: [
+                  ...existingBuckets.buckets,
+                  data.createBucket,
+                ],
+              },
+            });
+          }
+        }
+      },
       onCompleted: async (data) => {
         setBucketName("");
         setBucketColor(defaultColor);
