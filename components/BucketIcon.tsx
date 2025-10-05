@@ -1,4 +1,7 @@
-import { MediaType } from "@/generated/gql-operations-generated";
+import {
+  BucketFragment,
+  MediaType,
+} from "@/generated/gql-operations-generated";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
@@ -17,21 +20,29 @@ const sizeMap = {
 interface BucketIconProps {
   size?: "lg" | "xl" | "xxl";
   showBorder?: boolean;
-  bucketId: string;
+  bucketId?: string;
   noRouting?: boolean;
+  bucket?: BucketFragment;
 }
 
 export default function BucketIcon({
   size = "lg",
   showBorder = true,
-  bucketId,
+  bucketId: bucketIdParent,
   noRouting = false,
+  bucket: bucketParent,
 }: BucketIconProps) {
   const theme = useTheme();
-  const { bucket, error } = useGetBucketData(bucketId);
+  const { bucket: bucketData, error } = useGetBucketData(bucketIdParent);
+  const bucket = bucketParent || bucketData;
   const { color, icon } = bucket || {};
   const { navigateToDanglingBucket, navigateToBucketDetail } =
     useNavigationUtils();
+  const bucketId = bucket?.id || bucketIdParent;
+
+  if (!bucketId) {
+    return null;
+  }
 
   const isOrphaned = error && error.message.includes("Bucket not found");
 

@@ -1,8 +1,8 @@
-import { GetNotificationsDocument, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetNotificationLazyQuery, useGetNotificationsLazyQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation, MediaType, useGetNotificationQuery, useGetNotificationsQuery, useGetBucketsQuery } from '@/generated/gql-operations-generated';
+import { GetNotificationsDocument, MediaType, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetNotificationLazyQuery, useGetNotificationsQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation } from '@/generated/gql-operations-generated';
 import { mediaCache } from '@/services/media-cache-service';
-import { Reference, useApolloClient } from '@apollo/client';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { deleteNotificationFromCache, deleteNotificationsFromCache, updateNotificationReadStatus, updateNotificationsReadStatus } from '@/services/notifications-repository';
+import { Reference, useApolloClient } from '@apollo/client';
+import { useCallback, useEffect, useState } from 'react';
 
 function useNotificationCacheUpdater() {
 	const apollo = useApolloClient();
@@ -75,7 +75,6 @@ export function useFetchNotifications(onlyCache?: boolean) {
 		fetchPolicy: onlyCache ? 'cache-first' : 'cache-and-network',
 		errorPolicy: 'ignore'
 	});
-	const { refetch: refetchBuckets } = useGetBucketsQuery({ fetchPolicy: 'cache-and-network' });
 
 	const notifications = data?.notifications ?? [];
 
@@ -83,8 +82,8 @@ export function useFetchNotifications(onlyCache?: boolean) {
 		if (refetching) return;
 		setRefetching(true);
 		console.log('🔄 Fetching notifications started');
-		const res = await Promise.all([refetchBuckets(), refetch()]);
-		const newData = res[1];
+		const res = await Promise.all([refetch()]);
+		const newData = res[0];
 		console.log('🔄 Fetching notifications finished: ', newData.data?.notifications?.length);
 		await updateReceivedNotifications();
 		setRefetching(false);

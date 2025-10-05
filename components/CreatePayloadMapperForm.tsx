@@ -12,16 +12,14 @@ import {
 import { useI18n } from "@/hooks/useI18n";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import {
   Button,
-  Card,
   Dialog,
-  Icon,
   Portal,
   Text,
   TextInput,
-  useTheme,
+  useTheme
 } from "react-native-paper";
 import CodeEditor from "./CodeEditor";
 import PaperScrollView from "./ui/PaperScrollView";
@@ -120,12 +118,10 @@ export default function CreatePayloadMapperForm({
       // Reset to saved values
       setName(payloadMapper.name);
       setJsEvalFn(payloadMapper.jsEvalFn);
-      Alert.alert(t("common.success"), t("payloadMappers.form.resetToSaved"));
     } else {
       // Reset to default template
       setName("");
       setJsEvalFn(defaultJsEvalFn);
-      Alert.alert(t("common.success"), t("payloadMappers.form.resetToDefault"));
     }
     // Clear field errors
     setFieldErrors({});

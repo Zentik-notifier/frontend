@@ -195,7 +195,7 @@ export default function HomeSidebar() {
                 >
                   <View style={styles.bucketItemContent}>
                     <BucketIcon
-                      bucketId={bucket.id}
+                      bucket={bucket.bucket}
                       size="lg"
                       noRouting
                       showBorder={false}

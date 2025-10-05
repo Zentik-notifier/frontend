@@ -356,8 +356,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             >
               <BucketIcon
                 key={notification.message?.bucket?.id}
-                bucketId={notification.message?.bucket?.id ?? ""}
                 size={"lg"}
+                bucket={notification.message?.bucket}
               />
             </View>
           </View>
@@ -386,11 +386,11 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               <Text style={styles.date}>
                 {formatRelativeTime(notification.createdAt)}
               </Text>
-              <NotificationSnoozeButton
+              {/* <NotificationSnoozeButton
                 bucketId={notification.message?.bucket?.id}
                 variant="inline"
                 showText
-              />
+              /> */}
             </View>
           </View>
 
