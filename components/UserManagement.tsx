@@ -1,23 +1,21 @@
+import { useAppContext } from "@/contexts/AppContext";
 import {
   useGetAllUsersQuery,
   UserFragment,
   UserRole,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import {
-  Text,
   Card,
-  TextInput,
-  Icon,
-  IconButton,
   Chip,
-  useTheme,
-  ActivityIndicator,
+  Icon,
   Surface,
+  Text,
+  TextInput,
+  useTheme
 } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
 
@@ -82,13 +80,6 @@ const UserListItem: React.FC<UserListItemProps> = ({ user }) => {
           >
             {getUserRoleDisplayName(user.role)?.toUpperCase()}
           </Chip>
-          {/* 
-          <IconButton
-            icon="eye"
-            size={20}
-            iconColor={theme.colors.primary}
-            onPress={() => navigateToUserDetails(user.id)}
-          /> */}
         </View>
       </Card.Content>
     </Card>

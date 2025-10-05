@@ -14,21 +14,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  Button,
-  Card,
-  Dialog,
-  Icon,
-  Portal,
-  Surface,
-  Text,
-  TextInput,
-  useTheme,
-} from "react-native-paper";
+import { Card, Icon, Text, TextInput, useTheme } from "react-native-paper";
+import PaperScrollView from "./ui/PaperScrollView";
 import ThemedBottomSheet, {
   ThemedBottomSheetRef,
 } from "./ui/ThemedBottomSheet";
-import PaperScrollView from "./ui/PaperScrollView";
+import { uniqBy } from "lodash";
 
 export default function EventsReview() {
   const theme = useTheme();
@@ -106,15 +97,16 @@ export default function EventsReview() {
         },
       },
       updateQuery: (prev, { fetchMoreResult }) => {
-        if (!fetchMoreResult?.events) return prev as any;
+        if (!fetchMoreResult?.events) return prev;
+        const allEvents = uniqBy(
+          [...prev.events.events, ...fetchMoreResult.events.events],
+          "id"
+        );
         return {
           ...prev,
           events: {
             ...fetchMoreResult.events,
-            events: [
-              ...(prev.events?.events ?? []),
-              ...fetchMoreResult.events.events,
-            ],
+            events: allEvents,
           },
         } as any;
       },
@@ -276,7 +268,11 @@ export default function EventsReview() {
   };
 
   return (
-    <PaperScrollView onRefresh={handleRefresh} loading={isRefreshing}>
+    <PaperScrollView
+      withScroll={false}
+      onRefresh={handleRefresh}
+      loading={isRefreshing}
+    >
       <View
         style={[
           styles.statsContainer,
@@ -449,7 +445,7 @@ export default function EventsReview() {
       ) : (
         <FlatList
           data={events}
-          keyExtractor={(item) => item.createdAt}
+          keyExtractor={(item) => item.id}
           renderItem={renderItem}
           onRefresh={handleRefresh}
           refreshing={isRefreshing}
