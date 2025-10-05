@@ -3,6 +3,7 @@ import { useAppContext } from '@/contexts/AppContext';
 import { keyBy } from 'lodash';
 import { useMemo, useCallback } from 'react';
 import { deleteNotificationsByBucketId } from '@/services/notifications-repository';
+import { useApolloClient } from '@apollo/client';
 
 export function useGetBucketData(bucketId?: string) {
     const { userId } = useAppContext();
@@ -208,6 +209,7 @@ export function useDeleteBucketWithNotifications(options?: {
   onCompleted?: () => void;
   onError?: (error: Error) => void;
 }) {
+  const apolloClient = useApolloClient();
   const [deleteBucketMutation, { loading, error }] = useDeleteBucketMutation({
     onCompleted: options?.onCompleted,
     onError: options?.onError,
@@ -217,14 +219,60 @@ export function useDeleteBucketWithNotifications(options?: {
   const deleteBucketWithNotifications = useCallback(async (bucketId: string) => {
     try {
       // First, delete all notifications for this bucket from local cache
-      await deleteNotificationsByBucketId(bucketId);
+      const deletedCount = await deleteNotificationsByBucketId(bucketId);
+      console.log(`🗑️ Deleted ${deletedCount} notifications from local cache for bucket ${bucketId}`);
+
+      // Get all notifications from Apollo cache to identify which ones belong to this bucket
+      const cacheData = apolloClient.cache.extract();
+      const notificationIdsToEvict: string[] = [];
+
+      // Find all notification entities that belong to this bucket
+      for (const [key, value] of Object.entries(cacheData)) {
+        if (key.startsWith('Notification:') && value) {
+          const notification = value as any;
+          if (notification.message?.bucket?.id === bucketId) {
+            notificationIdsToEvict.push(key);
+          }
+        }
+      }
 
       // Then delete the bucket from the server
       await deleteBucketMutation({
         variables: { id: bucketId }
       });
 
-      console.log(`✅ Successfully deleted bucket ${bucketId} and all its notifications`);
+      // After successful deletion, evict notifications and bucket from Apollo cache
+      console.log(`🗑️ Evicting ${notificationIdsToEvict.length} notifications for bucket ${bucketId}`);
+
+      // Evict all notifications that belonged to this bucket
+      for (const notificationId of notificationIdsToEvict) {
+        apolloClient.cache.evict({
+          id: notificationId,
+        });
+      }
+
+      // Evict the bucket itself
+      apolloClient.cache.evict({
+        id: `Bucket:${bucketId}`,
+      });
+
+      // Also evict from GetNotifications query cache
+      apolloClient.cache.modify({
+        fields: {
+          notifications(existingNotifications = [], { readField }) {
+            return existingNotifications.filter((notificationRef: any) => {
+              const bucketIdFromCache = readField('message', readField('bucket', readField('id', notificationRef)));
+              return bucketIdFromCache !== bucketId;
+            });
+          }
+        }
+      });
+
+      // Run garbage collection
+      const gcResult = apolloClient.cache.gc();
+      console.log(`🧹 Cache garbage collection completed - removed ${gcResult.length} orphaned objects`);
+
+      console.log(`✅ Successfully deleted bucket ${bucketId} and evicted all related data from Apollo cache`);
     } catch (error) {
       console.error('❌ Failed to delete bucket with notifications:', error);
       if (options?.onError) {
@@ -232,7 +280,7 @@ export function useDeleteBucketWithNotifications(options?: {
       }
       throw error;
     }
-  }, [deleteBucketMutation, options?.onError, options?.onCompleted]);
+  }, [deleteBucketMutation, options?.onError, options?.onCompleted, apolloClient]);
 
   return {
     deleteBucketWithNotifications,
