@@ -1179,7 +1179,6 @@
       "jsEvalFnPlaceholder": "Inserisci codice funzione TypeScript",
       "jsEvalFnRequired": "La funzione TypeScript è obbligatoria",
       "jsEvalFnHelp": "Scrivi una funzione TypeScript che trasforma il payload. La funzione deve restituire i dati trasformati.",
-      "jsEvalFnExample": "Esempio:\n(payload: any) => {\n  return {\n    title: payload.title || 'Senza titolo',\n    content: payload.content || '',\n    timestamp: new Date().toISOString()\n  };\n}",
       "save": "Salva",
       "saving": "Salvataggio...",
       "create": "Crea",
@@ -1194,7 +1193,9 @@
       "testInputRequired": "Fornisci sia l'input di test che il codice della funzione",
       "testInputInvalidJson": "JSON non valido nell'input di test",
       "testExecutionError": "Esecuzione funzione fallita",
-      "jsEvalFnInvalidSyntax": "Sintassi JavaScript/TypeScript non valida"
+      "jsEvalFnInvalidSyntax": "Sintassi JavaScript/TypeScript non valida",
+      "resetToDefault": "Ripristina Predefinito",
+      "resetToSaved": "Ripristina Salvato"
     }
   },
   "userDropdown": {

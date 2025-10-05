@@ -1470,7 +1470,6 @@ export interface TranslationKey {
       create: string;
       creating: string;
       jsEvalFn: string;
-      jsEvalFnExample: string;
       jsEvalFnHelp: string;
       jsEvalFnInvalidSyntax: string;
       jsEvalFnPlaceholder: string;
@@ -1482,6 +1481,8 @@ export interface TranslationKey {
       saving: string;
       test: string;
       testError: string;
+      resetToDefault: string;
+      resetToSaved: string;
       testExecutionError: string;
       testInput: string;
       testInputHelp: string;

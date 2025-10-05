@@ -35,6 +35,58 @@ if (Platform.OS === 'web') {
   });
 }
 
+// TypeScript definitions for Monaco Editor IntelliSense
+const typescriptDefinitions = `
+// TypeScript definitions for Payload Mapper functions
+// Note: 'any' type is allowed for flexibility with webhook payloads
+
+declare interface CreateMessageDto {
+  title: string;
+  subtitle?: string;
+  body?: string;
+  bucketId: string;
+  deliveryType: 'NORMAL' | 'CRITICAL' | 'SILENT';
+  actions?: NotificationActionDto[];
+  attachments?: NotificationAttachmentDto[];
+  tapAction?: NotificationActionDto;
+  sound?: string;
+  addMarkAsReadAction?: boolean;
+  addOpenNotificationAction?: boolean;
+  addDeleteAction?: boolean;
+  snoozes?: number[];
+  locale?: string;
+  groupId?: string;
+  collapseId?: string;
+  userIds?: string[];
+  imageUrl?: string;
+  videoUrl?: string;
+  gifUrl?: string;
+  tapUrl?: string;
+}
+
+declare interface NotificationActionDto {
+  type: 'BACKGROUND_CALL' | 'CLEAR' | 'DELETE' | 'NAVIGATE' | 'OPEN_NOTIFICATION' | 'SNOOZE' | 'WEBHOOK';
+  value?: string;
+  destructive?: boolean;
+  icon?: string;
+  title?: string;
+}
+
+declare interface NotificationAttachmentDto {
+  mediaType: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'GIF' | 'ICON';
+  name?: string;
+  url?: string;
+  attachmentUuid?: string;
+  saveOnServer?: boolean;
+}
+
+// Helper function type for payload transformation
+declare type PayloadTransformer = (payload: any) => CreateMessageDto;
+
+// Global any type is allowed for webhook payload flexibility
+declare const payload: any;
+`;
+
 interface CreatePayloadMapperFormProps {
   payloadMapperId?: string;
 }
@@ -66,11 +118,44 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     return (
       <View style={styles.codeEditor}>
         <MonacoEditor
-          height="300px"
+          height="600px"
           language={language}
           value={value}
           onChange={readOnly ? undefined : (newValue: string | undefined) => onChange(newValue || '')}
           theme="vs-dark"
+          beforeMount={(monaco: any) => {
+            // Add TypeScript definitions for better IntelliSense
+            monaco.languages.typescript.typescriptDefaults.addExtraLib(
+              typescriptDefinitions,
+              'file:///node_modules/@types/payload-mapper.d.ts'
+            );
+
+            // Configure TypeScript compiler options
+            monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+              target: monaco.languages.typescript.ScriptTarget.Latest,
+              allowNonTsExtensions: true,
+              moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+              module: monaco.languages.typescript.ModuleKind.CommonJS,
+              noEmit: true,
+              esModuleInterop: true,
+              jsx: monaco.languages.typescript.JsxEmit.React,
+              reactNamespace: 'React',
+              allowJs: true,
+              noImplicitAny: false, // Allow 'any' type
+              strict: false, // Disable strict type checking
+              noImplicitReturns: false,
+              noUnusedLocals: false,
+              noUnusedParameters: false,
+              typeRoots: ['node_modules/@types'],
+            });
+
+            // Configure diagnostics - allow 'any' type and be less strict
+            monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+              noSemanticValidation: false,
+              noSyntaxValidation: false,
+              noSuggestionDiagnostics: false,
+            });
+          }}
           options={{
             minimap: { enabled: false },
             fontSize: 14,
@@ -85,6 +170,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             suggestOnTriggerCharacters: !readOnly,
             quickSuggestions: !readOnly,
             parameterHints: { enabled: !readOnly },
+            hover: { enabled: !readOnly },
+            contextmenu: !readOnly,
+            mouseWheelZoom: true,
+            smoothScrolling: true,
+            cursorBlinking: 'blink',
+            renderWhitespace: 'selection',
+            bracketPairColorization: { enabled: true },
           }}
         />
         {error && errorText && (
@@ -107,7 +199,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         error={!!error}
         multiline
         numberOfLines={12}
-        style={[styles.codeInput, { height: 300 }]}
+        style={[styles.codeInput, { height: 600 }]}
         mode="outlined"
         editable={!readOnly}
       />
@@ -159,8 +251,56 @@ export default function CreatePayloadMapperForm({
   const [name, setName] = useState("");
   const [jsEvalFn, setJsEvalFn] = useState("");
 
+  // Default function template for new payload mappers
+  const defaultJsEvalFn = `(payload: any) => {
+  // Payload Mapper Function
+  // This function transforms incoming webhook payloads into notification messages
+  // 'any' type is allowed for maximum flexibility with webhook payloads
+  // Return a CreateMessageDto object with the required fields
+
+  return {
+    // Required fields
+    title: payload.title || 'Notification Title',
+    deliveryType: 'NORMAL', // 'NORMAL', 'CRITICAL', or 'SILENT'
+    bucketId: '', // Will be set by the service
+
+    // Optional fields - uncomment and customize as needed
+    subtitle: payload.subtitle || 'Notification Subtitle',
+    body: payload.body || 'Notification body content',
+
+    // Example: GitHub PR webhook (payload is 'any' type)
+    // title: \`New PR: \${payload.pull_request?.title}\`,
+    // subtitle: \`by \${payload.pull_request?.user?.login}\`,
+    // body: payload.pull_request?.body,
+    // tapAction: {
+    //   type: 'NAVIGATE',
+    //   value: payload.pull_request?.html_url
+    // }
+
+    // Example: Railway deployment (payload is 'any' type)
+    // title: \`Deployment: \${payload.deployment?.serviceName}\`,
+    // subtitle: \`Status: \${payload.deployment?.status}\`,
+    // deliveryType: payload.deployment?.status === 'FAILED' ? 'CRITICAL' : 'NORMAL',
+    // tapAction: {
+    //   type: 'NAVIGATE',
+    //   value: payload.deployment?.url
+    // }
+
+    // Example: Authentik login (payload is 'any' type)
+    // title: 'User Login Detected',
+    // subtitle: payload.user?.username,
+    // body: \`Logged in from \${payload.ip_address}\`,
+    // deliveryType: 'NORMAL'
+  };
+};`;
+
   // Test function state
-  const [testInput, setTestInput] = useState("");
+  const [testInput, setTestInput] = useState(`{
+  "title": "New Feature Released",
+  "subtitle": "Version 2.1.0",
+  "body": "We've released a new version with exciting features!",
+  "url": "https://example.com/release-notes"
+}`);
   const [testOutput, setTestOutput] = useState("");
   const [isTesting, setIsTesting] = useState(false);
 
@@ -169,8 +309,34 @@ export default function CreatePayloadMapperForm({
     if (payloadMapper) {
       setName(payloadMapper.name);
       setJsEvalFn(payloadMapper.jsEvalFn);
+    } else if (!isEditing) {
+      // Set default function for new payload mappers
+      setJsEvalFn(defaultJsEvalFn);
     }
-  }, [payloadMapper]);
+  }, [payloadMapper, isEditing]);
+
+  // Reset form function
+  const handleResetForm = () => {
+    if (isEditing && payloadMapper) {
+      // Reset to saved values
+      setName(payloadMapper.name);
+      setJsEvalFn(payloadMapper.jsEvalFn);
+      Alert.alert(
+        t("common.success"),
+        t("payloadMappers.form.resetToSaved")
+      );
+    } else {
+      // Reset to default template
+      setName("");
+      setJsEvalFn(defaultJsEvalFn);
+      Alert.alert(
+        t("common.success"),
+        t("payloadMappers.form.resetToDefault")
+      );
+    }
+    // Clear field errors
+    setFieldErrors({});
+  };
 
   const [createPayloadMapperMutation, { loading: creatingPayloadMapper }] =
     useCreatePayloadMapperMutation({
@@ -364,10 +530,6 @@ export default function CreatePayloadMapperForm({
               label={t("payloadMappers.form.jsEvalFn")}
               language="typescript"
             />
-
-            <Text style={styles.exampleText}>
-              {t("payloadMappers.form.jsEvalFnExample")}
-            </Text>
           </View>
 
           {/* Test Section */}
@@ -421,6 +583,13 @@ export default function CreatePayloadMapperForm({
               style={styles.cancelButton}
             >
               {t("common.cancel")}
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={handleResetForm}
+              style={styles.resetButton}
+            >
+              {isEditing ? t("payloadMappers.form.resetToSaved") : t("payloadMappers.form.resetToDefault")}
             </Button>
             <Button
               mode="contained"
@@ -547,6 +716,9 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     minWidth: 100,
+  },
+  resetButton: {
+    minWidth: 140,
   },
   saveButton: {
     minWidth: 100,
