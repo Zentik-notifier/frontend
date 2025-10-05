@@ -1,5 +1,7 @@
 import {
   GetSystemAccessTokensDocument,
+  GetSystemAccessTokensQuery,
+  SystemAccessTokenFragment,
   useCreateSystemAccessTokenMutation,
   useGetAllUsersQuery,
   useGetSystemTokenQuery,
@@ -36,7 +38,7 @@ export default function SystemAccessTokenForm({
   const [creating, setCreating] = useState(false);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [newToken, setNewToken] = useState<string>("");
-  const { navigateToSystemAccessTokens } = useNavigationUtils();
+  const { navigateBack } = useNavigationUtils();
 
   // form fields
   const [maxCalls, setMaxCalls] = useState("0");
@@ -45,7 +47,26 @@ export default function SystemAccessTokenForm({
   const [description, setDescription] = useState("");
 
   const [createSystemToken] = useCreateSystemAccessTokenMutation({
-    refetchQueries: [GetSystemAccessTokensDocument],
+    update: (cache, { data }) => {
+      if (data?.createSystemToken) {
+        // Update the list of system tokens to include the new token
+        const existingTokens = cache.readQuery<GetSystemAccessTokensQuery>({
+          query: GetSystemAccessTokensDocument,
+        });
+
+        if (existingTokens?.listSystemTokens) {
+          cache.writeQuery({
+            query: GetSystemAccessTokensDocument,
+            data: {
+              listSystemTokens: [
+                ...existingTokens.listSystemTokens,
+                data.createSystemToken,
+              ] satisfies SystemAccessTokenFragment[],
+            },
+          });
+        }
+      }
+    },
   });
   const [updateSystemToken] = useUpdateSystemAccessTokenMutation();
 
@@ -130,7 +151,7 @@ export default function SystemAccessTokenForm({
           },
         });
 
-        navigateToSystemAccessTokens();
+        navigateBack();
       } else {
         // Create new token
         const res = await createSystemToken({
@@ -376,7 +397,7 @@ export default function SystemAccessTokenForm({
             <Button
               onPress={() => {
                 setShowTokenModal(false);
-                navigateToSystemAccessTokens();
+                navigateBack();
               }}
             >
               {t("systemAccessTokens.form.done")}
