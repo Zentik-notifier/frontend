@@ -130,8 +130,27 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         // Store notification texts
         notificationTitleText = notification.request.content.title
-        notificationSubtitleText = notification.request.content.subtitle
-        notificationBodyText = notification.request.content.body
+        
+        // NSE may have prepended subtitle to body with newline separator
+        // We need to extract it to avoid duplication in the NCE UI
+        let rawBody = notification.request.content.body
+        if rawBody.contains("\n") {
+            // Body contains newline, likely subtitle was prepended
+            let parts = rawBody.components(separatedBy: "\n")
+            if parts.count >= 2 {
+                notificationSubtitleText = parts[0]
+                notificationBodyText = parts.dropFirst().joined(separator: "\n")
+                print("📱 [ContentExtension] 📝 Extracted subtitle from body: '\(notificationSubtitleText)'")
+                print("📱 [ContentExtension] 📝 Remaining body: '\(notificationBodyText)'")
+            } else {
+                notificationSubtitleText = notification.request.content.subtitle
+                notificationBodyText = rawBody
+            }
+        } else {
+            // No newline, use original subtitle and body
+            notificationSubtitleText = notification.request.content.subtitle
+            notificationBodyText = rawBody
+        }
         
         // Store current notification data for tap actions
         currentNotificationUserInfo = notification.request.content.userInfo
@@ -499,8 +518,23 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             return
         }
         
-        // Set expanded size (iniziale), verrà aggiustata in base al media
-        preferredContentSize = CGSize(width: view.bounds.width, height: headerViewHeight() + 240 + footerHeight())
+        // Start with compact height, will expand when media loads
+        let headerHeight = headerViewHeight()
+        let mediaHeight: CGFloat = 120
+        let initialHeight = headerHeight + mediaHeight
+        
+        print("📱 [ContentExtension] 🎯 ========== INITIAL HEIGHT SETUP ==========")
+        print("📱 [ContentExtension] 🎯 Header height: \(headerHeight)")
+        print("📱 [ContentExtension] 🎯 Media height: \(mediaHeight)")
+        print("📱 [ContentExtension] 🎯 Initial total height: \(initialHeight)")
+        print("📱 [ContentExtension] 🎯 View bounds: \(view.bounds)")
+        
+        preferredContentSize = CGSize(width: view.bounds.width, height: initialHeight)
+        mediaHeightConstraint?.constant = mediaHeight
+        
+        print("📱 [ContentExtension] 🎯 preferredContentSize set to: \(preferredContentSize)")
+        print("📱 [ContentExtension] 🎯 mediaHeightConstraint set to: \(mediaHeight)")
+        
         if nonIconMediaCount() <= 1 { hideFooterCompletely() }
     }
 
@@ -573,9 +607,15 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         let maxWidth = view.bounds.width
         let aspect = size.height / size.width
         let targetHeight = max(120, min(700, maxWidth * aspect))
-        preferredContentSize = CGSize(width: maxWidth, height: targetHeight + headerViewHeight() + footerHeight())
-        mediaHeightConstraint?.constant = targetHeight
-        view.layoutIfNeeded()
+        let newSize = CGSize(width: maxWidth, height: targetHeight + headerViewHeight() + footerHeight())
+        
+        // Animate the expansion smoothly
+        UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseOut], animations: {
+            self.preferredContentSize = newSize
+            self.mediaHeightConstraint?.constant = targetHeight
+            self.view.layoutIfNeeded()
+        }, completion: nil)
+        
         print("📱 [ContentExtension] 🔧 Adjusted preferred/media height: viewer=\(targetHeight)")
     }
 
@@ -3256,6 +3296,7 @@ extension NotificationViewController {
         }
         
         // Try to match by action identifier pattern
+        // Format: action_TYPE_VALUE_NOTIFICATIONID
         for (index, action) in actions.enumerated() {
             guard let type = action["type"] as? String,
                   let value = action["value"] as? String else { 
@@ -3263,20 +3304,22 @@ extension NotificationViewController {
                 continue 
             }
             
-            let expectedId = "action_\(type)_\(value)"
-            print("📱 [ContentExtension] 🔍 Comparing '\(actionIdentifier)' with '\(expectedId)' for action type: \(type)")
+            let expectedPrefix = "action_\(type)_\(value)_"
+            print("📱 [ContentExtension] 🔍 Checking if '\(actionIdentifier)' starts with '\(expectedPrefix)' for action type: \(type)")
             
-            if actionIdentifier == expectedId {
+            if actionIdentifier.hasPrefix(expectedPrefix) {
                 print("📱 [ContentExtension] ✅ Found matching action: \(type) with value: \(value)")
                 return action
             }
         }
         
-        // Fallback: parse action identifier (format: action_TYPE_VALUE)
+        // Fallback: parse action identifier (format: action_TYPE_VALUE_NOTIFICATIONID)
         let parts = actionIdentifier.split(separator: "_")
         if parts.count >= 3 {
             let actionType = String(parts[1]).uppercased()
-            let actionValue = parts[2...].joined(separator: "_")
+            // Remove the last part (notificationId) and join the rest as the value
+            let valueParts = parts.count > 3 ? parts[2..<(parts.count - 1)] : [parts[2]]
+            let actionValue = valueParts.joined(separator: "_")
             
             return [
                 "type": actionType,

@@ -17,6 +17,8 @@ class NotificationService: UNNotificationServiceExtension {
   // Cache for already registered categories to avoid duplicates
   private static var registeredCategories: Set<String> = []
   private static let categoryLock = NSLock()
+  private static var categorySlotCounter: Int = 0
+  private static let maxCategorySlots = 20
 
   override func didReceive(
     _ request: UNNotificationRequest,
@@ -57,26 +59,12 @@ class NotificationService: UNNotificationServiceExtension {
 
             self._handleChatMessage()
             return
-            // self.applyCommunicationStyleIfPossible(content: bestAttemptContent) {
-            //   print(
-            //     "📱 [NotificationService] 🚀 Delivering notification with category: \(bestAttemptContent.categoryIdentifier ?? "nil")"
-            //   )
-
-            //   contentHandler(bestAttemptContent)
-            // }
           }
         } else {
           print("📱 [NotificationService] No media attachments, applying Communication Style...")
 
           self._handleChatMessage()
           return
-          // self.applyCommunicationStyleIfPossible(content: bestAttemptContent) {
-          //   print(
-          //     "📱 [NotificationService] 🚀 Delivering notification with category: \(bestAttemptContent.categoryIdentifier ?? "nil")"
-          //   )
-
-          //   contentHandler(bestAttemptContent)
-          // }
         }
       }
     } else {
@@ -182,17 +170,34 @@ class NotificationService: UNNotificationServiceExtension {
       suggestionType: .none
     )
 
+    // Prepare message content: if subtitle exists, prepend it to the body
+    print("📱 [NotificationService] 🎭 📝 Original content.subtitle: '\(content.subtitle)'")
+    print("📱 [NotificationService] 🎭 📝 Original content.body: '\(content.body)'")
+    print("📱 [NotificationService] 🎭 📝 Subtitle isEmpty: \(content.subtitle.isEmpty)")
+    
+    // IMPORTANT: Modify content.body directly BEFORE creating the intent
+    // because content.updating(from:) will use the content's body, not the intent's content
+    if !content.subtitle.isEmpty {
+      content.body = "\(content.subtitle)\n\(content.body)"
+      print("📱 [NotificationService] 🎭 ✅ Modified content.body to include subtitle with newline")
+      print("📱 [NotificationService] 🎭 📝 New content.body: '\(content.body)'")
+    } else {
+      print("📱 [NotificationService] 🎭 ⚠️ Subtitle is empty, using body only")
+    }
+
     // the actual message. We use the OS to send us ourselves a message.
     let incomingMessagingIntent = INSendMessageIntent(
       recipients: [selfPerson],
       outgoingMessageType: .outgoingMessageText,  // This marks the message as outgoing
-      content: content.body,  // this will replace the content.body
+      content: content.body,  // use the modified body from content
       speakableGroupName: nil,
       conversationIdentifier: chatRoomName,  // this will be used as the conversation title
       serviceName: nil,
       sender: senderPerson,  // this marks the message sender as the person we defined above
       attachments: []
     )
+    
+    print("📱 [NotificationService] 🎭 📝 Final intent content: '\(incomingMessagingIntent.content ?? "nil")')")
 
     // Apply image only if we have one (if preference forces app icon, we leave it nil)
     if let senderAvatar = senderAvatar {
@@ -576,9 +581,16 @@ class NotificationService: UNNotificationServiceExtension {
     }
 
     if !actions.isEmpty {
-      let categoryId = "myNotificationCategory"
+      let notificationId = userInfo["notificationId"] as? String ?? UUID().uuidString
+      
+      // Use a slot-based category system (0-9) to allow multiple notifications with different actions
+      let categorySlot = Self.getNextCategorySlot()
+      let categoryId = "zentik_cat_\(categorySlot)"
+      
+      // Store the mapping for later retrieval
+      Self.storeCategoryMapping(notificationId: notificationId, categoryId: categoryId)
 
-      print("📱 [NotificationService] 🆕 Creating category with actions: \(categoryId)")
+      print("📱 [NotificationService] 🆕 Creating category with actions: \(categoryId) (slot \(categorySlot))")
       print(
         "📱 [NotificationService] 📊 Current registered categories count: \(Self.getRegisteredCategoriesCount())"
       )
@@ -595,7 +607,7 @@ class NotificationService: UNNotificationServiceExtension {
 
         let destructive = actionData["destructive"] as? Bool ?? false
         let authRequired = actionData["authRequired"] as? Bool ?? true
-        let actionId = "action_\(type)_\(value)"
+        let actionId = "action_\(type)_\(value)_\(notificationId)"
 
         var options: UNNotificationActionOptions = []
         if destructive { options.insert(.destructive) }
@@ -651,15 +663,66 @@ class NotificationService: UNNotificationServiceExtension {
         completion()
       }
     } else {
-      // No actions: always use NCE category
-      let categoryId = "myNotificationCategory"
-      print("📱 [NotificationService] 🎯 No actions, using category: \(categoryId)")
+      // Even without actions, use a category slot for NCE to show custom content
+      let notificationId = userInfo["notificationId"] as? String ?? UUID().uuidString
+      let categorySlot = Self.getNextCategorySlot()
+      let categoryId = "zentik_cat_\(categorySlot)"
+      
+      Self.storeCategoryMapping(notificationId: notificationId, categoryId: categoryId)
+      
+      print("📱 [NotificationService] 🎯 No actions, using category: \(categoryId) (slot \(categorySlot))")
       content.categoryIdentifier = categoryId
       completion()
     }
   }
 
   // MARK: - Category Management
+  
+  private static func getNextCategorySlot() -> Int {
+    categoryLock.lock()
+    defer { categoryLock.unlock() }
+    
+    let slot = categorySlotCounter % maxCategorySlots
+    categorySlotCounter += 1
+    
+    print("📱 [NotificationService] 🎰 Assigned category slot: \(slot)")
+    return slot
+  }
+  
+  private static func storeCategoryMapping(notificationId: String, categoryId: String) {
+    let accessGroup = getKeychainAccessGroup()
+    
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: "zentik-category-mapping",
+      kSecAttrAccount as String: notificationId,
+      kSecAttrAccessGroup as String: accessGroup,
+      kSecValueData as String: categoryId.data(using: .utf8)!,
+      kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+    ]
+    
+    // Delete existing mapping first
+    let deleteQuery: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: "zentik-category-mapping",
+      kSecAttrAccount as String: notificationId,
+      kSecAttrAccessGroup as String: accessGroup,
+    ]
+    SecItemDelete(deleteQuery as CFDictionary)
+    
+    // Add new mapping
+    let status = SecItemAdd(query as CFDictionary, nil)
+    if status == errSecSuccess {
+      print("📱 [NotificationService] 💾 Stored category mapping: \(notificationId) -> \(categoryId)")
+    } else {
+      print("📱 [NotificationService] ❌ Failed to store category mapping (status: \(status))")
+    }
+  }
+  
+  private static func getKeychainAccessGroup() -> String {
+    let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationService", with: "") ?? "{{MAIN_BUNDLE_ID}}"
+    return "C3F24V5NS5.\(bundleIdentifier).keychain"
+  }
 
   private static func isCategoryRegistered(_ categoryId: String) -> Bool {
     categoryLock.lock()
@@ -2103,52 +2166,6 @@ class NotificationService: UNNotificationServiceExtension {
     }
 
     print("📱 [NotificationService] 📊 Total pending notifications: \(pendingNotifications.count)")
-  }
-
-  private func resizeImageForCommunication(imageData: Data) -> Data {
-    guard let image = UIImage(data: imageData) else {
-      print("📱 [NotificationService] 🎭 ❌ Failed to create UIImage from data")
-      return imageData
-    }
-
-    // Communication Notifications work best with 256x256 or smaller images
-    let maxSize: CGFloat = 256
-    let size = image.size
-
-    // If image is already small enough, return original
-    if size.width <= maxSize && size.height <= maxSize {
-      print("📱 [NotificationService] 🎭 Image already small enough: \(size)")
-      return imageData
-    }
-
-    // Calculate new size maintaining aspect ratio
-    let aspectRatio = size.width / size.height
-    let newSize: CGSize
-    if size.width > size.height {
-      newSize = CGSize(width: maxSize, height: maxSize / aspectRatio)
-    } else {
-      newSize = CGSize(width: maxSize * aspectRatio, height: maxSize)
-    }
-
-    print("📱 [NotificationService] 🎭 Resizing image from \(size) to \(newSize)")
-
-    // Resize image
-    UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
-    image.draw(in: CGRect(origin: .zero, size: newSize))
-    let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
-    UIGraphicsEndImageContext()
-
-    guard let resized = resizedImage,
-      let resizedData = resized.jpegData(compressionQuality: 0.8)
-    else {
-      print("📱 [NotificationService] 🎭 ❌ Failed to resize image, using original")
-      return imageData
-    }
-
-    print(
-      "📱 [NotificationService] 🎭 ✅ Image resized successfully: \(imageData.count) -> \(resizedData.count) bytes"
-    )
-    return resizedData
   }
 
   // MARK: - Shared Storage Methods
