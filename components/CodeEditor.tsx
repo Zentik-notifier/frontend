@@ -1,15 +1,7 @@
-import React from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
-import { Text, TextInput } from 'react-native-paper';
-
-// Dynamic import for Monaco Editor (web only)
-let MonacoEditor: any = null;
-if (Platform.OS === 'web') {
-  // Dynamic import to avoid issues on mobile
-  import('@monaco-editor/react').then((module) => {
-    MonacoEditor = module.default;
-  });
-}
+import React from "react";
+import { Platform, StyleSheet, View } from "react-native";
+import { Text, TextInput } from "react-native-paper";
+import MonacoEditor from "@monaco-editor/react";
 
 // TypeScript definitions for Monaco Editor IntelliSense
 const typescriptDefinitions = `
@@ -117,6 +109,7 @@ interface CodeEditorProps {
   label?: string;
   language?: string;
   readOnly?: boolean;
+  height?: string | number;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -126,113 +119,119 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   errorText,
   placeholder,
   label,
-  language = 'typescript',
-  readOnly = false
+  language = "typescript",
+  readOnly = false,
+  height = "300px",
 }) => {
   // Use Monaco Editor on web
-  if (Platform.OS === 'web' && MonacoEditor) {
+  if (Platform.OS === "web" && MonacoEditor) {
     return (
       <View style={styles.codeEditor}>
         <MonacoEditor
-          height="300px"
+          height={height}
           language={language}
           value={value}
-          onChange={readOnly ? undefined : (newValue: string | undefined) => onChange(newValue || '')}
+          onChange={
+            readOnly
+              ? undefined
+              : (newValue: string | undefined) => onChange(newValue || "")
+          }
           theme="vs-dark"
-          beforeMount={(monaco: any) => {
-            // Configure Monaco Editor for TypeScript with better defaults
+          beforeMount={(monaco) => {
+            // Configure TypeScript compiler options for better IntelliSense
             monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-              target: monaco.languages.typescript.ScriptTarget.ES2020,
+              target: monaco.languages.typescript.ScriptTarget.Latest,
               allowNonTsExtensions: true,
-              moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+              moduleResolution:
+                monaco.languages.typescript.ModuleResolutionKind.NodeJs,
               module: monaco.languages.typescript.ModuleKind.CommonJS,
               noEmit: true,
               esModuleInterop: true,
               jsx: monaco.languages.typescript.JsxEmit.React,
-              reactNamespace: 'React',
+              reactNamespace: "React",
               allowJs: true,
-              typeRoots: ['node_modules/@types'],
-              allowSyntheticDefaultImports: true,
-              skipLibCheck: true,
-              baseUrl: '.',
-              paths: {
-                '@/*': ['*']
-              },
-              // Relaxed TypeScript settings for better UX
-              strict: false,
-              noImplicitAny: false,
-              strictNullChecks: false,
-              strictFunctionTypes: false,
-              noImplicitThis: false,
-              noImplicitReturns: false,
-              noUnusedLocals: false,
-              noUnusedParameters: false
+              typeRoots: ["node_modules/@types"],
             });
-
-            // Set the mode to TypeScript explicitly for the current model
-            // This ensures TypeScript mode is properly set
-            const model = monaco.editor.getModels()[0];
-            if (model) {
-              monaco.editor.setModelLanguage(model, 'typescript');
-            }
 
             // Add our custom TypeScript definitions
             monaco.languages.typescript.typescriptDefaults.addExtraLib(
               typescriptDefinitions,
-              'file:///node_modules/@types/payload-mapper.d.ts'
+              "file:///node_modules/@types/payload-mapper.d.ts"
             );
 
-            // Configure TypeScript language service
-            monaco.languages.registerCompletionItemProvider('typescript', {
-              provideCompletionItems: (model: any, position: any) => {
+            // Configure TypeScript language service with completion provider
+            monaco.languages.registerCompletionItemProvider("typescript", {
+              provideCompletionItems: () => {
                 const suggestions = [];
 
                 // Add suggestions for our custom types
                 suggestions.push({
-                  label: 'CreateMessageDto',
+                  range: {
+                    startLineNumber: 1,
+                    startColumn: 1,
+                    endLineNumber: 1,
+                    endColumn: 1,
+                  },
+                  label: "CreateMessageDto",
                   kind: monaco.languages.CompletionItemKind.Interface,
-                  insertText: 'CreateMessageDto',
-                  documentation: 'Interface for notification message data'
+                  insertText: "CreateMessageDto",
+                  documentation: "Interface for notification message data",
                 });
 
                 suggestions.push({
-                  label: 'NotificationActionDto',
+                  range: {
+                    startLineNumber: 1,
+                    startColumn: 1,
+                    endLineNumber: 1,
+                    endColumn: 1,
+                  },
+                  label: "NotificationActionDto",
                   kind: monaco.languages.CompletionItemKind.Interface,
-                  insertText: 'NotificationActionDto',
-                  documentation: 'Interface for notification actions'
+                  insertText: "NotificationActionDto",
+                  documentation: "Interface for notification actions",
                 });
 
                 suggestions.push({
-                  label: 'NotificationAttachmentDto',
+                  range: {
+                    startLineNumber: 1,
+                    startColumn: 1,
+                    endLineNumber: 1,
+                    endColumn: 1,
+                  },
+                  label: "NotificationAttachmentDto",
                   kind: monaco.languages.CompletionItemKind.Interface,
-                  insertText: 'NotificationAttachmentDto',
-                  documentation: 'Interface for notification attachments'
+                  insertText: "NotificationAttachmentDto",
+                  documentation: "Interface for notification attachments",
                 });
 
                 return { suggestions };
-              }
+              },
             });
 
-            // Configure diagnostics for better error reporting
-            monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-              noSemanticValidation: false,
-              noSyntaxValidation: false,
-            });
+            // Configure diagnostics options
+            monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions(
+              {
+                noSemanticValidation: false,
+                noSyntaxValidation: false,
+              }
+            );
 
             // Set up IntelliSense for better suggestions
-            monaco.languages.typescript.typescriptDefaults.setEagerModelSync(true);
+            monaco.languages.typescript.typescriptDefaults.setEagerModelSync(
+              true
+            );
           }}
           options={{
             minimap: { enabled: false },
             fontSize: 14,
-            lineNumbers: 'on',
+            lineNumbers: "on",
             roundedSelection: false,
             scrollBeyondLastLine: false,
             readOnly: readOnly,
             automaticLayout: true,
             tabSize: 2,
-            wordWrap: 'on',
-            wrappingStrategy: 'advanced',
+            wordWrap: "on",
+            wrappingStrategy: "advanced",
             suggestOnTriggerCharacters: !readOnly,
             quickSuggestions: !readOnly,
             parameterHints: { enabled: !readOnly },
@@ -240,15 +239,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             contextmenu: !readOnly,
             mouseWheelZoom: true,
             smoothScrolling: true,
-            cursorBlinking: 'blink',
-            renderWhitespace: 'selection',
+            cursorBlinking: "blink",
+            renderWhitespace: "selection",
             bracketPairColorization: { enabled: true },
           }}
         />
         {error && errorText && (
-          <Text style={[styles.errorText, { marginTop: 8 }]}>
-            {errorText}
-          </Text>
+          <Text style={[styles.errorText, { marginTop: 8 }]}>{errorText}</Text>
         )}
       </View>
     );
@@ -265,13 +262,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         error={!!error}
         multiline
         numberOfLines={12}
-        style={[styles.codeInput, { height: 600 }]}
+        style={[styles.codeInput, { height: typeof height === 'number' ? height : parseInt(height) || 300 }]}
         mode="outlined"
         editable={!readOnly}
       />
-      {error && errorText && (
-        <Text style={styles.errorText}>{errorText}</Text>
-      )}
+      {error && errorText && <Text style={styles.errorText}>{errorText}</Text>}
     </View>
   );
 };
@@ -282,7 +277,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e5e7eb",
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   codeInput: {
     fontFamily: "monospace",

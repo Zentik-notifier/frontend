@@ -1175,10 +1175,10 @@
       "name": "Name",
       "namePlaceholder": "Enter payload mapper name",
       "nameRequired": "Name is required",
-      "jsEvalFn": "TypeScript Function",
-      "jsEvalFnPlaceholder": "Enter TypeScript function code",
-      "jsEvalFnRequired": "TypeScript function is required",
-      "jsEvalFnHelp": "Write a TypeScript function that transforms the payload. The function should return the transformed data.",
+      "jsEvalFn": "Javascript Function",
+      "jsEvalFnPlaceholder": "Enter Javascript function code",
+      "jsEvalFnRequired": "Javascript function is required",
+      "jsEvalFnHelp": "Write a Javascript function that transforms the payload. The function should return the transformed data.",
       "save": "Save",
       "saving": "Saving...",
       "create": "Create",
@@ -1193,7 +1193,7 @@
       "testInputRequired": "Please provide both test input and function code",
       "testInputInvalidJson": "Invalid JSON in test input",
       "testExecutionError": "Function execution failed",
-      "jsEvalFnInvalidSyntax": "Invalid JavaScript/TypeScript syntax",
+      "jsEvalFnInvalidSyntax": "Invalid JavaScript syntax",
       "resetToDefault": "Reset to Default",
       "resetToSaved": "Reset to Saved"
     }

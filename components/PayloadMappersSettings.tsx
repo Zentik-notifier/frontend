@@ -1,21 +1,15 @@
-import {
-  useGetPayloadMappersQuery
-} from "@/generated/gql-operations-generated";
+import { useGetPayloadMappersQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import {
-  Card,
-  Icon,
-  List,
-  Text
-} from "react-native-paper";
+import { Card, Icon, List, Text, useTheme } from "react-native-paper";
 import SwipeablePayloadMapperItem from "./SwipeablePayloadMapperItem";
 import PaperScrollView from "./ui/PaperScrollView";
 
 export default function PayloadMappersSettings() {
   const { t } = useI18n();
+  const theme = useTheme();
   const { navigateToCreatePayloadMapper, navigateToEditPayloadMapper } =
     useNavigationUtils();
 
@@ -52,23 +46,23 @@ export default function PayloadMappersSettings() {
       error={!!errorPayloadMappers && !loadingPayloadMappers}
       onRetry={handleRefresh}
     >
-      <View style={styles.header}>
-        <Text variant="headlineSmall" style={styles.title}>
-          {t("payloadMappers.title")}
-        </Text>
-        <Text variant="bodyMedium" style={styles.subtitle}>
-          {t("payloadMappers.description")}
-        </Text>
-      </View>
-
       {allPayloadMappers.length === 0 ? (
         <Card style={styles.emptyCard}>
           <Card.Content style={styles.centered}>
-            <Icon source="function" size={48} color="#9ca3af" />
-            <Text variant="titleMedium" style={styles.emptyTitle}>
+            <Icon source="function" size={48} color={theme.colors.outline} />
+            <Text
+              variant="titleMedium"
+              style={[styles.emptyTitle, { color: theme.colors.outline }]}
+            >
               {t("payloadMappers.noPayloadMappersTitle")}
             </Text>
-            <Text variant="bodyMedium" style={styles.emptySubtitle}>
+            <Text
+              variant="bodyMedium"
+              style={[
+                styles.emptySubtitle,
+                { color: theme.colors.outlineVariant },
+              ]}
+            >
               {t("payloadMappers.noPayloadMappersSubtext")}
             </Text>
           </Card.Content>
@@ -90,7 +84,10 @@ export default function PayloadMappersSettings() {
               expanded={builtInExpanded}
               onPress={() => setBuiltInExpanded(!builtInExpanded)}
               left={(props) => <List.Icon {...props} icon="cog" />}
-              style={styles.builtInAccordion}
+              style={[
+                styles.builtInAccordion,
+                { backgroundColor: theme.colors.surfaceVariant },
+              ]}
             >
               {builtInPayloadMappers.map((item) => (
                 <SwipeablePayloadMapperItem
@@ -111,17 +108,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  loadingText: {
-    marginTop: 16,
-  },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
-    marginBottom: 8,
-  },
   subtitle: {
-    color: "#6b7280",
+    // color will be set dynamically with theme.colors.outline
   },
   card: {
     marginBottom: 8,
@@ -140,39 +128,39 @@ const styles = StyleSheet.create({
   codePreview: {
     marginTop: 12,
     padding: 12,
-    backgroundColor: "#f3f4f6",
     borderRadius: 8,
+    // backgroundColor will be set dynamically
   },
   codeLabel: {
     fontWeight: "600",
     marginBottom: 4,
-    color: "#374151",
+    // color will be set dynamically
   },
   codeText: {
     fontFamily: "monospace",
     fontSize: 12,
-    color: "#6b7280",
     lineHeight: 16,
+    // color will be set dynamically
   },
   builtInText: {
-    color: "#059669",
     fontWeight: "500",
     marginTop: 4,
+    // color will be set dynamically
   },
   builtInCard: {
     opacity: 0.7,
-    backgroundColor: "#f9fafb",
+    // backgroundColor will be set dynamically
   },
   builtInTitle: {
-    color: "#6b7280",
+    // color will be set dynamically
   },
   builtInChip: {
-    backgroundColor: "#e5e7eb",
     marginLeft: 8,
+    // backgroundColor will be set dynamically
   },
   builtInChipText: {
-    color: "#374151",
     fontSize: 12,
+    // color will be set dynamically
   },
   titleRow: {
     flexDirection: "row",
@@ -180,8 +168,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   builtInAccordion: {
-    backgroundColor: "#f3f4f6",
     marginVertical: 8,
+    // backgroundColor will be set dynamically
   },
   emptyCard: {
     marginTop: 24,
@@ -190,11 +178,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
     textAlign: "center",
-    color: "#6b7280",
+    // color will be set dynamically with theme.colors.outline
   },
   emptySubtitle: {
     textAlign: "center",
-    color: "#9ca3af",
+    // color will be set dynamically with theme.colors.outlineVariant
   },
   separator: {
     height: 8,

@@ -21,7 +21,7 @@ import {
   Portal,
   Text,
   TextInput,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import CodeEditor from "./CodeEditor";
 import PaperScrollView from "./ui/PaperScrollView";
@@ -48,6 +48,7 @@ export default function CreatePayloadMapperForm({
   const [fieldErrors, setFieldErrors] = useState<{
     name?: string;
     jsEvalFn?: string;
+    testInput?: string;
   }>({});
 
   // Load payload mapper data if editing
@@ -72,49 +73,24 @@ export default function CreatePayloadMapperForm({
   const [jsEvalFn, setJsEvalFn] = useState("");
 
   // Default function template for new payload mappers
-  const defaultJsEvalFn = `(payload: any) => {
-  // Payload Mapper Function
+  const defaultJsEvalFn = `(payload) => {
   // This function transforms incoming webhook payloads into notification messages
-  // 'any' type is allowed for maximum flexibility with webhook payloads
-
-  // Create the message object with proper typing
-  const message: CreateMessageDto = {
+  // https://notifier-docs.zentik.app/docs/notifications
+  
+  return {
     // Required fields
     title: payload.title || 'Notification Title',
     deliveryType: 'NORMAL', // 'NORMAL', 'CRITICAL', or 'SILENT'
-    bucketId: '', // Will be set by the service
 
     // Optional fields - uncomment and customize as needed
     subtitle: payload.subtitle || 'Notification Subtitle',
     body: payload.body || 'Notification body content',
 
-    // Example: GitHub PR webhook (payload is 'any' type)
-    // title: \`New PR: \${payload.pull_request?.title}\`,
-    // subtitle: \`by \${payload.pull_request?.user?.login}\`,
-    // body: payload.pull_request?.body,
     // tapAction: {
     //   type: 'NAVIGATE',
     //   value: payload.pull_request?.html_url
     // }
-
-    // Example: Railway deployment (payload is 'any' type)
-    // title: \`Deployment: \${payload.deployment?.serviceName}\`,
-    // subtitle: \`Status: \${payload.deployment?.status}\`,
-    // deliveryType: payload.deployment?.status === 'FAILED' ? 'CRITICAL' : 'NORMAL',
-    // tapAction: {
-    //   type: 'NAVIGATE',
-    //   value: payload.deployment?.url
-    // }
-
-    // Example: Authentik login (payload is 'any' type)
-    // title: 'User Login Detected',
-    // subtitle: payload.user?.username,
-    // body: \`Logged in from \${payload.ip_address}\`,
-    // deliveryType: 'NORMAL'
   };
-
-  // Return the created message
-  return message;
 };`;
 
   // Test function state
@@ -144,21 +120,17 @@ export default function CreatePayloadMapperForm({
       // Reset to saved values
       setName(payloadMapper.name);
       setJsEvalFn(payloadMapper.jsEvalFn);
-      Alert.alert(
-        t("common.success"),
-        t("payloadMappers.form.resetToSaved")
-      );
+      Alert.alert(t("common.success"), t("payloadMappers.form.resetToSaved"));
     } else {
       // Reset to default template
       setName("");
       setJsEvalFn(defaultJsEvalFn);
-      Alert.alert(
-        t("common.success"),
-        t("payloadMappers.form.resetToDefault")
-      );
+      Alert.alert(t("common.success"), t("payloadMappers.form.resetToDefault"));
     }
     // Clear field errors
     setFieldErrors({});
+    // Clear test output
+    setTestOutput("");
   };
 
   const [createPayloadMapperMutation, { loading: creatingPayloadMapper }] =
@@ -188,7 +160,7 @@ export default function CreatePayloadMapperForm({
     useUpdatePayloadMapperMutation();
 
   const validateForm = (): boolean => {
-    const errors: { name?: string; jsEvalFn?: string } = {};
+    const errors: { name?: string; jsEvalFn?: string; testInput?: string } = {};
 
     if (!name.trim()) {
       errors.name = t("payloadMappers.form.nameRequired");
@@ -205,18 +177,22 @@ export default function CreatePayloadMapperForm({
       }
     }
 
+    // Clear test input errors when validating form (only for save)
+    if (errors.name || errors.jsEvalFn) {
+      errors.testInput = undefined;
+    }
+
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const testFunction = async () => {
     if (!testInput.trim() || !jsEvalFn.trim()) {
-      Alert.alert(
-        t("payloadMappers.form.testError"),
-        t("payloadMappers.form.testInputRequired")
-      );
       return;
     }
+
+    // Clear previous test errors
+    setFieldErrors({ ...fieldErrors, testInput: undefined });
 
     setIsTesting(true);
     try {
@@ -225,32 +201,21 @@ export default function CreatePayloadMapperForm({
       try {
         parsedInput = JSON.parse(testInput);
       } catch (e) {
-        Alert.alert(
-          t("payloadMappers.form.testError"),
-          t("payloadMappers.form.testInputInvalidJson")
-        );
+        setFieldErrors({
+          ...fieldErrors,
+          testInput: t("payloadMappers.form.testInputInvalidJson")
+        });
         setIsTesting(false);
         return;
       }
-
-      // Create a function from the code and execute it
-      let functionCode = jsEvalFn;
-
-      // Check if the code is already a complete function
-      if (!jsEvalFn.trim().startsWith('(payload') && !jsEvalFn.includes('=>')) {
-        // If it's not a function, wrap it as a function
-        functionCode = `(payload) => {
-          "use strict";
-          ${jsEvalFn}
-        }`;
-      }
-
-      const testFn = new Function("payload", functionCode);
+      const testFn = eval(jsEvalFn);
 
       const result = testFn(parsedInput);
-      setTestOutput(JSON.stringify(result, null, 2));
+      setTestOutput(JSON.stringify(result ?? {}, null, 2));
     } catch (error: any) {
-      setTestOutput(t("payloadMappers.form.testExecutionError") + ": " + error.message);
+      setTestOutput(
+        t("payloadMappers.form.testExecutionError") + ": " + error.message
+      );
     } finally {
       setIsTesting(false);
     }
@@ -280,10 +245,6 @@ export default function CreatePayloadMapperForm({
             input: payloadMapperInput as CreatePayloadMapperDto,
           },
         });
-        Alert.alert(
-          t("common.success"),
-          t("payloadMappers.createSuccessMessage")
-        );
       }
 
       router.back();
@@ -304,133 +265,140 @@ export default function CreatePayloadMapperForm({
       error={!!errorPayloadMapper && !loadingPayloadMapper}
       onRetry={handleRefresh}
     >
-      <Card>
-        <Card.Content>
-          <View style={styles.header}>
-            <Icon source="function" size={24} color={theme.colors.primary} />
-            <Text variant="headlineSmall" style={styles.title}>
-              {isEditing
-                ? t("payloadMappers.edit")
-                : t("payloadMappers.create")}
-            </Text>
-          </View>
+      <TextInput
+        label={t("payloadMappers.form.name")}
+        value={name}
+        onChangeText={(text) => {
+          setName(text);
+          if (fieldErrors.name) {
+            setFieldErrors({ ...fieldErrors, name: undefined });
+          }
+        }}
+        placeholder={t("payloadMappers.form.namePlaceholder")}
+        error={!!fieldErrors.name}
+        style={styles.input}
+        mode="outlined"
+      />
+      {fieldErrors.name && (
+        <Text style={styles.errorText}>{fieldErrors.name}</Text>
+      )}
 
-          <TextInput
-            label={t("payloadMappers.form.name")}
-            value={name}
-            onChangeText={(text) => {
-              setName(text);
-              if (fieldErrors.name) {
-                setFieldErrors({ ...fieldErrors, name: undefined });
-              }
-            }}
-            placeholder={t("payloadMappers.form.namePlaceholder")}
-            error={!!fieldErrors.name}
-            style={styles.input}
-            mode="outlined"
-          />
-          {fieldErrors.name && (
-            <Text style={styles.errorText}>{fieldErrors.name}</Text>
-          )}
+      <View style={styles.codeSection}>
+        <Text variant="bodyLarge" style={styles.sectionTitle}>
+          {t("payloadMappers.form.jsEvalFn")}
+        </Text>
+        <Text style={styles.helpText}>
+          {t("payloadMappers.form.jsEvalFnHelp")}
+        </Text>
 
-          <View style={styles.codeSection}>
-            <Text variant="bodyLarge" style={styles.sectionTitle}>
-              {t("payloadMappers.form.jsEvalFn")}
-            </Text>
-            <Text style={styles.helpText}>
-              {t("payloadMappers.form.jsEvalFnHelp")}
-            </Text>
+        <CodeEditor
+          value={jsEvalFn}
+          onChange={(text: string) => {
+            setJsEvalFn(text);
+            if (fieldErrors.jsEvalFn) {
+              setFieldErrors({ ...fieldErrors, jsEvalFn: undefined });
+            }
+          }}
+          language="typescript"
+          error={!!fieldErrors.jsEvalFn}
+          errorText={fieldErrors.jsEvalFn}
+          placeholder={t("payloadMappers.form.jsEvalFnPlaceholder")}
+          label={t("payloadMappers.form.jsEvalFn")}
+        />
+      </View>
 
+      {/* Test Section */}
+      <View style={styles.testSection}>
+        <Text variant="bodyLarge" style={styles.sectionTitle}>
+          {t("payloadMappers.form.test")}
+        </Text>
+
+        <CodeEditor
+          value={testInput}
+          onChange={(text: string) => {
+            setTestInput(text);
+            if (fieldErrors.testInput) {
+              setFieldErrors({ ...fieldErrors, testInput: undefined });
+            }
+          }}
+          placeholder={t("payloadMappers.form.testInputPlaceholder")}
+          label={t("payloadMappers.form.testInput")}
+          language="json"
+          error={!!fieldErrors.testInput}
+          errorText={fieldErrors.testInput}
+        />
+
+        <Text style={styles.helpText}>
+          {t("payloadMappers.form.testInputHelp")}
+        </Text>
+
+        <Button
+          mode="outlined"
+          onPress={testFunction}
+          loading={isTesting}
+          disabled={
+            isTesting ||
+            !testInput.trim() ||
+            !jsEvalFn.trim() ||
+            !!fieldErrors.name ||
+            !!fieldErrors.jsEvalFn
+          }
+          style={styles.testButton}
+        >
+          {t("payloadMappers.form.test")}
+        </Button>
+
+        {testOutput && (
+          <View style={styles.testOutput}>
+            <Text variant="bodyLarge" style={styles.outputTitle}>
+              {t("payloadMappers.form.testOutput")}
+            </Text>
             <CodeEditor
-              value={jsEvalFn}
-              onChange={(text: string) => {
-                setJsEvalFn(text);
-                if (fieldErrors.jsEvalFn) {
-                  setFieldErrors({ ...fieldErrors, jsEvalFn: undefined });
-                }
-              }}
-              error={!!fieldErrors.jsEvalFn}
-              errorText={fieldErrors.jsEvalFn}
-              placeholder={t("payloadMappers.form.jsEvalFnPlaceholder")}
-              label={t("payloadMappers.form.jsEvalFn")}
-            />
-          </View>
-
-          {/* Test Section */}
-          <View style={styles.testSection}>
-            <Text variant="bodyLarge" style={styles.sectionTitle}>
-              {t("payloadMappers.form.test")}
-            </Text>
-
-            <CodeEditor
-              value={testInput}
-              onChange={setTestInput}
-              placeholder={t("payloadMappers.form.testInputPlaceholder")}
-              label={t("payloadMappers.form.testInput")}
+              value={testOutput}
+              onChange={() => {}} // Read-only, no-op function
               language="json"
+              readOnly={true}
             />
-
-            <Text style={styles.helpText}>
-              {t("payloadMappers.form.testInputHelp")}
-            </Text>
-
-            <Button
-              mode="outlined"
-              onPress={testFunction}
-              loading={isTesting}
-              disabled={isTesting || !testInput.trim() || !jsEvalFn.trim()}
-              style={styles.testButton}
-            >
-              {t("payloadMappers.form.test")}
-            </Button>
-
-            {testOutput && (
-              <View style={styles.testOutput}>
-                <Text variant="bodyLarge" style={styles.outputTitle}>
-                  {t("payloadMappers.form.testOutput")}
-                </Text>
-                <CodeEditor
-                  value={testOutput}
-                  onChange={() => {}} // Read-only, no-op function
-                  language="json"
-                  readOnly={true}
-                />
-              </View>
-            )}
           </View>
+        )}
+      </View>
 
-          {/* Action Buttons */}
-          <View style={styles.actions}>
-            <Button
-              mode="outlined"
-              onPress={handleCancel}
-              style={styles.cancelButton}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button
-              mode="outlined"
-              onPress={handleResetForm}
-              style={styles.resetButton}
-            >
-              {isEditing ? t("payloadMappers.form.resetToSaved") : t("payloadMappers.form.resetToDefault")}
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleSave}
-              loading={creatingPayloadMapper || updatingPayloadMapper}
-              disabled={
-                creatingPayloadMapper || updatingPayloadMapper || isOffline
-              }
-              style={styles.saveButton}
-            >
-              {creatingPayloadMapper || updatingPayloadMapper
-                ? t("payloadMappers.form.saving")
-                : t("payloadMappers.form.save")}
-            </Button>
-          </View>
-        </Card.Content>
-      </Card>
+      {/* Action Buttons */}
+      <View style={styles.actions}>
+        <Button
+          mode="outlined"
+          onPress={handleCancel}
+          style={styles.cancelButton}
+        >
+          {t("common.cancel")}
+        </Button>
+        <Button
+          mode="outlined"
+          onPress={handleResetForm}
+          style={styles.resetButton}
+        >
+          {isEditing
+            ? t("payloadMappers.form.resetToSaved")
+            : t("payloadMappers.form.resetToDefault")}
+        </Button>
+        <Button
+          mode="contained"
+          onPress={handleSave}
+          loading={creatingPayloadMapper || updatingPayloadMapper}
+          disabled={
+            creatingPayloadMapper ||
+            updatingPayloadMapper ||
+            isOffline ||
+            !!fieldErrors.name ||
+            !!fieldErrors.jsEvalFn
+          }
+          style={styles.saveButton}
+        >
+          {creatingPayloadMapper || updatingPayloadMapper
+            ? t("payloadMappers.form.saving")
+            : t("payloadMappers.form.save")}
+        </Button>
+      </View>
 
       {/* Error Dialog */}
       <Portal>
@@ -455,22 +423,6 @@ export default function CreatePayloadMapperForm({
 }
 
 const styles = StyleSheet.create({
-  centered: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    marginTop: 16,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 24,
-    gap: 12,
-  },
-  title: {
-    flex: 1,
-  },
   input: {
     marginBottom: 8,
   },
@@ -498,7 +450,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e5e7eb",
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   codeInput: {
     fontFamily: "monospace",

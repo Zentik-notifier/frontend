@@ -7,10 +7,10 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import React from "react";
-import { Alert, StyleSheet, View } from "react-native";
-import { Card, Chip, Text, useTheme } from "react-native-paper";
-import SwipeableItem, { SwipeAction } from "./SwipeableItem";
+import React, { useMemo } from "react";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { Chip, Text, useTheme } from "react-native-paper";
+import SwipeableItem, { MenuItem, SwipeAction } from "./SwipeableItem";
 
 interface SwipeablePayloadMapperItemProps {
   payloadMapper: PayloadMapperFragment;
@@ -51,120 +51,184 @@ const SwipeablePayloadMapperItem: React.FC<SwipeablePayloadMapperItemProps> = ({
   });
 
   const handleEditPress = () => {
-    if (isBuiltIn) {
-      Alert.alert(t("common.error"), t("payloadMappers.cannotEditBuiltIn"));
-      return;
+    if (!isBuiltIn) {
+      navigateToEditPayloadMapper(payloadMapper.id);
     }
-    navigateToEditPayloadMapper(payloadMapper.id);
   };
 
   const handleDeletePress = async () => {
     if (isBuiltIn) {
-      Alert.alert(t("common.error"), t("payloadMappers.cannotDeleteBuiltIn"));
-      return;
-    }
-
-    Alert.alert(
-      t("payloadMappers.deleteConfirmTitle"),
-      t("payloadMappers.deleteConfirmMessage"),
-      [
-        {
-          text: t("common.cancel"),
-          style: "cancel",
-        },
-        {
-          text: t("payloadMappers.delete"),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deletePayloadMapperMutation({
-                variables: { id: payloadMapper.id },
-              });
-            } catch (error: any) {
-              Alert.alert(
-                t("common.error"),
-                t("payloadMappers.deleteErrorMessage")
-              );
-            }
+      Alert.alert(
+        t("payloadMappers.deleteConfirmTitle"),
+        t("payloadMappers.deleteConfirmMessage"),
+        [
+          {
+            text: t("common.cancel"),
+            style: "cancel",
           },
-        },
-      ]
-    );
+          {
+            text: t("payloadMappers.delete"),
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await deletePayloadMapperMutation({
+                  variables: { id: payloadMapper.id },
+                });
+              } catch (error: any) {
+                Alert.alert(
+                  t("common.error"),
+                  t("payloadMappers.deleteErrorMessage")
+                );
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
-  const swipeActions: SwipeAction[] = [];
+  const menuItems = useMemo((): MenuItem[] => {
+    const items: MenuItem[] = [];
 
-  if (!isDisabled) {
-    swipeActions.push({
-      icon: "pencil",
-      label: t("payloadMappers.edit"),
-      backgroundColor: theme.colors.secondary,
-      onPress: handleEditPress,
-    });
+    if (!isDisabled) {
+      items.push({
+        id: "edit",
+        label: t("payloadMappers.edit"),
+        icon: "pencil",
+        onPress: handleEditPress,
+      });
 
-    swipeActions.push({
-      icon: "delete",
-      label: t("payloadMappers.delete"),
-      backgroundColor: theme.colors.error,
-      onPress: handleDeletePress,
-    });
-  }
+      items.push({
+        id: "delete",
+        label: t("payloadMappers.delete"),
+        icon: "delete",
+        type: "destructive",
+        onPress: handleDeletePress,
+        showAlert: {
+          title: t("payloadMappers.deleteConfirmTitle"),
+          message: t("payloadMappers.deleteConfirmMessage"),
+          confirmText: t("common.delete"),
+          cancelText: t("common.cancel"),
+        },
+      });
+    }
+
+    return items;
+  }, [t, isDisabled, handleEditPress, handleDeletePress]);
+
+  // Define left and right swipe actions
+  const leftAction: SwipeAction | undefined = !isDisabled
+    ? {
+        icon: "pencil",
+        label: t("payloadMappers.edit"),
+        backgroundColor: theme.colors.primary,
+        onPress: handleEditPress,
+      }
+    : undefined;
+
+  const rightAction: SwipeAction | undefined = !isDisabled
+    ? {
+        icon: "delete",
+        label: t("payloadMappers.delete"),
+        backgroundColor: theme.colors.error,
+        onPress: handleDeletePress,
+        showAlert: {
+          title: t("payloadMappers.deleteConfirmTitle"),
+          message: t("payloadMappers.deleteConfirmMessage"),
+          confirmText: t("common.delete"),
+          cancelText: t("common.cancel"),
+        },
+      }
+    : undefined;
 
   return (
-    <SwipeableItem rightAction={swipeActions[1]} leftAction={swipeActions[0]}>
-      <Card.Content>
-        <View style={styles.cardHeader}>
-          <View style={styles.cardContent}>
-            <View style={styles.titleRow}>
-              <Text
-                variant="titleMedium"
-                style={[styles.title, isBuiltIn && styles.builtInTitle]}
-              >
-                {payloadMapper.name}
-              </Text>
-              {isBuiltIn && (
-                <Chip
-                  icon="lock"
-                  compact
-                  style={styles.builtInChip}
-                  textStyle={styles.builtInChipText}
+    <SwipeableItem
+      menuItems={menuItems}
+      showMenu={!isDisabled}
+      leftAction={leftAction}
+      rightAction={rightAction}
+      cardStyle={[
+        {
+          backgroundColor: isBuiltIn
+            ? theme.colors.surfaceVariant
+            : theme.colors.surface,
+          opacity: isBuiltIn ? 0.8 : 1,
+        },
+      ]}
+    >
+      <Pressable onPress={handleEditPress}>
+        <View style={styles.mapperContent}>
+          <View style={styles.mapperHeader}>
+            <View style={styles.mapperInfo}>
+              <View style={styles.titleRow}>
+                <Text
+                  variant="titleMedium"
+                  style={[
+                    styles.mapperName,
+                    isBuiltIn && { color: theme.colors.onSurfaceVariant },
+                  ]}
                 >
-                  {t("payloadMappers.builtIn")}
-                </Chip>
+                  {payloadMapper.name}
+                </Text>
+                {isBuiltIn && (
+                  <Chip
+                    icon="lock"
+                    compact
+                    style={[
+                      styles.builtInChip,
+                      { backgroundColor: theme.colors.surfaceVariant },
+                    ]}
+                    textStyle={[
+                      styles.builtInChipText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {t("payloadMappers.builtIn")}
+                  </Chip>
+                )}
+              </View>
+              {!isBuiltIn && (
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    styles.mapperSubtitle,
+                    { color: theme.colors.outline },
+                  ]}
+                >
+                  {t("common.created")}:{" "}
+                  {new Date(payloadMapper.createdAt).toLocaleDateString()}
+                </Text>
               )}
             </View>
-            <Text variant="bodySmall" style={styles.subtitle}>
-              {t("common.created")}:{" "}
-              {new Date(payloadMapper.createdAt).toLocaleDateString()}
-            </Text>
-            {payloadMapper.builtInName && (
-              <Text variant="bodySmall" style={styles.builtInText}>
-                Built-in: {payloadMapper.builtInName}
-              </Text>
-            )}
           </View>
         </View>
-
-        <View style={styles.codePreview}>
-          <Text variant="bodySmall" style={styles.codeLabel}>
-            {t("payloadMappers.form.jsEvalFn")}:
-          </Text>
-          <Text style={styles.codeText} numberOfLines={3}>
-            {payloadMapper.jsEvalFn}
-          </Text>
-        </View>
-      </Card.Content>
+      </Pressable>
     </SwipeableItem>
   );
 };
 
 const styles = StyleSheet.create({
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+  mapperContent: {
+    padding: 16,
   },
-  cardContent: {
+  mapperHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  mapperIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    // backgroundColor will be set dynamically
+  },
+  iconText: {
+    fontSize: 24,
+  },
+  mapperInfo: {
     flex: 1,
   },
   titleRow: {
@@ -172,51 +236,41 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 4,
   },
-  title: {
+  mapperName: {
     flex: 1,
+    marginBottom: 0,
   },
-  subtitle: {
-    color: "#6b7280",
-  },
-  actions: {
-    flexDirection: "row",
+  mapperSubtitle: {
+    // color will be set dynamically
   },
   codePreview: {
-    marginTop: 12,
     padding: 12,
-    backgroundColor: "#f3f4f6",
     borderRadius: 8,
+    // backgroundColor will be set dynamically
   },
   codeLabel: {
     fontWeight: "600",
     marginBottom: 4,
-    color: "#374151",
+    // color will be set dynamically
   },
   codeText: {
     fontFamily: "monospace",
     fontSize: 12,
-    color: "#6b7280",
     lineHeight: 16,
-  },
-  builtInCard: {
-    opacity: 0.7,
-    backgroundColor: "#f9fafb",
-  },
-  builtInTitle: {
-    color: "#6b7280",
+    // color will be set dynamically
   },
   builtInChip: {
-    backgroundColor: "#e5e7eb",
     marginLeft: 8,
+    // backgroundColor will be set dynamically
   },
   builtInChipText: {
-    color: "#374151",
     fontSize: 12,
+    // color will be set dynamically
   },
   builtInText: {
-    color: "#059669",
     fontWeight: "500",
     marginTop: 4,
+    // color will be set dynamically
   },
 });
 

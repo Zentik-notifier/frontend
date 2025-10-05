@@ -62,6 +62,7 @@ const ROUTES_WITH_BACK_BUTTON: string[] = [
   "/(mobile)/(admin)/oauth-providers/",
   "/(mobile)/(admin)/system-access-tokens/",
   "/(mobile)/(admin)/events-review",
+  "/(mobile)/(settings)/payload-mapper/",
   "/(common)/(auth)/app-settings",
 ];
 
@@ -132,7 +133,12 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(mobile)/(settings)/bucket/link/[id]": "buckets.danglingBucketTitle",
   "/(tablet)/(settings)/bucket/link/[id]": "buckets.danglingBucketTitle",
   "/(mobile)/(home)/bucket/link/[id]": "buckets.danglingBucketTitle",
-  // "/(tablet)/(home)/bucket/link/[id]": "buckets.danglingBucketTitle",
+  "/(mobile)/(settings)/payload-mapper/create": "payloadMappers.create",
+  "/(mobile)/(settings)/payload-mapper/[id]": "payloadMappers.edit",
+  "/(mobile)/(settings)/payload-mapper/list": "payloadMappers.title",
+  "/(tablet)/(settings)/payload-mapper/create": "payloadMappers.create",
+  "/(tablet)/(settings)/payload-mapper/[id]": "payloadMappers.edit",
+  "/(tablet)/(settings)/payload-mapper/list": "payloadMappers.title",
 };
 
 export default function Header() {
@@ -142,12 +148,8 @@ export default function Header() {
     unreadCount,
     isMarkingAllAsRead,
   } = useBadgeSync();
-  const {
-    isLoginModalOpen,
-    closeLoginModal,
-    isMainLoading,
-    isLoadingGqlData,
-  } = useAppContext();
+  const { isLoginModalOpen, closeLoginModal, isMainLoading, isLoadingGqlData } =
+    useAppContext();
   const { itemsInQueue, inProcessing } = useDownloadQueue();
   const { t } = useI18n();
   const { navigateToHome, navigateBack, navigateToAppSettings } =
