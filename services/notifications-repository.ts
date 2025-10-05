@@ -548,6 +548,44 @@ export async function deleteNotificationsFromCache(notificationIds: string[]): P
   });
 }
 
+/**
+ * Delete all notifications from cache for a specific bucket
+ *
+ * @example
+ * ```typescript
+ * import { deleteNotificationsByBucketId } from '@/services/notifications-repository';
+ *
+ * await deleteNotificationsByBucketId('bucket-id');
+ * ```
+ */
+export async function deleteNotificationsByBucketId(bucketId: string): Promise<void> {
+  await executeQuery(async (db) => {
+    try {
+      if (Platform.OS === 'web') {
+        // IndexedDB - get all notifications for bucket and delete them
+        const tx = db.transaction('notifications', 'readwrite');
+        const allNotifications = await tx.store.getAll();
+
+        for (const notification of allNotifications) {
+          if (notification.bucket_id === bucketId) {
+            await tx.store.delete(notification.id);
+          }
+        }
+
+        await tx.done;
+      } else {
+        // SQLite - use single query to delete by bucket_id
+        await db.runAsync('DELETE FROM notifications WHERE bucket_id = ?', [bucketId]);
+      }
+
+      console.log(`✅ Deleted all notifications for bucket ${bucketId} from cache`);
+    } catch (error) {
+      console.error('❌ Failed to delete notifications by bucket ID from cache:', error);
+      throw error;
+    }
+  });
+}
+
 // ====================
 // NOTIFICATION CLEANUP OPERATIONS
 // ====================

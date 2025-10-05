@@ -4,10 +4,9 @@ import { useAppContext } from "@/contexts/AppContext";
 import {
   GetBucketsDocument,
   ResourceType,
-  useDeleteBucketMutation,
   useUnshareBucketMutation,
 } from "@/generated/gql-operations-generated";
-import { useGetBucketData } from "@/hooks/useGetBucketData";
+import { useGetBucketData, useDeleteBucketWithNotifications } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import React from "react";
 import { Alert, StyleSheet } from "react-native";
@@ -40,7 +39,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     await refetch();
   };
 
-  const [deleteBucketMutation] = useDeleteBucketMutation({
+  const { deleteBucketWithNotifications, loading: deleteLoading } = useDeleteBucketWithNotifications({
     onCompleted: () => {
       navigateToHome();
     },
@@ -48,7 +47,6 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
       console.error("Error deleting bucket:", error);
       Alert.alert(t("common.error"), t("buckets.delete.error"));
     },
-    refetchQueries: [{ query: GetBucketsDocument }],
   });
 
   const [unshareBucket] = useUnshareBucketMutation({
@@ -70,7 +68,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     if (canDelete) {
       actions.push({
         text: t("buckets.delete.deleteBucket"),
-        onPress: () => deleteBucketMutation({ variables: { id: bucket.id } }),
+        onPress: () => deleteBucketWithNotifications(bucket.id),
         style: "destructive" as const,
       });
     }

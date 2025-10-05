@@ -2,10 +2,9 @@ import {
   BucketWithDevicesFragment,
   GetBucketsDocument,
   ResourceType,
-  useDeleteBucketMutation,
   useUnshareBucketMutation,
 } from "@/generated/gql-operations-generated";
-import { useGetBucketData } from "@/hooks/useGetBucketData";
+import { useGetBucketData, useDeleteBucketWithNotifications } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import React, { useMemo, useState } from "react";
@@ -49,7 +48,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
     bucket.id
   );
 
-  const [deleteBucketMutation] = useDeleteBucketMutation({
+  const { deleteBucketWithNotifications, loading } = useDeleteBucketWithNotifications({
     onCompleted: () => {
       bucketDeleted();
     },
@@ -57,7 +56,6 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
       console.error("Error deleting bucket:", error);
       Alert.alert(t("common.error"), t("buckets.delete.error"));
     },
-    refetchQueries: [{ query: GetBucketsDocument }],
   });
 
   const [unshareBucket] = useUnshareBucketMutation({
@@ -81,7 +79,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
     if (canDelete) {
       actions.push({
         text: t("buckets.delete.deleteBucket"),
-        onPress: () => deleteBucketMutation({ variables: { id: bucket.id } }),
+        onPress: () => deleteBucketWithNotifications(bucket.id),
         style: "destructive" as const,
       });
     }

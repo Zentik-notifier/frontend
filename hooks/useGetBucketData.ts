@@ -1,7 +1,8 @@
-import { BucketFragment, NotificationFragment, Permission, useGetBucketQuery } from '@/generated/gql-operations-generated';
+import { BucketFragment, NotificationFragment, Permission, useGetBucketQuery, useDeleteBucketMutation, GetBucketsDocument } from '@/generated/gql-operations-generated';
 import { useAppContext } from '@/contexts/AppContext';
 import { keyBy } from 'lodash';
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
+import { deleteNotificationsByBucketId } from '@/services/notifications-repository';
 
 export function useGetBucketData(bucketId?: string) {
     const { userId } = useAppContext();
@@ -185,4 +186,57 @@ export const getBucketStats = (buckets: BucketFragment[], notifications: Notific
         bucketStats,
         notificationToBucketMap,
     }
+};
+
+/**
+ * Hook for deleting a bucket and all its notifications from cache
+ * Combines the useDeleteBucketMutation with local notification cleanup
+ *
+ * @example
+ * ```typescript
+ * import { useDeleteBucketWithNotifications } from '@/hooks/useGetBucketData';
+ *
+ * const { deleteBucketWithNotifications, loading, error } = useDeleteBucketWithNotifications({
+ *   onCompleted: () => navigateToHome(),
+ *   onError: (error) => console.error('Delete failed:', error),
+ * });
+ *
+ * await deleteBucketWithNotifications('bucket-id');
+ * ```
+ */
+export function useDeleteBucketWithNotifications(options?: {
+  onCompleted?: () => void;
+  onError?: (error: Error) => void;
+}) {
+  const [deleteBucketMutation, { loading, error }] = useDeleteBucketMutation({
+    onCompleted: options?.onCompleted,
+    onError: options?.onError,
+    refetchQueries: [{ query: GetBucketsDocument }],
+  });
+
+  const deleteBucketWithNotifications = useCallback(async (bucketId: string) => {
+    try {
+      // First, delete all notifications for this bucket from local cache
+      await deleteNotificationsByBucketId(bucketId);
+
+      // Then delete the bucket from the server
+      await deleteBucketMutation({
+        variables: { id: bucketId }
+      });
+
+      console.log(`✅ Successfully deleted bucket ${bucketId} and all its notifications`);
+    } catch (error) {
+      console.error('❌ Failed to delete bucket with notifications:', error);
+      if (options?.onError) {
+        options.onError(error as Error);
+      }
+      throw error;
+    }
+  }, [deleteBucketMutation, options?.onError, options?.onCompleted]);
+
+  return {
+    deleteBucketWithNotifications,
+    loading,
+    error,
+  };
 };
