@@ -12,9 +12,8 @@ import {
 import { useI18n } from "@/hooks/useI18n";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, Platform, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import {
-  ActivityIndicator,
   Button,
   Card,
   Dialog,
@@ -22,193 +21,14 @@ import {
   Portal,
   Text,
   TextInput,
-  useTheme,
+  useTheme
 } from "react-native-paper";
+import CodeEditor from "./CodeEditor";
 import PaperScrollView from "./ui/PaperScrollView";
-
-// Dynamic import for Monaco Editor (web only)
-let MonacoEditor: any = null;
-if (Platform.OS === 'web') {
-  // Dynamic import to avoid issues on mobile
-  import('@monaco-editor/react').then((module) => {
-    MonacoEditor = module.default;
-  });
-}
-
-// TypeScript definitions for Monaco Editor IntelliSense
-const typescriptDefinitions = `
-// TypeScript definitions for Payload Mapper functions
-// Note: 'any' type is allowed for flexibility with webhook payloads
-
-declare interface CreateMessageDto {
-  title: string;
-  subtitle?: string;
-  body?: string;
-  bucketId: string;
-  deliveryType: 'NORMAL' | 'CRITICAL' | 'SILENT';
-  actions?: NotificationActionDto[];
-  attachments?: NotificationAttachmentDto[];
-  tapAction?: NotificationActionDto;
-  sound?: string;
-  addMarkAsReadAction?: boolean;
-  addOpenNotificationAction?: boolean;
-  addDeleteAction?: boolean;
-  snoozes?: number[];
-  locale?: string;
-  groupId?: string;
-  collapseId?: string;
-  userIds?: string[];
-  imageUrl?: string;
-  videoUrl?: string;
-  gifUrl?: string;
-  tapUrl?: string;
-}
-
-declare interface NotificationActionDto {
-  type: 'BACKGROUND_CALL' | 'CLEAR' | 'DELETE' | 'NAVIGATE' | 'OPEN_NOTIFICATION' | 'SNOOZE' | 'WEBHOOK';
-  value?: string;
-  destructive?: boolean;
-  icon?: string;
-  title?: string;
-}
-
-declare interface NotificationAttachmentDto {
-  mediaType: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'GIF' | 'ICON';
-  name?: string;
-  url?: string;
-  attachmentUuid?: string;
-  saveOnServer?: boolean;
-}
-
-// Helper function type for payload transformation
-declare type PayloadTransformer = (payload: any) => CreateMessageDto;
-
-// Global any type is allowed for webhook payload flexibility
-declare const payload: any;
-`;
 
 interface CreatePayloadMapperFormProps {
   payloadMapperId?: string;
 }
-
-// Code Editor Component that uses Monaco Editor on web and TextInput on mobile
-interface CodeEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  error?: boolean;
-  errorText?: string;
-  placeholder?: string;
-  label?: string;
-  language?: string;
-  readOnly?: boolean;
-}
-
-const CodeEditor: React.FC<CodeEditorProps> = ({
-  value,
-  onChange,
-  error,
-  errorText,
-  placeholder,
-  label,
-  language = 'typescript',
-  readOnly = false
-}) => {
-  // Use Monaco Editor on web
-  if (Platform.OS === 'web' && MonacoEditor) {
-    return (
-      <View style={styles.codeEditor}>
-        <MonacoEditor
-          height="600px"
-          language={language}
-          value={value}
-          onChange={readOnly ? undefined : (newValue: string | undefined) => onChange(newValue || '')}
-          theme="vs-dark"
-          beforeMount={(monaco: any) => {
-            // Add TypeScript definitions for better IntelliSense
-            monaco.languages.typescript.typescriptDefaults.addExtraLib(
-              typescriptDefinitions,
-              'file:///node_modules/@types/payload-mapper.d.ts'
-            );
-
-            // Configure TypeScript compiler options
-            monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-              target: monaco.languages.typescript.ScriptTarget.Latest,
-              allowNonTsExtensions: true,
-              moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-              module: monaco.languages.typescript.ModuleKind.CommonJS,
-              noEmit: true,
-              esModuleInterop: true,
-              jsx: monaco.languages.typescript.JsxEmit.React,
-              reactNamespace: 'React',
-              allowJs: true,
-              noImplicitAny: false, // Allow 'any' type
-              strict: false, // Disable strict type checking
-              noImplicitReturns: false,
-              noUnusedLocals: false,
-              noUnusedParameters: false,
-              typeRoots: ['node_modules/@types'],
-            });
-
-            // Configure diagnostics - allow 'any' type and be less strict
-            monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-              noSemanticValidation: false,
-              noSyntaxValidation: false,
-              noSuggestionDiagnostics: false,
-            });
-          }}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-            lineNumbers: 'on',
-            roundedSelection: false,
-            scrollBeyondLastLine: false,
-            readOnly: readOnly,
-            automaticLayout: true,
-            tabSize: 2,
-            wordWrap: 'on',
-            wrappingStrategy: 'advanced',
-            suggestOnTriggerCharacters: !readOnly,
-            quickSuggestions: !readOnly,
-            parameterHints: { enabled: !readOnly },
-            hover: { enabled: !readOnly },
-            contextmenu: !readOnly,
-            mouseWheelZoom: true,
-            smoothScrolling: true,
-            cursorBlinking: 'blink',
-            renderWhitespace: 'selection',
-            bracketPairColorization: { enabled: true },
-          }}
-        />
-        {error && errorText && (
-          <Text style={[styles.errorText, { marginTop: 8 }]}>
-            {errorText}
-          </Text>
-        )}
-      </View>
-    );
-  }
-
-  // Fallback to TextInput on mobile
-  return (
-    <View style={styles.codeEditor}>
-      <TextInput
-        label={label}
-        value={value}
-        onChangeText={readOnly ? undefined : onChange}
-        placeholder={placeholder}
-        error={!!error}
-        multiline
-        numberOfLines={12}
-        style={[styles.codeInput, { height: 600 }]}
-        mode="outlined"
-        editable={!readOnly}
-      />
-      {error && errorText && (
-        <Text style={styles.errorText}>{errorText}</Text>
-      )}
-    </View>
-  );
-};
 
 export default function CreatePayloadMapperForm({
   payloadMapperId,
@@ -256,9 +76,9 @@ export default function CreatePayloadMapperForm({
   // Payload Mapper Function
   // This function transforms incoming webhook payloads into notification messages
   // 'any' type is allowed for maximum flexibility with webhook payloads
-  // Return a CreateMessageDto object with the required fields
 
-  return {
+  // Create the message object with proper typing
+  const message: CreateMessageDto = {
     // Required fields
     title: payload.title || 'Notification Title',
     deliveryType: 'NORMAL', // 'NORMAL', 'CRITICAL', or 'SILENT'
@@ -292,6 +112,9 @@ export default function CreatePayloadMapperForm({
     // body: \`Logged in from \${payload.ip_address}\`,
     // deliveryType: 'NORMAL'
   };
+
+  // Return the created message
+  return message;
 };`;
 
   // Test function state
@@ -411,16 +234,18 @@ export default function CreatePayloadMapperForm({
       }
 
       // Create a function from the code and execute it
-      const testFn = new Function(
-        "payload",
-        `
-        "use strict";
-        ${jsEvalFn}
-        return (${
-          jsEvalFn.includes("=>") ? jsEvalFn : `(${jsEvalFn})`
-        })(payload);
-      `
-      );
+      let functionCode = jsEvalFn;
+
+      // Check if the code is already a complete function
+      if (!jsEvalFn.trim().startsWith('(payload') && !jsEvalFn.includes('=>')) {
+        // If it's not a function, wrap it as a function
+        functionCode = `(payload) => {
+          "use strict";
+          ${jsEvalFn}
+        }`;
+      }
+
+      const testFn = new Function("payload", functionCode);
 
       const result = testFn(parsedInput);
       setTestOutput(JSON.stringify(result, null, 2));
@@ -518,7 +343,7 @@ export default function CreatePayloadMapperForm({
 
             <CodeEditor
               value={jsEvalFn}
-              onChange={(text) => {
+              onChange={(text: string) => {
                 setJsEvalFn(text);
                 if (fieldErrors.jsEvalFn) {
                   setFieldErrors({ ...fieldErrors, jsEvalFn: undefined });
@@ -528,7 +353,6 @@ export default function CreatePayloadMapperForm({
               errorText={fieldErrors.jsEvalFn}
               placeholder={t("payloadMappers.form.jsEvalFnPlaceholder")}
               label={t("payloadMappers.form.jsEvalFn")}
-              language="typescript"
             />
           </View>
 
