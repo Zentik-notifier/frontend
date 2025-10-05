@@ -137,7 +137,6 @@ const styles = StyleSheet.create({
     borderRadius: 72,
     justifyContent: "center",
     alignItems: "center",
-    overflow: "hidden",
   },
   logoImage: {
     width: "100%",

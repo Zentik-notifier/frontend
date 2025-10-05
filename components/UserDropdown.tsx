@@ -4,7 +4,13 @@ import { useI18n } from "@/hooks/useI18n";
 import { useAppTheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
-import { Image, Linking, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  Linking,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Avatar, Icon, Surface, Text, useTheme } from "react-native-paper";
 import {
   Menu,
@@ -111,17 +117,12 @@ export default function UserDropdown({
             TriggerTouchableComponent: TouchableOpacity,
             triggerTouchable: {
               activeOpacity: 0.7,
-              style: { borderRadius: 18, overflow: "hidden" },
+              style: { borderRadius: 18 },
             },
           }}
           onPress={toggleMenu}
         >
-          <View
-            style={[
-              styles.avatarButton,
-              { borderRadius: 18, overflow: "hidden" },
-            ]}
-          >
+          <View style={[styles.avatarButton, { borderRadius: 18 }]}>
             {user?.avatar && !showInitials ? (
               <Avatar.Image source={{ uri: user.avatar }} size={36} />
             ) : (
@@ -208,7 +209,7 @@ export default function UserDropdown({
           {/* Documentation */}
           <MenuOption
             onSelect={() => {
-              Linking.openURL('https://notifier-docs.zentik.app');
+              Linking.openURL("https://notifier-docs.zentik.app");
               closeMenu();
             }}
           >

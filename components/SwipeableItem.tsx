@@ -394,7 +394,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     elevation: 0,
     borderWidth: 1,
-    overflow: "hidden",
   },
   contentWrapper: {
     position: "relative",

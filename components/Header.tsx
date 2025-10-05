@@ -505,7 +505,6 @@ const styles = StyleSheet.create({
   },
   unauthButtonWrapper: {
     borderRadius: 22,
-    overflow: "hidden",
   },
   unauthSettingsButton: {
     width: 44,

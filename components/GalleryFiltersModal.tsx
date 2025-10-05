@@ -86,7 +86,6 @@ export default function GalleryFiltersModal() {
   const containerStyle = {
     backgroundColor: theme.colors.surface,
     borderRadius: 12,
-    overflow: "hidden",
     marginHorizontal: 16,
     marginVertical: 24,
     maxHeight: deviceHeight * 0.8,

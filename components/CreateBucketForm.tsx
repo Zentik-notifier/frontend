@@ -449,7 +449,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   previewIconContent: {
-    overflow: "hidden",
     borderRadius: 24,
     width: 48,
     height: 48,

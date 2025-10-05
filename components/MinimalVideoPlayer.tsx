@@ -230,7 +230,6 @@ export const MinimalVideoPlayer: React.FC<MinimalVideoPlayerProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: "relative",
-    overflow: "hidden",
     borderRadius: 8,
   },
   video: {
@@ -331,7 +330,6 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: "rgba(255, 255, 255, 0.3)",
     borderRadius: 2,
-    overflow: "hidden",
   },
   seekBarProgress: {
     height: "100%",

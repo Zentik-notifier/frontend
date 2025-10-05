@@ -677,14 +677,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minHeight: 24,
     flexWrap: "nowrap",
-    overflow: "hidden",
   },
   inlinePillsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     flexWrap: "nowrap",
-    overflow: "hidden",
   },
   mediaPreviewRow: {
     paddingHorizontal: 12,

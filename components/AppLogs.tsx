@@ -505,7 +505,6 @@ const styles = StyleSheet.create({
     maxHeight: "30%",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    overflow: "hidden",
   },
   modalHeader: {
     flexDirection: "row",

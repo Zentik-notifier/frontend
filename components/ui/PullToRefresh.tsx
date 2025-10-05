@@ -139,7 +139,6 @@ export default function PullToRefresh({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    overflow: "hidden",
   },
   indicatorContainer: {
     position: "absolute",
@@ -149,7 +148,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     zIndex: 1000,
-    overflow: "hidden",
   },
   indicator: {
     paddingBottom: 10,
@@ -158,4 +156,3 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-

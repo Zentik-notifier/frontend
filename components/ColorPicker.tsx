@@ -57,38 +57,38 @@ const ColorPicker = forwardRef<ColorPickerRef, ColorPickerProps>(
       }
     };
 
-         const openModal = () => {
-       if (!disabled) {
-         setHexInput(selectedColor);
-         setShowModal(true);
-       }
-     };
+    const openModal = () => {
+      if (!disabled) {
+        setHexInput(selectedColor);
+        setShowModal(true);
+      }
+    };
 
     useImperativeHandle(ref, () => ({
       openModal,
     }));
 
-         const handleCustomColorChange = async (colors: any) => {
-       const hexColor = colors.hex;
-       if (hexColor) {
-         onColorChange(hexColor);
-         setHexInput(hexColor);
-       }
-     };
+    const handleCustomColorChange = async (colors: any) => {
+      const hexColor = colors.hex;
+      if (hexColor) {
+        onColorChange(hexColor);
+        setHexInput(hexColor);
+      }
+    };
 
-     const handleHexInputChange = (text: string) => {
-       setHexInput(text);
-       // Validate hex color format
-       const hexRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
-       if (hexRegex.test(text)) {
-         onColorChange(text);
-       }
-     };
+    const handleHexInputChange = (text: string) => {
+      setHexInput(text);
+      // Validate hex color format
+      const hexRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+      if (hexRegex.test(text)) {
+        onColorChange(text);
+      }
+    };
 
-     const openModalWithHexInit = () => {
-       setHexInput(selectedColor);
-       setShowModal(true);
-     };
+    const openModalWithHexInit = () => {
+      setHexInput(selectedColor);
+      setShowModal(true);
+    };
 
     const deviceHeight = Dimensions.get("window").height;
     const containerStyle = {
@@ -107,125 +107,121 @@ const ColorPicker = forwardRef<ColorPickerRef, ColorPickerProps>(
           contentContainerStyle={containerStyle}
           dismissableBackButton
         >
-          <View style={{ overflow: "hidden", borderRadius: 12 }}>
-          <View
-            style={[
-              styles.modalHeader,
-              {
-                borderBottomColor: theme.colors.outline,
-                backgroundColor: "transparent",
-              },
-            ]}
-          >
-            <View style={styles.headerLeft}>
-              <Icon source="palette" size={24} color={theme.colors.primary} />
-              <Text style={styles.modalTitle}>
-                {t("buckets.form.chooseColor")}
-              </Text>
-            </View>
-            <TouchableRipple
-              style={[styles.closeButton]}
-              onPress={() => setShowModal(false)}
-              borderless
+          <View style={{ borderRadius: 12 }}>
+            <View
+              style={[
+                styles.modalHeader,
+                {
+                  borderBottomColor: theme.colors.outline,
+                  backgroundColor: "transparent",
+                },
+              ]}
             >
-              <Icon source="close" size={20} color={theme.colors.onSurface} />
-            </TouchableRipple>
-          </View>
+              <View style={styles.headerLeft}>
+                <Icon source="palette" size={24} color={theme.colors.primary} />
+                <Text style={styles.modalTitle}>
+                  {t("buckets.form.chooseColor")}
+                </Text>
+              </View>
+              <TouchableRipple
+                style={[styles.closeButton]}
+                onPress={() => setShowModal(false)}
+                borderless
+              >
+                <Icon source="close" size={20} color={theme.colors.onSurface} />
+              </TouchableRipple>
+            </View>
 
-          <View style={{ padding: 20 }}>
-            {/* Color Palette Section */}
-            <View style={styles.paletteSection}>
-              <Text variant="titleSmall" style={styles.sectionTitle}>
-                {t("common.colorPalette")}
-              </Text>
-              <View style={styles.colorPalette}>
-                {colorPalette.map((color) => (
-                  <TouchableRipple
-                    key={color}
-                    style={[
-                      styles.colorOption,
-                      { backgroundColor: color },
-                      baseColor === color && styles.selectedColorOption,
+            <View style={{ padding: 20 }}>
+              {/* Color Palette Section */}
+              <View style={styles.paletteSection}>
+                <Text variant="titleSmall" style={styles.sectionTitle}>
+                  {t("common.colorPalette")}
+                </Text>
+                <View style={styles.colorPalette}>
+                  {colorPalette.map((color) => (
+                    <TouchableRipple
+                      key={color}
+                      style={[
+                        styles.colorOption,
+                        { backgroundColor: color },
+                        baseColor === color && styles.selectedColorOption,
+                      ]}
+                      onPress={() => {
+                        handleColorSelect(color);
+                        setBaseColor(color);
+                      }}
+                      borderless
+                    >
+                      <View style={styles.colorOptionContent}>
+                        {baseColor === color && (
+                          <Icon source="check" size={20} color="white" />
+                        )}
+                      </View>
+                    </TouchableRipple>
+                  ))}
+                </View>
+              </View>
+
+              {/* Custom Color Picker Section */}
+              <View style={styles.customSection}>
+                <Text variant="titleSmall" style={styles.sectionTitle}>
+                  {t("common.customColor")}
+                </Text>
+                <View style={styles.colorPickerContainer}>
+                  <ReanimatedColorPicker
+                    value={selectedColor}
+                    onCompleteJS={handleCustomColorChange}
+                    style={styles.colorPicker}
+                    thumbStyle={[
+                      styles.colorPickerThumb,
+                      { borderColor: theme.colors.outline },
                     ]}
-                    onPress={() => {
-                      handleColorSelect(color);
-                      setBaseColor(color);
-                    }}
-                    borderless
+                    sliderThickness={25}
+                    thumbSize={24}
+                    thumbShape="circle"
                   >
-                    <View style={styles.colorOptionContent}>
-                      {baseColor === color && (
-                        <Icon
-                          source="check"
-                          size={20}
-                          color="white"
-                        />
-                      )}
-                    </View>
-                  </TouchableRipple>
-                ))}
+                    <Preview />
+                    <Panel1 />
+                  </ReanimatedColorPicker>
+                </View>
+              </View>
+
+              {/* Hex Input Section */}
+              <View style={styles.hexInputSection}>
+                <Text variant="titleSmall" style={styles.sectionTitle}>
+                  {t("common.hexColorCode")}
+                </Text>
+                <TextInput
+                  mode="outlined"
+                  value={hexInput}
+                  onChangeText={handleHexInputChange}
+                  placeholder="#0a7ea4"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  maxLength={7}
+                  style={styles.hexInput}
+                  contentStyle={styles.hexInputContent}
+                />
               </View>
             </View>
 
-            {/* Custom Color Picker Section */}
-            <View style={styles.customSection}>
-              <Text variant="titleSmall" style={styles.sectionTitle}>
-                {t("common.customColor")}
-              </Text>
-              <View style={styles.colorPickerContainer}>
-                <ReanimatedColorPicker
-                  value={selectedColor}
-                  onCompleteJS={handleCustomColorChange}
-                  style={styles.colorPicker}
-                  thumbStyle={[
-                    styles.colorPickerThumb,
-                    { borderColor: theme.colors.outline },
-                  ]}
-                  sliderThickness={25}
-                  thumbSize={24}
-                  thumbShape="circle"
-                >
-                  <Preview />
-                  <Panel1 />
-                </ReanimatedColorPicker>
-              </View>
-            </View>
-
-            {/* Hex Input Section */}
-            <View style={styles.hexInputSection}>
-              <Text variant="titleSmall" style={styles.sectionTitle}>
-                {t("common.hexColorCode")}
-              </Text>
-              <TextInput
+            <View style={styles.modalFooter}>
+              <Button
                 mode="outlined"
-                value={hexInput}
-                onChangeText={handleHexInputChange}
-                placeholder="#0a7ea4"
-                autoCapitalize="none"
-                autoCorrect={false}
-                maxLength={7}
-                style={styles.hexInput}
-                contentStyle={styles.hexInputContent}
-              />
+                onPress={() => setShowModal(false)}
+                style={styles.footerButton}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                mode="contained"
+                onPress={() => setShowModal(false)}
+                style={styles.footerButton}
+              >
+                {t("common.apply")}
+              </Button>
             </View>
-          </View>
-
-          <View style={styles.modalFooter}>
-            <Button
-              mode="outlined"
-              onPress={() => setShowModal(false)}
-              style={styles.footerButton}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button
-              mode="contained"
-              onPress={() => setShowModal(false)}
-              style={styles.footerButton}
-            >
-              {t("common.apply")}
-            </Button>
-          </View>
           </View>
         </Modal>
       </Portal>

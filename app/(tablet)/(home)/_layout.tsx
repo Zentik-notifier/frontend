@@ -12,7 +12,6 @@ export default function TabletHomeLayout() {
           flexGrow: 1,
           flexShrink: 1,
           flexBasis: 0,
-          overflow: "hidden",
         }}
       >
         <Slot />

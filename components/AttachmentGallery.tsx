@@ -44,7 +44,6 @@ const AttachmentItem: React.FC<AttachmentItemProps> = ({
         width: "100%",
         height: containerWidth * 0.4,
         borderRadius: 12,
-        overflow: "hidden" as const,
         position: "relative" as const,
       },
       singleAttachmentContainer: {
@@ -154,7 +153,6 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
         width: "100%",
         height: containerWidth * 0.4,
         borderRadius: 12,
-        overflow: "hidden" as const,
         position: "relative" as const,
       },
       singleAttachmentContainer: {
@@ -341,7 +339,6 @@ const styles = StyleSheet.create({
   },
   mediaSurface: {
     borderRadius: 12,
-    overflow: "hidden",
   },
   selectorButtonText: {
     fontSize: 12,
@@ -376,7 +373,6 @@ const styles = StyleSheet.create({
     width: "100%",
     // Dynamic height will be set via getDynamicItemStyles
     borderRadius: 12,
-    overflow: "hidden",
     position: "relative",
   },
   singleAttachmentContainer: {
