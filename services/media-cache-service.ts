@@ -6,7 +6,6 @@ import { MediaType } from '../generated/gql-operations-generated';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
 import { MediaCacheRepository, MediaItem } from './media-cache-repository';
 import { Platform } from 'react-native';
-import { ca } from 'date-fns/locale';
 
 const isWeb = Platform.OS === 'web';
 
@@ -202,10 +201,16 @@ class MediaCacheService {
                 });
             }
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('[MediaCache] Download failed: outer', error);
 
-            delete this.metadata[key];
+            await this.upsertItem(key, {
+                inDownload: false,
+                isDownloading: false,
+                timestamp: Date.now(),
+                isPermanentFailure: true,
+                errorCode: error?.code,
+            });
             return false;
         }
     }

@@ -146,16 +146,26 @@ async function prefetchMediaAttachment(attachment, notificationId) {
   console.log(`[Service Worker] Media item key: ${mediaItemKey}`);
 
   try {
-    // Fetch the media data
-    const response = await fetch(url, {
+    // Use backend proxy to fetch the media data (bypasses CORS)
+    const credentials = await getApiCredentials();
+    if (!credentials) {
+      throw new Error('No API credentials available for media proxy');
+    }
+
+    const proxyUrl = `${credentials.apiEndpoint}/api/v1/attachments/proxy-media?url=${encodeURIComponent(url)}`;
+    console.log(`[Service Worker] Using backend proxy for media: ${proxyUrl}`);
+
+    const response = await fetch(proxyUrl, {
       method: 'GET',
       headers: {
-        'Accept': '*/*',
+        'Authorization': `Bearer ${credentials.authToken}`,
+        'Accept': 'image/*,video/*,audio/*,*/*',
+        'User-Agent': 'Zentik-Notifier-ServiceWorker/1.0',
       },
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`Backend proxy failed: ${response.status} ${response.statusText}`);
     }
 
     const arrayBuffer = await response.arrayBuffer();

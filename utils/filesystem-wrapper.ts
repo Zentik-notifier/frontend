@@ -1,6 +1,27 @@
 import { Platform } from 'react-native';
 import * as ExpoFileSystem from 'expo-file-system';
 import { MediaCacheRepository } from '../services/media-cache-repository';
+import { ApiConfigService } from '../services/api-config';
+import { getAccessToken } from '../services/auth-storage';
+
+// Helper function to get API credentials (similar to service worker)
+async function getApiCredentials(): Promise<{ apiEndpoint: string; authToken: string } | null> {
+  try {
+    // For web/mobile, we need to get the auth token from storage
+    const authToken = await getAccessToken();
+    const apiEndpoint = ApiConfigService.getApiBaseWithPrefix();
+
+    if (!authToken) {
+      console.warn('[WebFS] No auth token available for proxy request');
+      return null;
+    }
+
+    return { apiEndpoint, authToken };
+  } catch (error) {
+    console.error('[WebFS] Failed to get API credentials:', error);
+    return null;
+  }
+}
 
 const isWeb = Platform.OS === 'web';
 
@@ -106,9 +127,26 @@ class WebFile {
     }
 
     try {
-      const response = await fetch(url);
+      // Use backend proxy to fetch media (bypasses CORS)
+      const credentials = await getApiCredentials();
+      if (!credentials) {
+        throw new Error('No API credentials available for proxy request');
+      }
+
+      const proxyUrl = `${credentials.apiEndpoint}/attachments/proxy-media?url=${encodeURIComponent(url)}`;
+      console.log(`[WebFS] Using backend proxy for download: ${proxyUrl}`);
+
+      const response = await fetch(proxyUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${credentials.authToken}`,
+          'Accept': 'image/*,video/*,audio/*,*/*',
+          'User-Agent': 'Zentik-Notifier-Web/1.0',
+        },
+      });
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`Backend proxy failed: ${response.status} ${response.statusText}`);
       }
 
       const arrayBuffer = await response.arrayBuffer();
@@ -128,29 +166,41 @@ class WebFile {
         uri: file.path,
         size: blob.size
       };
-    } catch (error) {
-      console.error('[WebFS] Download failed:', error);
-      throw error;
-    }
-  }
+    } catch (proxyError) {
+      console.warn(`[WebFS] Backend proxy failed, trying direct fetch:`, proxyError);
 
-  private getMediaTypeFromPath(): string {
-    // Extract media type from path (e.g., "IMAGE/file.jpg" -> "IMAGE")
-    const parts = this.path.split('/');
-    if (parts.length > 0) {
-      const filename = parts[parts.length - 1];
-      const typePart = filename.split('_')[0];
-      return typePart || 'UNKNOWN';
-    }
-    return 'UNKNOWN';
-  }
+      try {
+        // Fallback to direct fetch if proxy fails
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
 
-  private getFileNameFromPath(): string | undefined {
-    const parts = this.path.split('/');
-    if (parts.length > 0) {
-      return parts[parts.length - 1];
+        const arrayBuffer = await response.arrayBuffer();
+        const blob = new Blob([arrayBuffer]);
+
+        const repo = await getWebRepo();
+        // Save to media_item table using MediaCacheRepository
+        await repo.saveMediaItem({
+          key: file.path,
+          data: arrayBuffer,
+        });
+
+        file._exists = true;
+        file._size = blob.size;
+
+        return {
+          uri: file.path,
+          size: blob.size
+        };
+      } catch (directError) {
+        console.error('[WebFS] Both proxy and direct download failed:', {
+          proxyError,
+          directError
+        });
+        throw proxyError; // Throw the original proxy error
+      }
     }
-    return undefined;
   }
 
   // Force refresh of file state from database

@@ -360,14 +360,16 @@ export const CachedMedia = React.memo(function CachedMedia({
           onPress={ignoreClicks ? undefined : handleForceDownload}
           style={[
             defaultStyles.actionButton,
+            {
+              backgroundColor: primaryColor,
+              borderColor: primaryColor,
+            },
             isCompact
               ? {
                   ...defaultStyles.compactButton,
                 }
               : {
                   ...defaultStyles.rectangularButton,
-                  backgroundColor: primaryColor,
-                  borderColor: primaryColor,
                 },
           ]}
         >
@@ -436,7 +438,7 @@ export const CachedMedia = React.memo(function CachedMedia({
           style={[
             getStateContainerStyle("failed") as any,
             defaultStyles.stateContent,
-            { color: stateColors.failed },
+            { borderColor: stateColors.failed },
           ]}
         >
           {renderForceDownloadButton("alert-circle-outline", true)}
@@ -451,7 +453,7 @@ export const CachedMedia = React.memo(function CachedMedia({
           style={[
             getStateContainerStyle("deleted") as any,
             defaultStyles.stateContent,
-            { color: stateColors.failed },
+            { borderColor: stateColors.failed },
           ]}
         >
           {renderForceDownloadButton("refresh", false)}
@@ -502,7 +504,7 @@ export const CachedMedia = React.memo(function CachedMedia({
           style={[
             getStateContainerStyle("videoError") as any,
             defaultStyles.stateContent,
-            { color: stateColors.failed },
+            { borderColor: stateColors.failed },
           ]}
         >
           {renderForceDownloadButton("image-outline", true)}
@@ -894,14 +896,12 @@ const defaultStyles = StyleSheet.create({
 
   // Pulsante circolare per modalità compatta
   compactButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "transparent",
-    borderColor: "transparent",
-    borderWidth: 2,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
   },
 
   // Pulsante rettangolare per modalità normale
