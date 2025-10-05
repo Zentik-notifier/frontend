@@ -73,6 +73,7 @@ export default function CreatePayloadMapperForm({
   // Default function template for new payload mappers
   const defaultJsEvalFn = `(payload) => {
   // This function transforms incoming webhook payloads into notification messages
+  // Return null to skip the notification
   // https://notifier-docs.zentik.app/docs/notifications
   
   return {
