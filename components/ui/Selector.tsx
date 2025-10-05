@@ -113,8 +113,7 @@ export default function Selector({
 
   const styles = StyleSheet.create({
     container: {
-      marginBottom: 16,
-      position: "relative",
+      // position: "relative",
       zIndex: 1,
     },
     label: {

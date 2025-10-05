@@ -14,6 +14,7 @@ import {
   Button,
   Card,
   Dialog,
+  Divider,
   Icon,
   Portal,
   Text,
@@ -210,7 +211,9 @@ export default function DanglingBucketResolver({
       });
 
       await upsertNotificationsBatch(updatedNotifications);
-      console.log(`💾 Successfully updated ${updatedNotifications.length} notifications in local database`);
+      console.log(
+        `💾 Successfully updated ${updatedNotifications.length} notifications in local database`
+      );
     } catch (dbError) {
       console.error("Failed to update local database:", dbError);
       // Non blocchiamo l'operazione per errori del database locale
@@ -383,23 +386,25 @@ export default function DanglingBucketResolver({
 
           <View style={styles.section}>
             <Button
-              mode="contained"
-              onPress={handleCreateNewBucket}
-              icon="plus"
-              style={styles.createNewButton}
-            >
-              {t("buckets.createNewBucket")}
-            </Button>
-          </View>
-
-          <View style={styles.section}>
-            <Button
               mode="outlined"
               onPress={handleMigrateToExisting}
               style={styles.migrateButton}
               disabled={!selectedBucketId}
             >
               {t("buckets.migrateToExisting")}
+            </Button>
+          </View>
+
+          <Divider />
+
+          <View style={styles.section}>
+            <Button
+              mode="contained"
+              onPress={handleCreateNewBucket}
+              icon="plus"
+              style={styles.createNewButton}
+            >
+              {t("buckets.createNewBucket")}
             </Button>
           </View>
         </>
@@ -494,7 +499,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   section: {
-    marginBottom: 24,
+    margin: 12,
   },
   sectionTitle: {
     marginBottom: 12,

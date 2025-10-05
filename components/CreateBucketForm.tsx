@@ -27,7 +27,6 @@ import ColorPicker, { ColorPickerRef } from "./ColorPicker";
 import IconEditor from "./IconEditor";
 import IdWithCopyButton from "./IdWithCopyButton";
 import SnoozeSchedulesManager from "./SnoozeSchedulesManager";
-import PaperScrollView from "./ui/PaperScrollView";
 
 const defaultColor = "#0a7ea4";
 

@@ -1,7 +1,6 @@
 import { BucketFragment } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
-import { StyleSheet, View } from "react-native";
 import Selector, { SelectorOption } from "./ui/Selector";
 
 export const BUCKET_ALL = "ALL";
@@ -41,7 +40,7 @@ export default function BucketSelector({
         name: bucket.name,
         iconUrl: bucket.icon ?? undefined,
         iconColor: bucket.color ?? undefined,
-        iconName: "circle",        
+        iconName: "circle",
       });
     });
 
@@ -53,83 +52,14 @@ export default function BucketSelector({
   );
 
   return (
-    <View style={styles.container}>
-      <Selector
-        label={label}
-        placeholder={t("bucketSelector.selectBucket")}
-        options={bucketOptions.filter((option) => option.id !== BUCKET_ALL)}
-        selectedValue={selectedOption?.id || ""}
-        onValueChange={(value) => onBucketChange(value)}
-        isSearchable={searchable}
-        mode="inline"
-      />
-    </View>
+    <Selector
+      label={label}
+      placeholder={t("bucketSelector.selectBucket")}
+      options={bucketOptions.filter((option) => option.id !== BUCKET_ALL)}
+      selectedValue={selectedOption?.id || ""}
+      onValueChange={(value) => onBucketChange(value)}
+      isSearchable={searchable}
+      mode="inline"
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  dropdownButton: {
-    width: "100%",
-    height: 50,
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    justifyContent: "center",
-  },
-  dropdownButtonText: {
-    fontSize: 16,
-    textAlign: "left",
-  },
-  buttonContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  buttonText: {
-    fontSize: 16,
-    flex: 1,
-  },
-  dropdown: {
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 4,
-  },
-  dropdownRow: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  dropdownRowText: {
-    fontSize: 16,
-  },
-  rowContent: {
-    flexDirection: "column",
-  },
-  rowText: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  rowSubtext: {
-    fontSize: 14,
-    marginTop: 2,
-    opacity: 0.7,
-  },
-  searchInput: {
-    height: 40,
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    marginHorizontal: 12,
-    marginVertical: 8,
-    fontSize: 16,
-  },
-});
