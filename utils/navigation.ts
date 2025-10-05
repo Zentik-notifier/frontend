@@ -140,6 +140,30 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToPayloadMappersSettings: () => {
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/payload-mapper/list`);
+            } else {
+                router.push(`/(tablet)/(settings)/payload-mapper/list`);
+            }
+        },
+
+        navigateToCreatePayloadMapper: () => {
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/payload-mapper/create`);
+            } else {
+                router.push(`/(tablet)/(settings)/payload-mapper/create`);
+            }
+        },
+
+        navigateToEditPayloadMapper: (payloadMapperId: string) => {
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/payload-mapper/${payloadMapperId}`);
+            } else {
+                router.push(`/(tablet)/(settings)/payload-mapper/${payloadMapperId}`);
+            }
+        },
+
         navigateToDevicesSettings: () => {
             if (isMobile) {
                 router.push(`/(mobile)/(settings)/devices`);

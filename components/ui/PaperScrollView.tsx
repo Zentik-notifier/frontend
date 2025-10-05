@@ -19,6 +19,7 @@ import { useI18n } from "../../hooks/useI18n";
 interface PaperScrollViewProps {
   children: React.ReactNode;
   onRefresh?: () => Promise<void>;
+  refetch?: () => Promise<void>;
   onAdd?: () => void;
   style?: ViewStyle;
   contentContainerStyle?: ViewStyle;
@@ -35,6 +36,7 @@ interface PaperScrollViewProps {
 export default function PaperScrollView({
   children,
   onRefresh,
+  refetch,
   onAdd,
   style,
   contentContainerStyle,
@@ -86,7 +88,7 @@ export default function PaperScrollView({
     children
   );
 
-  const showFab = (onRefresh && Platform.OS === "web") || onAdd;
+  const showFab = (onRefresh && Platform.OS === "web") || (refetch && Platform.OS === "web") || onAdd;
 
   return (
     <View
@@ -122,6 +124,17 @@ export default function PaperScrollView({
               mode="contained"
               containerColor={theme.colors.secondaryContainer}
               iconColor={theme.colors.secondary}
+              style={styles.fabButton}
+            />
+          )}
+          {refetch && Platform.OS === "web" && (
+            <IconButton
+              icon="refresh"
+              size={24}
+              onPress={refetch}
+              mode="contained"
+              containerColor={theme.colors.tertiaryContainer}
+              iconColor={theme.colors.tertiary}
               style={styles.fabButton}
             />
           )}

@@ -6,6 +6,23 @@ input SnoozeScheduleInput {
   isEnabled: Boolean!
 }
 
+input CreatePayloadMapperDto {
+  name: String!
+  jsEvalFn: String!
+  userId: String
+}
+
+input UpdatePayloadMapperDto {
+  name: String
+  jsEvalFn: String
+}
+
+enum PayloadMapperBuiltInType {
+  ZentikAuthentik
+  ZentikRailway
+  ZentikServarr
+}
+
 # Password Reset Mutations
 mutation RequestPasswordReset($input: RequestPasswordResetDto!) {
   requestPasswordReset(input: $input) {
@@ -944,4 +961,46 @@ mutation SetBucketSnoozeMinutes($bucketId: String!, $input: SetBucketSnoozeMinut
       name
     }
   }
+}
+
+# Payload Mapper Operations
+fragment PayloadMapperFragment on PayloadMapper {
+  id
+  name
+  jsEvalFn
+  userId
+  builtInName
+  user {
+    ...UserFragment
+  }
+  createdAt
+  updatedAt
+}
+
+query GetPayloadMappers {
+  payloadMappers {
+    ...PayloadMapperFragment
+  }
+}
+
+query GetPayloadMapper($id: String!) {
+  payloadMapper(id: $id) {
+    ...PayloadMapperFragment
+  }
+}
+
+mutation CreatePayloadMapper($input: CreatePayloadMapperDto!) {
+  createPayloadMapper(input: $input) {
+    ...PayloadMapperFragment
+  }
+}
+
+mutation UpdatePayloadMapper($id: String!, $input: UpdatePayloadMapperDto!) {
+  updatePayloadMapper(id: $id, input: $input) {
+    ...PayloadMapperFragment
+  }
+}
+
+mutation DeletePayloadMapper($id: String!) {
+  deletePayloadMapper(id: $id)
 }

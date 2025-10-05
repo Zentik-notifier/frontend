@@ -492,6 +492,7 @@ type PasswordResetResponseDto {
 }
 
 type PayloadMapper {
+  builtInName: PayloadMapperBuiltInType
   createdAt: DateTime!
   id: ID!
   jsEvalFn: String!
@@ -506,17 +507,6 @@ enum PayloadMapperBuiltInType {
   ZentikAuthentik
   ZentikRailway
   ZentikServarr
-}
-
-type PayloadMapperWithBuiltin {
-  builtInName: PayloadMapperBuiltInType
-  createdAt: DateTime!
-  id: ID!
-  jsEvalFn: String!
-  name: String!
-  updatedAt: DateTime!
-  user: User
-  userId: ID
 }
 
 """Permission enum for bucket access"""
@@ -554,7 +544,7 @@ type Query {
   notifications: [Notification!]!
   oauthProvider(id: String!): OAuthProvider!
   payloadMapper(id: String!): PayloadMapper!
-  payloadMappers: [PayloadMapperWithBuiltin!]!
+  payloadMappers: [PayloadMapper!]!
   publicAppConfig: PublicAppConfig!
   user(id: String!): User!
   userDevice: UserDevice

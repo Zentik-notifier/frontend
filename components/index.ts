@@ -13,6 +13,7 @@ export { default as CreateAccessTokenForm } from './CreateAccessTokenForm';
 export { default as CreateBucketForm } from './CreateBucketForm';
 export { default as CreateOAuthProviderForm } from './CreateOAuthProviderForm';
 export { default as CreateWebhookForm } from './CreateWebhookForm';
+export { default as CreatePayloadMapperForm } from './CreatePayloadMapperForm';
 export { default as MediaAttachmentForm } from './MediaAttachmentForm';
 export { default as MediaAttachmentsSelector } from './MediaAttachmentsSelector';
 export { default as NotificationActionForm } from './NotificationActionForm';

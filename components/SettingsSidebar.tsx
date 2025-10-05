@@ -71,6 +71,15 @@ export default function SettingsSidebar() {
       selectionSegment: "webhook",
     },
     {
+      id: "payload-mappers-settings",
+      title: t("payloadMappers.title"),
+      description: t("payloadMappers.description"),
+      icon: "function",
+      iconColor: "#8B5CF6", // Purple
+      onPress: nav.navigateToPayloadMappersSettings,
+      selectionSegment: "payload-mapper",
+    },
+    {
       id: "devices-settings",
       title: t("devices.title"),
       description: t("devices.description"),
