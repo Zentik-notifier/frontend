@@ -11,7 +11,7 @@ import { useNavigationUtils } from "@/utils/navigation";
 import { useFonts } from "expo-font";
 import * as Linking from "expo-linking";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Platform, StyleSheet } from "react-native";
+import { Alert, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { MenuProvider } from "react-native-popup-menu";
 import "react-native-reanimated";
@@ -211,9 +211,3 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
