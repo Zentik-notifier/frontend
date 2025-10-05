@@ -1,5 +1,6 @@
 import React from "react";
-import { Dialog, Portal, Text, Button } from "react-native-paper";
+import { Dialog, Portal, Text, Button, useTheme } from "react-native-paper";
+import { StyleSheet, Dimensions } from "react-native";
 
 interface AlertDialogProps {
   visible: boolean;
@@ -24,6 +25,10 @@ export function AlertDialog({
   onCancel,
   type = "info",
 }: AlertDialogProps) {
+  const theme = useTheme();
+  const screenWidth = Dimensions.get('window').width;
+  const maxWidth = screenWidth * 0.5; // 50% dello schermo
+  const minWidth = 300;
   const handleConfirm = () => {
     onConfirm?.();
     onDismiss();
@@ -50,9 +55,16 @@ export function AlertDialog({
   return (
     <Portal>
       <Dialog
-        style={{ maxWidth: "50%" }}
         visible={visible}
         onDismiss={onDismiss}
+        style={[
+          styles.dialog,
+          {
+            maxWidth: Math.max(maxWidth, minWidth),
+            minWidth: minWidth,
+            alignSelf: 'center',
+          },
+        ]}
       >
         <Dialog.Icon icon={getIcon()} />
         <Dialog.Title>{title}</Dialog.Title>
@@ -69,3 +81,10 @@ export function AlertDialog({
     </Portal>
   );
 }
+
+const styles = StyleSheet.create({
+  dialog: {
+    margin: 'auto',
+    maxWidth: '90%', // Fallback per sicurezza
+  },
+});

@@ -1354,7 +1354,11 @@
     "downloadProgress": "Download...",
     "loadingProgress": "Loading...",
     "forceDownload": "Download",
-    "delete": "Delete"
+    "delete": "Delete",
+    "deleteItem": {
+      "title": "Delete Media",
+      "message": "Are you sure you want to delete this media from the cache? You can download it manually later if it's still available."
+    }
   },
   "gallery": {
     "today": "Today",

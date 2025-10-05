@@ -226,12 +226,12 @@ export default function FullScreenMediaViewer({
     if (!url || !mediaType) return;
 
     Alert.alert(
-      "Elimina Media",
-      "Vuoi eliminare questo media dalla cache? Potrai riscaricarlo manualmente in seguito se ancora disponibile.",
+      t("cachedMedia.deleteItem.title"),
+      t("cachedMedia.deleteItem.message"),
       [
-        { text: "Annulla", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Elimina",
+          text: t("common.delete"),
           style: "destructive",
           onPress: async () => {
             try {

@@ -581,6 +581,10 @@ export interface TranslationKey {
   };
   cachedMedia: {
     delete: string;
+    deleteItem: {
+      message: string;
+      title: string;
+    };
     downloadProgress: string;
     forceDownload: string;
     loadingProgress: string;
