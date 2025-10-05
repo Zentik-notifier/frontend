@@ -481,17 +481,17 @@ export const CachedMedia = React.memo(function CachedMedia({
       if (thumbPath) {
         return (
           <Pressable onPress={handleFrameClick}>
-            <ExpoImage
-              source={{ uri: thumbPath }}
-              style={
-                isCompact
-                  ? ([
-                      defaultStyles.stateContainerCompact,
-                      style,
-                    ] as StyleProp<ImageStyle>)
-                  : (style as StyleProp<ImageStyle>)
-              }
-              contentFit={imageProps?.contentFit ?? contentFit}
+              <ExpoImage
+                source={{ uri: thumbPath }}
+                style={
+                  isCompact
+                    ? ([
+                        defaultStyles.stateContainerCompact,
+                        style,
+                      ] as StyleProp<ImageStyle>)
+                    : (style as StyleProp<ImageStyle>)
+                }
+                contentFit={isCompact ? "cover" : (imageProps?.contentFit ?? contentFit)}
               transition={imageProps?.transition ?? 150}
               cachePolicy={imageProps?.cachePolicy || "memory"}
             />
@@ -530,7 +530,7 @@ export const CachedMedia = React.memo(function CachedMedia({
                       ] as StyleProp<ImageStyle>)
                     : (style as StyleProp<ImageStyle>)
                 }
-                contentFit={imageProps?.contentFit ?? contentFit}
+                contentFit={isCompact ? "cover" : (imageProps?.contentFit ?? contentFit)}
                 transition={imageProps?.transition ?? 200}
                 placeholder={imageProps?.placeholder}
                 blurRadius={imageProps?.blurRadius}
@@ -716,8 +716,9 @@ const defaultStyles = StyleSheet.create({
   stateContainerCompact: {
     justifyContent: "center",
     alignItems: "center",
-    minHeight: 40,
-    minWidth: 40,
+    height: "100%",
+    width: "100%",
+    aspectRatio: 1,
     borderWidth: 1,
     backgroundColor: "#f8f8f8",
   },
