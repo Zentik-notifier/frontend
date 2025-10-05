@@ -112,10 +112,6 @@ export default function Selector({
   };
 
   const styles = StyleSheet.create({
-    container: {
-      // position: "relative",
-      zIndex: 1,
-    },
     label: {
       fontSize: 16,
       fontWeight: "500",
@@ -365,7 +361,7 @@ export default function Selector({
   const selectedItem = renderItem(selectedOption);
 
   const renderInlineMode = () => (
-    <View style={styles.container} ref={containerRef}>
+    <View ref={containerRef}>
       {label && <Text style={styles.label}>{label}</Text>}
 
       <TouchableOpacity
@@ -451,7 +447,7 @@ export default function Selector({
 
   const trigger = useCallback(
     (show: () => void) => (
-      <View style={styles.container}>
+      <View>
         {label && <Text style={styles.label}>{label}</Text>}
 
         <TouchableOpacity

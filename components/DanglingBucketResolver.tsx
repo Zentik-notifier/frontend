@@ -132,10 +132,6 @@ export default function DanglingBucketResolver({
             }),
           },
         });
-
-        console.log(
-          `✅ Updated message ${notification.message.id} to point to bucket ${toBucketId}`
-        );
       } catch (error) {
         console.error(
           `❌ Failed to update message ${notification.message.id}:`,
