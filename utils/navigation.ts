@@ -116,13 +116,11 @@ export function useNavigationUtils() {
             }
         },
 
-        navigateToBucketsSettings: (danglingBucketId?: string) => {
-            const params = danglingBucketId ? { danglingBucketId } : undefined;
-
+        navigateToBucketsSettings: () => {
             if (isMobile) {
-                router.push({ pathname: `/(mobile)/(settings)/bucket/list`, params });
+                router.push({ pathname: `/(mobile)/(settings)/bucket/list` });
             } else {
-                router.push({ pathname: `/(tablet)/(settings)/bucket/list`, params });
+                router.push({ pathname: `/(tablet)/(settings)/bucket/list` });
             }
         },
 
@@ -295,5 +293,20 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToDanglingBucket: (bucketId: string, fromHome: boolean) => {
+            if (fromHome) {
+                if (isMobile) {
+                    router.push(`/(mobile)/(home)/bucket/link/${bucketId}`);
+                } else {
+                    router.push(`/(tablet)/(home)/bucket/link/${bucketId}`);
+                }
+            } else {
+                if (isMobile) {
+                    router.push(`/(mobile)/(settings)/bucket/link/${bucketId}`);
+                } else {
+                    router.push(`/(tablet)/(settings)/bucket/link/${bucketId}`);
+                }
+            }
+        },
     };
 }

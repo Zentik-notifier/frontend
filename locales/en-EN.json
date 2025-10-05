@@ -301,6 +301,7 @@
     "organize": "Organize your notifications with buckets. Create and manage different categories.",
     "noBucketsYet": "No buckets created yet",
     "createFirstBucket": "Create your first bucket to get started",
+    "danglingBucketTitle": "Link dangling bucket",
     "danglingBuckets": "Dangling Buckets",
     "danglingBucketsDescription": "Buckets linked to cached notifications but not existing on remote",
     "showDanglingBuckets": "Show Dangling Buckets",

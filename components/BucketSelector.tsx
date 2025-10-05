@@ -41,7 +41,7 @@ export default function BucketSelector({
         name: bucket.name,
         iconUrl: bucket.icon ?? undefined,
         iconColor: bucket.color ?? undefined,
-        iconName: "circle",
+        iconName: "circle",        
       });
     });
 
@@ -61,6 +61,7 @@ export default function BucketSelector({
         selectedValue={selectedOption?.id || ""}
         onValueChange={(value) => onBucketChange(value)}
         isSearchable={searchable}
+        mode="inline"
       />
     </View>
   );

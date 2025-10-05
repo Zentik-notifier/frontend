@@ -29,6 +29,7 @@ export default function HomeSidebar() {
     navigateToHome,
     navigateToGallery,
     navigateToBucketDetail,
+    navigateToDanglingBucket,
   } = useNavigationUtils();
   const { isDesktop } = useDeviceType();
 
@@ -43,6 +44,15 @@ export default function HomeSidebar() {
     const result = getBucketStats(bucketsData?.buckets ?? [], notifications);
     return result;
   }, [bucketsData, notifications]);
+
+  const handleBucketPress = (bucketId: string) => {
+    const bucket = bucketStats.find((bucket) => bucket.id === bucketId);
+    if (bucket?.isDangling) {
+      navigateToDanglingBucket(bucketId, true);
+    } else {
+      navigateToBucketDetail(bucketId);
+    }
+  };
 
   const isBucketSelected = (bucketId: string) => {
     if (pathname.includes("notification/")) {
@@ -181,7 +191,7 @@ export default function HomeSidebar() {
                         : "transparent",
                     },
                   ]}
-                  onPress={() => navigateToBucketDetail(bucket.id)}
+                  onPress={() => handleBucketPress(bucket.id)}
                 >
                   <View style={styles.bucketItemContent}>
                     <BucketIcon

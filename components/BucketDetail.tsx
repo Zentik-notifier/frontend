@@ -13,7 +13,7 @@ import {
   IconButton,
   Surface,
   Text,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import MessageBuilder from "./MessageBuilder";
@@ -29,7 +29,7 @@ interface BucketDetailProps {
 export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { t } = useI18n();
   const theme = useTheme();
-  const { navigateToEditBucket, navigateToBucketsSettings } =
+  const { navigateToEditBucket, navigateToDanglingBucket } =
     useNavigationUtils();
   const { massMarkAsRead, loading: markAllAsReadLoading } =
     useMassMarkNotificationsAsRead();
@@ -44,7 +44,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
 
   useEffect(() => {
     if (isOrphaned) {
-      navigateToBucketsSettings(bucketId);
+      navigateToDanglingBucket(bucketId, true);
     }
   }, [bucketId, isOrphaned]);
 
@@ -173,7 +173,11 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
               iconColor={theme.colors.onSurfaceVariant}
               style={[
                 styles.actionButton,
-                { backgroundColor: theme.colors.surfaceVariant, width: 32, height: 32 },
+                {
+                  backgroundColor: theme.colors.surfaceVariant,
+                  width: 32,
+                  height: 32,
+                },
               ]}
               onPress={() => navigateToEditBucket(bucketId, true)}
               accessibilityLabel="edit-bucket"

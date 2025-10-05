@@ -301,6 +301,7 @@
     "organize": "Organizza le tue notifiche con i bucket. Crea e gestisci diverse categorie.",
     "noBucketsYet": "Nessun bucket creato ancora",
     "createFirstBucket": "Crea il tuo primo bucket per iniziare",
+    "danglingBucketTitle": "Collega bucket orfano",
     "danglingBuckets": "Bucket Orfani",
     "danglingBucketsDescription": "Bucket collegati a notifiche in cache ma non esistenti nel remote",
     "showDanglingBuckets": "Mostra Bucket Orfani",

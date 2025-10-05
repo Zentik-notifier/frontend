@@ -454,6 +454,7 @@ export interface TranslationKey {
     composeMessage: string;
     createFirstBucket: string;
     danglingBuckets: string;
+    danglingBucketTitle: string;
     danglingBucketsDescription: string;
     danglingBucketItem: string;
     noDanglingBuckets: string;

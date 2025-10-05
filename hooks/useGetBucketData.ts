@@ -110,6 +110,7 @@ export function useGetBucketData(bucketId?: string) {
 
 interface BucketStats {
     id: string;
+    isDangling: boolean;
     name: string;
     description: string | null;
     color: string | null;
@@ -128,6 +129,7 @@ export const getBucketStats = (buckets: BucketFragment[], notifications: Notific
         const bucketId = bucket.id;
         if (!bucketData[bucketId]) {
             bucketData[bucketId] = {
+                isDangling: !bucketsById[bucketId],
                 color: bucket?.color,
                 icon: bucket?.icon,
                 name: bucket?.name,

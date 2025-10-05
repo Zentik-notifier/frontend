@@ -46,6 +46,7 @@ const ROUTES_WITH_BACK_BUTTON: string[] = [
   "/(mobile)/(home)/bucket/settings/[id]",
   "/(mobile)/(home)/bucket/[id]",
   "/(mobile)/(home)/notification/[id]",
+  "/(mobile)/(home)/bucket/link/[id]",
   "/(mobile)/(home)/bucket/settings/create",
   "/(mobile)/(home)/bucket/create",
   "/(mobile)/(settings)/user/",
@@ -128,6 +129,10 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
     "systemAccessTokens.form.title",
   "/(mobile)/(admin)/events-review": "eventsReview.title",
   "/(tablet)/(admin)/events-review": "eventsReview.title",
+  "/(mobile)/(settings)/bucket/link/[id]": "buckets.danglingBucketTitle",
+  "/(tablet)/(settings)/bucket/link/[id]": "buckets.danglingBucketTitle",
+  "/(mobile)/(home)/bucket/link/[id]": "buckets.danglingBucketTitle",
+  // "/(tablet)/(home)/bucket/link/[id]": "buckets.danglingBucketTitle",
 };
 
 export default function Header() {
@@ -142,7 +147,6 @@ export default function Header() {
     closeLoginModal,
     isMainLoading,
     isLoadingGqlData,
-    openLoginModal,
   } = useAppContext();
   const { itemsInQueue, inProcessing } = useDownloadQueue();
   const { t } = useI18n();

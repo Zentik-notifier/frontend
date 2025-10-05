@@ -27,6 +27,7 @@ export interface SelectorOption {
   iconName?: IconSource;
   iconColor?: string;
   iconUrl?: string;
+  iconElement?: React.ReactNode;
 }
 
 interface SelectorProps {
@@ -184,7 +185,7 @@ export default function Selector({
       borderWidth: 1,
       borderColor: theme.colors.outline,
       borderRadius: 8,
-      maxHeight: 300,
+      // maxHeight: 300,
       zIndex: 9999,
       elevation: 10,
       shadowColor: "#000",
@@ -329,7 +330,9 @@ export default function Selector({
   const renderItem = (item?: SelectorOption) => (
     <View style={{ flex: 1 }}>
       <View style={styles.valueRow}>
-        {item?.iconUrl ? (
+        {item?.iconElement ? (
+          item?.iconElement
+        ) : item?.iconUrl ? (
           <Image
             source={item.iconUrl}
             cachePolicy="memory-disk"
@@ -345,7 +348,10 @@ export default function Selector({
             />
           </View>
         ) : null}
-        <Text style={[styles.inputText, !item && styles.placeholder]} numberOfLines={1}>
+        <Text
+          style={[styles.inputText, !item && styles.placeholder]}
+          numberOfLines={1}
+        >
           {item ? item.name : placeholder || t("common.selectOption")}
         </Text>
       </View>

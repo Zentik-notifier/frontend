@@ -1,9 +1,9 @@
-import EditBucket from "@/components/EditBucket";
+import DanglingBucketResolver from "@/components/DanglingBucketResolver";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useLocalSearchParams } from "expo-router";
 import React from "react";
 
-export default function EditBucketPage() {
+export default function DanglingBucketPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { navigateBack } = useNavigationUtils();
 
@@ -11,5 +11,5 @@ export default function EditBucketPage() {
     return null;
   }
 
-  return <EditBucket bucketId={id} onBack={navigateBack} />;
+  return <DanglingBucketResolver bucketId={id} onBack={navigateBack} />;
 }

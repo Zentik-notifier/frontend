@@ -11,14 +11,9 @@ import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import React from "react";
 import { Alert, StyleSheet } from "react-native";
-import {
-  Button,
-  Card,
-  Surface,
-  Text,
-  useTheme
-} from "react-native-paper";
+import { Button, Card, Surface, Text, useTheme } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
+import { useNavigationUtils } from "@/utils/navigation";
 
 interface EditBucketProps {
   bucketId: string;
@@ -29,6 +24,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   const { t } = useI18n();
   const theme = useTheme();
   const { userId } = useAppContext();
+  const { navigateToHome } = useNavigationUtils();
 
   const {
     bucket,
@@ -46,7 +42,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
 
   const [deleteBucketMutation] = useDeleteBucketMutation({
     onCompleted: () => {
-      onBack?.();
+      navigateToHome();
     },
     onError: (error) => {
       console.error("Error deleting bucket:", error);

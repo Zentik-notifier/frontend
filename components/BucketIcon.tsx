@@ -30,7 +30,7 @@ export default function BucketIcon({
   const theme = useTheme();
   const { bucket, error } = useGetBucketData(bucketId);
   const { color, icon } = bucket || {};
-  const { navigateToBucketsSettings, navigateToBucketDetail } =
+  const { navigateToDanglingBucket, navigateToBucketDetail } =
     useNavigationUtils();
 
   const isOrphaned = error && error.message.includes("Bucket not found");
@@ -42,7 +42,7 @@ export default function BucketIcon({
 
   const handlePress = () => {
     if (isOrphaned) {
-      navigateToBucketsSettings(bucketId);
+      navigateToDanglingBucket(bucketId, true);
     } else if (!noRouting) {
       navigateToBucketDetail(bucketId);
     }
