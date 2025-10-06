@@ -1153,6 +1153,25 @@
       "DELETE": "DELETE"
     }
   },
+  "entityExecutions": {
+    "title": "Executions",
+    "details": "Details",
+    "relatedExecutions": "Related Executions",
+    "noRelatedExecutions": "No related executions found",
+    "lastExecutions": "Last {{count}} executions",
+    "noExecutions": "No executions found",
+    "duration": "Duration",
+    "errors": "Errors",
+    "input": "Input",
+    "output": "Output",
+    "type": "Type",
+    "status": "Status",
+    "entityName": "Entity Name",
+    "entityId": "Entity ID",
+    "userId": "User ID",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At"
+  },
   "payloadMappers": {
     "title": "Payload Mappers",
     "description": "Create and manage payload transformation functions for webhook integrations",

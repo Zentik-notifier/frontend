@@ -1,0 +1,344 @@
+import {
+  EntityExecutionFragment,
+  ExecutionType,
+  useGetEntityExecutionsQuery,
+} from "@/generated/gql-operations-generated";
+import { useI18n } from "@/hooks/useI18n";
+import React, { useState } from "react";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Card,
+  Chip,
+  Text,
+  useTheme,
+} from "react-native-paper";
+import { FlashList } from "@shopify/flash-list";
+import ExecutionDetailModal from "./ExecutionDetailModal";
+
+interface EntityExecutionsSectionProps {
+  entityId: string;
+  entityType: ExecutionType;
+}
+
+interface ExecutionItemProps {
+  execution: EntityExecutionFragment;
+  onPress: (execution: EntityExecutionFragment) => void;
+}
+
+function ExecutionItem({ execution, onPress }: ExecutionItemProps) {
+  const theme = useTheme();
+  const { t } = useI18n();
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "SUCCESS":
+        return theme.colors.primary;
+      case "ERROR":
+        return theme.colors.error;
+      case "TIMEOUT":
+        return theme.colors.tertiary;
+      case "SKIPPED":
+        return theme.colors.outline;
+      default:
+        return theme.colors.onSurface;
+    }
+  };
+
+  const formatDuration = (durationMs?: number | null) => {
+    if (!durationMs) return "";
+    return `${durationMs}ms`;
+  };
+
+  const handlePress = () => {
+    onPress(execution);
+  };
+
+  return (
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
+      <Card style={styles.executionCard}>
+        <Card.Content>
+        <View style={styles.executionHeader}>
+          <Chip
+            mode="outlined"
+            compact
+            style={[
+              styles.statusChip,
+              { borderColor: getStatusColor(execution.status) },
+            ]}
+            textStyle={{ color: getStatusColor(execution.status) }}
+          >
+            {execution.status}
+          </Chip>
+          <Text variant="bodySmall" style={styles.executionDate}>
+            {new Date(execution.createdAt).toLocaleString()}
+          </Text>
+        </View>
+
+        <View style={styles.executionDetails}>
+          {execution.durationMs && (
+            <Text variant="bodySmall" style={styles.durationText}>
+              {t("entityExecutions.duration")}: {formatDuration(execution.durationMs)}
+            </Text>
+          )}
+
+          {execution.errors && (
+            <View style={styles.errorSection}>
+              <Text variant="bodySmall" style={[styles.errorText, { color: theme.colors.error }]}>
+                {t("entityExecutions.errors")}: {execution.errors}
+              </Text>
+            </View>
+          )}
+
+          {execution.input && execution.input.length > 100 && (
+            <View style={styles.codeSection}>
+              <Text variant="labelSmall" style={styles.codeLabel}>
+                {t("entityExecutions.input")}:
+              </Text>
+              <Text
+                variant="bodySmall"
+                style={[styles.codeText, { backgroundColor: theme.colors.surfaceVariant }]}
+                numberOfLines={3}
+              >
+                {execution.input.substring(0, 100)}...
+              </Text>
+            </View>
+          )}
+
+          {execution.output && execution.output.length > 100 && (
+            <View style={styles.codeSection}>
+              <Text variant="labelSmall" style={styles.codeLabel}>
+                {t("entityExecutions.output")}:
+              </Text>
+              <Text
+                variant="bodySmall"
+                style={[styles.codeText, { backgroundColor: theme.colors.surfaceVariant }]}
+                numberOfLines={3}
+              >
+                {execution.output.substring(0, 100)}...
+              </Text>
+            </View>
+          )}
+        </View>
+        </Card.Content>
+      </Card>
+    </TouchableOpacity>
+  );
+}
+
+export default function EntityExecutionsSection({
+  entityId,
+  entityType,
+}: EntityExecutionsSectionProps) {
+  const { t } = useI18n();
+
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedExecution, setSelectedExecution] = useState<EntityExecutionFragment | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const { data, loading, error, refetch } = useGetEntityExecutionsQuery({
+    variables: {
+      input: {
+        type: entityType,
+        entityId,
+      },
+    },
+    skip: !isExpanded,
+  });
+
+  const executions = data?.getEntityExecutions || [];
+  const hasExecutions = executions.length > 0;
+
+  const handleExecutionPress = (execution: EntityExecutionFragment) => {
+    setSelectedExecution(execution);
+    setModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setSelectedExecution(null);
+  };
+
+  return (
+    <View style={styles.section}>
+      <Card
+        style={styles.sectionCard}
+        onPress={() => setIsExpanded(!isExpanded)}
+      >
+        <Card.Content>
+          <View style={styles.sectionHeader}>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              {t("entityExecutions.title")}
+            </Text>
+            <View style={styles.sectionHeaderRight}>
+              {hasExecutions && (
+                <Chip compact mode="outlined">
+                  {executions.length}
+                </Chip>
+              )}
+              <Text style={styles.expandIcon}>
+                {isExpanded ? "−" : "+"}
+              </Text>
+            </View>
+          </View>
+
+          {!isExpanded && hasExecutions && (
+            <Text variant="bodySmall" style={styles.sectionSummary}>
+              {t("entityExecutions.lastExecutions", { count: executions.length })}
+            </Text>
+          )}
+        </Card.Content>
+      </Card>
+
+      {isExpanded && (
+        <View style={styles.executionsContainer}>
+          {loading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" />
+              <Text variant="bodySmall" style={styles.loadingText}>
+                {t("common.loading")}
+              </Text>
+            </View>
+          )}
+
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text variant="bodySmall" style={styles.errorText}>
+                {t("common.error")}: {error.message}
+              </Text>
+            </View>
+          )}
+
+          {!loading && !error && !hasExecutions && (
+            <View style={styles.emptyContainer}>
+              <Text variant="bodySmall" style={styles.emptyText}>
+                {t("entityExecutions.noExecutions")}
+              </Text>
+            </View>
+          )}
+
+          {!loading && !error && hasExecutions && (
+            <FlashList
+              data={executions}
+              renderItem={({ item }) => <ExecutionItem execution={item} onPress={handleExecutionPress} />}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.executionsList}
+              onRefresh={refetch}
+              refreshing={loading}
+            />
+          )}
+        </View>
+      )}
+
+      {/* Execution Detail Modal */}
+      <ExecutionDetailModal
+        visible={modalVisible}
+        execution={selectedExecution}
+        onClose={handleCloseModal}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  section: {
+    marginTop: 16,
+  },
+  sectionCard: {
+    elevation: 2,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  sectionHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  sectionTitle: {
+    fontWeight: "600",
+  },
+  sectionSummary: {
+    marginTop: 8,
+    opacity: 0.7,
+  },
+  expandIcon: {
+    fontSize: 24,
+    fontWeight: "bold",
+    opacity: 0.6,
+  },
+  executionsContainer: {
+    marginTop: 8,
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    gap: 8,
+  },
+  loadingText: {
+    opacity: 0.7,
+  },
+  errorContainer: {
+    padding: 16,
+    alignItems: "center",
+  },
+  errorText: {
+    color: "#dc3545",
+    textAlign: "center",
+  },
+  emptyContainer: {
+    padding: 16,
+    alignItems: "center",
+  },
+  emptyText: {
+    opacity: 0.7,
+    textAlign: "center",
+  },
+  executionsList: {
+    paddingBottom: 16,
+  },
+  executionCard: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    elevation: 1,
+  },
+  executionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  statusChip: {
+    height: 24,
+  },
+  executionDate: {
+    opacity: 0.7,
+  },
+  executionDetails: {
+    gap: 4,
+  },
+  durationText: {
+    opacity: 0.8,
+  },
+  errorSection: {
+    marginTop: 4,
+  },
+  codeSection: {
+    marginTop: 8,
+  },
+  codeLabel: {
+    marginBottom: 4,
+    opacity: 0.8,
+  },
+  codeText: {
+    padding: 8,
+    borderRadius: 4,
+    fontFamily: "monospace",
+    fontSize: 12,
+  },
+});

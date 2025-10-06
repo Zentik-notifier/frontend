@@ -29,6 +29,7 @@ const ROUTES_WITH_HOME_BUTTON: string[] = [
   "/(mobile)/(admin)",
   "/(tablet)/(settings)",
   "/(tablet)/(admin)",
+  "/(mobile)/(home)/notification/[id]",
 ];
 
 const HOME_ROUTES: string[] = [
@@ -45,7 +46,7 @@ const ROUTES_WITH_BACK_BUTTON: string[] = [
   "/(common)/(auth)/email-confirmation",
   "/(mobile)/(home)/bucket/settings/[id]",
   "/(mobile)/(home)/bucket/[id]",
-  "/(mobile)/(home)/notification/[id]",
+  // "/(mobile)/(home)/notification/[id]",
   "/(mobile)/(home)/bucket/link/[id]",
   "/(mobile)/(home)/bucket/settings/create",
   "/(mobile)/(home)/bucket/create",

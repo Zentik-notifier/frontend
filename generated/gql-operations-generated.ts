@@ -178,6 +178,23 @@ export type EmailStatusResponseDto = {
   message: Scalars['String']['output'];
 };
 
+export type EntityExecution = {
+  __typename?: 'EntityExecution';
+  createdAt: Scalars['DateTime']['output'];
+  durationMs: Maybe<Scalars['Float']['output']>;
+  entityId: Maybe<Scalars['String']['output']>;
+  entityName: Maybe<Scalars['String']['output']>;
+  errors: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  input: Scalars['String']['output'];
+  output: Maybe<Scalars['String']['output']>;
+  status: ExecutionStatus;
+  type: ExecutionType;
+  updatedAt: Scalars['DateTime']['output'];
+  user: User;
+  userId: Scalars['String']['output'];
+};
+
 export type EntityPermission = {
   __typename?: 'EntityPermission';
   createdAt: Scalars['DateTime']['output'];
@@ -235,6 +252,26 @@ export type EventsResponseDto = {
   page: Scalars['Int']['output'];
   total: Scalars['Int']['output'];
   totalPages: Scalars['Int']['output'];
+};
+
+/** Status of the execution */
+export enum ExecutionStatus {
+  Error = 'ERROR',
+  Skipped = 'SKIPPED',
+  Success = 'SUCCESS',
+  Timeout = 'TIMEOUT'
+}
+
+/** Types of executions that are tracked */
+export enum ExecutionType {
+  PayloadMapper = 'PAYLOAD_MAPPER',
+  Webhook = 'WEBHOOK'
+}
+
+export type GetEntityExecutionsInput = {
+  entityId?: InputMaybe<Scalars['String']['input']>;
+  type?: InputMaybe<ExecutionType>;
+  userId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type GetResourcePermissionsInput = {
@@ -853,8 +890,10 @@ export type Query = {
   buckets: Array<Bucket>;
   checkEmailStatus: EmailStatusResponseDto;
   enabledOAuthProviders: Array<OAuthProviderPublicDto>;
+  entityExecution: Maybe<EntityExecution>;
   events: EventsResponseDto;
   getBackendVersion: Scalars['String']['output'];
+  getEntityExecutions: Array<EntityExecution>;
   getResourcePermissions: Array<EntityPermission>;
   getSystemToken: Maybe<SystemAccessTokenDto>;
   getUserAccessTokens: Array<AccessTokenListDto>;
@@ -895,8 +934,18 @@ export type QueryCheckEmailStatusArgs = {
 };
 
 
+export type QueryEntityExecutionArgs = {
+  id: Scalars['String']['input'];
+};
+
+
 export type QueryEventsArgs = {
   query: EventsQueryDto;
+};
+
+
+export type QueryGetEntityExecutionsArgs = {
+  input: GetEntityExecutionsInput;
 };
 
 
@@ -2024,6 +2073,22 @@ export type DeletePayloadMapperMutationVariables = Exact<{
 
 export type DeletePayloadMapperMutation = { __typename?: 'Mutation', deletePayloadMapper: boolean };
 
+export type EntityExecutionFragment = { __typename?: 'EntityExecution', id: string, type: ExecutionType, status: ExecutionStatus, entityName: string | null, entityId: string | null, userId: string, input: string, output: string | null, errors: string | null, durationMs: number | null, createdAt: string, updatedAt: string };
+
+export type GetEntityExecutionsQueryVariables = Exact<{
+  input: GetEntityExecutionsInput;
+}>;
+
+
+export type GetEntityExecutionsQuery = { __typename?: 'Query', getEntityExecutions: Array<{ __typename?: 'EntityExecution', id: string, type: ExecutionType, status: ExecutionStatus, entityName: string | null, entityId: string | null, userId: string, input: string, output: string | null, errors: string | null, durationMs: number | null, createdAt: string, updatedAt: string }> };
+
+export type GetEntityExecutionQueryVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type GetEntityExecutionQuery = { __typename?: 'Query', entityExecution: { __typename?: 'EntityExecution', id: string, type: ExecutionType, status: ExecutionStatus, entityName: string | null, entityId: string | null, userId: string, input: string, output: string | null, errors: string | null, durationMs: number | null, createdAt: string, updatedAt: string } | null };
+
 export const MessageAttachmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageAttachmentFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MessageAttachment"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"saveOnServer"}}]}}]} as unknown as DocumentNode;
 export const NotificationActionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationActionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationAction"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"destructive"}}]}}]} as unknown as DocumentNode;
 export const BucketFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"BucketFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Bucket"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"isProtected"}},{"kind":"Field","name":{"kind":"Name","value":"isPublic"}}]}}]} as unknown as DocumentNode;
@@ -2046,6 +2111,7 @@ export const NotificationServiceInfoFragmentDoc = {"kind":"Document","definition
 export const SystemAccessTokenFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SystemAccessTokenFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SystemAccessTokenDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"maxCalls"}},{"kind":"Field","name":{"kind":"Name","value":"calls"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"requester"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}}]}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 export const EventFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EventFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Event"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"objectId"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"targetId"}}]}}]} as unknown as DocumentNode;
 export const PayloadMapperFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PayloadMapperFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"PayloadMapper"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"jsEvalFn"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"builtInName"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"avatar"}},{"kind":"Field","name":{"kind":"Name","value":"hasPassword"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"identities"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"provider"}},{"kind":"Field","name":{"kind":"Name","value":"providerId"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"avatarUrl"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"buckets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
+export const EntityExecutionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EntityExecutionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EntityExecution"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"entityName"}},{"kind":"Field","name":{"kind":"Name","value":"entityId"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"input"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"errors"}},{"kind":"Field","name":{"kind":"Name","value":"durationMs"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 export const RequestPasswordResetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RequestPasswordReset"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RequestPasswordResetDto"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"requestPasswordReset"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode;
 export type RequestPasswordResetMutationFn = Apollo.MutationFunction<RequestPasswordResetMutation, RequestPasswordResetMutationVariables>;
 
@@ -4855,3 +4921,71 @@ export function useDeletePayloadMapperMutation(baseOptions?: ApolloReactHooks.Mu
 export type DeletePayloadMapperMutationHookResult = ReturnType<typeof useDeletePayloadMapperMutation>;
 export type DeletePayloadMapperMutationResult = Apollo.MutationResult<DeletePayloadMapperMutation>;
 export type DeletePayloadMapperMutationOptions = Apollo.BaseMutationOptions<DeletePayloadMapperMutation, DeletePayloadMapperMutationVariables>;
+export const GetEntityExecutionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetEntityExecutions"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"GetEntityExecutionsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getEntityExecutions"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EntityExecutionFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EntityExecutionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EntityExecution"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"entityName"}},{"kind":"Field","name":{"kind":"Name","value":"entityId"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"input"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"errors"}},{"kind":"Field","name":{"kind":"Name","value":"durationMs"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetEntityExecutionsQuery__
+ *
+ * To run a query within a React component, call `useGetEntityExecutionsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetEntityExecutionsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetEntityExecutionsQuery({
+ *   variables: {
+ *      input: // value for 'input'
+ *   },
+ * });
+ */
+export function useGetEntityExecutionsQuery(baseOptions: ApolloReactHooks.QueryHookOptions<GetEntityExecutionsQuery, GetEntityExecutionsQueryVariables> & ({ variables: GetEntityExecutionsQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetEntityExecutionsQuery, GetEntityExecutionsQueryVariables>(GetEntityExecutionsDocument, options);
+      }
+export function useGetEntityExecutionsLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetEntityExecutionsQuery, GetEntityExecutionsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetEntityExecutionsQuery, GetEntityExecutionsQueryVariables>(GetEntityExecutionsDocument, options);
+        }
+export function useGetEntityExecutionsSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetEntityExecutionsQuery, GetEntityExecutionsQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetEntityExecutionsQuery, GetEntityExecutionsQueryVariables>(GetEntityExecutionsDocument, options);
+        }
+export type GetEntityExecutionsQueryHookResult = ReturnType<typeof useGetEntityExecutionsQuery>;
+export type GetEntityExecutionsLazyQueryHookResult = ReturnType<typeof useGetEntityExecutionsLazyQuery>;
+export type GetEntityExecutionsSuspenseQueryHookResult = ReturnType<typeof useGetEntityExecutionsSuspenseQuery>;
+export type GetEntityExecutionsQueryResult = Apollo.QueryResult<GetEntityExecutionsQuery, GetEntityExecutionsQueryVariables>;
+export const GetEntityExecutionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetEntityExecution"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"entityExecution"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EntityExecutionFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EntityExecutionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EntityExecution"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"entityName"}},{"kind":"Field","name":{"kind":"Name","value":"entityId"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"input"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"errors"}},{"kind":"Field","name":{"kind":"Name","value":"durationMs"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetEntityExecutionQuery__
+ *
+ * To run a query within a React component, call `useGetEntityExecutionQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetEntityExecutionQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetEntityExecutionQuery({
+ *   variables: {
+ *      id: // value for 'id'
+ *   },
+ * });
+ */
+export function useGetEntityExecutionQuery(baseOptions: ApolloReactHooks.QueryHookOptions<GetEntityExecutionQuery, GetEntityExecutionQueryVariables> & ({ variables: GetEntityExecutionQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetEntityExecutionQuery, GetEntityExecutionQueryVariables>(GetEntityExecutionDocument, options);
+      }
+export function useGetEntityExecutionLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetEntityExecutionQuery, GetEntityExecutionQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetEntityExecutionQuery, GetEntityExecutionQueryVariables>(GetEntityExecutionDocument, options);
+        }
+export function useGetEntityExecutionSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetEntityExecutionQuery, GetEntityExecutionQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetEntityExecutionQuery, GetEntityExecutionQueryVariables>(GetEntityExecutionDocument, options);
+        }
+export type GetEntityExecutionQueryHookResult = ReturnType<typeof useGetEntityExecutionQuery>;
+export type GetEntityExecutionLazyQueryHookResult = ReturnType<typeof useGetEntityExecutionLazyQuery>;
+export type GetEntityExecutionSuspenseQueryHookResult = ReturnType<typeof useGetEntityExecutionSuspenseQuery>;
+export type GetEntityExecutionQueryResult = Apollo.QueryResult<GetEntityExecutionQuery, GetEntityExecutionQueryVariables>;

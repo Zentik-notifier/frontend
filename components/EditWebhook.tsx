@@ -1,6 +1,8 @@
 import CreateWebhookForm from "@/components/CreateWebhookForm";
+import EntityExecutionsSection from "@/components/EntityExecutionsSection";
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import {
+  ExecutionType,
   useDeleteWebhookMutation,
   useGetWebhookQuery,
 } from "@/generated/gql-operations-generated";
@@ -67,6 +69,10 @@ export default function EditWebhook({ webhookId }: EditWebhookProps) {
       error={!!error}
     >
       <CreateWebhookForm webhookId={webhookId} />
+      <EntityExecutionsSection
+        entityId={webhookId}
+        entityType={ExecutionType.Webhook}
+      />
       <View style={styles.deleteSection}>
         <Button
           mode="contained"

@@ -1,4 +1,4 @@
-import { CreatePayloadMapperForm } from "@/components";
+import CreatePayloadMapperForm from "@/components/CreatePayloadMapperForm";
 import CloseHeader from "@/components/CloseHeader";
 import { useLocalSearchParams } from "expo-router";
 import React from "react";

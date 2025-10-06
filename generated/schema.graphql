@@ -161,6 +161,22 @@ type EmailStatusResponseDto {
   message: String!
 }
 
+type EntityExecution {
+  createdAt: DateTime!
+  durationMs: Float
+  entityId: String
+  entityName: String
+  errors: String
+  id: ID!
+  input: String!
+  output: String
+  status: ExecutionStatus!
+  type: ExecutionType!
+  updatedAt: DateTime!
+  user: User!
+  userId: String!
+}
+
 type EntityPermission {
   createdAt: DateTime!
   expiresAt: DateTime
@@ -215,6 +231,26 @@ type EventsResponseDto {
   page: Int!
   total: Int!
   totalPages: Int!
+}
+
+"""Status of the execution"""
+enum ExecutionStatus {
+  ERROR
+  SKIPPED
+  SUCCESS
+  TIMEOUT
+}
+
+"""Types of executions that are tracked"""
+enum ExecutionType {
+  PAYLOAD_MAPPER
+  WEBHOOK
+}
+
+input GetEntityExecutionsInput {
+  entityId: String
+  type: ExecutionType
+  userId: String
 }
 
 input GetResourcePermissionsInput {
@@ -530,8 +566,10 @@ type Query {
   buckets: [Bucket!]!
   checkEmailStatus(email: String!): EmailStatusResponseDto!
   enabledOAuthProviders: [OAuthProviderPublicDto!]!
+  entityExecution(id: String!): EntityExecution
   events(query: EventsQueryDto!): EventsResponseDto!
   getBackendVersion: String!
+  getEntityExecutions(input: GetEntityExecutionsInput!): [EntityExecution!]!
   getResourcePermissions(input: GetResourcePermissionsInput!): [EntityPermission!]!
   getSystemToken(id: String!): SystemAccessTokenDto
   getUserAccessTokens: [AccessTokenListDto!]!

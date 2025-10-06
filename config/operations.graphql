@@ -1004,3 +1004,31 @@ mutation UpdatePayloadMapper($id: String!, $input: UpdatePayloadMapperDto!) {
 mutation DeletePayloadMapper($id: String!) {
   deletePayloadMapper(id: $id)
 }
+
+# Entity Execution Operations
+fragment EntityExecutionFragment on EntityExecution {
+  id
+  type
+  status
+  entityName
+  entityId
+  userId
+  input
+  output
+  errors
+  durationMs
+  createdAt
+  updatedAt
+}
+
+query GetEntityExecutions($input: GetEntityExecutionsInput!) {
+  getEntityExecutions(input: $input) {
+    ...EntityExecutionFragment
+  }
+}
+
+query GetEntityExecution($id: String!) {
+  entityExecution(id: $id) {
+    ...EntityExecutionFragment
+  }
+}

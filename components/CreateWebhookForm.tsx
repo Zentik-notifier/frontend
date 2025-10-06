@@ -323,9 +323,11 @@ export default function CreateWebhookForm({
             autoFocus
             error={!!fieldErrors.name}
           />
-          <Text variant="bodySmall" style={[styles.errorText, { opacity: fieldErrors.name ? 1 : 0.7 }]}>
-            {fieldErrors.name || t("webhooks.form.nameRequired")}
-          </Text>
+          {fieldErrors.name && (
+            <Text variant="bodySmall" style={styles.errorText}>
+              {fieldErrors.name}
+            </Text>
+          )}
         </View>
 
         {/* HTTP Method */}
@@ -370,9 +372,11 @@ export default function CreateWebhookForm({
             keyboardType="url"
             error={!!fieldErrors.url}
           />
-          <Text variant="bodySmall" style={[styles.errorText, { opacity: fieldErrors.url ? 1 : 0.7 }]}>
-            {fieldErrors.url || t("webhooks.form.urlRequired")}
-          </Text>
+          {fieldErrors.url && (
+            <Text variant="bodySmall" style={styles.errorText}>
+              {fieldErrors.url}
+            </Text>
+          )}
         </View>
 
         {/* Headers */}

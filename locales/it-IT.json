@@ -1153,6 +1153,25 @@
       "DELETE": "DELETE"
     }
   },
+  "entityExecutions": {
+    "title": "Esecuzioni",
+    "details": "Dettagli",
+    "relatedExecutions": "Esecuzioni Correlate",
+    "noRelatedExecutions": "Nessuna esecuzione correlata trovata",
+    "lastExecutions": "Ultime {{count}} esecuzioni",
+    "noExecutions": "Nessuna esecuzione trovata",
+    "duration": "Durata",
+    "errors": "Errori",
+    "input": "Input",
+    "output": "Output",
+    "type": "Tipo",
+    "status": "Stato",
+    "entityName": "Nome Entità",
+    "entityId": "ID Entità",
+    "userId": "ID Utente",
+    "createdAt": "Creato il",
+    "updatedAt": "Aggiornato il"
+  },
   "payloadMappers": {
     "title": "Mappatori Payload",
     "description": "Crea e gestisci funzioni di trasformazione payload per integrazioni webhook",

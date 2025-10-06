@@ -1499,6 +1499,25 @@ export interface TranslationKey {
     title: string;
     updateErrorMessage: string;
   };
+  entityExecutions: {
+    title: string;
+    details: string;
+    relatedExecutions: string;
+    noRelatedExecutions: string;
+    lastExecutions: string;
+    noExecutions: string;
+    duration: string;
+    errors: string;
+    input: string;
+    output: string;
+    type: string;
+    status: string;
+    entityName: string;
+    entityId: string;
+    userId: string;
+    createdAt: string;
+    updatedAt: string;
+  };
   eventsReview: {
     title: string;
     description: string;

@@ -1,6 +1,7 @@
 import { useAppContext } from "@/contexts/AppContext";
 import {
   CreatePayloadMapperDto,
+  ExecutionType,
   GetPayloadMappersDocument,
   GetPayloadMappersQuery,
   PayloadMapperFragment,
@@ -22,6 +23,7 @@ import {
   useTheme
 } from "react-native-paper";
 import CodeEditor from "./CodeEditor";
+import EntityExecutionsSection from "./EntityExecutionsSection";
 import PaperScrollView from "./ui/PaperScrollView";
 
 interface CreatePayloadMapperFormProps {
@@ -396,6 +398,14 @@ export default function CreatePayloadMapperForm({
             : t("payloadMappers.form.save")}
         </Button>
       </View>
+
+      {/* Entity Executions Section */}
+      {isEditing && payloadMapperId && (
+        <EntityExecutionsSection
+          entityId={payloadMapperId}
+          entityType={ExecutionType.PayloadMapper}
+        />
+      )}
 
       {/* Error Dialog */}
       <Portal>
