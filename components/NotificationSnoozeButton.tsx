@@ -211,9 +211,8 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
                 fullWidth ? { width: "100%" } : null,
                 {
                   backgroundColor: isSnoozed
-                    ? theme.colors.secondaryContainer
+                    ? theme.colors.primary
                     : theme.colors.surfaceVariant,
-                  borderColor: theme.colors.outline,
                 },
               ],
           style,
@@ -226,7 +225,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
             source="sleep"
             size={16}
             color={
-              isSnoozed ? theme.colors.primary : theme.colors.onSurfaceVariant
+              isSnoozed ? theme.colors.onPrimary : theme.colors.onSurfaceVariant
             }
           />
           {showText && (
@@ -550,7 +549,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   detailButton: {
-    padding: 8,
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
