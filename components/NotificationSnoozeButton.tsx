@@ -2,11 +2,12 @@ import { useSetBucketSnoozeMutation } from "@/generated/gql-operations-generated
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
+import { localeToDatePickerLocale } from "@/types/i18n";
+import { DatePickerInput } from "react-native-paper-dates";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
-  Dimensions,
   Modal,
   Platform,
   ScrollView,
@@ -106,13 +107,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
     setShowModal(true);
   };
 
-  const handleIOSDateTimeChange = (event: any, date?: Date) => {
-    if (date) {
-      setSelectedDate(date);
-    }
-  };
-
-  const handleAndroidDateChange = (event: any, date?: Date) => {
+  const handleDateChange = (date: Date | undefined) => {
     if (date) {
       const newDate = new Date(date);
       newDate.setHours(
@@ -125,10 +120,12 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
     }
   };
 
-  const handleAndroidTimeChange = (event: any, time?: Date) => {
+  const handleTimeChange = (
+    time: { hours: number; minutes: number } | undefined
+  ) => {
     if (time) {
       const newDate = new Date(selectedDate);
-      newDate.setHours(time.getHours(), time.getMinutes(), 0, 0);
+      newDate.setHours(time.hours, time.minutes, 0, 0);
       setSelectedDate(newDate);
     }
   };
@@ -348,6 +345,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
                   style={[
                     styles.currentSnoozeCard,
                     {
+                      width: "100%",
                       borderColor:
                         theme.colors.outlineVariant || theme.colors.outline,
                       backgroundColor:
@@ -367,7 +365,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
                         { color: theme.colors.onSurface },
                       ]}
                     >
-                      {formatDate(snoozeUntil)}
+                      {formatDate(snoozeUntil, true)}
                     </Text>
                     <Text
                       style={[
@@ -457,61 +455,57 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
               >
                 {t("notificationDetail.snooze.customDateTime")}
               </Text>
-              {Platform.OS === "ios" ? (
-                <View style={{ alignItems: "center" }}>
-                  <DateTimePicker
-                    value={selectedDate}
-                    mode="datetime"
-                    display="spinner"
-                    onChange={handleIOSDateTimeChange}
-                    minimumDate={new Date()}
-                    themeVariant={theme.dark ? "dark" : "light"}
-                  />
-                </View>
-              ) : (
-                <>
-                  <View
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor:
-                        theme.colors.outlineVariant || theme.colors.outline,
-                      paddingVertical: 4,
-                      alignItems: "center",
-                    }}
-                  >
+
+              <View style={styles.dateTimePickerContainer}>
+                <View style={styles.pickerRow}>
+                  <View style={styles.pickerWrapper}>
+                    <Text
+                      style={[
+                        styles.pickerLabel,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {String(t("notificationDetail.snooze.selectDate" as any))}
+                    </Text>
                     <DateTimePicker
                       value={selectedDate}
                       mode="date"
-                      display="spinner"
-                      onChange={handleAndroidDateChange}
+                      display={Platform.OS === "ios" ? "compact" : "default"}
+                      onChange={(event, date) => handleDateChange(date)}
                       minimumDate={new Date()}
                       themeVariant={theme.dark ? "dark" : "light"}
+                      style={styles.nativePicker}
                     />
                   </View>
-                  <View style={{ height: 8 }} />
-                  <View
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor:
-                        theme.colors.outlineVariant || theme.colors.outline,
-                      paddingVertical: 4,
-                      alignItems: "center",
-                    }}
-                  >
+
+                  <View style={styles.pickerWrapper}>
+                    <Text
+                      style={[
+                        styles.pickerLabel,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {String(t("notificationDetail.snooze.selectTime" as any))}
+                    </Text>
                     <DateTimePicker
                       value={selectedDate}
                       mode="time"
-                      display="spinner"
-                      onChange={handleAndroidTimeChange}
+                      display={Platform.OS === "ios" ? "compact" : "default"}
+                      onChange={(event, date) => {
+                        if (date) {
+                          handleTimeChange({
+                            hours: date.getHours(),
+                            minutes: date.getMinutes(),
+                          });
+                        }
+                      }}
                       themeVariant={theme.dark ? "dark" : "light"}
+                      style={styles.nativePicker}
                     />
                   </View>
-                </>
-              )}
+                </View>
+              </View>
+
               <PaperButton
                 mode="contained"
                 onPress={() => handleSetSnooze(selectedDate)}
@@ -653,22 +647,45 @@ const styles = StyleSheet.create({
   currentSnoozeCard: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,
-    gap: 12,
+    gap: 16,
   },
   currentSnoozeTime: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
-    marginBottom: 2,
+    marginBottom: 4,
   },
   currentSnoozeRemaining: {
-    fontSize: 12,
+    fontSize: 14,
   },
   customButton: {
     minWidth: "100%",
+  },
+  dateTimePickerContainer: {
+    marginBottom: 16,
+  },
+  pickerRow: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  pickerWrapper: {
+    flex: 1,
+    gap: 6,
+    alignItems: "center",
+  },
+  pickerLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  nativePicker: {
+    width: "100%",
+    height: Platform.OS === "ios" ? 100 : 50,
   },
 });
 

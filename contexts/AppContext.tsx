@@ -28,6 +28,8 @@ import React, {
   useState,
 } from "react";
 import { Alert, AppState } from "react-native";
+import { registerTranslation } from "react-native-paper-dates";
+import { localeToDatePickerLocale, type Locale } from "@/types/i18n";
 import OnboardingModal from "../components/OnboardingModal";
 import {
   clearLastUserId,
@@ -102,6 +104,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isMainLoading, setIsLoading] = useState(false);
   const { syncApolloWithLocalDb } = usePendingNotificationIntents();
+
+  useEffect(() => {
+    const appLocale = userSettings.settings.locale as Locale;
+    const datePickerLocale = localeToDatePickerLocale[appLocale] || 'en';
+    
+    registerTranslation(datePickerLocale, {
+      save: t('dateTime.save'),
+      selectSingle: t('dateTime.selectSingle'),
+      selectMultiple: t('dateTime.selectMultiple'),
+      selectRange: t('dateTime.selectRange'),
+      notAccordingToDateFormat: (inputFormat: string) =>
+        t('dateTime.notAccordingToDateFormat').replace('{format}', inputFormat),
+      mustBeHigherThan: (date: string) =>
+        t('dateTime.mustBeHigherThan').replace('{date}', date),
+      mustBeLowerThan: (date: string) =>
+        t('dateTime.mustBeLowerThan').replace('{date}', date),
+      mustBeBetween: (startDate: string, endDate: string) =>
+        t('dateTime.mustBeBetween').replace('{startDate}', startDate).replace('{endDate}', endDate),
+      dateIsDisabled: t('dateTime.dateIsDisabled'),
+      previous: t('dateTime.previous'),
+      next: t('dateTime.next'),
+      typeInDate: t('dateTime.typeInDate'),
+      pickDateFromCalendar: t('dateTime.pickDateFromCalendar'),
+      close: t('dateTime.close'),
+      hour: t('dateTime.hour'),
+      minute: t('dateTime.minute'),
+    } as any);
+  }, [userSettings.settings.locale, t]);
 
   useEffect(() => {
     subscriptionsEnabledVar(true);

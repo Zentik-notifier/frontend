@@ -852,6 +852,8 @@
       "remaining": "rimanente",
       "quickOptions": "Opzioni Rapide",
       "customDateTime": "Data e Ora Personalizzate",
+      "selectDate": "Seleziona data",
+      "selectTime": "Seleziona ora",
       "confirm": "Conferma",
       "errorSetting": "Impossibile impostare il posticipo",
       "errorRemoving": "Impossibile rimuovere il posticipo",
@@ -1538,5 +1540,23 @@
     "title": "Pagina Non Trovata",
     "description": "La pagina che stai cercando non esiste o è stata spostata.",
     "goHome": "Vai alla Home"
+  },
+  "dateTime": {
+    "save": "Salva",
+    "selectSingle": "Seleziona data",
+    "selectMultiple": "Seleziona date",
+    "selectRange": "Seleziona periodo",
+    "notAccordingToDateFormat": "Il formato deve essere {format}",
+    "mustBeHigherThan": "Deve essere successivo a {date}",
+    "mustBeLowerThan": "Deve essere precedente a {date}",
+    "mustBeBetween": "Deve essere tra {startDate} e {endDate}",
+    "dateIsDisabled": "Data non consentita",
+    "previous": "Precedente",
+    "next": "Successivo",
+    "typeInDate": "Inserisci la data",
+    "pickDateFromCalendar": "Scegli la data dal calendario",
+    "close": "Chiudi",
+    "hour": "Ora",
+    "minute": "Minuto"
   }
 }

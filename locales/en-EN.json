@@ -852,6 +852,8 @@
       "remaining": "remaining",
       "quickOptions": "Quick Options",
       "customDateTime": "Custom Date & Time",
+      "selectDate": "Select date",
+      "selectTime": "Select time",
       "confirm": "Confirm",
       "errorSetting": "Failed to set snooze",
       "errorRemoving": "Failed to remove snooze",
@@ -1539,5 +1541,23 @@
     "title": "Page Not Found",
     "description": "The page you're looking for doesn't exist or has been moved.",
     "goHome": "Go to Home"
+  },
+  "dateTime": {
+    "save": "Save",
+    "selectSingle": "Select date",
+    "selectMultiple": "Select dates",
+    "selectRange": "Select period",
+    "notAccordingToDateFormat": "Format must be {format}",
+    "mustBeHigherThan": "Must be later than {date}",
+    "mustBeLowerThan": "Must be earlier than {date}",
+    "mustBeBetween": "Must be between {startDate} and {endDate}",
+    "dateIsDisabled": "Date is disabled",
+    "previous": "Previous",
+    "next": "Next",
+    "typeInDate": "Type in date",
+    "pickDateFromCalendar": "Pick date from calendar",
+    "close": "Close",
+    "hour": "Hour",
+    "minute": "Minute"
   }
 }

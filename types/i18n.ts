@@ -1538,10 +1538,37 @@ export interface TranslationKey {
     description: string;
     goHome: string;
   };
+  dateTime: {
+    save: string;
+    selectSingle: string;
+    selectMultiple: string;
+    selectRange: string;
+    notAccordingToDateFormat: string;
+    mustBeHigherThan: string;
+    mustBeLowerThan: string;
+    mustBeBetween: string;
+    dateIsDisabled: string;
+    previous: string;
+    next: string;
+    typeInDate: string;
+    pickDateFromCalendar: string;
+    close: string;
+    hour: string;
+    minute: string;
+  };
 }
 
 // Supported locales
 export type Locale = 'en-EN' | 'it-IT';
+
+// Date picker locale type (react-native-paper-dates)
+export type DatePickerLocale = 'en' | 'it';
+
+// Map app locale to date picker locale
+export const localeToDatePickerLocale: Record<Locale, DatePickerLocale> = {
+  'en-EN': 'en',
+  'it-IT': 'it',
+};
 
 // Translation object type (matches the JSON structure)
 export type Translation = TranslationKey;
