@@ -35,11 +35,11 @@ export const useNotificationUtils = () => {
   const getActionTypeIcon = (actionType: NotificationActionType): string => {
     switch (actionType) {
       case NotificationActionType.Navigate:
-        return "navigation";
+        return "open-in-new";
       case NotificationActionType.Webhook:
         return "web";
       case NotificationActionType.BackgroundCall:
-        return "phone";
+        return "api";
       case NotificationActionType.Snooze:
         return "clock";
       case NotificationActionType.MarkAsRead:

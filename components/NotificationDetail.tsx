@@ -3,7 +3,10 @@ import AttachmentGallery from "@/components/AttachmentGallery";
 import BucketIcon from "@/components/BucketIcon";
 import FullScreenMediaViewer from "@/components/FullScreenMediaViewer";
 import NotificationSnoozeButton from "@/components/NotificationSnoozeButton";
-import { MediaType } from "@/generated/gql-operations-generated";
+import {
+  MediaType,
+  NotificationActionType,
+} from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import {
@@ -15,12 +18,14 @@ import { useNotificationUtils } from "@/hooks/useNotificationUtils";
 import * as Clipboard from "expo-clipboard";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
@@ -69,6 +74,37 @@ export default function NotificationDetail({
     }
   }, [notification]);
 
+  const message = notification?.message;
+  const bucketName = message?.bucket?.name;
+
+  // Extract all Navigate actions from actions and tapAction
+  const navigationLinks = useMemo(() => {
+    const links = [];
+
+    // Check tapAction
+    if (
+      message?.tapAction?.type === NotificationActionType.Navigate &&
+      message.tapAction.value
+    ) {
+      links.push({
+        title: message.tapAction.title || message.tapAction.value,
+        url: message.tapAction.value,
+      });
+    }
+
+    // Check actions
+    message?.actions?.forEach((action) => {
+      if (action.type === NotificationActionType.Navigate && action.value) {
+        links.push({
+          title: action.title || action.value,
+          url: action.value,
+        });
+      }
+    });
+
+    return links;
+  }, [message?.tapAction, message?.actions]);
+
   if (loading || (!notification && !error)) {
     return (
       <Surface
@@ -100,9 +136,6 @@ export default function NotificationDetail({
       </Surface>
     );
   }
-
-  const message = notification.message;
-  const bucketName = message?.bucket?.name;
 
   const buildNotificationText = () => {
     const textParts = [message?.title || ""];
@@ -203,6 +236,20 @@ export default function NotificationDetail({
 
   const attachments = message?.attachments || [];
 
+  const handleLinkPress = async (url: string) => {
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert(t("common.error"), t("common.navigationFailed"));
+      }
+    } catch (error) {
+      console.error("Error opening link:", error);
+      Alert.alert(t("common.error"), t("common.actionFailed"));
+    }
+  };
+
   return (
     <Surface
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -240,7 +287,11 @@ export default function NotificationDetail({
                   <IconButton
                     icon={isCopying ? "check" : "content-copy"}
                     size={15}
-                    iconColor={isCopying ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                    iconColor={
+                      isCopying
+                        ? theme.colors.primary
+                        : theme.colors.onSurfaceVariant
+                    }
                     style={[styles.actionButton, { width: 26, height: 26 }]}
                     onPress={copyNotificationToClipboard}
                     accessibilityLabel="copy-notification"
@@ -262,7 +313,7 @@ export default function NotificationDetail({
                     accessibilityLabel="delete-notification"
                   />
                   <NotificationSnoozeButton
-                    bucketId={message?.bucket?.id}
+                    bucketId={message?.bucket?.id!}
                     variant="detail"
                     showText={false}
                     style={{ width: 26, height: 26 }}
@@ -298,17 +349,8 @@ export default function NotificationDetail({
             </View>
           </View>
 
-          {/* Actions Menu (if still needed) */}
-          <View style={styles.actionsRow}>
-            <NotificationActionsMenu
-              notification={notification}
-              onlyActions
-              showTextAndIcon
-            />
-          </View>
-
           {/* Title */}
-          <SmartTextRenderer content={message?.title} style={styles.title} />
+          <SmartTextRenderer content={message?.title!} style={styles.title} />
 
           {/* Subtitle */}
           {message?.subtitle && (
@@ -323,6 +365,45 @@ export default function NotificationDetail({
             <SmartTextRenderer content={message.body} style={styles.body} />
           )}
 
+          {/* Links */}
+          {navigationLinks.length > 0 && (
+            <View style={styles.linksContainer}>
+              <Text
+                style={[
+                  styles.linksTitle,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                Links
+              </Text>
+              <View style={styles.linksGrid}>
+                {navigationLinks.slice(0, 3).map((link, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.linkItem,
+                      { backgroundColor: theme.colors.surfaceVariant },
+                    ]}
+                    onPress={() => handleLinkPress(link.url)}
+                    activeOpacity={0.7}
+                  >
+                    <Icon
+                      source="open-in-new"
+                      size={18}
+                      color={theme.colors.primary}
+                    />
+                    <Text
+                      style={[styles.linkText, { color: theme.colors.primary }]}
+                      numberOfLines={1}
+                    >
+                      {link.title}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
           {/* Attachments */}
           {attachments.length > 0 && (
             <View style={styles.attachmentsContainer}>
@@ -335,6 +416,13 @@ export default function NotificationDetail({
           )}
         </View>
       </ScrollView>
+
+      {/* Actions Menu FAB */}
+      <NotificationActionsMenu
+        notification={notification}
+        onlyActions
+        showTextAndIcon={false}
+      />
 
       {/* Full Screen Media Viewer */}
       <FullScreenMediaViewer
@@ -509,6 +597,34 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     lineHeight: 24,
     marginBottom: 16,
+  },
+  linksContainer: {
+    marginTop: 16,
+  },
+  linksTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  linksGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  linkItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 8,
+    flex: 1,
+    minWidth: 0,
+  },
+  linkText: {
+    fontSize: 13,
+    fontWeight: "500",
+    flex: 1,
   },
   attachmentsContainer: {
     marginBottom: 16,

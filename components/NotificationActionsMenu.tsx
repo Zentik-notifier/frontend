@@ -1,19 +1,3 @@
-import React, { useMemo } from "react";
-import { StyleSheet, View } from "react-native";
-import {
-  Menu,
-  MenuTrigger,
-  MenuOptions,
-  MenuOption,
-} from "react-native-popup-menu";
-import {
-  Icon,
-  useTheme,
-  Surface,
-  Text,
-  List,
-  TouchableRipple,
-} from "react-native-paper";
 import {
   NotificationActionFragment,
   NotificationActionType,
@@ -25,6 +9,12 @@ import {
   useMarkNotificationRead,
   useMarkNotificationUnread,
 } from "@/hooks/useNotifications";
+import React, { useMemo, useState } from "react";
+import { StyleSheet } from "react-native";
+import {
+  FAB,
+  useTheme
+} from "react-native-paper";
 
 export const filteredActions = (notification: NotificationFragment) => {
   const message = notification.message;
@@ -122,144 +112,44 @@ export const NotificationActionsMenu: React.FC<
     notification.id,
   ]);
 
+  const [fabOpen, setFabOpen] = useState(false);
+
   if (!hasActions) {
     return null;
   }
 
+  // Convert menu items to FAB.Group actions format
+  const fabActions = menuItems.map((item) => ({
+    icon: item.icon,
+    label: item.label,
+    onPress: () => {
+      item.onPress();
+      setFabOpen(false);
+    },
+    color: item.type === "destructive" ? theme.colors.error : undefined,
+    labelTextColor: item.type === "destructive" ? theme.colors.error : undefined,
+  }));
+
   return (
-    <Menu>
-      <MenuTrigger>
-        {showTextAndIcon ? (
-          <TouchableRipple
-            style={[
-              styles.detailButton,
-              {
-                backgroundColor: theme.colors.surfaceVariant,
-                borderColor: theme.colors.outline,
-                borderWidth: 1,
-              },
-            ]}
-          >
-            <View style={styles.inlineContent}>
-              <Icon source="play" size={18} color={theme.colors.onSurface} />
-              <Text
-                style={[styles.detailText, { color: theme.colors.onSurface }]}
-              >
-                {menuItems.length === 1
-                  ? t("notificationActions.actionCount", {
-                      count: menuItems.length,
-                    })
-                  : t("notificationActions.actionCountPlural", {
-                      count: menuItems.length,
-                    })}
-              </Text>
-            </View>
-          </TouchableRipple>
-        ) : (
-          <Surface
-            style={[
-              styles.actionsFab,
-              { backgroundColor: theme.colors.surface },
-            ]}
-            elevation={1}
-          >
-            <Icon
-              source="dots-vertical"
-              size={18}
-              color={theme.colors.onSurface}
-            />
-          </Surface>
-        )}
-      </MenuTrigger>
-      <MenuOptions
-        optionsContainerStyle={{
-          marginTop: 50,
-          backgroundColor: theme.colors.surface,
-          borderRadius: 8,
-          borderWidth: 1,
-          borderColor: theme.colors.outlineVariant,
-        }}
-      >
-        {menuItems.map((item) => (
-          <MenuOption key={item.id} onSelect={() => item.onPress()}>
-            <Surface style={styles.menuItem} elevation={0}>
-              <TouchableRipple
-                onPress={() => item.onPress()}
-                style={styles.menuItemContent}
-              >
-                <Surface style={styles.menuItemInner} elevation={0}>
-                  <List.Icon
-                    icon={item.icon}
-                    color={
-                      item.type === "destructive"
-                        ? theme.colors.error
-                        : theme.colors.onSurface
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.menuItemText,
-                      {
-                        color:
-                          item.type === "destructive"
-                            ? theme.colors.error
-                            : theme.colors.onSurface,
-                      },
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                </Surface>
-              </TouchableRipple>
-            </Surface>
-          </MenuOption>
-        ))}
-      </MenuOptions>
-    </Menu>
+    <FAB.Group
+      open={fabOpen}
+      visible
+      icon={fabOpen ? "close" : "play"}
+      actions={fabActions}
+      onStateChange={({ open }) => setFabOpen(open)}
+      fabStyle={{
+        backgroundColor: theme.colors.primary,
+      }}
+      style={styles.fabGroup}
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  actionsFab: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-  },
-  detailButton: {
-    padding: 8,
-    borderRadius: 6,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  inlineContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  detailText: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginLeft: 4,
-  },
-  menuItem: {
-    // borderBottomWidth: 0.5,
-    // borderBottomColor: "rgba(0,0,0,0.1)",
-  },
-  menuItemContent: {
-    flex: 1,
-  },
-  menuItemInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 4 ,
-    paddingVertical: 4,
-  },
-  menuItemText: {
-    flex: 1,
-    fontSize: 16,
-    marginLeft: 12,
+  fabGroup: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    margin: 16,
   },
 });
