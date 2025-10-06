@@ -98,6 +98,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isMainLoading, setIsLoading] = useState(false);
+  const { syncApolloWithLocalDb } = usePendingNotificationIntents();
 
   useEffect(() => {
     subscriptionsEnabledVar(true);
@@ -336,13 +337,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     notifications,
     loading: notificationsLoading,
   } = useFetchNotifications();
-  // useSaveNotificationsToStorage();
 
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
         console.log("📱 App became active - scheduling refresh");
-        // await refetchNotifications();
+        await syncApolloWithLocalDb(apolloClient);
         await mediaCache.reloadMetadata();
       }
     };
@@ -352,7 +352,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       handleAppStateChange
     );
     return () => subscription?.remove();
-  }, [userId, refetchNotifications]);
+  }, [userId]);
 
   // // Debounced refetch to avoid excessive requests from multiple subscription events
   // const debouncedRefetchBuckets = useDebounce(() => {
