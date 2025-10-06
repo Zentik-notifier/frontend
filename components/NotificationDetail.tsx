@@ -239,29 +239,34 @@ export default function NotificationDetail({
                 <ButtonGroup>
                   <IconButton
                     icon={isCopying ? "check" : "content-copy"}
-                    size={18}
+                    size={15}
                     iconColor={isCopying ? theme.colors.primary : theme.colors.onSurfaceVariant}
-                    style={styles.actionButton}
+                    style={[styles.actionButton, { width: 26, height: 26 }]}
                     onPress={copyNotificationToClipboard}
                     accessibilityLabel="copy-notification"
                   />
                   <IconButton
                     icon="share"
-                    size={18}
+                    size={15}
                     iconColor={theme.colors.onSurfaceVariant}
-                    style={styles.actionButton}
+                    style={[styles.actionButton, { width: 26, height: 26 }]}
                     onPress={shareNotification}
                     accessibilityLabel="share-notification"
                   />
                   <IconButton
                     icon="delete"
-                    size={18}
+                    size={15}
                     iconColor={theme.colors.error}
-                    style={styles.actionButton}
+                    style={[styles.actionButton, { width: 26, height: 26 }]}
                     onPress={handleDeleteNotification}
                     accessibilityLabel="delete-notification"
                   />
-                  {/* priority badge removed from this group */}
+                  <NotificationSnoozeButton
+                    bucketId={message?.bucket?.id}
+                    variant="detail"
+                    showText={false}
+                    style={{ width: 26, height: 26 }}
+                  />
                 </ButtonGroup>
               </View>
 
@@ -293,18 +298,12 @@ export default function NotificationDetail({
             </View>
           </View>
 
-          {/* Actions and Snooze buttons */}
+          {/* Actions Menu (if still needed) */}
           <View style={styles.actionsRow}>
             <NotificationActionsMenu
               notification={notification}
               onlyActions
               showTextAndIcon
-            />
-            <View style={styles.filler} />
-            <NotificationSnoozeButton
-              bucketId={message?.bucket?.id}
-              variant="detail"
-              showText
             />
           </View>
 
@@ -451,7 +450,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionButton: {
-    padding: 8,
+    padding: 5,
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",

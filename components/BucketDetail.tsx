@@ -134,7 +134,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
             <View style={{ position: "relative" }}>
               <IconButton
                 icon="check-all"
-                size={18}
+                size={15}
                 iconColor={
                   unreadNotifications.length > 0
                     ? theme.colors.onPrimary
@@ -147,8 +147,8 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
                       unreadNotifications.length > 0
                         ? theme.colors.primary
                         : theme.colors.surfaceVariant,
-                    width: 32,
-                    height: 32,
+                    width: 26,
+                    height: 26,
                   },
                 ]}
                 onPress={handleMarkAllAsRead}
@@ -169,14 +169,14 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
 
             <IconButton
               icon="pencil"
-              size={18}
+              size={15}
               iconColor={theme.colors.onSurfaceVariant}
               style={[
                 styles.actionButton,
                 {
                   backgroundColor: theme.colors.surfaceVariant,
-                  width: 32,
-                  height: 32,
+                  width: 26,
+                  height: 26,
                 },
               ]}
               onPress={() => navigateToEditBucket(bucketId, true)}
@@ -185,13 +185,13 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
 
             <CopyButton
               text={bucketId}
-              size={16}
+              size={13}
               style={[
                 styles.actionButton,
                 {
                   backgroundColor: theme.colors.surfaceVariant,
-                  width: 32,
-                  height: 32,
+                  width: 26,
+                  height: 26,
                   margin: 0,
                   padding: 0,
                 },
@@ -202,7 +202,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
               bucketId={bucketId}
               variant="detail"
               showText={false}
-              style={{ width: 32, height: 32 }}
+              style={{ width: 26, height: 26 }}
             />
           </ButtonGroup>
         </View>
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   actionButton: {
-    padding: 8,
+    padding: 5,
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
