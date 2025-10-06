@@ -81,10 +81,10 @@ export function useFetchNotifications(onlyCache?: boolean) {
 	const fetchNotifications = useCallback(async (): Promise<void> => {
 		if (refetching) return;
 		setRefetching(true);
-		console.log('🔄 Fetching notifications started');
+		console.log('[useFetchNotifications] Fetching notifications started');
 		const res = await Promise.all([refetch()]);
 		const newData = res[0];
-		console.log('🔄 Fetching notifications finished: ', newData.data?.notifications?.length);
+		console.log('[useFetchNotifications] Fetching notifications finished: ', newData.data?.notifications?.length);
 		await updateReceivedNotifications();
 		setRefetching(false);
 	}, [refetch, updateReceivedNotifications, refetching]);
@@ -97,7 +97,7 @@ export function useDeleteNotification() {
 	const [deleteNotificationMutation] = useDeleteNotificationMutation();
 
 	const deleteNotification = useCallback(async (id: string) => {
-		console.log(`🗑️ Starting deletion of notification: ${id}`);
+		console.log(`[useDeleteNotification] Starting deletion of notification: ${id}`);
 
 		let notificationData: NotificationFragment | null = null;
 		try {
@@ -109,30 +109,30 @@ export function useDeleteNotification() {
 				notificationData = queryData.notifications.find((n: any) => n.id === id) || null;
 			}
 		} catch (error) {
-			console.warn(`⚠️ Could not read notification data for ${id}:`, error);
+			console.warn(`[useDeleteNotification] Could not read notification data for ${id}:`, error);
 		}
 
 		try {
 			await deleteNotificationMutation({
 				variables: { id }
 			});
-			console.log(`✅ Server deletion successful for notification: ${id}`);
+			console.log(`[useDeleteNotification] Server deletion successful for notification: ${id}`);
 		} catch (e) {
-			console.warn(`⚠️ Server deletion failed for notification ${id}:`, e);
+			console.warn(`[useDeleteNotification] Server deletion failed for notification ${id}:`, e);
 		}
 
 		try {
 			if (notificationData?.message?.attachments) {
-				console.log(`🗑️ Deleting ${notificationData.message.attachments.length} attachments from local cache`);
+				console.log(`[useDeleteNotification] Deleting ${notificationData.message.attachments.length} attachments from local cache`);
 
 				for (const attachment of notificationData.message.attachments) {
 					try {
 						if (attachment.mediaType && attachment.mediaType !== MediaType.Icon && attachment.url) {
 							await mediaCache.deleteCachedMedia(attachment.url, attachment.mediaType, true);
-							console.log(`🗑️ Deleted attachment from cache: ${attachment.url}`);
+							console.log(`[useDeleteNotification] Deleted attachment from cache: ${attachment.url}`);
 						}
 					} catch (error) {
-						console.warn(`⚠️ Failed to delete attachment ${attachment.url} from cache:`, error);
+						console.warn(`[useDeleteNotification] Failed to delete attachment ${attachment.url} from cache:`, error);
 					}
 				}
 			}
@@ -141,21 +141,21 @@ export function useDeleteNotification() {
 			try {
 				await deleteNotificationFromCache(id);
 			} catch (error) {
-				console.error('❌ Failed to delete notification from cache:', error);
+				console.error('[useDeleteNotification] Failed to delete notification from cache:', error);
 			}
 
 			apollo.cache.modify({
 				fields: {
 					notifications(existingNotifications: readonly any[] | Reference = [], { readField }) {
-						console.log(`🔍 Cache modify - processing notifications list, current length: ${Array.isArray(existingNotifications) ? existingNotifications.length : 'not array'}`);
+						console.log(`[useDeleteNotification] Cache modify - processing notifications list, current length: ${Array.isArray(existingNotifications) ? existingNotifications.length : 'not array'}`);
 
 						if (!existingNotifications || (typeof existingNotifications === 'object' && 'ref' in existingNotifications)) {
-							console.log(`⚠️ Cache modify - existingNotifications is not an array, returning as-is`);
+							console.log(`[useDeleteNotification] Cache modify - existingNotifications is not an array, returning as-is`);
 							return existingNotifications;
 						}
 
 						if (!Array.isArray(existingNotifications) || existingNotifications.length === 0) {
-							console.log(`⚠️ Cache modify - existingNotifications is empty or not array`);
+							console.log(`[useDeleteNotification] Cache modify - existingNotifications is empty or not array`);
 							return existingNotifications;
 						}
 
@@ -163,29 +163,29 @@ export function useDeleteNotification() {
 							const notificationId = readField('id', notification);
 							const shouldKeep = notificationId !== id;
 							if (!shouldKeep) {
-								console.log(`🗑️ Cache modify - removing notification ${notificationId} from list`);
+								console.log(`[useDeleteNotification] Cache modify - removing notification ${notificationId} from list`);
 							}
 							return shouldKeep;
 						});
 
-						console.log(`✅ Cache modify - filtered list length: ${filtered.length} (removed: ${existingNotifications.length - filtered.length})`);
+						console.log(`[useDeleteNotification] Cache modify - filtered list length: ${filtered.length} (removed: ${existingNotifications.length - filtered.length})`);
 						return filtered;
 					}
 				}
 			});
 
-			console.log(`🗑️ Evicting notification entity: Notification:${id}`);
+			console.log(`[useDeleteNotification] Evicting notification entity: Notification:${id}`);
 			const evicted = apollo.cache.evict({
 				id: `Notification:${id}`,
 				broadcast: true
 			});
-			console.log(`🗑️ Entity eviction result:`, evicted);
+			console.log(`[useDeleteNotification] Entity eviction result:`, evicted);
 
 			const gcResult = apollo.cache.gc();
-			console.log(`🧹 Cache garbage collection completed - removed ${gcResult.length} orphaned objects`);
+			console.log(`[useDeleteNotification] Cache garbage collection completed - removed ${gcResult.length} orphaned objects`);
 
 		} catch (error) {
-			console.error(`❌ Failed to remove notification ${id} from cache:`, error);
+			console.error(`[useDeleteNotification] Failed to remove notification ${id} from cache:`, error);
 		}
 	}, [apollo])
 
@@ -226,13 +226,13 @@ export function useUpdateReceivedNotifications() {
 						try {
 							await applyLocal(notification.id, { receivedAt: now });
 						} catch (e) {
-							console.error('Failed to update local notification:', e);
+							console.error('[useUpdateReceivedNotifications] Failed to update local notification:', e);
 						}
 					}
 				}
 			}
 		} catch (e) {
-			console.error('Failed to update received notifications:', e);
+			console.error('[useUpdateReceivedNotifications] Failed to update received notifications:', e);
 		}
 	}, [updateReceivedMutation, applyLocal])
 
@@ -268,7 +268,7 @@ export function useMarkAllNotificationsAsRead() {
 				}
 			}
 		} catch (error) {
-			console.error('Failed to mark all notifications as read:', error);
+			console.error('[useMarkAllNotificationsAsRead] Failed to mark all notifications as read:', error);
 		} finally {
 			setLoading(false);
 		}
@@ -291,7 +291,7 @@ export function useMarkNotificationRead() {
 		try {
 			await updateNotificationReadStatus(id, now);
 		} catch (error) {
-			console.error('Failed to update notification read status in cache:', error);
+			console.error('[useMarkNotificationRead] Failed to update notification read status in cache:', error);
 		}
 	}, [markReadMutation, applyLocal])
 
@@ -310,7 +310,7 @@ export function useMarkNotificationUnread() {
 		try {
 			await updateNotificationReadStatus(id, null);
 		} catch (error) {
-			console.error('Failed to update notification unread status in cache:', error);
+			console.error('[useMarkNotificationUnread] Failed to update notification unread status in cache:', error);
 		}
 	}, [markUnreadMutation, applyLocal])
 
@@ -326,7 +326,7 @@ export function useMassDeleteNotifications() {
 		if (notificationIds.length === 0) return;
 
 		setLoading(true);
-		console.log(`🗑️ Starting mass deletion of ${notificationIds.length} notifications`);
+		console.log(`[useMassDeleteNotifications] Starting mass deletion of ${notificationIds.length} notifications`);
 
 		const allAttachments: Array<{ url: string; mediaType: MediaType }> = [];
 
@@ -337,7 +337,7 @@ export function useMassDeleteNotifications() {
 			}) as { notifications: NotificationFragment[] } | null;
 			cachedNotifications = queryData?.notifications || [];
 		} catch (error) {
-			console.warn(`⚠️ Could not read notifications query:`, error);
+			console.warn(`[useMassDeleteNotifications] Could not read notifications query:`, error);
 		}
 
 		for (const id of notificationIds) {
@@ -366,16 +366,16 @@ export function useMassDeleteNotifications() {
 
 			// Log only if we got a successful response
 			if (result.data?.massDeleteNotifications) {
-				console.log(`✅ Server mass deletion completed: ${result.data.massDeleteNotifications.deletedCount} notifications deleted`);
+				console.log(`[useMassDeleteNotifications] Server mass deletion completed: ${result.data.massDeleteNotifications.deletedCount} notifications deleted`);
 			} else {
-				console.log(`⚠️ Server deletion completed with errors (some notifications may not exist)`);
+				console.warn(`[useMassDeleteNotifications] Server deletion completed with errors (some notifications may not exist)`);
 			}
 
 			// Delete from local database cache
 			try {
 				await deleteNotificationsFromCache(notificationIds);
 			} catch (error) {
-				console.error('❌ Failed to delete notifications from cache:', error);
+				console.error('[useMassDeleteNotifications] Failed to delete notifications from cache:', error);
 			}
 
 			// Update Apollo cache
@@ -392,7 +392,7 @@ export function useMassDeleteNotifications() {
 							return !idsToDelete.has(notificationId);
 						});
 
-						console.log(`✅ Cache mass delete - removed ${existingNotifications.length - filtered.length} notifications`);
+						console.log(`[useMassDeleteNotifications] Cache mass delete - removed ${existingNotifications.length - filtered.length} notifications`);
 						return filtered;
 					}
 				}
@@ -404,24 +404,24 @@ export function useMassDeleteNotifications() {
 			}
 
 			const gcResult = apollo.cache.gc();
-			console.log(`🧹 Mass delete cache cleanup - removed ${gcResult.length} orphaned objects`);
+			console.log(`[useMassDeleteNotifications] Mass delete cache cleanup - removed ${gcResult.length} orphaned objects`);
 
 			// Delete attachments from media cache
 			if (allAttachments.length > 0) {
-				console.log(`🗑️ Deleting ${allAttachments.length} attachments from local cache`);
+				console.log(`[useMassDeleteNotifications] Deleting ${allAttachments.length} attachments from local cache`);
 
 				for (const attachment of allAttachments) {
 					try {
 						await mediaCache.deleteCachedMedia(attachment.url, attachment.mediaType, true);
-						console.log(`🗑️ Deleted attachment from cache: ${attachment.url}`);
+						console.log(`[useMassDeleteNotifications] Deleted attachment from cache: ${attachment.url}`);
 					} catch (error) {
-						console.warn(`⚠️ Failed to delete attachment ${attachment.url} from cache:`, error);
+						console.warn(`[useMassDeleteNotifications] Failed to delete attachment ${attachment.url} from cache:`, error);
 					}
 				}
 			}
 
 		} catch (error) {
-			console.error('❌ Mass delete operation failed:', error);
+			console.error('[useMassDeleteNotifications] Mass delete operation failed:', error);
 			throw error;
 		} finally {
 			setLoading(false);
@@ -440,7 +440,7 @@ export function useMassMarkNotificationsAsRead() {
 		if (notificationIds.length === 0) return;
 
 		setLoading(true);
-		console.log(`✅ Starting mass mark as read for ${notificationIds.length} notifications`);
+		console.log(`[useMassMarkNotificationsAsRead] Starting mass mark as read for ${notificationIds.length} notifications`);
 
 		try {
 			const now = new Date().toISOString();
@@ -454,12 +454,12 @@ export function useMassMarkNotificationsAsRead() {
 			try {
 				await updateNotificationsReadStatus(notificationIds, now);
 			} catch (error) {
-				console.error('Failed to update notifications read status in cache:', error);
+				console.error('[useMassMarkNotificationsAsRead] Failed to update notifications read status in cache:', error);
 			}
 
-			console.log(`✅ Mass mark as read completed for ${notificationIds.length} notifications`);
+			console.log(`[useMassMarkNotificationsAsRead] Mass mark as read completed for ${notificationIds.length} notifications`);
 		} catch (error) {
-			console.error('❌ Mass mark as read operation failed:', error);
+			console.error('[useMassMarkNotificationsAsRead] Mass mark as read operation failed:', error);
 			throw error;
 		} finally {
 			setLoading(false);
@@ -478,7 +478,7 @@ export function useMassMarkNotificationsAsUnread() {
 		if (notificationIds.length === 0) return;
 
 		setLoading(true);
-		console.log(`📝 Starting mass mark as unread for ${notificationIds.length} notifications`);
+		console.log(`[useMassMarkNotificationsAsUnread] Starting mass mark as unread for ${notificationIds.length} notifications`);
 
 		try {
 			// Update local Apollo cache first (optimistic update)

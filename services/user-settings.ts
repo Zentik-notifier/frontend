@@ -126,12 +126,6 @@ export interface UserSettings {
     termsAccepted: boolean;
     acceptedVersion: string;
   };
-
-  // Migration settings
-  migration: {
-    /** Whether notifications have been migrated from AsyncStorage to IndexedDB */
-    notificationsMigratedToIndexedDB: boolean;
-  };
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -189,9 +183,6 @@ const DEFAULT_SETTINGS: UserSettings = {
   termsAcceptance: {
     termsAccepted: false,
     acceptedVersion: CURRENT_TERMS_VERSION,
-  },
-  migration: {
-    notificationsMigratedToIndexedDB: false,
   },
 };
 
@@ -722,10 +713,6 @@ class UserSettingsService {
       },
       onboarding: stored.onboarding || DEFAULT_SETTINGS.onboarding,
       termsAcceptance: stored.termsAcceptance || DEFAULT_SETTINGS.termsAcceptance,
-      migration: {
-        ...DEFAULT_SETTINGS.migration,
-        ...stored.migration,
-      },
     };
   }
 
@@ -890,25 +877,6 @@ class UserSettingsService {
       acceptedVersion: CURRENT_TERMS_VERSION,
     });
   }
-
-  /**
-   * Update migration settings
-   */
-  async updateMigrationSettings(updates: Partial<UserSettings['migration']>): Promise<void> {
-    this.settings.migration = {
-      ...this.settings.migration,
-      ...updates,
-    };
-    await this.saveSettings();
-    this.notifyListeners();
-  }
-
-  /**
-   * Check if notifications have been migrated to IndexedDB
-   */
-  isNotificationsMigratedToIndexedDB(): boolean {
-    return this.settings.migration.notificationsMigratedToIndexedDB;
-  }
 }
 
 // Export singleton instance
@@ -1027,8 +995,5 @@ export function useUserSettings() {
     updateTermsAcceptanceSettings: userSettings.updateTermsAcceptanceSettings.bind(userSettings),
     acceptTerms: userSettings.acceptTerms.bind(userSettings),
     clearTermsAcceptance: userSettings.clearTermsAcceptance.bind(userSettings),
-
-    // Migration methods
-    isNotificationsMigratedToIndexedDB: userSettings.isNotificationsMigratedToIndexedDB.bind(userSettings),
   };
 }

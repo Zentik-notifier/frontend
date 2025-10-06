@@ -14,7 +14,7 @@ export function usePendingNotificationIntents() {
     try {
       const intent = await getPendingNavigationIntent();
       if (intent) {
-        console.log(`[PendingIntents] ✅ Pending navigation intent found: ${JSON.stringify(intent)}`);
+        console.log(`[PendingIntents] Pending navigation intent found: ${JSON.stringify(intent)}`);
       } else {
         console.log('[PendingIntents] No Pending navigation intent found');
         return false;
@@ -57,7 +57,7 @@ export function usePendingNotificationIntents() {
    */
   const syncApolloWithLocalDb = useCallback(async (apollo: ApolloClient<any>) => {
     try {
-      console.log('[SyncDB] 🔄 Starting Apollo-LocalDB sync...');
+      console.log('[SyncDB] Starting Apollo-LocalDB sync...');
 
       const dbNotifications = await getAllNotificationsFromCache();
 
@@ -68,7 +68,7 @@ export function usePendingNotificationIntents() {
         });
         apolloNotifications = queryData?.notifications || [];
       } catch (error) {
-        console.warn('[SyncDB] ⚠️ Could not read Apollo cache, initializing empty:', error);
+        console.warn('[SyncDB] Could not read Apollo cache, initializing empty:', error);
         apolloNotifications = [];
       }
 
@@ -78,7 +78,7 @@ export function usePendingNotificationIntents() {
       const missingInApollo = dbNotifications.filter(n => !apolloUuids.has(n.id));
       const extraInApollo = apolloNotifications.filter(n => !dbUuids.has(n.id));
 
-      console.log(`[SyncDB] 📊 Gap analysis: ${missingInApollo.length} missing in Apollo, ${extraInApollo.length} extra in Apollo`);
+      console.log(`[SyncDB] Gap analysis: ${missingInApollo.length} missing in Apollo, ${extraInApollo.length} extra in Apollo`);
 
       if (missingInApollo.length > 0) {
         const mergedNotifications = [...apolloNotifications, ...missingInApollo];
@@ -129,11 +129,11 @@ export function usePendingNotificationIntents() {
         total: dbNotifications.length
       };
 
-      console.log(`[SyncDB] ✅ Sync completed: added ${result.added}, removed ${result.removed}, total ${result.total}`);
+      console.log(`[SyncDB] Sync completed: added ${result.added}, removed ${result.removed}, total ${result.total}`);
       return result;
 
     } catch (error) {
-      console.error('[SyncDB] ❌ Error syncing Apollo with local DB:', error);
+      console.error('[SyncDB] Error syncing Apollo with local DB:', error);
       throw error;
     }
   }, []);

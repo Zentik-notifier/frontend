@@ -19,7 +19,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppProvider, useAppContext } from "../contexts/AppContext";
 import { ApiConfigService } from "../services/api-config";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
-import { openSharedCacheDb } from "../services/db-setup";
+import { openSharedCacheDb, openWebStorageDb } from "../services/db-setup";
 
 type AlertButton = {
   text?: string;
@@ -81,7 +81,7 @@ export default function RootLayout() {
   const { processPendingNavigationIntent } = usePendingNotificationIntents();
 
   useEffect(() => {
-    console.log("🔄 [RootLayout] Loaded");
+    console.log("[RootLayout] Loaded");
   }, []);
 
   useEffect(() => {
@@ -145,13 +145,14 @@ export default function RootLayout() {
     if (loaded) {
       (async () => {
         installConsoleLoggerBridge();
-        console.log("🔄 [LayoutInit] Console logger bridge installed");
+        console.log("[LayoutInit] Console logger bridge installed");
         ApiConfigService.initialize().catch();
-        console.log("🔄 [LayoutInit] App config initialized");
+        console.log("[LayoutInit] App config initialized");
         openSharedCacheDb().catch();
-        console.log("🔄 [LayoutInit] Shared cache DB opened");
+        openWebStorageDb().catch();
+        console.log("[LayoutInit] DB opened");
         await processPendingNavigationIntent();
-        console.log("🔄 [LayoutInit] Pending navigation intent processed");
+        console.log("[LayoutInit] Pending navigation intent processed");
       })();
     }
   }, [loaded]);

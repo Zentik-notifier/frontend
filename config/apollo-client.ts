@@ -1,9 +1,10 @@
 import { GetNotificationsDocument, GetNotificationsQuery, NotificationFragment } from '@/generated/gql-operations-generated';
+import { ApiConfigService } from '@/services/api-config';
 import { authService } from '@/services/auth-service';
 import { getStoredDeviceToken } from '@/services/auth-storage';
-import { userSettings } from '@/services/user-settings';
+import { getAllNotificationsFromCache } from '@/services/notifications-repository';
 import { processJsonToCache } from '@/utils/cache-data-processor';
-import { ApolloClient, createHttpLink, InMemoryCache, makeVar, NormalizedCacheObject, split } from '@apollo/client';
+import { ApolloClient, createHttpLink, InMemoryCache, makeVar, split } from '@apollo/client';
 import { loadDevMessages, loadErrorMessages } from "@apollo/client/dev";
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
@@ -11,9 +12,6 @@ import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { createClient } from 'graphql-ws';
 import { Platform } from 'react-native';
-import { ApiConfigService } from '@/services/api-config';
-import { clearAllNotificationsFromCache, getAllNotificationsFromCache, upsertNotificationsBatch, cleanupNotificationsBySettings } from '@/services/notifications-repository';
-import AsyncStorage from '@/utils/async-storage-wrapper';
 
 if (__DEV__) {
   loadDevMessages();
@@ -224,14 +222,12 @@ export const initApolloClient = async () => {
 
 export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
   try {
-    console.log('📥 [Apollo Cache] Loading notifications from persisted cache...');
+    console.log('[Apollo Cache] Loading notifications from persisted cache...');
 
     if (!apolloClient) {
-      console.warn('⚠️ [Apollo Cache] Apollo client not initialized');
+      console.warn('[Apollo Cache] Apollo client not initialized');
       return;
     }
-
-    await migrateNotificationsToIndexedDB();
 
     let notifications: NotificationFragment[] = [];
 
@@ -239,15 +235,15 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
     try {
       notifications = await getAllNotificationsFromCache();
     } catch (error) {
-      console.error(`❌ [Apollo Cache] Error loading notifications from ${Platform.OS === 'web' ? 'IndexedDB' : 'SQLite'}:`, error);
+      console.error(`[Apollo Cache] Error loading notifications from ${Platform.OS === 'web' ? 'IndexedDB' : 'SQLite'}:`, error);
     }
 
     if (notifications.length === 0) {
-      console.log('📥 [Apollo Cache] No notifications found to load');
+      console.log('[Apollo Cache] No notifications found to load');
       return;
     }
 
-    console.log(`📥 [Apollo Cache] Found ${notifications.length} notifications in ${Platform.OS === 'web' ? 'IndexedDB' : 'SQLite'}`);
+    console.log(`[Apollo Cache] Found ${notifications.length} notifications in ${Platform.OS === 'web' ? 'IndexedDB' : 'SQLite'}`);
 
     const successCount = await processJsonToCache(
       apolloClient.cache,
@@ -255,9 +251,9 @@ export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
       'Apollo Cache',
     );
 
-    console.log(`✅ [Apollo Cache] Successfully loaded ${successCount} notifications from persisted cache`);
+    console.log(`[Apollo Cache] Successfully loaded ${successCount} notifications from persisted cache`);
   } catch (error) {
-    console.error('❌ [Apollo Cache] Error loading notifications from persisted cache:', error);
+    console.error('[Apollo Cache] Error loading notifications from persisted cache:', error);
   } finally {
     loadedFromPersistedCacheVar(true);
   }
@@ -293,55 +289,3 @@ export const reinitializeApolloClient = async (): Promise<void> => {
     throw error;
   }
 };
-
-const migrateNotificationsToIndexedDB = async (): Promise<void> => {
-  if (Platform.OS !== 'web') {
-    try {
-      // Check if already migrated
-      if (userSettings.isNotificationsMigratedToIndexedDB()) {
-        console.log('✅ [Migration] Notifications already migrated to SQLite');
-        return;
-      }
-
-      console.log('🔄 [Migration] Starting notifications migration to SQLite...');
-
-      let notifications: NotificationFragment[] = [];
-      const persistedCacheData = await AsyncStorage.getItem('apollo-cache-notifications');
-      if (persistedCacheData) {
-        notifications = JSON.parse(persistedCacheData);
-      }
-
-      if (notifications.length === 0) {
-        console.log('📥 [Migration] No notifications to migrate to SQLite');
-        // Mark as migrated since there's nothing to migrate
-        await userSettings.updateMigrationSettings({ notificationsMigratedToIndexedDB: true });
-        return;
-      }
-
-      console.log(`📦 [Migration] Migrating ${notifications.length} notifications to SQLite...`);
-
-      // Save to SQLite using the repository
-      await upsertNotificationsBatch(notifications);
-
-      // Mark migration as completed
-      await userSettings.updateMigrationSettings({ notificationsMigratedToIndexedDB: true });
-
-      console.log('✅ [Migration] Successfully migrated notifications to SQLite');
-
-    } catch (error) {
-      console.error('❌ [Migration] Error migrating notifications to SQLite:', error);
-      throw error;
-    }
-  } else {
-    console.log('🔄 [Migration] Web platform - checking migration status...');
-
-    // On web we use IndexedDB directly, but check if migration flag is set
-    if (!userSettings.isNotificationsMigratedToIndexedDB()) {
-      console.log('🌐 [Migration] Setting migration flag for web (IndexedDB is primary storage)');
-      // On web we use IndexedDB directly, so mark as migrated
-      await userSettings.updateMigrationSettings({ notificationsMigratedToIndexedDB: true });
-    } else {
-      console.log('✅ [Migration] Web migration already completed');
-    }
-  }
-}

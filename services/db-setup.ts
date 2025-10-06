@@ -164,7 +164,7 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
   if (webDbPromise) return webDbPromise;
 
   if (Platform.OS !== 'web') {
-    throw new Error('openWebStorageDb can only be used on web platform');
+    return {} as IDBPDatabase<WebStorageDB>;
   }
 
   try {

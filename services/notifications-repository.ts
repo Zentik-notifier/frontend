@@ -614,12 +614,12 @@ export async function cleanupNotificationsBySettings(notifications: Notification
   const max = userSettings.getMaxCachedNotifications?.() ?? 500;
   const maxDays = userSettings.getMaxCachedNotificationsDay?.();
 
-  console.log(`🧹 [Notifications Cleanup] Starting cleanup with max=${max}, maxDays=${maxDays}`);
+  console.log(`[Notifications Cleanup] Starting cleanup with max=${max}, maxDays=${maxDays}`);
 
   const totalBefore = notifications.length;
 
   if (totalBefore === 0) {
-    console.log('📭 [Notifications Cleanup] No notifications to clean up');
+    console.log('[Notifications Cleanup] No notifications to clean up');
     return {
       totalBefore: 0,
       totalAfter: 0,
@@ -644,7 +644,7 @@ export async function cleanupNotificationsBySettings(notifications: Notification
     filteredByAge = beforeFilter - filteredNotifications.length;
 
     if (filteredByAge > 0) {
-      console.log(`🧹 [Notifications Cleanup] Filtered ${filteredByAge} notifications older than ${maxDays} days`);
+      console.log(`[Notifications Cleanup] Filtered ${filteredByAge} notifications older than ${maxDays} days`);
     }
   }
 
@@ -662,7 +662,7 @@ export async function cleanupNotificationsBySettings(notifications: Notification
   if (max > 0 && filteredNotifications.length > max) {
     filteredByCount = filteredNotifications.length - max;
     notificationsToKeep = filteredNotifications.slice(0, max);
-    console.log(`🧹 [Notifications Cleanup] Limited to ${max} notifications, removing ${filteredByCount} excess`);
+    console.log(`[Notifications Cleanup] Limited to ${max} notifications, removing ${filteredByCount} excess`);
   }
 
   // Find notifications to delete (those not in the keep list)
@@ -671,19 +671,19 @@ export async function cleanupNotificationsBySettings(notifications: Notification
     .filter(notification => !idsToKeep.has(notification.id))
     .map(notification => notification.id);
 
-  console.log(`🗑️ [Notifications Cleanup] Will delete ${idsToDelete.length} notifications from database`);
+  console.log(`[Notifications Cleanup] Will delete ${idsToDelete.length} notifications from database`);
 
   // Delete from database (works for both IndexedDB and SQLite)
   let deletedCount = 0;
   if (idsToDelete.length > 0) {
     await deleteNotificationsFromCache(idsToDelete);
     deletedCount = idsToDelete.length;
-    console.log(`💾 [Notifications Cleanup] Deleted ${deletedCount} notifications from database`);
+    console.log(`[Notifications Cleanup] Deleted ${deletedCount} notifications from database`);
   }
 
   const totalAfter = notificationsToKeep.length;
 
-  console.log(`✅ [Notifications Cleanup] Cleanup completed: ${totalBefore} → ${totalAfter} notifications (${deletedCount} deleted)`);
+  console.log(`[Notifications Cleanup] Cleanup completed: ${totalBefore} → ${totalAfter} notifications (${deletedCount} deleted)`);
 
   return {
     totalBefore,

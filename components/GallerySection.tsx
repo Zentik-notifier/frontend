@@ -37,7 +37,7 @@ export default function GallerySection() {
     handleSetSections,
   } = useGalleryContext();
   const [containerWidth, setContainerWidth] = useState<number>(0);
-  const { updateStats, cacheStats } = useGetCacheStats();
+  const { updateStats } = useGetCacheStats();
   const numColumns = userSettings.settings.gallery.gridSize;
 
   const itemWidth = useMemo(() => {

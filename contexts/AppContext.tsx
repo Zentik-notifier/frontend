@@ -39,7 +39,10 @@ import {
   savePushNotificationsInitialized,
   saveTokens,
 } from "../services/auth-storage";
-import { mediaCache } from "../services/media-cache-service";
+import {
+  mediaCache,
+  cleanupGalleryBySettings,
+} from "../services/media-cache-service";
 import { useUserSettings } from "../services/user-settings";
 import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
 import { cleanupNotificationsBySettings } from "@/services/notifications-repository";
@@ -104,12 +107,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     subscriptionsEnabledVar(true);
 
     setTimeout(async () => {
-      try {
-        await cleanupNotificationsBySettings(notifications);
-      } catch (error) {
-        console.error(`❌ [Apollo Setup] Failed to cleanup database:`, error);
-      }
-    }, 5000);
+      await cleanup();
+    }, 10000);
   }, []);
 
   const logout = async () => {
@@ -307,12 +306,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const funct = async () => {
       try {
-        console.log("🔄 [AppInit] started");
+        console.log("[AppInit] started");
         const [accessToken, refreshToken, storedLastUserId] = await Promise.all(
           [getAccessToken(), getRefreshToken(), getLastUserId()]
         );
         console.log(
-          `🔄 [AppInit] tokens found: ${accessToken} ${refreshToken} ${storedLastUserId}`
+          `[AppInit] tokens found: accessToken: ${!accessToken ? "false" : "true"} refreshToken: ${!refreshToken ? "false" : "true"} storedLastUserId: ${!storedLastUserId ? "false" : "true"}`
         );
         setLastUserId(storedLastUserId);
         if (accessToken && refreshToken) {
@@ -338,12 +337,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loading: notificationsLoading,
   } = useFetchNotifications();
 
+  const cleanup = async () => {
+    console.log("[AppInit] starting cleanup");
+    await cleanupNotificationsBySettings(notifications);
+    await cleanupGalleryBySettings();
+    await syncApolloWithLocalDb(apolloClient);
+    await mediaCache.reloadMetadata();
+    console.log("[AppInit] cleanup completed");
+  };
+
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
-        console.log("📱 App became active - scheduling refresh");
-        await syncApolloWithLocalDb(apolloClient);
-        await mediaCache.reloadMetadata();
+        console.log("📱 App became active");
+        await cleanup();
       }
     };
 

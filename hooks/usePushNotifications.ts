@@ -65,7 +65,7 @@ export function usePushNotifications() {
 
     if (pushType?.service) {
       if (pushType.service === NotificationServiceType.Push) {
-        console.log("🔄 Initializing push notifications...");
+        console.log("[usePushNotifications] Initializing push notifications...");
         let result;
         if (isWeb) {
           result = await webPushNotificationService.initialize(callbacks);
@@ -86,7 +86,7 @@ export function usePushNotifications() {
           setDeviceRegistered(false);
         }
       } else if (pushType.service === NotificationServiceType.Local) {
-        console.log("🔄 Initializing local notifications...");
+        console.log("[usePushNotifications] Initializing local notifications...");
         await localNotifications.initialize(callbacks);
       }
     }
@@ -107,7 +107,7 @@ export function usePushNotifications() {
     try {
       const status = await BackgroundFetch.getStatusAsync();
       if (status === BackgroundFetch.BackgroundTaskStatus.Restricted) {
-        console.warn('[usePushNotifications] Background fetch restricted on this device');
+        console.warn("[usePushNotifications] Background fetch restricted on this device");
         return;
       }
 
@@ -121,29 +121,29 @@ export function usePushNotifications() {
           try {
             await callbacks.fetchNotifications();
           } catch (e) {
-            console.warn('[usePushNotifications] Background fetch task failed:', e);
+            console.warn("[usePushNotifications] Background fetch task failed:", e);
           }
         });
       } catch (error) {
-        console.warn('[usePushNotifications] Failed to define background task:', error);
+        console.warn("[usePushNotifications] Failed to define background task:", error);
       }
 
       try {
         await BackgroundFetch.registerTaskAsync(NOTIFICATION_REFRESH_TASK, {
           minimumInterval: 60
         });
-        console.debug('[usePushNotifications] Background fetch task registered successfully');
+        console.debug("[usePushNotifications] Background fetch task registered successfully");
       } catch (e) {
         // already registered or not supported
-        console.debug('[usePushNotifications] Background fetch task already registered or not supported', e);
+        console.debug("[usePushNotifications] Background fetch task already registered or not supported", e);
       }
     } catch (error) {
-      console.error('[usePushNotifications] Error enabling background fetch:', error);
+      console.error("[usePushNotifications] Error enabling background fetch:", error);
     }
   }
 
   const registerDevice = async (): Promise<boolean> => {
-    console.log('[usePushNotifications] Registering device...');
+    console.log("[usePushNotifications] Registering device...");
     setRegisteringDevice(true);
     let tokenToStore: string | null = null;
     let hasPermissionError = false;
@@ -155,7 +155,7 @@ export function usePushNotifications() {
       const res = await registerDeviceMutation({ variables: { input: info } });
       const device = res.data?.registerDevice;
 
-      console.log('[usePushNotifications] RegisterDevice response:', device);
+      console.log("[usePushNotifications] RegisterDevice response:", device);
 
       if (device) {
         if (device.publicKey) {
@@ -180,7 +180,7 @@ export function usePushNotifications() {
 
           if (json) {
             const endpoint = json.endpoint ?? null;
-            console.log('[usePushNotifications] Updating user device with json:', json, endpoint);
+            console.log("[usePushNotifications] Updating user device with json:", json, endpoint);
             await callbacks.useUpdateUserDevice({
               deviceId: device.id,
               subscriptionFields: {

@@ -10,4 +10,5 @@ export { useScreenFocus } from './useScreenFocus';
 
 // Export cleanup utilities
 export { cleanupNotificationsBySettings } from '@/services/notifications-repository';
+export { cleanupGalleryBySettings } from '@/services/media-cache-service';
 

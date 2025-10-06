@@ -833,6 +833,132 @@ class MediaCacheService {
             return null;
         }
     }
+
+    async cleanupGalleryBySettings(): Promise<GalleryCleanupResult> {
+        await this.initialize();
+        const { userSettings } = await import('./user-settings');
+        const retentionPolicies = userSettings.getMediaCacheRetentionPolicies();
+        const maxCacheSizeMB = retentionPolicies.maxCacheSizeMB;
+        const maxCageAgeDays = retentionPolicies.maxCageAgeDays;
+
+        console.log(`[Gallery Cleanup] Starting cleanup with maxCacheSizeMB=${maxCacheSizeMB}, maxCageAgeDays=${maxCageAgeDays}`);
+
+        const items = this.getCachedItems().filter(item => !item.isUserDeleted && item.mediaType !== MediaType.Icon);
+        const totalBefore = items.length;
+        const sizeBefore = items.reduce((sum, item) => sum + (item.size || 0), 0);
+
+        if (totalBefore === 0) {
+            console.log('[Gallery Cleanup] No media items to clean up (excluding icons)');
+            return {
+                totalBefore: 0,
+                totalAfter: 0,
+                deletedCount: 0,
+                sizeBefore: 0,
+                sizeAfter: 0,
+                filteredByAge: 0,
+                filteredBySize: 0,
+            };
+        }
+
+        let filteredItems = items;
+        let filteredByAge = 0;
+
+        if (typeof maxCageAgeDays === 'number' && maxCageAgeDays > 0) {
+            const cutoff = Date.now() - maxCageAgeDays * 24 * 60 * 60 * 1000;
+
+            const beforeFilter = filteredItems.length;
+            filteredItems = filteredItems.filter(item => {
+                const itemDate = item.notificationDate || item.downloadedAt || item.timestamp;
+                return itemDate >= cutoff;
+            });
+            filteredByAge = beforeFilter - filteredItems.length;
+
+            if (filteredByAge > 0) {
+                console.log(`[Gallery Cleanup] Filtered ${filteredByAge} items older than ${maxCageAgeDays} days`);
+            }
+        }
+
+        filteredItems.sort((a, b) => {
+            const aTime = a.notificationDate || a.downloadedAt || a.timestamp;
+            const bTime = b.notificationDate || b.downloadedAt || b.timestamp;
+            return bTime - aTime;
+        });
+
+        let itemsToKeep = filteredItems;
+        let filteredBySize = 0;
+
+        if (typeof maxCacheSizeMB === 'number' && maxCacheSizeMB > 0) {
+            const maxSizeBytes = maxCacheSizeMB * 1024 * 1024;
+            let currentSize = 0;
+            const tempKeep: CacheItem[] = [];
+
+            for (const item of filteredItems) {
+                const itemSize = item.size || 0;
+                if (currentSize + itemSize <= maxSizeBytes) {
+                    tempKeep.push(item);
+                    currentSize += itemSize;
+                } else {
+                    filteredBySize++;
+                }
+            }
+
+            itemsToKeep = tempKeep;
+
+            if (filteredBySize > 0) {
+                console.log(`[Gallery Cleanup] Filtered ${filteredBySize} items to stay within ${maxCacheSizeMB}MB limit`);
+            }
+        }
+
+        const idsToKeep = new Set(itemsToKeep.map(item => item.key));
+        const itemsToDelete = items.filter(item => !idsToKeep.has(item.key));
+
+        console.log(`[Gallery Cleanup] Will delete ${itemsToDelete.length} items from gallery`);
+
+        let deletedCount = 0;
+        if (itemsToDelete.length > 0) {
+            for (const item of itemsToDelete) {
+                try {
+                    const success = await this.deleteCachedMedia(item.url, item.mediaType, false);
+                    if (success) {
+                        deletedCount++;
+                    }
+                } catch (error) {
+                    console.error(`[Gallery Cleanup] Failed to delete item ${item.key}:`, error);
+                }
+            }
+            console.log(`[Gallery Cleanup] Deleted ${deletedCount} media items (including thumbnails)`);
+        }
+
+        const totalAfter = itemsToKeep.length;
+        const sizeAfter = itemsToKeep.reduce((sum, item) => sum + (item.size || 0), 0);
+
+        console.log(`[Gallery Cleanup] Cleanup completed: ${totalBefore} → ${totalAfter} items (${deletedCount} deleted)`);
+        console.log(`[Gallery Cleanup] Size: ${(sizeBefore / (1024 * 1024)).toFixed(2)}MB → ${(sizeAfter / (1024 * 1024)).toFixed(2)}MB`);
+
+        return {
+            totalBefore,
+            totalAfter,
+            deletedCount,
+            sizeBefore,
+            sizeAfter,
+            filteredByAge,
+            filteredBySize,
+        };
+    }
+}
+
+export interface GalleryCleanupResult {
+    totalBefore: number;
+    totalAfter: number;
+    deletedCount: number;
+    sizeBefore: number;
+    sizeAfter: number;
+    filteredByAge: number;
+    filteredBySize: number;
 }
 
 export const mediaCache = new MediaCacheService();
+
+export async function cleanupGalleryBySettings(): Promise<GalleryCleanupResult> {
+    return await mediaCache.cleanupGalleryBySettings();
+}

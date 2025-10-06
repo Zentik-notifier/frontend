@@ -27,7 +27,7 @@ export function useBadgeSync() {
             if (!isMarkingAllAsRead && !isLoadingGqlData) {
                 push.setBadgeCount(unreadCount);
                 await saveBadgeCount(unreadCount);
-                console.log(`📱 Badge count synced: ${unreadCount}`);
+                console.log(`[BadgeSync] Badge count synced: ${unreadCount}`);
             }
         }
 
@@ -43,10 +43,10 @@ export function useBadgeSync() {
 
     // Return a function to manually clear the badge
     const clearBadge = async () => {
-        console.debug('🧹 Clearing badge manually');
+        console.log('[BadgeSync] Clearing badge manually');
         push.clearBadge();
         await saveBadgeCount(0);
-        console.log('📱 Badge cleared');
+        console.log('[BadgeSync] Badge cleared');
     };
 
     const handleMarkAllAsRead = useCallback(async () => {

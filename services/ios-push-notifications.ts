@@ -139,11 +139,11 @@ class IOSNativePushNotificationService {
      */
     setupNotificationListeners() {
         if (this.listenersSetup) {
-            console.debug('📱 iOS notification listeners already setup, skipping...');
+            console.debug('[IOSNativePushNotificationService] iOS notification listeners already setup, skipping...');
             return;
         }
 
-        console.debug('📱 Setting up iOS notification listeners...');
+        console.debug('[IOSNativePushNotificationService] Setting up iOS notification listeners...');
 
         this.removeNotificationListeners();
 
@@ -156,7 +156,7 @@ class IOSNativePushNotificationService {
         });
 
         this.listenersSetup = true;
-        console.debug("✅ iOS notification listeners setup complete");
+        console.debug("[IOSNativePushNotificationService] iOS notification listeners setup complete");
 
         // Check if there's a notification tap that happened while the app was closed
         this.checkLastNotificationResponse();
@@ -169,14 +169,14 @@ class IOSNativePushNotificationService {
         try {
             const lastResponse = Notifications.getLastNotificationResponse();
             if (lastResponse) {
-                console.log('📱 Found last notification response from cold start:', JSON.stringify(lastResponse));
+                console.log('[IOSNativePushNotificationService] Found last notification response from cold start:', JSON.stringify(lastResponse));
                 // Process it as if it just happened
                 await this.handleNotificationResponse(lastResponse);
             } else {
-                console.debug('📱 No last notification response found');
+                console.debug('[IOSNativePushNotificationService] No last notification response found');
             }
         } catch (error) {
-            console.error('❌ Error checking last notification response:', error);
+            console.error('[IOSNativePushNotificationService] Error checking last notification response:', error);
         }
     }
 
@@ -186,7 +186,7 @@ class IOSNativePushNotificationService {
      * Handle notification received (when notification arrives)
      */
     private handleNotificationReceived = async (notification: Notifications.Notification) => {
-        console.log('📱 iOS notification received:', JSON.stringify(notification));
+        console.log('[IOSNativePushNotificationService] iOS notification received:', JSON.stringify(notification));
 
         // Extract notification ID from payload
         const pushTrigger = notification.request.trigger as any;
@@ -197,7 +197,7 @@ class IOSNativePushNotificationService {
             try {
                 await this.actionCallbacks.pushNotificationReceived(notificationId);
             } catch (e) {
-                console.warn('⚠️ iOS pushNotificationReceived (foreground) failed:', e);
+                console.warn('[IOSNativePushNotificationService] iOS pushNotificationReceived (foreground) failed:', e);
             }
         }
     };
@@ -206,7 +206,7 @@ class IOSNativePushNotificationService {
      * Handle notification response (when user taps notification or action)
      */
     private handleNotificationResponse = async (response: Notifications.NotificationResponse) => {
-        console.log('👆 iOS notification response:', JSON.stringify(response));
+        console.log('[IOSNativePushNotificationService] iOS notification response:', JSON.stringify(response));
 
         // Extract payload from push notification trigger (where the actual data is stored)
         const pushTrigger = response.notification.request.trigger as any;
@@ -237,11 +237,11 @@ class IOSNativePushNotificationService {
      */
     private async handleDefaultTapAction(response: Notifications.NotificationResponse, payload: any) {
         const notificationId = payload?.notificationId;
-        console.log('🔔 iOS: Extracted notification ID:', notificationId);
+        console.log('[IOSNativePushNotificationService] Extracted notification ID:', notificationId);
 
         // Check if there's a tapAction defined
         if (payload?.tapAction) {
-            console.log('🎯 iOS: Executing tapAction:', payload.tapAction);
+            console.log('[IOSNativePushNotificationService] Executing tapAction:', payload.tapAction);
             if (this.actionCallbacks && notificationId) {
                 await this.actionCallbacks.executeAction(notificationId, payload.tapAction);
             }
@@ -257,7 +257,7 @@ class IOSNativePushNotificationService {
                 icon: '',
                 title: 'Open'
             };
-            console.log('🎯 iOS: Default open action for notification:', notificationId);
+            console.log('[IOSNativePushNotificationService] Default open action for notification:', notificationId);
             if (this.actionCallbacks) {
                 await this.actionCallbacks.executeAction(notificationId, openAction);
             }
@@ -282,7 +282,7 @@ class IOSNativePushNotificationService {
         }
 
         this.listenersSetup = false;
-        console.debug('🧹 iOS notification listeners removed');
+        console.debug('[IOSNativePushNotificationService] iOS notification listeners removed');
     }
 
     /**
@@ -294,7 +294,7 @@ class IOSNativePushNotificationService {
             // Check for pending navigation intent using keychain
             const navigationIntent = await getPendingNavigationIntent();
             if (navigationIntent && this.actionCallbacks) {
-                console.log('📱 iOS: Found pending navigation intent:', navigationIntent);
+                console.log('[IOSNativePushNotificationService] Found pending navigation intent:', navigationIntent);
 
                 // Execute the stored navigation action
                 if (navigationIntent.type === 'NAVIGATE') {
@@ -311,7 +311,7 @@ class IOSNativePushNotificationService {
 
                 // Clear the processed intent
                 await clearPendingNavigationIntent();
-                console.log('📱 iOS: Navigation intent processed and cleared');
+                console.log('[IOSNativePushNotificationService] Navigation intent processed and cleared');
                 return true; // Intent was processed
             }
 
@@ -319,7 +319,7 @@ class IOSNativePushNotificationService {
             return false; // No navigation intent was processed
 
         } catch (error) {
-            console.error('❌ iOS: Error processing pending intents:', error);
+            console.error('[IOSNativePushNotificationService] Error processing pending intents:', error);
             return false;
         }
     }

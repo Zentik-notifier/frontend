@@ -64,7 +64,6 @@ export const writeEntitiesToCache = (
     }
   });
 
-  // console.log(`✅ [${context}] Successfully wrote ${successCount}/${entities.size} entities`);
   return successCount;
 };
 
@@ -112,7 +111,6 @@ export const processNotificationsToCacheWithQuery = (
         notifications
       }
     });
-    // console.log(`🧭 [${context}] Query.notifications written directly with ${notifications.length} items`);
   } catch (e) {
     console.warn(`⚠️ [${context}] Failed to write Query.notifications:`, e);
   }
@@ -125,15 +123,15 @@ export const processNotificationsToCacheWithQuery = (
  */
 export const validateNotification = (notification: NotificationFragment, index?: number): boolean => {
   if (!notification.id) {
-    console.warn(`⚠️ Notification at index ${index ?? 'unknown'} missing ID`);
+    console.warn(`Notification at index ${index ?? 'unknown'} missing ID`);
     return false;
   }
   if (!notification.__typename || notification.__typename !== 'Notification') {
-    console.warn(`⚠️ Notification at index ${index ?? 'unknown'} missing or invalid __typename:`, notification.__typename);
+    console.warn(`Notification at index ${index ?? 'unknown'} missing or invalid __typename:`, notification.__typename);
     return false;
   }
   if (notification.message.tapAction && !notification.message.tapAction.type) {
-    console.warn(`⚠️ Notification at index ${index ?? 'unknown'} missing tap action type`);
+    console.warn(`Notification at index ${index ?? 'unknown'} missing tap action type`);
     return false;
   }
   return true;
@@ -158,7 +156,7 @@ export const processJsonToCache = async (
   const notifications = notificationsParent;
 
   if (notificationsParent.length !== notifications.length) {
-    console.warn(`⚠️ [${context}] Filtered out ${notifications.length - notificationsParent.length} invalid notifications`);
+    console.warn(`[${context}] Filtered out ${notifications.length - notificationsParent.length} invalid notifications`);
   }
 
   let totalCount = 0;
@@ -170,7 +168,7 @@ export const processJsonToCache = async (
     firstBatch,
     firstBatchContext,
   );
-  console.log(`🔄 [${firstBatchContext}] Processed ${firstBatch.length} notifications...`);
+  console.log(`[${firstBatchContext}] Processed ${firstBatch.length} notifications...`);
   totalCount += firstCount;
 
   // Wait before processing remaining notifications
@@ -188,11 +186,11 @@ export const processJsonToCache = async (
       remainingBatch,
       remainingBatchContext,
     );
-    console.log(`🔄 [${remainingBatchContext}] Processed ${remainingBatch.length} notifications...`);
+    console.log(`[${remainingBatchContext}] Processed ${remainingBatch.length} notifications...`);
     totalCount += remainingCount;
   }
 
   const endTime = Date.now();
-  console.log(`🔄 [${context}] Finish processing ${notifications.length} notifications in ${(endTime - startTime) / 1000} seconds`);
+  console.log(`[${context}] Finish processing ${notifications.length} notifications in ${(endTime - startTime) / 1000} seconds`);
   return totalCount;
 };
