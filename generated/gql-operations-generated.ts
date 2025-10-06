@@ -863,9 +863,9 @@ export type PayloadMapper = {
 
 /** Built-in payload mapper types */
 export enum PayloadMapperBuiltInType {
-  ZentikAuthentik = 'ZentikAuthentik',
-  ZentikRailway = 'ZentikRailway',
-  ZentikServarr = 'ZentikServarr'
+  ZentikAuthentik = 'ZENTIK_AUTHENTIK',
+  ZentikRailway = 'ZENTIK_RAILWAY',
+  ZentikServarr = 'ZENTIK_SERVARR'
 }
 
 /** Permission enum for bucket access */

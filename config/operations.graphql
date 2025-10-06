@@ -18,9 +18,9 @@ input UpdatePayloadMapperDto {
 }
 
 enum PayloadMapperBuiltInType {
-  ZentikAuthentik
-  ZentikRailway
-  ZentikServarr
+  ZENTIK_AUTHENTIK
+  ZENTIK_RAILWAY
+  ZENTIK_SERVARR
 }
 
 # Password Reset Mutations
