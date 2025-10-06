@@ -46,6 +46,7 @@ export default function NotificationFilters({
       markAsReadLoading,
       markAsUnreadLoading,
       deleteLoading,
+      activeFiltersCount,
     },
     handleToggleMultiSelection,
     handleCloseSelectionMode,
@@ -92,17 +93,6 @@ export default function NotificationFilters({
       }
     };
   }, []);
-
-  const getActiveFiltersCount = (): number => {
-    let count = 0;
-    if (filters.hideRead) count++;
-    if (filters.hideOlderThan !== "none") count++;
-    if (filters.selectedBucketIds.length > 0) count++; // Any bucket selection (including __general__)
-    if (filters.showOnlyWithAttachments) count++;
-    return count;
-  };
-
-  const activeFiltersCount = getActiveFiltersCount();
 
   const handleToggleCompactMode = useCallback(async () => {
     await setIsCompactMode(!isCompactMode);

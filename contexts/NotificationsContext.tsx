@@ -1,5 +1,7 @@
 import { NotificationFragment } from "@/generated/gql-operations-generated";
-import React, { createContext, useContext, useReducer, ReactNode } from "react";
+import { NotificationFilters } from "@/services/user-settings";
+import { useAppContext } from "@/contexts/AppContext";
+import React, { createContext, useContext, useReducer, ReactNode, useEffect } from "react";
 
 // Types
 interface NotificationsState {
@@ -11,6 +13,7 @@ interface NotificationsState {
   deleteLoading: boolean;
   showFiltersModal: boolean;
   hideBucketSelector: boolean;
+  activeFiltersCount: number;
 }
 
 type NotificationsAction =
@@ -23,7 +26,8 @@ type NotificationsAction =
   | { type: "SET_MARK_AS_UNREAD_LOADING"; payload: boolean }
   | { type: "SET_DELETE_LOADING"; payload: boolean }
   | { type: "SET_SHOW_FILTERS_MODAL"; payload: boolean }
-  | { type: "SET_HIDE_BUCKET_SELECTOR"; payload: boolean };
+  | { type: "SET_HIDE_BUCKET_SELECTOR"; payload: boolean }
+  | { type: "SET_ACTIVE_FILTERS_COUNT"; payload: number };
 
 // Initial state
 const initialState: NotificationsState = {
@@ -35,6 +39,7 @@ const initialState: NotificationsState = {
   deleteLoading: false,
   showFiltersModal: false,
   hideBucketSelector: false,
+  activeFiltersCount: 0,
 };
 
 // Reducer
@@ -73,6 +78,8 @@ function notificationsReducer(
       return { ...state, showFiltersModal: action.payload };
     case "SET_HIDE_BUCKET_SELECTOR":
       return { ...state, hideBucketSelector: action.payload };
+    case "SET_ACTIVE_FILTERS_COUNT":
+      return { ...state, activeFiltersCount: action.payload };
     default:
       return state;
   }
@@ -109,6 +116,10 @@ export function NotificationsProvider({
     ...initialState,
   });
 
+  const {
+    userSettings: { settings },
+  } = useAppContext();
+
   const handleSetAllNotifications = (notifications: NotificationFragment[]) => {
     dispatch({ type: "SET_ALL_NOTIFICATIONS", payload: notifications });
   };
@@ -142,6 +153,20 @@ export function NotificationsProvider({
   const handleHideFiltersModal = () => {
     dispatch({ type: "SET_SHOW_FILTERS_MODAL", payload: false });
   };
+
+  const updateActiveFiltersCount = (filters: NotificationFilters): void => {
+    let count = 0;
+    if (filters.hideRead) count++;
+    if (filters.timeRange !== "all") count++;
+    if (filters.selectedBucketIds.length > 0) count++;
+    if (filters.showOnlyWithAttachments) count++;
+    if (filters.sortBy !== "newest") count++;
+    dispatch({ type: "SET_ACTIVE_FILTERS_COUNT", payload: count });
+  };
+
+  useEffect(() => {
+    updateActiveFiltersCount(settings.notificationFilters);
+  }, [settings.notificationFilters]);
 
   const value: NotificationsContextType = {
     state,

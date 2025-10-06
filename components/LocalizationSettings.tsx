@@ -343,10 +343,6 @@ export function LocalizationSettings() {
     }
   };
 
-  const getCurrentLanguageDisplayName = (): string => {
-    return getLocaleDisplayName(currentLocale);
-  };
-
   // Timezone handlers
   const handleTimezoneSelect = async (timezone: string) => {
     await setTimezone(timezone);

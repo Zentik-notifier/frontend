@@ -51,8 +51,25 @@ import {
 import { useUserSettings } from "../services/user-settings";
 import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
 import { cleanupNotificationsBySettings } from "@/services/notifications-repository";
+import { i18nService } from "@/services/i18n";
+import * as Localization from 'expo-localization';
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
+
+export const getDeviceLocale = (): Locale => {
+  try {
+    const deviceLocale = Localization.getLocales()[0].languageTag;
+    console.log('🌍 Detected device locale:', deviceLocale);
+    if (deviceLocale.startsWith('it')) {
+      return 'it-IT';
+    } else if (deviceLocale.startsWith('en')) {
+      return 'en-EN';
+    }
+    return 'en-EN';
+  } catch {
+    return 'en-EN';
+  }
+};
 
 interface AppContextProps {
   logout: () => Promise<void>;
@@ -108,6 +125,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isMainLoading, setIsLoading] = useState(false);
   const { syncApolloWithLocalDb } = usePendingNotificationIntents();
   const { markAllAsRead } = useMarkAllNotificationsAsRead();
+
+  useEffect(() => {
+    if (!userSettings.settings.locale) {
+      const deviceLocale = getDeviceLocale();
+      console.log(
+        "[AppContext] Setting initial locale to device locale:",
+        deviceLocale
+      );
+      i18nService.setLocale(deviceLocale).catch(console.error);
+    }
+  }, [userSettings.settings.locale]);
 
   useEffect(() => {
     const appLocale = userSettings.settings.locale as Locale;
@@ -389,7 +417,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
-        console.log('[AppContext] App is active, cleaning up');
+        console.log("[AppContext] App is active, cleaning up");
         await cleanup();
       }
 
@@ -398,7 +426,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         userSettings.settings.notificationsPreferences?.markAsReadMode ===
           "on-app-close"
       ) {
-        console.log('[AppContext] App is inactive, marking all notifications as read');
+        console.log(
+          "[AppContext] App is inactive, marking all notifications as read"
+        );
         await markAllAsRead();
       }
     };

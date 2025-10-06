@@ -1,6 +1,7 @@
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
+import { DEFAULT_MEDIA_TYPES } from "@/services/user-settings";
 import { useGalleryContext } from "@/contexts/GalleryContext";
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, ScrollView, Dimensions } from "react-native";
@@ -21,10 +22,12 @@ export default function GalleryFiltersModal() {
   const { t } = useI18n();
   const { userSettings } = useAppContext();
 
+  // Get default media types from utility
+  const defaultMediaTypes = new Set(DEFAULT_MEDIA_TYPES);
+
   // Use gallery context
   const {
-    state: { selectedMediaTypes, showFiltersModal },
-    handleMediaTypesChange,
+    state: { showFiltersModal },
     handleHideFiltersModal,
   } = useGalleryContext();
 
@@ -34,6 +37,11 @@ export default function GalleryFiltersModal() {
     [userSettings]
   );
 
+  // Get selected media types from settings (or use defaults if empty)
+  const selectedMediaTypes = savedGallerySettings.selectedMediaTypes.length > 0
+    ? new Set(savedGallerySettings.selectedMediaTypes)
+    : defaultMediaTypes;
+
   // Local state for filters
   const [localSelectedMediaTypes, setLocalSelectedMediaTypes] = useState<Set<MediaType>>(selectedMediaTypes);
   const [localGallerySettings, setLocalGallerySettings] = useState(savedGallerySettings);
@@ -41,8 +49,12 @@ export default function GalleryFiltersModal() {
   // Sync local state when modal opens
   useEffect(() => {
     if (showFiltersModal) {
-      setLocalSelectedMediaTypes(new Set(selectedMediaTypes));
-      setLocalGallerySettings(userSettings.getGallerySettings());
+      const settings = userSettings.getGallerySettings();
+      const mediaTypes = settings.selectedMediaTypes.length > 0
+        ? new Set(settings.selectedMediaTypes)
+        : defaultMediaTypes;
+      setLocalSelectedMediaTypes(mediaTypes);
+      setLocalGallerySettings(settings);
     }
   }, [showFiltersModal]);
 
@@ -65,7 +77,6 @@ export default function GalleryFiltersModal() {
   };
 
   const isAllSelected = localSelectedMediaTypes.size === availableMediaTypes.length;
-  const isNoneSelected = localSelectedMediaTypes.size === 0;
 
   const handleAutoPlayChange = (autoPlay: boolean) => {
     setLocalGallerySettings(prev => ({ ...prev, autoPlay }));
@@ -85,12 +96,15 @@ export default function GalleryFiltersModal() {
       autoPlay: false,
       showFaultyMedias: false,
       gridSize: 3,
+      selectedMediaTypes: [],
     });
   };
 
   const applyFilters = async () => {
-    handleMediaTypesChange(localSelectedMediaTypes);
-    await userSettings.updateGallerySettings(localGallerySettings);
+    await userSettings.updateGallerySettings({
+      ...localGallerySettings,
+      selectedMediaTypes: Array.from(localSelectedMediaTypes),
+    });
     handleHideFiltersModal();
   };
 
@@ -447,12 +461,22 @@ export default function GalleryFiltersModal() {
 
 function getActiveFiltersCount(
   selectedMediaTypes: Set<MediaType>,
-  gallerySettings: { autoPlay: boolean; showFaultyMedias: boolean; gridSize: number }
+  gallerySettings: { autoPlay: boolean; showFaultyMedias: boolean; gridSize: number; selectedMediaTypes: MediaType[] }
 ): number {
   let count = 0;
   
-  // Count selected media types
-  count += selectedMediaTypes.size;
+  // Count media types that differ from defaults
+  const defaultSet = new Set(DEFAULT_MEDIA_TYPES);
+  const selectedArray = Array.from(selectedMediaTypes);
+  const defaultArray = Array.from(defaultSet);
+  
+  // Check if selection is different from defaults
+  if (
+    selectedArray.length !== defaultArray.length ||
+    !selectedArray.every((type) => (defaultSet as Set<MediaType>).has(type))
+  ) {
+    count++; // Count as 1 filter, not the number of selected types
+  }
   
   // Count non-default gallery settings
   if (gallerySettings.autoPlay) count++;

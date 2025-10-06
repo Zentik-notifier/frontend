@@ -1,12 +1,13 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { dateFormatService } from '../services/date-format';
 import { useI18n } from './useI18n';
+import { localeToDatePickerLocale, type DatePickerLocale } from '@/types/i18n';
 
 /**
  * Hook for formatting dates according to user preferences
  */
 export function useDateFormat() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const formatDate = useCallback((date: Date | string, includeTime?: boolean) => {
     return dateFormatService.formatDate(date, includeTime);
   }, []);
@@ -38,10 +39,19 @@ export function useDateFormat() {
     }
   }, [t]);
 
+  /**
+   * Get the locale string for react-native-paper-dates DatePickerInput
+   * Converts app locale (e.g., 'it-IT') to date picker locale (e.g., 'it')
+   */
+  const datePickerLocale = useMemo((): DatePickerLocale => {
+    return localeToDatePickerLocale[locale] || 'en';
+  }, [locale]);
+
   return {
     formatDate,
     formatRelativeTime,
     formatTime,
     formatDateKey,
+    datePickerLocale,
   };
 }

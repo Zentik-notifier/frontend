@@ -13,25 +13,14 @@ export function useLanguageSync() {
       settings, setLocale: setUserLocale
     },
   } = useAppContext();
-  const [isUpdating, setIsUpdating] = React.useState(false);
-
-  // Sync i18n service when user settings change
-  React.useEffect(() => {
-    if (!isUpdating && settings.locale !== i18nService.getCurrentLocale()) {
-      i18nService.setLocale(settings.locale).catch(console.error);
-    }
-  }, [settings.locale, isUpdating]);
 
   const setLocale = React.useCallback(async (locale: Locale) => {
-    setIsUpdating(true);
     try {
-      // Only update UserSettings, i18n will follow automatically
       await setUserLocale(locale);
+      await i18nService.setLocale(locale);
     } catch (error) {
       console.error('Failed to set locale:', error);
       throw error;
-    } finally {
-      setIsUpdating(false);
     }
   }, [setUserLocale]);
 

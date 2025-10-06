@@ -8,7 +8,6 @@ import {
   Dimensions,
   Pressable,
   RefreshControl,
-  // SectionList,
   StyleSheet,
   View,
 } from "react-native";

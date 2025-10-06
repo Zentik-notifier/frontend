@@ -3,6 +3,7 @@ import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useAppContext } from "@/contexts/AppContext";
+import { DEFAULT_MEDIA_TYPES } from "@/services/user-settings";
 import { formatFileSize } from "@/utils";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
@@ -46,7 +47,6 @@ export default function GalleryFilters() {
     state: {
       selectionMode,
       selectedItems,
-      selectedMediaTypes,
       deleteLoading,
       filteredMedia,
     },
@@ -62,11 +62,26 @@ export default function GalleryFilters() {
   const getActiveFiltersCount = (): number => {
     let count = 0;
 
-    // Conta se non sono selezionati tutti i tipi di media
-    if (selectedMediaTypes.size !== availableMediaTypes.length) count++;
+    // Get selected media types from settings
+    const savedSelectedTypes = userSettings.settings.gallery.selectedMediaTypes;
+    const selectedMediaTypes = savedSelectedTypes.length > 0 
+      ? savedSelectedTypes 
+      : DEFAULT_MEDIA_TYPES;
 
-    // Conta se showFaultyMedias è attivo (opzione speciale)
+    // Count if selection differs from defaults
+    const defaultSet = new Set(DEFAULT_MEDIA_TYPES);
+    const isDefaultSelection = 
+      selectedMediaTypes.length === defaultSet.size &&
+      selectedMediaTypes.every((type) => (defaultSet as Set<MediaType>).has(type));
+    
+    if (!isDefaultSelection) {
+      count++; // Count as 1 filter, not the number of selected types
+    }
+
+    // Count other non-default settings
     if (userSettings.settings.gallery.showFaultyMedias) count++;
+    if (userSettings.settings.gallery.autoPlay) count++;
+    if (userSettings.settings.gallery.gridSize !== 3) count++;
 
     return count;
   };

@@ -1,12 +1,9 @@
-import { NotificationFragment } from '@/generated/gql-operations-generated';
+import { MediaType, NotificationFragment, UserSettingType, useGetUserSettingsLazyQuery, useUpsertUserSettingMutation } from '@/generated/gql-operations-generated';
 import { Locale } from '@/types/i18n';
 import AsyncStorage from '@/utils/async-storage-wrapper';
-import * as Localization from 'expo-localization';
-import { UserSettingType, useGetUserSettingsLazyQuery, useUpsertUserSettingMutation } from '@/generated/gql-operations-generated';
 import React, { useEffect } from 'react';
 import { ThemePreset } from './theme-presets';
-import { upsertNotificationsBatch } from '@/services/notifications-repository';
-import { Platform } from 'react-native';
+import { startOfDay, subDays, isWithinInterval } from 'date-fns';
 
 // Current version of terms (update this when terms change)
 const CURRENT_TERMS_VERSION = '1.0.0';
@@ -20,25 +17,18 @@ const getDeviceTimezone = (): string => {
   }
 };
 
-// Get device locale with fallback to English
-const getDeviceLocale = (): Locale => {
-  try {
-    const deviceLocale = Localization.getLocales()[0].languageTag;
-    console.log('🌍 Detected device locale:', deviceLocale);
-    if (deviceLocale.startsWith('it')) {
-      return 'it-IT';
-    } else if (deviceLocale.startsWith('en')) {
-      return 'en-EN';
-    }
-    return 'en-EN';
-  } catch {
-    return 'en-EN';
-  }
-};
+// Utility: Default media types to show (all except Icon)
+export const DEFAULT_MEDIA_TYPES = Object.values(MediaType).filter(
+  (type) => type !== MediaType.Icon
+);
 
 export interface NotificationFilters {
   hideRead: boolean;
-  hideOlderThan: 'none' | '1day' | '1week' | '1month';
+  timeRange: 'all' | 'today' | 'thisWeek' | 'thisMonth' | 'custom';
+  customTimeRange?: {
+    from: string; // ISO date string
+    to: string; // ISO date string
+  };
   selectedBucketIds: string[];
   searchQuery: string;
   sortBy: 'newest' | 'oldest' | 'priority';
@@ -76,7 +66,7 @@ export interface UserSettings {
   dynamicThemeColors?: DynamicThemeColors;
 
   // Localization settings
-  locale: Locale;
+  locale?: Locale;
   timezone: string;
   dateFormat: DateFormatPreferences;
 
@@ -117,6 +107,8 @@ export interface UserSettings {
     showFaultyMedias: boolean;
     /** Number of columns in gallery grid */
     gridSize: number;
+    /** Selected media types to filter */
+    selectedMediaTypes: MediaType[];
   };
 
   // Onboarding settings
@@ -142,7 +134,7 @@ const DEFAULT_SETTINGS: UserSettings = {
     secondary: '#625B71',
     tertiary: '#7D5260',
   },
-  locale: 'en-EN',
+  locale: undefined,
   timezone: getDeviceTimezone(),
   dateFormat: {
     dateStyle: 'medium',
@@ -164,7 +156,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   notificationsLastSeenId: undefined,
   notificationFilters: {
     hideRead: false,
-    hideOlderThan: 'none',
+    timeRange: 'all',
+    customTimeRange: undefined,
     selectedBucketIds: [],
     searchQuery: '',
     sortBy: 'newest',
@@ -180,6 +173,7 @@ const DEFAULT_SETTINGS: UserSettings = {
     autoPlay: true,
     showFaultyMedias: false,
     gridSize: 3,
+    selectedMediaTypes: DEFAULT_MEDIA_TYPES,
   },
   onboarding: {
     hasCompletedOnboarding: false,
@@ -191,22 +185,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   },
 };
 
-// Storage keys
-const STORAGE_KEYS = {
-  USER_SETTINGS: '@zentik/user_settings',
-  THEME_MODE: '@zentik/theme_mode',
-  NOTIFICATION_FILTERS: '@zentik/notification_filters',
-  // Media cache settings keys - same pattern as other settings
-  MEDIA_CACHE_RETENTION_POLICIES: '@zentik/media_cache_retention_policies',
-  MEDIA_CACHE_DOWNLOAD_SETTINGS: '@zentik/media_cache_download_settings',
-  // Notification settings
-  NOTIFICATIONS_LAST_SEEN_ID: '@notifications_last_seen_id',
-  // Onboarding settings
-  ONBOARDING_COMPLETED: '@zentik/onboarding_completed',
-  // Terms acceptance settings
-  TERMS_ACCEPTED: '@zentik/terms_accepted',
-  TERMS_VERSION: '@zentik/terms_version',
-};
+const USER_SETTINGS_KEYS = '@zentik/user_settings';
 
 class UserSettingsService {
   private settings: UserSettings = DEFAULT_SETTINGS;
@@ -217,83 +196,13 @@ class UserSettingsService {
    */
   async initialize(): Promise<UserSettings> {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.USER_SETTINGS);
+      const stored = await AsyncStorage.getItem(USER_SETTINGS_KEYS);
       if (stored) {
         const parsed = JSON.parse(stored);
         // Merge with defaults to ensure new settings are included
         this.settings = this.mergeWithDefaults(parsed);
       }
 
-      // Check if locale is set, if not detect device locale
-      if (!this.settings.locale) {
-        const deviceLocale = getDeviceLocale();
-        if (deviceLocale !== this.settings.locale) {
-          this.settings.locale = deviceLocale;
-          console.log(`🌍 Detected device locale: ${deviceLocale}`);
-          // Save the detected locale
-          await this.saveSettings();
-        }
-      }
-
-      // Also check for legacy theme setting
-      const theme = await AsyncStorage.getItem(STORAGE_KEYS.THEME_MODE);
-      if (theme && !stored) {
-        this.settings.themeMode = theme as 'light' | 'dark' | 'system';
-        await this.saveSettings();
-      }
-
-      // Check for legacy media cache retention policies
-      const retentionPolicies = await AsyncStorage.getItem(STORAGE_KEYS.MEDIA_CACHE_RETENTION_POLICIES);
-      if (retentionPolicies && !stored) {
-        try {
-          const parsedPolicies = JSON.parse(retentionPolicies);
-          this.settings.mediaCache.retentionPolicies = {
-            ...this.settings.mediaCache.retentionPolicies,
-            ...parsedPolicies,
-          };
-          await this.saveSettings();
-        } catch (error) {
-          console.error('Failed to parse retention policies:', error);
-        }
-      }
-
-      // Check for legacy media cache download settings
-      const downloadSettings = await AsyncStorage.getItem(STORAGE_KEYS.MEDIA_CACHE_DOWNLOAD_SETTINGS);
-      if (downloadSettings && !stored) {
-        try {
-          const parsedSettings = JSON.parse(downloadSettings);
-          this.settings.mediaCache.downloadSettings = {
-            ...this.settings.mediaCache.downloadSettings,
-            ...parsedSettings,
-          };
-          await this.saveSettings();
-        } catch (error) {
-          console.error('Failed to parse download settings:', error);
-        }
-      }
-
-      // Check for legacy notifications last seen ID
-      const notificationsLastSeenId = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_LAST_SEEN_ID);
-      if (notificationsLastSeenId && !stored) {
-        this.settings.notificationsLastSeenId = notificationsLastSeenId;
-        await this.saveSettings();
-      }
-
-      // Check for legacy onboarding completion
-      const onboardingCompleted = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
-      if (onboardingCompleted && !stored) {
-        this.settings.onboarding.hasCompletedOnboarding = onboardingCompleted === "true";
-        await this.saveSettings();
-      }
-
-      // Check for legacy terms acceptance
-      const termsAccepted = await AsyncStorage.getItem(STORAGE_KEYS.TERMS_ACCEPTED);
-      const termsVersion = await AsyncStorage.getItem(STORAGE_KEYS.TERMS_VERSION);
-      if (termsAccepted && termsVersion && !stored) {
-        this.settings.termsAcceptance.termsAccepted = termsAccepted === "true";
-        this.settings.termsAcceptance.acceptedVersion = termsVersion;
-        await this.saveSettings();
-      }
 
       return this.settings;
     } catch (error) {
@@ -565,7 +474,7 @@ class UserSettingsService {
    * Get locale
    */
   getLocale(): Locale {
-    return this.settings.locale;
+    return this.settings.locale ?? 'en-EN';
   }
 
   /**
@@ -586,22 +495,43 @@ class UserSettingsService {
       return false;
     }
 
-    // Filter by age
-    if (filters.hideOlderThan !== 'none') {
+    // Filter by time range
+    if (filters.timeRange !== 'all') {
       const now = new Date();
       const notificationDate = new Date(notification.createdAt);
-      const diffHours = (now.getTime() - notificationDate.getTime()) / (1000 * 60 * 60);
 
-      switch (filters.hideOlderThan) {
-        case '1day':
-          if (diffHours > 24) return false;
+      switch (filters.timeRange) {
+        case 'today': {
+          // Last 24 hours (1 day)
+          const oneDayAgo = subDays(now, 1);
+          if (notificationDate < oneDayAgo) return false;
           break;
-        case '1week':
-          if (diffHours > 24 * 7) return false;
+        }
+        case 'thisWeek': {
+          // Last 7 days (1 week)
+          const sevenDaysAgo = subDays(now, 7);
+          if (notificationDate < sevenDaysAgo) return false;
           break;
-        case '1month':
-          if (diffHours > 24 * 30) return false;
+        }
+        case 'thisMonth': {
+          // Last 30 days (1 month)
+          const thirtyDaysAgo = subDays(now, 30);
+          if (notificationDate < thirtyDaysAgo) return false;
           break;
+        }
+        case 'custom': {
+          if (filters.customTimeRange) {
+            const fromDate = startOfDay(new Date(filters.customTimeRange.from));
+            const toDate = startOfDay(new Date(filters.customTimeRange.to));
+            // Set toDate to end of day
+            toDate.setHours(23, 59, 59, 999);
+
+            if (!isWithinInterval(notificationDate, { start: fromDate, end: toDate })) {
+              return false;
+            }
+          }
+          break;
+        }
       }
     }
 
@@ -669,7 +599,7 @@ class UserSettingsService {
    */
   private async saveSettings(): Promise<void> {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.USER_SETTINGS, JSON.stringify(this.settings));
+      await AsyncStorage.setItem(USER_SETTINGS_KEYS, JSON.stringify(this.settings));
     } catch (error) {
       console.error('Failed to save user settings:', error);
       throw error;

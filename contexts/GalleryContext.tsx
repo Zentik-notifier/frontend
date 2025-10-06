@@ -3,6 +3,7 @@ import { useI18n } from "@/hooks";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useAppContext } from "@/contexts/AppContext";
 import { CacheItem } from "@/services/media-cache-service";
+import { DEFAULT_MEDIA_TYPES } from "@/services/user-settings";
 import React, {
   createContext,
   useContext,
@@ -22,7 +23,6 @@ interface GallerySection {
 interface GalleryState {
   selectionMode: boolean;
   selectedItems: Set<string>;
-  selectedMediaTypes: Set<MediaType>;
   deleteLoading: boolean;
   showFiltersModal: boolean;
   filteredMedia: CacheItem[];
@@ -35,7 +35,6 @@ type GalleryAction =
   | { type: "SET_SELECTED_ITEMS"; payload: Set<string> }
   | { type: "TOGGLE_ITEM_SELECTION"; payload: string }
   | { type: "CLEAR_SELECTION" }
-  | { type: "SET_SELECTED_MEDIA_TYPES"; payload: Set<MediaType> }
   | { type: "SET_DELETE_LOADING"; payload: boolean }
   | { type: "SET_SHOW_FILTERS_MODAL"; payload: boolean }
   | { type: "SET_FILTERED_MEDIA"; payload: CacheItem[] }
@@ -46,7 +45,6 @@ type GalleryAction =
 const initialState: GalleryState = {
   selectionMode: false,
   selectedItems: new Set(),
-  selectedMediaTypes: new Set(Object.values(MediaType)),
   deleteLoading: false,
   showFiltersModal: false,
   filteredMedia: [],
@@ -78,8 +76,6 @@ function galleryReducer(
       return { ...state, selectedItems: newSelectedItems };
     case "CLEAR_SELECTION":
       return { ...state, selectedItems: new Set() };
-    case "SET_SELECTED_MEDIA_TYPES":
-      return { ...state, selectedMediaTypes: action.payload };
     case "SET_DELETE_LOADING":
       return { ...state, deleteLoading: action.payload };
     case "SET_SHOW_FILTERS_MODAL":
@@ -108,7 +104,6 @@ interface GalleryContextType {
   handleSelectAll: () => void;
   handleDeselectAll: () => void;
   handleCloseSelectionMode: () => void;
-  handleMediaTypesChange: (types: Set<MediaType>) => void;
   handleShowFiltersModal: () => void;
   handleHideFiltersModal: () => void;
   handleDeleteSelected: () => Promise<void>;
@@ -161,10 +156,6 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
     dispatch({ type: "SET_SELECTION_MODE", payload: false });
   };
 
-  const handleMediaTypesChange = (types: Set<MediaType>) => {
-    dispatch({ type: "SET_SELECTED_MEDIA_TYPES", payload: types });
-  };
-
   const handleShowFiltersModal = () => {
     dispatch({ type: "SET_SHOW_FILTERS_MODAL", payload: true });
   };
@@ -203,7 +194,6 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
     handleSelectAll,
     handleDeselectAll,
     handleCloseSelectionMode,
-    handleMediaTypesChange,
     handleShowFiltersModal,
     handleHideFiltersModal,
     handleDeleteSelected,
@@ -215,51 +205,43 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
       notificationDate: item.notificationDate || item.downloadedAt,
     }));
 
+    // Get selected media types from settings (or use defaults if empty)
+    const savedSelectedTypes = userSettings.settings.gallery.selectedMediaTypes;
+    const selectedMediaTypes = savedSelectedTypes.length > 0 
+      ? new Set(savedSelectedTypes) 
+      : new Set(DEFAULT_MEDIA_TYPES);
+
     const filteredMedia = allWithIds.filter((item) => {
-      if (!state.selectedMediaTypes.has(item.mediaType)) return false;
+      if (!selectedMediaTypes.has(item.mediaType)) return false;
       if (!userSettings.settings.gallery.showFaultyMedias) {
         if (item?.isUserDeleted || item?.isPermanentFailure) return false;
       }
       return true;
     });
 
-    const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
-    const startOfYesterday = new Date(startOfToday);
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-    const startOfWeek = new Date(startOfToday);
-    const day = startOfWeek.getDay();
-    const diffToMonday = (day + 6) % 7;
-    startOfWeek.setDate(startOfWeek.getDate() - diffToMonday);
-
-    const today: CacheItem[] = [];
-    const yesterday: CacheItem[] = [];
-    const thisWeek: CacheItem[] = [];
-    const older: CacheItem[] = [];
-
+    // Group media by day
+    const mediaByDay = new Map<string, CacheItem[]>();
+    
     for (const media of filteredMedia) {
       const ts = media.notificationDate || media.downloadedAt || Date.now();
-      if (ts >= startOfToday.getTime()) {
-        today.push(media);
-      } else if (
-        ts >= startOfYesterday.getTime() &&
-        ts < startOfToday.getTime()
-      ) {
-        yesterday.push(media);
-      } else if (ts >= startOfWeek.getTime()) {
-        thisWeek.push(media);
-      } else {
-        older.push(media);
+      const date = new Date(ts);
+      // Get start of day (midnight) as key
+      const dayKey = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+      
+      if (!mediaByDay.has(dayKey.toString())) {
+        mediaByDay.set(dayKey.toString(), []);
       }
+      mediaByDay.get(dayKey.toString())!.push(media);
     }
 
+    // Sort media within each day (newest first)
     const sortDesc = (a: CacheItem, b: CacheItem) =>
       (b.notificationDate ?? 0) - (a.notificationDate ?? 0);
-    today.sort(sortDesc);
-    yesterday.sort(sortDesc);
-    thisWeek.sort(sortDesc);
-    older.sort(sortDesc);
+    
+    mediaByDay.forEach((items) => items.sort(sortDesc));
+
+    // Sort days (newest first)
+    const sortedDays = Array.from(mediaByDay.keys()).sort((a, b) => Number(b) - Number(a));
 
     const buildRows = (items: CacheItem[]) => {
       const rows: CacheItem[][] = [];
@@ -269,35 +251,44 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
       return rows;
     };
 
-    const sections = [
-      { title: t("gallery.today"), data: buildRows(today), key: "today" },
-      {
-        title: t("gallery.yesterday"),
-        data: buildRows(yesterday),
-        key: "yesterday",
-      },
-      {
-        title: t("gallery.thisWeek"),
-        data: buildRows(thisWeek),
-        key: "thisWeek",
-      },
-      { title: t("gallery.older"), data: buildRows(older), key: "older" },
-    ].filter((s) => s.data.length > 0);
+    // Get user's locale from settings or device
+    const userLocale = userSettings.settings.locale || 'en-EN';
+    const locale = userLocale.replace('-', '-'); // e.g., 'en-EN' -> 'en-EN', 'it-IT' -> 'it-IT'
+
+    // Create sections with localized long date format
+    const sections = sortedDays.map((dayKey) => {
+      const items = mediaByDay.get(dayKey)!;
+      const date = new Date(Number(dayKey));
+      
+      // Format date using Intl.DateTimeFormat with long format
+      const formattedDate = new Intl.DateTimeFormat(locale, {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }).format(date);
+      
+      // Capitalize first letter
+      const title = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
+      
+      return {
+        title,
+        data: buildRows(items),
+        key: dayKey,
+      };
+    });
 
     // Flat order for fullscreen index mapping
-    const flatOrder: CacheItem[] = [
-      ...today,
-      ...yesterday,
-      ...thisWeek,
-      ...older,
-    ];
+    const flatOrder: CacheItem[] = sortedDays.flatMap(
+      (dayKey) => mediaByDay.get(dayKey)!
+    );
 
     handleSetFilteredMedia(filteredMedia);
     handleSetSections(sections);
     handleSetFlatOrder(flatOrder);
   }, [
     cachedItems,
-    state.selectedMediaTypes,
+    userSettings.settings.gallery.selectedMediaTypes,
     userSettings.settings.gallery.showFaultyMedias,
     numColumns,
     t,

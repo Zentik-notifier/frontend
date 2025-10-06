@@ -2,7 +2,6 @@ import { useSetBucketSnoozeMutation } from "@/generated/gql-operations-generated
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
-import { localeToDatePickerLocale } from "@/types/i18n";
 import { DatePickerInput, TimePickerModal } from "react-native-paper-dates";
 import React, { useMemo, useState } from "react";
 import {
@@ -48,9 +47,8 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   style,
 }) => {
   const theme = useTheme();
-  const { t, locale } = useI18n();
-  const { formatDate } = useDateFormat();
-  const datePickerLocale = localeToDatePickerLocale[locale];
+  const { t } = useI18n();
+  const { formatDate, datePickerLocale } = useDateFormat();
 
   const { bucket, isSnoozed } = useGetBucketData(bucketId);
 

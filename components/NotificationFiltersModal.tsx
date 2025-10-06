@@ -1,10 +1,12 @@
 import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { useAppContext } from "@/contexts/AppContext";
 import { NotificationFilters } from "@/services/user-settings";
 import { useNotificationsContext } from "@/contexts/NotificationsContext";
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, ScrollView, Dimensions } from "react-native";
+import { DatePickerModal } from "react-native-paper-dates";
 import {
   Button,
   Icon,
@@ -21,6 +23,7 @@ export default function NotificationFiltersModal() {
   const { data: bucketsData } = useGetBucketsQuery();
   const buckets = bucketsData?.buckets ?? [];
   const { t } = useI18n();
+  const { datePickerLocale } = useDateFormat();
   const {
     userSettings: { settings, setNotificationFilters },
   } = useAppContext();
@@ -28,13 +31,16 @@ export default function NotificationFiltersModal() {
 
   // Use notifications context
   const {
-    state: { showFiltersModal, hideBucketSelector },
+    state: { showFiltersModal, hideBucketSelector, activeFiltersCount },
     handleHideFiltersModal,
   } = useNotificationsContext();
 
   // Local state for filters
   const [localFilters, setLocalFilters] =
     useState<NotificationFilters>(savedFilters);
+
+  // Local state for date range picker modal
+  const [showDateRangePicker, setShowDateRangePicker] = useState(false);
 
   // Sync local state when modal opens or saved filters change
   useEffect(() => {
@@ -59,10 +65,18 @@ export default function NotificationFiltersModal() {
     setLocalFilters((prev) => ({ ...prev, sortBy }));
   };
 
-  const handleHideOlderThanChange = (
-    hideOlderThan: "none" | "1day" | "1week" | "1month"
+  const handleTimeRangeChange = (
+    timeRange: "all" | "today" | "thisWeek" | "thisMonth" | "custom"
   ) => {
-    setLocalFilters((prev) => ({ ...prev, hideOlderThan }));
+    setLocalFilters((prev) => ({ ...prev, timeRange }));
+  };
+
+  const handleCustomTimeRangeChange = (from: string, to: string) => {
+    setLocalFilters((prev) => ({
+      ...prev,
+      timeRange: "custom",
+      customTimeRange: { from, to },
+    }));
   };
 
   const handleLoadOnlyVisibleChange = (loadOnlyVisible: boolean) => {
@@ -72,7 +86,8 @@ export default function NotificationFiltersModal() {
   const clearAllFilters = () => {
     setLocalFilters({
       hideRead: false,
-      hideOlderThan: "none",
+      timeRange: "all",
+      customTimeRange: undefined,
       selectedBucketIds: [],
       searchQuery: localFilters.searchQuery,
       sortBy: "newest",
@@ -89,11 +104,7 @@ export default function NotificationFiltersModal() {
   const hasChanges =
     JSON.stringify(localFilters) !== JSON.stringify(savedFilters);
 
-  const hasActiveFilters =
-    localFilters.hideRead ||
-    localFilters.hideOlderThan !== "none" ||
-    localFilters.selectedBucketIds.length > 0 ||
-    localFilters.showOnlyWithAttachments;
+  const hasActiveFilters = activeFiltersCount > 0;
 
   const theme = useTheme();
 
@@ -342,34 +353,47 @@ export default function NotificationFiltersModal() {
               </View>
             </View>
 
-            {/* Hide Older Than */}
+            {/* Time Range */}
             <View style={styles.section}>
               <Text
                 style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
               >
-                {t("filters.hideOlderThan")}
+                {t("filters.timeRange")}
+              </Text>
+              <Text
+                style={[
+                  styles.sectionDescription,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                {t("filters.timeRangeDescription")}
               </Text>
               <View style={styles.sortButtons}>
                 {[
                   {
-                    value: "none",
-                    label: t("filters.showAll"),
+                    value: "all",
+                    label: t("filters.all"),
                     icon: "all-inclusive",
                   },
                   {
-                    value: "1day",
-                    label: t("filters.oneDay"),
-                    icon: "calendar",
+                    value: "today",
+                    label: t("filters.today"),
+                    icon: "calendar-today",
                   },
                   {
-                    value: "1week",
-                    label: t("filters.oneWeek"),
-                    icon: "calendar",
+                    value: "thisWeek",
+                    label: t("filters.thisWeek"),
+                    icon: "calendar-week",
                   },
                   {
-                    value: "1month",
-                    label: t("filters.oneMonth"),
-                    icon: "calendar",
+                    value: "thisMonth",
+                    label: t("filters.thisMonth"),
+                    icon: "calendar-month",
+                  },
+                  {
+                    value: "custom",
+                    label: t("filters.customRange"),
+                    icon: "calendar-range",
                   },
                 ].map(({ value, label, icon }) => (
                   <TouchableRipple
@@ -379,37 +403,58 @@ export default function NotificationFiltersModal() {
                       {
                         borderColor: theme.colors.outline,
                         backgroundColor:
-                          localFilters.hideOlderThan === value
+                          localFilters.timeRange === value
                             ? theme.colors.primary
                             : theme.colors.elevation?.level1 ||
                               theme.colors.surface,
                       },
                     ]}
-                    onPress={() => handleHideOlderThanChange(value as any)}
+                    onPress={() => {
+                      if (value === "custom") {
+                        handleTimeRangeChange("custom");
+                        setShowDateRangePicker(true);
+                      } else {
+                        handleTimeRangeChange(value as any);
+                      }
+                    }}
                   >
                     <View style={styles.sortButtonContent}>
                       <Icon
                         source={icon as any}
                         size={18}
                         color={
-                          localFilters.hideOlderThan === value
+                          localFilters.timeRange === value
                             ? theme.colors.onPrimary
                             : theme.colors.onSurfaceVariant
                         }
                       />
-                      <Text
-                        style={[
-                          styles.sortButtonText,
-                          {
-                            color:
-                              localFilters.hideOlderThan === value
-                                ? theme.colors.onPrimary
-                                : theme.colors.onSurface,
-                          },
-                        ]}
-                      >
-                        {label}
-                      </Text>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[
+                            styles.sortButtonText,
+                            {
+                              color:
+                                localFilters.timeRange === value
+                                  ? theme.colors.onPrimary
+                                  : theme.colors.onSurface,
+                            },
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                        {value === "custom" && localFilters.timeRange === "custom" && localFilters.customTimeRange?.from && localFilters.customTimeRange?.to && (
+                          <Text
+                            style={[
+                              styles.sortButtonSubtext,
+                              {
+                                color: theme.colors.onPrimary,
+                              },
+                            ]}
+                          >
+                            {new Date(localFilters.customTimeRange.from).toLocaleDateString()} - {new Date(localFilters.customTimeRange.to).toLocaleDateString()}
+                          </Text>
+                        )}
+                      </View>
                     </View>
                   </TouchableRipple>
                 ))}
@@ -492,12 +537,12 @@ export default function NotificationFiltersModal() {
                       { color: theme.colors.onSurface },
                     ]}
                   >
-                    {getActiveFiltersCount(localFilters) === 1
+                    {activeFiltersCount === 1
                       ? t("filters.activeFilters", {
-                          count: getActiveFiltersCount(localFilters),
+                          count: activeFiltersCount,
                         })
                       : t("filters.activeFiltersPlural", {
-                          count: getActiveFiltersCount(localFilters),
+                          count: activeFiltersCount,
                         })}
                   </Text>
                 </View>
@@ -534,16 +579,35 @@ export default function NotificationFiltersModal() {
           </View>
         </Modal>
       </Portal>
+
+      {/* Date Range Picker Modal */}
+      <DatePickerModal
+        locale={datePickerLocale}
+        mode="range"
+        visible={showDateRangePicker}
+        onDismiss={() => setShowDateRangePicker(false)}
+        startDate={
+          localFilters.customTimeRange?.from
+            ? new Date(localFilters.customTimeRange.from)
+            : undefined
+        }
+        endDate={
+          localFilters.customTimeRange?.to
+            ? new Date(localFilters.customTimeRange.to)
+            : undefined
+        }
+        onConfirm={({ startDate, endDate }) => {
+          setShowDateRangePicker(false);
+          if (startDate && endDate) {
+            handleCustomTimeRangeChange(
+              startDate.toISOString(),
+              endDate.toISOString()
+            );
+          }
+        }}
+      />
     </>
   );
-}
-
-function getActiveFiltersCount(filters: NotificationFilters): number {
-  let count = 0;
-  if (filters.hideOlderThan !== "none") count++;
-  if (filters.selectedBucketIds.length > 0) count++;
-  if (filters.showOnlyWithAttachments) count++;
-  return count;
 }
 
 const styles = StyleSheet.create({
@@ -599,7 +663,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
+    marginBottom: 8,
+  },
+  sectionDescription: {
+    fontSize: 14,
     marginBottom: 12,
+    lineHeight: 18,
   },
   settingLabel: {
     fontSize: 14,
@@ -654,6 +723,11 @@ const styles = StyleSheet.create({
   sortButtonText: {
     fontSize: 16,
     fontWeight: "500",
+  },
+  sortButtonSubtext: {
+    fontSize: 12,
+    fontWeight: "400",
+    marginTop: 2,
   },
   footer: {
     borderTopWidth: 1,
