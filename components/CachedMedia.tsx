@@ -202,14 +202,22 @@ export const CachedMedia = React.memo(function CachedMedia({
       autoDownloadEnabled &&
       !mediaSource?.localPath &&
       !mediaSource?.isUserDeleted &&
+      !mediaSource?.isDownloading &&
       !mediaSource?.isPermanentFailure
     ) {
+      // console.log("downloadMedia", mediaSource);
       mediaCache.downloadMedia({ url, mediaType, notificationDate });
     }
   }, [mediaSource, notificationDate]);
 
   useEffect(() => {
-    if (useThumbnail && supportsThumbnail && !mediaSource?.localThumbPath) {
+    if (
+      useThumbnail &&
+      supportsThumbnail &&
+      !mediaSource?.localThumbPath &&
+      !mediaSource?.isPermanentFailure
+    ) {
+      // console.log("generateThumbnail", mediaSource);
       mediaCache.generateThumbnail({ url, mediaType });
     }
   }, [mediaSource, notificationDate]);
@@ -229,24 +237,24 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
   }, [videoSource, isVideoType, videoPlayer, videoProps?.autoPlay]);
 
-  useEffect(() => {
-    if (isAudioType || !audioPlayer) return;
+  // useEffect(() => {
+  //   if (isAudioType || !audioPlayer) return;
 
-    audioPlayer.loop = audioProps?.isLooping ?? false;
+  //   audioPlayer.loop = audioProps?.isLooping ?? false;
 
-    const updateAudioState = () => {
-      setAudioState({
-        isLoaded: !!audioPlayer.isLoaded,
-        duration: audioPlayer.duration || 0,
-        currentTime: audioPlayer.currentTime || 0,
-      });
-    };
+  //   const updateAudioState = () => {
+  //     setAudioState({
+  //       isLoaded: !!audioPlayer.isLoaded,
+  //       duration: audioPlayer.duration || 0,
+  //       currentTime: audioPlayer.currentTime || 0,
+  //     });
+  //   };
 
-    updateAudioState();
-    const interval = setInterval(updateAudioState, 500);
+  //   updateAudioState();
+  //   const interval = setInterval(updateAudioState, 500);
 
-    return () => clearInterval(interval);
-  }, [mediaSource?.localPath, audioPlayer, audioProps, mediaType]);
+  //   return () => clearInterval(interval);
+  // }, [mediaSource?.localPath, audioPlayer, audioProps, mediaType]);
 
   const renderSeekBar = () => {
     if (!audioState.isLoaded || audioState.duration <= 0) return null;
