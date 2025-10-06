@@ -51,9 +51,7 @@ const SwipeablePayloadMapperItem: React.FC<SwipeablePayloadMapperItemProps> = ({
   });
 
   const handleEditPress = () => {
-    if (!isBuiltIn) {
-      navigateToEditPayloadMapper(payloadMapper.id);
-    }
+    navigateToEditPayloadMapper(payloadMapper.id);
   };
 
   const handleDeletePress = async () => {
@@ -74,7 +72,7 @@ const SwipeablePayloadMapperItem: React.FC<SwipeablePayloadMapperItemProps> = ({
                 await deletePayloadMapperMutation({
                   variables: { id: payloadMapper.id },
                 });
-              } catch (error: any) {
+              } catch {
                 Alert.alert(
                   t("common.error"),
                   t("payloadMappers.deleteErrorMessage")
@@ -90,14 +88,15 @@ const SwipeablePayloadMapperItem: React.FC<SwipeablePayloadMapperItemProps> = ({
   const menuItems = useMemo((): MenuItem[] => {
     const items: MenuItem[] = [];
 
-    if (!isDisabled) {
-      items.push({
-        id: "edit",
-        label: t("payloadMappers.edit"),
-        icon: "pencil",
-        onPress: handleEditPress,
-      });
+    // Show edit option for all payload mappers (both built-in and custom)
+    items.push({
+      id: "edit",
+      label: t("payloadMappers.edit"),
+      icon: "pencil",
+      onPress: handleEditPress,
+    });
 
+    if (!isDisabled) {
       items.push({
         id: "delete",
         label: t("payloadMappers.delete"),
@@ -117,14 +116,12 @@ const SwipeablePayloadMapperItem: React.FC<SwipeablePayloadMapperItemProps> = ({
   }, [t, isDisabled, handleEditPress, handleDeletePress]);
 
   // Define left and right swipe actions
-  const leftAction: SwipeAction | undefined = !isDisabled
-    ? {
-        icon: "pencil",
-        label: t("payloadMappers.edit"),
-        backgroundColor: theme.colors.primary,
-        onPress: handleEditPress,
-      }
-    : undefined;
+  const leftAction: SwipeAction | undefined = {
+    icon: "pencil",
+    label: t("payloadMappers.edit"),
+    backgroundColor: theme.colors.primary,
+    onPress: handleEditPress,
+  };
 
   const rightAction: SwipeAction | undefined = !isDisabled
     ? {

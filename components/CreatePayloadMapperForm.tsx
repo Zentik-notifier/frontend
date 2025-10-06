@@ -7,20 +7,21 @@ import {
   PayloadMapperFragment,
   UpdatePayloadMapperDto,
   useCreatePayloadMapperMutation,
+  useDeletePayloadMapperMutation,
   useGetPayloadMapperQuery,
   useUpdatePayloadMapperMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import {
   Button,
   Dialog,
   Portal,
   Text,
   TextInput,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import CodeEditor from "./CodeEditor";
 import EntityExecutionsSection from "./EntityExecutionsSection";
@@ -68,6 +69,7 @@ export default function CreatePayloadMapperForm({
 
   const payloadMapper = payloadMapperData?.payloadMapper;
   const isEditing = !!payloadMapperId;
+  const isBuiltIn = !!payloadMapper?.builtInName;
 
   const [name, setName] = useState("");
   const [jsEvalFn, setJsEvalFn] = useState("");
@@ -117,6 +119,11 @@ export default function CreatePayloadMapperForm({
 
   // Reset form function
   const handleResetForm = () => {
+    // Prevent reset for built-in payload mappers
+    if (isBuiltIn) {
+      return;
+    }
+
     if (isEditing && payloadMapper) {
       // Reset to saved values
       setName(payloadMapper.name);
@@ -157,6 +164,36 @@ export default function CreatePayloadMapperForm({
 
   const [updatePayloadMapperMutation, { loading: updatingPayloadMapper }] =
     useUpdatePayloadMapperMutation();
+
+  const [deletePayloadMapperMutation, { loading: deletingPayloadMapper }] =
+    useDeletePayloadMapperMutation({
+      update: (cache, { data }) => {
+        if (data?.deletePayloadMapper) {
+          const existingPayloadMappers = cache.readQuery<GetPayloadMappersQuery>({
+            query: GetPayloadMappersDocument,
+          });
+          if (existingPayloadMappers?.payloadMappers) {
+            cache.writeQuery({
+              query: GetPayloadMappersDocument,
+              data: {
+                payloadMappers: existingPayloadMappers.payloadMappers.filter(
+                  (mapper: PayloadMapperFragment) =>
+                    mapper.id !== payloadMapperId
+                ),
+              },
+            });
+          }
+        }
+      },
+      onCompleted: () => {
+        router.back();
+      },
+      onError: (error) => {
+        console.error("Error deleting payload mapper:", error);
+        setErrorMessage(error.message || t("payloadMappers.deleteErrorMessage"));
+        setShowErrorDialog(true);
+      },
+    });
 
   const validateForm = (): boolean => {
     const errors: { name?: string; jsEvalFn?: string; testInput?: string } = {};
@@ -202,7 +239,7 @@ export default function CreatePayloadMapperForm({
       } catch (e) {
         setFieldErrors({
           ...fieldErrors,
-          testInput: t("payloadMappers.form.testInputInvalidJson")
+          testInput: t("payloadMappers.form.testInputInvalidJson"),
         });
         setIsTesting(false);
         return;
@@ -222,6 +259,13 @@ export default function CreatePayloadMapperForm({
 
   const handleSave = async () => {
     if (!validateForm()) {
+      return;
+    }
+
+    // Prevent saving for built-in payload mappers
+    if (isBuiltIn) {
+      setErrorMessage(t("payloadMappers.cannotEditBuiltIn"));
+      setShowErrorDialog(true);
       return;
     }
 
@@ -257,6 +301,27 @@ export default function CreatePayloadMapperForm({
     router.back();
   };
 
+  const handleDelete = () => {
+    if (!payloadMapper || isBuiltIn) return;
+
+    Alert.alert(
+      t("payloadMappers.deleteConfirmTitle"),
+      t("payloadMappers.deleteConfirmMessage"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("payloadMappers.delete"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deletePayloadMapperMutation({ variables: { id: payloadMapper.id } });
+            } catch {}
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <PaperScrollView
       loading={loadingPayloadMapper}
@@ -277,134 +342,159 @@ export default function CreatePayloadMapperForm({
         error={!!fieldErrors.name}
         style={styles.input}
         mode="outlined"
+        disabled={isBuiltIn}
       />
       {fieldErrors.name && (
         <Text style={styles.errorText}>{fieldErrors.name}</Text>
       )}
 
-      <View style={styles.codeSection}>
-        <Text variant="bodyLarge" style={styles.sectionTitle}>
-          {t("payloadMappers.form.jsEvalFn")}
-        </Text>
-        <Text style={styles.helpText}>
-          {t("payloadMappers.form.jsEvalFnHelp")}
-        </Text>
+      {!isBuiltIn && (
+        <View style={styles.codeSection}>
+          <Text variant="bodyLarge" style={styles.sectionTitle}>
+            {t("payloadMappers.form.jsEvalFn")}
+          </Text>
+          <Text style={styles.helpText}>
+            {t("payloadMappers.form.jsEvalFnHelp")}
+          </Text>
 
-        <CodeEditor
-          value={jsEvalFn}
-          onChange={(text: string) => {
-            setJsEvalFn(text);
-            if (fieldErrors.jsEvalFn) {
-              setFieldErrors({ ...fieldErrors, jsEvalFn: undefined });
-            }
-          }}
-          language="typescript"
-          error={!!fieldErrors.jsEvalFn}
-          errorText={fieldErrors.jsEvalFn}
-          placeholder={t("payloadMappers.form.jsEvalFnPlaceholder")}
-          label={t("payloadMappers.form.jsEvalFn")}
-        />
-      </View>
+          <CodeEditor
+            value={jsEvalFn}
+            onChange={(text: string) => {
+              setJsEvalFn(text);
+              if (fieldErrors.jsEvalFn) {
+                setFieldErrors({ ...fieldErrors, jsEvalFn: undefined });
+              }
+            }}
+            language="typescript"
+            error={!!fieldErrors.jsEvalFn}
+            errorText={fieldErrors.jsEvalFn}
+            placeholder={t("payloadMappers.form.jsEvalFnPlaceholder")}
+            label={t("payloadMappers.form.jsEvalFn")}
+          />
+        </View>
+      )}
 
       {/* Test Section */}
-      <View style={styles.testSection}>
-        <Text variant="bodyLarge" style={styles.sectionTitle}>
-          {t("payloadMappers.form.test")}
-        </Text>
+      {!isBuiltIn && (
+        <View style={styles.testSection}>
+          <Text variant="bodyLarge" style={styles.sectionTitle}>
+            {t("payloadMappers.form.test")}
+          </Text>
 
-        <CodeEditor
-          value={testInput}
-          onChange={(text: string) => {
-            setTestInput(text);
-            if (fieldErrors.testInput) {
-              setFieldErrors({ ...fieldErrors, testInput: undefined });
+          <CodeEditor
+            value={testInput}
+            onChange={(text: string) => {
+              setTestInput(text);
+              if (fieldErrors.testInput) {
+                setFieldErrors({ ...fieldErrors, testInput: undefined });
+              }
+            }}
+            placeholder={t("payloadMappers.form.testInputPlaceholder")}
+            label={t("payloadMappers.form.testInput")}
+            language="json"
+            error={!!fieldErrors.testInput}
+            errorText={fieldErrors.testInput}
+          />
+
+          <Text style={styles.helpText}>
+            {t("payloadMappers.form.testInputHelp")}
+          </Text>
+
+          <Button
+            mode="outlined"
+            onPress={testFunction}
+            loading={isTesting}
+            disabled={
+              isTesting ||
+              !testInput.trim() ||
+              !jsEvalFn.trim() ||
+              !!fieldErrors.name ||
+              !!fieldErrors.jsEvalFn
             }
-          }}
-          placeholder={t("payloadMappers.form.testInputPlaceholder")}
-          label={t("payloadMappers.form.testInput")}
-          language="json"
-          error={!!fieldErrors.testInput}
-          errorText={fieldErrors.testInput}
-        />
+            style={styles.testButton}
+          >
+            {t("payloadMappers.form.test")}
+          </Button>
 
-        <Text style={styles.helpText}>
-          {t("payloadMappers.form.testInputHelp")}
-        </Text>
-
-        <Button
-          mode="outlined"
-          onPress={testFunction}
-          loading={isTesting}
-          disabled={
-            isTesting ||
-            !testInput.trim() ||
-            !jsEvalFn.trim() ||
-            !!fieldErrors.name ||
-            !!fieldErrors.jsEvalFn
-          }
-          style={styles.testButton}
-        >
-          {t("payloadMappers.form.test")}
-        </Button>
-
-        {testOutput && (
-          <View style={styles.testOutput}>
-            <Text variant="bodyLarge" style={styles.outputTitle}>
-              {t("payloadMappers.form.testOutput")}
-            </Text>
-            <CodeEditor
-              value={testOutput}
-              onChange={() => {}} // Read-only, no-op function
-              language="json"
-              readOnly={true}
-            />
-          </View>
-        )}
-      </View>
+          {testOutput && (
+            <View style={styles.testOutput}>
+              <Text variant="bodyLarge" style={styles.outputTitle}>
+                {t("payloadMappers.form.testOutput")}
+              </Text>
+              <CodeEditor
+                value={testOutput}
+                onChange={() => {}} // Read-only, no-op function
+                language="json"
+                readOnly={true}
+              />
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Action Buttons */}
-      <View style={styles.actions}>
-        <Button
-          mode="outlined"
-          onPress={handleCancel}
-          style={styles.cancelButton}
-        >
-          {t("common.cancel")}
-        </Button>
-        <Button
-          mode="outlined"
-          onPress={handleResetForm}
-          style={styles.resetButton}
-        >
-          {isEditing
-            ? t("payloadMappers.form.resetToSaved")
-            : t("payloadMappers.form.resetToDefault")}
-        </Button>
-        <Button
-          mode="contained"
-          onPress={handleSave}
-          loading={creatingPayloadMapper || updatingPayloadMapper}
-          disabled={
-            creatingPayloadMapper ||
-            updatingPayloadMapper ||
-            isOffline ||
-            !!fieldErrors.name ||
-            !!fieldErrors.jsEvalFn
-          }
-          style={styles.saveButton}
-        >
-          {creatingPayloadMapper || updatingPayloadMapper
-            ? t("payloadMappers.form.saving")
-            : t("payloadMappers.form.save")}
-        </Button>
-      </View>
+      {!isBuiltIn && (
+        <View style={styles.actions}>
+          <Button
+            mode="outlined"
+            onPress={handleCancel}
+            style={styles.cancelButton}
+          >
+            {t("common.cancel")}
+          </Button>
+          <>
+            <Button
+              mode="outlined"
+              onPress={handleResetForm}
+              style={styles.resetButton}
+            >
+              {isEditing
+                ? t("payloadMappers.form.resetToSaved")
+                : t("payloadMappers.form.resetToDefault")}
+            </Button>
+            <Button
+              mode="contained"
+              onPress={handleSave}
+              loading={creatingPayloadMapper || updatingPayloadMapper}
+              disabled={
+                creatingPayloadMapper ||
+                updatingPayloadMapper ||
+                isOffline ||
+                !!fieldErrors.name ||
+                !!fieldErrors.jsEvalFn
+              }
+              style={styles.saveButton}
+            >
+              {creatingPayloadMapper || updatingPayloadMapper
+                ? t("payloadMappers.form.saving")
+                : t("payloadMappers.form.save")}
+            </Button>
+          </>
+          {!isBuiltIn && (
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.error}
+              textColor={theme.colors.onError}
+              icon="delete"
+              onPress={handleDelete}
+              loading={deletingPayloadMapper}
+              disabled={deletingPayloadMapper}
+              style={styles.deleteButton}
+            >
+              {deletingPayloadMapper ? "Deleting..." : t("payloadMappers.delete")}
+            </Button>
+          )}
+        </View>
+      )}
 
       {/* Entity Executions Section */}
-      {isEditing && payloadMapperId && (
+      {payloadMapperId && (
+        <View style={{ marginBottom: 100 }}>
         <EntityExecutionsSection
           entityId={payloadMapperId}
           entityType={ExecutionType.PayloadMapper}
         />
+        </View>
       )}
 
       {/* Error Dialog */}
@@ -505,5 +595,9 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     minWidth: 100,
+  },
+  deleteButton: {
+    marginTop: 16,
+    minWidth: 150,
   },
 });

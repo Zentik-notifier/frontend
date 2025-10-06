@@ -320,7 +320,6 @@ export default function CreateWebhookForm({
             }}
             placeholder={t("webhooks.form.namePlaceholder")}
             maxLength={100}
-            autoFocus
             error={!!fieldErrors.name}
           />
           {fieldErrors.name && (

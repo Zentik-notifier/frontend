@@ -126,7 +126,6 @@ export default function CreateAccessTokenForm() {
               value={newTokenName}
               onChangeText={setNewTokenName}
               placeholder={t("accessTokens.form.tokenNamePlaceholder")}
-              autoFocus
             />
           </View>
 
