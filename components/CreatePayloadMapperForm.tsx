@@ -484,6 +484,7 @@ export default function CreatePayloadMapperForm({
         <EntityExecutionsSection
           entityId={payloadMapperId}
           entityType={ExecutionType.PayloadMapper}
+          entityName={payloadMapper?.name}
         />
         </View>
       )}

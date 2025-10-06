@@ -19,6 +19,7 @@ import ExecutionDetailModal from "./ExecutionDetailModal";
 interface EntityExecutionsSectionProps {
   entityId: string;
   entityType: ExecutionType;
+  entityName?: string;
 }
 
 interface ExecutionItemProps {
@@ -136,6 +137,7 @@ function ExecutionItem({ execution, onPress }: ExecutionItemProps) {
 export default function EntityExecutionsSection({
   entityId,
   entityType,
+  entityName,
 }: EntityExecutionsSectionProps) {
   const { t } = useI18n();
 
@@ -149,6 +151,7 @@ export default function EntityExecutionsSection({
       input: {
         type: entityType,
         entityId,
+        entityName,
       },
     },
     skip: !isExpanded,
@@ -238,7 +241,7 @@ export default function EntityExecutionsSection({
               showsVerticalScrollIndicator={false}
               onRefresh={refetch}
               refreshing={loading}
-              style={{ maxHeight: 300 }}
+              style={{ maxHeight: 500 }}
             />
           )}
         </View>

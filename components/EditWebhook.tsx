@@ -72,6 +72,7 @@ export default function EditWebhook({ webhookId }: EditWebhookProps) {
       <EntityExecutionsSection
         entityId={webhookId}
         entityType={ExecutionType.Webhook}
+        entityName={data?.webhook?.name}
       />
       <View style={styles.deleteSection}>
         <Button

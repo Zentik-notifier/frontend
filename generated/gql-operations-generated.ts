@@ -270,6 +270,7 @@ export enum ExecutionType {
 
 export type GetEntityExecutionsInput = {
   entityId?: InputMaybe<Scalars['String']['input']>;
+  entityName?: InputMaybe<Scalars['String']['input']>;
   type?: InputMaybe<ExecutionType>;
   userId?: InputMaybe<Scalars['String']['input']>;
 };
