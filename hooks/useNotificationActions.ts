@@ -1,7 +1,7 @@
 import { UpdateUserDeviceInput, useUpdateUserDeviceMutation } from '@/generated/gql-operations-generated';
 import { clearPendingNavigationIntent } from '@/services/auth-storage';
-import { mediaCache } from '@/services/media-cache-service';
 import { useNavigationUtils } from '@/utils/navigation';
+import { useApolloClient } from '@apollo/client';
 import * as Notifications from 'expo-notifications';
 import { useCallback } from 'react';
 import { Alert, Linking } from 'react-native';
@@ -17,8 +17,6 @@ import {
 } from '../generated/gql-operations-generated';
 import { useI18n } from './useI18n';
 import { useDeleteNotification, useFetchNotifications, useMarkNotificationRead } from './useNotifications';
-import { usePendingNotificationIntents } from './usePendingNotificationIntents';
-import { useApolloClient } from '@apollo/client';
 
 /**
  * Hook that provides callbacks for handling notification actions
@@ -36,7 +34,6 @@ export function useNotificationActions() {
   const [updateUserDeviceMutation] = useUpdateUserDeviceMutation();
   const { fetchNotifications } = useFetchNotifications(true);
   const { navigateToNotificationDetail, navigateToHome } = useNavigationUtils();
-  const { processPendingNotificationIntents } = usePendingNotificationIntents();
   const apolloClient = useApolloClient();
 
   const deleteNotification = useCallback(async (notificationId: string) => {
@@ -295,7 +292,6 @@ export function useNotificationActions() {
       }
 
       try {
-        await processPendingNotificationIntents(apolloClient);
         await fetchNotifications();
 
         const currentCount = await Notifications.getBadgeCountAsync();

@@ -617,6 +617,8 @@ export interface TranslationKey {
     };
   };
   common: {
+    actionError: string;
+    actionFailed: string;
     add: string;
     all: string;
     apply: string;

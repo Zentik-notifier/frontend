@@ -3001,6 +3001,58 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         sqlite3_step(stmt)
     }
+    
+    private func deleteNotificationFromDatabase(notificationId: String) {
+        let dbPath = getDbPath()
+        var db: OpaquePointer?
+        
+        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE, nil) != SQLITE_OK {
+            print("📱 [ContentExtension] ❌ Failed to open database for deletion")
+            logToDatabase(
+                level: "ERROR",
+                tag: "NotificationContentExtension",
+                message: "[Database] Failed to open database for deletion",
+                metadata: ["notificationId": notificationId]
+            )
+            return
+        }
+        defer { sqlite3_close(db) }
+        
+        let sql = "DELETE FROM notifications WHERE id = ?"
+        
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
+            print("📱 [ContentExtension] ❌ Failed to prepare DELETE statement")
+            logToDatabase(
+                level: "ERROR",
+                tag: "NotificationContentExtension",
+                message: "[Database] Failed to prepare DELETE statement",
+                metadata: ["notificationId": notificationId]
+            )
+            return
+        }
+        defer { sqlite3_finalize(stmt) }
+        
+        sqlite3_bind_text(stmt, 1, (notificationId as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        
+        if sqlite3_step(stmt) == SQLITE_DONE {
+            print("📱 [ContentExtension] ✅ Notification deleted from database: \(notificationId)")
+            logToDatabase(
+                level: "INFO",
+                tag: "NotificationContentExtension",
+                message: "[Database] Notification deleted from database",
+                metadata: ["notificationId": notificationId]
+            )
+        } else {
+            print("📱 [ContentExtension] ❌ Failed to delete notification from database")
+            logToDatabase(
+                level: "ERROR",
+                tag: "NotificationContentExtension",
+                message: "[Database] Failed to execute DELETE statement",
+                metadata: ["notificationId": notificationId]
+            )
+        }
+    }
 
     private func upsertCacheItem(url: String, mediaType: String, fields: [String: Any]) {
         let dbPath = getDbPath()
@@ -3598,15 +3650,44 @@ extension NotificationViewController {
     private func handleDeleteAction(notificationId: String, completion: @escaping (Bool) -> Void) {
         print("📱 [ContentExtension] 🗑️ Delete action: \(notificationId)")
         
+        logToDatabase(
+            level: "INFO",
+            tag: "NotificationContentExtension",
+            message: "[Delete] Starting delete action",
+            metadata: ["notificationId": notificationId]
+        )
+        
         // Launch delete execution in background without waiting
         Task.detached {
             do {
+                // Delete from server
                 try await self.deleteNotification(notificationId: notificationId)
+                
+                // Delete from local SQLite database
+                self.deleteNotificationFromDatabase(notificationId: notificationId)
+                
                 // Decrease badge count since notification is deleted
                 self.decrementBadgeCount()
                 print("📱 [ContentExtension] ✅ Notification deleted successfully")
+                
+                self.logToDatabase(
+                    level: "INFO",
+                    tag: "NotificationContentExtension",
+                    message: "[Delete] Notification deleted successfully",
+                    metadata: ["notificationId": notificationId]
+                )
             } catch {
                 print("📱 [ContentExtension] ❌ Delete notification failed: \(error)")
+                
+                self.logToDatabase(
+                    level: "ERROR",
+                    tag: "NotificationContentExtension",
+                    message: "[Delete] Failed to delete notification",
+                    metadata: [
+                        "notificationId": notificationId,
+                        "error": error.localizedDescription
+                    ]
+                )
             }
         }
         

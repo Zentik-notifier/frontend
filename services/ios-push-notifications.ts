@@ -230,9 +230,6 @@ class IOSNativePushNotificationService {
             }
             return;
         }
-
-        // Custom action buttons are always handled by Content Extension
-        console.log('🎬 iOS: Custom action button pressed - delegated to Content Extension');
     };
 
     /**

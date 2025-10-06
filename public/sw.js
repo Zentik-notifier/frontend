@@ -615,13 +615,28 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
             await executeApiCall(`/notifications/${notificationId}`, 'DELETE');
             console.log('[Service Worker] ✅ Notification deleted from server:', notificationId);
 
-            // // Also remove from local IndexedDB cache
-            // await removeNotificationFromCache(notificationId);
-            // console.log('[Service Worker] ✅ Notification removed from local cache:', notificationId);
-
-            // Also remove from pending notifications if it exists
-            await removePendingNotification(notificationId);
-            console.log('[Service Worker] ✅ Pending notification removed for notification:', notificationId);
+            // Remove from local IndexedDB notifications table
+            try {
+              await withIndexedDB((store, resolve, reject) => {
+                const deleteRequest = store.delete(notificationId);
+                deleteRequest.onsuccess = () => {
+                  console.log('[Service Worker] ✅ Notification removed from IndexedDB:', notificationId);
+                  
+                  // Log deletion
+                  logToDatabase(
+                    'INFO',
+                    'ServiceWorker',
+                    '[Delete] Notification deleted from database',
+                    { notificationId: notificationId }
+                  ).catch(e => console.error('[Service Worker] Failed to log deletion:', e));
+                  
+                  resolve();
+                };
+                deleteRequest.onerror = () => reject(deleteRequest.error);
+              }, 'readwrite', 'notifications');
+            } catch (error) {
+              console.error('[Service Worker] ⚠️ Failed to remove notification from IndexedDB:', error);
+            }
 
             // Notify app to refresh cache
             const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
@@ -636,6 +651,17 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
             }
           } catch (error) {
             console.error('[Service Worker] ❌ Failed to delete notification:', error);
+            
+            // Log error
+            logToDatabase(
+              'ERROR',
+              'ServiceWorker',
+              '[Delete] Failed to delete notification',
+              {
+                notificationId: notificationId,
+                error: error.message || String(error)
+              }
+            ).catch(e => console.error('[Service Worker] Failed to log error:', e));
           }
         })()
       );

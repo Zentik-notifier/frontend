@@ -94,7 +94,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loadedFromPersistedCache = useReactiveVar(loadedFromPersistedCacheVar);
   const connectionStatus = useConnectionStatus(push);
   const userSettings = useUserSettings();
-  const { processPendingNotificationIntents } = usePendingNotificationIntents();
   const apolloClient = useApolloClient();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
@@ -343,7 +342,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
         console.log("📱 App became active - scheduling refresh");
-        await processPendingNotificationIntents(apolloClient);
         // await refetchNotifications();
         await mediaCache.reloadMetadata();
       }
