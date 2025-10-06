@@ -37,15 +37,26 @@ class NotificationService: UNNotificationServiceExtension {
       // Decrypt encrypted values first
       decryptNotificationContent(content: bestAttemptContent)
 
+      // Log notification received
+      if let notificationId = bestAttemptContent.userInfo["notificationId"] as? String {
+        logToDatabase(
+          level: "info",
+          tag: "NotificationServiceExtension",
+          message: "[Lifecycle] Notification received and decrypted",
+          metadata: [
+            "notificationId": notificationId,
+            "title": bestAttemptContent.title,
+            "hasSubtitle": !bestAttemptContent.subtitle.isEmpty
+          ]
+        )
+      }
+      
       // Update badge count before setting up actions
       updateBadgeCount(content: bestAttemptContent)
-
-      // Save the notification content
-      self.savePendingNotification(content: bestAttemptContent)
       
-      // Store navigation intent for tap action
-      self.storeNavigationIntentFromNotification(content: bestAttemptContent)
-
+      // Save notification to SQLite database (replaces savePendingNotification)
+      self.saveNotificationToDatabase(content: bestAttemptContent)
+      
       // Setup custom actions in a synchronized manner
       setupNotificationActions(content: bestAttemptContent) { [weak self] in
         guard let self = self else { return }
@@ -215,8 +226,36 @@ class NotificationService: UNNotificationServiceExtension {
 
       // everything went alright, we are ready to display our notification.
       contentHandler(bestAttemptContent!)
+      
+      // Log successful communication style application
+      if let notificationId = content.userInfo["notificationId"] as? String {
+        logToDatabase(
+          level: "info",
+          tag: "NotificationServiceExtension",
+          message: "[Communication] Communication style applied successfully",
+          metadata: [
+            "notificationId": notificationId,
+            "sender": senderDisplayName ?? "unknown",
+            "hasSubtitle": !content.subtitle.isEmpty,
+            "hasAvatar": senderAvatar != nil
+          ]
+        )
+      }
     } catch let error {
       print("error \(error)")
+      
+      // Log communication style error
+      if let notificationId = content.userInfo["notificationId"] as? String {
+        logToDatabase(
+          level: "error",
+          tag: "NotificationServiceExtension",
+          message: "[Communication] Failed to apply communication style",
+          metadata: [
+            "notificationId": notificationId,
+            "error": error.localizedDescription
+          ]
+        )
+      }
     }
   }
 
@@ -327,6 +366,12 @@ class NotificationService: UNNotificationServiceExtension {
   private func decryptValue(_ encryptedValue: String) -> String? {
     guard let privateKey = getPrivateKey() else {
       print("📱 [NotificationService] ❌ Private key not found")
+      logToDatabase(
+        level: "error",
+        tag: "NotificationServiceExtension",
+        message: "[Decryption] Private key not found in keychain",
+        metadata: nil
+      )
       return nil
     }
     do {
@@ -339,6 +384,12 @@ class NotificationService: UNNotificationServiceExtension {
 
       guard let data = Data(base64Encoded: base64Value) else {
         print("📱 [NotificationService] ❌ Invalid base64 payload")
+        logToDatabase(
+          level: "error",
+          tag: "NotificationServiceExtension",
+          message: "[Decryption] Invalid base64 payload",
+          metadata: nil
+        )
         return nil
       }
 
@@ -377,6 +428,12 @@ class NotificationService: UNNotificationServiceExtension {
       }
     } catch {
       print("📱 [NotificationService] ❌ Decryption failed: \(error)")
+      logToDatabase(
+        level: "error",
+        tag: "NotificationServiceExtension",
+        message: "[Decryption] Decryption failed",
+        metadata: ["error": error.localizedDescription]
+      )
       return nil
     }
   }
@@ -648,11 +705,29 @@ class NotificationService: UNNotificationServiceExtension {
           if success {
             print("📱 [NotificationService] ✅ Successfully registered category: \(categoryId)")
             content.categoryIdentifier = categoryId
+            
+            self?.logToDatabase(
+              level: "info",
+              tag: "NotificationServiceExtension",
+              message: "[Actions] Category registered successfully",
+              metadata: [
+                "categoryId": categoryId,
+                "actionsCount": notificationActions.count,
+                "slot": categorySlot
+              ]
+            )
           } else {
             print("📱 [NotificationService] ❌ Failed to register category: \(categoryId)")
             content.categoryIdentifier = "ZENTIK_FALLBACK_CATEGORY"
             print(
               "📱 [NotificationService] 🎯 Fallback category identifier set to: \(content.categoryIdentifier ?? "nil")"
+            )
+            
+            self?.logToDatabase(
+              level: "error",
+              tag: "NotificationServiceExtension",
+              message: "[Actions] Failed to register category",
+              metadata: ["categoryId": categoryId]
             )
           }
           completion()
@@ -876,9 +951,38 @@ class NotificationService: UNNotificationServiceExtension {
         print(
           "📱 [NotificationService] ✅ Media downloaded for compact view: \(selectedItem.mediaType)")
 
+        // Log successful media download
+        if let notificationId = userInfo["notificationId"] as? String {
+          self.logToDatabase(
+            level: "info",
+            tag: "NotificationServiceExtension",
+            message: "[Media] Media downloaded successfully",
+            metadata: [
+              "notificationId": notificationId,
+              "mediaType": selectedItem.mediaType,
+              "url": selectedItem.url
+            ]
+          )
+        }
+        
         // self.downloadIconsToSharedCache(from: userInfo)
       } else {
         print("📱 [NotificationService] ❌ Failed to download selected media, will show error")
+        
+        // Log media download failure
+        if let notificationId = userInfo["notificationId"] as? String {
+          self.logToDatabase(
+            level: "error",
+            tag: "NotificationServiceExtension",
+            message: "[Media] Failed to download media",
+            metadata: [
+              "notificationId": notificationId,
+              "mediaType": selectedItem.mediaType,
+              "url": selectedItem.url
+            ]
+          )
+        }
+        
         // Set error flag in shared metadata for Content Extension to handle
         self.setDownloadErrorFlag(for: selectedItem)
       }
@@ -1895,6 +1999,221 @@ class NotificationService: UNNotificationServiceExtension {
     let dir = getSharedMediaCacheDirectory()
     return dir.appendingPathComponent("cache.db").path
   }
+  
+  // MARK: - Logging to SQLite
+  
+  private func logToDatabase(
+    level: String,
+    tag: String? = nil,
+    message: String,
+    metadata: [String: Any]? = nil
+  ) {
+    let dbPath = getDbPath()
+    var db: OpaquePointer?
+    
+    if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE, nil) != SQLITE_OK {
+      return
+    }
+    defer { sqlite3_close(db) }
+    
+    let sql = """
+      INSERT INTO app_log (level, tag, message, meta_json, timestamp)
+      VALUES (?, ?, ?, ?, ?)
+    """
+    
+    var stmt: OpaquePointer?
+    if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
+      return
+    }
+    defer { sqlite3_finalize(stmt) }
+    
+    let timestamp = Int(Date().timeIntervalSince1970 * 1000)
+    
+    sqlite3_bind_text(stmt, 1, (level as NSString).utf8String, -1, SQLITE_TRANSIENT)
+    
+    if let tag = tag {
+      sqlite3_bind_text(stmt, 2, (tag as NSString).utf8String, -1, SQLITE_TRANSIENT)
+    } else {
+      sqlite3_bind_null(stmt, 2)
+    }
+    
+    sqlite3_bind_text(stmt, 3, (message as NSString).utf8String, -1, SQLITE_TRANSIENT)
+    
+    if let metadata = metadata,
+       let jsonData = try? JSONSerialization.data(withJSONObject: metadata),
+       let jsonString = String(data: jsonData, encoding: .utf8) {
+      sqlite3_bind_text(stmt, 4, (jsonString as NSString).utf8String, -1, SQLITE_TRANSIENT)
+    } else {
+      sqlite3_bind_null(stmt, 4)
+    }
+    
+    sqlite3_bind_int64(stmt, 5, Int64(timestamp))
+    
+    sqlite3_step(stmt)
+  }
+  
+  // MARK: - Save Notification to SQLite
+  
+  private func saveNotificationToDatabase(content: UNMutableNotificationContent) {
+    guard let userInfo = content.userInfo as? [String: Any] else {
+      print("📱 [NotificationService] ⚠️ No userInfo available for saving notification")
+      return
+    }
+    
+    // Extract required fields
+    guard let notificationId = userInfo["notificationId"] as? String,
+          let bucketId = userInfo["bucketId"] as? String else {
+      print("📱 [NotificationService] ⚠️ Missing notificationId or bucketId")
+      return
+    }
+    
+    let dbPath = getDbPath()
+    var db: OpaquePointer?
+    
+    if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE, nil) != SQLITE_OK {
+      print("📱 [NotificationService] ❌ Failed to open DB for saving notification")
+      return
+    }
+    defer { sqlite3_close(db) }
+    
+    // Build NotificationFragment JSON
+    let now = ISO8601DateFormatter().string(from: Date())
+    
+    // Build message object
+    var messageObj: [String: Any] = [
+      "__typename": "Message",
+      "id": UUID().uuidString, // Generate a message ID
+      "title": content.title,
+      "body": content.body,
+      "subtitle": content.subtitle.isEmpty ? NSNull() : content.subtitle,
+      "sound": "default",
+      "deliveryType": "PUSH",
+      "locale": NSNull(),
+      "snoozes": NSNull(),
+      "createdAt": now,
+      "updatedAt": now
+    ]
+    
+    // Add attachments
+    if let attachmentData = userInfo["attachmentData"] as? [[String: Any]], !attachmentData.isEmpty {
+      let attachments = attachmentData.map { item -> [String: Any] in
+        return [
+          "__typename": "MessageAttachment",
+          "mediaType": (item["mediaType"] as? String)?.uppercased() ?? "IMAGE",
+          "url": (item["url"] as? String) ?? NSNull() as Any,
+          "name": (item["name"] as? String) ?? NSNull() as Any,
+          "attachmentUuid": (item["attachmentUuid"] as? String) ?? NSNull() as Any,
+          "saveOnServer": (item["saveOnServer"] as? Bool) ?? NSNull() as Any
+        ]
+      }
+      messageObj["attachments"] = attachments
+    } else {
+      messageObj["attachments"] = []
+    }
+    
+    // Add tapAction
+    if let tapAction = userInfo["tapAction"] as? [String: Any] {
+      messageObj["tapAction"] = [
+        "__typename": "NotificationAction",
+        "type": (tapAction["type"] as? String)?.uppercased() ?? "OPEN_NOTIFICATION",
+        "value": (tapAction["value"] as? String) ?? NSNull() as Any,
+        "title": (tapAction["title"] as? String) ?? NSNull() as Any,
+        "icon": (tapAction["icon"] as? String) ?? NSNull() as Any,
+        "destructive": tapAction["destructive"] as? Bool ?? false
+      ]
+    }
+    
+    // Add actions
+    if let actions = userInfo["actions"] as? [[String: Any]], !actions.isEmpty {
+      let actionsArray = actions.map { action -> [String: Any] in
+        return [
+          "__typename": "NotificationAction",
+          "type": (action["type"] as? String)?.uppercased() ?? "CUSTOM",
+          "value": (action["value"] as? String) ?? NSNull() as Any,
+          "title": (action["title"] as? String) ?? NSNull() as Any,
+          "icon": (action["icon"] as? String) ?? NSNull() as Any,
+          "destructive": action["destructive"] as? Bool ?? false
+        ]
+      }
+      messageObj["actions"] = actionsArray
+    } else {
+      messageObj["actions"] = []
+    }
+    
+    // Add bucket
+    messageObj["bucket"] = [
+      "__typename": "Bucket",
+      "id": bucketId,
+      "name": userInfo["bucketName"] as? String ?? "Unknown",
+      "description": NSNull(),
+      "color": (userInfo["bucketColor"] as? String) ?? NSNull() as Any,
+      "icon": (userInfo["bucketIconUrl"] as? String) ?? NSNull() as Any,
+      "createdAt": now,
+      "updatedAt": now,
+      "isProtected": NSNull(),
+      "isPublic": NSNull()
+    ]
+    
+    // Build notification fragment
+    let notificationFragment: [String: Any] = [
+      "__typename": "Notification",
+      "id": notificationId,
+      "receivedAt": now,
+      "readAt": NSNull(),
+      "sentAt": now,
+      "createdAt": now,
+      "updatedAt": now,
+      "message": messageObj
+    ]
+    
+    // Convert to JSON string
+    guard let jsonData = try? JSONSerialization.data(withJSONObject: notificationFragment),
+          let jsonString = String(data: jsonData, encoding: .utf8) else {
+      print("📱 [NotificationService] ❌ Failed to serialize notification fragment")
+      return
+    }
+    
+    // Determine has_attachments
+    let hasAttachments = (userInfo["attachmentData"] as? [[String: Any]])?.isEmpty == false ? 1 : 0
+    
+    // Insert into database
+    let sql = """
+      INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, has_attachments, fragment)
+      VALUES (?, ?, ?, ?, ?, ?)
+    """
+    
+    var stmt: OpaquePointer?
+    if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
+      print("📱 [NotificationService] ❌ Failed to prepare statement for notification insert")
+      return
+    }
+    defer { sqlite3_finalize(stmt) }
+    
+    sqlite3_bind_text(stmt, 1, (notificationId as NSString).utf8String, -1, SQLITE_TRANSIENT)
+    sqlite3_bind_text(stmt, 2, (now as NSString).utf8String, -1, SQLITE_TRANSIENT)
+    sqlite3_bind_null(stmt, 3) // read_at is null for new notifications
+    sqlite3_bind_text(stmt, 4, (bucketId as NSString).utf8String, -1, SQLITE_TRANSIENT)
+    sqlite3_bind_int(stmt, 5, Int32(hasAttachments))
+    sqlite3_bind_text(stmt, 6, (jsonString as NSString).utf8String, -1, SQLITE_TRANSIENT)
+    
+    if sqlite3_step(stmt) == SQLITE_DONE {
+      print("📱 [NotificationService] ✅ Notification saved to database: \(notificationId)")
+      
+      // Log to database
+      logToDatabase(
+        level: "info",
+        tag: "NotificationServiceExtension",
+        message: "[Database] Notification saved",
+        metadata: [
+          "notificationId": notificationId,
+          "bucketId": bucketId,
+          "hasAttachments": hasAttachments
+        ]
+      )
+    } else {
+      print("📱 [NotificationService] ❌ Failed to save notification to database")
+    }
+  }
 
   private func upsertCacheItem(url: String, mediaType: String, fields: [String: Any]) {
     let dbPath = getDbPath()
@@ -2051,122 +2370,8 @@ class NotificationService: UNNotificationServiceExtension {
   }
 
   // MARK: - Pending Notifications Storage
-
-  private func savePendingNotification(content: UNMutableNotificationContent) {
-    print("📱 [NotificationService] 💾 Saving pending notification for cache update")
-
-    guard let userInfo = content.userInfo as? [String: Any] else {
-      print("📱 [NotificationService] ❌ No userInfo available")
-      return
-    }
-
-    // Extract essential notification data
-    var notificationData: [String: Any] = [
-      "title": content.title,
-      "body": content.body,
-      "timestamp": ISO8601DateFormatter().string(from: Date()),
-    ]
-
-    if !content.subtitle.isEmpty {
-      notificationData["subtitle"] = content.subtitle
-    }
-
-    // Extract notification ID
-    if let notificationId = userInfo["notificationId"] as? String {
-      notificationData["notificationId"] = notificationId
-    }
-
-    // Extract bucket ID
-    if let bucketId = userInfo["bucketId"] as? String {
-      notificationData["bucketId"] = bucketId
-    }
-
-    // Extract bucket display info
-    if let bucketName = userInfo["bucketName"] as? String, !bucketName.isEmpty {
-      notificationData["bucketName"] = bucketName
-    }
-    if let bucketIconUrl = userInfo["bucketIconUrl"] as? String, !bucketIconUrl.isEmpty {
-      notificationData["bucketIconUrl"] = bucketIconUrl
-    }
-
-    // Extract actions
-    if let actions = userInfo["actions"] as? [[String: Any]] {
-      notificationData["actions"] = actions
-    }
-
-    // Extract attachment data
-    if let attachmentData = userInfo["attachmentData"] as? [[String: Any]] {
-      notificationData["attachmentData"] = attachmentData
-    }
-
-    // Extract tap action
-    if let tapAction = userInfo["tapAction"] as? [String: Any] {
-      notificationData["tapAction"] = tapAction
-    }
-
-    // Save to shared storage
-    do {
-      try storePendingNotification(data: notificationData)
-      print("📱 [NotificationService] ✅ Pending notification saved successfully")
-    } catch {
-      print("📱 [NotificationService] ❌ Failed to save pending notification: \(error)")
-    }
-  }
-
-  private func storePendingNotification(data: [String: Any]) throws {
-    // Get existing pending notifications
-    var pendingNotifications: [[String: Any]] = []
-    
-    let accessGroup = getKeychainAccessGroup()
-
-    let options: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: "zentik-pending-notifications",
-      kSecAttrAccessGroup as String: accessGroup,
-      kSecReturnData as String: true,
-    ]
-
-    var result: AnyObject?
-    let status = SecItemCopyMatching(options as CFDictionary, &result)
-
-    if status == errSecSuccess, let data = result as? Data {
-      if let existing = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-        pendingNotifications = existing
-      }
-    }
-
-    // Add new notification
-    pendingNotifications.append(data)
-
-    // Limit to last 50 notifications to avoid excessive storage
-    if pendingNotifications.count > 50 {
-      pendingNotifications = Array(pendingNotifications.suffix(50))
-    }
-
-    // Save back to keychain
-    let jsonData = try JSONSerialization.data(withJSONObject: pendingNotifications)
-
-    let saveOptions: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: "zentik-pending-notifications",
-      kSecAttrAccessGroup as String: accessGroup,
-      kSecValueData as String: jsonData,
-    ]
-
-    // Delete existing entry first
-    let deleteStatus = SecItemDelete(saveOptions as CFDictionary)
-
-    // Add new entry
-    let addStatus = SecItemAdd(saveOptions as CFDictionary, nil)
-
-    if addStatus != errSecSuccess {
-      throw NSError(
-        domain: "PendingNotificationStorage", code: Int(addStatus),
-        userInfo: [NSLocalizedDescriptionKey: "Failed to save pending notification"])
-    }
-
-    print("📱 [NotificationService] 📊 Total pending notifications: \(pendingNotifications.count)")
-  }
+  // NOTE: Removed savePendingNotification and storePendingNotification methods.
+  // Notifications are now saved directly to SQLite via saveNotificationToDatabase().
 
   // MARK: - Shared Storage Methods
 
@@ -2256,6 +2461,62 @@ class NotificationService: UNNotificationServiceExtension {
   
   // MARK: - Navigation Intent Storage
   
+  // Store tap action with unique key per notification
+  private func storeTapActionForNotification(content: UNMutableNotificationContent) {
+    let userInfo = content.userInfo
+    
+    guard let notificationId = userInfo["notificationId"] as? String else {
+      print("📱 [NotificationService] ⚠️ No notificationId for tap action storage")
+      return
+    }
+    
+    // Determine tap action
+    var tapAction: [String: Any]
+    if let existingTapAction = userInfo["tapAction"] as? [String: Any] {
+      tapAction = existingTapAction
+    } else {
+      // Default to OPEN_NOTIFICATION
+      tapAction = [
+        "type": "OPEN_NOTIFICATION",
+        "value": notificationId
+      ]
+    }
+    
+    // Create navigation data
+    let navigationData = [
+      "type": tapAction["type"] as? String ?? "OPEN_NOTIFICATION",
+      "value": tapAction["value"] as? String ?? notificationId,
+      "timestamp": ISO8601DateFormatter().string(from: Date())
+    ]
+    
+    // Store with unique key for this notification
+    let service = "zentik-tap-\(notificationId)"
+    do {
+      try storeIntentInKeychain(data: navigationData, service: service)
+      print("📱 [NotificationService] 💾 Stored tap action for notification: \(notificationId)")
+      
+      logToDatabase(
+        level: "info",
+        tag: "NotificationServiceExtension",
+        message: "[TapAction] Tap action stored with unique key",
+        metadata: [
+          "notificationId": notificationId,
+          "service": service,
+          "type": navigationData["type"] ?? "unknown"
+        ]
+      )
+    } catch {
+      print("📱 [NotificationService] ❌ Failed to store tap action: \(error)")
+      logToDatabase(
+        level: "error",
+        tag: "NotificationServiceExtension",
+        message: "[TapAction] Failed to store tap action",
+        metadata: ["notificationId": notificationId, "error": error.localizedDescription]
+      )
+    }
+  }
+  
+  // DEPRECATED: This method is no longer used
   private func storeNavigationIntentFromNotification(content: UNMutableNotificationContent) {
     print("📱 [NotificationService] 📂 Storing navigation intent from notification...")
     

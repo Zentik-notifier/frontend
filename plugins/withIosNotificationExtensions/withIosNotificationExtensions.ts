@@ -131,62 +131,6 @@ async function addAppExtensionTarget(
   console.log(`Target ${targetName} creato con bundle identifier ${bundleId}`);
 }
 
-async function addMainAppFiles(
-  newConfig: ExportedConfigWithProps,
-  projectRoot: string,
-  sourceDir: string,
-  mainBundleId: string
-) {
-  const iosDir = path.join(projectRoot, 'ios');
-
-  // Find the main app target directory (should be something like ZentikDev)
-  const iosDirEntries = fs.readdirSync(iosDir);
-  let appTargetName = 'ZentikDev'; // fallback
-
-  for (const entry of iosDirEntries) {
-    const entryPath = path.join(iosDir, entry);
-    if (fs.statSync(entryPath).isDirectory() &&
-      !entry.includes('Extension') &&
-      !entry.includes('Service') &&
-      !entry.endsWith('.xcodeproj') &&
-      !entry.startsWith('.')) {
-      appTargetName = entry;
-      break;
-    }
-  }
-
-  const destDir = path.join(iosDir, appTargetName);
-
-  // Ensure destination directory exists
-  if (!fs.existsSync(destDir)) {
-    console.log(`Creating main app directory: ${destDir}`);
-    fs.mkdirSync(destDir, { recursive: true });
-  }
-
-  // Copy files to main app target
-  if (fs.existsSync(sourceDir)) {
-    const entries = fs.readdirSync(sourceDir);
-    for (const file of entries) {
-      const srcPath = path.join(sourceDir, file);
-      const destPath = path.join(destDir, file);
-
-      if (fs.statSync(srcPath).isFile()) {
-        // Process file content to replace placeholders
-        if (file.endsWith('.swift') || file.endsWith('.m')) {
-          let content = fs.readFileSync(srcPath, 'utf8');
-          content = content.replace(/\{\{MAIN_BUNDLE_ID\}\}/g, mainBundleId);
-          fs.writeFileSync(destPath, content, 'utf8');
-        } else {
-          fs.copyFileSync(srcPath, destPath);
-        }
-      }
-    }
-    console.log(`Main app files copied to ${appTargetName}`);
-  } else {
-    console.log(`Source directory ${sourceDir} does not exist, skipping main app files`);
-  }
-}
-
 async function addCommunicationNotificationsCapability(
   pbxProject: XcodeProject,
   projectRoot: string,
@@ -240,7 +184,7 @@ async function addCommunicationNotificationsCapability(
       if (entitlements.includes('</dict>')) {
         entitlements = entitlements.replace('</dict>', `${capabilityEntry}</dict>`);
         fs.writeFileSync(entitlementsPath, entitlements, 'utf8');
-        console.log(`✅ Added Communication Notifications capability to ${targetName}`);
+        console.log(`Added Communication Notifications capability to ${targetName}`);
       }
     } else {
       console.log(`Communication Notifications capability already present in ${targetName}`);
@@ -265,14 +209,6 @@ const withZentikNotificationExtensions: ConfigPlugin = (config) => {
     const pluginDir = path.dirname(__filename);
 
     const baseBundleId = config.ios?.bundleIdentifier ?? 'com.apocaliss92.zentik';
-
-    // Copy main app files (native modules)
-    await addMainAppFiles(
-      newConfig,
-      projectRoot,
-      path.resolve(pluginDir, './files/ZentikDev'),
-      baseBundleId
-    );
 
     await addAppExtensionTarget(
       newConfig,

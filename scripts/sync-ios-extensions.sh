@@ -160,54 +160,17 @@ else
     print_warning "Cartella Content Extension non trovata: $CONTENT_SOURCE"
 fi
 
-# 3. Main App Files (Native Modules)
-print_status "Sincronizzazione file app principale..."
-
-MAIN_APP_SOURCE="$PLUGINS_DIR/ZentikDev"
-MAIN_APP_DEST="$IOS_DIR/ZentikDev"
-
-if [ -d "$MAIN_APP_SOURCE" ]; then
-    # Crea la cartella di destinazione se non esiste
-    mkdir -p "$MAIN_APP_DEST"
-    
-    # Copia tutti i file Swift e Objective-C
-    cp -f "$MAIN_APP_SOURCE"/*.swift "$MAIN_APP_DEST/" 2>/dev/null || true
-    cp -f "$MAIN_APP_SOURCE"/*.m "$MAIN_APP_DEST/" 2>/dev/null || true
-    cp -f "$MAIN_APP_SOURCE"/*.h "$MAIN_APP_DEST/" 2>/dev/null || true
-    
-    # Sostituisci placeholder nei file copiati
-    for file in "$MAIN_APP_DEST"/*.swift "$MAIN_APP_DEST"/*.m; do
-        if [ -f "$file" ]; then
-            replace_placeholders "$file" "$BUNDLE_ID"
-        fi
-    done
-    
-    print_success "File app principale sincronizzati"
-    
-    # Mostra i file copiati
-    if [ -f "$MAIN_APP_DEST/SharedContainer.swift" ]; then
-        print_status "  ✅ SharedContainer.swift copiato"
-    fi
-    if [ -f "$MAIN_APP_DEST/SharedContainer.m" ]; then
-        print_status "  ✅ SharedContainer.m copiato"
-    fi
-else
-    print_warning "Cartella file app principale non trovata: $MAIN_APP_SOURCE"
-fi
-
-# 4. Verifica finale
+# 3. Verifica finale
 print_status "Verifica finale sincronizzazione..."
 
 # Conta i file nelle cartelle di destinazione
 SERVICE_FILES=$(find "$SERVICE_DEST" -name "*.swift" -o -name "*.plist" 2>/dev/null | wc -l)
 CONTENT_FILES=$(find "$CONTENT_DEST" -name "*.swift" -o -name "*.plist" -o -name "*.storyboard" 2>/dev/null | wc -l)
-MAIN_APP_FILES=$(find "$MAIN_APP_DEST" -name "*.swift" -o -name "*.m" 2>/dev/null | wc -l)
 
 print_success "Sincronizzazione completata!"
 print_status "File copiati:"
 print_status "  📱 Notification Service Extension: $SERVICE_FILES file"
 print_status "  🎨 Content Extension: $CONTENT_FILES file"
-print_status "  🏠 App principale (Native Modules): $MAIN_APP_FILES file"
 
 # 4. Suggerimenti per il prossimo step
 echo ""

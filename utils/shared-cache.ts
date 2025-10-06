@@ -1,6 +1,5 @@
 import { Directory, Paths } from 'expo-file-system';
-import { Platform, NativeModules } from 'react-native';
-
+import { Platform } from 'react-native';
 
 function normalizeSharedUri(uri: string): string {
   if (uri.startsWith('file:///var/')) {
@@ -25,25 +24,7 @@ export async function getSharedMediaCacheDirectoryAsync(): Promise<string> {
   }
 
   if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-    // 1) Try native module (matches the same App Group logic as extensions)
-    try {
-      const nativePath: string | undefined = await NativeModules?.SharedContainer?.getSharedMediaCacheDirectory?.();
-      if (nativePath) {
-        // Ensure file:// prefix and trailing slash
-        const withScheme = nativePath.startsWith('file://') ? nativePath : `file://${nativePath}`;
-        const normalized = normalizeSharedUri(withScheme.endsWith('/') ? withScheme : withScheme + '/');
-        const dir = new Directory(normalized);
-        if (!dir.exists) {
-          dir.create();
-        }
-        cachedSharedDirectory = normalized;
-        return normalized;
-      }
-    } catch (error) {
-      console.warn('[SharedCache] Native SharedContainer not available, falling back:', error);
-    }
-
-    // 2) Fallback: use expo-file-system shared containers enumeration
+    // Use expo-file-system shared containers
     try {
       for (let attempt = 0; attempt < 30; attempt++) {
         const containers = Paths.appleSharedContainers;
@@ -65,6 +46,8 @@ export async function getSharedMediaCacheDirectoryAsync(): Promise<string> {
     } catch (error) {
       console.warn('[SharedCache] Expo shared containers not available, using fallback:', error);
     }
+    
+    // Fallback to documents directory
     const fallbackPath = `${Paths.document.uri}shared_media_cache/`;
     console.warn('[SharedCache] Falling back to documents directory for shared cache:', fallbackPath);
     cachedSharedDirectory = fallbackPath;

@@ -128,6 +128,15 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Clean up any previous media and observers before processing new notification
         cleanupCurrentMedia()
         
+        // Log NCE initialization
+        let notificationId = notification.request.identifier
+        logToDatabase(
+            level: "INFO",
+            tag: "NotificationContentExtension",
+            message: "[Init] NCE initialized for notification",
+            metadata: ["notificationId": notificationId]
+        )
+        
         // Store notification texts
         notificationTitleText = notification.request.content.title
         
@@ -185,6 +194,17 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         
         let userInfo = response.notification.request.content.userInfo
         print("📱 [ContentExtension] UserInfo: \(userInfo)")
+        
+        // Log tap action
+        logToDatabase(
+            level: "INFO",
+            tag: "NotificationContentExtension",
+            message: "[Tap] User tapped notification",
+            metadata: [
+                "notificationId": response.notification.request.identifier,
+                "actionIdentifier": response.actionIdentifier
+            ]
+        )
         
         // Handle the action when app is terminated
         handleNotificationAction(response: response) { [weak self] success in
@@ -2456,15 +2476,29 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     loadingIndicator?.removeFromSuperview()
                 } else if player.status == .failed {
                     print("📱 [ContentExtension] ❌ Player failed!")
+                    
+                    var errorMetadata: [String: Any] = [:]
                     if let error = player.error {
                         print("📱 [ContentExtension] Player error: \(error)")
                         print("📱 [ContentExtension] Player error description: \(error.localizedDescription)")
+                        errorMetadata["error"] = error.localizedDescription
+                        
                         if let nsError = error as NSError? {
                             print("📱 [ContentExtension] Player error domain: \(nsError.domain)")
                             print("📱 [ContentExtension] Player error code: \(nsError.code)")
                             print("📱 [ContentExtension] Player error userInfo: \(nsError.userInfo)")
+                            errorMetadata["domain"] = nsError.domain
+                            errorMetadata["code"] = nsError.code
                         }
                     }
+                    
+                    logToDatabase(
+                        level: "ERROR",
+                        tag: "NotificationContentExtension",
+                        message: "[Player] AVPlayer failed to load media",
+                        metadata: errorMetadata
+                    )
+                    
                     loadingIndicator?.stopAnimating()
                     loadingIndicator?.removeFromSuperview()
                     
@@ -2499,15 +2533,28 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     // Player should already be playing from AVPlayer observer
                 } else if playerItem.status == .failed {
                     print("📱 [ContentExtension] ❌ PlayerItem failed!")
+                    
+                    var errorMetadata: [String: Any] = [:]
                     if let error = playerItem.error {
                         print("📱 [ContentExtension] PlayerItem error: \(error)")
                         print("📱 [ContentExtension] PlayerItem error description: \(error.localizedDescription)")
+                        errorMetadata["error"] = error.localizedDescription
+                        
                         if let nsError = error as NSError? {
                             print("📱 [ContentExtension] PlayerItem error domain: \(nsError.domain)")
                             print("📱 [ContentExtension] PlayerItem error code: \(nsError.code)")
                             print("📱 [ContentExtension] PlayerItem error userInfo: \(nsError.userInfo)")
+                            errorMetadata["domain"] = nsError.domain
+                            errorMetadata["code"] = nsError.code
                         }
                     }
+                    
+                    logToDatabase(
+                        level: "ERROR",
+                        tag: "NotificationContentExtension",
+                        message: "[PlayerItem] AVPlayerItem failed to load media",
+                        metadata: errorMetadata
+                    )
                     
                     // Check if this is an audio player item failure - if so, show limitation message
                     if let asset = playerItem.asset as? AVURLAsset {
@@ -2902,6 +2949,58 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         print("📱 [ContentExtension] 📊 Database path: \(dbPath)")
         return dbPath
     }
+    
+    // MARK: - Logging to SQLite
+    
+    private func logToDatabase(
+        level: String,
+        tag: String? = nil,
+        message: String,
+        metadata: [String: Any]? = nil
+    ) {
+        let dbPath = getDbPath()
+        var db: OpaquePointer?
+        
+        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE, nil) != SQLITE_OK {
+            return
+        }
+        defer { sqlite3_close(db) }
+        
+        let sql = """
+          INSERT INTO app_log (level, tag, message, meta_json, timestamp)
+          VALUES (?, ?, ?, ?, ?)
+        """
+        
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
+            return
+        }
+        defer { sqlite3_finalize(stmt) }
+        
+        let timestamp = Int(Date().timeIntervalSince1970 * 1000)
+        
+        sqlite3_bind_text(stmt, 1, (level as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        
+        if let tag = tag {
+            sqlite3_bind_text(stmt, 2, (tag as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        } else {
+            sqlite3_bind_null(stmt, 2)
+        }
+        
+        sqlite3_bind_text(stmt, 3, (message as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        
+        if let metadata = metadata,
+           let jsonData = try? JSONSerialization.data(withJSONObject: metadata),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            sqlite3_bind_text(stmt, 4, (jsonString as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        } else {
+            sqlite3_bind_null(stmt, 4)
+        }
+        
+        sqlite3_bind_int64(stmt, 5, Int64(timestamp))
+        
+        sqlite3_step(stmt)
+    }
 
     private func upsertCacheItem(url: String, mediaType: String, fields: [String: Any]) {
         let dbPath = getDbPath()
@@ -3210,9 +3309,27 @@ extension NotificationViewController {
     private func handleDefaultTapAction(userInfo: [AnyHashable: Any], notificationId: String, completion: @escaping (Bool) -> Void) {
         print("📱 [ContentExtension] 🔔 Handling default tap action for notification: \(notificationId)")
         
+        logToDatabase(
+            level: "INFO",
+            tag: "NotificationContentExtension",
+            message: "[DefaultTap] Processing default tap action",
+            metadata: ["notificationId": notificationId]
+        )
+        
         // Check if there's a custom tapAction defined
         if let tapAction = extractTapAction(from: userInfo) {
             print("📱 [ContentExtension] 🎯 Found custom tapAction: \(tapAction)")
+            
+            logToDatabase(
+                level: "INFO",
+                tag: "NotificationContentExtension",
+                message: "[CustomTap] Found custom tap action",
+                metadata: [
+                    "notificationId": notificationId,
+                    "actionType": tapAction["type"] as? String ?? "unknown"
+                ]
+            )
+            
             executeAction(action: tapAction, notificationId: notificationId, completion: completion)
         } else {
             // Default behavior: store navigation intent for app launch
@@ -3223,6 +3340,13 @@ extension NotificationViewController {
             ]
             storeNavigationIntent(data: navigationData)
             print("📱 [ContentExtension] 📂 Stored default open notification intent")
+            
+            logToDatabase(
+                level: "INFO",
+                tag: "NotificationContentExtension",
+                message: "[Navigation] Stored default navigation intent",
+                metadata: ["notificationId": notificationId]
+            )
             
             // Open the main app to process the navigation intent
             DispatchQueue.main.async {
@@ -3336,11 +3460,28 @@ extension NotificationViewController {
         guard let type = action["type"] as? String,
               let value = action["value"] as? String else {
             print("📱 [ContentExtension] ❌ Invalid action data")
+            logToDatabase(
+                level: "ERROR",
+                tag: "NotificationContentExtension",
+                message: "[Action] Invalid action data",
+                metadata: ["notificationId": notificationId]
+            )
             completion(false)
             return
         }
         
         print("📱 [ContentExtension] 🎬 Executing action: \(type) with value: \(value)")
+        
+        logToDatabase(
+            level: "INFO",
+            tag: "NotificationContentExtension",
+            message: "[Action] Executing action",
+            metadata: [
+                "notificationId": notificationId,
+                "actionType": type,
+                "actionValue": value
+            ]
+        )
         
         switch type.uppercased() {
         case "NAVIGATE":
@@ -3524,8 +3665,25 @@ extension NotificationViewController {
         do {
             try storeIntentInKeychain(data: data, service: "zentik-pending-navigation")
             print("📱 [ContentExtension] 💾 Stored navigation intent in keychain: \(data)")
+            
+            logToDatabase(
+                level: "INFO",
+                tag: "NotificationContentExtension",
+                message: "[Keychain] Stored navigation intent in keychain",
+                metadata: [
+                    "intentType": data["type"] as? String ?? "unknown",
+                    "intentValue": data["value"] as? String ?? ""
+                ]
+            )
         } catch {
             print("📱 [ContentExtension] ❌ Failed to store navigation intent in keychain: \(error)")
+            
+            logToDatabase(
+                level: "ERROR",
+                tag: "NotificationContentExtension",
+                message: "[Keychain] Failed to store navigation intent",
+                metadata: ["error": error.localizedDescription]
+            )
         }
     }
     
