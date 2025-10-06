@@ -19,12 +19,11 @@ export const useCachedItem = (url: string, mediaType: MediaType) => {
           setItem(newItem);
         }
       } else {
+        let url: string | undefined;
         if (newItem?.localPath) {
-          const url = await mediaCache.getMediaUrl(newItem?.localPath);
-          if (url) {
-            setItem({ localPath: url, mediaType } as CacheItem);
-          }
+          url = await mediaCache.getMediaUrl(newItem?.localPath) || undefined;
         }
+        setItem({ ...newItem, localPath: url, mediaType });
       }
     });
 

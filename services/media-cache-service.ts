@@ -190,7 +190,7 @@ class MediaCacheService {
 
                 await this.generateThumbnail({ url, mediaType, force });
             } catch (error: any) {
-                console.error('[MediaCache] Download failed:', JSON.stringify(error));
+                console.error('[MediaCache] Download failed:', url, key, JSON.stringify(error));
 
                 await this.upsertItem(key, {
                     inDownload: false,

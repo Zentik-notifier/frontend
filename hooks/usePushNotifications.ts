@@ -299,7 +299,6 @@ export function usePushNotifications() {
       if (current === count) return;
 
       await Notifications.setBadgeCountAsync(count);
-      console.log(`[usePushNotifications] Badge count set to ${count}`);
     } catch (error) {
       console.error('[usePushNotifications] Error setting badge count:', error);
     }

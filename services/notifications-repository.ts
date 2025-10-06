@@ -184,7 +184,7 @@ export async function importRawNotificationsToDB(rawNotifications: any[]): Promi
         }
       }
     } catch (error) {
-      console.error('Failed to import raw notifications to DB:', error);
+      console.error('[importRawNotificationsToDB] Failed to import raw notifications to DB:', error);
       throw error;
     }
   });
@@ -269,7 +269,7 @@ export async function upsertNotificationsBatch(notifications: NotificationFragme
         }
       }
     } catch (error) {
-      console.error('Failed to upsert notifications batch:', error);
+      console.error('[upsertNotificationsBatch] Failed to upsert notifications batch:', error);
     }
   });
 }
@@ -301,7 +301,7 @@ export async function updateNotificationReadStatus(notificationId: string, readA
         // Get current notification from database
         const existingRecord = await db.get('notifications', notificationId);
         if (!existingRecord) {
-          console.warn(`Notification ${notificationId} not found in cache for read status update`);
+          console.warn(`[updateNotificationReadStatus] Notification ${notificationId} not found in cache for read status update`);
           return;
         }
 
@@ -332,7 +332,7 @@ export async function updateNotificationReadStatus(notificationId: string, readA
         );
 
         if (!existingRecord) {
-          console.warn(`Notification ${notificationId} not found in cache for read status update`);
+          console.warn(`[updateNotificationReadStatus] Notification ${notificationId} not found in cache for read status update`);
           return;
         }
 
@@ -363,9 +363,9 @@ export async function updateNotificationReadStatus(notificationId: string, readA
         );
       }
 
-      console.log(`✅ Updated read status for notification ${notificationId}: ${readAt ? 'read' : 'unread'}`);
+      console.log(`[updateNotificationReadStatus] Updated read status for notification ${notificationId}: ${readAt ? 'read' : 'unread'}`);
     } catch (error) {
-      console.error('Failed to update notification read status:', error);
+      console.error('[updateNotificationReadStatus] Failed to update notification read status:', error);
       throw error;
     }
   });
@@ -469,9 +469,9 @@ export async function updateNotificationsReadStatus(notificationIds: string[], r
         }
       }
 
-      console.log(`✅ Updated read status for ${notificationIds.length} notifications: ${readAt ? 'read' : 'unread'}`);
+      console.log(`[updateNotificationsReadStatus] Updated read status for ${notificationIds.length} notifications: ${readAt ? 'read' : 'unread'}`);
     } catch (error) {
-      console.error('Failed to update notifications read status:', error);
+      console.error('[updateNotificationsReadStatus] Failed to update notifications read status:', error);
       throw error;
     }
   });
@@ -499,9 +499,9 @@ export async function deleteNotificationFromCache(notificationId: string): Promi
         await db.runAsync('DELETE FROM notifications WHERE id = ?', [notificationId]);
       }
 
-      console.log(`✅ Deleted notification ${notificationId} from cache`);
+      console.log(`[deleteNotificationFromCache] Deleted notification ${notificationId} from cache`);
     } catch (error) {
-      console.error('Failed to delete notification from cache:', error);
+      console.error('[deleteNotificationFromCache] Failed to delete notification from cache:', error);
       throw error;
     }
   });
@@ -540,9 +540,9 @@ export async function deleteNotificationsFromCache(notificationIds: string[]): P
         }
       }
 
-      console.log(`✅ Deleted ${notificationIds.length} notifications from cache`);
+      console.log(`[deleteNotificationsFromCache] Deleted ${notificationIds.length} notifications from cache`);
     } catch (error) {
-      console.error('❌ Failed to delete notifications from cache:', error);
+      console.error('[deleteNotificationsFromCache] Failed to delete notifications from cache:', error);
       throw error;
     }
   });
@@ -578,9 +578,9 @@ export async function deleteNotificationsByBucketId(bucketId: string): Promise<v
         await db.runAsync('DELETE FROM notifications WHERE bucket_id = ?', [bucketId]);
       }
 
-      console.log(`✅ Deleted all notifications for bucket ${bucketId} from cache`);
+          console.log(`[deleteNotificationsByBucketId] Deleted all notifications for bucket ${bucketId} from cache`);
     } catch (error) {
-      console.error('❌ Failed to delete notifications by bucket ID from cache:', error);
+      console.error('[deleteNotificationsByBucketId] Failed to delete notifications by bucket ID from cache:', error);
       throw error;
     }
   });
@@ -614,12 +614,12 @@ export async function cleanupNotificationsBySettings(notifications: Notification
   const max = userSettings.getMaxCachedNotifications?.() ?? 500;
   const maxDays = userSettings.getMaxCachedNotificationsDay?.();
 
-  console.log(`[Notifications Cleanup] Starting cleanup with max=${max}, maxDays=${maxDays}`);
+  console.log(`[cleanupNotificationsBySettings] Starting cleanup with max=${max}, maxDays=${maxDays}`);
 
   const totalBefore = notifications.length;
 
   if (totalBefore === 0) {
-    console.log('[Notifications Cleanup] No notifications to clean up');
+    console.log('[cleanupNotificationsBySettings] No notifications to clean up');
     return {
       totalBefore: 0,
       totalAfter: 0,
@@ -644,7 +644,7 @@ export async function cleanupNotificationsBySettings(notifications: Notification
     filteredByAge = beforeFilter - filteredNotifications.length;
 
     if (filteredByAge > 0) {
-      console.log(`[Notifications Cleanup] Filtered ${filteredByAge} notifications older than ${maxDays} days`);
+      console.log(`[cleanupNotificationsBySettings] Filtered ${filteredByAge} notifications older than ${maxDays} days`);
     }
   }
 
@@ -662,7 +662,7 @@ export async function cleanupNotificationsBySettings(notifications: Notification
   if (max > 0 && filteredNotifications.length > max) {
     filteredByCount = filteredNotifications.length - max;
     notificationsToKeep = filteredNotifications.slice(0, max);
-    console.log(`[Notifications Cleanup] Limited to ${max} notifications, removing ${filteredByCount} excess`);
+    console.log(`[cleanupNotificationsBySettings] Limited to ${max} notifications, removing ${filteredByCount} excess`);
   }
 
   // Find notifications to delete (those not in the keep list)
@@ -671,19 +671,19 @@ export async function cleanupNotificationsBySettings(notifications: Notification
     .filter(notification => !idsToKeep.has(notification.id))
     .map(notification => notification.id);
 
-  console.log(`[Notifications Cleanup] Will delete ${idsToDelete.length} notifications from database`);
+  console.log(`[cleanupNotificationsBySettings] Will delete ${idsToDelete.length} notifications from database`);
 
   // Delete from database (works for both IndexedDB and SQLite)
   let deletedCount = 0;
   if (idsToDelete.length > 0) {
     await deleteNotificationsFromCache(idsToDelete);
     deletedCount = idsToDelete.length;
-    console.log(`[Notifications Cleanup] Deleted ${deletedCount} notifications from database`);
+    console.log(`[cleanupNotificationsBySettings] Deleted ${deletedCount} notifications from database`);
   }
 
   const totalAfter = notificationsToKeep.length;
 
-  console.log(`[Notifications Cleanup] Cleanup completed: ${totalBefore} → ${totalAfter} notifications (${deletedCount} deleted)`);
+  console.log(`[cleanupNotificationsBySettings] Cleanup completed: ${totalBefore} → ${totalAfter} notifications (${deletedCount} deleted)`);
 
   return {
     totalBefore,
