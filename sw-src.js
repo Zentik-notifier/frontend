@@ -180,10 +180,42 @@ async function prefetchMediaAttachment(attachment, notificationId) {
     await updateCacheItemForPrefetch(cacheItemKey, url, mediaType, size, notificationId, undefined, mediaItemKey);
 
     console.log(`[Service Worker] Media prefetched successfully: ${mediaItemKey}`);
+    
+    // Log successful prefetch
+    if (notificationId) {
+      logToDatabase(
+        'INFO',
+        'ServiceWorker',
+        '[Media] Media prefetched successfully',
+        {
+          notificationId: notificationId,
+          mediaType: mediaType,
+          url: url,
+          size: size
+        }
+      ).catch(e => console.error('[Service Worker] Failed to log prefetch:', e));
+    }
+    
     return { cacheKey: cacheItemKey, mediaKey: mediaItemKey, size, mediaType };
 
   } catch (error) {
     console.error(`[Service Worker] Failed to prefetch media attachment:`, error);
+    
+    // Log prefetch error
+    if (notificationId) {
+      logToDatabase(
+        'ERROR',
+        'ServiceWorker',
+        '[Media] Failed to prefetch media',
+        {
+          notificationId: notificationId,
+          mediaType: mediaType,
+          url: url,
+          error: error.message || String(error)
+        }
+      ).catch(e => console.error('[Service Worker] Failed to log prefetch error:', e));
+    }
+    
     // Update cache item with error status
     await updateCacheItemForPrefetch(cacheItemKey, url, mediaType, 0, notificationId, error.message);
     throw error;
@@ -240,35 +272,118 @@ async function updateCacheItemForPrefetch(key, url, mediaType, size, notificatio
   }, 'readwrite', 'cache_item');
 }
 
-// Store pending notification for processing when app opens
+// Save notification to IndexedDB notifications table (same format as notification-repository)
 async function storePendingNotification(notificationData) {
   try {
-    const pendingNotifications = await getPendingNotifications();
-
-    // Add new notification
-    pendingNotifications.push({
-      notificationId: notificationData.notificationId,
-      title: notificationData.title,
-      body: notificationData.body,
-      subtitle: notificationData.subtitle,
-      bucketId: notificationData.bucketId,
-      bucketName: notificationData.bucketName,
-      bucketIconUrl: notificationData.bucketIconUrl,
-      tapAction: notificationData.tapAction,
-      actions: notificationData.actions,
-      attachmentData: notificationData.attachmentData,
-      timestamp: notificationData.timestamp || Date.now()
-    });
-
-    // Limit to last 50 notifications
-    const limitedNotifications = pendingNotifications.length > 50
-      ? pendingNotifications.slice(-50)
-      : pendingNotifications;
-
-    await savePendingNotifications(limitedNotifications);
-    console.log('[Service Worker] ✅ Pending notification stored:', notificationData.notificationId);
+    const now = new Date().toISOString();
+    
+    // Build NotificationFragment
+    const notificationFragment = {
+      __typename: 'Notification',
+      id: notificationData.notificationId,
+      receivedAt: now,
+      readAt: null,
+      sentAt: now,
+      createdAt: now,
+      updatedAt: now,
+      message: {
+        __typename: 'Message',
+        id: notificationData.notificationId, // Use same ID for message
+        title: notificationData.title || '',
+        body: notificationData.body || null,
+        subtitle: notificationData.subtitle || null,
+        sound: 'default',
+        deliveryType: notificationData.deliveryType || 'PUSH',
+        locale: null,
+        snoozes: null,
+        createdAt: now,
+        updatedAt: now,
+        attachments: (notificationData.attachmentData || []).map(att => ({
+          __typename: 'MessageAttachment',
+          mediaType: att.mediaType?.toUpperCase() || 'IMAGE',
+          url: att.url || null,
+          name: att.name || null,
+          attachmentUuid: att.attachmentUuid || null,
+          saveOnServer: att.saveOnServer !== undefined ? att.saveOnServer : null
+        })),
+        tapAction: notificationData.tapAction ? {
+          __typename: 'NotificationAction',
+          type: notificationData.tapAction.type?.toUpperCase() || 'OPEN_NOTIFICATION',
+          value: notificationData.tapAction.value || null,
+          title: notificationData.tapAction.title || null,
+          icon: notificationData.tapAction.icon || null,
+          destructive: notificationData.tapAction.destructive || false
+        } : null,
+        actions: (notificationData.actions || []).map(action => ({
+          __typename: 'NotificationAction',
+          type: action.type?.toUpperCase() || 'CUSTOM',
+          value: action.value || null,
+          title: action.title || null,
+          icon: action.icon || null,
+          destructive: action.destructive || false
+        })),
+        bucket: {
+          __typename: 'Bucket',
+          id: notificationData.bucketId || 'default',
+          name: notificationData.bucketName || 'Default',
+          description: null,
+          color: null,
+          icon: notificationData.bucketIconUrl || null,
+          createdAt: now,
+          updatedAt: now,
+          isProtected: null,
+          isPublic: null
+        }
+      }
+    };
+    
+    // Prepare data for database
+    const dbData = {
+      id: notificationFragment.id,
+      created_at: notificationFragment.createdAt,
+      read_at: notificationFragment.readAt,
+      bucket_id: notificationFragment.message.bucket.id,
+      has_attachments: notificationFragment.message.attachments && notificationFragment.message.attachments.length > 0 ? 1 : 0,
+      fragment: JSON.stringify(notificationFragment)
+    };
+    
+    // Save to IndexedDB notifications table
+    await withIndexedDB((store, resolve, reject) => {
+      const putRequest = store.put(dbData, dbData.id);
+      putRequest.onsuccess = () => {
+        console.log('[Service Worker] ✅ Notification saved to IndexedDB:', dbData.id);
+        
+        // Log successful save
+        logToDatabase(
+          'INFO',
+          'ServiceWorker',
+          '[Database] Notification saved to IndexedDB',
+          {
+            notificationId: dbData.id,
+            bucketId: dbData.bucket_id,
+            hasAttachments: dbData.has_attachments === 1
+          }
+        ).catch(e => console.error('[Service Worker] Failed to log save:', e));
+        
+        resolve();
+      };
+      putRequest.onerror = () => reject(putRequest.error);
+    }, 'readwrite', 'notifications');
+    
   } catch (error) {
-    console.error('[Service Worker] Failed to store pending notification:', error);
+    console.error('[Service Worker] Failed to save notification to IndexedDB:', error);
+    
+    // Log error
+    logToDatabase(
+      'ERROR',
+      'ServiceWorker',
+      '[Database] Failed to save notification',
+      {
+        notificationId: notificationData.notificationId,
+        error: error.message || String(error)
+      }
+    ).catch(e => console.error('[Service Worker] Failed to log error:', e));
+    
     throw error;
   }
 }
@@ -279,6 +394,20 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
 
   const notificationId = notificationData?.notificationId;
   const bucketId = notificationData?.bucketId;
+  
+  // Log action handling
+  if (notificationId) {
+    logToDatabase(
+      'INFO',
+      'ServiceWorker',
+      '[Action] Handling notification action',
+      {
+        notificationId: notificationId,
+        actionType: actionType,
+        actionValue: actionValue
+      }
+    ).catch(e => console.error('[Service Worker] Failed to log action:', e));
+  }
 
   switch (actionType) {
     case 'NAVIGATE':
@@ -616,6 +745,20 @@ self.addEventListener('push', (event) => {
   const notificationId = payload.notificationId;
   const bucketId = payload.bucketId;
   const actions = payload.actions || [];
+  
+  // Log push notification received
+  if (notificationId) {
+    logToDatabase(
+      'INFO',
+      'ServiceWorker',
+      '[Push] Notification push received',
+      {
+        notificationId: notificationId,
+        bucketId: bucketId,
+        hasAttachments: payload.attachments && payload.attachments.length > 0
+      }
+    ).catch(e => console.error('[Service Worker] Failed to log push received:', e));
+  }
 
   // Build notification options with media attachments and actions
   const options = {
@@ -642,7 +785,7 @@ self.addEventListener('push', (event) => {
 
   console.log('[Service Worker] Showing notification:', title, options);
 
-  // Store notification as pending for processing when app opens
+  // Store notification data for IndexedDB
   const pendingNotificationData = {
     notificationId: notificationId,
     title: title,
@@ -654,6 +797,7 @@ self.addEventListener('push', (event) => {
     tapAction: payload.tapAction,
     actions: actions,
     attachmentData: payload.attachments || [],
+    deliveryType: payload.deliveryType || 'PUSH',
     timestamp: Date.now()
   };
 
@@ -664,11 +808,11 @@ self.addEventListener('push', (event) => {
         // Show notification
         await self.registration.showNotification(title, options);
 
-        // Store as pending notification
+        // Save notification to IndexedDB
         try {
           await storePendingNotification(pendingNotificationData);
         } catch (error) {
-          console.error('[Service Worker] Failed to store pending notification:', error);
+          console.error('[Service Worker] Failed to save notification to IndexedDB:', error);
         }
 
         // Prefetch media attachment if available
@@ -844,6 +988,30 @@ async function executeApiCall(endpoint, method = 'GET', body = null) {
   }
 
   return response;
+}
+
+// Log to IndexedDB app_log table
+async function logToDatabase(level, tag, message, metadata = null) {
+  try {
+    const now = Date.now();
+    const logEntry = {
+      id: `${now}_${Math.random().toString(36).substr(2, 9)}`, // Generate unique ID
+      level: level.toUpperCase(),
+      tag: tag,
+      message: message,
+      meta_json: metadata ? JSON.stringify(metadata) : null,
+      timestamp: now
+    };
+    
+    await withIndexedDB((store, resolve, reject) => {
+      const addRequest = store.add(logEntry);
+      addRequest.onsuccess = () => resolve();
+      addRequest.onerror = () => reject(addRequest.error);
+    }, 'readwrite', 'app_log');
+  } catch (error) {
+    // Silent fail to not break SW if logging fails
+    console.error('[Service Worker] Failed to log to database:', error);
+  }
 }
 
 // Common function to get pending notifications from IndexedDB
