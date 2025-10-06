@@ -3,7 +3,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import { NotificationFilters } from "@/services/user-settings";
 import { useNotificationsContext } from "@/contexts/NotificationsContext";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { StyleSheet, View, ScrollView, Dimensions } from "react-native";
 import {
   Button,
@@ -14,7 +14,8 @@ import {
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
-import BucketSelector, { BUCKET_ALL } from "./BucketSelector";
+import BucketSelector from "./BucketSelector";
+import MultiBucketSelector from "./MultiBucketSelector";
 
 export default function NotificationFiltersModal() {
   const { data: bucketsData } = useGetBucketsQuery();
@@ -23,7 +24,7 @@ export default function NotificationFiltersModal() {
   const {
     userSettings: { settings, setNotificationFilters },
   } = useAppContext();
-  const filters = settings.notificationFilters;
+  const savedFilters = settings.notificationFilters;
 
   // Use notifications context
   const {
@@ -31,53 +32,68 @@ export default function NotificationFiltersModal() {
     handleHideFiltersModal,
   } = useNotificationsContext();
 
-  const handleBucketChange = (bucketId: string | null) => {
-    if (bucketId === null) {
-      // All buckets selected
-      setNotificationFilters({ selectedBucketIds: [] });
-    } else if (bucketId === "") {
-      // General (no bucket) selected - use empty string
-      setNotificationFilters({ selectedBucketIds: [""] });
-    } else {
-      // Specific bucket selected
-      setNotificationFilters({ selectedBucketIds: [bucketId] });
+  // Local state for filters
+  const [localFilters, setLocalFilters] =
+    useState<NotificationFilters>(savedFilters);
+
+  // Sync local state when modal opens or saved filters change
+  useEffect(() => {
+    if (showFiltersModal) {
+      setLocalFilters(savedFilters);
     }
+  }, [showFiltersModal, savedFilters]);
+
+  const onBucketsChange = (bucketIds: string[]) => {
+    setLocalFilters((prev) => ({ ...prev, selectedBucketIds: bucketIds }));
   };
 
   const handleHideReadChange = (hideRead: boolean) => {
-    setNotificationFilters({ hideRead });
+    setLocalFilters((prev) => ({ ...prev, hideRead }));
   };
 
   const handleAttachmentsOnlyChange = (showOnlyWithAttachments: boolean) => {
-    setNotificationFilters({ showOnlyWithAttachments });
+    setLocalFilters((prev) => ({ ...prev, showOnlyWithAttachments }));
   };
 
   const handleSortByChange = (sortBy: "newest" | "oldest" | "priority") => {
-    setNotificationFilters({ sortBy });
+    setLocalFilters((prev) => ({ ...prev, sortBy }));
   };
 
   const handleHideOlderThanChange = (
     hideOlderThan: "none" | "1day" | "1week" | "1month"
   ) => {
-    setNotificationFilters({ hideOlderThan });
+    setLocalFilters((prev) => ({ ...prev, hideOlderThan }));
+  };
+
+  const handleLoadOnlyVisibleChange = (loadOnlyVisible: boolean) => {
+    setLocalFilters((prev) => ({ ...prev, loadOnlyVisible }));
   };
 
   const clearAllFilters = () => {
-    setNotificationFilters({
+    setLocalFilters({
       hideRead: false,
       hideOlderThan: "none",
-      selectedBucketIds: [], // Reset to "All Buckets"
-      searchQuery: filters.searchQuery, // Keep search query
+      selectedBucketIds: [],
+      searchQuery: localFilters.searchQuery,
       sortBy: "newest",
       showOnlyWithAttachments: false,
+      loadOnlyVisible: false,
     });
   };
 
+  const applyFilters = () => {
+    setNotificationFilters(localFilters);
+    handleHideFiltersModal();
+  };
+
+  const hasChanges =
+    JSON.stringify(localFilters) !== JSON.stringify(savedFilters);
+
   const hasActiveFilters =
-    filters.hideRead ||
-    filters.hideOlderThan !== "none" ||
-    filters.selectedBucketIds.length > 0 ||
-    filters.showOnlyWithAttachments;
+    localFilters.hideRead ||
+    localFilters.hideOlderThan !== "none" ||
+    localFilters.selectedBucketIds.length > 0 ||
+    localFilters.showOnlyWithAttachments;
 
   const theme = useTheme();
 
@@ -113,15 +129,6 @@ export default function NotificationFiltersModal() {
               <Text style={styles.headerTitle}>{t("filters.title")}</Text>
             </View>
             <View style={styles.headerRight}>
-              {hasActiveFilters && (
-                <Button
-                  mode="contained-tonal"
-                  onPress={clearAllFilters}
-                  icon="refresh"
-                >
-                  {t("filters.clearAll")}
-                </Button>
-              )}
               <TouchableRipple
                 style={[styles.closeButton]}
                 onPress={handleHideFiltersModal}
@@ -147,15 +154,10 @@ export default function NotificationFiltersModal() {
                 >
                   {t("filters.bucket")}
                 </Text>
-                <BucketSelector
-                  selectedBucketId={
-                    filters.selectedBucketIds.length === 0
-                      ? BUCKET_ALL
-                      : filters.selectedBucketIds[0]
-                  }
-                  onBucketChange={handleBucketChange}
+                <MultiBucketSelector
+                  selectedBucketIds={localFilters.selectedBucketIds}
+                  onBucketsChange={onBucketsChange}
                   buckets={buckets}
-                  includeAllOption
                   searchable
                 />
               </View>
@@ -175,20 +177,22 @@ export default function NotificationFiltersModal() {
                     styles.quickFilter,
                     {
                       borderColor: theme.colors.outline,
-                      backgroundColor: filters.hideRead
+                      backgroundColor: localFilters.hideRead
                         ? theme.colors.secondaryContainer
                         : theme.colors.elevation?.level1 ||
                           theme.colors.surface,
                     },
                   ]}
-                  onPress={() => handleHideReadChange(!filters.hideRead)}
+                  onPress={() => handleHideReadChange(!localFilters.hideRead)}
                 >
                   <View style={styles.quickFilterContent}>
                     <Icon
-                      source={filters.hideRead ? "eye-off" : "eye-off-outline"}
+                      source={
+                        localFilters.hideRead ? "eye-off" : "eye-off-outline"
+                      }
                       size={20}
                       color={
-                        filters.hideRead
+                        localFilters.hideRead
                           ? theme.colors.primary
                           : theme.colors.onSurfaceVariant
                       }
@@ -198,7 +202,7 @@ export default function NotificationFiltersModal() {
                         style={[
                           styles.quickFilterText,
                           {
-                            color: filters.hideRead
+                            color: localFilters.hideRead
                               ? theme.colors.primary
                               : theme.colors.onSurface,
                           },
@@ -224,7 +228,7 @@ export default function NotificationFiltersModal() {
                     styles.quickFilter,
                     {
                       borderColor: theme.colors.outline,
-                      backgroundColor: filters.showOnlyWithAttachments
+                      backgroundColor: localFilters.showOnlyWithAttachments
                         ? theme.colors.secondaryContainer
                         : theme.colors.elevation?.level1 ||
                           theme.colors.surface,
@@ -232,7 +236,7 @@ export default function NotificationFiltersModal() {
                   ]}
                   onPress={() =>
                     handleAttachmentsOnlyChange(
-                      !filters.showOnlyWithAttachments
+                      !localFilters.showOnlyWithAttachments
                     )
                   }
                 >
@@ -241,7 +245,7 @@ export default function NotificationFiltersModal() {
                       source="paperclip"
                       size={20}
                       color={
-                        filters.showOnlyWithAttachments
+                        localFilters.showOnlyWithAttachments
                           ? theme.colors.primary
                           : theme.colors.onSurfaceVariant
                       }
@@ -251,7 +255,7 @@ export default function NotificationFiltersModal() {
                         style={[
                           styles.quickFilterText,
                           {
-                            color: filters.showOnlyWithAttachments
+                            color: localFilters.showOnlyWithAttachments
                               ? theme.colors.primary
                               : theme.colors.onSurface,
                           },
@@ -301,7 +305,7 @@ export default function NotificationFiltersModal() {
                       {
                         borderColor: theme.colors.outline,
                         backgroundColor:
-                          filters.sortBy === value
+                          localFilters.sortBy === value
                             ? theme.colors.primary
                             : theme.colors.elevation?.level1 ||
                               theme.colors.surface,
@@ -314,7 +318,7 @@ export default function NotificationFiltersModal() {
                         source={icon as any}
                         size={18}
                         color={
-                          filters.sortBy === value
+                          localFilters.sortBy === value
                             ? theme.colors.onPrimary
                             : theme.colors.onSurfaceVariant
                         }
@@ -324,7 +328,7 @@ export default function NotificationFiltersModal() {
                           styles.sortButtonText,
                           {
                             color:
-                              filters.sortBy === value
+                              localFilters.sortBy === value
                                 ? theme.colors.onPrimary
                                 : theme.colors.onSurface,
                           },
@@ -375,7 +379,7 @@ export default function NotificationFiltersModal() {
                       {
                         borderColor: theme.colors.outline,
                         backgroundColor:
-                          filters.hideOlderThan === value
+                          localFilters.hideOlderThan === value
                             ? theme.colors.primary
                             : theme.colors.elevation?.level1 ||
                               theme.colors.surface,
@@ -388,7 +392,7 @@ export default function NotificationFiltersModal() {
                         source={icon as any}
                         size={18}
                         color={
-                          filters.hideOlderThan === value
+                          localFilters.hideOlderThan === value
                             ? theme.colors.onPrimary
                             : theme.colors.onSurfaceVariant
                         }
@@ -398,7 +402,7 @@ export default function NotificationFiltersModal() {
                           styles.sortButtonText,
                           {
                             color:
-                              filters.hideOlderThan === value
+                              localFilters.hideOlderThan === value
                                 ? theme.colors.onPrimary
                                 : theme.colors.onSurface,
                           },
@@ -424,15 +428,13 @@ export default function NotificationFiltersModal() {
                   styles.quickFilter,
                   {
                     borderColor: theme.colors.outline,
-                    backgroundColor: filters.loadOnlyVisible
+                    backgroundColor: localFilters.loadOnlyVisible
                       ? theme.colors.secondaryContainer
                       : theme.colors.elevation?.level1 || theme.colors.surface,
                   },
                 ]}
                 onPress={() =>
-                  setNotificationFilters({
-                    loadOnlyVisible: !filters.loadOnlyVisible,
-                  })
+                  handleLoadOnlyVisibleChange(!localFilters.loadOnlyVisible)
                 }
               >
                 <View style={styles.quickFilterContent}>
@@ -440,7 +442,7 @@ export default function NotificationFiltersModal() {
                     source="speedometer"
                     size={20}
                     color={
-                      filters.loadOnlyVisible
+                      localFilters.loadOnlyVisible
                         ? theme.colors.primary
                         : theme.colors.onSurfaceVariant
                     }
@@ -450,7 +452,7 @@ export default function NotificationFiltersModal() {
                       style={[
                         styles.quickFilterText,
                         {
-                          color: filters.loadOnlyVisible
+                          color: localFilters.loadOnlyVisible
                             ? theme.colors.primary
                             : theme.colors.onSurface,
                         },
@@ -490,18 +492,46 @@ export default function NotificationFiltersModal() {
                       { color: theme.colors.onSurface },
                     ]}
                   >
-                    {getActiveFiltersCount(filters) === 1
+                    {getActiveFiltersCount(localFilters) === 1
                       ? t("filters.activeFilters", {
-                          count: getActiveFiltersCount(filters),
+                          count: getActiveFiltersCount(localFilters),
                         })
                       : t("filters.activeFiltersPlural", {
-                          count: getActiveFiltersCount(filters),
+                          count: getActiveFiltersCount(localFilters),
                         })}
                   </Text>
                 </View>
               </View>
             )}
           </ScrollView>
+
+          {/* Action Buttons */}
+          <View
+            style={[
+              styles.applyButtonContainer,
+              { borderTopColor: theme.colors.outline },
+            ]}
+          >
+            {hasActiveFilters && (
+              <Button
+                mode="outlined"
+                onPress={clearAllFilters}
+                icon="refresh"
+                style={styles.clearButton}
+              >
+                {t("filters.clearAll")}
+              </Button>
+            )}
+            <Button
+              mode="contained"
+              onPress={applyFilters}
+              disabled={!hasChanges}
+              icon="check"
+              style={styles.applyButton}
+            >
+              {t("common.apply")}
+            </Button>
+          </View>
         </Modal>
       </Portal>
     </>
@@ -639,5 +669,19 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     fontWeight: "500",
+  },
+  applyButtonContainer: {
+    borderTopWidth: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: "transparent",
+    flexDirection: "row",
+    gap: 12,
+  },
+  clearButton: {
+    flex: 1,
+  },
+  applyButton: {
+    flex: 1,
   },
 });

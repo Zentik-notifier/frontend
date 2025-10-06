@@ -3,7 +3,6 @@ import React, {
   useState,
   useMemo,
   useRef,
-  useEffect,
   useCallback,
 } from "react";
 import {
@@ -15,12 +14,12 @@ import {
   Dimensions,
   StyleSheet,
 } from "react-native";
-import { useTheme, Icon, Portal } from "react-native-paper";
+import { useTheme, Icon, Portal, Chip } from "react-native-paper";
 import { Image } from "expo-image";
 import ThemedBottomSheet, { ThemedBottomSheetRef } from "./ThemedBottomSheet";
 import { IconSource } from "react-native-paper/lib/typescript/components/Icon";
 
-export interface SelectorOption {
+export interface MultiselectOption {
   id: any;
   name: string;
   description?: string;
@@ -30,12 +29,12 @@ export interface SelectorOption {
   iconElement?: React.ReactNode;
 }
 
-interface SelectorProps {
+interface MultiselectProps {
   label?: string;
   placeholder?: string;
-  options: SelectorOption[];
-  selectedValue?: any;
-  onValueChange: (value: any) => void;
+  options: MultiselectOption[];
+  selectedValues?: any[];
+  onValuesChange: (values: any[]) => void;
   isSearchable?: boolean;
   searchPlaceholder?: string;
   disabled?: boolean;
@@ -43,16 +42,18 @@ interface SelectorProps {
   error?: boolean;
   errorText?: string;
   mode?: "modal" | "inline";
+  maxChipsToShow?: number; // Number of chips to show before "+X more"
+  showSelectAll?: boolean;
 }
 
 const { height: screenHeight } = Dimensions.get("window");
 
-export default function Selector({
+export default function Multiselect({
   label,
   placeholder,
   options,
-  selectedValue,
-  onValueChange,
+  selectedValues = [],
+  onValuesChange,
   isSearchable = false,
   searchPlaceholder,
   disabled = false,
@@ -60,7 +61,9 @@ export default function Selector({
   error = false,
   errorText,
   mode = "modal",
-}: SelectorProps) {
+  maxChipsToShow = 3,
+  showSelectAll = true,
+}: MultiselectProps) {
   const theme = useTheme();
   const { t } = useI18n();
   const [isInlineDropdownOpen, setIsInlineDropdownOpen] = useState(false);
@@ -73,7 +76,9 @@ export default function Selector({
   const containerRef = useRef<View>(null);
   const sheetRef = useRef<ThemedBottomSheetRef>(null);
 
-  const selectedOption = options.find((option) => option.id === selectedValue);
+  const selectedOptions = options.filter((option) =>
+    selectedValues.includes(option.id)
+  );
 
   const filteredOptions = useMemo(() => {
     if (!isSearchable || !searchQuery.trim()) {
@@ -102,16 +107,31 @@ export default function Selector({
     }
   };
 
-  const handleSelectOption = (option: SelectorOption) => {
-    // Toggle selection: deselect if already selected, otherwise select
-    const newValue = option.id === selectedValue ? null : option.id;
-    onValueChange(newValue);
-    if (mode === "modal") {
-      sheetRef.current?.hide();
+  const handleToggleOption = (option: MultiselectOption) => {
+    const isSelected = selectedValues.includes(option.id);
+    if (isSelected) {
+      onValuesChange(selectedValues.filter((id) => id !== option.id));
     } else {
-      setIsInlineDropdownOpen(false);
+      onValuesChange([...selectedValues, option.id]);
     }
   };
+
+  const handleSelectAll = () => {
+    if (selectedValues.length === options.length) {
+      // Deselect all
+      onValuesChange([]);
+    } else {
+      // Select all
+      onValuesChange(options.map((option) => option.id));
+    }
+  };
+
+  const handleClearSelection = () => {
+    onValuesChange([]);
+  };
+
+  const allSelected = selectedValues.length === options.length;
+  const someSelected = selectedValues.length > 0 && !allSelected;
 
   const styles = StyleSheet.create({
     label: {
@@ -132,11 +152,12 @@ export default function Selector({
       paddingVertical: 12,
       minHeight: 48,
     },
-    valueRow: {
+    valueContainer: {
+      flex: 1,
       flexDirection: "row",
+      flexWrap: "wrap",
       alignItems: "center",
       gap: 8,
-      flexShrink: 1,
     },
     disabledInput: {
       backgroundColor: theme.colors.surfaceDisabled,
@@ -145,13 +166,16 @@ export default function Selector({
     errorInput: {
       borderColor: theme.colors.error,
     },
-    inputText: {
-      flex: 1,
-      fontSize: 16,
-      color: theme.colors.onSurface,
-    },
     placeholder: {
+      fontSize: 16,
       color: theme.colors.onSurfaceVariant,
+    },
+    chip: {
+      height: 28,
+    },
+    moreChip: {
+      height: 28,
+      backgroundColor: theme.colors.secondaryContainer,
     },
     helperText: {
       fontSize: 12,
@@ -182,7 +206,6 @@ export default function Selector({
       borderWidth: 1,
       borderColor: theme.colors.outline,
       borderRadius: 8,
-      // maxHeight: 300,
       zIndex: 9999,
       elevation: 10,
       shadowColor: "#000",
@@ -215,6 +238,7 @@ export default function Selector({
     inlineOptionItem: {
       flexDirection: "row",
       alignItems: "center",
+      justifyContent: "space-between",
       paddingHorizontal: 16,
       paddingVertical: 12,
       borderBottomWidth: 1,
@@ -223,9 +247,16 @@ export default function Selector({
     inlineSelectedOption: {
       backgroundColor: theme.colors.primaryContainer,
     },
+    inlineOptionContent: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
     inlineOptionText: {
       fontSize: 16,
       color: theme.colors.onSurface,
+      flex: 1,
     },
     inlineSelectedOptionText: {
       color: theme.colors.onPrimaryContainer,
@@ -243,6 +274,25 @@ export default function Selector({
       fontSize: 14,
       color: theme.colors.onSurfaceVariant,
       textAlign: "center",
+    },
+    inlineActionsContainer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.outlineVariant,
+      backgroundColor: theme.colors.elevation?.level1 || theme.colors.surface,
+    },
+    inlineActionButton: {
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+    },
+    inlineActionButtonText: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: theme.colors.primary,
     },
 
     modalOverlay: {
@@ -288,10 +338,32 @@ export default function Selector({
       fontSize: 16,
       color: theme.colors.onSurface,
     },
+    actionsContainer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.outlineVariant,
+      backgroundColor: theme.colors.elevation?.level1 || theme.colors.surface,
+    },
+    actionButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+    },
+    actionButtonText: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: theme.colors.primary,
+    },
     optionsList: {
       maxHeight: 300,
     },
     optionItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
       paddingHorizontal: 20,
       paddingVertical: 16,
       borderBottomWidth: 1,
@@ -300,9 +372,16 @@ export default function Selector({
     selectedOption: {
       backgroundColor: theme.colors.primaryContainer,
     },
+    optionContent: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
     optionText: {
       fontSize: 16,
       color: theme.colors.onSurface,
+      flex: 1,
     },
     selectedOptionText: {
       color: theme.colors.onPrimaryContainer,
@@ -324,43 +403,75 @@ export default function Selector({
     },
   });
 
-  const renderItem = (item?: SelectorOption) => (
-    <View style={{ flex: 1 }}>
-      <View style={styles.valueRow}>
-        {item?.iconElement ? (
-          item?.iconElement
-        ) : item?.iconUrl ? (
+  const renderSelectedChips = () => {
+    if (selectedOptions.length === 0) {
+      return <Text style={styles.placeholder}>{placeholder || t("common.selectOptions")}</Text>;
+    }
+
+    const visibleChips = selectedOptions.slice(0, maxChipsToShow);
+    const remainingCount = selectedOptions.length - maxChipsToShow;
+
+    return (
+      <>
+        {visibleChips.map((option) => (
+          <Chip
+            key={option.id}
+            style={styles.chip}
+            textStyle={{ fontSize: 12 }}
+            onClose={() => handleToggleOption(option)}
+          >
+            {option.name}
+          </Chip>
+        ))}
+        {remainingCount > 0 && (
+          <Chip style={styles.moreChip} textStyle={{ fontSize: 12 }}>
+            +{remainingCount}
+          </Chip>
+        )}
+      </>
+    );
+  };
+
+  const renderOptionItem = (item: MultiselectOption) => {
+    const isSelected = selectedValues.includes(item.id);
+
+    return (
+      <View style={styles.optionContent}>
+        {item.iconElement ? (
+          item.iconElement
+        ) : item.iconUrl ? (
           <Image
             source={item.iconUrl}
             cachePolicy="memory-disk"
-            style={{ width: 24, height: 24, marginRight: 8, borderRadius: 12 }}
+            style={{ width: 24, height: 24, borderRadius: 12 }}
             contentFit="fill"
           />
-        ) : item?.iconName ? (
-          <View style={{ marginRight: 8 }}>
-            <Icon
-              source={item.iconName as any}
-              size={16}
-              color={item.iconColor || theme.colors.onSurfaceVariant}
-            />
-          </View>
+        ) : item.iconName ? (
+          <Icon
+            source={item.iconName as any}
+            size={16}
+            color={item.iconColor || theme.colors.onSurfaceVariant}
+          />
         ) : null}
-        <Text
-          style={[styles.inputText, !item && styles.placeholder]}
-          numberOfLines={1}
-        >
-          {item ? item.name : placeholder || t("common.selectOption")}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={[
+              styles.optionText,
+              isSelected && styles.selectedOptionText,
+            ]}
+            numberOfLines={1}
+          >
+            {item.name}
+          </Text>
+          {!!item.description && (
+            <Text style={styles.descriptionText} numberOfLines={2}>
+              {item.description}
+            </Text>
+          )}
+        </View>
       </View>
-      {!!item?.description && (
-        <Text style={styles.descriptionText} numberOfLines={2}>
-          {item.description}
-        </Text>
-      )}
-    </View>
-  );
-
-  const selectedItem = renderItem(selectedOption);
+    );
+  };
 
   const renderInlineMode = () => (
     <View ref={containerRef}>
@@ -375,7 +486,9 @@ export default function Selector({
         onPress={toggleInlineDropdown}
         disabled={disabled}
       >
-        {selectedItem}
+        <View style={styles.valueContainer}>
+          {renderSelectedChips()}
+        </View>
         <Icon
           source={isInlineDropdownOpen ? "chevron-up" : "chevron-down"}
           size={20}
@@ -400,6 +513,30 @@ export default function Selector({
 
           <View style={styles.inlineDropdown}>
             <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+              {/* Actions */}
+              {showSelectAll && (
+                <View style={styles.inlineActionsContainer}>
+                  <TouchableOpacity
+                    style={styles.inlineActionButton}
+                    onPress={handleSelectAll}
+                  >
+                    <Text style={styles.inlineActionButtonText}>
+                      {allSelected ? t("common.deselectAll") : t("common.selectAll")}
+                    </Text>
+                  </TouchableOpacity>
+                  {someSelected && (
+                    <TouchableOpacity
+                      style={styles.inlineActionButton}
+                      onPress={handleClearSelection}
+                    >
+                      <Text style={styles.inlineActionButtonText}>
+                        {t("common.clear")}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
               {isSearchable && (
                 <View style={styles.inlineSearchContainer}>
                   <TextInput
@@ -417,16 +554,21 @@ export default function Selector({
                 data={filteredOptions}
                 keyExtractor={(item) => String(item.id)}
                 renderItem={({ item }) => {
-                  const isSelected = item.id === selectedValue;
+                  const isSelected = selectedValues.includes(item.id);
                   return (
                     <TouchableOpacity
                       style={[
                         styles.inlineOptionItem,
                         isSelected && styles.inlineSelectedOption,
                       ]}
-                      onPress={() => handleSelectOption(item)}
+                      onPress={() => handleToggleOption(item)}
                     >
-                      {renderItem(item)}
+                      {renderOptionItem(item)}
+                      <Icon
+                        source={isSelected ? "checkbox-marked" : "checkbox-blank-outline"}
+                        size={24}
+                        color={isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                      />
                     </TouchableOpacity>
                   );
                 }}
@@ -461,7 +603,9 @@ export default function Selector({
           onPress={show}
           disabled={disabled}
         >
-          <View style={styles.valueRow}>{renderItem(selectedOption)}</View>
+          <View style={styles.valueContainer}>
+            {renderSelectedChips()}
+          </View>
           <Icon
             source="chevron-down"
             size={20}
@@ -476,16 +620,40 @@ export default function Selector({
         )}
       </View>
     ),
-    [errorText, error, label, placeholder, selectedOption, t]
+    [errorText, error, label, placeholder, selectedOptions, t]
   );
 
   const renderModalMode = () => {
     return (
       <ThemedBottomSheet
         ref={sheetRef}
-        title={label || t("common.selectOption")}
+        title={label || t("common.selectOptions")}
         trigger={trigger}
       >
+        {/* Actions */}
+        {showSelectAll && (
+          <View style={styles.actionsContainer}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleSelectAll}
+            >
+              <Text style={styles.actionButtonText}>
+                {allSelected ? t("common.deselectAll") : t("common.selectAll")}
+              </Text>
+            </TouchableOpacity>
+            {someSelected && (
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleClearSelection}
+              >
+                <Text style={styles.actionButtonText}>
+                  {t("common.clear")}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {isSearchable && (
           <View style={styles.searchContainer}>
             <TextInput
@@ -503,13 +671,18 @@ export default function Selector({
           data={filteredOptions}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => {
-            const isSelected = item.id === selectedValue;
+            const isSelected = selectedValues.includes(item.id);
             return (
               <TouchableOpacity
                 style={[styles.optionItem, isSelected && styles.selectedOption]}
-                onPress={() => handleSelectOption(item)}
+                onPress={() => handleToggleOption(item)}
               >
-                {renderItem(item)}
+                {renderOptionItem(item)}
+                <Icon
+                  source={isSelected ? "checkbox-marked" : "checkbox-blank-outline"}
+                  size={24}
+                  color={isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                />
               </TouchableOpacity>
             );
           }}

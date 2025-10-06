@@ -116,14 +116,30 @@
       "showAppIconOnBucketIconMissingDescription": "Se abilitato, verrà usata l'icona di Zentik quando il bucket non ha un'icona. Se disabilitato, verrà generato un avatar basato sulle iniziali del bucket.",
       "unencryptOnBigPayload": "Non cifrare payload grandi",
       "unencryptOnBigPayloadDescription": "Invia payload non cifrati quando superano una certa dimensione",
-      "markAsReadOnView": "Segna come letta alla visualizzazione",
-      "markAsReadOnViewDescription": "Le notifiche verranno segnate come lette non appena sono visibili a schermo"
+      "markAsReadModeTitle": "Modalità Segna Come Letta",
+      "markAsReadModeDescription": "Scegli quando le notifiche devono essere segnate come lette",
+      "markAsReadModeLabel": "Modalità",
+      "markAsReadModePlaceholder": "Seleziona la modalità",
+      "markAsReadMode": {
+        "onTap": "Al Tocco",
+        "onView": "Alla Visualizzazione",
+        "onAppClose": "Alla Chiusura App"
+      }
     },
     "theme": {
       "title": "Impostazioni Tema",
       "subtitle": "Personalizza l'aspetto della tua app",
       "selectPreset": "Seleziona Tema Predefinito",
       "selectPresetPlaceholder": "Scegli un tema predefinito",
+      "layoutMode": "Modalità Layout",
+      "layoutModePlaceholder": "Seleziona modalità layout",
+      "currentWidth": "Larghezza Attuale",
+      "layoutModes": {
+        "auto": "Automatico",
+        "desktop": "Desktop",
+        "tablet": "Tablet",
+        "mobile": "Mobile"
+      },
       "dynamicColors": "Colori Dinamici",
       "primaryColor": "Colore Primario",
       "secondaryColor": "Colore Secondario",
@@ -590,6 +606,7 @@
     },
     "selectAll": "Seleziona Tutto",
     "deselectAll": "Deseleziona Tutto",
+    "selectOptions": "Seleziona opzioni",
     "endOfList": "Fine della lista",
     "titleRequired": "Il titolo è obbligatorio",
     "content": {
@@ -808,6 +825,8 @@
     "snoozeMessage": "Notifica posticipata per {{minutes}} minuti",
     "search": "Cerca",
     "selectOption": "Seleziona opzione",
+    "selectAll": "Seleziona Tutto",
+    "deselectAll": "Deseleziona Tutto",
     "noResults": "Nessun risultato trovato",
     "noOptions": "Nessuna opzione disponibile",
     "snoozeGeneric": "Notifica posticipata",

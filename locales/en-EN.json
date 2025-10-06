@@ -116,14 +116,30 @@
       "showAppIconOnBucketIconMissingDescription": "If enabled, the Zentik app icon will be used when a bucket has no icon. If disabled, an avatar based on bucket initials will be generated.",
       "unencryptOnBigPayload": "Don't encrypt large payloads",
       "unencryptOnBigPayloadDescription": "Send payloads unencrypted when they exceed a certain size",
-      "markAsReadOnView": "Mark as read on view",
-      "markAsReadOnViewDescription": "Notifications will be marked as read as soon as they are visible on screen"
+      "markAsReadModeTitle": "Mark as Read Mode",
+      "markAsReadModeDescription": "Choose when notifications should be marked as read",
+      "markAsReadModeLabel": "Mode",
+      "markAsReadModePlaceholder": "Select mark as read mode",
+      "markAsReadMode": {
+        "onTap": "On Tap",
+        "onView": "On View",
+        "onAppClose": "On App Close"
+      }
     },
     "theme": {
       "title": "Theme Settings",
       "subtitle": "Customize the appearance of your app",
       "selectPreset": "Select Theme Preset",
       "selectPresetPlaceholder": "Choose a theme preset",
+      "layoutMode": "Layout Mode",
+      "layoutModePlaceholder": "Select layout mode",
+      "currentWidth": "Current Width",
+      "layoutModes": {
+        "auto": "Auto",
+        "desktop": "Desktop",
+        "tablet": "Tablet",
+        "mobile": "Mobile"
+      },
       "dynamicColors": "Dynamic Colors",
       "primaryColor": "Primary Color",
       "secondaryColor": "Secondary Color",
@@ -590,6 +606,7 @@
     },
     "selectAll": "Select All",
     "deselectAll": "Deselect All",
+    "selectOptions": "Select options",
     "endOfList": "End of list",
     "titleRequired": "Title is required",
     "content": {
@@ -808,6 +825,8 @@
     "snoozeMessage": "Notification snoozed for {{minutes}} minutes",
     "search": "Search",
     "selectOption": "Select option",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
     "noResults": "No results found",
     "noOptions": "No options available",
     "snoozeGeneric": "Notification snoozed",

@@ -54,6 +54,9 @@ export interface DateFormatPreferences {
   use24HourTime: boolean;
 }
 
+export type MarkAsReadMode = 'on-tap' | 'on-view' | 'on-app-close';
+export type LayoutMode = 'auto' | 'desktop' | 'tablet' | 'mobile';
+
 // Theme customization types
 export interface DynamicThemeColors {
   primary: string;
@@ -65,6 +68,7 @@ export interface DynamicThemeColors {
 export interface UserSettings {
   // Theme settings
   themeMode: 'light' | 'dark' | 'system';
+  layoutMode: LayoutMode;
   // Custom theme settings
   themePreset?: ThemePreset;
   // Dynamic theme settings
@@ -103,7 +107,7 @@ export interface UserSettings {
 
   notificationsPreferences?: {
     unencryptOnBigPayload: boolean;
-    markAsReadOnView?: boolean;
+    markAsReadMode: MarkAsReadMode;
     showAppIconOnBucketIconMissing?: boolean;
   };
 
@@ -130,6 +134,7 @@ export interface UserSettings {
 
 const DEFAULT_SETTINGS: UserSettings = {
   themeMode: 'system',
+  layoutMode: 'auto',
   themePreset: ThemePreset.Material3,
   useDynamicTheme: false,
   dynamicThemeColors: {
@@ -168,7 +173,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   },
   notificationsPreferences: {
     unencryptOnBigPayload: false,
-    markAsReadOnView: true,
+    markAsReadMode: 'on-view',
     showAppIconOnBucketIconMissing: false,
   },
   gallery: {
@@ -331,6 +336,20 @@ class UserSettingsService {
     dynamicThemeColors?: DynamicThemeColors;
   }): Promise<void> {
     await this.updateSettings(settings);
+  }
+
+  /**
+   * Get layout mode
+   */
+  getLayoutMode(): LayoutMode {
+    return this.settings.layoutMode;
+  }
+
+  /**
+   * Set layout mode
+   */
+  async setLayoutMode(mode: LayoutMode): Promise<void> {
+    await this.updateSettings({ layoutMode: mode });
   }
 
   /**
@@ -588,18 +607,8 @@ class UserSettingsService {
 
     // Filter by bucket
     if (!ignoreBucket && filters.selectedBucketIds.length > 0) {
-      const selectedBucket = filters.selectedBucketIds[0];
-
-      if (selectedBucket === '') {
-        // Filter for "General" (no bucket) - notification should have null/undefined bucketId
-        if (!!notification.message?.bucket?.id) {
-          return false;
-        }
-      } else {
-        // Filter for specific bucket
-        if (notification.message?.bucket?.id !== selectedBucket) {
-          return false;
-        }
+      if (!filters.selectedBucketIds.some(bucketId => bucketId === notification.message.bucket.id)) {
+        return false;
       }
     }
 
@@ -681,6 +690,7 @@ class UserSettingsService {
 
     return {
       themeMode: stored.themeMode || DEFAULT_SETTINGS.themeMode,
+      layoutMode: stored.layoutMode || DEFAULT_SETTINGS.layoutMode,
       themePreset: stored.themePreset || DEFAULT_SETTINGS.themePreset,
       useDynamicTheme: stored.useDynamicTheme !== undefined ? stored.useDynamicTheme : DEFAULT_SETTINGS.useDynamicTheme,
       dynamicThemeColors: stored.dynamicThemeColors || DEFAULT_SETTINGS.dynamicThemeColors,
@@ -699,8 +709,8 @@ class UserSettingsService {
       notificationsPreferences: {
         unencryptOnBigPayload:
           stored.notificationsPreferences?.unencryptOnBigPayload ?? DEFAULT_SETTINGS.notificationsPreferences!.unencryptOnBigPayload,
-        markAsReadOnView:
-          stored.notificationsPreferences?.markAsReadOnView ?? DEFAULT_SETTINGS.notificationsPreferences!.markAsReadOnView,
+        markAsReadMode:
+          stored.notificationsPreferences?.markAsReadMode ?? DEFAULT_SETTINGS.notificationsPreferences!.markAsReadMode,
         showAppIconOnBucketIconMissing:
           stored.notificationsPreferences?.showAppIconOnBucketIconMissing ?? DEFAULT_SETTINGS.notificationsPreferences!.showAppIconOnBucketIconMissing,
       },
@@ -935,6 +945,8 @@ export function useUserSettings() {
     settings,
     updateSettings: userSettings.updateSettings.bind(userSettings),
     setThemeMode: userSettings.setThemeMode.bind(userSettings),
+    getLayoutMode: userSettings.getLayoutMode.bind(userSettings),
+    setLayoutMode: userSettings.setLayoutMode.bind(userSettings),
     setCustomThemeSettings: userSettings.setCustomThemeSettings.bind(userSettings),
     setLocale: async (locale: Locale) => {
       await userSettings.setLocale(locale);
@@ -956,8 +968,8 @@ export function useUserSettings() {
     setNotificationFilters: userSettings.setNotificationFilters.bind(userSettings),
     setMaxCachedNotifications: userSettings.setMaxCachedNotifications.bind(userSettings),
     setMaxCachedNotificationsDay: userSettings.setMaxCachedNotificationsDay.bind(userSettings),
-    setMarkAsReadOnView: async (v: boolean) => {
-      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), markAsReadOnView: v } });
+    setMarkAsReadMode: async (mode: MarkAsReadMode) => {
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), markAsReadMode: mode } });
     },
     setUnencryptOnBigPayload: async (v: boolean) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), unencryptOnBigPayload: v } });

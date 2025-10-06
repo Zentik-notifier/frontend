@@ -1,26 +1,27 @@
 import { BucketFragment } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
-import Selector, { SelectorOption } from "./ui/Selector";
+import Multiselect, { MultiselectOption } from "./ui/Multiselect";
 
-interface BucketSelectorProps {
-  selectedBucketId?: string;
-  onBucketChange: (bucketId: string) => void;
+interface MultiBucketSelectorProps {
+  selectedBucketIds?: string[];
+  onBucketsChange: (bucketIds: string[]) => void;
   buckets: BucketFragment[];
   label?: string;
   searchable?: boolean;
 }
 
-export default function BucketSelector({
-  selectedBucketId,
-  onBucketChange,
+export default function MultiBucketSelector({
+  selectedBucketIds = [],
+  onBucketsChange,
   buckets,
   label,
   searchable = false,
-}: BucketSelectorProps) {
+}: MultiBucketSelectorProps) {
   const { t } = useI18n();
+
   const bucketOptions = useMemo(() => {
-    const options: SelectorOption[] = [];
+    const options: MultiselectOption[] = [];
 
     // Add regular buckets
     buckets.forEach((bucket) => {
@@ -34,19 +35,15 @@ export default function BucketSelector({
     });
 
     return options;
-  }, [buckets, t]);
-
-  const selectedOption = bucketOptions.find(
-    (option) => option.id === selectedBucketId
-  );
+  }, [buckets]);
 
   return (
-    <Selector
+    <Multiselect
       label={label}
       placeholder={t("bucketSelector.selectBucket")}
       options={bucketOptions}
-      selectedValue={selectedOption?.id || ""}
-      onValueChange={(value) => onBucketChange(value)}
+      selectedValues={selectedBucketIds}
+      onValuesChange={onBucketsChange}
       isSearchable={searchable}
       mode="inline"
     />

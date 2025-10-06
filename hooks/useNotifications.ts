@@ -247,16 +247,18 @@ export function useMarkAllNotificationsAsRead() {
 	const markAllAsRead = useCallback(async () => {
 		setLoading(true);
 		try {
-			await markAllMutation();
-
 			const data: any = apollo.readQuery({
 				query: GetNotificationsDocument,
 			});
 
+			const now = new Date().toISOString();
+			const idsToUpdate: string[] = [];
+
 			if (data?.notifications) {
-				const now = new Date().toISOString();
+				// Update Apollo cache
 				for (const notification of data.notifications) {
 					if (notification?.id && !notification.readAt) {
+						idsToUpdate.push(notification.id);
 						try {
 							const entityId = apollo.cache.identify({ __typename: 'Notification', id: notification.id }) || `Notification:${notification.id}`;
 							apollo.cache.modify({
@@ -266,13 +268,26 @@ export function useMarkAllNotificationsAsRead() {
 						} catch { }
 					}
 				}
+
+				// Update database cache
+				if (idsToUpdate.length > 0) {
+					try {
+						await updateNotificationsReadStatus(idsToUpdate, now);
+					} catch (error) {
+						console.error('[useMarkAllNotificationsAsRead] Failed to update notifications read status in cache:', error);
+					}
+				}
 			}
+
+			// Update server database
+			await markAllMutation();
+			console.log(`[useMarkAllNotificationsAsRead] Server DB updated - marked all notifications as read`);
 		} catch (error) {
 			console.error('[useMarkAllNotificationsAsRead] Failed to mark all notifications as read:', error);
 		} finally {
 			setLoading(false);
 		}
-	}, [apollo])
+	}, [apollo, markAllMutation])
 
 	return { markAllAsRead, loading };
 }
@@ -293,6 +308,14 @@ export function useMarkNotificationRead() {
 		} catch (error) {
 			console.error('[useMarkNotificationRead] Failed to update notification read status in cache:', error);
 		}
+
+		// Update server database
+		try {
+			await markReadMutation({ variables: { id } });
+			console.log(`[useMarkNotificationRead] Server DB updated for notification: ${id}`);
+		} catch (error) {
+			console.error('[useMarkNotificationRead] Failed to mark notification as read on server:', error);
+		}
 	}, [markReadMutation, applyLocal])
 
 	return markAsRead;
@@ -311,6 +334,14 @@ export function useMarkNotificationUnread() {
 			await updateNotificationReadStatus(id, null);
 		} catch (error) {
 			console.error('[useMarkNotificationUnread] Failed to update notification unread status in cache:', error);
+		}
+
+		// Update server database
+		try {
+			await markUnreadMutation({ variables: { id } });
+			console.log(`[useMarkNotificationUnread] Server DB updated for notification: ${id}`);
+		} catch (error) {
+			console.error('[useMarkNotificationUnread] Failed to mark notification as unread on server:', error);
 		}
 	}, [markUnreadMutation, applyLocal])
 
@@ -457,6 +488,14 @@ export function useMassMarkNotificationsAsRead() {
 				console.error('[useMassMarkNotificationsAsRead] Failed to update notifications read status in cache:', error);
 			}
 
+			// Update server database
+			try {
+				await massMarkNotificationsAsReadMutation({ variables: { ids: notificationIds } });
+				console.log(`[useMassMarkNotificationsAsRead] Server DB updated for ${notificationIds.length} notifications`);
+			} catch (error) {
+				console.error('[useMassMarkNotificationsAsRead] Failed to mark notifications as read on server:', error);
+			}
+
 			console.log(`[useMassMarkNotificationsAsRead] Mass mark as read completed for ${notificationIds.length} notifications`);
 		} catch (error) {
 			console.error('[useMassMarkNotificationsAsRead] Mass mark as read operation failed:', error);
@@ -490,10 +529,18 @@ export function useMassMarkNotificationsAsUnread() {
 			try {
 				await updateNotificationsReadStatus(notificationIds, null);
 			} catch (error) {
-				console.error('Failed to update notifications unread status in cache:', error);
+				console.error('[useMassMarkNotificationsAsUnread] Failed to update notifications unread status in cache:', error);
 			}
 
-			console.log(`✅ Mass mark as unread completed for ${notificationIds.length} notifications`);
+			// Update server database
+			try {
+				await massMarkNotificationsAsUnreadMutation({ variables: { ids: notificationIds } });
+				console.log(`[useMassMarkNotificationsAsUnread] Server DB updated for ${notificationIds.length} notifications`);
+			} catch (error) {
+				console.error('[useMassMarkNotificationsAsUnread] Failed to mark notifications as unread on server:', error);
+			}
+
+			console.log(`[useMassMarkNotificationsAsUnread] Mass mark as unread completed for ${notificationIds.length} notifications`);
 		} catch (error) {
 			console.error('❌ Mass mark as unread operation failed:', error);
 			throw error;

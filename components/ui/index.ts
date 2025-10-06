@@ -6,4 +6,6 @@ export { TextRenderer } from './TextRenderer';
 export type { TextRendererProps } from './TextRenderer';
 export { default as ThemedBottomSheet } from './ThemedBottomSheet';
 export type { ThemedBottomSheetProps, ThemedBottomSheetRef } from './ThemedBottomSheet';
+export { default as Multiselect } from './Multiselect';
+export type { MultiselectOption } from './Multiselect';
 

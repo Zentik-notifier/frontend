@@ -4,7 +4,7 @@ import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useNotificationExportImport } from "@/hooks/useNotificationExportImport";
 import { mediaCache } from "@/services/media-cache-service";
 import { getAllNotificationsFromCache } from "@/services/notifications-repository";
-import { useUserSettings } from "@/services/user-settings";
+import { useUserSettings, MarkAsReadMode } from "@/services/user-settings";
 import { formatFileSize } from "@/utils";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
@@ -23,6 +23,7 @@ import {
   useTheme,
 } from "react-native-paper";
 import { CacheResetModal } from "./CacheResetModal";
+import Selector, { SelectorOption } from "./ui/Selector";
 
 export default function UnifiedCacheSettings() {
   const theme = useTheme();
@@ -30,7 +31,7 @@ export default function UnifiedCacheSettings() {
   const {
     settings,
     setUnencryptOnBigPayload,
-    setMarkAsReadOnView,
+    setMarkAsReadMode,
     setShowAppIconOnBucketIconMissing,
   } = useUserSettings();
   const [showResetModal, setShowResetModal] = useState(false);
@@ -678,31 +679,37 @@ export default function UnifiedCacheSettings() {
           </Text>
         </View>
 
-        {/* Mark as read on view setting */}
+        {/* Mark as read mode setting */}
         <Card style={styles.settingCard} elevation={0}>
           <Card.Content>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <View style={styles.settingTextContainer}>
-                  <Text variant="titleMedium" style={styles.settingTitle}>
-                    {t("appSettings.notifications.markAsReadOnView")}
-                  </Text>
-                  <Text
-                    variant="bodyMedium"
-                    style={[
-                      styles.settingDescription,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
-                  >
-                    {t("appSettings.notifications.markAsReadOnViewDescription")}
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={!!settings.notificationsPreferences?.markAsReadOnView}
-                onValueChange={setMarkAsReadOnView}
-              />
+            <View style={styles.settingTextContainer}>
+              <Text variant="titleMedium" style={styles.settingTitle}>
+                {t("appSettings.notifications.markAsReadModeTitle")}
+              </Text>
+              <Text
+                variant="bodyMedium"
+                style={[
+                  styles.settingDescription,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                {t("appSettings.notifications.markAsReadModeDescription")}
+              </Text>
             </View>
+            <Selector
+              label={t("appSettings.notifications.markAsReadModeLabel")}
+              placeholder={t("appSettings.notifications.markAsReadModePlaceholder")}
+              options={[
+                { id: 'on-tap', name: t('appSettings.notifications.markAsReadMode.onTap') },
+                { id: 'on-view', name: t('appSettings.notifications.markAsReadMode.onView') },
+                { id: 'on-app-close', name: t('appSettings.notifications.markAsReadMode.onAppClose') },
+              ]}
+              selectedValue={settings.notificationsPreferences?.markAsReadMode || 'on-view'}
+              onValueChange={(value) => setMarkAsReadMode(value as MarkAsReadMode)}
+              isSearchable={false}
+              disabled={false}
+              mode="inline"
+            />
           </Card.Content>
         </Card>
 

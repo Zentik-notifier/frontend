@@ -20,7 +20,7 @@ import {
   Text,
   useTheme,
 } from "react-native-paper";
-import BucketSelector, { BUCKET_ALL } from "./BucketSelector";
+import BucketSelector from "./BucketSelector";
 import PaperScrollView from "./ui/PaperScrollView";
 import { upsertNotificationsBatch } from "@/services/notifications-repository";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -43,7 +43,7 @@ export default function DanglingBucketResolver({
   }>();
 
   const [isMigrating, setIsMigrating] = useState(false);
-  const [selectedBucketId, setSelectedBucketId] = useState<string | null>(null);
+  const [selectedBucketId, setSelectedBucketId] = useState<string>();
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [dialogMessage, setDialogMessage] = useState("");
@@ -373,7 +373,7 @@ export default function DanglingBucketResolver({
               {t("buckets.migrateToExisting")}
             </Text>
             <BucketSelector
-              selectedBucketId={selectedBucketId || BUCKET_ALL}
+              selectedBucketId={selectedBucketId}
               onBucketChange={(bucketId) => setSelectedBucketId(bucketId)}
               buckets={buckets}
               searchable

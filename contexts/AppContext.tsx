@@ -14,7 +14,10 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { useI18n } from "@/hooks/useI18n";
-import { useFetchNotifications } from "@/hooks/useNotifications";
+import {
+  useFetchNotifications,
+  useMarkAllNotificationsAsRead,
+} from "@/hooks/useNotifications";
 import {
   UsePushNotifications,
   usePushNotifications,
@@ -104,32 +107,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isMainLoading, setIsLoading] = useState(false);
   const { syncApolloWithLocalDb } = usePendingNotificationIntents();
+  const { markAllAsRead } = useMarkAllNotificationsAsRead();
 
   useEffect(() => {
     const appLocale = userSettings.settings.locale as Locale;
-    const datePickerLocale = localeToDatePickerLocale[appLocale] || 'en';
-    
+    const datePickerLocale = localeToDatePickerLocale[appLocale] || "en";
+
     registerTranslation(datePickerLocale, {
-      save: t('dateTime.save'),
-      selectSingle: t('dateTime.selectSingle'),
-      selectMultiple: t('dateTime.selectMultiple'),
-      selectRange: t('dateTime.selectRange'),
+      save: t("dateTime.save"),
+      selectSingle: t("dateTime.selectSingle"),
+      selectMultiple: t("dateTime.selectMultiple"),
+      selectRange: t("dateTime.selectRange"),
       notAccordingToDateFormat: (inputFormat: string) =>
-        t('dateTime.notAccordingToDateFormat').replace('{format}', inputFormat),
+        t("dateTime.notAccordingToDateFormat").replace("{format}", inputFormat),
       mustBeHigherThan: (date: string) =>
-        t('dateTime.mustBeHigherThan').replace('{date}', date),
+        t("dateTime.mustBeHigherThan").replace("{date}", date),
       mustBeLowerThan: (date: string) =>
-        t('dateTime.mustBeLowerThan').replace('{date}', date),
+        t("dateTime.mustBeLowerThan").replace("{date}", date),
       mustBeBetween: (startDate: string, endDate: string) =>
-        t('dateTime.mustBeBetween').replace('{startDate}', startDate).replace('{endDate}', endDate),
-      dateIsDisabled: t('dateTime.dateIsDisabled'),
-      previous: t('dateTime.previous'),
-      next: t('dateTime.next'),
-      typeInDate: t('dateTime.typeInDate'),
-      pickDateFromCalendar: t('dateTime.pickDateFromCalendar'),
-      close: t('dateTime.close'),
-      hour: t('dateTime.hour'),
-      minute: t('dateTime.minute'),
+        t("dateTime.mustBeBetween")
+          .replace("{startDate}", startDate)
+          .replace("{endDate}", endDate),
+      dateIsDisabled: t("dateTime.dateIsDisabled"),
+      previous: t("dateTime.previous"),
+      next: t("dateTime.next"),
+      typeInDate: t("dateTime.typeInDate"),
+      pickDateFromCalendar: t("dateTime.pickDateFromCalendar"),
+      close: t("dateTime.close"),
+      hour: t("dateTime.hour"),
+      minute: t("dateTime.minute"),
     } as any);
   }, [userSettings.settings.locale, t]);
 
@@ -341,7 +347,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           [getAccessToken(), getRefreshToken(), getLastUserId()]
         );
         console.log(
-          `[AppInit] tokens found: accessToken: ${!accessToken ? "false" : "true"} refreshToken: ${!refreshToken ? "false" : "true"} storedLastUserId: ${!storedLastUserId ? "false" : "true"}`
+          `[AppInit] tokens found: accessToken: ${
+            !accessToken ? "false" : "true"
+          } refreshToken: ${
+            !refreshToken ? "false" : "true"
+          } storedLastUserId: ${!storedLastUserId ? "false" : "true"}`
         );
         setLastUserId(storedLastUserId);
         if (accessToken && refreshToken) {
@@ -379,8 +389,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
-        console.log("📱 App became active");
+        console.log('[AppContext] App is active, cleaning up');
         await cleanup();
+      }
+
+      if (
+        nextAppState === "inactive" &&
+        userSettings.settings.notificationsPreferences?.markAsReadMode ===
+          "on-app-close"
+      ) {
+        console.log('[AppContext] App is inactive, marking all notifications as read');
+        await markAllAsRead();
       }
     };
 

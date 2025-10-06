@@ -2,7 +2,7 @@ import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import { useGalleryContext } from "@/contexts/GalleryContext";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { StyleSheet, View, ScrollView, Dimensions } from "react-native";
 import {
   Button,
@@ -28,57 +28,81 @@ export default function GalleryFiltersModal() {
     handleHideFiltersModal,
   } = useGalleryContext();
 
-  // Get gallery settings from user settings
-  const gallerySettings = userSettings.getGallerySettings();
+  // Get gallery settings from user settings - memoize to prevent infinite loops
+  const savedGallerySettings = React.useMemo(() => 
+    userSettings.getGallerySettings(), 
+    [userSettings]
+  );
+
+  // Local state for filters
+  const [localSelectedMediaTypes, setLocalSelectedMediaTypes] = useState<Set<MediaType>>(selectedMediaTypes);
+  const [localGallerySettings, setLocalGallerySettings] = useState(savedGallerySettings);
+
+  // Sync local state when modal opens
+  useEffect(() => {
+    if (showFiltersModal) {
+      setLocalSelectedMediaTypes(new Set(selectedMediaTypes));
+      setLocalGallerySettings(userSettings.getGallerySettings());
+    }
+  }, [showFiltersModal]);
 
   const toggleMediaType = (mediaType: MediaType) => {
-    const newSelectedTypes = new Set(selectedMediaTypes);
+    const newSelectedTypes = new Set(localSelectedMediaTypes);
     if (newSelectedTypes.has(mediaType)) {
       newSelectedTypes.delete(mediaType);
     } else {
       newSelectedTypes.add(mediaType);
     }
-    handleMediaTypesChange(newSelectedTypes);
+    setLocalSelectedMediaTypes(newSelectedTypes);
   };
 
   const selectAllMediaTypes = () => {
-    handleMediaTypesChange(new Set(availableMediaTypes));
+    setLocalSelectedMediaTypes(new Set(availableMediaTypes));
   };
 
   const deselectAllMediaTypes = () => {
-    handleMediaTypesChange(new Set());
+    setLocalSelectedMediaTypes(new Set());
   };
 
-  const isAllSelected = selectedMediaTypes.size === availableMediaTypes.length;
-  const isNoneSelected = selectedMediaTypes.size === 0;
+  const isAllSelected = localSelectedMediaTypes.size === availableMediaTypes.length;
+  const isNoneSelected = localSelectedMediaTypes.size === 0;
 
-  const handleAutoPlayChange = async (autoPlay: boolean) => {
-    await userSettings.updateGallerySettings({ autoPlay });
+  const handleAutoPlayChange = (autoPlay: boolean) => {
+    setLocalGallerySettings(prev => ({ ...prev, autoPlay }));
   };
 
-  const handleShowFaultyMediasChange = async (showFaultyMedias: boolean) => {
-    await userSettings.updateGallerySettings({ showFaultyMedias });
+  const handleShowFaultyMediasChange = (showFaultyMedias: boolean) => {
+    setLocalGallerySettings(prev => ({ ...prev, showFaultyMedias }));
   };
 
-  const handleGridSizeChange = async (gridSize: number) => {
-    await userSettings.updateGallerySettings({ gridSize });
+  const handleGridSizeChange = (gridSize: number) => {
+    setLocalGallerySettings(prev => ({ ...prev, gridSize }));
   };
 
-  const clearAllFilters = async () => {
-    handleMediaTypesChange(new Set());
-    // Reset gallery settings to defaults
-    await userSettings.updateGallerySettings({
+  const clearAllFilters = () => {
+    setLocalSelectedMediaTypes(new Set());
+    setLocalGallerySettings({
       autoPlay: false,
       showFaultyMedias: false,
       gridSize: 3,
     });
   };
 
+  const applyFilters = async () => {
+    handleMediaTypesChange(localSelectedMediaTypes);
+    await userSettings.updateGallerySettings(localGallerySettings);
+    handleHideFiltersModal();
+  };
+
+  const hasChanges = 
+    JSON.stringify(Array.from(localSelectedMediaTypes).sort()) !== JSON.stringify(Array.from(selectedMediaTypes).sort()) ||
+    JSON.stringify(localGallerySettings) !== JSON.stringify(savedGallerySettings);
+
   const hasActiveFilters =
-    selectedMediaTypes.size > 0 ||
-    gallerySettings.autoPlay ||
-    gallerySettings.showFaultyMedias ||
-    gallerySettings.gridSize !== 3;
+    localSelectedMediaTypes.size > 0 ||
+    localGallerySettings.autoPlay ||
+    localGallerySettings.showFaultyMedias ||
+    localGallerySettings.gridSize !== 3;
 
   const theme = useTheme();
 
@@ -114,15 +138,6 @@ export default function GalleryFiltersModal() {
               <Text style={styles.headerTitle}>{t("gallerySettings.title")}</Text>
             </View>
             <View style={styles.headerRight}>
-              {hasActiveFilters && (
-                <Button
-                  mode="contained-tonal"
-                  onPress={clearAllFilters}
-                  icon="refresh"
-                >
-                  {t("filters.clearAll")}
-                </Button>
-              )}
               <TouchableRipple
                 style={[styles.closeButton]}
                 onPress={handleHideFiltersModal}
@@ -180,7 +195,7 @@ export default function GalleryFiltersModal() {
                       styles.mediaTypeItem,
                       {
                         borderColor: theme.colors.outline,
-                        backgroundColor: selectedMediaTypes.has(mediaType)
+                        backgroundColor: localSelectedMediaTypes.has(mediaType)
                           ? theme.colors.secondaryContainer
                           : theme.colors.elevation?.level1 || theme.colors.surface,
                       },
@@ -197,7 +212,7 @@ export default function GalleryFiltersModal() {
                         style={[
                           styles.mediaTypeText,
                           {
-                            color: selectedMediaTypes.has(mediaType)
+                            color: localSelectedMediaTypes.has(mediaType)
                               ? theme.colors.primary
                               : theme.colors.onSurface,
                           },
@@ -223,19 +238,19 @@ export default function GalleryFiltersModal() {
                   styles.settingItem,
                   {
                     borderColor: theme.colors.outline,
-                    backgroundColor: gallerySettings.autoPlay
+                    backgroundColor: localGallerySettings.autoPlay
                       ? theme.colors.secondaryContainer
                       : theme.colors.elevation?.level1 || theme.colors.surface,
                   },
                 ]}
-                onPress={() => handleAutoPlayChange(!gallerySettings.autoPlay)}
+                onPress={() => handleAutoPlayChange(!localGallerySettings.autoPlay)}
               >
                 <View style={styles.settingItemContent}>
                   <Icon
                     source="play"
                     size={20}
                     color={
-                      gallerySettings.autoPlay
+                      localGallerySettings.autoPlay
                         ? theme.colors.primary
                         : theme.colors.onSurfaceVariant
                     }
@@ -245,7 +260,7 @@ export default function GalleryFiltersModal() {
                       style={[
                         styles.settingItemText,
                         {
-                          color: gallerySettings.autoPlay
+                          color: localGallerySettings.autoPlay
                             ? theme.colors.primary
                             : theme.colors.onSurface,
                         },
@@ -278,13 +293,13 @@ export default function GalleryFiltersModal() {
                   styles.settingItem,
                   {
                     borderColor: theme.colors.outline,
-                    backgroundColor: gallerySettings.showFaultyMedias
+                    backgroundColor: localGallerySettings.showFaultyMedias
                       ? theme.colors.secondaryContainer
                       : theme.colors.elevation?.level1 || theme.colors.surface,
                   },
                 ]}
                 onPress={() =>
-                  handleShowFaultyMediasChange(!gallerySettings.showFaultyMedias)
+                  handleShowFaultyMediasChange(!localGallerySettings.showFaultyMedias)
                 }
               >
                 <View style={styles.settingItemContent}>
@@ -292,7 +307,7 @@ export default function GalleryFiltersModal() {
                     source="alert-circle"
                     size={20}
                     color={
-                      gallerySettings.showFaultyMedias
+                      localGallerySettings.showFaultyMedias
                         ? theme.colors.primary
                         : theme.colors.onSurfaceVariant
                     }
@@ -302,7 +317,7 @@ export default function GalleryFiltersModal() {
                       style={[
                         styles.settingItemText,
                         {
-                          color: gallerySettings.showFaultyMedias
+                          color: localGallerySettings.showFaultyMedias
                             ? theme.colors.primary
                             : theme.colors.onSurface,
                         },
@@ -339,7 +354,7 @@ export default function GalleryFiltersModal() {
                       {
                         borderColor: theme.colors.outline,
                         backgroundColor:
-                          gallerySettings.gridSize === size
+                          localGallerySettings.gridSize === size
                             ? theme.colors.primary
                             : theme.colors.elevation?.level1 ||
                               theme.colors.surface,
@@ -352,7 +367,7 @@ export default function GalleryFiltersModal() {
                         styles.gridSizeButtonText,
                         {
                           color:
-                            gallerySettings.gridSize === size
+                            localGallerySettings.gridSize === size
                               ? theme.colors.onPrimary
                               : theme.colors.onSurface,
                         },
@@ -384,18 +399,46 @@ export default function GalleryFiltersModal() {
                       { color: theme.colors.onSurface },
                     ]}
                   >
-                    {getActiveFiltersCount(selectedMediaTypes, gallerySettings) === 1
+                    {getActiveFiltersCount(localSelectedMediaTypes, localGallerySettings) === 1
                       ? t("filters.activeFilters", {
-                          count: getActiveFiltersCount(selectedMediaTypes, gallerySettings),
+                          count: getActiveFiltersCount(localSelectedMediaTypes, localGallerySettings),
                         })
                       : t("filters.activeFiltersPlural", {
-                          count: getActiveFiltersCount(selectedMediaTypes, gallerySettings),
+                          count: getActiveFiltersCount(localSelectedMediaTypes, localGallerySettings),
                         })}
                   </Text>
                 </View>
               </View>
             )}
           </ScrollView>
+
+          {/* Action Buttons */}
+          <View
+            style={[
+              styles.applyButtonContainer,
+              { borderTopColor: theme.colors.outline },
+            ]}
+          >
+            {hasActiveFilters && (
+              <Button
+                mode="outlined"
+                onPress={clearAllFilters}
+                icon="refresh"
+                style={styles.clearButton}
+              >
+                {t("filters.clearAll")}
+              </Button>
+            )}
+            <Button
+              mode="contained"
+              onPress={applyFilters}
+              disabled={!hasChanges}
+              icon="check"
+              style={styles.applyButton}
+            >
+              {t("common.apply")}
+            </Button>
+          </View>
         </Modal>
       </Portal>
     </>
@@ -563,5 +606,19 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     fontWeight: "500",
+  },
+  applyButtonContainer: {
+    borderTopWidth: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: "transparent",
+    flexDirection: "row",
+    gap: 12,
+  },
+  clearButton: {
+    flex: 1,
+  },
+  applyButton: {
+    flex: 1,
   },
 });

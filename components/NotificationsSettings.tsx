@@ -28,7 +28,7 @@ import {
   View,
 } from "react-native";
 import PaperScrollView from "@/components/ui/PaperScrollView";
-import BucketSelector, { BUCKET_ALL } from "./BucketSelector";
+import BucketSelector from "./BucketSelector";
 import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
 import NotificationActionsSelector from "./NotificationActionsSelector";
 import NotificationTapActionSelector from "./NotificationTapActionSelector";
@@ -134,7 +134,6 @@ export default function NotificationsSettings() {
 
     if (
       !bucketId.trim() ||
-      bucketId === BUCKET_ALL ||
       !bucketsData?.buckets ||
       bucketsData.buckets.length === 0
     ) {
@@ -682,10 +681,9 @@ export default function NotificationsSettings() {
             ) : bucketsData?.buckets && bucketsData.buckets.length > 0 ? (
               <BucketSelector
                 label={t("notifications.targeting.bucket")}
-                selectedBucketId={bucketId || BUCKET_ALL}
+                selectedBucketId={bucketId}
                 onBucketChange={(id) => setBucketId(id || "")}
                 buckets={bucketsData.buckets}
-                includeAllOption={false}
                 searchable={true}
               />
             ) : (

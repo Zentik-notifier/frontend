@@ -72,7 +72,6 @@ export default function NotificationsList({
   const { refetchNotifications } = useAppContext();
   const {
     setMainLoading,
-    isLoadingGqlData,
     userSettings: { settings },
   } = useAppContext();
 
@@ -151,7 +150,8 @@ export default function NotificationsList({
         setShowScrollTop(firstId ? !visibleSet.has(firstId) : false);
       } catch {}
 
-      if (!settings.notificationsPreferences?.markAsReadOnView) return;
+      if (settings.notificationsPreferences?.markAsReadMode !== "on-view")
+        return;
 
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
@@ -171,7 +171,7 @@ export default function NotificationsList({
       }, 1000);
     },
     [
-      settings.notificationsPreferences?.markAsReadOnView,
+      settings.notificationsPreferences?.markAsReadMode,
       massMarkAsRead,
       filteredNotifications,
     ]

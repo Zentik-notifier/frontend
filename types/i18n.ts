@@ -303,14 +303,30 @@ export interface TranslationKey {
       showAppIconOnBucketIconMissingDescription: string;
       unencryptOnBigPayload: string;
       unencryptOnBigPayloadDescription: string;
-      markAsReadOnView: string;
-      markAsReadOnViewDescription: string;
+      markAsReadModeTitle: string;
+      markAsReadModeDescription: string;
+      markAsReadModeLabel: string;
+      markAsReadModePlaceholder: string;
+      markAsReadMode: {
+        onTap: string;
+        onView: string;
+        onAppClose: string;
+      };
     };
     theme: {
       title: string;
       subtitle: string;
       selectPreset: string;
       selectPresetPlaceholder: string;
+      layoutMode: string;
+      layoutModePlaceholder: string;
+      currentWidth: string;
+      layoutModes: {
+        auto: string;
+        desktop: string;
+        tablet: string;
+        mobile: string;
+      };
       dynamicColors: string;
       primaryColor: string;
       secondaryColor: string;
@@ -672,6 +688,9 @@ export interface TranslationKey {
     saving: string;
     search: string;
     selectOption: string;
+    selectOptions: string;
+    selectAll: string;
+    deselectAll: string;
     settings: string;
     shareNotAvailable: string;
     showing: string;

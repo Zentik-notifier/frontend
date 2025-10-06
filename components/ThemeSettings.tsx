@@ -1,5 +1,5 @@
 import { useI18n } from "@/hooks/useI18n";
-import { useUserSettings, DynamicThemeColors } from "@/services/user-settings";
+import { useUserSettings, DynamicThemeColors, LayoutMode } from "@/services/user-settings";
 import {
   generateDynamicTheme,
   isValidHexColor,
@@ -12,7 +12,7 @@ import {
   isCustomPreset,
 } from "@/services/theme-presets";
 import React, { useCallback, useState } from "react";
-import { ScrollView, StyleSheet, View, Alert } from "react-native";
+import { ScrollView, StyleSheet, View, Alert, useWindowDimensions } from "react-native";
 import {
   Button,
   Divider,
@@ -28,7 +28,8 @@ const THEME_PRESETS = getAllThemePresets();
 export default function ThemeSettings() {
   const { t } = useI18n();
   const theme = useTheme();
-  const { settings, setCustomThemeSettings } = useUserSettings();
+  const { width } = useWindowDimensions();
+  const { settings, setCustomThemeSettings, getLayoutMode, setLayoutMode } = useUserSettings();
 
   const [selectedPreset, setSelectedPreset] = useState<ThemePreset>(
     settings.themePreset || ThemePreset.Material3
@@ -124,6 +125,13 @@ export default function ThemeSettings() {
     name: getPresetName(preset.id),
   }));
 
+  const layoutModeOptions: SelectorOption[] = [
+    { id: 'auto', name: t('appSettings.theme.layoutModes.auto') },
+    { id: 'desktop', name: t('appSettings.theme.layoutModes.desktop') },
+    { id: 'tablet', name: t('appSettings.theme.layoutModes.tablet') },
+    { id: 'mobile', name: t('appSettings.theme.layoutModes.mobile') },
+  ];
+
   const renderDynamicColorInput = (
     colorKey: keyof DynamicThemeColors,
     label: string
@@ -174,6 +182,26 @@ export default function ThemeSettings() {
           disabled={false}
           mode="inline"
         />
+      </View>
+
+      <Divider style={styles.divider} />
+
+      <View style={styles.section}>
+        <View style={styles.layoutModeContainer}>
+          <Selector
+            label={t("appSettings.theme.layoutMode")}
+            placeholder={t("appSettings.theme.layoutModePlaceholder")}
+            options={layoutModeOptions}
+            selectedValue={getLayoutMode()}
+            onValueChange={(value) => setLayoutMode(value as LayoutMode)}
+            isSearchable={false}
+            disabled={false}
+            mode="inline"
+          />
+          <Text variant="bodyMedium" style={styles.currentWidthText}>
+            {t("appSettings.theme.currentWidth")}: {Math.round(width)}px
+          </Text>
+        </View>
       </View>
 
       {showDynamic && <Divider style={styles.divider} />}
@@ -242,6 +270,13 @@ const styles = StyleSheet.create({
   },
   divider: {
     marginVertical: 16,
+  },
+  layoutModeContainer: {
+    gap: 12,
+  },
+  currentWidthText: {
+    marginTop: 8,
+    opacity: 0.7,
   },
   colorPickerRow: {
     flexDirection: "row",
