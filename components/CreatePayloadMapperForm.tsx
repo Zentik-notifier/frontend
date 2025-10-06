@@ -297,10 +297,6 @@ export default function CreatePayloadMapperForm({
     }
   };
 
-  const handleCancel = () => {
-    router.back();
-  };
-
   const handleDelete = () => {
     if (!payloadMapper || isBuiltIn) return;
 
@@ -434,15 +430,8 @@ export default function CreatePayloadMapperForm({
 
       {/* Action Buttons */}
       {!isBuiltIn && (
-        <View style={styles.actions}>
-          <Button
-            mode="outlined"
-            onPress={handleCancel}
-            style={styles.cancelButton}
-          >
-            {t("common.cancel")}
-          </Button>
-          <>
+        <>
+          <View style={styles.actions}>
             <Button
               mode="outlined"
               onPress={handleResetForm}
@@ -469,8 +458,10 @@ export default function CreatePayloadMapperForm({
                 ? t("payloadMappers.form.saving")
                 : t("payloadMappers.form.save")}
             </Button>
-          </>
-          {!isBuiltIn && (
+          </View>
+
+          {/* Delete Button - Full Width */}
+          <View style={styles.deleteSection}>
             <Button
               mode="contained"
               buttonColor={theme.colors.error}
@@ -483,8 +474,8 @@ export default function CreatePayloadMapperForm({
             >
               {deletingPayloadMapper ? "Deleting..." : t("payloadMappers.delete")}
             </Button>
-          )}
-        </View>
+          </View>
+        </>
       )}
 
       {/* Entity Executions Section */}
@@ -588,16 +579,19 @@ const styles = StyleSheet.create({
     marginTop: 32,
   },
   cancelButton: {
-    minWidth: 100,
+    flex: 1,
   },
   resetButton: {
-    minWidth: 140,
+    flex: 1,
   },
   saveButton: {
-    minWidth: 100,
+    flex: 1,
   },
   deleteButton: {
     marginTop: 16,
     minWidth: 150,
+  },
+  deleteSection: {
+    marginTop: 16,
   },
 });

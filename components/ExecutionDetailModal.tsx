@@ -1,15 +1,11 @@
-import { EntityExecutionFragment, ExecutionStatus } from "@/generated/gql-operations-generated";
+import {
+  EntityExecutionFragment,
+  ExecutionStatus,
+} from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import {
-  Card,
-  Chip,
-  Modal,
-  Portal,
-  Text,
-  useTheme,
-} from "react-native-paper";
+import { Card, Chip, Modal, Portal, Text, useTheme } from "react-native-paper";
 
 interface ExecutionDetailModalProps {
   visible: boolean;
@@ -42,7 +38,6 @@ export default function ExecutionDetailModal({
     }
   };
 
-
   const formatDuration = (durationMs?: number | null) => {
     if (!durationMs) return "";
     return `${durationMs}ms`;
@@ -53,9 +48,17 @@ export default function ExecutionDetailModal({
       <Modal
         visible={visible}
         onDismiss={onClose}
-        contentContainerStyle={styles.modalContainer}
+        contentContainerStyle={[
+          styles.modalContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
       >
-        <Card style={styles.modalCard}>
+        <Card
+          style={[
+            styles.modalCard,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
           <Card.Content>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text variant="titleLarge" style={styles.modalTitle}>
@@ -79,10 +82,7 @@ export default function ExecutionDetailModal({
                   <Chip
                     mode="outlined"
                     compact
-                    style={[
-                      styles.typeChip,
-                      { borderColor: getStatusColor(execution.status) },
-                    ]}
+                    style={[{ borderColor: getStatusColor(execution.status) }]}
                     textStyle={{ color: getStatusColor(execution.status) }}
                   >
                     {execution.type}
@@ -96,10 +96,7 @@ export default function ExecutionDetailModal({
                   <Chip
                     mode="outlined"
                     compact
-                    style={[
-                      styles.statusChip,
-                      { borderColor: getStatusColor(execution.status) },
-                    ]}
+                    style={[{ borderColor: getStatusColor(execution.status) }]}
                     textStyle={{ color: getStatusColor(execution.status) }}
                   >
                     {execution.status}
@@ -172,7 +169,17 @@ export default function ExecutionDetailModal({
                   <Text variant="bodySmall" style={styles.errorLabel}>
                     {t("entityExecutions.errors")}:
                   </Text>
-                  <Text variant="bodySmall" style={[styles.errorText, { color: theme.colors.error }]}>
+                  <Text
+                    variant="bodySmall"
+                    style={[
+                      styles.errorText,
+                      {
+                        color: theme.colors.error,
+                        backgroundColor: theme.colors.errorContainer,
+                        borderLeftColor: theme.colors.error,
+                      },
+                    ]}
+                  >
                     {execution.errors}
                   </Text>
                 </View>
@@ -185,7 +192,10 @@ export default function ExecutionDetailModal({
                   </Text>
                   <Text
                     variant="bodySmall"
-                    style={[styles.codeText, { backgroundColor: theme.colors.surfaceVariant }]}
+                    style={[
+                      styles.codeText,
+                      { backgroundColor: theme.colors.surfaceVariant },
+                    ]}
                   >
                     {execution.input}
                   </Text>
@@ -199,7 +209,10 @@ export default function ExecutionDetailModal({
                   </Text>
                   <Text
                     variant="bodySmall"
-                    style={[styles.codeText, { backgroundColor: theme.colors.surfaceVariant }]}
+                    style={[
+                      styles.codeText,
+                      { backgroundColor: theme.colors.surfaceVariant },
+                    ]}
                   >
                     {execution.output}
                   </Text>
@@ -215,13 +228,11 @@ export default function ExecutionDetailModal({
 
 const styles = StyleSheet.create({
   modalContainer: {
-    backgroundColor: "white",
     margin: 20,
     borderRadius: 8,
-    maxHeight: "80%",
   },
   modalCard: {
-    backgroundColor: "white",
+    // Background color will be applied inline
   },
   modalTitle: {
     fontWeight: "600",
@@ -245,12 +256,6 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "right",
   },
-  statusChip: {
-    height: 24,
-  },
-  typeChip: {
-    height: 24,
-  },
   errorSection: {
     marginTop: 8,
   },
@@ -259,11 +264,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   errorText: {
-    backgroundColor: "#ffebee",
     padding: 8,
     borderRadius: 4,
     borderLeftWidth: 4,
-    borderLeftColor: "#f44336",
   },
   codeSection: {
     marginTop: 8,

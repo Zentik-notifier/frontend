@@ -56,70 +56,77 @@ function ExecutionItem({ execution, onPress }: ExecutionItemProps) {
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
-      <Card style={styles.executionCard}>
+      <Card>
         <Card.Content>
-        <View style={styles.executionHeader}>
-          <Chip
-            mode="outlined"
-            compact
-            style={[
-              styles.statusChip,
-              { borderColor: getStatusColor(execution.status) },
-            ]}
-            textStyle={{ color: getStatusColor(execution.status) }}
-          >
-            {execution.status}
-          </Chip>
-          <Text variant="bodySmall" style={styles.executionDate}>
-            {new Date(execution.createdAt).toLocaleString()}
-          </Text>
-        </View>
-
-        <View style={styles.executionDetails}>
-          {execution.durationMs && (
-            <Text variant="bodySmall" style={styles.durationText}>
-              {t("entityExecutions.duration")}: {formatDuration(execution.durationMs)}
+          <View style={styles.executionHeader}>
+            <Chip
+              mode="outlined"
+              compact
+              style={[{ borderColor: getStatusColor(execution.status) }]}
+              textStyle={{ color: getStatusColor(execution.status) }}
+            >
+              {execution.status}
+            </Chip>
+            <Text variant="bodySmall" style={styles.executionDate}>
+              {new Date(execution.createdAt).toLocaleString()}
             </Text>
-          )}
+          </View>
 
-          {execution.errors && (
-            <View style={styles.errorSection}>
-              <Text variant="bodySmall" style={[styles.errorText, { color: theme.colors.error }]}>
-                {t("entityExecutions.errors")}: {execution.errors}
+          <View style={styles.executionDetails}>
+            {execution.durationMs && (
+              <Text variant="bodySmall" style={styles.durationText}>
+                {t("entityExecutions.duration")}:{" "}
+                {formatDuration(execution.durationMs)}
               </Text>
-            </View>
-          )}
+            )}
 
-          {execution.input && execution.input.length > 100 && (
-            <View style={styles.codeSection}>
-              <Text variant="labelSmall" style={styles.codeLabel}>
-                {t("entityExecutions.input")}:
-              </Text>
-              <Text
-                variant="bodySmall"
-                style={[styles.codeText, { backgroundColor: theme.colors.surfaceVariant }]}
-                numberOfLines={3}
-              >
-                {execution.input.substring(0, 100)}...
-              </Text>
-            </View>
-          )}
+            {execution.errors && (
+              <View style={styles.errorSection}>
+                <Text
+                  variant="bodySmall"
+                  style={[styles.errorText, { color: theme.colors.error }]}
+                >
+                  {t("entityExecutions.errors")}: {execution.errors}
+                </Text>
+              </View>
+            )}
 
-          {execution.output && execution.output.length > 100 && (
-            <View style={styles.codeSection}>
-              <Text variant="labelSmall" style={styles.codeLabel}>
-                {t("entityExecutions.output")}:
-              </Text>
-              <Text
-                variant="bodySmall"
-                style={[styles.codeText, { backgroundColor: theme.colors.surfaceVariant }]}
-                numberOfLines={3}
-              >
-                {execution.output.substring(0, 100)}...
-              </Text>
-            </View>
-          )}
-        </View>
+            {execution.input && execution.input.length > 100 && (
+              <View style={styles.codeSection}>
+                <Text variant="labelSmall" style={styles.codeLabel}>
+                  {t("entityExecutions.input")}:
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    styles.codeText,
+                    { backgroundColor: theme.colors.surfaceVariant },
+                  ]}
+                  numberOfLines={3}
+                >
+                  {execution.input.substring(0, 100)}...
+                </Text>
+              </View>
+            )}
+
+            {execution.output && execution.output.length > 100 && (
+              <View style={styles.codeSection}>
+                <Text variant="labelSmall" style={styles.codeLabel}>
+                  {t("entityExecutions.output")}:
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    styles.codeText,
+                    { backgroundColor: theme.colors.surfaceVariant },
+                  ]}
+                  numberOfLines={3}
+                >
+                  {execution.output.substring(0, 100)}...
+                </Text>
+              </View>
+            )}
+          </View>
         </Card.Content>
       </Card>
     </TouchableOpacity>
@@ -133,7 +140,8 @@ export default function EntityExecutionsSection({
   const { t } = useI18n();
 
   const [isExpanded, setIsExpanded] = useState(false);
-  const [selectedExecution, setSelectedExecution] = useState<EntityExecutionFragment | null>(null);
+  const [selectedExecution, setSelectedExecution] =
+    useState<EntityExecutionFragment | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
   const { data, loading, error, refetch } = useGetEntityExecutionsQuery({
@@ -176,15 +184,15 @@ export default function EntityExecutionsSection({
                   {executions.length}
                 </Chip>
               )}
-              <Text style={styles.expandIcon}>
-                {isExpanded ? "−" : "+"}
-              </Text>
+              <Text style={styles.expandIcon}>{isExpanded ? "−" : "+"}</Text>
             </View>
           </View>
 
           {!isExpanded && hasExecutions && (
             <Text variant="bodySmall" style={styles.sectionSummary}>
-              {t("entityExecutions.lastExecutions", { count: executions.length })}
+              {t("entityExecutions.lastExecutions", {
+                count: executions.length,
+              })}
             </Text>
           )}
         </Card.Content>
@@ -220,12 +228,17 @@ export default function EntityExecutionsSection({
           {!loading && !error && hasExecutions && (
             <FlashList
               data={executions}
-              renderItem={({ item }) => <ExecutionItem execution={item} onPress={handleExecutionPress} />}
+              renderItem={({ item }) => (
+                <ExecutionItem
+                  execution={item}
+                  onPress={handleExecutionPress}
+                />
+              )}
               keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.executionsList}
               onRefresh={refetch}
               refreshing={loading}
+              style={{ maxHeight: 300 }}
             />
           )}
         </View>
@@ -299,22 +312,11 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     textAlign: "center",
   },
-  executionsList: {
-    paddingBottom: 16,
-  },
-  executionCard: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    elevation: 1,
-  },
   executionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
-  },
-  statusChip: {
-    height: 24,
   },
   executionDate: {
     opacity: 0.7,
