@@ -157,6 +157,27 @@ class IOSNativePushNotificationService {
 
         this.listenersSetup = true;
         console.debug("✅ iOS notification listeners setup complete");
+
+        // Check if there's a notification tap that happened while the app was closed
+        this.checkLastNotificationResponse();
+    }
+
+    /**
+     * Check for notification response that happened while app was closed
+     */
+    private async checkLastNotificationResponse() {
+        try {
+            const lastResponse = Notifications.getLastNotificationResponse();
+            if (lastResponse) {
+                console.log('📱 Found last notification response from cold start:', JSON.stringify(lastResponse));
+                // Process it as if it just happened
+                await this.handleNotificationResponse(lastResponse);
+            } else {
+                console.debug('📱 No last notification response found');
+            }
+        } catch (error) {
+            console.error('❌ Error checking last notification response:', error);
+        }
     }
 
 
