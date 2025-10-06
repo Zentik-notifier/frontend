@@ -942,6 +942,7 @@ export interface TranslationKey {
     shareNotification: string;
     snooze: {
       confirm: string;
+      selectTime: string;
       customDateTime: string;
       errorRemoving: string;
       errorSetting: string;

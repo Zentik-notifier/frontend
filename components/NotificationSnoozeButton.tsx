@@ -3,13 +3,12 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import { localeToDatePickerLocale } from "@/types/i18n";
-import { DatePickerInput } from "react-native-paper-dates";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { DatePickerInput, TimePickerModal } from "react-native-paper-dates";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
   Modal,
-  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -18,7 +17,9 @@ import {
   ActivityIndicator,
   Icon,
   Button as PaperButton,
+  Portal,
   Text,
+  TextInput,
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
@@ -47,8 +48,9 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   style,
 }) => {
   const theme = useTheme();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { formatDate } = useDateFormat();
+  const datePickerLocale = localeToDatePickerLocale[locale];
 
   const { bucket, isSnoozed } = useGetBucketData(bucketId);
 
@@ -60,6 +62,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
 
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [quickLoading, setQuickLoading] = useState<number | null>(null);
   const [removingSnooze, setRemovingSnooze] = useState(false);
 
@@ -458,50 +461,44 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
 
               <View style={styles.dateTimePickerContainer}>
                 <View style={styles.pickerRow}>
-                  <View style={styles.pickerWrapper}>
-                    <Text
-                      style={[
-                        styles.pickerLabel,
-                        { color: theme.colors.onSurfaceVariant },
-                      ]}
-                    >
-                      {String(t("notificationDetail.snooze.selectDate" as any))}
-                    </Text>
-                    <DateTimePicker
-                      value={selectedDate}
-                      mode="date"
-                      display={Platform.OS === "ios" ? "compact" : "default"}
-                      onChange={(event, date) => handleDateChange(date)}
-                      minimumDate={new Date()}
-                      themeVariant={theme.dark ? "dark" : "light"}
-                      style={styles.nativePicker}
-                    />
-                  </View>
+                  <DatePickerInput
+                    locale={datePickerLocale}
+                    label={String(
+                      t("notificationDetail.snooze.selectDate" as any)
+                    )}
+                    value={selectedDate}
+                    onChange={(date) => handleDateChange(date)}
+                    inputMode="start"
+                    mode="outlined"
+                    validRange={{
+                      startDate: new Date(),
+                    }}
+                    style={styles.dateInput}
+                  />
 
-                  <View style={styles.pickerWrapper}>
-                    <Text
-                      style={[
-                        styles.pickerLabel,
-                        { color: theme.colors.onSurfaceVariant },
-                      ]}
-                    >
-                      {String(t("notificationDetail.snooze.selectTime" as any))}
-                    </Text>
-                    <DateTimePicker
-                      value={selectedDate}
-                      mode="time"
-                      display={Platform.OS === "ios" ? "compact" : "default"}
-                      onChange={(event, date) => {
-                        if (date) {
-                          handleTimeChange({
-                            hours: date.getHours(),
-                            minutes: date.getMinutes(),
-                          });
-                        }
+                  <View style={styles.timeInputTouchable}>
+                    <TouchableRipple
+                      onPress={() => {
+                        setShowTimePicker(true);
                       }}
-                      themeVariant={theme.dark ? "dark" : "light"}
-                      style={styles.nativePicker}
-                    />
+                      style={{ borderRadius: 4 }}
+                    >
+                      <View pointerEvents="none">
+                        <TextInput
+                          label={String(
+                            t("notificationDetail.snooze.selectTime" as any)
+                          )}
+                          value={selectedDate.toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                          mode="outlined"
+                          editable={false}
+                          right={<TextInput.Icon icon="clock-outline" />}
+                          style={styles.timeInput}
+                        />
+                      </View>
+                    </TouchableRipple>
                   </View>
                 </View>
               </View>
@@ -515,6 +512,24 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
               >
                 {t("notificationDetail.snooze.confirm")}
               </PaperButton>
+
+              <TimePickerModal
+                locale={datePickerLocale}
+                visible={showTimePicker}
+                onDismiss={() => {
+                  setShowTimePicker(false);
+                }}
+                onConfirm={(time) => {
+                  console.log("Time confirmed:", time);
+                  handleTimeChange(time);
+                  setShowTimePicker(false);
+                }}
+                hours={selectedDate.getHours()}
+                minutes={selectedDate.getMinutes()}
+                label={String(t("notificationDetail.snooze.selectTime" as any))}
+                cancelLabel={String(t("common.cancel"))}
+                confirmLabel={String(t("notificationDetail.snooze.confirm"))}
+              />
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -670,22 +685,16 @@ const styles = StyleSheet.create({
   pickerRow: {
     flexDirection: "row",
     gap: 12,
-    alignItems: "center",
-    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
-  pickerWrapper: {
+  dateInput: {
     flex: 1,
-    gap: 6,
-    alignItems: "center",
   },
-  pickerLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    textAlign: "center",
+  timeInputTouchable: {
+    flex: 1,
   },
-  nativePicker: {
-    width: "100%",
-    height: Platform.OS === "ios" ? 100 : 50,
+  timeInput: {
+    flex: 1,
   },
 });
 
