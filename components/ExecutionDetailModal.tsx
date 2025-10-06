@@ -43,6 +43,16 @@ export default function ExecutionDetailModal({
     return `${durationMs}ms`;
   };
 
+  const formatJsonString = (jsonString?: string | null) => {
+    if (!jsonString) return "";
+    try {
+      const parsed = JSON.parse(jsonString);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return jsonString;
+    }
+  };
+
   return (
     <Portal>
       <Modal
@@ -190,15 +200,26 @@ export default function ExecutionDetailModal({
                   <Text variant="labelMedium" style={styles.codeLabel}>
                     {t("entityExecutions.input")}:
                   </Text>
-                  <Text
-                    variant="bodySmall"
+                  <ScrollView
                     style={[
-                      styles.codeText,
-                      { backgroundColor: theme.colors.surfaceVariant },
+                      styles.jsonContainer,
+                      {
+                        backgroundColor: theme.colors.surfaceVariant,
+                        borderColor: theme.colors.outline,
+                      },
                     ]}
+                    nestedScrollEnabled
                   >
-                    {execution.input}
-                  </Text>
+                    <Text
+                      variant="bodySmall"
+                      style={[
+                        styles.jsonText,
+                        { color: theme.colors.onSurface },
+                      ]}
+                    >
+                      {formatJsonString(execution.input)}
+                    </Text>
+                  </ScrollView>
                 </View>
               )}
 
@@ -207,15 +228,26 @@ export default function ExecutionDetailModal({
                   <Text variant="labelMedium" style={styles.codeLabel}>
                     {t("entityExecutions.output")}:
                   </Text>
-                  <Text
-                    variant="bodySmall"
+                  <ScrollView
                     style={[
-                      styles.codeText,
-                      { backgroundColor: theme.colors.surfaceVariant },
+                      styles.jsonContainer,
+                      {
+                        backgroundColor: theme.colors.surfaceVariant,
+                        borderColor: theme.colors.outline,
+                      },
                     ]}
+                    nestedScrollEnabled
                   >
-                    {execution.output}
-                  </Text>
+                    <Text
+                      variant="bodySmall"
+                      style={[
+                        styles.jsonText,
+                        { color: theme.colors.onSurface },
+                      ]}
+                    >
+                      {formatJsonString(execution.output)}
+                    </Text>
+                  </ScrollView>
                 </View>
               )}
             </ScrollView>
@@ -275,12 +307,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: "600",
   },
-  codeText: {
-    padding: 12,
+  jsonContainer: {
     borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+    maxHeight: 200,
+  },
+  jsonText: {
     fontFamily: "monospace",
     fontSize: 12,
     lineHeight: 18,
-    maxHeight: 150,
+    padding: 12,
   },
 });
