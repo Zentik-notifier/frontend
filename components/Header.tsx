@@ -29,7 +29,7 @@ const ROUTES_WITH_HOME_BUTTON: string[] = [
   "/(mobile)/(admin)",
   "/(tablet)/(settings)",
   "/(tablet)/(admin)",
-  "/(mobile)/(home)/notification/[id]",
+  // "/(mobile)/(home)/notification/[id]",
 ];
 
 const HOME_ROUTES: string[] = [
@@ -46,7 +46,7 @@ const ROUTES_WITH_BACK_BUTTON: string[] = [
   "/(common)/(auth)/email-confirmation",
   "/(mobile)/(home)/bucket/settings/[id]",
   "/(mobile)/(home)/bucket/[id]",
-  // "/(mobile)/(home)/notification/[id]",
+  "/(mobile)/(home)/notification/[id]",
   "/(mobile)/(home)/bucket/link/[id]",
   "/(mobile)/(home)/bucket/settings/create",
   "/(mobile)/(home)/bucket/create",
@@ -149,8 +149,7 @@ export default function Header() {
     unreadCount,
     isMarkingAllAsRead,
   } = useBadgeSync();
-  const { isLoginModalOpen, closeLoginModal, isMainLoading, isLoadingGqlData } =
-    useAppContext();
+  const { isLoginModalOpen, closeLoginModal, isMainLoading } = useAppContext();
   const { itemsInQueue, inProcessing } = useDownloadQueue();
   const { t } = useI18n();
   const { navigateToHome, navigateBack, navigateToAppSettings } =
@@ -337,7 +336,7 @@ export default function Header() {
             )}
 
             {/* Main Loading Indicator */}
-            {(isMainLoading || isLoadingGqlData) && !currentTitle && (
+            {isMainLoading && !currentTitle && (
               <View style={styles.mainLoadingContainer}>
                 <ActivityIndicator
                   size="small"
@@ -348,30 +347,28 @@ export default function Header() {
             )}
 
             {/* Mark All as Read Button */}
-            {shouldShowStatusBadges &&
-              hasUnreadNotifications &&
-              !isLoadingGqlData && (
-                <View style={styles.markAllButtonContainer}>
-                  <Animated.View style={{ opacity: markAllOpacity }}>
-                    <IconButton
-                      icon="check-all"
-                      loading={isMarkingAllAsRead}
-                      size={20}
-                      iconColor="#fff"
-                      onPress={handleMarkAllAsRead}
-                      disabled={!hasUnreadNotifications || isMarkingAllAsRead}
-                      style={styles.markAllIcon}
-                    />
-                  </Animated.View>
-                  {unreadCount > 0 && (
-                    <Surface style={styles.badge} elevation={3}>
-                      <Text variant="labelSmall" style={styles.badgeText}>
-                        {unreadCount > 99 ? "99+" : unreadCount.toString()}
-                      </Text>
-                    </Surface>
-                  )}
-                </View>
-              )}
+            {shouldShowStatusBadges && hasUnreadNotifications && (
+              <View style={styles.markAllButtonContainer}>
+                <Animated.View style={{ opacity: markAllOpacity }}>
+                  <IconButton
+                    icon="check-all"
+                    loading={isMarkingAllAsRead}
+                    size={20}
+                    iconColor="#fff"
+                    onPress={handleMarkAllAsRead}
+                    disabled={!hasUnreadNotifications || isMarkingAllAsRead}
+                    style={styles.markAllIcon}
+                  />
+                </Animated.View>
+                {unreadCount > 0 && (
+                  <Surface style={styles.badge} elevation={3}>
+                    <Text variant="labelSmall" style={styles.badgeText}>
+                      {unreadCount > 99 ? "99+" : unreadCount.toString()}
+                    </Text>
+                  </Surface>
+                )}
+              </View>
+            )}
 
             {/* Download Queue Progress Icon */}
             {shouldShowStatusBadges && inProcessing && (

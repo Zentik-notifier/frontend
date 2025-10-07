@@ -80,7 +80,6 @@ interface AppContextProps {
   closeLoginModal: () => void;
   showOnboarding: () => void;
   isOnboardingOpen: boolean;
-  isLoadingGqlData: boolean;
   hideOnboarding: () => void;
   setMainLoading: (loading: boolean) => void;
   isMainLoading: boolean;
@@ -99,7 +98,6 @@ const AppContext = createContext<AppContextProps | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [firstGqlLoadingDone, setFirstGqlLoadingDone] = useState(false);
   const [lastUserId, setLastUserId] = useState<string | null>(null);
   const push = usePushNotifications();
   const { t } = useI18n();
@@ -254,9 +252,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await push.initialize();
 
       setIsInitializing(false);
-      cleanup({ immediate: true })
-        .then(() => setFirstGqlLoadingDone(true))
-        .catch(console.error);
+      cleanup({ immediate: true }).catch(console.error);
       return true;
     } catch (e) {
       console.error("Error during completeAuth:", e);
@@ -484,7 +480,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         logout,
-        isLoadingGqlData: !firstGqlLoadingDone,
         login,
         completeAuth,
         register,

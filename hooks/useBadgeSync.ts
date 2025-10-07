@@ -1,8 +1,7 @@
-import { useAppContext } from '@/contexts/AppContext';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { useI18n } from './useI18n';
-import { useMarkAllNotificationsAsRead } from './useNotifications';
+import { useMarkAllAsRead, useNotificationStats } from './notifications';
 import { setBadgeCount } from '@/utils/badgeUtils';
 
 /**
@@ -10,21 +9,18 @@ import { setBadgeCount } from '@/utils/badgeUtils';
  */
 export function useBadgeSync() {
     const { t } = useI18n();
-    const { notifications, isLoadingGqlData } = useAppContext();
     const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false);
 
-    const { markAllAsRead, loading } =
-        useMarkAllNotificationsAsRead();
+    // Use React Query stats hook
+    const { data: stats, isLoading } = useNotificationStats();
+    const markAllAsReadMutation = useMarkAllAsRead();
 
-    const unreadNotifications = useMemo(() => {
-        return notifications.filter((notification) => !notification.readAt);
-    }, [notifications]);
-    const hasUnreadNotifications = !!unreadNotifications.length;
-    const unreadCount = unreadNotifications.length;
+    const unreadCount = stats?.unreadCount || 0;
+    const hasUnreadNotifications = unreadCount > 0;
 
     useEffect(() => {
         const exec = async () => {
-            if (!isMarkingAllAsRead && !isLoadingGqlData) {
+            if (!isMarkingAllAsRead && !isLoading) {
                 await setBadgeCount(unreadCount);
             }
         }
@@ -36,17 +32,14 @@ export function useBadgeSync() {
                 navigator.setAppBadge(unreadCount);
             }
         }
-        // Platform.OS !== 'web' && exec();
-    }, [unreadCount, isMarkingAllAsRead, isLoadingGqlData]);
+    }, [unreadCount, isMarkingAllAsRead, isLoading]);
 
     const handleMarkAllAsRead = useCallback(async () => {
         if (!hasUnreadNotifications || isMarkingAllAsRead) return;
         setIsMarkingAllAsRead(true);
 
         try {
-            await markAllAsRead();
-            // Badge will be updated automatically by the useEffect when unreadCount changes
-            // No need to manually clear it here
+            await markAllAsReadMutation.mutateAsync();
         } catch (error) {
             console.error("Error marking all notifications as read:", error);
             Alert.alert(
@@ -57,13 +50,12 @@ export function useBadgeSync() {
         } finally {
             setIsMarkingAllAsRead(false);
         }
-    }, [hasUnreadNotifications, isMarkingAllAsRead, markAllAsRead, t]);
+    }, [hasUnreadNotifications, isMarkingAllAsRead, markAllAsReadMutation, t]);
 
     return {
-        unreadNotifications,
         unreadCount,
         hasUnreadNotifications,
         handleMarkAllAsRead,
-        isMarkingAllAsRead: isMarkingAllAsRead || loading
+        isMarkingAllAsRead: isMarkingAllAsRead || markAllAsReadMutation.isPending
     };
 }

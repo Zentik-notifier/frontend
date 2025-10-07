@@ -226,11 +226,25 @@ export function parseNotificationForDB(notification: NotificationFragment) {
  *
  * Reconstructs the complete NotificationFragment from database record.
  * The database stores the full NotificationFragment as JSON in the 'fragment' field,
- * so this function simply parses it back.
+ * but we also store key fields as columns for efficient querying.
+ * 
+ * IMPORTANT: Column values take precedence over JSON fragment values to ensure consistency.
  *
  * @param dbRecord - The database record to parse
  * @returns Reconstructed NotificationFragment
  */
 export function parseNotificationFromDB(dbRecord: any): NotificationFragment {
-  return typeof dbRecord.fragment === 'string' ? JSON.parse(dbRecord.fragment) : dbRecord.fragment;
+  const notification = typeof dbRecord.fragment === 'string' ? JSON.parse(dbRecord.fragment) : dbRecord.fragment;
+  
+  // Override with column values to ensure consistency
+  // This fixes the bug where read_at column is null but fragment JSON has a timestamp
+  if (dbRecord.read_at !== undefined) {
+    notification.readAt = dbRecord.read_at;
+  }
+  
+  if (dbRecord.created_at !== undefined) {
+    notification.createdAt = dbRecord.created_at;
+  }
+  
+  return notification;
 }

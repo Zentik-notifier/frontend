@@ -8,10 +8,9 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import {
-  useMassDeleteNotifications,
-  useMassMarkNotificationsAsRead,
-  useMassMarkNotificationsAsUnread,
-} from "@/hooks/useNotifications";
+  useBatchDeleteNotifications,
+  useBatchMarkAsRead,
+} from "@/hooks/notifications";
 import { useAppContext } from "@/contexts/AppContext";
 import { userSettings } from "@/services/user-settings";
 import { FlashList } from "@shopify/flash-list";
@@ -75,10 +74,8 @@ export default function NotificationsList({
     userSettings: { settings },
   } = useAppContext();
 
-  const { massDelete: massDeleteNotifications, loading: isMassDeleteLoading } =
-    useMassDeleteNotifications();
-  const { massMarkAsRead } = useMassMarkNotificationsAsRead();
-  const { massMarkAsUnread } = useMassMarkNotificationsAsUnread();
+  const batchDeleteMutation = useBatchDeleteNotifications();
+  const batchMarkAsReadMutation = useBatchMarkAsRead();
 
   const [visibleItems, setVisibileItems] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -99,8 +96,8 @@ export default function NotificationsList({
   }, [notifications]);
 
   useEffect(() => {
-    setMainLoading(isMassDeleteLoading);
-  }, [isMassDeleteLoading]);
+    setMainLoading(batchDeleteMutation.isPending);
+  }, [batchDeleteMutation.isPending]);
 
   const {
     userSettings: {
@@ -210,13 +207,16 @@ export default function NotificationsList({
           }
         }
         if (candidates.length > 0) {
-          massMarkAsRead(candidates).catch(() => {});
+          batchMarkAsReadMutation.mutate({ 
+            notificationIds: candidates,
+            readAt: new Date().toISOString(),
+          });
         }
       }, 1000);
     },
     [
       settings.notificationsPreferences?.markAsReadMode,
-      massMarkAsRead,
+      batchMarkAsReadMutation,
       filteredNotifications,
     ]
   );
@@ -247,12 +247,12 @@ export default function NotificationsList({
           onPress: async () => {
             const notificationIds = Array.from(selectedItems);
             handleCloseSelectionMode();
-            massDeleteNotifications(notificationIds).catch(console.error);
+            batchDeleteMutation.mutate({ notificationIds });
           },
         },
       ]
     );
-  }, [selectedItems, massDeleteNotifications, t]);
+  }, [selectedItems, batchDeleteMutation, t]);
 
   // Funzione per cambiare lo stato di lettura delle notifiche selezionate
   const handleToggleReadStatus = useCallback(async () => {
@@ -265,18 +265,16 @@ export default function NotificationsList({
     const notificationIds = Array.from(selectedItems);
 
     try {
-      if (hasUnreadNotifications) {
-        // Marca come lette
-        await massMarkAsRead(notificationIds);
-      } else {
-        // Marca come non lette
-        await massMarkAsUnread(notificationIds);
-      }
+      const readAt = hasUnreadNotifications ? new Date().toISOString() : null;
+      await batchMarkAsReadMutation.mutateAsync({ 
+        notificationIds, 
+        readAt 
+      });
       handleCloseSelectionMode();
     } catch (error) {
       console.error("Error toggling read status:", error);
     }
-  }, [selectedItems, filteredNotifications, massMarkAsRead, massMarkAsUnread]);
+  }, [selectedItems, filteredNotifications, batchMarkAsReadMutation]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);

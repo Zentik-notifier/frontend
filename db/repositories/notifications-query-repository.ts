@@ -500,6 +500,7 @@ export async function getNotificationStats(
         }
 
         const unreadCount = filtered.filter((n: NotificationFragment) => !n.readAt).length;
+        
         const withAttachmentsCount = filtered.filter(
           (n: NotificationFragment) => n.message.attachments && n.message.attachments.length > 0
         ).length;

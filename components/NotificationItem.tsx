@@ -7,11 +7,11 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
-import {
-  useDeleteNotification,
-  useMarkNotificationRead,
-  useMarkNotificationUnread,
-} from "@/hooks/useNotifications";
+import { 
+  useDeleteNotification, 
+  useMarkAsRead, 
+  useMarkAsUnread 
+} from "@/hooks/notifications";
 import { useNotificationActions, useNotificationUtils } from "@/hooks";
 import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -137,9 +137,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     },
   } = useAppContext();
 
-  const deleteNotification = useDeleteNotification();
-  const markAsRead = useMarkNotificationRead();
-  const markAsUnread = useMarkNotificationUnread();
+  const deleteNotificationMutation = useDeleteNotification();
+  const markAsReadMutation = useMarkAsRead();
+  const markAsUnreadMutation = useMarkAsUnread();
   const { executeAction } = useNotificationActions();
   const { getActionTypeIcon } = useNotificationUtils();
 
@@ -188,7 +188,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
   const handleDelete = async () => {
     try {
-      await deleteNotification(notification.id);
+      await deleteNotificationMutation.mutateAsync(notification.id);
     } catch (error) {
       console.error("❌ Failed to delete notification:", error);
       Alert.alert(t("common.error"), t("swipeActions.delete.error"));
@@ -229,13 +229,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   // Swipe actions
   const handleMarkAsRead = async () => {
     try {
-      await markAsRead(notification.id);
+      await markAsReadMutation.mutateAsync(notification.id);
     } catch {}
   };
 
   const handleMarkAsUnread = async () => {
     try {
-      await markAsUnread(notification.id);
+      await markAsUnreadMutation.mutateAsync(notification.id);
     } catch {}
   };
 

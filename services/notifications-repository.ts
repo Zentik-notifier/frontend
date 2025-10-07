@@ -107,6 +107,7 @@ export async function getAllNotificationsFromCache(): Promise<NotificationFragme
         // IndexedDB
         const results = await db.getAll('notifications');
         const notifications = results.map(parseNotificationFromDB);
+        
         return notifications.sort((a: NotificationFragment, b: NotificationFragment) => {
           const aTime = new Date(a.createdAt).getTime();
           const bTime = new Date(b.createdAt).getTime();
@@ -115,7 +116,9 @@ export async function getAllNotificationsFromCache(): Promise<NotificationFragme
       } else {
         // SQLite
         const results = await db.getAllAsync('SELECT * FROM notifications ORDER BY created_at DESC');
-        return results.map(parseNotificationFromDB);
+        const notifications = results.map(parseNotificationFromDB);
+        
+        return notifications;
       }
     } catch {
       return [];
@@ -388,19 +391,23 @@ export async function updateNotificationReadStatus(notificationId: string, readA
  * ```
  */
 export async function updateNotificationsReadStatus(notificationIds: string[], readAt: string | null): Promise<void> {
-  if (notificationIds.length === 0) return;
+  if (notificationIds.length === 0) {
+    return;
+  }
 
   await executeQuery(async (db) => {
     try {
       if (Platform.OS === 'web') {
         // IndexedDB - use batch update
         const tx = db.transaction('notifications', 'readwrite');
+        let updatedCount = 0;
 
         for (const id of notificationIds) {
           const existingRecord = await tx.store.get(id);
           if (existingRecord) {
             // Parse the current notification from fragment
             const notification = parseNotificationFromDB(existingRecord);
+            updatedCount++;
 
             // Update read_at in the notification object
             const updatedNotification: NotificationFragment = {
@@ -423,6 +430,7 @@ export async function updateNotificationsReadStatus(notificationIds: string[], r
         await tx.done;
       } else {
         // SQLite - use batch update with CASE WHEN statement
+        let updatedCount = 0;
         if (notificationIds.length > 0 && readAt !== null) {
           // Build CASE WHEN statement for read_at updates
           const caseStatements = notificationIds.map(id => `WHEN id = '${id}' THEN '${readAt}'`).join(' ');
@@ -466,11 +474,10 @@ export async function updateNotificationsReadStatus(notificationIds: string[], r
                 id
               ]
             );
+            updatedCount++;
           }
         }
       }
-
-      console.log(`[updateNotificationsReadStatus] Updated read status for ${notificationIds.length} notifications: ${readAt ? 'read' : 'unread'}`);
     } catch (error) {
       console.error('[updateNotificationsReadStatus] Failed to update notifications read status:', error);
       throw error;

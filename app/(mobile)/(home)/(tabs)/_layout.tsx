@@ -1,6 +1,6 @@
-import { useAppContext } from "@/contexts/AppContext";
 import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks";
+import { useNotificationStats } from "@/hooks/notifications";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { Tabs } from "expo-router";
 import { Platform } from "react-native";
@@ -9,11 +9,11 @@ import { Icon, useTheme } from "react-native-paper";
 export default function TabsLayout() {
   const theme = useTheme();
   const { t } = useI18n();
-  const { notifications, isLoadingGqlData } = useAppContext();
+  const { data: notificationStats, isLoading: isLoadingStats } = useNotificationStats();
   const { data: bucketsData } = useGetBucketsQuery();
   const { cacheStats } = useGetCacheStats();
 
-  const notifCount = notifications.length;
+  const notifCount = notificationStats?.totalCount || 0;
   const bucketsCount = bucketsData?.buckets?.length ?? 0;
   const galleryCount = cacheStats?.totalItems ?? 0;
 
@@ -68,7 +68,7 @@ export default function TabsLayout() {
               color={color}
             />
           ),
-          tabBarBadge: isLoadingGqlData
+          tabBarBadge: isLoadingStats
             ? "..."
             : notifCount > 0
             ? notifCount
