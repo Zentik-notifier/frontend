@@ -106,7 +106,12 @@ export async function getAllNotificationsFromCache(): Promise<NotificationFragme
       if (Platform.OS === 'web') {
         // IndexedDB
         const results = await db.getAll('notifications');
-        return results.map(parseNotificationFromDB);
+        const notifications = results.map(parseNotificationFromDB);
+        return notifications.sort((a: NotificationFragment, b: NotificationFragment) => {
+          const aTime = new Date(a.createdAt).getTime();
+          const bTime = new Date(b.createdAt).getTime();
+          return bTime - aTime;
+        });
       } else {
         // SQLite
         const results = await db.getAllAsync('SELECT * FROM notifications ORDER BY created_at DESC');

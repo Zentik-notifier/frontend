@@ -1,12 +1,11 @@
+import { GetNotificationsDocument, NotificationFragment } from "@/generated/gql-operations-generated";
 import { cleanupGalleryBySettings, mediaCache } from "@/services/media-cache-service";
 import { cleanupNotificationsBySettings, getAllNotificationsFromCache } from "@/services/notifications-repository";
 import { userSettings } from "@/services/user-settings";
-import { ApolloClient, useApolloClient } from "@apollo/client";
-import { useCallback } from "react"
-import { usePendingNotificationIntents } from "./usePendingNotificationIntents";
-import { GetNotificationsDocument, NotificationFragment } from "@/generated/gql-operations-generated";
-import { processNotificationsToCacheWithQuery } from "@/utils/cache-data-processor";
-import { useDeleteNotification, useFetchNotifications, useMassDeleteNotifications } from "./useNotifications";
+import { processJsonToCache } from "@/utils/cache-data-processor";
+import { useApolloClient } from "@apollo/client";
+import { useCallback } from "react";
+import { useFetchNotifications, useMassDeleteNotifications } from "./useNotifications";
 
 interface CleanupProps {
     immediate?: boolean,
@@ -52,7 +51,7 @@ export const useCleanup = () => {
                     return bTime - aTime;
                 });
 
-                processNotificationsToCacheWithQuery(
+                await processJsonToCache(
                     apollo.cache,
                     mergedNotifications,
                     'SyncDB'
@@ -79,42 +78,96 @@ export const useCleanup = () => {
     }, [apollo]);
 
     const cleanup = useCallback(async ({ immediate, force }: CleanupProps) => {
-        let shouldCleanup = true;
-        if (!userSettings.shouldRunCleanup() && !force) {
-            console.log(
-                "[Cleanup] Skipping cleanup - last cleanup was less than 6 hours ago"
-            );
-            shouldCleanup = false;
+        const shouldCleanup = !userSettings.shouldRunCleanup() ? false : true;
+
+        const executeWithRAF = <T>(fn: () => Promise<T>, label: string): Promise<T> => {
+            return new Promise((resolve, reject) => {
+                requestAnimationFrame(async () => {
+                    try {
+                        const result = await fn();
+                        resolve(result);
+                    } catch (error) {
+                        console.error(`[Cleanup] Error on ${label}:`, error);
+                        reject(error);
+                    }
+                });
+            });
+        };
+
+        const waitRAF = () => new Promise<void>(resolve => {
+            requestAnimationFrame(() => {
+                setTimeout(resolve, 0);
+            });
+        });
+
+        const delay = immediate ? 0 : 15000;
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        await fetchNotifications();
+        // // 1. Fetch notifications from remote
+        // await executeWithRAF(
+        //     async () => {
+        //         await fetchNotifications();
+        //         console.log('[Cleanup] Fetched notifications from remote');
+        //     },
+        //     'fetching notifications'
+        // ).catch(() => { }); // Continue on error
+
+        // await waitRAF();
+
+        // 2. Sync Apollo with LocalDB
+        // await executeWithRAF(
+        //     async () => {
+        //         await syncApolloWithLocalDb();
+        //         console.log('[Cleanup] Synced Apollo with LocalDB');
+        //     },
+        //     'syncing Apollo with local DB'
+        // ).catch(() => { }); // Continue on error
+
+        // await waitRAF();
+        await syncApolloWithLocalDb();
+
+        // 3. Cleanup notifications by settings
+        if (shouldCleanup || force) {
+            await executeWithRAF(
+                async () => {
+                    await cleanupNotificationsBySettings();
+                    console.log('[Cleanup] Cleaned up notifications');
+                },
+                'cleaning notifications'
+            ).catch(() => { }); // Continue on error
+
+            await waitRAF();
+
+            // 4. Cleanup gallery by settings
+            await executeWithRAF(
+                async () => {
+                    await cleanupGalleryBySettings();
+                    console.log('[Cleanup] Cleaned up gallery');
+                },
+                'cleaning gallery'
+            ).catch(() => { }); // Continue on error
+
+            await waitRAF();
         }
 
-        const fn = async () => {
-            await cleanupNotificationsBySettings();
-            await cleanupGalleryBySettings();
-            await mediaCache.reloadMetadata();
-            await userSettings.setLastCleanup(new Date().toISOString());
-            console.log("[Cleanup] cleanup completed");
-        }
+        // 5. Reload media cache metadata
+        await executeWithRAF(
+            async () => {
+                await mediaCache.reloadMetadata();
+                console.log('[Cleanup] Reloaded media cache metadata');
+            },
+            'reloading media cache'
+        ).catch(() => { }); // Continue on error
 
-        try {
-            await fetchNotifications();
-        } catch (e) {
-            console.error('[Cleanup] Error on fetching notifications from remote', e);
-        }
+        await waitRAF();
 
-        try {
-            await syncApolloWithLocalDb();
-        } catch (e) {
-            console.error('[Cleanup] Error on syncing Apollo with local DB', e);
-        }
+        await userSettings.setLastCleanup(new Date().toISOString());
+        console.log('[Cleanup] Updated last cleanup timestamp');
 
-        if (shouldCleanup) {
-            if (immediate) {
-                await fn();
-            } else {
-                setTimeout(async () => await fn(), 15000);
-            }
-        }
-    }, [syncApolloWithLocalDb]);
+        console.log('[Cleanup] Cleanup completed');
+    }, [syncApolloWithLocalDb, fetchNotifications]);
 
     return { cleanup };
 }

@@ -1,9 +1,6 @@
 import { ApolloClient, ApolloProvider } from "@apollo/client";
 import React, { useEffect } from "react";
-import {
-  initApolloClient,
-  loadNotificationsFromPersistedCache,
-} from "../config/apollo-client";
+import { initApolloClient } from "../config/apollo-client";
 
 interface GraphQLProviderProps {
   children: React.ReactNode;
@@ -22,7 +19,6 @@ export const GraphQLProvider: React.FC<GraphQLProviderProps> = ({
     (async () => {
       const apolloClient = await initApolloClient();
       setClient(apolloClient);
-      await loadNotificationsFromPersistedCache();
     })();
   }, []);
 

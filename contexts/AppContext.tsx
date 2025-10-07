@@ -1,8 +1,4 @@
 import {
-  loadedFromPersistedCacheVar,
-  subscriptionsEnabledVar,
-} from "@/config/apollo-client";
-import {
   DeviceInfoDto,
   LoginDto,
   NotificationFragment,
@@ -12,6 +8,7 @@ import {
   useLogoutMutation,
   useRegisterMutation,
 } from "@/generated/gql-operations-generated";
+import { useCleanup } from "@/hooks/useCleanup";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { useI18n } from "@/hooks/useI18n";
 import {
@@ -22,7 +19,9 @@ import {
   UsePushNotifications,
   usePushNotifications,
 } from "@/hooks/usePushNotifications";
-import { useApolloClient, useReactiveVar } from "@apollo/client";
+import { i18nService } from "@/services/i18n";
+import { localeToDatePickerLocale, type Locale } from "@/types/i18n";
+import * as Localization from "expo-localization";
 import React, {
   createContext,
   ReactNode,
@@ -32,7 +31,6 @@ import React, {
 } from "react";
 import { Alert, AppState } from "react-native";
 import { registerTranslation } from "react-native-paper-dates";
-import { localeToDatePickerLocale, type Locale } from "@/types/i18n";
 import OnboardingModal from "../components/OnboardingModal";
 import {
   clearLastUserId,
@@ -44,16 +42,7 @@ import {
   savePushNotificationsInitialized,
   saveTokens,
 } from "../services/auth-storage";
-import {
-  mediaCache,
-  cleanupGalleryBySettings,
-} from "../services/media-cache-service";
 import { useUserSettings } from "../services/user-settings";
-import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
-import { cleanupNotificationsBySettings } from "@/services/notifications-repository";
-import { i18nService } from "@/services/i18n";
-import * as Localization from "expo-localization";
-import { useCleanup } from "@/hooks/useCleanup";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -110,6 +99,7 @@ const AppContext = createContext<AppContextProps | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [firstGqlLoadingDone, setFirstGqlLoadingDone] = useState(false);
   const [lastUserId, setLastUserId] = useState<string | null>(null);
   const push = usePushNotifications();
   const { t } = useI18n();
@@ -117,10 +107,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [logoutMutation] = useLogoutMutation();
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
-  const loadedFromPersistedCache = useReactiveVar(loadedFromPersistedCacheVar);
   const connectionStatus = useConnectionStatus(push);
   const userSettings = useUserSettings();
-  const apolloClient = useApolloClient();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isMainLoading, setIsLoading] = useState(false);
@@ -267,7 +255,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await push.initialize();
 
       setIsInitializing(false);
-      cleanup({}).catch(console.error);
+      cleanup({ immediate: true })
+        .then(() => setFirstGqlLoadingDone(true))
+        .catch(console.error);
       return true;
     } catch (e) {
       console.error("Error during completeAuth:", e);
@@ -404,7 +394,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
         console.log("[AppContext] App is active, cleaning up");
-        await cleanup({});
+        await cleanup({ immediate: true });
       } else if (
         nextAppState === "inactive" &&
         userSettings.settings.notificationsPreferences?.markAsReadMode ===
@@ -493,7 +483,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         logout,
-        isLoadingGqlData: !loadedFromPersistedCache,
+        isLoadingGqlData: !firstGqlLoadingDone,
         login,
         completeAuth,
         register,

@@ -139,6 +139,8 @@ export const validateNotification = (notification: NotificationFragment, index?:
 
 
 const INIT_BATCH_SIZE = 50;
+const FOLLOW_UP_BATCH_SIZE = 200;
+
 /**
  * Funzione completa per processare JSON raw e scrivere tutto nella cache
  * Gestisce parsing, validazione, scrittura entità e aggiornamento query
@@ -160,37 +162,54 @@ export const processJsonToCache = async (
   }
 
   let totalCount = 0;
-  const firstBatch = notifications.slice(0, INIT_BATCH_SIZE);
-  const firstBatchContext = `${context} batch 1`;
-
-  const firstCount = processNotificationsToCacheWithQuery(
-    cache,
-    firstBatch,
-    firstBatchContext,
-  );
-  console.log(`[${firstBatchContext}] Processed ${firstBatch.length} notifications...`);
-  totalCount += firstCount;
-
-  // Wait before processing remaining notifications
-  if (notifications.length > INIT_BATCH_SIZE) {
-    await new Promise(resolve => setTimeout(resolve, 200));
+  let currentIndex = 0;
+  const batches: number[] = [];
+  
+  // Primo batch con INIT_BATCH_SIZE
+  if (notifications.length > 0) {
+    batches.push(Math.min(INIT_BATCH_SIZE, notifications.length));
+    currentIndex += batches[0];
   }
+  
+  // Batch successivi con FOLLOW_UP_BATCH_SIZE
+  while (currentIndex < notifications.length) {
+    const remainingSize = Math.min(FOLLOW_UP_BATCH_SIZE, notifications.length - currentIndex);
+    batches.push(remainingSize);
+    currentIndex += remainingSize;
+  }
+  
+  const totalBatches = batches.length;
+  console.log(`[${context}] Processing ${notifications.length} notifications in ${totalBatches} batches (first: ${INIT_BATCH_SIZE}, follow-up: ${FOLLOW_UP_BATCH_SIZE})...`);
 
-  // Process remaining notifications in second batch
-  if (notifications.length > INIT_BATCH_SIZE) {
-    const remainingBatch = notifications.slice(INIT_BATCH_SIZE);
-    const remainingBatchContext = `${context} batch 2`;
+  currentIndex = 0;
+  for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+    const batchSize = batches[batchIndex];
+    const start = currentIndex;
+    const end = currentIndex + batchSize;
+    const batch = notifications.slice(start, end);
+    const batchContext = `${context} batch ${batchIndex + 1}/${totalBatches}`;
+    currentIndex = end;
 
-    const remainingCount = processNotificationsToCacheWithQuery(
-      cache,
-      remainingBatch,
-      remainingBatchContext,
-    );
-    console.log(`[${remainingBatchContext}] Processed ${remainingBatch.length} notifications...`);
-    totalCount += remainingCount;
+    await new Promise<void>(resolve => {
+      requestAnimationFrame(() => {
+        const batchCount = processNotificationsToCacheWithQuery(
+          cache,
+          batch,
+          batchContext,
+        );
+
+        // console.log(`[${batchContext}] Processed ${batch.length} notifications (${start + 1}-${end}/${notifications.length})`);
+        totalCount += batchCount;
+        resolve();
+      });
+    });
+
+    if (batchIndex < totalBatches - 1) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
   }
 
   const endTime = Date.now();
-  console.log(`[${context}] Finish processing ${notifications.length} notifications in ${(endTime - startTime) / 1000} seconds`);
+  console.log(`[${context}] Finished processing ${notifications.length} notifications in ${(endTime - startTime) / 1000} seconds`);
   return totalCount;
 };
