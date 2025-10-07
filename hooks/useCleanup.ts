@@ -56,7 +56,6 @@ export const useCleanup = () => {
                     mergedNotifications,
                     'SyncDB'
                 );
-
             }
 
             if (extraInApollo.length > 0) {
@@ -109,7 +108,6 @@ export const useCleanup = () => {
             shouldCleanup = false;
         }
 
-
         const fn = async () => {
             await cleanupNotificationsBySettings();
             await cleanupGalleryBySettings();
@@ -130,10 +128,12 @@ export const useCleanup = () => {
             console.error('[Cleanup] Error on syncing Apollo with local DB', e);
         }
 
-        if (immediate) {
-            await fn();
-        } else {
-            setTimeout(async () => await fn(), 15000);
+        if (shouldCleanup) {
+            if (immediate) {
+                await fn();
+            } else {
+                setTimeout(async () => await fn(), 15000);
+            }
         }
     }, [syncApolloWithLocalDb]);
 
