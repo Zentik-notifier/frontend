@@ -1055,6 +1055,8 @@ export interface TranslationKey {
     description: string;
     deselectAll: string;
     endOfList: string;
+          unreadAbove: string;
+      unreadBelow: string;
     errors: {
       markAllAsReadFailed: string;
     };

@@ -35,29 +35,48 @@ export const useCleanup = () => {
                 apolloNotifications = [];
             }
 
+            // Crea una mappa delle notifiche dal DB locale per lookup veloce
+            const dbNotificationsMap = new Map(dbNotifications.map(n => [n.id, n]));
+            const apolloNotificationsMap = new Map(apolloNotifications.map(n => [n.id, n]));
+
             const dbUuids = new Set(dbNotifications.map(n => n.id));
             const apolloUuids = new Set(apolloNotifications.map(n => n.id));
 
             const missingInApollo = dbNotifications.filter(n => !apolloUuids.has(n.id));
             const extraInApollo = apolloNotifications.filter(n => !dbUuids.has(n.id));
+            const commonIds = Array.from(dbUuids).filter(id => apolloUuids.has(id));
 
-            console.log(`[SyncDB] Gap analysis: ${missingInApollo.length} missing in Apollo, ${extraInApollo.length} extra in Apollo`);
+            console.log(`[SyncDB] Gap analysis: ${missingInApollo.length} missing in Apollo, ${extraInApollo.length} extra in Apollo, ${commonIds.length} common`);
 
-            if (missingInApollo.length > 0) {
-                const mergedNotifications = [...apolloNotifications, ...missingInApollo];
+            // Merge delle notifiche comuni: DB locale ha priorità per campi modificabili localmente
+            const mergedCommon = commonIds.map(id => {
+                const dbNotification = dbNotificationsMap.get(id)!;
+                const apolloNotification = apolloNotificationsMap.get(id)!;
 
-                mergedNotifications.sort((a, b) => {
-                    const aTime = new Date(a.createdAt).getTime();
-                    const bTime = new Date(b.createdAt).getTime();
-                    return bTime - aTime;
-                });
+                // DB locale ha priorità per: readAt, receivedAt
+                // Apollo ha priorità per tutto il resto (dati freschi dal server)
+                return {
+                    ...apolloNotification, // Dati dal server
+                    readAt: dbNotification.readAt, // Priorità al DB locale
+                    receivedAt: dbNotification.receivedAt, // Priorità al DB locale
+                };
+            });
 
-                await processJsonToCache(
-                    apollo.cache,
-                    mergedNotifications,
-                    'SyncDB'
-                );
-            }
+            // Combina: notifiche comuni (merged) + notifiche mancanti in Apollo
+            const finalNotifications = [...mergedCommon, ...missingInApollo];
+
+            finalNotifications.sort((a, b) => {
+                const aTime = new Date(a.createdAt).getTime();
+                const bTime = new Date(b.createdAt).getTime();
+                return bTime - aTime;
+            });
+
+            // Scrivi sempre il risultato merged in Apollo
+            await processJsonToCache(
+                apollo.cache,
+                finalNotifications,
+                'SyncDB'
+            );
 
             if (extraInApollo.length > 0) {
                 await massDelete(extraInApollo.map(n => n.id));

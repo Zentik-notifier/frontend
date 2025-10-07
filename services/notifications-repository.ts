@@ -347,7 +347,7 @@ export async function updateNotificationReadStatus(notificationId: string, readA
         // Update read_at in the notification object
         const updatedNotification: NotificationFragment = {
           ...notification,
-          readAt: readAt
+          readAt
         };
 
         // Update the fragment JSON as well
@@ -355,14 +355,10 @@ export async function updateNotificationReadStatus(notificationId: string, readA
 
         // Save back to database
         await db.runAsync(
-          `UPDATE notifications SET created_at = ?, read_at = ?, bucket_id = ?, has_attachments = ?, fragment = ?
+          `UPDATE notifications SET read_at = ?
            WHERE id = ?`,
           [
-            updatedRecord.created_at,
             updatedRecord.read_at,
-            updatedRecord.bucket_id,
-            updatedRecord.has_attachments,
-            updatedRecord.fragment,
             notificationId
           ]
         );

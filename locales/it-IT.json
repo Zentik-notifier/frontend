@@ -616,6 +616,8 @@
     "deselectAll": "Deseleziona Tutto",
     "selectOptions": "Seleziona opzioni",
     "endOfList": "Fine della lista",
+    "unreadAbove": "Non lette sopra",
+    "unreadBelow": "Non lette sotto",
     "titleRequired": "Il titolo è obbligatorio",
     "content": {
       "title": "Titolo",

@@ -82,6 +82,10 @@ export default function NotificationsList({
 
   const [visibleItems, setVisibileItems] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasUnreadAbove, setHasUnreadAbove] = useState(false);
+  const [hasUnreadBelow, setHasUnreadBelow] = useState(false);
+  const [firstVisibleIndex, setFirstVisibleIndex] = useState(0);
+  const [lastVisibleIndex, setLastVisibleIndex] = useState(0);
 
   const {
     state: { selectionMode, selectedItems },
@@ -110,6 +114,12 @@ export default function NotificationsList({
   const didUserScrollRef = useRef(false);
   const listRef = useRef<any>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+
+  // Configuration for viewability tracking
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+    minimumViewTime: 100,
+  }).current;
 
   // Filter and sort notifications based on user settings
   const { filteredNotifications } = useMemo(() => {
@@ -144,6 +154,40 @@ export default function NotificationsList({
       const visibleSet = new Set(visibleIds);
       setVisibileItems(visibleSet);
       visibleIdsRef.current = visibleSet;
+
+      // Determina il primo e ultimo indice visibile
+      const firstVisibleItem = viewableItems[0];
+      const lastVisibleItem = viewableItems[viewableItems.length - 1];
+
+      if (
+        firstVisibleItem &&
+        firstVisibleItem.index !== null &&
+        firstVisibleItem.index !== undefined
+      ) {
+        const firstIndex = firstVisibleItem.index;
+        setFirstVisibleIndex(firstIndex);
+
+        // Controlla se ci sono notifiche non lette prima di questo indice
+        const hasUnread = filteredNotifications
+          .slice(0, firstIndex)
+          .some((n) => !n.readAt);
+        setHasUnreadAbove(hasUnread);
+      }
+
+      if (
+        lastVisibleItem &&
+        lastVisibleItem.index !== null &&
+        lastVisibleItem.index !== undefined
+      ) {
+        const lastIndex = lastVisibleItem.index;
+        setLastVisibleIndex(lastIndex);
+
+        // Controlla se ci sono notifiche non lette dopo questo indice
+        const hasUnread = filteredNotifications
+          .slice(lastIndex + 1)
+          .some((n) => !n.readAt);
+        setHasUnreadBelow(hasUnread);
+      }
 
       try {
         const firstId = filteredNotifications[0]?.id;
@@ -287,18 +331,20 @@ export default function NotificationsList({
     </Surface>
   );
 
-  const renderListFooter = () => (
-    <View style={styles.listFooter}>
-      <Text
-        style={[
-          styles.listFooterText,
-          { color: theme.colors.onSurfaceVariant },
-        ]}
-      >
-        {t("notifications.endOfList")}
-      </Text>
-    </View>
-  );
+  const renderListFooter = () => {
+    return (
+      <View style={styles.listFooter}>
+        <Text
+          style={[
+            styles.listFooterText,
+            { color: theme.colors.onSurfaceVariant },
+          ]}
+        >
+          {t("notifications.endOfList")}
+        </Text>
+      </View>
+    );
+  };
 
   // const renderLoadingFooter = () => (
   //   <View style={styles.loadingFooter}>
@@ -341,6 +387,7 @@ export default function NotificationsList({
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         onScroll={() => {
           didUserScrollRef.current = true;
         }}
@@ -373,6 +420,94 @@ export default function NotificationsList({
           ]}
         >
           <Icon source="arrow-up" size={20} color={theme.colors.onPrimary} />
+        </TouchableRipple>
+      )}
+
+      {hasUnreadAbove && (
+        <TouchableRipple
+          onPress={() => {
+            try {
+              // Trova la prima notifica non letta sopra l'indice corrente
+              const firstUnreadIndex = filteredNotifications.findIndex(
+                (n, idx) => idx < firstVisibleIndex && !n.readAt
+              );
+              if (firstUnreadIndex !== -1) {
+                listRef.current?.scrollToIndex({
+                  index: firstUnreadIndex,
+                  animated: true,
+                });
+              }
+            } catch (error) {
+              console.error("Error scrolling to unread:", error);
+            }
+          }}
+          style={[
+            styles.unreadBadgeTop,
+            {
+              backgroundColor: theme.colors.primaryContainer,
+              borderColor: theme.colors.primary,
+            },
+          ]}
+        >
+          <View style={styles.unreadBadgeContent}>
+            <Icon source="chevron-up" size={16} color={theme.colors.primary} />
+            <Icon
+              source="email-mark-as-unread"
+              size={16}
+              color={theme.colors.primary}
+            />
+            <Text
+              style={[styles.unreadBadgeText, { color: theme.colors.primary }]}
+            >
+              {t("notifications.unreadAbove")}
+            </Text>
+          </View>
+        </TouchableRipple>
+      )}
+
+      {hasUnreadBelow && (
+        <TouchableRipple
+          onPress={() => {
+            try {
+              // Trova la prima notifica non letta sotto l'indice corrente
+              const firstUnreadIndex = filteredNotifications.findIndex(
+                (n, idx) => idx > lastVisibleIndex && !n.readAt
+              );
+              if (firstUnreadIndex !== -1) {
+                listRef.current?.scrollToIndex({
+                  index: firstUnreadIndex,
+                  animated: true,
+                });
+              }
+            } catch (error) {
+              console.error("Error scrolling to unread:", error);
+            }
+          }}
+          style={[
+            styles.unreadBadgeBottom,
+            {
+              backgroundColor: theme.colors.primaryContainer,
+              borderColor: theme.colors.primary,
+            },
+          ]}
+        >
+          <View style={styles.unreadBadgeContent}>
+            <Icon
+              source="email-mark-as-unread"
+              size={16}
+              color={theme.colors.primary}
+            />
+            <Text
+              style={[styles.unreadBadgeText, { color: theme.colors.primary }]}
+            >
+              {t("notifications.unreadBelow")}
+            </Text>
+            <Icon
+              source="chevron-down"
+              size={16}
+              color={theme.colors.primary}
+            />
+          </View>
         </TouchableRipple>
       )}
     </Surface>
@@ -439,5 +574,40 @@ const styles = StyleSheet.create({
   },
   filtersWrapper: {
     marginBottom: 8,
+  },
+  unreadBadgeTop: {
+    position: "absolute",
+    top: 70,
+    alignSelf: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 5,
+  },
+  unreadBadgeBottom: {
+    position: "absolute",
+    bottom: 24,
+    alignSelf: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 5,
+  },
+  unreadBadgeContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  unreadBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
