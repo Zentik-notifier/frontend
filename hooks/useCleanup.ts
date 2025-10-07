@@ -82,7 +82,7 @@ export const useCleanup = () => {
 
         const executeWithRAF = <T>(fn: () => Promise<T>, label: string): Promise<T> => {
             return new Promise((resolve, reject) => {
-                requestAnimationFrame(async () => {
+                requestIdleCallback(async () => {
                     try {
                         const result = await fn();
                         resolve(result);
@@ -95,7 +95,7 @@ export const useCleanup = () => {
         };
 
         const waitRAF = () => new Promise<void>(resolve => {
-            requestAnimationFrame(() => {
+            requestIdleCallback(() => {
                 setTimeout(resolve, 0);
             });
         });

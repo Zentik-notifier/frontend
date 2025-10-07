@@ -139,7 +139,7 @@ export const validateNotification = (notification: NotificationFragment, index?:
 
 
 const INIT_BATCH_SIZE = 50;
-const FOLLOW_UP_BATCH_SIZE = 200;
+const FOLLOW_UP_BATCH_SIZE = 500;
 
 /**
  * Funzione completa per processare JSON raw e scrivere tutto nella cache
