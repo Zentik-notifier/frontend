@@ -1,12 +1,10 @@
-import { GetNotificationsDocument, NotificationFragment } from "@/generated/gql-operations-generated";
 import { cleanupGalleryBySettings, mediaCache } from "@/services/media-cache-service";
 import { cleanupNotificationsBySettings, getAllNotificationsFromCache } from "@/services/notifications-repository";
 import { userSettings } from "@/services/user-settings";
-import { processJsonToCache } from "@/utils/cache-data-processor";
-import { useApolloClient } from "@apollo/client";
-import { useCallback } from "react";
-import { useFetchNotifications, useMassDeleteNotifications } from "./useNotifications";
 import { setBadgeCount } from "@/utils/badgeUtils";
+import { useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { syncNotificationsFromAPI, notificationKeys } from "@/hooks/notifications";
 
 interface CleanupProps {
     immediate?: boolean,
@@ -14,97 +12,7 @@ interface CleanupProps {
 }
 
 export const useCleanup = () => {
-    const apollo = useApolloClient();
-    const { fetchNotifications } = useFetchNotifications();
-    const { massDelete } = useMassDeleteNotifications();
-
-    const syncApolloWithLocalDb = useCallback(async () => {
-        try {
-            console.log('[SyncDB] Starting Apollo-LocalDB sync...');
-
-            const dbNotifications = await getAllNotificationsFromCache();
-
-            let apolloNotifications: NotificationFragment[] = [];
-            try {
-                const queryData = apollo.readQuery<{ notifications: NotificationFragment[] }>({
-                    query: GetNotificationsDocument,
-                });
-                apolloNotifications = queryData?.notifications || [];
-            } catch (error) {
-                console.warn('[SyncDB] Could not read Apollo cache, initializing empty:', error);
-                apolloNotifications = [];
-            }
-
-            // Crea una mappa delle notifiche dal DB locale per lookup veloce
-            const dbNotificationsMap = new Map(dbNotifications.map(n => [n.id, n]));
-            const apolloNotificationsMap = new Map(apolloNotifications.map(n => [n.id, n]));
-
-            const dbUuids = new Set(dbNotifications.map(n => n.id));
-            const apolloUuids = new Set(apolloNotifications.map(n => n.id));
-
-            const missingInApollo = dbNotifications.filter(n => !apolloUuids.has(n.id));
-            const extraInApollo = apolloNotifications.filter(n => !dbUuids.has(n.id));
-            const commonIds = Array.from(dbUuids).filter(id => apolloUuids.has(id));
-
-            console.log(`[SyncDB] Gap analysis: ${missingInApollo.length} missing in Apollo, ${extraInApollo.length} extra in Apollo, ${commonIds.length} common`);
-
-            // Merge delle notifiche comuni: DB locale ha priorità per campi modificabili localmente
-            const mergedCommon = commonIds.map(id => {
-                const dbNotification = dbNotificationsMap.get(id)!;
-                const apolloNotification = apolloNotificationsMap.get(id)!;
-
-                // DB locale ha priorità per: readAt, receivedAt
-                // Apollo ha priorità per tutto il resto (dati freschi dal server)
-                return {
-                    ...apolloNotification, // Dati dal server
-                    readAt: dbNotification.readAt, // Priorità al DB locale
-                    receivedAt: dbNotification.receivedAt, // Priorità al DB locale
-                };
-            });
-
-            // Combina: notifiche comuni (merged) + notifiche mancanti in Apollo
-            const finalNotifications = [...mergedCommon, ...missingInApollo];
-
-            finalNotifications.sort((a, b) => {
-                const aTime = new Date(a.createdAt).getTime();
-                const bTime = new Date(b.createdAt).getTime();
-                return bTime - aTime;
-            });
-
-            // Scrivi sempre il risultato merged in Apollo
-            await processJsonToCache(
-                apollo.cache,
-                finalNotifications,
-                'SyncDB'
-            );
-
-            if (extraInApollo.length > 0) {
-                await massDelete(extraInApollo.map(n => n.id));
-            }
-
-            const result = {
-                added: missingInApollo.length,
-                removed: extraInApollo.length,
-                total: dbNotifications.length
-            };
-
-            console.log(`[SyncDB] Sync completed: added ${result.added}, removed ${result.removed}, total ${result.total}`);
-
-            // Update badge count with unread notifications from DB
-            try {
-                const unreadCount = dbNotifications.filter(n => !n.readAt).length;
-                await setBadgeCount(unreadCount);
-            } catch (error) {
-                console.error('[SyncDB] Error updating badge count:', error);
-            }
-
-            return result;
-
-        } catch (error) {
-            console.error('[SyncDB] Error syncing Apollo with local DB:', error);
-            throw error;
-        }
-    }, [apollo]);
+    const queryClient = useQueryClient();
 
     const cleanup = useCallback(async ({ immediate, force }: CleanupProps) => {
         const shouldCleanup = !userSettings.shouldRunCleanup() ? false : true;
@@ -133,29 +41,32 @@ export const useCleanup = () => {
 
         await new Promise(resolve => setTimeout(resolve, delay));
 
-        // // 1. Fetch notifications from remote
-        // await executeWithRAF(
-        //     async () => {
-        //         await fetchNotifications();
-        //         console.log('[Cleanup] Fetched notifications from remote');
-        //     },
-        //     'fetching notifications'
-        // ).catch(() => { }); // Continue on error
-        // await waitRAF();
-        await fetchNotifications();
+        // 1. Sync notifications from API (initial startup sync)
+        await executeWithRAF(
+            async () => {
+                console.log('[Cleanup] Starting notification sync from API...');
+                const count = await syncNotificationsFromAPI();
+                console.log(`[Cleanup] Synced ${count} notifications from API`);
+                
+                // Invalidate all queries to refresh UI with new data
+                await queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+                console.log('[Cleanup] React Query cache invalidated');
+                
+                // Update badge count with unread notifications
+                try {
+                    const dbNotifications = await getAllNotificationsFromCache();
+                    const unreadCount = dbNotifications.filter(n => !n.readAt).length;
+                    await setBadgeCount(unreadCount);
+                    console.log(`[Cleanup] Badge count updated: ${unreadCount} unread`);
+                } catch (error) {
+                    console.error('[Cleanup] Error updating badge count:', error);
+                }
+            },
+            'syncing notifications from API'
+        ).catch(() => { }); // Continue on error
+        await waitRAF();
 
-        // 2. Sync Apollo with LocalDB
-        // await executeWithRAF(
-        //     async () => {
-        //         await syncApolloWithLocalDb();
-        //         console.log('[Cleanup] Synced Apollo with LocalDB');
-        //     },
-        //     'syncing Apollo with local DB'
-        // ).catch(() => { }); // Continue on error
-        // await waitRAF();
-        await syncApolloWithLocalDb();
-
-        // 3. Cleanup notifications by settings
+        // 2. Cleanup notifications by settings
         if (shouldCleanup || force) {
             await executeWithRAF(
                 async () => {
@@ -167,7 +78,7 @@ export const useCleanup = () => {
 
             await waitRAF();
 
-            // 4. Cleanup gallery by settings
+            // 3. Cleanup gallery by settings
             await executeWithRAF(
                 async () => {
                     await cleanupGalleryBySettings();
@@ -181,7 +92,7 @@ export const useCleanup = () => {
             await waitRAF();
         }
 
-        // 5. Reload media cache metadata
+        // 4. Reload media cache metadata
         await executeWithRAF(
             async () => {
                 await mediaCache.reloadMetadata();
@@ -193,7 +104,7 @@ export const useCleanup = () => {
         await waitRAF();
 
         console.log('[Cleanup] Cleanup completed');
-    }, [syncApolloWithLocalDb, fetchNotifications]);
+    }, [queryClient]);
 
     return { cleanup };
 }

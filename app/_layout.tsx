@@ -20,6 +20,7 @@ import { AppProvider, useAppContext } from "../contexts/AppContext";
 import { ApiConfigService } from "../services/api-config";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb, openWebStorageDb } from "../services/db-setup";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 type AlertButton = {
   text?: string;
@@ -79,6 +80,7 @@ export default function RootLayout() {
   const originalAlertRef = useRef<typeof Alert.alert>(null);
   const { isMobile } = useDeviceType();
   const { processPendingNavigationIntent } = usePendingNotificationIntents();
+  const queryClient = new QueryClient();
 
   useEffect(() => {
     console.log("[RootLayout] Loaded");
@@ -164,50 +166,52 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView>
       <SafeAreaProvider>
-        <ThemeProvider>
-          <I18nProvider>
-            <GraphQLProvider>
-              <AppProvider>
-                <MenuProvider>
-                  <DeepLinkHandler />
-                  <RequireAuth>
-                    {isMobile ? <MobileLayout /> : <TabletLayout />}
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <I18nProvider>
+              <GraphQLProvider>
+                <AppProvider>
+                  <MenuProvider>
+                    <DeepLinkHandler />
+                    <RequireAuth>
+                      {isMobile ? <MobileLayout /> : <TabletLayout />}
 
-                    <AlertDialog
-                      visible={webAlert.visible}
-                      title={webAlert.title || ""}
-                      message={webAlert.message || ""}
-                      onDismiss={handleCloseAlert}
-                      confirmText={
-                        webAlert.buttons?.[webAlert.buttons.length - 1]?.text ||
-                        "OK"
-                      }
-                      onConfirm={() => {
-                        const lastButton =
-                          webAlert.buttons?.[webAlert.buttons.length - 1];
-                        if (lastButton) handleButtonPress(lastButton);
-                      }}
-                      cancelText={
-                        webAlert.buttons?.length === 2
-                          ? webAlert.buttons[0]?.text
-                          : undefined
-                      }
-                      onCancel={
-                        webAlert.buttons?.length === 2
-                          ? () => {
-                              const firstButton = webAlert.buttons?.[0];
-                              if (firstButton) handleButtonPress(firstButton);
-                            }
-                          : undefined
-                      }
-                      type={webAlert.type || "info"}
-                    />
-                  </RequireAuth>
-                </MenuProvider>
-              </AppProvider>
-            </GraphQLProvider>
-          </I18nProvider>
-        </ThemeProvider>
+                      <AlertDialog
+                        visible={webAlert.visible}
+                        title={webAlert.title || ""}
+                        message={webAlert.message || ""}
+                        onDismiss={handleCloseAlert}
+                        confirmText={
+                          webAlert.buttons?.[webAlert.buttons.length - 1]
+                            ?.text || "OK"
+                        }
+                        onConfirm={() => {
+                          const lastButton =
+                            webAlert.buttons?.[webAlert.buttons.length - 1];
+                          if (lastButton) handleButtonPress(lastButton);
+                        }}
+                        cancelText={
+                          webAlert.buttons?.length === 2
+                            ? webAlert.buttons[0]?.text
+                            : undefined
+                        }
+                        onCancel={
+                          webAlert.buttons?.length === 2
+                            ? () => {
+                                const firstButton = webAlert.buttons?.[0];
+                                if (firstButton) handleButtonPress(firstButton);
+                              }
+                            : undefined
+                        }
+                        type={webAlert.type || "info"}
+                      />
+                    </RequireAuth>
+                  </MenuProvider>
+                </AppProvider>
+              </GraphQLProvider>
+            </I18nProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

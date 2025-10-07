@@ -1,7 +1,7 @@
 import { useI18n } from '@/hooks/useI18n';
 import { getAllNotificationsFromCache, getAllRawNotificationsFromDB, importRawNotificationsToDB } from '@/services/notifications-repository';
-import { processJsonToCache } from '@/utils/cache-data-processor';
-import { useApolloClient } from '@apollo/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { notificationKeys } from '@/hooks/notifications';
 import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -21,7 +21,6 @@ export const cleanExportData = (data: any): any => {
     const cleaned: any = {};
 
     Object.entries(data).forEach(([key, value]) => {
-      // Rimuovi metadati interni di Apollo Cache (mantieni solo __typename)
       if (key.startsWith('__') && key !== '__typename') {
         return;
       }
@@ -77,7 +76,7 @@ export const cleanExportData = (data: any): any => {
 
 export function useNotificationExportImport(onImportSuccess?: (notifications: any[]) => void) {
   const { t } = useI18n();
-  const apolloClient = useApolloClient();
+  const queryClient = useQueryClient();
 
   const exportAllNotifications = async () => {
     try {
@@ -158,24 +157,12 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
                   // Import raw notifications directly to database
                   await importRawNotificationsToDB(rawNotifications);
 
-                  // Update Apollo cache with the parsed notifications
-                  if (apolloClient?.cache) {
-                    const notifications = rawNotifications.map(raw => {
-                      try {
-                        return JSON.parse(raw.fragment);
-                      } catch {
-                        return null;
-                      }
-                    }).filter(Boolean);
-
-                    if (notifications.length > 0) {
-                      await processJsonToCache(
-                        apolloClient.cache,
-                        notifications,
-                        'Import'
-                      );
-                    }
-                  }
+                  // Invalidate all React Query notification queries to refresh from DB
+                  await queryClient.invalidateQueries({ 
+                    queryKey: notificationKeys.all 
+                  });
+                  
+                  console.log(`[Import] Imported ${rawNotifications.length} notifications and invalidated React Query cache`);
 
                   Alert.alert(
                     t('appSettings.gqlCache.importExport.importCompleted'),

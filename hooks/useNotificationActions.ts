@@ -16,34 +16,40 @@ import {
   useUpdateDeviceTokenMutation
 } from '../generated/gql-operations-generated';
 import { useI18n } from './useI18n';
-import { useDeleteNotification, useFetchNotifications, useMarkNotificationRead } from './useNotifications';
 import { useCleanup } from './useCleanup';
-
-/**
+import { setBadgeCount } from '@/utils/badgeUtils';
+import { 
+  useMarkAsRead as useMarkAsReadRQ,
+  useDeleteNotification as useDeleteNotificationRQ,
+  refreshNotificationQueries,
+} from '@/hooks/notifications';
+import { useQueryClient } from '@tanstack/react-query';/**
  * Hook that provides callbacks for handling notification actions
  * Centralizes all action logic with access to GraphQL and API
  */
 export function useNotificationActions() {
   const { t } = useI18n();
-  const deleteNotificationFn = useDeleteNotification();
-  const markAsReadFn = useMarkNotificationRead();
+  const queryClient = useQueryClient();
   const [getNotification] = useGetNotificationLazyQuery();
   const [executeWebhook] = useExecuteWebhookMutation();
   const [setBucketSnoozeMinutes] = useSetBucketSnoozeMinutesMutation();
   const [deviceReportReceived] = useDeviceReportNotificationReceivedMutation();
   const [updateDeviceToken] = useUpdateDeviceTokenMutation();
   const [updateUserDeviceMutation] = useUpdateUserDeviceMutation();
-  const { fetchNotifications } = useFetchNotifications(true);
   const { navigateToNotificationDetail, navigateToHome } = useNavigationUtils();
   const { cleanup } = useCleanup();
 
+  // React Query mutations
+  const deleteNotificationMutation = useDeleteNotificationRQ();
+  const markAsReadMutation = useMarkAsReadRQ();
+
   const deleteNotification = useCallback(async (notificationId: string) => {
-    deleteNotificationFn(notificationId);
-  }, [deleteNotificationFn]);
+    await deleteNotificationMutation.mutateAsync(notificationId);
+  }, [deleteNotificationMutation]);
 
   const markAsRead = useCallback(async (notificationId: string) => {
-    markAsReadFn(notificationId,);
-  }, [markAsReadFn]);
+    await markAsReadMutation.mutateAsync(notificationId);
+  }, [markAsReadMutation]);
 
   const onNavigate = useCallback(async (destination: string) => {
     console.log('🧭 Navigating to:', destination);
@@ -287,23 +293,29 @@ export function useNotificationActions() {
 
   const pushNotificationReceived = useCallback(async (notificationId: string) => {
     try {
+      // Report to server that notification was received
       try {
         await deviceReportReceived({ variables: { id: notificationId } });
-      } catch {
+      } catch (error) {
+        console.warn('⚠️ Failed to report notification received:', error);
       }
 
       try {
-        await fetchNotifications();
+        console.log('[pushNotificationReceived] Processing notification:', notificationId);
+
+        // Notification is already saved in DB by push notification system
+        // Just invalidate React Query cache to refresh all lists
+        await refreshNotificationQueries(queryClient);
 
         const currentCount = await Notifications.getBadgeCountAsync();
-        await Notifications.setBadgeCountAsync(currentCount + 1);
+        await setBadgeCount(currentCount + 1);
       } catch (e) {
-        console.warn('⚠️ Failed to refetch notifications list after push receipt:', e);
+        console.warn('⚠️ Failed to handle push notification:', e);
       }
     } catch (error) {
       console.error('pushNotificationReceived error', error);
     }
-  }, [getNotification, deviceReportReceived]);
+  }, [queryClient, deviceReportReceived]);
 
   return {
     onNavigate,
@@ -317,7 +329,6 @@ export function useNotificationActions() {
     refreshPushToken,
     pushNotificationReceived,
     useUpdateUserDevice,
-    fetchNotifications,
     cleanup,
   };
 }

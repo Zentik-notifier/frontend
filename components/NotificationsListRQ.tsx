@@ -10,7 +10,7 @@ import {
 import { NotificationFragment } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import {
-  useNotifications,
+  useInfiniteNotifications,
   useBatchMarkAsRead,
   useBatchDeleteNotifications,
   useMarkAsRead,
@@ -75,14 +75,11 @@ interface NotificationsListRQProps {
    * Custom list style
    */
   listStyle?: any;
-
-  /**
-   * Additional filters to apply (merged with user settings filters)
-   */
-  additionalFilters?: Partial<RQFilters>;
 }
 
-export function NotificationsListRQWithContext(props: NotificationsListRQProps) {
+export function NotificationsListRQWithContext(
+  props: NotificationsListRQProps
+) {
   return (
     <NotificationsProvider>
       <NotificationsListRQ {...props} />
@@ -97,7 +94,6 @@ export default function NotificationsListRQ({
   emptyStateSubtitle,
   customHeader,
   listStyle,
-  additionalFilters = {},
 }: NotificationsListRQProps) {
   const theme = useTheme();
   const { t } = useI18n();
@@ -109,7 +105,6 @@ export default function NotificationsListRQ({
   // React Query hooks
   const batchMarkAsReadMutation = useBatchMarkAsRead();
   const batchDeleteMutation = useBatchDeleteNotifications();
-  const markAsReadMutation = useMarkAsRead();
 
   const [visibleItems, setVisibileItems] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -134,9 +129,7 @@ export default function NotificationsListRQ({
 
   // Build filters from user settings
   const queryFilters = useMemo((): RQFilters => {
-    const filters: RQFilters = {
-      ...additionalFilters,
-    };
+    const filters: RQFilters = {};
 
     // Add bucket filter if provided
     if (bucketId) {
@@ -159,22 +152,24 @@ export default function NotificationsListRQ({
     // Handle time range filters
     if (notificationFilters?.timeRange) {
       const now = new Date();
-      
+
       switch (notificationFilters.timeRange) {
-        case 'today':
-          filters.createdAfter = new Date(now.setHours(0, 0, 0, 0)).toISOString();
+        case "today":
+          filters.createdAfter = new Date(
+            now.setHours(0, 0, 0, 0)
+          ).toISOString();
           break;
-        case 'thisWeek':
+        case "thisWeek":
           const weekAgo = new Date(now);
           weekAgo.setDate(weekAgo.getDate() - 7);
           filters.createdAfter = weekAgo.toISOString();
           break;
-        case 'thisMonth':
+        case "thisMonth":
           const monthAgo = new Date(now);
           monthAgo.setMonth(monthAgo.getMonth() - 1);
           filters.createdAfter = monthAgo.toISOString();
           break;
-        case 'custom':
+        case "custom":
           if (notificationFilters.customTimeRange?.from) {
             filters.createdAfter = notificationFilters.customTimeRange.from;
           }
@@ -186,69 +181,66 @@ export default function NotificationsListRQ({
     }
 
     // Apply selected bucket IDs filter
-    if (notificationFilters?.selectedBucketIds && notificationFilters.selectedBucketIds.length > 0 && !bucketId) {
+    if (
+      notificationFilters?.selectedBucketIds &&
+      notificationFilters.selectedBucketIds.length > 0 &&
+      !bucketId
+    ) {
       // If we have selected buckets and we're not already filtering by a specific bucket
       // This filter needs to be applied client-side or you need a new query parameter
       // For now we'll handle it in the client-side filtering
     }
 
     return filters;
-  }, [bucketId, notificationFilters, additionalFilters]);
+  }, [bucketId, notificationFilters]);
 
   // Build sort from user settings
   const querySort = useMemo(() => {
     const sortPreference = notificationFilters?.sortBy || "newest";
-    
+
     return {
       field: "createdAt" as const,
-      direction: sortPreference === "oldest" ? ("asc" as const) : ("desc" as const),
+      direction:
+        sortPreference === "oldest" ? ("asc" as const) : ("desc" as const),
     };
   }, [notificationFilters?.sortBy]);
 
-  // Fetch notifications with React Query
+  // Fetch notifications with React Query Infinite
+  // No autoSync - sync only happens on app startup
+  // Push notifications will add items to cache and invalidate queries
   const {
-    data: queryResult,
+    data,
     isLoading,
     isFetching,
     error,
     refetch,
-  } = useNotifications({
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteNotifications({
     filters: queryFilters,
     sort: querySort,
-    pagination: { limit, offset: 0 },
-    autoSync: true,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    pageSize: limit,
+    refetchInterval: 10000, // Refresh from local DB every 10 seconds
   });
 
-  const notifications = queryResult?.notifications || [];
-  const totalCount = queryResult?.totalCount || 0;
+  // Flatten all pages into single array
+  const notifications = useMemo(() => {
+    return data?.pages.flatMap((page) => page.notifications) || [];
+  }, [data?.pages]);
 
-  // Apply ONLY client-side filtering that cannot be done at query level
-  const filteredNotifications = useMemo(() => {
-    let filtered = notifications;
+  const filteredNotifications = notifications;
 
-    // Apply bucket filter if multiple buckets are selected (can't be done in single query)
-    if (notificationFilters?.selectedBucketIds && notificationFilters.selectedBucketIds.length > 0 && !bucketId) {
-      filtered = filtered.filter((n) => 
-        notificationFilters.selectedBucketIds.includes(n.message?.bucket?.id || '')
-      );
-    }
-
-    // DO NOT apply shouldFilterNotification here - filters are already applied in queryFilters
-    // This was causing double filtering!
-
-    return filtered;
-  }, [notifications, notificationFilters, bucketId]);
-
-  // Reset limit when filters change
+  // Reset when filters change - invalidate query instead of changing limit
   useEffect(() => {
+    // Query will automatically refetch due to key change
     setLimit(50);
   }, [queryFilters, querySort]);
 
   // Update context with current notifications
-  useEffect(() => {
-    handleSetAllNotifications(filteredNotifications);
-  }, [filteredNotifications]);
+  //   useEffect(() => {
+  //     handleSetAllNotifications(filteredNotifications);
+  //   }, [filteredNotifications]);
 
   // Update loading state
   useEffect(() => {
@@ -437,14 +429,13 @@ export default function NotificationsListRQ({
   // Memoized key extractor
   const keyExtractor = useCallback((item: NotificationFragment) => item.id, []);
 
-  // Handle loading more notifications
+  // Handle loading more notifications with infinite query
   const handleLoadMore = useCallback(() => {
-    if (isFetching || isLoading) return;
-    if (filteredNotifications.length >= totalCount) return;
-    
-    // Increase limit by 50
-    setLimit(prev => prev + 50);
-  }, [isFetching, isLoading, filteredNotifications.length, totalCount]);
+    if (isFetchingNextPage || isLoading) return;
+    if (!hasNextPage) return;
+
+    fetchNextPage();
+  }, [isFetchingNextPage, isLoading, hasNextPage, fetchNextPage]);
 
   const renderEmptyState = () => (
     <Surface
@@ -465,11 +456,7 @@ export default function NotificationsListRQ({
         </>
       ) : error ? (
         <>
-          <Icon
-            source="alert-circle"
-            size={48}
-            color={theme.colors.error}
-          />
+          <Icon source="alert-circle" size={48} color={theme.colors.error} />
           <Text
             style={[
               styles.emptyText,
@@ -510,7 +497,8 @@ export default function NotificationsListRQ({
   );
 
   const renderListFooter = () => {
-    if (isFetching && filteredNotifications.length > 0) {
+    // Show loading when fetching next page
+    if (isFetchingNextPage) {
       return (
         <View style={styles.listFooter}>
           <ActivityIndicator size="small" color={theme.colors.primary} />
@@ -526,8 +514,8 @@ export default function NotificationsListRQ({
       );
     }
 
-    // Show end of list only if we have loaded all available notifications
-    if (filteredNotifications.length >= totalCount && filteredNotifications.length > 0) {
+    // Show end of list when no more pages
+    if (!hasNextPage && filteredNotifications.length > 0) {
       return (
         <View style={styles.listFooter}>
           <Text
@@ -536,7 +524,7 @@ export default function NotificationsListRQ({
               { color: theme.colors.onSurfaceVariant },
             ]}
           >
-            {t("notifications.endOfList")} ({filteredNotifications.length} / {totalCount})
+            {t("notifications.endOfList")} ({filteredNotifications.length})
           </Text>
         </View>
       );

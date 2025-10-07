@@ -15,12 +15,15 @@ export {
   useNotifications,
   useNotification,
   useBucketNotifications,
+  useInfiniteNotifications,
   useNotificationStats,
   useBucketStats,
   useUnreadCountsByBucket,
   notificationKeys,
   prefetchNotifications,
   prefetchBucketNotifications,
+  syncNotificationsFromAPI,
+  refreshNotificationQueries,
 } from './useNotificationQueries';
 
 // Mutation Hooks

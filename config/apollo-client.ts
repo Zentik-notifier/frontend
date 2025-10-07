@@ -2,8 +2,6 @@ import { GetNotificationsDocument, GetNotificationsQuery, NotificationFragment }
 import { ApiConfigService } from '@/services/api-config';
 import { authService } from '@/services/auth-service';
 import { getStoredDeviceToken } from '@/services/auth-storage';
-import { getAllNotificationsFromCache } from '@/services/notifications-repository';
-import { processJsonToCache } from '@/utils/cache-data-processor';
 import { ApolloClient, createHttpLink, InMemoryCache, makeVar, split } from '@apollo/client';
 import { loadDevMessages, loadErrorMessages } from "@apollo/client/dev";
 import { setContext } from '@apollo/client/link/context';
@@ -11,7 +9,6 @@ import { onError } from '@apollo/client/link/error';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { createClient } from 'graphql-ws';
-import { Platform } from 'react-native';
 
 if (__DEV__) {
   loadDevMessages();
@@ -95,87 +92,11 @@ const createCacheDynamic = () => new InMemoryCache({
     }
     return undefined;
   },
-  typePolicies: {
-    MessageAttachment: {
-      fields: {
-        url: {
-          read(existing, { readField }) {
-            if (existing != null) return existing;
-            const attachmentUuid = readField<string>('attachmentUuid');
-            if (attachmentUuid) {
-              const base = ApiConfigService.getApiUrlSync().replace(/\/$/, '');
-              return `${base}/api/v1/attachments/${attachmentUuid}/download/public`;
-            }
-            return existing ?? null;
-          },
-        },
-      },
-    },
-    Notification: {
-      fields: {
-        readAt: {
-          merge(existing, incoming) {
-            return existing !== undefined ? existing : (incoming ?? null);
-          },
-        },
-        receivedAt: {
-          merge(existing, incoming) {
-            return existing !== undefined ? existing : (incoming ?? null);
-          },
-        },
-      },
-    },
-    Query: {
-      fields: {
-        notifications: {
-          keyArgs: false,
-          merge(existing = [], incoming = [], { readField }) {
-            const byId = new Map<string, any>();
-
-            for (const item of existing) {
-              const id = readField<string>('id', item);
-              if (id && !byId.has(id)) byId.set(id, item);
-            }
-
-            for (const item of incoming) {
-              const id = readField<string>('id', item);
-              if (id && !byId.has(id)) byId.set(id, item);
-            }
-
-            return Array.from(byId.values());
-          },
-        },
-        buckets: {
-          keyArgs: false,
-          merge(existing = [], incoming = [], { readField }) {
-            try {
-            } catch { }
-            const byId = new Map<string, any>();
-
-            for (const item of existing) {
-              const id = readField<string>('id', item);
-              if (id && !byId.has(id)) byId.set(id, item);
-            }
-
-            for (const item of incoming) {
-              const id = readField<string>('id', item);
-              if (id && !byId.has(id)) byId.set(id, item);
-            }
-
-            return Array.from(byId.values());
-          },
-        },
-      },
-    },
-  },
 });
 
-// Create cache instance
 const cache = createCacheDynamic();
 
 export let apolloClient: ApolloClient<any> | null = null;
-// export let persistor: CachePersistor<NormalizedCacheObject> | null = null;
-
 
 export const initApolloClient = async () => {
   await ApiConfigService.initialize();
@@ -218,43 +139,6 @@ export const initApolloClient = async () => {
 
   return apolloClient;
 }
-
-export const loadNotificationsFromPersistedCache = async (): Promise<void> => {
-  try {
-    console.log('[Apollo Cache] Loading notifications from persisted cache...');
-
-    if (!apolloClient) {
-      console.warn('[Apollo Cache] Apollo client not initialized');
-      return;
-    }
-
-    let notifications: NotificationFragment[] = [];
-
-    // Load from appropriate database based on platform
-    try {
-      notifications = await getAllNotificationsFromCache();
-    } catch (error) {
-      console.error(`[Apollo Cache] Error loading notifications from ${Platform.OS === 'web' ? 'IndexedDB' : 'SQLite'}:`, error);
-    }
-
-    if (notifications.length === 0) {
-      console.log('[Apollo Cache] No notifications found to load');
-      return;
-    }
-
-    console.log(`[Apollo Cache] Found ${notifications.length} notifications in ${Platform.OS === 'web' ? 'IndexedDB' : 'SQLite'}`);
-
-    const successCount = await processJsonToCache(
-      apolloClient.cache,
-      notifications,
-      'Apollo Cache',
-    );
-
-    console.log(`[Apollo Cache] Successfully loaded ${successCount} notifications from persisted cache`);
-  } catch (error) {
-    console.error('[Apollo Cache] Error loading notifications from persisted cache:', error);
-  }
-};
 
 export const resetApolloCache = async () => {
   if (!apolloClient) return;
