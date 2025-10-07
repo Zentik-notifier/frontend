@@ -6,6 +6,7 @@
 import {
     useQuery,
     useInfiniteQuery,
+    useQueryClient,
     UseQueryResult,
     UseQueryOptions,
     UseInfiniteQueryResult,
@@ -546,6 +547,54 @@ export function useSyncNotificationsFromAPI() {
     };
 
     return { syncNotifications };
+}
+
+/**
+ * Hook for refreshing notifications with remote sync
+ * Combines remote sync + cache invalidation + query refetch
+ * Perfect for pull-to-refresh functionality
+ * 
+ * @example
+ * ```tsx
+ * function MyComponent() {
+ *   const { data, refetch } = useNotifications();
+ *   const refreshWithSync = useRefreshNotifications();
+ *   const [isRefreshing, setIsRefreshing] = useState(false);
+ *   
+ *   const handleRefresh = async () => {
+ *     setIsRefreshing(true);
+ *     try {
+ *       await refreshWithSync(refetch);
+ *     } finally {
+ *       setIsRefreshing(false);
+ *     }
+ *   };
+ * }
+ * ```
+ */
+export function useRefreshNotifications() {
+    const queryClient = useQueryClient();
+    const { syncNotifications } = useSyncNotificationsFromAPI();
+
+    const refreshWithSync = async (refetchFn?: () => Promise<any>): Promise<number> => {
+        // 1. Sync from remote API first (fetch new notifications, save to DB, delete from server)
+        console.log('[useRefreshNotifications] Syncing from remote...');
+        const syncedCount = await syncNotifications();
+        console.log(`[useRefreshNotifications] Synced ${syncedCount} notifications from remote`);
+
+        // 2. Invalidate all queries to refresh UI with new data from local DB
+        await queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+        console.log('[useRefreshNotifications] React Query cache invalidated');
+
+        // 3. Optionally refetch specific query if provided
+        if (refetchFn) {
+            await refetchFn();
+        }
+
+        return syncedCount;
+    };
+
+    return refreshWithSync;
 }
 
 /**

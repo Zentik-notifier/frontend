@@ -21,6 +21,7 @@ export {
   useUnreadCountsByBucket,
   useNotificationDetail,
   useSyncNotificationsFromAPI,
+  useRefreshNotifications,
   notificationKeys,
   prefetchNotifications,
   prefetchBucketNotifications,

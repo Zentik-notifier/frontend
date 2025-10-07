@@ -14,10 +14,12 @@ import {
   useBatchMarkAsRead,
   useBatchDeleteNotifications,
   useMarkAsRead,
+  useRefreshNotifications,
 } from "@/hooks/notifications";
 import { useAppContext } from "@/contexts/AppContext";
 import { userSettings } from "@/services/user-settings";
 import { FlashList } from "@shopify/flash-list";
+import { useQueryClient } from "@tanstack/react-query";
 import React, {
   useCallback,
   useEffect,
@@ -105,6 +107,7 @@ export default function NotificationsListRQ({
   // React Query hooks
   const batchMarkAsReadMutation = useBatchMarkAsRead();
   const batchDeleteMutation = useBatchDeleteNotifications();
+  const refreshWithSync = useRefreshNotifications();
 
   const [visibleItems, setVisibileItems] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -402,7 +405,9 @@ export default function NotificationsListRQ({
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refetch();
+      await refreshWithSync(refetch);
+    } catch (error) {
+      console.error('[NotificationsListRQ] Pull-to-refresh error:', error);
     } finally {
       setIsRefreshing(false);
     }
