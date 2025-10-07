@@ -13,11 +13,7 @@ import PaperScrollView from "./ui/PaperScrollView";
 const BucketsSection: React.FC = () => {
   const { t } = useI18n();
   const theme = useTheme();
-  const {
-    data: bucketsData,
-    loading: bucketsLoading,
-    refetch: refetchBuckets,
-  } = useGetBucketsQuery();
+  const { data: bucketsData, loading: bucketsLoading } = useGetBucketsQuery();
   const {
     notifications,
     setMainLoading,
@@ -90,7 +86,6 @@ const BucketsSection: React.FC = () => {
 
   const refetch = async () => {
     await refetchNotifications();
-    await refetchBuckets();
   };
 
   return (

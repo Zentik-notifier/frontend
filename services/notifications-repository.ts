@@ -578,7 +578,7 @@ export async function deleteNotificationsByBucketId(bucketId: string): Promise<v
         await db.runAsync('DELETE FROM notifications WHERE bucket_id = ?', [bucketId]);
       }
 
-          console.log(`[deleteNotificationsByBucketId] Deleted all notifications for bucket ${bucketId} from cache`);
+      console.log(`[deleteNotificationsByBucketId] Deleted all notifications for bucket ${bucketId} from cache`);
     } catch (error) {
       console.error('[deleteNotificationsByBucketId] Failed to delete notifications by bucket ID from cache:', error);
       throw error;
@@ -610,9 +610,11 @@ export interface NotificationCleanupResult {
  * console.log(`Cleaned up ${result.deletedCount} notifications`);
  * ```
  */
-export async function cleanupNotificationsBySettings(notifications: NotificationFragment[]): Promise<NotificationCleanupResult> {
+export async function cleanupNotificationsBySettings(): Promise<NotificationCleanupResult> {
   const max = userSettings.getMaxCachedNotifications?.() ?? 500;
   const maxDays = userSettings.getMaxCachedNotificationsDay?.();
+
+  const notifications = await getAllNotificationsFromCache();
 
   console.log(`[cleanupNotificationsBySettings] Starting cleanup with max=${max}, maxDays=${maxDays}`);
 

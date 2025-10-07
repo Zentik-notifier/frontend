@@ -2,12 +2,15 @@ import { useCallback, useMemo } from 'react';
 import { dateFormatService } from '../services/date-format';
 import { useI18n } from './useI18n';
 import { localeToDatePickerLocale, type DatePickerLocale } from '@/types/i18n';
+import { useUserSettings } from '@/services/user-settings';
 
 /**
  * Hook for formatting dates according to user preferences
  */
 export function useDateFormat() {
   const { t, locale } = useI18n();
+  const { settings } = useUserSettings();
+
   const formatDate = useCallback((date: Date | string, includeTime?: boolean) => {
     return dateFormatService.formatDate(date, includeTime);
   }, []);
@@ -53,5 +56,6 @@ export function useDateFormat() {
     formatTime,
     formatDateKey,
     datePickerLocale,
+    use24HourTime: settings.dateFormat.use24HourTime
   };
 }

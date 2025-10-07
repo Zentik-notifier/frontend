@@ -6,6 +6,7 @@ import {
   ResourceType,
   useShareBucketMutation,
   useUnshareBucketMutation,
+  UserRole,
 } from "@/generated/gql-operations-generated";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
@@ -205,11 +206,21 @@ const ShareModal: React.FC<ShareModalProps> = ({
 
           {isEditing && (
             <>
-              <View style={[styles.editingUserInfo, { backgroundColor: theme.colors.surfaceVariant }]}>
+              <View
+                style={[
+                  styles.editingUserInfo,
+                  { backgroundColor: theme.colors.surfaceVariant },
+                ]}
+              >
                 <Text variant="titleSmall" style={styles.editingUserLabel}>
                   {t("buckets.sharing.userIdentifier")}:
                 </Text>
-                <Text style={[styles.editingUserValue, { color: theme.colors.primary }]}>
+                <Text
+                  style={[
+                    styles.editingUserValue,
+                    { color: theme.colors.primary },
+                  ]}
+                >
                   {identifier}
                 </Text>
               </View>
@@ -403,11 +414,7 @@ const PermissionItem: React.FC<PermissionItemProps> = ({
             {loading ? (
               <ActivityIndicator size="small" color={theme.colors.primary} />
             ) : (
-              <Icon
-                source="pencil"
-                size={18}
-                color={theme.colors.primary}
-              />
+              <Icon source="pencil" size={18} color={theme.colors.primary} />
             )}
           </TouchableOpacity>
           <TouchableOpacity
@@ -444,6 +451,102 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
     useGetBucketData(bucketId);
 
   const [shareBucket, { loading: sharingBucket }] = useShareBucketMutation({
+    optimisticResponse: (vars) => {
+      const now = new Date().toISOString();
+      const permissionId = `temp-permission-${Date.now()}`;
+
+      // Trova il permesso esistente se stiamo aggiornando
+      const existingPermission = editingPermission;
+
+      return {
+        __typename: "Mutation" as const,
+        shareBucket: {
+          __typename: "EntityPermission" as const,
+          id: existingPermission?.id || permissionId,
+          resourceType: ResourceType.Bucket,
+          resourceId: bucketId,
+          permissions: vars.input.permissions,
+          expiresAt: vars.input.expiresAt || null,
+          createdAt: existingPermission?.createdAt || now,
+          updatedAt: now,
+          grantedBy: bucket?.user
+            ? {
+                __typename: "User" as const,
+                id: bucket.user.id,
+                email: bucket.user.email,
+                username: bucket.user.username,
+                firstName: bucket.user.firstName || null,
+                lastName: bucket.user.lastName || null,
+                avatar: bucket.user.avatar || null,
+                hasPassword: bucket.user.hasPassword || false,
+                role: bucket.user.role || UserRole.User,
+                createdAt: bucket.user.createdAt,
+                updatedAt: bucket.user.updatedAt || now,
+                identities: null,
+                buckets: null,
+              }
+            : null,
+          user: existingPermission?.user || {
+            __typename: "User" as const,
+            id: vars.input.userId || "",
+            email: vars.input.userEmail || "",
+            username: vars.input.username || "",
+            firstName: null,
+            lastName: null,
+            avatar: null,
+            hasPassword: false,
+            role: UserRole.User,
+            createdAt: now,
+            updatedAt: now,
+            identities: null,
+            buckets: null,
+          },
+        },
+      };
+    },
+    update: (cache, { data }) => {
+      if (!data?.shareBucket) return;
+
+      try {
+        const existingData = cache.readQuery<any>({
+          query: GetBucketDocument,
+          variables: { id: bucketId },
+        });
+
+        if (existingData?.bucket) {
+          const existingPermissions = existingData.bucket.permissions || [];
+
+          // Controlla se stiamo aggiornando un permesso esistente
+          const existingIndex = existingPermissions.findIndex(
+            (p: EntityPermissionFragment) =>
+              p.user?.id === data.shareBucket.user?.id
+          );
+
+          let updatedPermissions;
+          if (existingIndex !== -1) {
+            // Aggiorna il permesso esistente
+            updatedPermissions = [...existingPermissions];
+            updatedPermissions[existingIndex] = data.shareBucket;
+          } else {
+            // Aggiungi nuovo permesso
+            updatedPermissions = [...existingPermissions, data.shareBucket];
+          }
+
+          cache.writeQuery({
+            query: GetBucketDocument,
+            variables: { id: bucketId },
+            data: {
+              bucket: {
+                ...existingData.bucket,
+                permissions: updatedPermissions,
+              },
+            },
+          });
+        }
+      } catch (error) {
+        console.error("Failed to update cache after sharing bucket:", error);
+      }
+    },
     onCompleted: (data) => {
       setShowShareModal(false);
       setEditingPermission(null);
@@ -453,33 +556,58 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
         t("common.error"),
         error.message || t("buckets.sharing.shareError")
       );
+      refetch?.();
     },
-    refetchQueries: [
-      {
-        query: GetBucketDocument,
-        variables: { id: bucketId },
-      },
-    ],
   });
 
   const [unshareBucket, { loading: unsharingBucket }] =
     useUnshareBucketMutation({
-      onCompleted: () => {
-        refetch?.();
-        Alert.alert(t("common.success"), t("buckets.sharing.unshareSuccess"));
+      optimisticResponse: (vars) => ({
+        __typename: "Mutation" as const,
+        unshareBucket: true,
+      }),
+      update: (cache, { data }, { variables }) => {
+        if (!data?.unshareBucket || !variables?.input.userId) return;
+
+        try {
+          const existingData = cache.readQuery<any>({
+            query: GetBucketDocument,
+            variables: { id: bucketId },
+          });
+
+          if (existingData?.bucket) {
+            const updatedPermissions = (
+              existingData.bucket.permissions || []
+            ).filter(
+              (p: EntityPermissionFragment) =>
+                p.user?.id !== variables.input.userId
+            );
+
+            cache.writeQuery({
+              query: GetBucketDocument,
+              variables: { id: bucketId },
+              data: {
+                bucket: {
+                  ...existingData.bucket,
+                  permissions: updatedPermissions,
+                },
+              },
+            });
+          }
+        } catch (error) {
+          console.error(
+            "Failed to update cache after unsharing bucket:",
+            error
+          );
+        }
       },
       onError: (error: any) => {
         Alert.alert(
           t("common.error"),
           error.message || t("buckets.sharing.unshareError")
         );
+        refetch?.();
       },
-      refetchQueries: [
-        {
-          query: GetBucketDocument,
-          variables: { id: bucketId },
-        },
-      ],
     });
 
   const handleShare = (identifier: string, permissions: Permission[]) => {
@@ -563,11 +691,9 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
   }
 
   return (
-    <View style={styles.container}>
+    <>
       <View style={styles.header}>
-        <Text style={styles.title}>
-          {t("buckets.sharing.title")}
-        </Text>
+        <Text style={styles.title}>{t("buckets.sharing.title")}</Text>
         <IconButton
           mode="contained"
           onPress={() => setShowShareModal(true)}
@@ -576,16 +702,12 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
         />
       </View>
 
-      <Text style={styles.description}>
-        {t("buckets.sharing.description")}
-      </Text>
+      <Text style={styles.description}>{t("buckets.sharing.description")}</Text>
 
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" />
-          <Text style={styles.loadingText}>
-            {t("buckets.sharing.loading")}
-          </Text>
+          <Text style={styles.loadingText}>{t("buckets.sharing.loading")}</Text>
         </View>
       ) : allPermissions.length === 0 ? (
         <Card style={styles.emptyContainer}>
@@ -595,10 +717,7 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
               size={48}
               color={theme.colors.onSurfaceVariant}
             />
-            <Text
-              variant="titleMedium"
-              style={styles.emptyText}
-            >
+            <Text variant="titleMedium" style={styles.emptyText}>
               {t("buckets.sharing.noShares")}
             </Text>
           </Card.Content>
@@ -628,15 +747,11 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
         editingPermission={editingPermission || undefined}
         loading={sharingBucket}
       />
-    </View>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    marginTop: 24,
-    paddingHorizontal: 16,
-  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -678,10 +793,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 8,
   },
   permissionInfo: {
     flex: 1,

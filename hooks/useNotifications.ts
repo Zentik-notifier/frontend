@@ -1,4 +1,4 @@
-import { GetNotificationsDocument, MediaType, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetNotificationLazyQuery, useGetNotificationsQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation } from '@/generated/gql-operations-generated';
+import { GetNotificationsDocument, MediaType, NotificationFragment, NotificationFragmentDoc, useDeleteNotificationMutation, useGetBucketsQuery, useGetNotificationLazyQuery, useGetNotificationsQuery, useMarkAllNotificationsAsReadMutation, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation, useMassDeleteNotificationsMutation, useMassMarkNotificationsAsReadMutation, useMassMarkNotificationsAsUnreadMutation, useUpdateReceivedNotificationsMutation } from '@/generated/gql-operations-generated';
 import { mediaCache } from '@/services/media-cache-service';
 import { deleteNotificationFromCache, deleteNotificationsFromCache, updateNotificationReadStatus, updateNotificationsReadStatus } from '@/services/notifications-repository';
 import { Reference, useApolloClient } from '@apollo/client';
@@ -75,6 +75,7 @@ export function useFetchNotifications(onlyCache?: boolean) {
 		fetchPolicy: onlyCache ? 'cache-first' : 'cache-and-network',
 		errorPolicy: 'ignore'
 	});
+	const { refetch: refetchBuckets } = useGetBucketsQuery();
 
 	const notifications = data?.notifications ?? [];
 
@@ -82,7 +83,7 @@ export function useFetchNotifications(onlyCache?: boolean) {
 		if (refetching) return;
 		setRefetching(true);
 		console.log('[useFetchNotifications] Fetching notifications started');
-		const res = await Promise.all([refetch()]);
+		const res = await Promise.all([refetch(), refetchBuckets()]);
 		const newData = res[0];
 		console.log('[useFetchNotifications] Fetching notifications finished: ', newData.data?.notifications?.length);
 		await updateReceivedNotifications();

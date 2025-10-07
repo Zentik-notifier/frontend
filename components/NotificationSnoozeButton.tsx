@@ -1,4 +1,8 @@
-import { useSetBucketSnoozeMutation } from "@/generated/gql-operations-generated";
+import {
+  GetBucketDocument,
+  UserRole,
+  useSetBucketSnoozeMutation,
+} from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useGetBucketData } from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
@@ -48,9 +52,9 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
 }) => {
   const theme = useTheme();
   const { t } = useI18n();
-  const { formatDate, datePickerLocale } = useDateFormat();
+  const { formatDate, datePickerLocale, use24HourTime } = useDateFormat();
 
-  const { bucket, isSnoozed } = useGetBucketData(bucketId);
+  const { bucket, isSnoozed, refetch } = useGetBucketData(bucketId);
 
   const snoozeUntil = bucket?.userBucket?.snoozeUntil
     ? new Date(bucket.userBucket.snoozeUntil)
@@ -65,7 +69,99 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   const [removingSnooze, setRemovingSnooze] = useState(false);
 
   const [setBucketSnooze, { loading: settingSnooze }] =
-    useSetBucketSnoozeMutation();
+    useSetBucketSnoozeMutation({
+      optimisticResponse: (vars) => {
+        const now = new Date().toISOString();
+        
+        return {
+          __typename: "Mutation" as const,
+          setBucketSnooze: {
+            __typename: "UserBucket" as const,
+            id: bucket?.userBucket?.id || `userBucket-${vars.bucketId}`,
+            userId: bucket?.userBucket?.userId || "",
+            bucketId: vars.bucketId,
+            snoozeUntil: vars.snoozeUntil ?? null,
+            createdAt: bucket?.userBucket?.createdAt || now,
+            updatedAt: now,
+            snoozes: bucket?.userBucket?.snoozes || [],
+            user: bucket?.userBucket?.user || {
+              __typename: "User" as const,
+              id: "",
+              email: "",
+              username: "",
+              firstName: null,
+              lastName: null,
+              avatar: null,
+              hasPassword: false,
+              role: UserRole.User,
+              createdAt: "",
+              updatedAt: "",
+              identities: [],
+              buckets: null,
+            },
+            bucket: bucket || {
+              __typename: "Bucket" as const,
+              id: vars.bucketId,
+              name: "",
+              description: null,
+              color: null,
+              icon: null,
+              createdAt: "",
+              updatedAt: "",
+              isProtected: null,
+              isPublic: null,
+              user: {
+                __typename: "User" as const,
+                id: "",
+                email: "",
+                username: "",
+                firstName: null,
+                lastName: null,
+                avatar: null,
+                hasPassword: false,
+                role: UserRole.User,
+                createdAt: "",
+                updatedAt: "",
+                identities: [],
+                buckets: null,
+              },
+            },
+          },
+        };
+      },
+      update: (cache, { data }) => {
+        if (!data?.setBucketSnooze) return;
+        
+        try {
+          const existingData = cache.readQuery<any>({
+            query: GetBucketDocument,
+            variables: { id: bucketId },
+          });
+          
+          if (existingData?.bucket) {
+            cache.writeQuery({
+              query: GetBucketDocument,
+              variables: { id: bucketId },
+              data: {
+                bucket: {
+                  ...existingData.bucket,
+                  userBucket: {
+                    ...existingData.bucket.userBucket,
+                    ...data.setBucketSnooze,
+                  },
+                },
+              },
+            });
+          }
+        } catch (error) {
+          console.error("Failed to update cache after snooze update:", error);
+        }
+      },
+      onError: (error: any) => {
+        console.error("Set bucket snooze error:", error);
+        refetch?.();
+      },
+    });
 
   const quickSnoozeOptions: QuickSnoozeOption[] = useMemo(
     () => [
@@ -139,7 +235,6 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
         variables: { bucketId, snoozeUntil: snoozeUntilISO },
       });
       setShowModal(false);
-      // refetch();
     } catch (error) {
       Alert.alert("Error", t("notificationDetail.snooze.errorSetting"));
     }
@@ -151,7 +246,6 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
       setRemovingSnooze(true);
       await setBucketSnooze({ variables: { bucketId, snoozeUntil: null } });
       setShowModal(false);
-      // refetch();
     } catch (error) {
       Alert.alert("Error", t("notificationDetail.snooze.errorRemoving"));
     } finally {
@@ -511,6 +605,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
               </PaperButton>
 
               <TimePickerModal
+                use24HourClock={use24HourTime}
                 locale={datePickerLocale}
                 visible={showTimePicker}
                 onDismiss={() => {

@@ -20,6 +20,9 @@ import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
+import { useCleanup } from './useCleanup';
+import { apolloClient } from '@/config/apollo-client';
+import { installConsoleLoggerBridge } from '@/services/console-logger-hook';
 
 const isWeb = Platform.OS === 'web';
 const isAndroid = Platform.OS === 'android';
@@ -119,13 +122,15 @@ export function usePushNotifications() {
       try {
         TaskManager.defineTask(NOTIFICATION_REFRESH_TASK, async () => {
           try {
-            await callbacks.fetchNotifications();
+            console.log("[BackgroundTask] Starting background task");
+            installConsoleLoggerBridge();
+            await callbacks.cleanup({ immediate: true, force: true });
           } catch (e) {
-            console.warn("[usePushNotifications] Background fetch task failed:", e);
+            console.warn("[BackgroundTask] Background fetch task failed:", e);
           }
         });
       } catch (error) {
-        console.warn("[usePushNotifications] Failed to define background task:", error);
+        console.warn("[BackgroundTask] Failed to define background task:", error);
       }
 
       try {

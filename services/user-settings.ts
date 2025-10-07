@@ -122,6 +122,9 @@ export interface UserSettings {
     termsAccepted: boolean;
     acceptedVersion: string;
   };
+
+  // Maintenance settings
+  lastCleanup?: string; // ISO timestamp of last cleanup
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -183,6 +186,7 @@ const DEFAULT_SETTINGS: UserSettings = {
     termsAccepted: false,
     acceptedVersion: CURRENT_TERMS_VERSION,
   },
+  lastCleanup: undefined,
 };
 
 const USER_SETTINGS_KEYS = '@zentik/user_settings';
@@ -653,6 +657,7 @@ class UserSettingsService {
       },
       onboarding: stored.onboarding || DEFAULT_SETTINGS.onboarding,
       termsAcceptance: stored.termsAcceptance || DEFAULT_SETTINGS.termsAcceptance,
+      lastCleanup: stored.lastCleanup || DEFAULT_SETTINGS.lastCleanup,
     };
   }
 
@@ -817,6 +822,37 @@ class UserSettingsService {
       acceptedVersion: CURRENT_TERMS_VERSION,
     });
   }
+
+  /**
+   * Get last cleanup timestamp
+   */
+  getLastCleanup(): string | undefined {
+    return this.settings.lastCleanup;
+  }
+
+  /**
+   * Set last cleanup timestamp
+   */
+  async setLastCleanup(timestamp: string): Promise<void> {
+    await this.updateSettings({
+      lastCleanup: timestamp,
+    });
+  }
+
+  /**
+   * Check if cleanup should run (6 hours since last cleanup)
+   */
+  shouldRunCleanup(): boolean {
+    if (!this.settings.lastCleanup) {
+      return true;
+    }
+
+    const lastCleanup = new Date(this.settings.lastCleanup);
+    const now = new Date();
+    const sixHoursInMs = 6 * 60 * 60 * 1000;
+
+    return now.getTime() - lastCleanup.getTime() >= sixHoursInMs;
+  }
 }
 
 // Export singleton instance
@@ -937,5 +973,9 @@ export function useUserSettings() {
     updateTermsAcceptanceSettings: userSettings.updateTermsAcceptanceSettings.bind(userSettings),
     acceptTerms: userSettings.acceptTerms.bind(userSettings),
     clearTermsAcceptance: userSettings.clearTermsAcceptance.bind(userSettings),
+    // Cleanup settings
+    getLastCleanup: userSettings.getLastCleanup.bind(userSettings),
+    setLastCleanup: userSettings.setLastCleanup.bind(userSettings),
+    shouldRunCleanup: userSettings.shouldRunCleanup.bind(userSettings),
   };
 }

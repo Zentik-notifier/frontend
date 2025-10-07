@@ -52,22 +52,23 @@ import { useUserSettings } from "../services/user-settings";
 import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
 import { cleanupNotificationsBySettings } from "@/services/notifications-repository";
 import { i18nService } from "@/services/i18n";
-import * as Localization from 'expo-localization';
+import * as Localization from "expo-localization";
+import { useCleanup } from "@/hooks/useCleanup";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
 export const getDeviceLocale = (): Locale => {
   try {
     const deviceLocale = Localization.getLocales()[0].languageTag;
-    console.log('🌍 Detected device locale:', deviceLocale);
-    if (deviceLocale.startsWith('it')) {
-      return 'it-IT';
-    } else if (deviceLocale.startsWith('en')) {
-      return 'en-EN';
+    console.log("🌍 Detected device locale:", deviceLocale);
+    if (deviceLocale.startsWith("it")) {
+      return "it-IT";
+    } else if (deviceLocale.startsWith("en")) {
+      return "en-EN";
     }
-    return 'en-EN';
+    return "en-EN";
   } catch {
-    return 'en-EN';
+    return "en-EN";
   }
 };
 
@@ -123,8 +124,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isMainLoading, setIsLoading] = useState(false);
-  const { syncApolloWithLocalDb } = usePendingNotificationIntents();
   const { markAllAsRead } = useMarkAllNotificationsAsRead();
+  const { cleanup } = useCleanup();
 
   useEffect(() => {
     if (!userSettings.settings.locale) {
@@ -166,14 +167,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       minute: t("dateTime.minute"),
     } as any);
   }, [userSettings.settings.locale, t]);
-
-  useEffect(() => {
-    subscriptionsEnabledVar(true);
-
-    setTimeout(async () => {
-      await cleanup();
-    }, 10000);
-  }, []);
 
   const logout = async () => {
     try {
@@ -274,7 +267,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await push.initialize();
 
       setIsInitializing(false);
-      await refetchNotifications();
+      cleanup({}).catch(console.error);
       return true;
     } catch (e) {
       console.error("Error during completeAuth:", e);
@@ -371,6 +364,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const funct = async () => {
       try {
         console.log("[AppInit] started");
+
+        // subscriptionsEnabledVar(true);
         const [accessToken, refreshToken, storedLastUserId] = await Promise.all(
           [getAccessToken(), getRefreshToken(), getLastUserId()]
         );
@@ -405,23 +400,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loading: notificationsLoading,
   } = useFetchNotifications();
 
-  const cleanup = async () => {
-    console.log("[AppInit] starting cleanup");
-    await cleanupNotificationsBySettings(notifications);
-    await cleanupGalleryBySettings();
-    await syncApolloWithLocalDb(apolloClient);
-    await mediaCache.reloadMetadata();
-    console.log("[AppInit] cleanup completed");
-  };
-
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
         console.log("[AppContext] App is active, cleaning up");
-        await cleanup();
-      }
-
-      if (
+        await cleanup({});
+      } else if (
         nextAppState === "inactive" &&
         userSettings.settings.notificationsPreferences?.markAsReadMode ===
           "on-app-close"

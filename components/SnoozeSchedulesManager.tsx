@@ -1,18 +1,21 @@
 import {
+  GetBucketDocument,
   SnoozeScheduleInput,
+  UserRole,
   useUpdateBucketSnoozesMutation,
 } from "@/generated/gql-operations-generated";
-import { useGetBucketData } from "@/hooks";
+import { useDateFormat, useGetBucketData } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
+import { useUserSettings } from "@/services/user-settings";
 import { TranslationKeyPath } from "@/utils";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
+  Dimensions,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
-  Dimensions,
 } from "react-native";
 import {
   Button,
@@ -20,12 +23,11 @@ import {
   Icon,
   Modal,
   Portal,
-  Surface,
   Text,
-  TextInput,
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
+import { TimePickerModal } from "react-native-paper-dates";
 
 interface SnoozeSchedulesManagerProps {
   bucketId: string;
@@ -42,57 +44,6 @@ const DAYS_OF_WEEK: { value: string; label: TranslationKeyPath }[] = [
   { value: "sunday", label: "recurringSnooze.days.sunday" },
 ];
 
-const TIME_OPTIONS = [
-  "00:00",
-  "00:30",
-  "01:00",
-  "01:30",
-  "02:00",
-  "02:30",
-  "03:00",
-  "03:30",
-  "04:00",
-  "04:30",
-  "05:00",
-  "05:30",
-  "06:00",
-  "06:30",
-  "07:00",
-  "07:30",
-  "08:00",
-  "08:30",
-  "09:00",
-  "09:30",
-  "10:00",
-  "10:30",
-  "11:00",
-  "11:30",
-  "12:00",
-  "12:30",
-  "13:00",
-  "13:30",
-  "14:00",
-  "14:30",
-  "15:00",
-  "15:30",
-  "16:00",
-  "16:30",
-  "17:00",
-  "17:30",
-  "18:00",
-  "18:30",
-  "19:00",
-  "19:30",
-  "20:00",
-  "20:30",
-  "21:00",
-  "21:30",
-  "22:00",
-  "22:30",
-  "23:00",
-  "23:30",
-];
-
 export default function SnoozeSchedulesManager({
   bucketId,
   disabled = false,
@@ -101,14 +52,17 @@ export default function SnoozeSchedulesManager({
   const theme = useTheme();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [showTimeFromPicker, setShowTimeFromPicker] = useState(false);
+  const [showTimeTillPicker, setShowTimeTillPicker] = useState(false);
   const [currentSchedule, setCurrentSchedule] = useState<SnoozeScheduleInput>({
     days: [],
     timeFrom: "09:00",
     timeTill: "17:00",
     isEnabled: true,
   });
+  const { use24HourTime, datePickerLocale } = useDateFormat();
 
-  const { bucket, refetch } = useGetBucketData(bucketId);
+  const { bucket } = useGetBucketData(bucketId);
   const schedules = useMemo(
     () =>
       (bucket?.userBucket?.snoozes ?? []).map(
@@ -118,69 +72,108 @@ export default function SnoozeSchedulesManager({
   );
 
   const [updateSnoozeSchedules] = useUpdateBucketSnoozesMutation({
-    onCompleted: () => {
-      refetch?.();
+    optimisticResponse: (vars) => {
+      const snoozesArray = Array.isArray(vars.snoozes)
+        ? vars.snoozes
+        : [vars.snoozes];
+
+      return {
+        __typename: "Mutation" as const,
+        updateBucketSnoozes: {
+          __typename: "UserBucket" as const,
+          id: bucket?.userBucket?.id || `userBucket-${bucketId}`,
+          userId: bucket?.userBucket?.userId || "",
+          bucketId: bucketId,
+          snoozeUntil: bucket?.userBucket?.snoozeUntil || null,
+          createdAt: bucket?.userBucket?.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          snoozes: snoozesArray.map((schedule) => ({
+            __typename: "SnoozeSchedule" as const,
+            ...schedule,
+          })),
+          user: bucket?.userBucket?.user || {
+            __typename: "User" as const,
+            id: "",
+            email: "",
+            username: "",
+            firstName: null,
+            lastName: null,
+            avatar: null,
+            hasPassword: false,
+            role: UserRole.User,
+            createdAt: "",
+            updatedAt: "",
+            identities: [],
+            buckets: null,
+          },
+          bucket: bucket || {
+            __typename: "Bucket" as const,
+            id: bucketId,
+            name: "",
+            description: null,
+            color: null,
+            icon: null,
+            createdAt: "",
+            updatedAt: "",
+            isProtected: null,
+            isPublic: null,
+            user: {
+              __typename: "User" as const,
+              id: "",
+              email: "",
+              username: "",
+              firstName: null,
+              lastName: null,
+              avatar: null,
+              hasPassword: false,
+              role: UserRole.User,
+              createdAt: "",
+              updatedAt: "",
+              identities: [],
+              buckets: null,
+            },
+          },
+        },
+      };
+    },
+    update: (cache, { data }) => {
+      if (!data?.updateBucketSnoozes) return;
+
+      try {
+        // Update the bucket query cache
+        const existingData = cache.readQuery<any>({
+          query: GetBucketDocument,
+          variables: { bucketId },
+        });
+
+        if (existingData?.bucket) {
+          cache.writeQuery({
+            query: GetBucketDocument,
+            variables: { bucketId },
+            data: {
+              bucket: {
+                ...existingData.bucket,
+                userBucket: {
+                  ...existingData.bucket.userBucket,
+                  ...data.updateBucketSnoozes,
+                  snoozes: data.updateBucketSnoozes.snoozes || [],
+                },
+              },
+            },
+          });
+        }
+      } catch (error) {
+        console.error("Failed to update cache after snooze update:", error);
+      }
     },
     onError: (error: any) => {
       console.error("Update snooze schedules error:", error);
-      refetch?.();
       Alert.alert("Error", "Failed to update snooze schedules");
     },
   });
 
   const handleSchedulesChange = async (newSchedules: SnoozeScheduleInput[]) => {
     if (!bucket) return;
-
-    // // Optimistic cache update for immediate UI feedback
-    // try {
-    //   const bucketCacheId = apolloClient.cache.identify({
-    //     __typename: "Bucket",
-    //     id: bucket.id,
-    //   });
-
-    //   apolloClient.cache.modify({
-    //     id: bucketCacheId,
-    //     fields: {
-    //       userBucket(existingRef, { readField }) {
-    //         if (!existingRef) return existingRef;
-    //         const userBucketId = readField<string>("id", existingRef);
-    //         if (!userBucketId) return existingRef;
-
-    //         // Write only the snoozes field on the existing UserBucket
-    //         apolloClient.cache.writeFragment({
-    //           id: apolloClient.cache.identify({
-    //             __typename: "UserBucket",
-    //             id: userBucketId,
-    //           }),
-    //           fragment: gql`
-    //             fragment UserBucketSnoozes on UserBucket {
-    //               snoozes {
-    //                 days
-    //                 timeFrom
-    //                 timeTill
-    //                 isEnabled
-    //                 __typename
-    //               }
-    //             }
-    //           `,
-    //           data: {
-    //             snoozes: newSchedules.map((s) => ({
-    //               __typename: "SnoozeSchedule",
-    //               days: s.days,
-    //               timeFrom: s.timeFrom,
-    //               timeTill: s.timeTill,
-    //               isEnabled: s.isEnabled,
-    //             })),
-    //           },
-    //         });
-
-    //         return existingRef;
-    //       },
-    //     },
-    //   });
-    // } catch (e) {
-    //   // If cache write fails, we still proceed with server update
-    // }
 
     try {
       await updateSnoozeSchedules({
@@ -191,10 +184,6 @@ export default function SnoozeSchedulesManager({
       });
     } catch (error: any) {
       console.error("Immediate snooze update failed:", error);
-      // Best-effort sync after failure
-      try {
-        await refetch();
-      } catch {}
       Alert.alert(
         String(t("common.error")),
         String(t("buckets.form.updateErrorMessage"))
@@ -222,12 +211,56 @@ export default function SnoozeSchedulesManager({
   const closeModal = () => {
     setShowAddModal(false);
     setEditingIndex(null);
+    setShowTimeFromPicker(false);
+    setShowTimeTillPicker(false);
     setCurrentSchedule({
       days: [],
       timeFrom: "09:00",
       timeTill: "17:00",
       isEnabled: true,
     });
+  };
+
+  const parseTime = (
+    timeString: string
+  ): { hours: number; minutes: number } => {
+    const [hours, minutes] = timeString.split(":").map(Number);
+    return { hours: hours || 0, minutes: minutes || 0 };
+  };
+
+  const formatTime = (hours: number, minutes: number): string => {
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+      2,
+      "0"
+    )}`;
+  };
+
+  const onTimeFromConfirm = ({
+    hours,
+    minutes,
+  }: {
+    hours: number;
+    minutes: number;
+  }) => {
+    setCurrentSchedule((prev) => ({
+      ...prev,
+      timeFrom: formatTime(hours, minutes),
+    }));
+    setShowTimeFromPicker(false);
+  };
+
+  const onTimeTillConfirm = ({
+    hours,
+    minutes,
+  }: {
+    hours: number;
+    minutes: number;
+  }) => {
+    setCurrentSchedule((prev) => ({
+      ...prev,
+      timeTill: formatTime(hours, minutes),
+    }));
+    setShowTimeTillPicker(false);
   };
 
   const toggleDay = (day: string) => {
@@ -450,13 +483,15 @@ export default function SnoozeSchedulesManager({
                   : t("recurringSnooze.addScheduleTitle")}
               </Text>
             </View>
-            <TouchableRipple
-              style={[styles.closeButton]}
-              onPress={closeModal}
-              borderless
-            >
-              <Icon source="close" size={20} color={theme.colors.onSurface} />
-            </TouchableRipple>
+            <View style={styles.headerActions}>
+              <TouchableRipple
+                style={styles.headerButton}
+                onPress={closeModal}
+                borderless
+              >
+                <Icon source="close" size={20} color={theme.colors.onSurface} />
+              </TouchableRipple>
+            </View>
           </View>
 
           <ScrollView
@@ -514,21 +549,27 @@ export default function SnoozeSchedulesManager({
                   >
                     {t("recurringSnooze.from")}
                   </Text>
-                  <TextInput
-                    mode="outlined"
-                    value={currentSchedule.timeFrom}
-                    onChangeText={(value) =>
-                      setCurrentSchedule((prev) => ({
-                        ...prev,
-                        timeFrom: value,
-                      }))
-                    }
-                    placeholder="09:00"
-                    keyboardType="numeric"
-                    style={styles.timeInput}
-                    contentStyle={styles.timeInputContent}
-                    outlineStyle={styles.timeInputOutline}
-                  />
+                  <TouchableRipple
+                    onPress={() => setShowTimeFromPicker(true)}
+                    style={[
+                      styles.timeButton,
+                      {
+                        borderColor: theme.colors.outline,
+                        backgroundColor: theme.colors.surface,
+                      },
+                    ]}
+                  >
+                    <View style={styles.timeButtonContent}>
+                      <Icon
+                        source="clock-outline"
+                        size={20}
+                        color={theme.colors.onSurface}
+                      />
+                      <Text style={styles.timeButtonText}>
+                        {currentSchedule.timeFrom}
+                      </Text>
+                    </View>
+                  </TouchableRipple>
                 </View>
                 <View style={styles.timePicker}>
                   <Text
@@ -540,21 +581,27 @@ export default function SnoozeSchedulesManager({
                   >
                     {t("recurringSnooze.to")}
                   </Text>
-                  <TextInput
-                    mode="outlined"
-                    value={currentSchedule.timeTill}
-                    onChangeText={(value) =>
-                      setCurrentSchedule((prev) => ({
-                        ...prev,
-                        timeTill: value,
-                      }))
-                    }
-                    placeholder="17:00"
-                    keyboardType="numeric"
-                    style={styles.timeInput}
-                    contentStyle={styles.timeInputContent}
-                    outlineStyle={styles.timeInputOutline}
-                  />
+                  <TouchableRipple
+                    onPress={() => setShowTimeTillPicker(true)}
+                    style={[
+                      styles.timeButton,
+                      {
+                        borderColor: theme.colors.outline,
+                        backgroundColor: theme.colors.surface,
+                      },
+                    ]}
+                  >
+                    <View style={styles.timeButtonContent}>
+                      <Icon
+                        source="clock-outline"
+                        size={20}
+                        color={theme.colors.onSurface}
+                      />
+                      <Text style={styles.timeButtonText}>
+                        {currentSchedule.timeTill}
+                      </Text>
+                    </View>
+                  </TouchableRipple>
                 </View>
               </View>
             </View>
@@ -614,6 +661,32 @@ export default function SnoozeSchedulesManager({
             </Button>
           </View>
         </Modal>
+
+        <TimePickerModal
+          visible={showTimeFromPicker}
+          onDismiss={() => setShowTimeFromPicker(false)}
+          onConfirm={onTimeFromConfirm}
+          hours={parseTime(currentSchedule.timeFrom).hours}
+          minutes={parseTime(currentSchedule.timeFrom).minutes}
+          label={t("recurringSnooze.from")}
+          cancelLabel={t("recurringSnooze.cancel")}
+          animationType="fade"
+          use24HourClock={use24HourTime}
+          locale={datePickerLocale}
+        />
+
+        <TimePickerModal
+          visible={showTimeTillPicker}
+          onDismiss={() => setShowTimeTillPicker(false)}
+          onConfirm={onTimeTillConfirm}
+          hours={parseTime(currentSchedule.timeTill).hours}
+          minutes={parseTime(currentSchedule.timeTill).minutes}
+          label={t("recurringSnooze.to")}
+          cancelLabel={t("recurringSnooze.cancel")}
+          animationType="fade"
+          use24HourClock={use24HourTime}
+          locale={datePickerLocale}
+        />
       </Portal>
     </View>
   );
@@ -698,7 +771,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
   },
-  closeButton: {
+  headerActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  headerButton: {
     padding: 8,
   },
   section: {
@@ -737,15 +814,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 8,
   },
-  timeInput: {
+  timeButton: {
     height: 48,
-  },
-  timeInputContent: {
-    textAlign: "center",
-    fontSize: 16,
-  },
-  timeInputOutline: {
     borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  timeButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  timeButtonText: {
+    fontSize: 16,
+    fontWeight: "500",
   },
   enableRow: {
     flexDirection: "row",

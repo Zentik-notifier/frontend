@@ -6,13 +6,18 @@ import {
   ResourceType,
   useUnshareBucketMutation,
 } from "@/generated/gql-operations-generated";
-import { useGetBucketData, useDeleteBucketWithNotifications } from "@/hooks/useGetBucketData";
+import {
+  useGetBucketData,
+  useDeleteBucketWithNotifications,
+} from "@/hooks/useGetBucketData";
 import { useI18n } from "@/hooks/useI18n";
 import React from "react";
-import { Alert, StyleSheet } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import { Button, Card, Surface, Text, useTheme } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
 import { useNavigationUtils } from "@/utils/navigation";
+import IdWithCopyButton from "./IdWithCopyButton";
+import { useDateFormat } from "@/hooks/useDateFormat";
 
 interface EditBucketProps {
   bucketId: string;
@@ -24,6 +29,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   const theme = useTheme();
   const { userId } = useAppContext();
   const { navigateToHome } = useNavigationUtils();
+  const { formatDate } = useDateFormat();
 
   const {
     bucket,
@@ -39,15 +45,16 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     await refetch();
   };
 
-  const { deleteBucketWithNotifications, loading: deleteLoading } = useDeleteBucketWithNotifications({
-    onCompleted: () => {
-      navigateToHome();
-    },
-    onError: (error) => {
-      console.error("Error deleting bucket:", error);
-      Alert.alert(t("common.error"), t("buckets.delete.error"));
-    },
-  });
+  const { deleteBucketWithNotifications, loading: deleteLoading } =
+    useDeleteBucketWithNotifications({
+      onCompleted: () => {
+        navigateToHome();
+      },
+      onError: (error) => {
+        console.error("Error deleting bucket:", error);
+        Alert.alert(t("common.error"), t("buckets.delete.error"));
+      },
+    });
 
   const [unshareBucket] = useUnshareBucketMutation({
     onCompleted: () => {
@@ -130,28 +137,61 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     <PaperScrollView onRefresh={handleRefresh} loading={loading}>
       <CreateBucketForm bucketId={bucketId} />
 
+      <Card style={styles.readonlyContainer}>
+        <Card.Content>
+          <IdWithCopyButton
+            id={bucket.id}
+            label={t("buckets.form.bucketId")}
+            copyMessage={t("buckets.form.bucketIdCopied")}
+            valueStyle={styles.readonlyValue}
+          />
+          <View style={styles.readonlyField}>
+            <Text style={styles.readonlyLabel}>
+              {t("buckets.item.created")}:
+            </Text>
+            <Text style={styles.readonlyValue}>
+              {formatDate(bucket.createdAt)}
+            </Text>
+          </View>
+        </Card.Content>
+      </Card>
+
       {canAdmin && (
-        <Card style={styles.sharingSection}>
-          <Card.Content>
-            <BucketSharingSection bucketId={bucketId} />
-            <Button
-              mode="contained"
-              buttonColor={theme.colors.error}
-              textColor={theme.colors.onError}
-              icon="delete"
-              onPress={showDeleteAlert}
-              style={styles.deleteButton}
-            >
-              {t("buckets.form.deleteBucket")}
-            </Button>
-          </Card.Content>
-        </Card>
+        <>
+          <BucketSharingSection bucketId={bucketId} />
+          <Button
+            mode="contained"
+            buttonColor={theme.colors.error}
+            textColor={theme.colors.onError}
+            icon="delete"
+            onPress={showDeleteAlert}
+            style={styles.deleteButton}
+          >
+            {t("buckets.form.deleteBucket")}
+          </Button>
+        </>
       )}
     </PaperScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  readonlyContainer: {
+    marginBottom: 16,
+  },
+  readonlyValue: {
+    fontSize: 14,
+    fontFamily: "monospace",
+  },
+  readonlyField: {
+    marginBottom: 10,
+  },
+  readonlyLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    opacity: 0.7,
+    marginBottom: 4,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
