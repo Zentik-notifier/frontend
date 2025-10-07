@@ -4,13 +4,8 @@ import { useI18n } from "@/hooks/useI18n";
 import { useAppTheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
-import {
-  Image,
-  Linking,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Image } from "expo-image";
+import { Linking, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Avatar, Icon, Surface, Text, useTheme } from "react-native-paper";
 import {
   Menu,
@@ -82,24 +77,6 @@ export default function UserDropdown({
     setIsMenuOpen(!isMenuOpen);
   }
 
-  function renderSmallAvatar() {
-    if (user?.avatar && !showInitialsSmall) {
-      return (
-        <Image
-          source={{ uri: user.avatar }}
-          style={styles.avatarImage}
-          onError={() => setShowInitialsSmall(true)}
-        />
-      );
-    }
-
-    return (
-      <View style={styles.avatarContainer}>
-        <Text style={styles.initialsSmallText}>{getInitials()}</Text>
-      </View>
-    );
-  }
-
   function getUserDisplayName() {
     if (!user) return t("userDropdown.offlineMode");
     if (user.firstName && user.lastName)
@@ -124,7 +101,12 @@ export default function UserDropdown({
         >
           <View style={[styles.avatarButton, { borderRadius: 18 }]}>
             {user?.avatar && !showInitials ? (
-              <Avatar.Image source={{ uri: user.avatar }} size={36} />
+              <Image
+                source={{ uri: user.avatar }}
+                style={styles.avatarImage}
+                onError={() => setShowInitialsSmall(true)}
+                cachePolicy={"memory-disk"}
+              />
             ) : (
               <Avatar.Text label={getInitials()} size={36} />
             )}
