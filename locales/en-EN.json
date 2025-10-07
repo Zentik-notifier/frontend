@@ -177,7 +177,15 @@
       "exportDescription": "Export all logs stored in the DB to a JSON file",
       "exportComplete": "Export Complete",
       "exportCompleteMessage": "File saved to: {{path}}",
-      "exportError": "Failed to export logs"
+      "exportError": "Failed to export logs",
+      "clearButton": "Clear Logs",
+      "clearTitle": "Clear All Logs",
+      "clearMessage": "Are you sure you want to delete all logs? This action cannot be undone.",
+      "clearConfirm": "Clear",
+      "clearSuccess": "Success",
+      "clearSuccessMessage": "All logs have been cleared.",
+      "clearError": "Error",
+      "clearErrorMessage": "Failed to clear logs. Please try again."
     },
     "versions": {
       "title": "Version Information",

@@ -66,12 +66,7 @@ export default function CreateWebhookForm({
   }>({});
 
   // Load webhook data if editing
-  const {
-    data: webhookData,
-    loading: loadingWebhook,
-    refetch,
-    error,
-  } = useGetWebhookQuery({
+  const { data: webhookData, refetch } = useGetWebhookQuery({
     variables: { id: webhookId || "" },
     skip: !webhookId,
   });
@@ -299,215 +294,231 @@ export default function CreateWebhookForm({
   };
 
   const content = (
-    <Card style={styles.formContainer} elevation={0}>
-      <Card.Content>
-        {/* Webhook Name */}
-        <View style={styles.inputGroup}>
-          <Text variant="titleMedium" style={styles.label}>
-            {t("webhooks.form.name")}
+    <View>
+      {/* Webhook Name */}
+      <View style={styles.inputGroup}>
+        <Text variant="titleMedium" style={styles.label}>
+          {t("webhooks.form.name")}
+        </Text>
+        <TextInput
+          mode="outlined"
+          value={name}
+          onChangeText={(text) => {
+            setName(text);
+            // Update validation errors in real-time
+            if (!text.trim()) {
+              setFieldErrors((prev) => ({
+                ...prev,
+                name: t("webhooks.form.nameRequired"),
+              }));
+            } else {
+              setFieldErrors((prev) => ({ ...prev, name: undefined }));
+            }
+          }}
+          placeholder={t("webhooks.form.namePlaceholder")}
+          maxLength={100}
+          error={!!fieldErrors.name}
+        />
+        {fieldErrors.name && (
+          <Text variant="bodySmall" style={styles.errorText}>
+            {fieldErrors.name}
           </Text>
-          <TextInput
-            mode="outlined"
-            value={name}
-            onChangeText={(text) => {
-              setName(text);
-              // Update validation errors in real-time
-              if (!text.trim()) {
-                setFieldErrors(prev => ({ ...prev, name: t("webhooks.form.nameRequired") }));
-              } else {
-                setFieldErrors(prev => ({ ...prev, name: undefined }));
+        )}
+      </View>
+
+      {/* HTTP Method */}
+      <View style={styles.inputGroup}>
+        <Selector
+          label={t("webhooks.form.method")}
+          placeholder={t("webhooks.form.method")}
+          options={httpMethodOptions}
+          selectedValue={method}
+          onValueChange={(value) => setMethod(value as HttpMethod)}
+          isSearchable={false}
+          mode="inline"
+        />
+      </View>
+
+      {/* URL */}
+      <View style={styles.inputGroup}>
+        <Text variant="titleMedium" style={styles.label}>
+          {t("webhooks.form.url")}
+        </Text>
+        <TextInput
+          mode="outlined"
+          value={url}
+          onChangeText={(text) => {
+            setUrl(text);
+            // Update validation errors in real-time
+            if (!text.trim()) {
+              setFieldErrors((prev) => ({
+                ...prev,
+                url: t("webhooks.form.urlRequired"),
+              }));
+            } else {
+              // Basic URL validation
+              try {
+                new URL(text.trim());
+                setFieldErrors((prev) => ({ ...prev, url: undefined }));
+              } catch {
+                setFieldErrors((prev) => ({
+                  ...prev,
+                  url: t("webhooks.form.urlInvalid"),
+                }));
               }
-            }}
-            placeholder={t("webhooks.form.namePlaceholder")}
-            maxLength={100}
-            error={!!fieldErrors.name}
-          />
-          {fieldErrors.name && (
-            <Text variant="bodySmall" style={styles.errorText}>
-              {fieldErrors.name}
-            </Text>
-          )}
-        </View>
-
-        {/* HTTP Method */}
-        <View style={styles.inputGroup}>
-          <Selector
-            label={t("webhooks.form.method")}
-            placeholder={t("webhooks.form.method")}
-            options={httpMethodOptions}
-            selectedValue={method}
-            onValueChange={(value) => setMethod(value as HttpMethod)}
-            isSearchable={false}
-            mode="inline"
-          />
-        </View>
-
-        {/* URL */}
-        <View style={styles.inputGroup}>
-          <Text variant="titleMedium" style={styles.label}>
-            {t("webhooks.form.url")}
+            }
+          }}
+          placeholder={t("webhooks.form.urlPlaceholder")}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          error={!!fieldErrors.url}
+        />
+        {fieldErrors.url && (
+          <Text variant="bodySmall" style={styles.errorText}>
+            {fieldErrors.url}
           </Text>
-          <TextInput
-            mode="outlined"
-            value={url}
-            onChangeText={(text) => {
-              setUrl(text);
-              // Update validation errors in real-time
-              if (!text.trim()) {
-                setFieldErrors(prev => ({ ...prev, url: t("webhooks.form.urlRequired") }));
-              } else {
-                // Basic URL validation
-                try {
-                  new URL(text.trim());
-                  setFieldErrors(prev => ({ ...prev, url: undefined }));
-                } catch {
-                  setFieldErrors(prev => ({ ...prev, url: t("webhooks.form.urlInvalid") }));
-                }
-              }
-            }}
-            placeholder={t("webhooks.form.urlPlaceholder")}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            error={!!fieldErrors.url}
-          />
-          {fieldErrors.url && (
-            <Text variant="bodySmall" style={styles.errorText}>
-              {fieldErrors.url}
-            </Text>
-          )}
+        )}
+      </View>
+
+      {/* Headers */}
+      <View style={styles.inputGroup}>
+        <View style={styles.headerRow}>
+          <Text variant="titleMedium" style={styles.label}>
+            Headers
+          </Text>
+          <IconButton icon="plus" size={20} onPress={addHeader} />
         </View>
 
-        {/* Headers */}
-        <View style={styles.inputGroup}>
-          <View style={styles.headerRow}>
-            <Text variant="titleMedium" style={styles.label}>
-              Headers
-            </Text>
-            <IconButton icon="plus" size={20} onPress={addHeader} />
-          </View>
-
-          {headers.map((header, index) => (
-            <View key={index} style={styles.headerInputRow}>
-              <TextInput
-                mode="outlined"
-                style={styles.headerInput}
-                value={header.key}
-                onChangeText={(value) => updateHeader(index, "key", value)}
-                placeholder="Header Key"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TextInput
-                mode="outlined"
-                style={styles.headerInput}
-                value={header.value}
-                onChangeText={(value) => updateHeader(index, "value", value)}
-                placeholder="Header Value"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <IconButton
-                icon="delete"
-                size={18}
-                iconColor={theme.colors.error}
-                onPress={() => removeHeader(index)}
-              />
-            </View>
-          ))}
-
-          {headers.length === 0 && (
-            <Text variant="bodySmall" style={styles.description}>
-              No headers configured
-            </Text>
-          )}
-        </View>
-
-        {/* Body */}
-        <View style={styles.inputGroup}>
-          <View style={styles.labelRow}>
-            <Text variant="titleMedium" style={styles.label}>
-              {t("webhooks.form.body")}
-            </Text>
+        {headers.map((header, index) => (
+          <View key={index} style={styles.headerInputRow}>
+            <TextInput
+              mode="outlined"
+              style={styles.headerInput}
+              value={header.key}
+              onChangeText={(value) => updateHeader(index, "key", value)}
+              placeholder="Header Key"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TextInput
+              mode="outlined"
+              style={styles.headerInput}
+              value={header.value}
+              onChangeText={(value) => updateHeader(index, "value", value)}
+              placeholder="Header Value"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
             <IconButton
-              icon="help-circle"
-              size={20}
-              onPress={() => {
-                setErrorMessage(
-                  `${t("webhooks.form.jsonHelpMessage")}\n\n${t(
-                    "webhooks.form.jsonExample"
-                  )}`
-                );
-                setShowErrorDialog(true);
-              }}
+              icon="delete"
+              size={18}
+              iconColor={theme.colors.error}
+              onPress={() => removeHeader(index)}
             />
           </View>
+        ))}
+
+        {headers.length === 0 && (
           <Text variant="bodySmall" style={styles.description}>
-            {t("webhooks.form.bodyHelp")}
+            No headers configured
           </Text>
-          <TextInput
-            mode="outlined"
-            style={styles.jsonInput}
-            value={bodyText}
-            onChangeText={(text) => {
-              setBodyText(text);
-              // Update validation errors in real-time for JSON body
-              if (text.trim()) {
-                try {
-                  JSON.parse(text.trim());
-                  setFieldErrors(prev => ({ ...prev, body: undefined }));
-                } catch (error) {
-                  setFieldErrors(prev => ({ ...prev, body: t("webhooks.form.jsonValidationError") }));
-                }
-              } else {
-                setFieldErrors(prev => ({ ...prev, body: undefined }));
-              }
+        )}
+      </View>
+
+      {/* Body */}
+      <View style={styles.inputGroup}>
+        <View style={styles.labelRow}>
+          <Text variant="titleMedium" style={styles.label}>
+            {t("webhooks.form.body")}
+          </Text>
+          <IconButton
+            icon="help-circle"
+            size={20}
+            onPress={() => {
+              setErrorMessage(
+                `${t("webhooks.form.jsonHelpMessage")}\n\n${t(
+                  "webhooks.form.jsonExample"
+                )}`
+              );
+              setShowErrorDialog(true);
             }}
-            placeholder={t("webhooks.form.bodyPlaceholder")}
-            multiline
-            numberOfLines={12}
-            autoCapitalize="none"
-            autoCorrect={false}
-            textAlignVertical="top"
-            scrollEnabled={true}
-            error={!!fieldErrors.body}
           />
-          {fieldErrors.body && (
-            <Text variant="bodySmall" style={styles.errorText}>
-              {fieldErrors.body}
-            </Text>
-          )}
         </View>
+        <Text variant="bodySmall" style={styles.description}>
+          {t("webhooks.form.bodyHelp")}
+        </Text>
+        <TextInput
+          mode="outlined"
+          style={styles.jsonInput}
+          value={bodyText}
+          onChangeText={(text) => {
+            setBodyText(text);
+            // Update validation errors in real-time for JSON body
+            if (text.trim()) {
+              try {
+                JSON.parse(text.trim());
+                setFieldErrors((prev) => ({ ...prev, body: undefined }));
+              } catch (error) {
+                setFieldErrors((prev) => ({
+                  ...prev,
+                  body: t("webhooks.form.jsonValidationError"),
+                }));
+              }
+            } else {
+              setFieldErrors((prev) => ({ ...prev, body: undefined }));
+            }
+          }}
+          placeholder={t("webhooks.form.bodyPlaceholder")}
+          multiline
+          numberOfLines={12}
+          autoCapitalize="none"
+          autoCorrect={false}
+          textAlignVertical="top"
+          scrollEnabled={true}
+          error={!!fieldErrors.body}
+        />
+        {fieldErrors.body && (
+          <Text variant="bodySmall" style={styles.errorText}>
+            {fieldErrors.body}
+          </Text>
+        )}
+      </View>
 
-        {/* Action Buttons */}
-        <View style={styles.buttonRow}>
-          <Button
-            mode="contained"
-            onPress={saveWebhook}
-            loading={isLoading}
-            disabled={isLoading || isOffline || !name.trim() || !url.trim() || Object.keys(fieldErrors).length > 0}
-            style={styles.saveButton}
-          >
-            {isLoading
-              ? isEditing
-                ? t("webhooks.form.saving")
-                : t("webhooks.form.creating")
-              : isEditing
-              ? t("webhooks.form.save")
-              : t("webhooks.form.create")}
-          </Button>
+      {/* Action Buttons */}
+      <View style={styles.buttonRow}>
+        <Button
+          mode="contained"
+          onPress={saveWebhook}
+          loading={isLoading}
+          disabled={
+            isLoading ||
+            isOffline ||
+            !name.trim() ||
+            !url.trim() ||
+            Object.keys(fieldErrors).length > 0
+          }
+          style={styles.saveButton}
+        >
+          {isLoading
+            ? isEditing
+              ? t("webhooks.form.saving")
+              : t("webhooks.form.creating")
+            : isEditing
+            ? t("webhooks.form.save")
+            : t("webhooks.form.create")}
+        </Button>
 
-          <Button
-            mode="outlined"
-            onPress={resetForm}
-            disabled={isLoading}
-            style={styles.cancelButton}
-          >
-            {t("common.reset")}
-          </Button>
-        </View>
-      </Card.Content>
-    </Card>
+        <Button
+          mode="outlined"
+          onPress={resetForm}
+          disabled={isLoading}
+          style={styles.cancelButton}
+        >
+          {t("common.reset")}
+        </Button>
+      </View>
+    </View>
   );
 
   {
@@ -568,22 +579,11 @@ export default function CreateWebhookForm({
   if (isEditing) {
     return <View>{content}</View>;
   } else {
-    return (
-      <PaperScrollView
-        loading={loadingWebhook}
-        error={!!error && !loadingWebhook && !webhook}
-        onRefresh={handleRefresh}
-      >
-        {content}
-      </PaperScrollView>
-    );
+    return <PaperScrollView>{content}</PaperScrollView>;
   }
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-  },
   description: {
     marginTop: 8,
     textAlign: "center",

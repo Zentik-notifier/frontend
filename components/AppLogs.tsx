@@ -1,5 +1,5 @@
 import { useI18n } from "@/hooks/useI18n";
-import { AppLog, readLogs } from "@/services/logger";
+import { AppLog, clearAllLogs, readLogs } from "@/services/logger";
 import { FlashList } from "@shopify/flash-list";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import {
   ActivityIndicator,
+  FAB,
   Icon,
   Surface,
   Text,
@@ -32,8 +33,12 @@ export default function AppLogs() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [query, setQuery] = useState<string>("");
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isClearing, setIsClearing] = useState<boolean>(false);
   const [selectedLog, setSelectedLog] = useState<AppLog | null>(null);
   const [showLogDialog, setShowLogDialog] = useState<boolean>(false);
+  const [fabOpen, setFabOpen] = useState<boolean>(false);
+  
+  const isOperationInProgress = isExporting || isClearing;
 
   const loadLogs = useCallback(async () => {
     setIsLoading(true);
@@ -164,6 +169,7 @@ export default function AppLogs() {
   const handleExportLogs = useCallback(async () => {
     try {
       setIsExporting(true);
+      setFabOpen(false);
       const logs = await readLogs(0);
 
       const formattedLogs = logs.map((l: any) => ({
@@ -209,33 +215,46 @@ export default function AppLogs() {
     }
   }, [t]);
 
+  const handleClearLogs = useCallback(async () => {
+    setFabOpen(false);
+    Alert.alert(
+      t("appSettings.logs.clearTitle"),
+      t("appSettings.logs.clearMessage"),
+      [
+        {
+          text: t("common.cancel"),
+          style: "cancel",
+        },
+        {
+          text: t("appSettings.logs.clearConfirm"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsClearing(true);
+              await clearAllLogs();
+              await loadLogs();
+              Alert.alert(
+                t("appSettings.logs.clearSuccess"),
+                t("appSettings.logs.clearSuccessMessage")
+              );
+            } catch (error) {
+              console.error("Error clearing logs:", error);
+              Alert.alert(
+                t("appSettings.logs.clearError"),
+                t("appSettings.logs.clearErrorMessage")
+              );
+            } finally {
+              setIsClearing(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [t, loadLogs]);
+
   return (
     <View style={[styles.safe, { backgroundColor: theme.colors.background }]}>
       <Surface style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={[
-              styles.exportButton,
-              {
-                borderColor: theme.colors.outline,
-                backgroundColor: theme.colors.surface,
-              },
-            ]}
-            onPress={handleExportLogs}
-            activeOpacity={0.8}
-            disabled={isExporting}
-          >
-            {isExporting ? (
-              <ActivityIndicator size="small" color={theme.colors.primary} />
-            ) : (
-              <Icon source="share" size={20} color="#007AFF" />
-            )}
-            <Text style={styles.exportText}>
-              {t("appSettings.logs.exportButton")}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         <Surface style={[styles.searchContainer]}>
           <Icon source="magnify" size={20} color="#666" />
           <TextInput
@@ -370,6 +389,43 @@ export default function AppLogs() {
           </View>
         </View>
       </Modal>
+
+      {/* FAB Group */}
+      <FAB.Group
+        open={fabOpen}
+        visible={!isOperationInProgress}
+        icon={fabOpen ? "close" : "cog"}
+        actions={[
+          {
+            icon: "share",
+            label: t("appSettings.logs.exportButton"),
+            onPress: handleExportLogs,
+            style: { backgroundColor: theme.colors.primaryContainer },
+          },
+          {
+            icon: "delete",
+            label: t("appSettings.logs.clearButton"),
+            onPress: handleClearLogs,
+            style: { backgroundColor: theme.colors.errorContainer },
+          },
+        ]}
+        onStateChange={({ open }) => setFabOpen(open)}
+        fabStyle={{
+          backgroundColor: theme.colors.primaryContainer,
+        }}
+      />
+
+      {/* Loading FAB */}
+      {isOperationInProgress && (
+        <FAB
+          icon={() => <ActivityIndicator size="small" color={theme.colors.onPrimaryContainer} />}
+          style={[
+            styles.loadingFab,
+            { backgroundColor: theme.colors.primaryContainer }
+          ]}
+          disabled
+        />
+      )}
     </View>
   );
 }
@@ -388,25 +444,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
     paddingTop: 8,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  exportButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 36,
-  },
-  exportText: {
-    fontSize: 14,
-    fontWeight: "600",
   },
   searchContainer: {
     flexDirection: "row",
@@ -553,5 +590,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.05)",
     padding: 8,
     borderRadius: 4,
+  },
+  loadingFab: {
+    position: "absolute",
+    right: 16,
+    bottom: 16,
   },
 });

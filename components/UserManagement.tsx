@@ -15,7 +15,7 @@ import {
   Surface,
   Text,
   TextInput,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
 
@@ -90,11 +90,8 @@ export default function UserManagement() {
   const theme = useTheme();
   const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
-  const { setMainLoading } = useAppContext();
 
   const { data, loading, error, refetch } = useGetAllUsersQuery();
-
-  useEffect(() => setMainLoading(loading), [loading]);
 
   const users = data?.users || [];
 
@@ -116,22 +113,12 @@ export default function UserManagement() {
     <UserListItem user={item} />
   );
 
-  if (error) {
-    return (
-      <Surface style={styles.errorContainer}>
-        <Icon source="alert-circle" size={64} color={theme.colors.error} />
-        <Text variant="headlineSmall" style={styles.errorTitle}>
-          {t("administration.errorLoadingUsers")}
-        </Text>
-        <Text variant="bodyLarge" style={styles.errorText}>
-          {error.message || t("administration.failedToLoadUsers")}
-        </Text>
-      </Surface>
-    );
-  }
-
   return (
-    <PaperScrollView onRefresh={handleRefresh} loading={loading}>
+    <PaperScrollView
+      onRefresh={handleRefresh}
+      loading={loading}
+      error={!loading && !!error}
+    >
       <View style={styles.headerRow}>
         <Text variant="bodyMedium" style={styles.statsText}>
           {t("administration.totalUsers")}: {users.length}

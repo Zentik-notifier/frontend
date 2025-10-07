@@ -10,7 +10,7 @@ import {
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
 import {
   Button,
@@ -18,7 +18,7 @@ import {
   Icon,
   Portal,
   Text,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import SwipeableItem from "./SwipeableItem";
 
@@ -27,18 +27,16 @@ export function UserSessionsSettings() {
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
   const {
-    setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  const { data, loading, refetch } = useGetUserSessionsQuery();
+  const { data, loading, refetch, error } = useGetUserSessionsQuery();
   const [revokeSession] = useRevokeSessionMutation();
   const [revokeAllOtherSessions] = useRevokeAllOtherSessionsMutation();
   const { data: providersData } = usePublicAppConfigQuery();
-  useEffect(() => setMainLoading(loading), [loading]);
 
   const sessions = data?.getUserSessions || [];
   const sortedSessions = useEntitySorting(sessions, "desc");
@@ -287,7 +285,11 @@ export function UserSessionsSettings() {
 
   return (
     <>
-      <PaperScrollView onRefresh={handleRefresh} loading={loading}>
+      <PaperScrollView
+        onRefresh={handleRefresh}
+        loading={loading}
+        error={!loading && !!error}
+      >
         {sortedSessions.length > 1 && (
           <Button
             mode="contained"

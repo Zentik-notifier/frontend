@@ -21,6 +21,10 @@ export class LogRepository {
   async purgeOlderThan(tsThreshold: number): Promise<void> {
     await this.db.runAsync(`DELETE FROM app_log WHERE timestamp < ?`, [tsThreshold]);
   }
+
+  async clearAll(): Promise<void> {
+    await this.db.runAsync(`DELETE FROM app_log`);
+  }
 }
 
 function mapRow(row: any): AppLog {

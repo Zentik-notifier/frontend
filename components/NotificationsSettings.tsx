@@ -37,7 +37,6 @@ import Selector, { SelectorOption } from "./ui/Selector";
 
 export default function NotificationsSettings() {
   const {
-    setMainLoading,
     push,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
@@ -63,8 +62,6 @@ export default function NotificationsSettings() {
   } = useGetUserWebhooksQuery();
 
   const loading = bucketsLoading || webhooksLoading;
-
-  useEffect(() => setMainLoading(loading), [loading]);
 
   // State for form fields
   const [title, setTitle] = useState(notificationFormDefaults.title);

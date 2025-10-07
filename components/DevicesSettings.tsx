@@ -17,11 +17,9 @@ export default function DevicesSettings() {
     data: userDevicesData,
     loading,
     refetch,
-  } = useGetUserDevicesQuery({
-    fetchPolicy: "network-only",
-  });
+    error,
+  } = useGetUserDevicesQuery();
   const {
-    setMainLoading,
     deviceToken,
     push,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
@@ -30,8 +28,6 @@ export default function DevicesSettings() {
   const handleRefresh = async () => {
     await refetch();
   };
-
-  useEffect(() => setMainLoading(loading), [loading]);
 
   const devices = userDevicesData?.userDevices || [];
   const sortedDevices = useEntitySorting(devices, "desc");
@@ -121,7 +117,11 @@ export default function DevicesSettings() {
     !isCurrentRegistered;
 
   return (
-    <PaperScrollView onRefresh={handleRefresh} loading={loading}>
+    <PaperScrollView
+      onRefresh={handleRefresh}
+      loading={loading}
+      error={!loading && !!error}
+    >
       <View style={styles.content}>
         <View style={styles.buttonContainer}>
           <Button

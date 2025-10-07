@@ -1,4 +1,5 @@
 import { useAppContext } from "@/contexts/AppContext";
+import { useEventsReviewContext } from "@/contexts/EventsReviewContext";
 import {
   EventType,
   useGetAllUsersQuery,
@@ -9,17 +10,31 @@ import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
-import { Card, Icon, Text, TextInput, useTheme } from "react-native-paper";
+import { Card, FAB, Icon, Portal, Text, useTheme } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
-import ThemedBottomSheet, {
-  ThemedBottomSheetRef,
-} from "./ui/ThemedBottomSheet";
+import EventsReviewFiltersModal from "./EventsReviewFiltersModal";
 import { uniqBy } from "lodash";
+
+function mappedObjectIdPlaceholder(type: EventType): string {
+  switch (type) {
+    case EventType.PushPassthrough:
+      return "systemTokenId";
+    case EventType.Notification:
+      return "-";
+    case EventType.BucketSharing:
+    case EventType.BucketUnsharing:
+      return "bucketId";
+    case EventType.DeviceRegister:
+    case EventType.DeviceUnregister:
+      return "-";
+    default:
+      return "-";
+  }
+}
 
 export default function EventsReview() {
   const theme = useTheme();
@@ -28,33 +43,29 @@ export default function EventsReview() {
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
 
-  const [selectedType, setSelectedType] = useState<EventType | undefined>(
-    undefined
-  );
-  const [userId, setUserId] = useState<string | undefined>(undefined);
-  const [objectId, setObjectId] = useState("");
-  const [targetId, setTargetId] = useState("");
-  const typeSheetRef = React.useRef<ThemedBottomSheetRef>(null);
-  const userSheetRef = React.useRef<ThemedBottomSheetRef>(null);
+  const {
+    state: { filters, activeFiltersCount },
+    handleShowFiltersModal,
+    handleClearFilters,
+  } = useEventsReviewContext();
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const pageSize = 20;
 
   const disabledActions = isOfflineAuth || isBackendUnreachable;
-
-  const { data: usersData, loading: loadingUsers } = useGetAllUsersQuery({});
 
   const queryVariables = useMemo(
     () => ({
       query: {
         page: 1,
         limit: pageSize,
-        type: selectedType,
-        userId,
-        objectId: objectId || undefined,
-        targetId: targetId || undefined,
+        type: filters.selectedType,
+        userId: filters.userId,
+        objectId: filters.objectId || undefined,
+        targetId: filters.targetId || undefined,
       },
     }),
-    [selectedType, userId, objectId, targetId, pageSize]
+    [filters.selectedType, filters.userId, filters.objectId, filters.targetId, pageSize]
   );
 
   const {
@@ -113,38 +124,7 @@ export default function EventsReview() {
     });
   }, [hasNextPage, isLoading, currentPage, queryVariables.query, fetchMore]);
 
-  const handleClearFilters = useCallback(() => {
-    setSelectedType(undefined);
-    setUserId(undefined);
-    setObjectId("");
-    setTargetId("");
-  }, []);
-
-  const eventTypeOptions = useMemo(
-    () =>
-      Object.values(EventType).map((value) => ({
-        label: value,
-        value,
-      })),
-    []
-  );
-
-  const allEventTypeOptions = useMemo(
-    () => [
-      { label: t("common.all"), value: undefined as any },
-      ...eventTypeOptions,
-    ],
-    [eventTypeOptions, t]
-  );
-
-  const userOptions = useMemo(() => {
-    const options = (usersData?.users ?? []).map((u) => ({
-      label: u.username || u.email || u.id,
-      value: u.id as string,
-      subtitle: u.email || undefined,
-    }));
-    return [{ label: t("common.all"), value: undefined as any }, ...options];
-  }, [usersData, t]);
+  const { data: usersData } = useGetAllUsersQuery({});
 
   const userIdToName = useMemo(() => {
     const map: Record<string, string> = {};
@@ -153,6 +133,10 @@ export default function EventsReview() {
     }
     return map;
   }, [usersData]);
+
+  const handleClearAllFilters = useCallback(() => {
+    handleClearFilters();
+  }, [handleClearFilters]);
 
   const formatTargetId = useCallback(
     (
@@ -285,134 +269,7 @@ export default function EventsReview() {
         </Text>
       </View>
 
-      <View style={styles.filtersContainer}>
-        <TextInput
-          mode="outlined"
-          placeholder={t("eventsReview.filters.objectId")}
-          value={objectId}
-          onChangeText={setObjectId}
-          disabled={disabledActions}
-          left={<TextInput.Icon icon="magnify" />}
-          right={
-            objectId.length > 0 ? (
-              <TextInput.Icon
-                icon="close-circle"
-                onPress={() => setObjectId("")}
-              />
-            ) : undefined
-          }
-          style={styles.searchInput}
-        />
-      </View>
-
-      <View style={styles.filtersContainer}>
-        <TextInput
-          mode="outlined"
-          placeholder={t("eventsReview.filters.targetId")}
-          value={targetId}
-          onChangeText={setTargetId}
-          disabled={disabledActions}
-          left={<TextInput.Icon icon="cellphone" />}
-          right={
-            targetId.length > 0 ? (
-              <TextInput.Icon
-                icon="close-circle"
-                onPress={() => setTargetId("")}
-              />
-            ) : undefined
-          }
-          style={styles.searchInput}
-        />
-
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            {
-              borderColor: theme.colors.outline,
-              backgroundColor: selectedType
-                ? theme.colors.primaryContainer
-                : theme.colors.surface,
-            },
-          ]}
-          onPress={() => typeSheetRef.current?.show()}
-          activeOpacity={0.7}
-          disabled={disabledActions}
-        >
-          <Icon
-            source="filter"
-            size={16}
-            color={
-              selectedType
-                ? theme.colors.primary
-                : theme.colors.onSurfaceVariant
-            }
-          />
-          {selectedType && (
-            <View
-              style={[
-                styles.filterBadge,
-                { backgroundColor: theme.colors.primary },
-              ]}
-            >
-              <Text style={styles.filterBadgeText}>T</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            {
-              borderColor: theme.colors.outline,
-              backgroundColor: userId
-                ? theme.colors.primaryContainer
-                : theme.colors.surface,
-            },
-          ]}
-          onPress={() => userSheetRef.current?.show()}
-          activeOpacity={0.7}
-          disabled={loadingUsers || disabledActions}
-        >
-          <Icon
-            source="account"
-            size={16}
-            color={
-              userId ? theme.colors.primary : theme.colors.onSurfaceVariant
-            }
-          />
-          {userId && (
-            <View
-              style={[
-                styles.filterBadge,
-                { backgroundColor: theme.colors.primary },
-              ]}
-            >
-              <Text style={styles.filterBadgeText}>U</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        {(selectedType || userId || objectId || targetId) && (
-          <TouchableOpacity
-            style={[
-              styles.clearFiltersButton,
-              {
-                borderColor: theme.colors.outline,
-                backgroundColor: theme.colors.surface,
-              },
-            ]}
-            onPress={handleClearFilters}
-            activeOpacity={0.7}
-            disabled={disabledActions}
-          >
-            <Icon
-              source="refresh"
-              size={16}
-              color={theme.colors.onSurfaceVariant}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
+      <EventsReviewFiltersModal />
 
       {isLoading && events.length === 0 ? (
         <View
@@ -485,99 +342,30 @@ export default function EventsReview() {
         />
       )}
 
-      <ThemedBottomSheet
-        ref={typeSheetRef}
-        title={t("eventsReview.filters.type")}
-        trigger={() => null}
-      >
-        <ScrollView contentContainerStyle={styles.dialogContent}>
-          {allEventTypeOptions.map((option) => (
-            <TouchableOpacity
-              key={option.value || "all"}
-              style={[
-                styles.modalOption,
-                {
-                  backgroundColor:
-                    selectedType === option.value
-                      ? theme.colors.primaryContainer
-                      : theme.colors.surface,
-                },
-              ]}
-              onPress={() => {
-                setSelectedType(option.value);
-                typeSheetRef.current?.hide();
-              }}
-            >
-              <Text variant="bodyMedium" style={styles.modalOptionText}>
-                {option.label}
-              </Text>
-              {selectedType === option.value && (
-                <Icon source="check" size={20} color={theme.colors.primary} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </ThemedBottomSheet>
-
-      <ThemedBottomSheet
-        ref={userSheetRef}
-        title={t("eventsReview.filters.userId")}
-        trigger={() => null}
-      >
-        <ScrollView contentContainerStyle={styles.dialogContent}>
-          {userOptions.map((option) => (
-            <TouchableOpacity
-              key={option.value || "all"}
-              style={[
-                styles.modalOption,
-                {
-                  backgroundColor:
-                    userId === option.value
-                      ? theme.colors.primaryContainer
-                      : theme.colors.surface,
-                },
-              ]}
-              onPress={() => {
-                setUserId(option.value);
-                userSheetRef.current?.hide();
-              }}
-            >
-              <View style={styles.modalOptionContent}>
-                <Text variant="bodyMedium" style={styles.modalOptionText}>
-                  {option.label}
-                </Text>
-                {"subtitle" in option && option.subtitle && (
-                  <Text variant="bodySmall" style={styles.modalOptionSubtitle}>
-                    {option.subtitle}
-                  </Text>
-                )}
-              </View>
-              {userId === option.value && (
-                <Icon source="check" size={20} color={theme.colors.primary} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </ThemedBottomSheet>
+      {/* FAB for filters */}
+      <Portal>
+        <FAB
+          icon={activeFiltersCount > 0 ? "filter-check" : "filter"}
+          label={activeFiltersCount > 0 ? `${activeFiltersCount}` : undefined}
+          onPress={handleShowFiltersModal}
+          style={[
+            styles.fab,
+            {
+              backgroundColor:
+                activeFiltersCount > 0
+                  ? theme.colors.primaryContainer
+                  : theme.colors.surface,
+            },
+          ]}
+          color={
+            activeFiltersCount > 0
+              ? theme.colors.primary
+              : theme.colors.onSurface
+          }
+        />
+      </Portal>
     </PaperScrollView>
   );
-}
-
-function mappedObjectIdPlaceholder(type: EventType): string {
-  switch (type) {
-    case EventType.PushPassthrough:
-      return "systemTokenId";
-    case EventType.Notification:
-      return "-";
-    case EventType.BucketSharing:
-    case EventType.BucketUnsharing:
-      return "bucketId";
-    case EventType.DeviceRegister:
-    case EventType.DeviceUnregister:
-      return "-";
-    default:
-      return "-";
-  }
 }
 
 const styles = StyleSheet.create({
@@ -617,47 +405,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.7,
   },
-  filtersContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    height: 40,
-  },
-  filterButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-  },
-  filterBadge: {
-    position: "absolute",
-    top: -6,
-    right: -6,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  filterBadgeText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "white",
-  },
-  clearFiltersButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  selectorsContainer: {
+    gap: 16,
+    marginBottom: 16,
   },
   loadingContainer: {
     flex: 1,
@@ -753,31 +503,11 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     textAlign: "center",
   },
-  dialog: {
-    maxHeight: "80%",
-  },
-  dialogContent: {
-    padding: 16,
-  },
-  modalOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    justifyContent: "space-between",
-  },
-  modalOptionContent: {
-    flex: 1,
-  },
-  modalOptionText: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  modalOptionSubtitle: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginTop: 2,
+  fab: {
+    position: "absolute",
+    right: 16,
+    bottom: 16,
+    borderRadius: 16,
+    elevation: 4,
   },
 });

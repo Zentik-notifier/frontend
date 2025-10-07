@@ -10,10 +10,7 @@ interface NotificationsSectionProps {
 export default function NotificationsSection({
   filteredNotifications,
 }: NotificationsSectionProps) {
-  const { notifications, setMainLoading, notificationsLoading } =
-    useAppContext();
-
-  useEffect(() => setMainLoading(notificationsLoading), [notificationsLoading]);
+  const { notifications } = useAppContext();
 
   const notificationsToShow = filteredNotifications || notifications;
 

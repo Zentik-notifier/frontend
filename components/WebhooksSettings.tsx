@@ -1,5 +1,4 @@
 import PaperScrollView from "@/components/ui/PaperScrollView";
-import { useAppContext } from "@/contexts/AppContext";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -19,29 +18,16 @@ export default function WebhooksSettings({
   const theme = useTheme();
   const { t } = useI18n();
   const { navigateToCreateWebhook } = useNavigationUtils();
-  const {
-    setMainLoading,
-    connectionStatus: { isOfflineAuth, isBackendUnreachable },
-  } = useAppContext();
-  const isOffline = isOfflineAuth || isBackendUnreachable;
 
   const {
     data: userWebhooksData,
     loading,
     refetch,
+    error,
   } = useGetUserWebhooksQuery();
-  useEffect(() => setMainLoading(loading), [loading]);
 
   const webhooks = userWebhooksData?.userWebhooks || [];
   const sortedWebhooks = useEntitySorting(webhooks, "desc");
-
-  // Refetch data when refreshing prop changes
-  useEffect(() => {
-    if (refreshing) {
-      console.log("WebhooksSettings: Refreshing data...");
-    }
-    refetch();
-  }, [refreshing, refetch]);
 
   const handleCreateWebhook = () => {
     navigateToCreateWebhook();
@@ -56,6 +42,7 @@ export default function WebhooksSettings({
       onAdd={handleCreateWebhook}
       onRefresh={handleRefresh}
       loading={loading}
+      error={!loading && !!error}
     >
       {webhooks.length === 0 ? (
         <View style={styles.emptyState}>

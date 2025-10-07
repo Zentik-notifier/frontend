@@ -34,7 +34,7 @@ import OAuthConnections from "./OAuthConnections";
 import PaperScrollView from "./ui/PaperScrollView";
 
 export default function UserSection() {
-  const { logout, setMainLoading, refreshUserData } = useAppContext();
+  const { logout, refreshUserData } = useAppContext();
   const theme = useTheme();
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
@@ -81,7 +81,6 @@ export default function UserSection() {
 
   const { data: userData, loading, error, refetch } = useGetMeQuery();
   const { data: providersData } = usePublicAppConfigQuery();
-  useEffect(() => setMainLoading(loading), [loading]);
 
   const user = userData?.me;
 
@@ -172,18 +171,6 @@ export default function UserSection() {
     await refetch();
   };
 
-  if (error && !user) {
-    return (
-      <View
-        style={[styles.section, { backgroundColor: theme.colors.background }]}
-      >
-        <Text style={[styles.loadingText, { color: theme.colors.error }]}>
-          {t("userProfile.errorLoadingData")}: {error.message}
-        </Text>
-      </View>
-    );
-  }
-
   if (!user) {
     return (
       <View
@@ -197,7 +184,11 @@ export default function UserSection() {
   }
 
   return (
-    <PaperScrollView onRefresh={handleRefresh} loading={loading}>
+    <PaperScrollView
+      onRefresh={handleRefresh}
+      loading={loading}
+      error={!loading && !!error}
+    >
       <View style={styles.section}>
         {/* Profile Section with Avatar and Form */}
         <Card style={styles.profileContainer}>
@@ -457,8 +448,7 @@ export default function UserSection() {
                   variant="bodyMedium"
                   style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}
                 >
-                  This action cannot be undone. All your data will be
-                  permanently deleted.
+                  {t("userProfile.deleteAccountWarning")}
                 </Text>
               </View>
               <Button

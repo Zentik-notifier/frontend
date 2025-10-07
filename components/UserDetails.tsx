@@ -27,12 +27,12 @@ interface UserDetailsProps {
 export default function UserDetails({ userId }: UserDetailsProps) {
   const theme = useTheme();
   const { t } = useI18n();
-  const [refreshing, setRefreshing] = useState(false);
 
   const {
     data: userData,
     loading: userLoading,
     refetch: refetchUser,
+    error: userError,
   } = useGetUserByIdQuery({
     variables: { id: userId! },
     skip: !userId,
@@ -67,12 +67,7 @@ export default function UserDetails({ userId }: UserDetailsProps) {
   const user = userData?.user;
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await Promise.all([refetchUser(), refetchStats()]);
-    } finally {
-      setRefreshing(false);
-    }
+    await Promise.all([refetchUser(), refetchStats()]);
   };
 
   const handleRoleChange = (newRole: string) => {
@@ -153,7 +148,7 @@ export default function UserDetails({ userId }: UserDetailsProps) {
     await refetchStats();
   };
 
-  if (!user) {
+  if (!user && !userLoading) {
     return (
       <Surface>
         <Text variant="bodyLarge" style={styles.errorText}>
@@ -163,10 +158,16 @@ export default function UserDetails({ userId }: UserDetailsProps) {
     );
   }
 
+  if (!user) {
+    return null;
+  }
+
   return (
     <PaperScrollView
       onRefresh={handleRefresh}
       loading={userLoading || statsLoading}
+      onRetry={handleRefresh}
+      error={!!userError}
     >
       {/* User Info Section */}
       <Card style={styles.section} mode="outlined">

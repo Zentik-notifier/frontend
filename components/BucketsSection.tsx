@@ -14,20 +14,13 @@ const BucketsSection: React.FC = () => {
   const { t } = useI18n();
   const theme = useTheme();
   const { data: bucketsData, loading: bucketsLoading } = useGetBucketsQuery();
-  const {
-    notifications,
-    setMainLoading,
-    refetchNotifications,
-    notificationsLoading,
-  } = useAppContext();
+  const { notifications, refetchNotifications, notificationsLoading } =
+    useAppContext();
   const buckets = bucketsData?.buckets ?? [];
   const { navigateToCreateBucket, navigateToBucketDetail } =
     useNavigationUtils();
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loading = notificationsLoading || bucketsLoading;
-
-  useEffect(() => setMainLoading(loading), [loading]);
 
   const { bucketStats } = useMemo(
     () => getBucketStats(buckets, notifications),
@@ -91,7 +84,7 @@ const BucketsSection: React.FC = () => {
   return (
     <PaperScrollView
       onRefresh={refetch}
-      loading={isRefreshing}
+      loading={loading}
       onAdd={() => navigateToCreateBucket(true)}
     >
       {bucketStats.length === 0 ? (

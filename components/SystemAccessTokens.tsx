@@ -16,7 +16,7 @@ import {
   Icon,
   Portal,
   Text,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import SwipeableItem from "./SwipeableItem";
 import PaperScrollView from "./ui/PaperScrollView";
@@ -35,7 +35,7 @@ export default function SystemAccessTokens() {
 
   const disabledActions = isOfflineAuth || isBackendUnreachable;
 
-  const { data, loading, refetch } = useGetSystemAccessTokensQuery();
+  const { data, loading, refetch, error } = useGetSystemAccessTokensQuery();
   const [revokeSystemToken] = useRevokeSystemAccessTokenMutation();
 
   const handleRefresh = async () => {
@@ -164,6 +164,7 @@ export default function SystemAccessTokens() {
         }
         onRefresh={handleRefresh}
         loading={loading}
+        error={!loading && !!error}
       >
         {sortedTokens.length === 0 ? (
           <View style={styles.emptyState}>

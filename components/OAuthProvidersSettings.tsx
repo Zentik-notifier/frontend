@@ -1,6 +1,6 @@
 import {
   OAuthProviderFragment,
-  useAllOAuthProvidersQuery
+  useAllOAuthProvidersQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -32,22 +32,6 @@ export default function OAuthProvidersSettings() {
     />
   );
 
-  if (error) {
-    return (
-      <Surface style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Icon source="alert-circle" size={48} color={theme.colors.error} />
-          <Text variant="headlineSmall" style={styles.errorTitle}>
-            {t("administration.errorLoadingOAuthProviders")}
-          </Text>
-          <Text variant="bodyMedium" style={styles.errorText}>
-            {t("administration.errorLoadingOAuthProvidersDescription")}
-          </Text>
-        </View>
-      </Surface>
-    );
-  }
-
   const handleRefresh = async () => {
     await refetch();
   };
@@ -58,6 +42,8 @@ export default function OAuthProvidersSettings() {
         onAdd={handleCreateProvider}
         onRefresh={handleRefresh}
         loading={loading}
+        error={!!error}
+        onRetry={handleRefresh}
       >
         {allProviders.length === 0 ? (
           <View style={styles.emptyState}>

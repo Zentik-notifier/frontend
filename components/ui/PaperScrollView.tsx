@@ -98,7 +98,7 @@ export default function PaperScrollView({
         style,
       ]}
     >
-      {scrollViewContent}
+      {!loading && scrollViewContent}
 
       {/* FAB buttons in bottom right corner (Web only) */}
       {showFab && !error && (

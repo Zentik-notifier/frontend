@@ -73,7 +73,9 @@ export default function Selector({
   const containerRef = useRef<View>(null);
   const sheetRef = useRef<ThemedBottomSheetRef>(null);
 
-  const selectedOption = options.find((option) => option.id === selectedValue);
+  const selectedOption = selectedValue
+    ? options.find((option) => option.id === selectedValue)
+    : undefined;
 
   const filteredOptions = useMemo(() => {
     if (!isSearchable || !searchQuery.trim()) {

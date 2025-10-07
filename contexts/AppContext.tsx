@@ -389,6 +389,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loading: notificationsLoading,
   } = useFetchNotifications();
 
+  useEffect(() => setIsLoading(notificationsLoading), [notificationsLoading]);
+
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {

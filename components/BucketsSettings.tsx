@@ -56,10 +56,6 @@ export default function BucketsSettings() {
     return Array.from(danglingBucketMap.values());
   }, [notifications, buckets]);
 
-  if (error) {
-    console.error("Error loading buckets:", error);
-  }
-
   const handleDanglingBucketPress = (item: { bucket: any; count: number }) => {
     navigateToDanglingBucket(item.bucket.id, false);
   };
@@ -70,6 +66,7 @@ export default function BucketsSettings() {
         onRefresh={handleRefresh}
         loading={loading}
         onAdd={() => navigateToCreateBucket(false)}
+        error={!loading && !!error}
       >
         {/* Header collassabile Dangling Buckets */}
         {danglingBuckets.length > 0 && (

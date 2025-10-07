@@ -29,7 +29,6 @@ export function AccessTokensSettings() {
   const { t } = useI18n();
   const { formatDate: formatDateService } = useDateFormat();
   const {
-    setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const disabledAdd = isOfflineAuth || isBackendUnreachable;
@@ -37,14 +36,11 @@ export function AccessTokensSettings() {
   const [errorMessage, setErrorMessage] = useState("");
 
   // GraphQL queries and mutations
-  const { data, loading, refetch } = useGetUserAccessTokensQuery();
+  const { data, loading, refetch, error } = useGetUserAccessTokensQuery();
   const [revokeAccessToken] = useRevokeAccessTokenMutation();
-
-  useEffect(() => setMainLoading(loading), [loading]);
 
   const tokens = data?.getUserAccessTokens || [];
   const sortedTokens = useEntitySorting(tokens, "desc");
-  console.log("sortedTokens", sortedTokens);
 
   const deleteToken = async (tokenId: string) => {
     try {
@@ -72,7 +68,7 @@ export function AccessTokensSettings() {
       <SwipeableItem
         key={item.id}
         rightAction={
-          !(isOfflineAuth || isBackendUnreachable)
+          !disabledAdd
             ? {
                 icon: "delete",
                 label: t("accessTokens.item.delete"),
@@ -163,6 +159,7 @@ export function AccessTokensSettings() {
         onAdd={() => navigateToCreateAccessToken()}
         loading={loading}
         onRefresh={handleRefresh}
+        error={!loading && !!error}
       >
         {sortedTokens.length === 0 ? (
           <View style={styles.emptyState}>

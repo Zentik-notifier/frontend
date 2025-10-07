@@ -365,6 +365,14 @@ export interface TranslationKey {
       exportComplete: string;
       exportCompleteMessage: string;
       exportError: string;
+      clearButton: string;
+      clearTitle: string;
+      clearMessage: string;
+      clearConfirm: string;
+      clearSuccess: string;
+      clearSuccessMessage: string;
+      clearError: string;
+      clearErrorMessage: string;
     };
     language: {
       description: string;

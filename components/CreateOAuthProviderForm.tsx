@@ -13,13 +13,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
-import {
-  Button,
-  Card,
-  Text,
-  TextInput,
-  useTheme
-} from "react-native-paper";
+import { Button, Card, Text, TextInput, useTheme } from "react-native-paper";
 import ColorPicker, { ColorPickerRef } from "./ColorPicker";
 import PaperScrollView from "./ui/PaperScrollView";
 
@@ -39,6 +33,7 @@ export default function CreateOAuthProviderForm({
     data: providerData,
     loading,
     refetch,
+    error,
   } = useOAuthProviderQuery({
     variables: { id: providerId || "" },
     skip: !providerId,
@@ -154,9 +149,11 @@ export default function CreateOAuthProviderForm({
           variables: { input: input as CreateOAuthProviderDto },
           update: (cache, { data }) => {
             if (data?.createOAuthProvider) {
-              const existingProviders = cache.readQuery<AllOAuthProvidersQuery>({
-                query: AllOAuthProvidersDocument,
-              });
+              const existingProviders = cache.readQuery<AllOAuthProvidersQuery>(
+                {
+                  query: AllOAuthProvidersDocument,
+                }
+              );
               if (existingProviders?.allOAuthProviders) {
                 cache.writeQuery({
                   query: AllOAuthProvidersDocument,
@@ -193,6 +190,8 @@ export default function CreateOAuthProviderForm({
   return (
     <PaperScrollView
       loading={loading}
+      error={!!error}
+      onRetry={handleRefresh}
       onRefresh={isEditing ? handleRefresh : undefined}
     >
       <View>

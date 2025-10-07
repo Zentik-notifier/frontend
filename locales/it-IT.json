@@ -177,7 +177,15 @@
       "exportDescription": "Esporta tutti i log presenti nel DB in un file JSON",
       "exportComplete": "Esportazione Completata",
       "exportCompleteMessage": "File salvato in: {{path}}",
-      "exportError": "Impossibile esportare i log"
+      "exportError": "Impossibile esportare i log",
+      "clearButton": "Cancella Log",
+      "clearTitle": "Cancella Tutti i Log",
+      "clearMessage": "Sei sicuro di voler eliminare tutti i log? Questa azione non può essere annullata.",
+      "clearConfirm": "Cancella",
+      "clearSuccess": "Successo",
+      "clearSuccessMessage": "Tutti i log sono stati cancellati.",
+      "clearError": "Errore",
+      "clearErrorMessage": "Impossibile cancellare i log. Riprova."
     },
     "versions": {
       "title": "Informazioni Versione",

@@ -117,4 +117,26 @@ export async function readLogs(tsFrom: number = 0): Promise<AppLog[]> {
   }
 }
 
+// Static method to clear all logs
+export async function clearAllLogs(): Promise<void> {
+  if (Platform.OS === 'web') {
+    try {
+      const db = await openWebStorageDb();
+      await db.clear('app_log');
+    } catch (error) {
+      console.warn('Failed to clear web logs:', error);
+      throw error;
+    }
+  } else {
+    try {
+      const db = await openSharedCacheDb();
+      const repo = new LogRepository(db);
+      await repo.clearAll();
+    } catch (error) {
+      console.warn('Failed to clear mobile logs:', error);
+      throw error;
+    }
+  }
+}
+
 

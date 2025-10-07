@@ -1,3 +1,4 @@
+import { useAppContext } from "@/contexts/AppContext";
 import {
   UserFragment,
   usePublicAppConfigQuery,
@@ -5,15 +6,9 @@ import {
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { ApiConfigService } from "@/services/api-config";
-import { useAppContext } from "@/contexts/AppContext";
 import { getAccessToken } from "@/services/auth-storage";
-import React, { useEffect, useState } from "react";
-import {
-  Alert,
-  Image,
-  StyleSheet,
-  View,
-} from "react-native";
+import React, { useState } from "react";
+import { Alert, Image, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Button,
@@ -36,16 +31,17 @@ export default function OAuthConnections({
   const { t } = useI18n();
   const theme = useTheme();
   const {
-    setMainLoading,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const [connectingProvider, setConnectingProvider] = useState<string | null>(
     null
   );
 
-  const { data: providersData, loading: providersLoading } =
-    usePublicAppConfigQuery();
-  useEffect(() => setMainLoading(providersLoading), [providersLoading]);
+  const {
+    data: providersData,
+    loading: providersLoading,
+    error,
+  } = usePublicAppConfigQuery();
 
   // Filter out any custom providers (those that might not be standard OAuth providers)
   const oauthIdentities =
@@ -120,7 +116,7 @@ export default function OAuthConnections({
       console.log("🔗 Browser result:", result);
 
       // Complete the auth session
-      await maybeCompleteAuthSession();
+      maybeCompleteAuthSession();
 
       // Check if the browser was closed without completing OAuth
       if (result.type === "cancel") {
@@ -167,8 +163,14 @@ export default function OAuthConnections({
     return (
       <Card style={styles.container}>
         <Card.Content style={styles.emptyState}>
-          <Icon source="link-off" size={32} color={theme.colors.onSurfaceVariant} />
-          <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
+          <Icon
+            source="link-off"
+            size={32}
+            color={theme.colors.onSurfaceVariant}
+          />
+          <Text
+            style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}
+          >
             {t("userProfile.oauthConnections.noConnections")}
           </Text>
         </Card.Content>
@@ -205,7 +207,12 @@ export default function OAuthConnections({
                     : "Available to connect"
                 }
                 left={(props) => (
-                  <View style={[styles.iconContainer, { backgroundColor: providerColor + "15" }]}>
+                  <View
+                    style={[
+                      styles.iconContainer,
+                      { backgroundColor: providerColor + "15" },
+                    ]}
+                  >
                     {provider.iconUrl ? (
                       <Image
                         source={{ uri: provider.iconUrl }}
@@ -223,7 +230,9 @@ export default function OAuthConnections({
                       <Chip
                         mode="flat"
                         textStyle={{ color: theme.colors.primary }}
-                        style={{ backgroundColor: theme.colors.primaryContainer }}
+                        style={{
+                          backgroundColor: theme.colors.primaryContainer,
+                        }}
                       >
                         {t("userProfile.oauthConnections.connected")}
                       </Chip>
