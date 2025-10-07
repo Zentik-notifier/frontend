@@ -104,7 +104,6 @@ export const useCleanup = () => {
 
         await new Promise(resolve => setTimeout(resolve, delay));
 
-        await fetchNotifications();
         // // 1. Fetch notifications from remote
         // await executeWithRAF(
         //     async () => {
@@ -113,8 +112,8 @@ export const useCleanup = () => {
         //     },
         //     'fetching notifications'
         // ).catch(() => { }); // Continue on error
-
         // await waitRAF();
+        await fetchNotifications();
 
         // 2. Sync Apollo with LocalDB
         // await executeWithRAF(
@@ -124,7 +123,6 @@ export const useCleanup = () => {
         //     },
         //     'syncing Apollo with local DB'
         // ).catch(() => { }); // Continue on error
-
         // await waitRAF();
         await syncApolloWithLocalDb();
 
@@ -148,6 +146,8 @@ export const useCleanup = () => {
                 },
                 'cleaning gallery'
             ).catch(() => { }); // Continue on error
+            await userSettings.setLastCleanup(new Date().toISOString());
+            console.log('[Cleanup] Updated last cleanup timestamp');
 
             await waitRAF();
         }
@@ -162,9 +162,6 @@ export const useCleanup = () => {
         ).catch(() => { }); // Continue on error
 
         await waitRAF();
-
-        await userSettings.setLastCleanup(new Date().toISOString());
-        console.log('[Cleanup] Updated last cleanup timestamp');
 
         console.log('[Cleanup] Cleanup completed');
     }, [syncApolloWithLocalDb, fetchNotifications]);
