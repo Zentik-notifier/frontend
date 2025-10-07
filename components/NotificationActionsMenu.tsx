@@ -10,7 +10,6 @@ import {
   useMarkNotificationUnread,
 } from "@/hooks/useNotifications";
 import React, { useMemo, useState } from "react";
-import { StyleSheet } from "react-native";
 import {
   FAB,
   useTheme
@@ -140,16 +139,6 @@ export const NotificationActionsMenu: React.FC<
       fabStyle={{
         backgroundColor: theme.colors.primary,
       }}
-      style={styles.fabGroup}
     />
   );
 };
-
-const styles = StyleSheet.create({
-  fabGroup: {
-    position: "absolute",
-    right: 0,
-    bottom: 0,
-    margin: 16,
-  },
-});
