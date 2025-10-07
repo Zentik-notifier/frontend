@@ -4,7 +4,7 @@ import { userSettings } from "@/services/user-settings";
 import { setBadgeCount } from "@/utils/badgeUtils";
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { syncNotificationsFromAPI, notificationKeys } from "@/hooks/notifications";
+import { useSyncNotificationsFromAPI, notificationKeys } from "@/hooks/notifications";
 
 interface CleanupProps {
     immediate?: boolean,
@@ -13,6 +13,7 @@ interface CleanupProps {
 
 export const useCleanup = () => {
     const queryClient = useQueryClient();
+    const { syncNotifications } = useSyncNotificationsFromAPI();
 
     const cleanup = useCallback(async ({ immediate, force }: CleanupProps) => {
         const shouldCleanup = !userSettings.shouldRunCleanup() ? false : true;
@@ -45,7 +46,7 @@ export const useCleanup = () => {
         await executeWithRAF(
             async () => {
                 console.log('[Cleanup] Starting notification sync from API...');
-                const count = await syncNotificationsFromAPI();
+                const count = await syncNotifications();
                 console.log(`[Cleanup] Synced ${count} notifications from API`);
                 
                 // Invalidate all queries to refresh UI with new data
@@ -104,7 +105,7 @@ export const useCleanup = () => {
         await waitRAF();
 
         console.log('[Cleanup] Cleanup completed');
-    }, [queryClient]);
+    }, [queryClient, syncNotifications]);
 
     return { cleanup };
 }

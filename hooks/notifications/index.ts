@@ -19,25 +19,22 @@ export {
   useNotificationStats,
   useBucketStats,
   useUnreadCountsByBucket,
+  useNotificationDetail,
+  useSyncNotificationsFromAPI,
   notificationKeys,
   prefetchNotifications,
   prefetchBucketNotifications,
-  syncNotificationsFromAPI,
   refreshNotificationQueries,
 } from './useNotificationQueries';
 
 // Mutation Hooks
 export {
-  useCreateNotification,
-  useUpdateNotification,
   useMarkAsRead,
   useMarkAsUnread,
   useBatchMarkAsRead,
   useMarkAllAsRead,
   useDeleteNotification,
   useBatchDeleteNotifications,
-  useClearAllNotifications,
-  useOptimisticMarkAsRead,
 } from './useNotificationMutations';
 
 // Types

@@ -10,10 +10,10 @@ import {
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import {
+  useNotificationDetail,
   useDeleteNotification,
-  useMarkNotificationRead,
-  useNotificationById,
-} from "@/hooks/useNotifications";
+  useMarkAsRead,
+} from "@/hooks/notifications";
 import { useNotificationUtils } from "@/hooks/useNotificationUtils";
 import * as Clipboard from "expo-clipboard";
 import { File, Paths } from "expo-file-system";
@@ -34,13 +34,11 @@ import ButtonGroup from "./ui/ButtonGroup";
 
 interface NotificationDetailProps {
   notificationId: string;
-  forceFetch?: boolean;
   onBack?: () => void;
 }
 
 export default function NotificationDetail({
   notificationId,
-  forceFetch,
   onBack,
 }: NotificationDetailProps) {
   const theme = useTheme();
@@ -48,15 +46,10 @@ export default function NotificationDetail({
   const { formatDate } = useDateFormat();
   const [fullScreenImageVisible, setFullScreenImageVisible] = useState(false);
   const [fullScreenIndex, setFullScreenIndex] = useState(0);
-  const { getDeliveryTypeFriendlyName, getDeliveryTypeColor } =
-    useNotificationUtils();
-  const markAsRead = useMarkNotificationRead();
-  const deleteNotification = useDeleteNotification();
+  const markAsReadMutation = useMarkAsRead();
+  const deleteNotificationMutation = useDeleteNotification();
 
-  const { notification, loading, error } = useNotificationById(
-    notificationId,
-    forceFetch
-  );
+  const { data: notification, isLoading: loading, error } = useNotificationDetail(notificationId);
   const [isCopying, setIsCopying] = useState(false);
 
   const handleMediaPress = (imageUri: string) => {
@@ -70,9 +63,9 @@ export default function NotificationDetail({
 
   useEffect(() => {
     if (notification && !notification.readAt) {
-      markAsRead(notification.id).catch(console.error);
+      markAsReadMutation.mutate(notification.id);
     }
-  }, [notification]);
+  }, [notification, markAsReadMutation]);
 
   const message = notification?.message;
   const bucketName = message?.bucket?.name;
@@ -210,7 +203,7 @@ export default function NotificationDetail({
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteNotification(notification.id);
+              await deleteNotificationMutation.mutateAsync(notification.id);
               Alert.alert(
                 t("common.success"),
                 t("notificationDetail.deleteSuccess"),

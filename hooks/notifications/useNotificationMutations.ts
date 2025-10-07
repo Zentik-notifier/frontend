@@ -3,158 +3,27 @@
  * Provides hooks for creating, updating, and deleting notifications with local DB sync
  */
 
-import {
-    useMutation,
-    UseMutationResult,
-    UseMutationOptions,
-    useQueryClient,
-    InfiniteData,
-} from '@tanstack/react-query';
 import { NotificationFragment } from '@/generated/gql-operations-generated';
 import {
-    CreateNotificationInput,
-    UpdateNotificationInput,
-    MarkAsReadInput,
-    DeleteNotificationInput,
-    NotificationQueryResult,
-} from '@/types/notifications';
-import {
-    createNotification,
-    updateNotification,
-    markNotificationAsRead,
-    markNotificationAsUnread,
-    markNotificationsAsRead,
-    markAllNotificationsAsRead,
-    deleteNotification,
-    deleteNotifications,
-} from '@/services/api/notifications-api';
-import {
-    saveNotificationToCache,
-    updateNotificationReadStatus,
-    updateNotificationsReadStatus,
     deleteNotificationFromCache,
     deleteNotificationsFromCache,
-    clearAllNotificationsFromCache,
     getAllNotificationsFromCache,
+    updateNotificationReadStatus,
+    updateNotificationsReadStatus
 } from '@/services/notifications-repository';
+import {
+    DeleteNotificationInput,
+    MarkAsReadInput,
+    NotificationQueryResult
+} from '@/types/notifications';
+import {
+    InfiniteData,
+    useMutation,
+    UseMutationOptions,
+    UseMutationResult,
+    useQueryClient,
+} from '@tanstack/react-query';
 import { notificationKeys } from './useNotificationQueries';
-
-// ====================
-// CREATE MUTATIONS
-// ====================
-
-/**
- * Hook for creating a new notification
- * Automatically syncs with local DB and invalidates relevant queries
- * 
- * @example
- * ```tsx
- * const createMutation = useCreateNotification();
- * 
- * const handleCreate = () => {
- *   createMutation.mutate({
- *     bucketId: 'bucket-id',
- *     title: 'New notification',
- *     body: 'Notification body',
- *   }, {
- *     onSuccess: (notification) => {
- *       console.log('Created:', notification);
- *     },
- *   });
- * };
- * ```
- */
-export function useCreateNotification(
-    mutationOptions?: Omit<
-        UseMutationOptions<NotificationFragment, Error, CreateNotificationInput>,
-        'mutationFn'
-    >
-): UseMutationResult<NotificationFragment, Error, CreateNotificationInput> {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async (input: CreateNotificationInput) => {
-            // Create via API
-            const notification = await createNotification(input);
-
-            // Sync to local DB
-            await saveNotificationToCache(notification);
-
-            return notification;
-        },
-        onSuccess: (notification, variables, context) => {
-            // Invalidate all notification lists to trigger refetch
-            queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
-
-            // Invalidate bucket-specific queries
-            queryClient.invalidateQueries({
-                queryKey: notificationKeys.bucket(notification.message.bucket.id),
-            });
-
-            // Invalidate stats
-            queryClient.invalidateQueries({ queryKey: notificationKeys.stats() });
-            queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCounts() });
-        },
-        ...mutationOptions,
-    });
-}
-
-// ====================
-// UPDATE MUTATIONS
-// ====================
-
-/**
- * Hook for updating a notification
- * 
- * @example
- * ```tsx
- * const updateMutation = useUpdateNotification();
- * 
- * const handleUpdate = () => {
- *   updateMutation.mutate({
- *     id: 'notification-id',
- *     readAt: new Date().toISOString(),
- *   });
- * };
- * ```
- */
-export function useUpdateNotification(
-    mutationOptions?: Omit<
-        UseMutationOptions<NotificationFragment, Error, UpdateNotificationInput>,
-        'mutationFn'
-    >
-): UseMutationResult<NotificationFragment, Error, UpdateNotificationInput> {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async (input: UpdateNotificationInput) => {
-            // Update via API
-            const notification = await updateNotification(input);
-
-            // Sync to local DB
-            await saveNotificationToCache(notification);
-
-            return notification;
-        },
-        onSuccess: (notification, variables, context) => {
-            // Invalidate specific notification
-            queryClient.invalidateQueries({
-                queryKey: notificationKeys.detail(notification.id),
-            });
-
-            // Invalidate lists
-            queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
-            queryClient.invalidateQueries({
-                queryKey: notificationKeys.bucket(notification.message.bucket.id),
-            });
-
-            // Invalidate stats
-            queryClient.invalidateQueries({ queryKey: notificationKeys.stats() });
-            queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCounts() });
-        },
-        ...mutationOptions,
-    });
-}
 
 // ====================
 // READ STATUS MUTATIONS
@@ -432,10 +301,10 @@ export function useMarkAllAsRead(
     return useMutation({
         mutationFn: async () => {
             const now = new Date().toISOString();
-            
+
             // LOCAL ONLY: Read all notifications from DB to find unread ones
             const allNotifications = await getAllNotificationsFromCache();
-            
+
             // Filter for unread notifications
             const unreadNotifications = allNotifications.filter(n => !n.readAt);
             const unreadNotificationIds = unreadNotifications.map(n => n.id);
@@ -444,7 +313,7 @@ export function useMarkAllAsRead(
             if (unreadNotificationIds.length > 0) {
                 await updateNotificationsReadStatus(unreadNotificationIds, now);
             }
-            
+
             // Return timestamp to use in onSuccess
             return now;
         },
@@ -642,121 +511,6 @@ export function useBatchDeleteNotifications(
                     queryKey: notificationKeys.detail(id),
                 });
             });
-        },
-        ...mutationOptions,
-    });
-}
-
-/**
- * Hook for clearing all notifications
- * Use with caution!
- * 
- * @example
- * ```tsx
- * const clearAllMutation = useClearAllNotifications();
- * 
- * const handleClearAll = () => {
- *   if (confirm('Are you sure?')) {
- *     clearAllMutation.mutate();
- *   }
- * };
- * ```
- */
-export function useClearAllNotifications(
-    mutationOptions?: Omit<UseMutationOptions<void, Error, void>, 'mutationFn'>
-): UseMutationResult<void, Error, void> {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async () => {
-            // Clear local DB
-            await clearAllNotificationsFromCache();
-
-            // Note: This doesn't delete from backend, only local cache
-            // If you want to delete from backend too, implement that logic here
-        },
-        onSuccess: (data, variables, context) => {
-            // Invalidate all queries
-            queryClient.invalidateQueries({ queryKey: notificationKeys.all });
-        },
-        ...mutationOptions,
-    });
-}
-
-// ====================
-// OPTIMISTIC UPDATES
-// ====================
-
-/**
- * Hook for marking a notification as read with optimistic update
- * Updates UI immediately, then syncs with backend
- * 
- * @example
- * ```tsx
- * const markReadMutation = useOptimisticMarkAsRead();
- * 
- * const handleMarkRead = () => {
- *   markReadMutation.mutate('notification-id');
- * };
- * ```
- */
-export function useOptimisticMarkAsRead(
-    mutationOptions?: Omit<UseMutationOptions<NotificationFragment, Error, string, { previousNotification?: NotificationFragment }>, 'mutationFn'>
-): UseMutationResult<NotificationFragment, Error, string, { previousNotification?: NotificationFragment }> {
-    const queryClient = useQueryClient();
-
-    return useMutation<NotificationFragment, Error, string, { previousNotification?: NotificationFragment }>({
-        mutationFn: async (notificationId: string) => {
-            // Update local DB immediately (optimistic)
-            const now = new Date().toISOString();
-            await updateNotificationReadStatus(notificationId, now);
-
-            // Then update via API
-            const notification = await markNotificationAsRead(notificationId);
-
-            return notification;
-        },
-        onMutate: async (notificationId) => {
-            // Cancel outgoing refetches
-            await queryClient.cancelQueries({ queryKey: notificationKeys.detail(notificationId) });
-
-            // Snapshot previous value
-            const previousNotification = queryClient.getQueryData<NotificationFragment>(
-                notificationKeys.detail(notificationId)
-            );
-
-            // Optimistically update cache
-            if (previousNotification) {
-                queryClient.setQueryData<NotificationFragment>(
-                    notificationKeys.detail(notificationId),
-                    {
-                        ...previousNotification,
-                        readAt: new Date().toISOString(),
-                    }
-                );
-            }
-
-            return { previousNotification };
-        },
-        onError: (error, notificationId, context) => {
-            // Rollback on error
-            const ctx = context as { previousNotification?: NotificationFragment } | undefined;
-            if (ctx?.previousNotification) {
-                queryClient.setQueryData(
-                    notificationKeys.detail(notificationId),
-                    ctx.previousNotification
-                );
-            }
-        },
-        onSettled: (notification) => {
-            if (notification) {
-                // Refetch to ensure consistency
-                queryClient.invalidateQueries({
-                    queryKey: notificationKeys.detail(notification.id),
-                });
-                queryClient.invalidateQueries({ queryKey: notificationKeys.stats() });
-                queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCounts() });
-            }
         },
         ...mutationOptions,
     });

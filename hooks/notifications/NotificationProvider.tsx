@@ -3,12 +3,12 @@
  * Manages notifications state using react-query with local DB sync
  */
 
-import React, { createContext, useContext, useEffect, useRef } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Platform } from 'react-native';
-import { openSharedCacheDb, openWebStorageDb } from '@/services/db-setup';
-import { upsertNotificationsBatch } from '@/services/notifications-repository';
-import { NotificationFragment } from '@/generated/gql-operations-generated';
+import React, { createContext, useContext, useEffect, useRef } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Platform } from "react-native";
+import { openSharedCacheDb, openWebStorageDb } from "@/services/db-setup";
+import { upsertNotificationsBatch } from "@/services/notifications-repository";
+import { NotificationFragment } from "@/generated/gql-operations-generated";
 
 // ====================
 // QUERY CLIENT CONFIGURATION
@@ -24,14 +24,14 @@ export function createNotificationQueryClient(): QueryClient {
         // Offline-first: use stale data while refetching
         staleTime: 30000, // 30 seconds
         gcTime: 5 * 60 * 1000, // 5 minutes (formerly cacheTime in v4)
-        
+
         // Retry configuration
         retry: 2,
         retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-        
+
         // Network mode: offlineFirst allows queries to run even when offline
-        networkMode: 'offlineFirst',
-        
+        networkMode: "offlineFirst",
+
         // Refetch configuration
         refetchOnWindowFocus: true,
         refetchOnReconnect: true,
@@ -39,8 +39,8 @@ export function createNotificationQueryClient(): QueryClient {
       },
       mutations: {
         // Network mode for mutations
-        networkMode: 'offlineFirst',
-        
+        networkMode: "offlineFirst",
+
         // Retry configuration
         retry: 1,
         retryDelay: 1000,
@@ -59,7 +59,9 @@ interface NotificationContextValue {
   syncWithLocalDB: (notifications: NotificationFragment[]) => Promise<void>;
 }
 
-const NotificationContext = createContext<NotificationContextValue | null>(null);
+const NotificationContext = createContext<NotificationContextValue | null>(
+  null
+);
 
 /**
  * Hook to access notification context
@@ -67,7 +69,9 @@ const NotificationContext = createContext<NotificationContextValue | null>(null)
 export function useNotificationContext(): NotificationContextValue {
   const context = useContext(NotificationContext);
   if (!context) {
-    throw new Error('useNotificationContext must be used within NotificationProvider');
+    throw new Error(
+      "useNotificationContext must be used within NotificationProvider"
+    );
   }
   return context;
 }
@@ -86,11 +90,11 @@ interface NotificationProviderProps {
 /**
  * Notification Provider Component
  * Provides react-query client and manages DB initialization
- * 
+ *
  * @example
  * ```tsx
  * import { NotificationProvider } from '@/hooks/notifications/NotificationProvider';
- * 
+ *
  * function App() {
  *   return (
  *     <NotificationProvider>
@@ -121,12 +125,12 @@ export function NotificationProvider({
     async function initializeDB() {
       try {
         // Initialize the appropriate database based on platform
-        if (Platform.OS === 'web') {
+        if (Platform.OS === "web") {
           await openWebStorageDb();
-          console.log('[NotificationProvider] IndexedDB initialized');
+          console.log("[NotificationProvider] IndexedDB initialized");
         } else {
           await openSharedCacheDb();
-          console.log('[NotificationProvider] SQLite initialized');
+          console.log("[NotificationProvider] SQLite initialized");
         }
 
         if (mounted) {
@@ -134,7 +138,7 @@ export function NotificationProvider({
           onInitialized?.();
         }
       } catch (error) {
-        console.error('[NotificationProvider] Failed to initialize DB:', error);
+        console.error("[NotificationProvider] Failed to initialize DB:", error);
         // Still mark as initialized to allow app to function
         // (may fallback to API-only mode)
         if (mounted) {
@@ -160,9 +164,14 @@ export function NotificationProvider({
 
     try {
       await upsertNotificationsBatch(notifications);
-      console.log(`[NotificationProvider] Synced ${notifications.length} notifications to local DB`);
+      console.log(
+        `[NotificationProvider] Synced ${notifications.length} notifications to local DB`
+      );
     } catch (error) {
-      console.error('[NotificationProvider] Failed to sync with local DB:', error);
+      console.error(
+        "[NotificationProvider] Failed to sync with local DB:",
+        error
+      );
     }
   };
 
@@ -174,9 +183,7 @@ export function NotificationProvider({
 
   return (
     <NotificationContext.Provider value={contextValue}>
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </NotificationContext.Provider>
   );
 }
@@ -198,17 +205,13 @@ export {
   notificationKeys,
   prefetchNotifications,
   prefetchBucketNotifications,
-} from './useNotificationQueries';
+} from "./useNotificationQueries";
 
 export {
-  useCreateNotification,
-  useUpdateNotification,
   useMarkAsRead,
   useMarkAsUnread,
   useBatchMarkAsRead,
   useMarkAllAsRead,
   useDeleteNotification,
   useBatchDeleteNotifications,
-  useClearAllNotifications,
-  useOptimisticMarkAsRead,
-} from './useNotificationMutations';
+} from "./useNotificationMutations";

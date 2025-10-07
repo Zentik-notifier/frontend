@@ -306,7 +306,7 @@ export default function NotificationsListRQ({
       }
 
       try {
-        const firstId = filteredNotifications[0]?.id;
+        const firstId = filteredNotifications[1]?.id;
         setShowScrollTop(firstId ? !visibleSet.has(firstId) : false);
       } catch {}
 

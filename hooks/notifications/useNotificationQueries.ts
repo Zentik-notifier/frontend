@@ -11,7 +11,12 @@ import {
     UseInfiniteQueryResult,
     InfiniteData,
 } from '@tanstack/react-query';
-import { NotificationFragment } from '@/generated/gql-operations-generated';
+import {
+    NotificationFragment,
+    useGetNotificationsLazyQuery,
+    useGetNotificationLazyQuery,
+    useMassDeleteNotificationsMutation,
+} from '@/generated/gql-operations-generated';
 import {
     UseNotificationsOptions,
     UseBucketNotificationsOptions,
@@ -20,12 +25,6 @@ import {
     NotificationStats,
     BucketStats,
 } from '@/types/notifications';
-import {
-    fetchNotifications,
-    fetchNotificationById,
-    fetchBucketNotifications,
-    deleteNotifications,
-} from '@/services/api/notifications-api';
 import {
     queryNotifications,
     queryBucketNotifications,
@@ -36,6 +35,8 @@ import {
 } from '@/db/repositories/notifications-query-repository';
 import {
     upsertNotificationsBatch,
+    saveNotificationToCache,
+    deleteNotificationFromCache,
 } from '@/services/notifications-repository';
 
 // ====================
@@ -84,6 +85,9 @@ export const notificationKeys = {
 export function useNotifications(
     options?: UseNotificationsOptions
 ): UseQueryResult<NotificationQueryResult> {
+    const [fetchNotifications] = useGetNotificationsLazyQuery();
+    const [massDeleteNotifications] = useMassDeleteNotificationsMutation();
+
     const {
         filters,
         sort,
@@ -100,7 +104,7 @@ export function useNotifications(
                 if (autoSync) {
                     try {
                         // Fetch new notifications from server (no filters - get all)
-                        const apiNotifications = await fetchNotifications();
+                        const apiNotifications = await fetchNotificationsFromAPI(fetchNotifications);
 
                         if (apiNotifications.length > 0) {
                             console.log(`[useNotifications] Fetched ${apiNotifications.length} notifications from API`);
@@ -110,8 +114,8 @@ export function useNotifications(
                             console.log(`[useNotifications] Saved ${apiNotifications.length} notifications to local DB`);
 
                             // Delete from server immediately
-                            const notificationIds = apiNotifications.map(n => n.id);
-                            await deleteNotifications({ notificationIds });
+                            const notificationIds = apiNotifications.map((n: NotificationFragment) => n.id);
+                            await deleteNotificationsFromServer(massDeleteNotifications, notificationIds);
                             console.log(`[useNotifications] Deleted ${apiNotifications.length} notifications from server`);
                         }
                     } catch (apiError) {
@@ -179,6 +183,8 @@ export function useNotification(
 export function useBucketNotifications(
     options: UseBucketNotificationsOptions
 ): UseQueryResult<NotificationQueryResult> {
+    const [fetchNotifications] = useGetNotificationsLazyQuery();
+    const [massDeleteNotifications] = useMassDeleteNotificationsMutation();
     const {
         bucketId,
         filters,
@@ -196,7 +202,7 @@ export function useBucketNotifications(
                 if (autoSync) {
                     try {
                         // Fetch ALL new notifications from server (not just this bucket)
-                        const apiNotifications = await fetchNotifications();
+                        const apiNotifications = await fetchNotificationsFromAPI(fetchNotifications);
 
                         if (apiNotifications.length > 0) {
                             console.log(`[useBucketNotifications] Fetched ${apiNotifications.length} notifications from API`);
@@ -206,8 +212,8 @@ export function useBucketNotifications(
                             console.log(`[useBucketNotifications] Saved to local DB`);
 
                             // Delete from server immediately
-                            const notificationIds = apiNotifications.map(n => n.id);
-                            await deleteNotifications({ notificationIds });
+                            const notificationIds = apiNotifications.map((n: NotificationFragment) => n.id);
+                            await deleteNotificationsFromServer(massDeleteNotifications, notificationIds);
                             console.log(`[useBucketNotifications] Deleted from server`);
                         }
                     } catch (apiError) {
@@ -292,6 +298,69 @@ export function useBucketStats(
         },
         staleTime: 10000,
         gcTime: 2 * 60 * 1000,
+    });
+}
+
+/**
+ * Hook for fetching a single notification by ID
+ * Searches local DB first, then falls back to remote API if not found
+ * 
+ * @example
+ * ```tsx
+ * const { data: notification, isLoading, error } = useNotificationDetail('notification-id');
+ * 
+ * // Force fetch from remote
+ * const { data, refetch } = useNotificationDetail('id');
+ * await refetch(); // This will fetch from remote
+ * ```
+ */
+export function useNotificationDetail(
+    notificationId: string | undefined
+): UseQueryResult<NotificationFragment> {
+    const [fetchNotification] = useGetNotificationLazyQuery();
+
+    return useQuery({
+        queryKey: notificationKeys.detail(notificationId || ''),
+        queryFn: async (): Promise<NotificationFragment> => {
+            if (!notificationId) {
+                throw new Error('Notification ID is required');
+            }
+
+            try {
+                // First, try to get from local DB
+                const localNotification = await getNotificationById(notificationId);
+
+                if (localNotification) {
+                    return localNotification;
+                }
+
+                // If not found locally, fetch from GraphQL API
+                console.log(`[useNotificationDetail] Notification ${notificationId} not found locally, fetching from remote API...`);
+
+                const { data } = await fetchNotification({
+                    variables: { id: notificationId },
+                    fetchPolicy: 'network-only',
+                });
+
+                if (!data?.notification) {
+                    throw new Error(`Notification ${notificationId} not found`);
+                }
+
+                const remoteNotification = data.notification as NotificationFragment;
+
+                // Save to local DB for future use
+                await saveNotificationToCache(remoteNotification);
+
+                return remoteNotification;
+            } catch (error) {
+                console.error('[useNotificationDetail] Error:', error);
+                throw error;
+            }
+        },
+        enabled: !!notificationId,
+        staleTime: 60000, // 1 minute - use cached data for 1 minute
+        gcTime: 5 * 60 * 1000, // 5 minutes - keep in memory for 5 minutes
+        retry: 1, // Retry once on failure
     });
 }
 
@@ -387,46 +456,96 @@ export function useInfiniteNotifications(
 }
 
 // ====================
+// HELPER FUNCTIONS
+// ====================
+
+/**
+ * Helper function to fetch notifications from GraphQL API
+ */
+async function fetchNotificationsFromAPI(
+    fetchNotifications: ReturnType<typeof useGetNotificationsLazyQuery>[0]
+): Promise<NotificationFragment[]> {
+    const { data } = await fetchNotifications();
+    return (data?.notifications || []) as NotificationFragment[];
+}
+
+/**
+ * Helper function to delete notifications from server using mass delete mutation
+ */
+async function deleteNotificationsFromServer(
+    massDeleteNotifications: ReturnType<typeof useMassDeleteNotificationsMutation>[0],
+    notificationIds: string[]
+): Promise<void> {
+    if (notificationIds.length === 0) {
+        return;
+    }
+
+    try {
+        const result = await massDeleteNotifications({ 
+            variables: { ids: notificationIds } 
+        });
+        
+        if (result.data?.massDeleteNotifications.success) {
+            console.log(`[deleteNotificationsFromServer] Successfully deleted ${result.data.massDeleteNotifications.deletedCount} notifications from server`);
+        }
+    } catch (err) {
+        console.warn(`[deleteNotificationsFromServer] Failed to delete ${notificationIds.length} notifications:`, err);
+        throw err;
+    }
+}
+
+// ====================
 // SYNC UTILITIES
 // ====================
 
 /**
- * Sync notifications from API on app startup
+ * Hook for syncing notifications from API on app startup
  * Should only be called once during app initialization
  * 
  * @example
  * ```tsx
  * // In App.tsx or root component
- * useEffect(() => {
- *   syncNotificationsFromAPI().catch(console.error);
- * }, []);
+ * function App() {
+ *   const { syncNotifications } = useSyncNotificationsFromAPI();
+ *   
+ *   useEffect(() => {
+ *     syncNotifications().catch(console.error);
+ *   }, []);
+ * }
  * ```
  */
-export async function syncNotificationsFromAPI(): Promise<number> {
-    try {
-        console.log('[syncNotificationsFromAPI] Fetching notifications from server...');
+export function useSyncNotificationsFromAPI() {
+    const [fetchNotifications] = useGetNotificationsLazyQuery();
+    const [massDeleteNotifications] = useMassDeleteNotificationsMutation();
 
-        const apiNotifications = await fetchNotifications();
+    const syncNotifications = async (): Promise<number> => {
+        try {
+            console.log('[syncNotifications] Fetching notifications from server...');
 
-        if (apiNotifications.length > 0) {
-            console.log(`[syncNotificationsFromAPI] Fetched ${apiNotifications.length} notifications`);
+            const apiNotifications = await fetchNotificationsFromAPI(fetchNotifications);
 
-            await upsertNotificationsBatch(apiNotifications);
-            console.log(`[syncNotificationsFromAPI] Saved ${apiNotifications.length} to local DB`);
+            if (apiNotifications.length > 0) {
+                console.log(`[syncNotifications] Fetched ${apiNotifications.length} notifications`);
 
-            const notificationIds = apiNotifications.map(n => n.id);
-            await deleteNotifications({ notificationIds });
-            console.log(`[syncNotificationsFromAPI] Deleted ${apiNotifications.length} from server`);
+                await upsertNotificationsBatch(apiNotifications);
+                console.log(`[syncNotifications] Saved ${apiNotifications.length} to local DB`);
 
-            return apiNotifications.length;
+                const notificationIds = apiNotifications.map((n: NotificationFragment) => n.id);
+                await deleteNotificationsFromServer(massDeleteNotifications, notificationIds);
+                console.log(`[syncNotifications] Deleted ${apiNotifications.length} from server`);
+
+                return apiNotifications.length;
+            }
+
+            console.log('[syncNotifications] No new notifications');
+            return 0;
+        } catch (error) {
+            console.error('[syncNotifications] Sync failed:', error);
+            throw error;
         }
+    };
 
-        console.log('[syncNotificationsFromAPI] No new notifications');
-        return 0;
-    } catch (error) {
-        console.error('[syncNotificationsFromAPI] Sync failed:', error);
-        throw error;
-    }
+    return { syncNotifications };
 }
 
 /**
