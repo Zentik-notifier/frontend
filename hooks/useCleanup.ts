@@ -6,7 +6,7 @@ import { useCallback } from "react"
 import { usePendingNotificationIntents } from "./usePendingNotificationIntents";
 import { GetNotificationsDocument, NotificationFragment } from "@/generated/gql-operations-generated";
 import { processNotificationsToCacheWithQuery } from "@/utils/cache-data-processor";
-import { useFetchNotifications } from "./useNotifications";
+import { useDeleteNotification, useFetchNotifications, useMassDeleteNotifications } from "./useNotifications";
 
 interface CleanupProps {
     immediate?: boolean,
@@ -16,6 +16,7 @@ interface CleanupProps {
 export const useCleanup = () => {
     const apollo = useApolloClient();
     const { fetchNotifications } = useFetchNotifications();
+    const { massDelete } = useMassDeleteNotifications();
 
     const syncApolloWithLocalDb = useCallback(async () => {
         try {
@@ -59,29 +60,7 @@ export const useCleanup = () => {
             }
 
             if (extraInApollo.length > 0) {
-                apollo.cache.modify({
-                    fields: {
-                        notifications(existingNotifications: readonly any[] | any = [], { readField }) {
-                            if (!Array.isArray(existingNotifications)) {
-                                return existingNotifications;
-                            }
-
-                            const idsToRemove = new Set(extraInApollo.map(n => n.id));
-                            const filtered = existingNotifications.filter((notification: any) => {
-                                const notificationId = readField('id', notification) as string;
-                                return !idsToRemove.has(notificationId);
-                            });
-
-                            return filtered;
-                        }
-                    }
-                });
-
-                for (const notification of extraInApollo) {
-                    apollo.cache.evict({ id: `Notification:${notification.id}` });
-                }
-
-                apollo.cache.gc();
+                await massDelete(extraInApollo.map(n => n.id));
             }
 
             const result = {
