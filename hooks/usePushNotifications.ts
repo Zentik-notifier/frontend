@@ -297,20 +297,6 @@ export function usePushNotifications() {
     return `local-${hex}`;
   }
 
-  const setBadgeCount = async (count: number): Promise<void> => {
-    try {
-      const current = await Notifications.getBadgeCountAsync();
-
-      if (current === count) return;
-
-      await Notifications.setBadgeCountAsync(count);
-    } catch (error) {
-      console.error('[usePushNotifications] Error setting badge count:', error);
-    }
-  };
-
-  const clearBadge = async (): Promise<void> => setBadgeCount(0);
-
   return {
     initialize,
     registerDevice,
@@ -318,8 +304,6 @@ export function usePushNotifications() {
     isReady,
     getDeviceInfo,
     getBasicDeviceInfo,
-    setBadgeCount,
-    clearBadge,
     deviceToken,
     deviceRegistered,
     registeringDevice,

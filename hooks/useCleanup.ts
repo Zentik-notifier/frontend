@@ -6,6 +6,7 @@ import { processJsonToCache } from "@/utils/cache-data-processor";
 import { useApolloClient } from "@apollo/client";
 import { useCallback } from "react";
 import { useFetchNotifications, useMassDeleteNotifications } from "./useNotifications";
+import { setBadgeCount } from "@/utils/badgeUtils";
 
 interface CleanupProps {
     immediate?: boolean,
@@ -69,6 +70,15 @@ export const useCleanup = () => {
             };
 
             console.log(`[SyncDB] Sync completed: added ${result.added}, removed ${result.removed}, total ${result.total}`);
+
+            // Update badge count with unread notifications from DB
+            try {
+                const unreadCount = dbNotifications.filter(n => !n.readAt).length;
+                await setBadgeCount(unreadCount);
+            } catch (error) {
+                console.error('[SyncDB] Error updating badge count:', error);
+            }
+
             return result;
 
         } catch (error) {

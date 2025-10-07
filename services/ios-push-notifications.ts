@@ -139,11 +139,9 @@ class IOSNativePushNotificationService {
      */
     setupNotificationListeners() {
         if (this.listenersSetup) {
-            console.debug('[IOSNativePushNotificationService] iOS notification listeners already setup, skipping...');
+            console.log('[IOSNativePushNotificationService] iOS notification listeners already setup, skipping...');
             return;
         }
-
-        console.debug('[IOSNativePushNotificationService] Setting up iOS notification listeners...');
 
         this.removeNotificationListeners();
 
@@ -282,7 +280,6 @@ class IOSNativePushNotificationService {
         }
 
         this.listenersSetup = false;
-        console.debug('[IOSNativePushNotificationService] iOS notification listeners removed');
     }
 
     /**

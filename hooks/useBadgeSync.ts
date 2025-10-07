@@ -1,16 +1,16 @@
 import { useAppContext } from '@/contexts/AppContext';
-import { saveBadgeCount } from '@/services/auth-storage';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { useI18n } from './useI18n';
 import { useMarkAllNotificationsAsRead } from './useNotifications';
+import { setBadgeCount } from '@/utils/badgeUtils';
 
 /**
  * Hook to sync app badge count with unread notifications
  */
 export function useBadgeSync() {
     const { t } = useI18n();
-    const { notifications, push, isLoadingGqlData } = useAppContext();
+    const { notifications, isLoadingGqlData } = useAppContext();
     const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false);
 
     const { markAllAsRead, loading } =
@@ -25,9 +25,7 @@ export function useBadgeSync() {
     useEffect(() => {
         const exec = async () => {
             if (!isMarkingAllAsRead && !isLoadingGqlData) {
-                push.setBadgeCount(unreadCount);
-                await saveBadgeCount(unreadCount);
-                console.log(`[BadgeSync] Badge count synced: ${unreadCount}`);
+                await setBadgeCount(unreadCount);
             }
         }
 
@@ -40,14 +38,6 @@ export function useBadgeSync() {
         }
         // Platform.OS !== 'web' && exec();
     }, [unreadCount, isMarkingAllAsRead, isLoadingGqlData]);
-
-    // Return a function to manually clear the badge
-    const clearBadge = async () => {
-        console.log('[BadgeSync] Clearing badge manually');
-        push.clearBadge();
-        await saveBadgeCount(0);
-        console.log('[BadgeSync] Badge cleared');
-    };
 
     const handleMarkAllAsRead = useCallback(async () => {
         if (!hasUnreadNotifications || isMarkingAllAsRead) return;
@@ -70,7 +60,6 @@ export function useBadgeSync() {
     }, [hasUnreadNotifications, isMarkingAllAsRead, markAllAsRead, t]);
 
     return {
-        clearBadge,
         unreadNotifications,
         unreadCount,
         hasUnreadNotifications,

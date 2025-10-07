@@ -180,7 +180,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await clearTokens();
     await savePushNotificationsInitialized(false);
     await clearLastUserId();
-    push.clearBadge();
     setUserId(null);
     setLastUserId(null);
     console.debug("✅ Logout completed");
