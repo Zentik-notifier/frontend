@@ -5,25 +5,19 @@ import {
   NotificationDeliveryType,
   NotificationFragment,
 } from "@/generated/gql-operations-generated";
-import { useDateFormat } from "@/hooks/useDateFormat";
-import { useI18n } from "@/hooks/useI18n";
+import { useNotificationActions, useNotificationUtils } from "@/hooks";
 import {
   useDeleteNotification,
   useMarkAsRead,
   useMarkAsUnread,
 } from "@/hooks/notifications";
-import { useNotificationActions, useNotificationUtils } from "@/hooks";
+import { useDateFormat } from "@/hooks/useDateFormat";
+import { useI18n } from "@/hooks/useI18n";
 import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useRecyclingState } from "@shopify/flash-list";
 import React, { useEffect, useMemo, useRef } from "react";
-import {
-  Alert,
-  Pressable,
-  StyleSheet,
-  TouchableWithoutFeedback,
-  View,
-} from "react-native";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
 import {
   Icon,
   Surface,
@@ -35,7 +29,6 @@ import BucketIcon from "./BucketIcon";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
 import { MediaTypeIcon } from "./MediaTypeIcon";
-import NotificationSnoozeButton from "./NotificationSnoozeButton";
 import SwipeableItem, { MenuItem } from "./SwipeableItem";
 import { SmartTextRenderer } from "./ui";
 
