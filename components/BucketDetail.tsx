@@ -1,5 +1,5 @@
 import { useI18n } from "@/hooks/useI18n";
-import { useBucketStats, useBatchMarkAsRead, useBucket } from "@/hooks/notifications";
+import { useBucketsStats, useBatchMarkAsRead, useBucket } from "@/hooks/notifications";
 import { queryBucketNotifications } from "@/db/repositories/notifications-query-repository";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect } from "react";
@@ -30,18 +30,20 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { navigateToEditBucket, navigateToDanglingBucket } =
     useNavigationUtils();
   
-  // React Query hooks - only stats (no duplicate data)
-  const { data: bucketStats } = useBucketStats(bucketId);
-  const { mutateAsync: batchMarkAsRead, isPending: markAllAsReadLoading } = useBatchMarkAsRead();
+  // Read from GLOBAL bucketsStats cache - automatically updates when cache refreshes
+  const { data: bucketsStats } = useBucketsStats();
+  const bucketStats = bucketsStats?.find((b) => b.id === bucketId);
   
   // Bucket data with permissions
   const { bucket, isSnoozed, error } = useBucket(bucketId);
 
   const isOrphaned = error && error.message.includes("Bucket not found");
 
-  // Get counts from stats (lightweight, no data duplication)
-  const totalCount = bucketStats?.totalCount ?? 0;
+  // Get counts from bucketsStats (automatically updates when cache refreshes)
+  const totalCount = bucketStats?.totalMessages ?? 0;
   const unreadCount = bucketStats?.unreadCount ?? 0;
+  
+  const { mutateAsync: batchMarkAsRead, isPending: markAllAsReadLoading } = useBatchMarkAsRead();
 
   useEffect(() => {
     if (isOrphaned) {

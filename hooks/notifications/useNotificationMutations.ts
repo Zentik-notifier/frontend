@@ -23,7 +23,7 @@ import {
     UseMutationResult,
     useQueryClient,
 } from '@tanstack/react-query';
-import { notificationKeys } from './useNotificationQueries';
+import { notificationKeys, useRefreshBucketsStatsFromDB } from './useNotificationQueries';
 
 // ====================
 // READ STATUS MUTATIONS
@@ -45,6 +45,7 @@ export function useMarkAsRead(
     mutationOptions?: Omit<UseMutationOptions<string, Error, string>, 'mutationFn'>
 ): UseMutationResult<string, Error, string> {
     const queryClient = useQueryClient();
+    const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
 
     return useMutation({
         mutationFn: async (notificationId: string) => {
@@ -107,6 +108,9 @@ export function useMarkAsRead(
                     { ...cachedNotification, readAt: now }
                 );
             }
+
+            // Refresh bucketsStats from local DB
+            refreshBucketsStatsFromDB();
         },
         ...mutationOptions,
     });
@@ -128,6 +132,7 @@ export function useMarkAsUnread(
     mutationOptions?: Omit<UseMutationOptions<string, Error, string>, 'mutationFn'>
 ): UseMutationResult<string, Error, string> {
     const queryClient = useQueryClient();
+    const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
 
     return useMutation({
         mutationFn: async (notificationId: string) => {
@@ -188,6 +193,9 @@ export function useMarkAsUnread(
                     { ...cachedNotification, readAt: null }
                 );
             }
+
+            // Refresh bucketsStats from local DB
+            refreshBucketsStatsFromDB();
         },
         ...mutationOptions,
     });
@@ -215,6 +223,7 @@ export function useBatchMarkAsRead(
     >
 ): UseMutationResult<string[], Error, MarkAsReadInput> {
     const queryClient = useQueryClient();
+    const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
 
     return useMutation({
         mutationFn: async (input: MarkAsReadInput) => {
@@ -276,6 +285,9 @@ export function useBatchMarkAsRead(
                     };
                 }
             );
+
+            // Refresh bucketsStats from local DB
+            refreshBucketsStatsFromDB();
         },
         ...mutationOptions,
     });
@@ -297,6 +309,7 @@ export function useMarkAllAsRead(
     mutationOptions?: Omit<UseMutationOptions<string, Error, void>, 'mutationFn'>
 ): UseMutationResult<string, Error, void> {
     const queryClient = useQueryClient();
+    const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
 
     return useMutation({
         mutationFn: async () => {
@@ -349,6 +362,9 @@ export function useMarkAllAsRead(
                     };
                 }
             );
+
+            // Refresh bucketsStats from local DB
+            refreshBucketsStatsFromDB();
         },
         ...mutationOptions,
     });
@@ -378,6 +394,7 @@ export function useDeleteNotification(
     mutationOptions?: Omit<UseMutationOptions<void, Error, string>, 'mutationFn'>
 ): UseMutationResult<void, Error, string> {
     const queryClient = useQueryClient();
+    const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
 
     return useMutation({
         mutationFn: async (notificationId: string) => {
@@ -433,6 +450,9 @@ export function useDeleteNotification(
             queryClient.removeQueries({
                 queryKey: notificationKeys.detail(notificationId),
             });
+
+            // Refresh bucketsStats from local DB
+            refreshBucketsStatsFromDB();
         },
         ...mutationOptions,
     });
@@ -456,6 +476,7 @@ export function useBatchDeleteNotifications(
     mutationOptions?: Omit<UseMutationOptions<void, Error, DeleteNotificationInput>, 'mutationFn'>
 ): UseMutationResult<void, Error, DeleteNotificationInput> {
     const queryClient = useQueryClient();
+    const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
 
     return useMutation({
         mutationFn: async (input: DeleteNotificationInput) => {
@@ -511,6 +532,9 @@ export function useBatchDeleteNotifications(
                     queryKey: notificationKeys.detail(id),
                 });
             });
+
+            // Refresh bucketsStats from local DB
+            refreshBucketsStatsFromDB();
         },
         ...mutationOptions,
     });

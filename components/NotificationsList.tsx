@@ -13,7 +13,7 @@ import {
   useBatchDeleteNotifications,
   useBatchMarkAsRead,
   useInfiniteNotifications,
-  useRefreshNotifications
+  useRefreshNotifications,
 } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import type { NotificationFilters as RQFilters } from "@/types/notifications";
@@ -52,9 +52,7 @@ interface NotificationsListProps {
   listStyle?: any;
 }
 
-export function NotificationsListWithContext(
-  props: NotificationsListProps
-) {
+export function NotificationsListWithContext(props: NotificationsListProps) {
   return (
     <NotificationsProvider>
       <NotificationsList {...props} />
@@ -248,38 +246,38 @@ export default function NotificationsList({
       visibleIdsRef.current = visibleSet;
 
       // Determina il primo e ultimo indice visibile
-      const firstVisibleItem = viewableItems[0];
-      const lastVisibleItem = viewableItems[viewableItems.length - 1];
+      // const firstVisibleItem = viewableItems[0];
+      // const lastVisibleItem = viewableItems[viewableItems.length - 1];
 
-      if (
-        firstVisibleItem &&
-        firstVisibleItem.index !== null &&
-        firstVisibleItem.index !== undefined
-      ) {
-        const firstIndex = firstVisibleItem.index;
-        setFirstVisibleIndex(firstIndex);
+      // if (
+      //   firstVisibleItem &&
+      //   firstVisibleItem.index !== null &&
+      //   firstVisibleItem.index !== undefined
+      // ) {
+      //   const firstIndex = firstVisibleItem.index;
+      //   setFirstVisibleIndex(firstIndex);
 
-        // Controlla se ci sono notifiche non lette prima di questo indice
-        const hasUnread = filteredNotifications
-          .slice(0, firstIndex)
-          .some((n) => !n.readAt);
-        setHasUnreadAbove(hasUnread);
-      }
+      //   // Controlla se ci sono notifiche non lette prima di questo indice
+      //   const hasUnread = filteredNotifications
+      //     .slice(0, firstIndex)
+      //     .some((n) => !n.readAt);
+      //   setHasUnreadAbove(hasUnread);
+      // }
 
-      if (
-        lastVisibleItem &&
-        lastVisibleItem.index !== null &&
-        lastVisibleItem.index !== undefined
-      ) {
-        const lastIndex = lastVisibleItem.index;
-        setLastVisibleIndex(lastIndex);
+      // if (
+      //   lastVisibleItem &&
+      //   lastVisibleItem.index !== null &&
+      //   lastVisibleItem.index !== undefined
+      // ) {
+      //   const lastIndex = lastVisibleItem.index;
+      //   setLastVisibleIndex(lastIndex);
 
-        // Controlla se ci sono notifiche non lette dopo questo indice
-        const hasUnread = filteredNotifications
-          .slice(lastIndex + 1)
-          .some((n) => !n.readAt);
-        setHasUnreadBelow(hasUnread);
-      }
+      //   // Controlla se ci sono notifiche non lette dopo questo indice
+      //   const hasUnread = filteredNotifications
+      //     .slice(lastIndex + 1)
+      //     .some((n) => !n.readAt);
+      //   setHasUnreadBelow(hasUnread);
+      // }
 
       try {
         const firstId = filteredNotifications[1]?.id;
@@ -380,7 +378,7 @@ export default function NotificationsList({
     try {
       await refreshWithSync(refetch);
     } catch (error) {
-      console.error('[NotificationsListRQ] Pull-to-refresh error:', error);
+      console.error("[NotificationsListRQ] Pull-to-refresh error:", error);
     } finally {
       setIsRefreshing(false);
     }

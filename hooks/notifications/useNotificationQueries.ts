@@ -151,9 +151,32 @@ export function useNotificationStats(
 export function useBucketStats(
     bucketId: string
 ): UseQueryResult<BucketStats> {
+    const queryClient = useQueryClient();
+
     return useQuery({
         queryKey: notificationKeys.bucketStat(bucketId),
         queryFn: async (): Promise<BucketStats> => {
+            // Always read from global bucketsStats cache
+            const bucketsStats = queryClient.getQueryData<BucketWithStats[]>(
+                notificationKeys.bucketsStats()
+            );
+            
+            const bucketFromGlobal = bucketsStats?.find(b => b.id === bucketId);
+            
+            if (bucketFromGlobal) {
+                // Return stats from global cache
+                return {
+                    bucketId: bucketFromGlobal.id,
+                    bucketName: bucketFromGlobal.name,
+                    totalCount: bucketFromGlobal.totalMessages,
+                    unreadCount: bucketFromGlobal.unreadCount,
+                    readCount: bucketFromGlobal.totalMessages - bucketFromGlobal.unreadCount,
+                    withAttachmentsCount: 0, // Not tracked in bucketsStats
+                    lastNotificationDate: bucketFromGlobal.lastNotificationAt ?? undefined,
+                };
+            }
+
+            // Fallback: calculate from local DB if not in global cache
             try {
                 const stats = await getBucketStats(bucketId);
                 return stats;
@@ -162,8 +185,9 @@ export function useBucketStats(
                 throw error;
             }
         },
-        staleTime: 10000,
-        gcTime: 2 * 60 * 1000,
+        // React to changes: when global bucketsStats is invalidated, this will refetch
+        staleTime: 0, // Always consider stale so it refetches on invalidation
+        gcTime: 5 * 60 * 1000,
     });
 }
 
@@ -389,6 +413,84 @@ export function useInitializeBucketsStats() {
     };
 
     return { initializeBucketsStats };
+}
+
+/**
+ * Hook for refreshing bucketsStats from LOCAL DB ONLY (no GraphQL fetch)
+ * Updates stats (totalMessages, unreadCount, lastNotificationAt) for existing buckets in cache
+ * Used by notification mutations to update stats after mark/delete operations
+ * 
+ * @example
+ * ```tsx
+ * const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
+ * await refreshBucketsStatsFromDB(); // Recalculates stats from local DB
+ * ```
+ */
+export function useRefreshBucketsStatsFromDB() {
+    const queryClient = useQueryClient();
+
+    const refreshBucketsStatsFromDB = async (): Promise<void> => {
+        try {
+            // Get current bucketsStats from cache
+            const currentBucketsStats = queryClient.getQueryData<BucketWithStats[]>(
+                notificationKeys.bucketsStats()
+            );
+
+            if (!currentBucketsStats || currentBucketsStats.length === 0) {
+                console.log('[refreshBucketsStatsFromDB] No buckets in cache, skipping');
+                return;
+            }
+
+            console.log(`[refreshBucketsStatsFromDB] Recalculating stats for ${currentBucketsStats.length} buckets from local DB...`);
+
+            // Get all bucket IDs
+            const bucketIds = currentBucketsStats.map((b) => b.id);
+
+            // Get fresh notification stats from local DB
+            const notificationStats = await getNotificationStats(bucketIds);
+
+            // Update only the stats fields, keep all other bucket data unchanged
+            const updatedBucketsStats: BucketWithStats[] = currentBucketsStats.map((bucket) => {
+                const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
+
+                return {
+                    ...bucket, // Keep all existing fields (name, icon, color, isSnoozed, etc.)
+                    totalMessages: bucketStat?.totalCount ?? 0,
+                    unreadCount: bucketStat?.unreadCount ?? 0,
+                    lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                };
+            });
+
+            // Re-sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
+            updatedBucketsStats.sort((a, b) => {
+                if (a.unreadCount !== b.unreadCount) {
+                    return b.unreadCount - a.unreadCount;
+                }
+                const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
+                const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
+                if (aTime !== bTime) {
+                    return bTime - aTime;
+                }
+                return a.name.localeCompare(b.name);
+            });
+
+            // Update React Query GLOBAL cache
+            queryClient.setQueryData(notificationKeys.bucketsStats(), updatedBucketsStats);
+
+            // Invalidate all individual bucket stats queries to trigger re-read from global cache
+            await queryClient.invalidateQueries({
+                queryKey: notificationKeys.bucketStats(),
+                refetchType: 'none', // Don't refetch, just mark as stale so components re-read
+            });
+
+            console.log(`[refreshBucketsStatsFromDB] Updated stats for ${updatedBucketsStats.length} buckets`);
+        } catch (error) {
+            console.error('[refreshBucketsStatsFromDB] Error:', error);
+            throw error;
+        }
+    };
+
+    return { refreshBucketsStatsFromDB };
 }
 
 /**
