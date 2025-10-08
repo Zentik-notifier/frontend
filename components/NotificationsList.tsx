@@ -228,12 +228,6 @@ export default function NotificationsList({
   const listRef = useRef<any>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
-  // Configuration for viewability tracking
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-    minimumViewTime: 100,
-  }).current;
-
   const onViewableItemsChanged = useCallback(
     ({
       viewableItems,
@@ -246,41 +240,42 @@ export default function NotificationsList({
       visibleIdsRef.current = visibleSet;
 
       // Determina il primo e ultimo indice visibile
-      // const firstVisibleItem = viewableItems[0];
-      // const lastVisibleItem = viewableItems[viewableItems.length - 1];
+      const firstVisibleItem = viewableItems[0];
+      const lastVisibleItem = viewableItems[viewableItems.length - 1];
 
-      // if (
-      //   firstVisibleItem &&
-      //   firstVisibleItem.index !== null &&
-      //   firstVisibleItem.index !== undefined
-      // ) {
-      //   const firstIndex = firstVisibleItem.index;
-      //   setFirstVisibleIndex(firstIndex);
+      if (
+        firstVisibleItem &&
+        firstVisibleItem.index !== null &&
+        firstVisibleItem.index !== undefined
+      ) {
+        const firstIndex = firstVisibleItem.index;
+        setFirstVisibleIndex(firstIndex);
 
-      //   // Controlla se ci sono notifiche non lette prima di questo indice
-      //   const hasUnread = filteredNotifications
-      //     .slice(0, firstIndex)
-      //     .some((n) => !n.readAt);
-      //   setHasUnreadAbove(hasUnread);
-      // }
+        // Controlla se ci sono notifiche non lette prima di questo indice
+        const hasUnread = filteredNotifications
+          .slice(0, firstIndex)
+          .some((n) => !n.readAt);
+        setHasUnreadAbove(hasUnread);
+      }
 
-      // if (
-      //   lastVisibleItem &&
-      //   lastVisibleItem.index !== null &&
-      //   lastVisibleItem.index !== undefined
-      // ) {
-      //   const lastIndex = lastVisibleItem.index;
-      //   setLastVisibleIndex(lastIndex);
+      if (
+        lastVisibleItem &&
+        lastVisibleItem.index !== null &&
+        lastVisibleItem.index !== undefined
+      ) {
+        const lastIndex = lastVisibleItem.index;
+        setLastVisibleIndex(lastIndex);
 
-      //   // Controlla se ci sono notifiche non lette dopo questo indice
-      //   const hasUnread = filteredNotifications
-      //     .slice(lastIndex + 1)
-      //     .some((n) => !n.readAt);
-      //   setHasUnreadBelow(hasUnread);
-      // }
+        // Controlla se ci sono notifiche non lette dopo questo indice
+        const hasUnread = filteredNotifications
+          .slice(lastIndex + 1)
+          .some((n) => !n.readAt);
+        setHasUnreadBelow(hasUnread);
+      }
 
       try {
-        const firstId = filteredNotifications[1]?.id;
+        // FIX: Use index 0 (first notification) instead of 1 (second notification)
+        const firstId = filteredNotifications[0]?.id;
         setShowScrollTop(firstId ? !visibleSet.has(firstId) : false);
       } catch {}
 
@@ -536,7 +531,6 @@ export default function NotificationsList({
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
         onScroll={() => {
           didUserScrollRef.current = true;
         }}
