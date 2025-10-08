@@ -4,7 +4,8 @@ import {
   UserRole,
   useUpdateBucketSnoozesMutation,
 } from "@/generated/gql-operations-generated";
-import { useDateFormat, useGetBucketData } from "@/hooks";
+import { useDateFormat } from "@/hooks";
+import { useBucket } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useUserSettings } from "@/services/user-settings";
 import { TranslationKeyPath } from "@/utils";
@@ -62,11 +63,11 @@ export default function SnoozeSchedulesManager({
   });
   const { use24HourTime, datePickerLocale } = useDateFormat();
 
-  const { bucket } = useGetBucketData(bucketId);
+  const { bucket } = useBucket(bucketId);
   const schedules = useMemo(
     () =>
       (bucket?.userBucket?.snoozes ?? []).map(
-        ({ __typename, ...rest }) => rest
+        ({ __typename, ...rest }: any) => rest
       ),
     [bucket]
   );

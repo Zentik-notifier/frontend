@@ -6,10 +6,7 @@ import {
   ResourceType,
   useUnshareBucketMutation,
 } from "@/generated/gql-operations-generated";
-import {
-  useGetBucketData,
-  useDeleteBucketWithNotifications,
-} from "@/hooks/useGetBucketData";
+import { useBucket, useRefreshBucket, useDeleteBucketWithNotifications } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import React from "react";
 import { Alert, StyleSheet, View } from "react-native";
@@ -38,11 +35,11 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     canAdmin,
     canDelete,
     isSharedWithMe,
-    refetch,
-  } = useGetBucketData(bucketId);
+  } = useBucket(bucketId);
+  const refreshBucket = useRefreshBucket();
 
   const handleRefresh = async () => {
-    await refetch();
+    await refreshBucket(bucketId).catch(console.error);
   };
 
   const { deleteBucketWithNotifications, loading: deleteLoading } =

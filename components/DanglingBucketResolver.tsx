@@ -1,13 +1,11 @@
 import { useAppContext } from "@/contexts/AppContext";
 import {
-  BucketFragmentDoc,
   useCreateBucketMutation,
-  useGetBucketsQuery,
 } from "@/generated/gql-operations-generated";
+import { useBucketsStats } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
-import { useApolloClient } from "@apollo/client";
 import { useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
@@ -22,8 +20,11 @@ import {
 } from "react-native-paper";
 import BucketSelector from "./BucketSelector";
 import PaperScrollView from "./ui/PaperScrollView";
-import { upsertNotificationsBatch } from "@/services/notifications-repository";
+import { upsertNotificationsBatch, getAllNotificationsFromCache } from "@/services/notifications-repository";
 import { useNavigationUtils } from "@/utils/navigation";
+import { NotificationFragment } from "@/generated/gql-operations-generated";
+import { useQueryClient } from "@tanstack/react-query";
+import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 
 interface DanglingBucketResolverProps {
   onBack?: () => void;
@@ -35,8 +36,10 @@ export default function DanglingBucketResolver({
   const { navigateToBucketDetail } = useNavigationUtils();
   const theme = useTheme();
   const { t } = useI18n();
-  const { notifications } = useAppContext();
-  const apolloClient = useApolloClient();
+  const queryClient = useQueryClient();
+
+  // Local state for notifications from DB
+  const [notifications, setNotifications] = useState<NotificationFragment[]>([]);
 
   const { id } = useLocalSearchParams<{
     id?: string;
@@ -52,8 +55,22 @@ export default function DanglingBucketResolver({
     useCreateBucketMutation({
       refetchQueries: ["GetBuckets"],
     });
-  const { data, loading, refetch } = useGetBucketsQuery();
-  const buckets = data?.buckets || [];
+  const { data: bucketsWithStats = [], isLoading: loading, refreshBucketsStats } = useBucketsStats();
+  const buckets = bucketsWithStats;
+
+  // Load notifications from local DB
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const allNotifications = await getAllNotificationsFromCache();
+        setNotifications(allNotifications);
+      } catch (error) {
+        console.error('[DanglingBucketResolver] Error loading notifications:', error);
+      }
+    };
+
+    loadNotifications();
+  }, []);
 
   // Identifica i dangling buckets (bucket collegati a notifiche ma non esistenti nel remote)
   const danglingBuckets = useMemo(() => {
@@ -92,128 +109,86 @@ export default function DanglingBucketResolver({
     toBucketId: string,
     targetBucketName: string
   ) => {
-    const cache = apolloClient.cache;
-
     // Trova tutte le notifiche collegate al dangling bucket
     const danglingNotifications = notifications.filter(
-      (notification) => notification.message?.bucket?.id === fromBucketId
+      (notification: NotificationFragment) => notification.message?.bucket?.id === fromBucketId
     );
 
     if (danglingNotifications.length === 0) {
       throw new Error("No notifications found for the dangling bucket");
     }
 
-    // Trova il bucket target nella cache
-    const targetBucket = cache.readFragment({
-      id: `Bucket:${toBucketId}`,
-      fragment: BucketFragmentDoc,
-    });
+    // Trova il bucket target dai buckets stats
+    const targetBucket = buckets.find((b) => b.id === toBucketId);
 
     if (!targetBucket) {
-      throw new Error("Target bucket not found in cache");
+      throw new Error("Target bucket not found");
     }
 
     console.log(
       `🔄 Migrating ${danglingNotifications.length} notifications from dangling bucket ${fromBucketId} to bucket ${toBucketId} (${targetBucketName})`
     );
 
-    // Aggiorna ogni Message direttamente nella cache
-    danglingNotifications.forEach((notification) => {
-      try {
-        const messageId = `Message:${notification.message.id}`;
-
-        // Aggiorna il Message con il nuovo bucket
-        cache.modify({
-          id: messageId,
-          fields: {
-            bucket: () => ({
-              ...targetBucket,
-              __typename: "Bucket",
-            }),
-          },
-        });
-      } catch (error) {
-        console.error(
-          `❌ Failed to update message ${notification.message.id}:`,
-          error
-        );
-        throw error;
-      }
-    });
-
-    // Aggiorna anche la query ROOT_QUERY.notifications per consistenza
-    try {
-      cache.modify({
-        fields: {
-          notifications: (existingNotifications, { readField }) => {
-            if (existingNotifications) {
-              return existingNotifications.map((notification: any) => {
-                const message = readField("message", notification);
-                if (!message) return notification;
-                const bucket = readField("bucket", message as any);
-                if (!bucket) return notification;
-                const bucketId = readField("id", bucket as any);
-                if (bucketId === fromBucketId) {
-                  // Sostituisci il bucket della notifica
-                  const existingMessage = readField(
-                    "message",
-                    notification
-                  ) as any;
-                  return {
-                    ...notification,
-                    message: existingMessage
-                      ? {
-                          ...existingMessage,
-                          bucket: {
-                            ...targetBucket,
-                            __typename: "Bucket",
-                          },
-                        }
-                      : {
-                          bucket: {
-                            ...targetBucket,
-                            __typename: "Bucket",
-                          },
-                        },
-                  };
-                }
-                return notification;
-              });
-            }
-            return existingNotifications;
+    // Crea le notifiche aggiornate con il nuovo bucket
+    const updatedNotifications = danglingNotifications.map((notification: NotificationFragment) => {
+      return {
+        ...notification,
+        message: {
+          ...notification.message,
+          bucket: {
+            id: targetBucket.id,
+            name: targetBucket.name,
+            description: targetBucket.description ?? null,
+            icon: targetBucket.icon ?? null,
+            color: targetBucket.color ?? null,
+            createdAt: targetBucket.createdAt,
+            updatedAt: targetBucket.updatedAt,
+            isProtected: targetBucket.isProtected,
+            isPublic: targetBucket.isPublic,
+            __typename: "Bucket" as const,
           },
         },
-      });
-    } catch (error) {
-      console.warn("Failed to update ROOT_QUERY.notifications:", error);
-    }
+      } as NotificationFragment;
+    });
 
-    console.log(
-      `✅ Successfully migrated ${danglingNotifications.length} notifications to bucket ${targetBucketName}`
-    );
-
-    // Aggiorna anche il database locale
+    // 1. Aggiorna il database locale
     try {
-      const updatedNotifications = danglingNotifications.map((notification) => {
-        // Crea una copia modificata della notifica con il nuovo bucket
-        const updatedNotification = {
-          ...notification,
-          message: {
-            ...notification.message,
-            bucket: targetBucket as any, // Type assertion per evitare problemi di tipo con la cache
-          },
-        };
-        return updatedNotification;
-      });
-
       await upsertNotificationsBatch(updatedNotifications);
       console.log(
         `💾 Successfully updated ${updatedNotifications.length} notifications in local database`
       );
     } catch (dbError) {
       console.error("Failed to update local database:", dbError);
-      // Non blocchiamo l'operazione per errori del database locale
+      throw dbError;
     }
+
+    // 2. Aggiorna React Query cache per tutte le query di notifiche
+    try {
+      // Invalida tutte le query infinite di notifiche per forzare il refresh
+      await queryClient.invalidateQueries({
+        queryKey: notificationKeys.lists(),
+      });
+
+      // Invalida anche le stats
+      await queryClient.invalidateQueries({
+        queryKey: notificationKeys.stats(),
+      });
+
+      console.log(
+        `✅ Successfully migrated ${danglingNotifications.length} notifications to bucket ${targetBucketName} and updated React Query cache`
+      );
+    } catch (cacheError) {
+      console.error("Failed to update React Query cache:", cacheError);
+      // Non blocchiamo l'operazione, i dati sono già nel DB
+    }
+
+    // 3. Aggiorna lo stato locale
+    setNotifications((prev) =>
+      prev.map((n) => {
+        const updated = updatedNotifications.find((u) => u.id === n.id);
+        return updated || n;
+      })
+    );
   };
 
   const handleMigrateToExisting = async () => {
@@ -311,7 +286,15 @@ export default function DanglingBucketResolver({
   };
 
   const handleRefresh = async () => {
-    await refetch();
+    await refreshBucketsStats();
+    
+    // Reload notifications from DB
+    try {
+      const allNotifications = await getAllNotificationsFromCache();
+      setNotifications(allNotifications);
+    } catch (error) {
+      console.error('[DanglingBucketResolver] Error reloading notifications:', error);
+    }
   };
 
   return (
@@ -375,7 +358,7 @@ export default function DanglingBucketResolver({
             <BucketSelector
               selectedBucketId={selectedBucketId}
               onBucketChange={(bucketId) => setSelectedBucketId(bucketId)}
-              buckets={buckets}
+              buckets={buckets as any}
               searchable
             />
           </View>

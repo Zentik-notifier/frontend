@@ -1,13 +1,11 @@
 import BucketIcon from "@/components/BucketIcon";
-import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
 import { useDeviceType } from "@/hooks/useDeviceType";
-import { getBucketStats } from "@/hooks/useGetBucketData";
+import { useNotificationStats, useBucketsStats } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
 import { usePathname } from "expo-router";
-import React, { useMemo } from "react";
+import React from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import {
   Surface,
@@ -20,8 +18,10 @@ import {
 export default function HomeSidebar() {
   const theme = useTheme();
   const { t } = useI18n();
-  const { notifications, isLoadingGqlData } = useAppContext();
-  const { data: bucketsData } = useGetBucketsQuery();
+  
+  // Use React Query for stats
+  const { data: notificationStats, isLoading: isLoadingStats } = useNotificationStats();
+  const { data: bucketsWithStats = [] } = useBucketsStats();
   const { cacheStats } = useGetCacheStats();
   const pathname = usePathname();
   const {
@@ -33,38 +33,20 @@ export default function HomeSidebar() {
   } = useNavigationUtils();
   const { isDesktop } = useDeviceType();
 
-  const notifCount = notifications.length;
+  // Get counts from React Query stats
+  const notifCount = notificationStats?.totalCount ?? 0;
   const galleryCount = cacheStats?.totalItems ?? 0;
 
   const isSectionSelected = (route: string) => {
     return pathname === route;
   };
 
-  const { bucketStats, notificationToBucketMap } = useMemo(() => {
-    const result = getBucketStats(bucketsData?.buckets ?? [], notifications);
-    return result;
-  }, [bucketsData, notifications]);
-
   const handleBucketPress = (bucketId: string) => {
-    const bucket = bucketStats.find((bucket) => bucket.id === bucketId);
-    if (bucket?.isDangling) {
-      navigateToDanglingBucket(bucketId, true);
-    } else {
-      navigateToBucketDetail(bucketId);
-    }
+    // If bucket exists in bucketsWithStats, it's valid (not dangling)
+    navigateToBucketDetail(bucketId);
   };
 
   const isBucketSelected = (bucketId: string) => {
-    if (pathname.includes("notification/")) {
-      const notificationId = pathname.split("/").pop();
-      if (notificationId) {
-        const notificationBucketId =
-          notificationToBucketMap.get(notificationId);
-        if (notificationBucketId) {
-          return notificationBucketId === bucketId;
-        }
-      }
-    }
     return pathname.includes(bucketId);
   };
 
@@ -146,7 +128,7 @@ export default function HomeSidebar() {
                         { backgroundColor: theme.colors.primary },
                       ]}
                     >
-                      {item.id === "notifications" && isLoadingGqlData ? (
+                      {item.id === "notifications" && isLoadingStats ? (
                         <ActivityIndicator
                           size="small"
                           color={theme.colors.onPrimary}
@@ -176,9 +158,9 @@ export default function HomeSidebar() {
                 { color: theme.colors.onSurfaceVariant },
               ]}
             >
-              {t("navigation.sections.buckets")} ({bucketStats.length})
+              {t("navigation.sections.buckets")} ({bucketsWithStats.length})
             </Text>
-            {bucketStats.map((bucket) => {
+            {bucketsWithStats.map((bucket) => {
               const isSelected = isBucketSelected(bucket.id);
               return (
                 <TouchableRipple
@@ -195,7 +177,7 @@ export default function HomeSidebar() {
                 >
                   <View style={styles.bucketItemContent}>
                     <BucketIcon
-                      bucket={bucket.bucket}
+                      bucketId={bucket.id}
                       size="lg"
                       noRouting
                       showBorder={false}

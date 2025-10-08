@@ -6,8 +6,8 @@ import {
   useCreateAccessTokenMutation,
   useCreateBucketMutation,
   useCreateMessageMutation,
-  useGetBucketsQuery,
 } from "@/generated/gql-operations-generated";
+import { useBucketsStats } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ApiConfigService } from "@/services/api-config";
@@ -96,7 +96,7 @@ export default function OnboardingModal({
     useCreateMessageMutation();
   const [createAccessTokenMutation, { loading: creatingToken }] =
     useCreateAccessTokenMutation();
-  const { data: bucketsData, refetch: refetchBuckets } = useGetBucketsQuery();
+  const { data: bucketsWithStats = [], refreshBucketsStats } = useBucketsStats();
 
   // Reset modal when it opens
   useEffect(() => {
@@ -168,7 +168,7 @@ export default function OnboardingModal({
         variables: { input: bucketData },
       });
 
-      await refetchBuckets();
+      await refreshBucketsStats();
       setCurrentStep(2);
     } catch (error) {
       console.error("Error creating bucket:", error);
@@ -227,7 +227,7 @@ export default function OnboardingModal({
       return;
     }
 
-    const buckets = bucketsData?.buckets || [];
+    const buckets = bucketsWithStats || [];
     if (buckets.length === 0) {
       Alert.alert(
         t("common.error"),
@@ -262,7 +262,7 @@ export default function OnboardingModal({
   };
 
   const buildMessagePayload = () => {
-    const buckets = bucketsData?.buckets || [];
+    const buckets = bucketsWithStats || [];
     return {
       title: notificationTitle.trim(),
       body: notificationBody.trim(),

@@ -104,8 +104,9 @@ export interface BucketStats {
 }
 
 /**
- * Bucket with stats - combines bucket metadata with notification statistics
+ * Bucket with notification statistics
  * Used by useBucketsStats to return complete bucket information
+ * Includes all BucketFragment fields plus stats
  */
 export interface BucketWithStats {
   /** Bucket ID */
@@ -115,13 +116,25 @@ export interface BucketWithStats {
   name: string;
   
   /** Bucket description */
-  description?: string;
+  description?: string | null;
   
   /** Bucket icon */
-  icon?: string;
+  icon?: string | null;
   
   /** Bucket color */
-  color?: string;
+  color?: string | null;
+  
+  /** Bucket creation date */
+  createdAt: string;
+  
+  /** Bucket last update date */
+  updatedAt: string;
+  
+  /** Whether the bucket is protected */
+  isProtected: boolean | null;
+  
+  /** Whether the bucket is public */
+  isPublic: boolean | null;
   
   /** Total number of notifications in this bucket */
   totalMessages: number;
@@ -136,7 +149,7 @@ export interface BucketWithStats {
   isSnoozed: boolean;
   
   /** Snooze expiration date if snoozed */
-  snoozeUntil?: string | null;
+  snoozeUntil: string | null;
 }
 
 /**

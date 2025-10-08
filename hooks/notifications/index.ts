@@ -25,6 +25,22 @@ export {
   refreshNotificationQueries,
 } from './useNotificationQueries';
 
+// Bucket Query Hooks
+export { 
+  useBucket, 
+  useRefreshBucket, 
+  bucketKeys,
+  type BucketDetailData,
+  type BucketPermissions,
+  type BucketWithPermissions
+} from './useBucketQueries';
+
+// Bucket Mutation Hooks
+export { useDeleteBucketWithNotifications } from './useBucketMutations';
+
+// Bucket Stats Utilities
+export { getBucketStats } from './bucketStatsUtils';
+
 // Mutation Hooks
 export {
   useMarkAsRead,

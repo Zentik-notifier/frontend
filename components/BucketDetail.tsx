@@ -1,6 +1,5 @@
-import { useGetBucketData } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
-import { useBucketStats, useBatchMarkAsRead } from "@/hooks/notifications";
+import { useBucketStats, useBatchMarkAsRead, useBucket } from "@/hooks/notifications";
 import { queryBucketNotifications } from "@/db/repositories/notifications-query-repository";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect } from "react";
@@ -35,7 +34,8 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { data: bucketStats } = useBucketStats(bucketId);
   const { mutateAsync: batchMarkAsRead, isPending: markAllAsReadLoading } = useBatchMarkAsRead();
   
-  const { bucket, error } = useGetBucketData(bucketId);
+  // Bucket data with permissions
+  const { bucket, error } = useBucket(bucketId);
 
   const isOrphaned = error && error.message.includes("Bucket not found");
 

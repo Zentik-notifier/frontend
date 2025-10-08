@@ -4,7 +4,7 @@ import {
   ResourceType,
   useUnshareBucketMutation,
 } from "@/generated/gql-operations-generated";
-import { useGetBucketData, useDeleteBucketWithNotifications } from "@/hooks/useGetBucketData";
+import { useBucket, useDeleteBucketWithNotifications } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import React, { useMemo } from "react";
@@ -39,9 +39,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
   const { navigateToEditBucket } = useNavigationUtils();
 
   // Use the bucket permissions hook to check permissions
-  const { canDelete, isSharedWithMe, sharedCount } = useGetBucketData(
-    bucket.id
-  );
+  const { canDelete, isSharedWithMe, sharedCount } = useBucket(bucket.id);
 
   const { deleteBucketWithNotifications, loading } = useDeleteBucketWithNotifications({
     onCompleted: () => {

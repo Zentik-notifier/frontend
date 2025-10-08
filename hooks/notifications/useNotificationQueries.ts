@@ -223,9 +223,13 @@ export function useBucketsStats(
                     return {
                         id: bucket.id,
                         name: bucket.name,
-                        description: bucket.description ?? undefined,
-                        icon: bucket.icon ?? undefined,
-                        color: bucket.color ?? undefined,
+                        description: bucket.description,
+                        icon: bucket.icon,
+                        color: bucket.color,
+                        createdAt: bucket.createdAt,
+                        updatedAt: bucket.updatedAt,
+                        isProtected: bucket.isProtected,
+                        isPublic: bucket.isPublic,
                         totalMessages: bucketStat?.totalCount ?? 0,
                         unreadCount: bucketStat?.unreadCount ?? 0,
                         lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
@@ -304,7 +308,9 @@ export function useBucketsStats(
 export function useNotificationDetail(
     notificationId: string | undefined
 ): UseQueryResult<NotificationFragment> {
-    const [fetchNotification] = useGetNotificationLazyQuery();
+    const [fetchNotification] = useGetNotificationLazyQuery({
+        fetchPolicy: 'network-only', // Don't use Apollo cache
+    });
 
     return useQuery({
         queryKey: notificationKeys.detail(notificationId || ''),
@@ -502,7 +508,9 @@ async function deleteNotificationsFromServer(
  * ```
  */
 export function useSyncNotificationsFromAPI() {
-    const [fetchNotifications] = useGetNotificationsLazyQuery();
+    const [fetchNotifications] = useGetNotificationsLazyQuery({
+        fetchPolicy: 'network-only', // Don't use Apollo cache
+    });
     const [massDeleteNotifications] = useMassDeleteNotificationsMutation();
 
     const syncNotifications = async (): Promise<number> => {

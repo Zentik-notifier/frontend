@@ -1,10 +1,10 @@
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useAppContext } from "@/contexts/AppContext";
-import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
+import { useBucketsStats } from "@/hooks/notifications";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import {
   Card,
@@ -14,26 +14,50 @@ import {
   useTheme,
 } from "react-native-paper";
 import SwipeableBucketItem from "./SwipeableBucketItem";
+import { getAllNotificationsFromCache } from "@/services/notifications-repository";
+import { NotificationFragment } from "@/generated/gql-operations-generated";
 
 export default function BucketsSettings() {
   const theme = useTheme();
   const { t } = useI18n();
   const {
-    notifications,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const { navigateToCreateBucket, navigateToDanglingBucket } =
     useNavigationUtils();
 
   const [showDanglingBuckets, setShowDanglingBuckets] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationFragment[]>([]);
 
-  const { data, loading, error, refetch } = useGetBucketsQuery();
+  const { data: bucketsWithStats = [], isLoading: loading, error, refreshBucketsStats } = useBucketsStats();
+
+  // Load notifications from local DB
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const allNotifications = await getAllNotificationsFromCache();
+        setNotifications(allNotifications);
+      } catch (error) {
+        console.error('[BucketsSettings] Error loading notifications:', error);
+      }
+    };
+
+    loadNotifications();
+  }, []);
 
   const handleRefresh = async () => {
-    await refetch();
+    await refreshBucketsStats();
+    
+    // Reload notifications from DB
+    try {
+      const allNotifications = await getAllNotificationsFromCache();
+      setNotifications(allNotifications);
+    } catch (error) {
+      console.error('[BucketsSettings] Error reloading notifications:', error);
+    }
   };
 
-  const buckets = data?.buckets || [];
+  const buckets = bucketsWithStats;
   const sortedBuckets = useEntitySorting(buckets, "desc");
 
   // Identifica i dangling buckets (bucket collegati a notifiche ma non esistenti nel remote)
@@ -199,10 +223,10 @@ export default function BucketsSettings() {
           <View style={styles.bucketsContainer}>
             {sortedBuckets.map((item) => (
               <SwipeableBucketItem
-                bucketDeleted={() => refetch()}
-                onSharingRevoked={() => refetch()}
+                bucketDeleted={() => refreshBucketsStats()}
+                onSharingRevoked={() => refreshBucketsStats()}
                 key={item.id}
-                bucket={item}
+                bucket={item as any}
               />
             ))}
           </View>

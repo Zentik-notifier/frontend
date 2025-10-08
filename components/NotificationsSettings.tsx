@@ -5,11 +5,10 @@ import {
   NotificationAttachmentDto,
   NotificationDeliveryType,
   useCreateMessageMutation,
-  useGetBucketsQuery,
   useGetUserWebhooksQuery,
 } from "@/generated/gql-operations-generated";
 import { useLanguageSync, useNotificationUtils } from "@/hooks";
-import { useGetBucketData } from "@/hooks/useGetBucketData";
+import { useBucket, useBucketsStats } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useAppContext } from "@/contexts/AppContext";
@@ -50,11 +49,7 @@ export default function NotificationsSettings() {
   });
 
   // GraphQL queries for data
-  const {
-    data: bucketsData,
-    loading: bucketsLoading,
-    refetch: refetchBuckets,
-  } = useGetBucketsQuery();
+  const { data: bucketsWithStats = [], isLoading: bucketsLoading, refreshBucketsStats } = useBucketsStats();
   const {
     data: webhooksData,
     loading: webhooksLoading,
@@ -109,16 +104,16 @@ export default function NotificationsSettings() {
   );
 
   // Get bucket data and shared users
-  const { allPermissions } = useGetBucketData(bucketId);
+  const { allPermissions } = useBucket(bucketId);
 
   // Set first bucket as default when buckets are loaded
   useEffect(() => {
-    if (bucketsData?.buckets && bucketsData.buckets.length > 0) {
-      if (!bucketId || !bucketsData.buckets.find((b) => b.id === bucketId)) {
-        setBucketId(bucketsData.buckets[0].id);
+    if (bucketsWithStats && bucketsWithStats.length > 0) {
+      if (!bucketId || !bucketsWithStats.find((b) => b.id === bucketId)) {
+        setBucketId(bucketsWithStats[0].id);
       }
     }
-  }, [bucketsData, bucketId]);
+  }, [bucketsWithStats, bucketId]);
 
   const sendMessage = async () => {
     if (!title.trim()) {
@@ -131,8 +126,8 @@ export default function NotificationsSettings() {
 
     if (
       !bucketId.trim() ||
-      !bucketsData?.buckets ||
-      bucketsData.buckets.length === 0
+      !bucketsWithStats ||
+      bucketsWithStats.length === 0
     ) {
       Alert.alert(
         t("notifications.sendErrorTitle"),
@@ -203,7 +198,7 @@ export default function NotificationsSettings() {
     setSound(defaults.sound);
     setDeliveryType(defaults.deliveryType);
     // Don't reset bucketId if buckets are available - let useEffect handle it
-    if (!bucketsData?.buckets || bucketsData.buckets.length === 0) {
+    if (!bucketsWithStats || bucketsWithStats.length === 0) {
       setBucketId(defaults.bucketId);
     }
     setActions(defaults.actions);
@@ -294,7 +289,7 @@ export default function NotificationsSettings() {
   }));
 
   const handleRefresh = async () => {
-    await refetchBuckets();
+    await refreshBucketsStats();
     await refetchWebhooks();
   };
 
@@ -675,12 +670,12 @@ export default function NotificationsSettings() {
               >
                 {t("notifications.targeting.loadingBuckets")}
               </Text>
-            ) : bucketsData?.buckets && bucketsData.buckets.length > 0 ? (
+            ) : bucketsWithStats && bucketsWithStats.length > 0 ? (
               <BucketSelector
                 label={t("notifications.targeting.bucket")}
                 selectedBucketId={bucketId}
                 onBucketChange={(id) => setBucketId(id || "")}
-                buckets={bucketsData.buckets}
+                buckets={bucketsWithStats as any}
                 searchable={true}
               />
             ) : (

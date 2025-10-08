@@ -8,7 +8,7 @@ import {
   useUnshareBucketMutation,
   UserRole,
 } from "@/generated/gql-operations-generated";
-import { useGetBucketData } from "@/hooks/useGetBucketData";
+import { useBucket, useRefreshBucket } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useEffect, useState } from "react";
 import {
@@ -447,8 +447,8 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
   const [editingPermission, setEditingPermission] =
     useState<EntityPermissionFragment | null>(null);
 
-  const { canAdmin, refetch, allPermissions, loading, bucket } =
-    useGetBucketData(bucketId);
+  const { canAdmin, allPermissions, loading, bucket } = useBucket(bucketId);
+  const refreshBucket = useRefreshBucket();
 
   const [shareBucket, { loading: sharingBucket }] = useShareBucketMutation({
     optimisticResponse: (vars) => {
@@ -556,7 +556,7 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
         t("common.error"),
         error.message || t("buckets.sharing.shareError")
       );
-      refetch?.();
+      refreshBucket(bucketId).catch(console.error);
     },
   });
 
@@ -606,7 +606,7 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
           t("common.error"),
           error.message || t("buckets.sharing.unshareError")
         );
-        refetch?.();
+        refreshBucket(bucketId).catch(console.error);
       },
     });
 

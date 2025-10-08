@@ -7,7 +7,7 @@ import {
   usePublicAppConfigQuery,
   useUpdateBucketMutation,
 } from "@/generated/gql-operations-generated";
-import { useGetBucketData } from "@/hooks";
+import { useBucket, useRefreshBucket } from "@/hooks/notifications";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
@@ -51,7 +51,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const isEditing = !!bucketId;
 
-  const { bucket, refetch, canWrite } = useGetBucketData(bucketId);
+  const { bucket, canWrite } = useBucket(bucketId);
+  const refreshBucket = useRefreshBucket();
   const { data: appConfig } = usePublicAppConfigQuery();
 
   const [createBucketMutation, { loading: creatingBucket }] =
@@ -90,7 +91,9 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const [updateBucketMutation, { loading: updatingBucket }] =
     useUpdateBucketMutation({
       onCompleted: async (data) => {
-        await refetch?.();
+        if (bucketId) {
+          await refreshBucket(bucketId).catch(console.error);
+        }
         router.back();
       },
       onError: (error) => {
@@ -192,7 +195,9 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   };
 
   const handleRefresh = async () => {
-    await refetch();
+    if (bucketId) {
+      await refreshBucket(bucketId).catch(console.error);
+    }
   };
 
   return (

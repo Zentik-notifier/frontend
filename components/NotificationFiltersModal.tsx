@@ -1,4 +1,4 @@
-import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
+import { useBucketsStats } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useAppContext } from "@/contexts/AppContext";
@@ -20,8 +20,7 @@ import BucketSelector from "./BucketSelector";
 import MultiBucketSelector from "./MultiBucketSelector";
 
 export default function NotificationFiltersModal() {
-  const { data: bucketsData } = useGetBucketsQuery();
-  const buckets = bucketsData?.buckets ?? [];
+  const { data: bucketsWithStats = [] } = useBucketsStats();
   const { t } = useI18n();
   const { datePickerLocale } = useDateFormat();
   const {
@@ -168,7 +167,7 @@ export default function NotificationFiltersModal() {
                 <MultiBucketSelector
                   selectedBucketIds={localFilters.selectedBucketIds}
                   onBucketsChange={onBucketsChange}
-                  buckets={buckets}
+                  buckets={bucketsWithStats as any}
                   searchable
                 />
               </View>

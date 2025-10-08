@@ -4,7 +4,7 @@ import {
   useSetBucketSnoozeMutation,
 } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import { useGetBucketData } from "@/hooks/useGetBucketData";
+import { useBucket, useRefreshBucket } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { DatePickerInput, TimePickerModal } from "react-native-paper-dates";
 import React, { useMemo, useState } from "react";
@@ -54,7 +54,8 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   const { t } = useI18n();
   const { formatDate, datePickerLocale, use24HourTime } = useDateFormat();
 
-  const { bucket, isSnoozed, refetch } = useGetBucketData(bucketId);
+  const { bucket, isSnoozed } = useBucket(bucketId);
+  const refreshBucket = useRefreshBucket();
 
   const snoozeUntil = bucket?.userBucket?.snoozeUntil
     ? new Date(bucket.userBucket.snoozeUntil)
@@ -159,7 +160,9 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
       },
       onError: (error: any) => {
         console.error("Set bucket snooze error:", error);
-        refetch?.();
+        if (bucketId) {
+          refreshBucket(bucketId).catch(console.error);
+        }
       },
     });
 
