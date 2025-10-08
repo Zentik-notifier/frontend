@@ -4,7 +4,6 @@ import {
 import { useDateFormat } from "@/hooks";
 import { useBucket, useUpdateBucketSnoozes } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
-import { useUserSettings } from "@/services/user-settings";
 import { TranslationKeyPath } from "@/utils";
 import React, { useMemo, useState } from "react";
 import {
