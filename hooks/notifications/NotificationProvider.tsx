@@ -196,15 +196,11 @@ export function NotificationProvider({
  * Export all notification hooks for convenience
  */
 export {
-  useNotifications,
   useNotification,
-  useBucketNotifications,
   useNotificationStats,
   useBucketStats,
   useUnreadCountsByBucket,
   notificationKeys,
-  prefetchNotifications,
-  prefetchBucketNotifications,
 } from "./useNotificationQueries";
 
 export {

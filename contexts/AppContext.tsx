@@ -11,10 +11,7 @@ import {
 import { useCleanup } from "@/hooks/useCleanup";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { useI18n } from "@/hooks/useI18n";
-import {
-  useFetchNotifications,
-  useMarkAllNotificationsAsRead,
-} from "@/hooks/useNotifications";
+import { useMarkAllAsRead } from "@/hooks/notifications";
 import {
   UsePushNotifications,
   usePushNotifications,
@@ -86,9 +83,6 @@ interface AppContextProps {
   userSettings: ReturnType<typeof useUserSettings>;
   connectionStatus: ReturnType<typeof useConnectionStatus>;
   deviceToken: string | null;
-  refetchNotifications: () => Promise<void>;
-  notifications: NotificationFragment[];
-  notificationsLoading: boolean;
   isInitializing: boolean;
   push: UsePushNotifications;
 }
@@ -110,7 +104,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isMainLoading, setIsLoading] = useState(false);
-  const { markAllAsRead } = useMarkAllNotificationsAsRead();
+  const { mutateAsync: markAllAsRead } = useMarkAllAsRead();
   const { cleanup } = useCleanup();
 
   useEffect(() => {
@@ -379,14 +373,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const {
-    fetchNotifications: refetchNotifications,
-    notifications,
-    loading: notificationsLoading,
-  } = useFetchNotifications();
-
-  useEffect(() => setIsLoading(notificationsLoading), [notificationsLoading]);
-
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
@@ -426,56 +412,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   //   console.log(`🔄 Bucket ${eventType} via subscription:`, data);
   //   debouncedRefetchBuckets();
   // };
-
-  // GraphQL Subscriptions
-  // const notificationCreatedSubscription = useNotificationCreatedSubscription({
-  //   skip: !userId,
-  //   onData: async ({ data }) => {
-  //     if (data?.data?.notificationCreated) {
-  //       await refetchNotifications();
-  //     }
-  //   },
-  //   onError: (error) => {
-  //     console.error("❌ Notification created subscription error:", error);
-  //   },
-  // });
-
-  // const bucketUpdatedSubscription = useBucketUpdatedSubscription({
-  //   skip: !userId,
-  //   onData: async ({ data }) => {
-  //     if (data?.data?.bucketUpdated) {
-  //       await handleBucketSubscriptionEvent("updated", data.data.bucketUpdated);
-  //     }
-  //   },
-  //   onError: (error) => {
-  //     console.error("❌ Bucket updated subscription error:", error);
-  //   },
-  // });
-
-  // const bucketCreatedSubscription = useBucketCreatedSubscription({
-  //   skip: !userId,
-  //   onData: async ({ data }) => {
-  //     if (data?.data?.bucketCreated) {
-  //       await handleBucketSubscriptionEvent("created", data.data.bucketCreated);
-  //     }
-  //   },
-  //   onError: (error) => {
-  //     console.error("❌ Bucket created subscription error:", error);
-  //   },
-  // });
-
-  // const bucketDeletedSubscription = useBucketDeletedSubscription({
-  //   skip: !userId,
-  //   onData: async ({ data }) => {
-  //     if (data?.data?.bucketDeleted) {
-  //       await handleBucketSubscriptionEvent("deleted", data.data.bucketDeleted);
-  //     }
-  //   },
-  //   onError: (error) => {
-  //     console.error("❌ Bucket deleted subscription error:", error);
-  //   },
-  // });
-
   return (
     <AppContext.Provider
       value={{
@@ -497,9 +433,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         userSettings,
         connectionStatus,
         deviceToken: push.deviceToken,
-        refetchNotifications,
-        notifications,
-        notificationsLoading,
         isInitializing,
         lastUserId,
         push,

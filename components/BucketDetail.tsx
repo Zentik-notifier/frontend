@@ -1,10 +1,9 @@
-import { useAppContext } from "@/contexts/AppContext";
 import { useGetBucketData } from "@/hooks";
 import { useI18n } from "@/hooks/useI18n";
-import { useMassMarkNotificationsAsRead } from "@/hooks/useNotifications";
-import { useUserSettings, userSettings } from "@/services/user-settings";
+import { useBucketStats, useBatchMarkAsRead } from "@/hooks/notifications";
+import { queryBucketNotifications } from "@/db/repositories/notifications-query-repository";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import {
   Badge,
@@ -31,16 +30,18 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const theme = useTheme();
   const { navigateToEditBucket, navigateToDanglingBucket } =
     useNavigationUtils();
-  const { massMarkAsRead, loading: markAllAsReadLoading } =
-    useMassMarkNotificationsAsRead();
-
-  const { notifications } = useAppContext();
-  const {
-    settings: { notificationFilters },
-  } = useUserSettings();
+  
+  // React Query hooks - only stats (no duplicate data)
+  const { data: bucketStats } = useBucketStats(bucketId);
+  const { mutateAsync: batchMarkAsRead, isPending: markAllAsReadLoading } = useBatchMarkAsRead();
+  
   const { bucket, error } = useGetBucketData(bucketId);
 
   const isOrphaned = error && error.message.includes("Bucket not found");
+
+  // Get counts from stats (lightweight, no data duplication)
+  const totalCount = bucketStats?.totalCount ?? 0;
+  const unreadCount = bucketStats?.unreadCount ?? 0;
 
   useEffect(() => {
     if (isOrphaned) {
@@ -48,39 +49,22 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
     }
   }, [bucketId, isOrphaned]);
 
-  // Filter notifications for this bucket
-  const bucketNotifications = useMemo(() => {
-    return notifications.filter(
-      (notification) => notification.message?.bucket?.id === bucketId
-    );
-  }, [notifications, bucketId]);
-
-  // Calculate unread notifications
-  const unreadNotifications = useMemo(() => {
-    return bucketNotifications.filter((notification) => !notification.readAt);
-  }, [bucketNotifications]);
-
-  const filteredNotifications = useMemo(() => {
-    if (!bucketNotifications) return [];
-
-    // Apply global filters (including bucket filter since we're already in a bucket context)
-    let filtered = bucketNotifications.filter((notification) => {
-      return userSettings.shouldFilterNotification(notification, false);
-    });
-
-    // Apply sorting based on global settings
-    const comparator = userSettings.getNotificationSortComparator();
-    filtered = filtered.sort(comparator);
-
-    return filtered;
-  }, [bucketNotifications, notificationFilters, userSettings]);
-
   const handleMarkAllAsRead = async () => {
-    if (unreadNotifications.length === 0) return;
+    if (unreadCount === 0) return;
 
-    const unreadIds = unreadNotifications.map((n) => n.id);
     try {
-      await massMarkAsRead(unreadIds);
+      // Fetch only unread notifications to get their IDs (lightweight query from local DB)
+      const unreadData = await queryBucketNotifications(bucketId, {
+        filters: { isRead: false },
+      });
+
+      if (!unreadData?.notifications.length) return;
+
+      const unreadIds = unreadData.notifications.map((n) => n.id);
+      await batchMarkAsRead({
+        notificationIds: unreadIds,
+        readAt: new Date().toISOString(),
+      });
     } catch (error) {
       console.error("Error marking all as read:", error);
     }
@@ -120,7 +104,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
                   { color: theme.colors.onSurfaceVariant },
                 ]}
               >
-                {bucketNotifications.length} {t("buckets.item.messages")}
+                {totalCount} {t("buckets.item.messages")}
               </Text>
             </View>
           </View>
@@ -136,7 +120,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
                 icon="check-all"
                 size={15}
                 iconColor={
-                  unreadNotifications.length > 0
+                  unreadCount > 0
                     ? theme.colors.onPrimary
                     : theme.colors.onSurfaceVariant
                 }
@@ -144,7 +128,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
                   styles.actionButton,
                   {
                     backgroundColor:
-                      unreadNotifications.length > 0
+                      unreadCount > 0
                         ? theme.colors.primary
                         : theme.colors.surfaceVariant,
                     width: 26,
@@ -153,16 +137,16 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
                 ]}
                 onPress={handleMarkAllAsRead}
                 disabled={
-                  unreadNotifications.length === 0 || markAllAsReadLoading
+                  unreadCount === 0 || markAllAsReadLoading
                 }
                 accessibilityLabel="mark-all-as-read"
               />
-              {unreadNotifications.length > 0 && (
+              {unreadCount > 0 && (
                 <Badge
                   size={16}
                   style={{ position: "absolute", top: -2, right: -2 }}
                 >
-                  {unreadNotifications.length}
+                  {unreadCount}
                 </Badge>
               )}
             </View>
@@ -231,7 +215,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
 
       {/* Notifications List */}
       <NotificationsListWithContext
-        notifications={filteredNotifications}
+        bucketId={bucketId}
         hideBucketInfo
         customHeader={<View style={[styles.filtersContainer]} />}
       />

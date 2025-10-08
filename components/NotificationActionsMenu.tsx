@@ -6,9 +6,9 @@ import {
 import { useI18n, useNotificationActions, useNotificationUtils } from "@/hooks";
 import {
   useDeleteNotification,
-  useMarkNotificationRead,
-  useMarkNotificationUnread,
-} from "@/hooks/useNotifications";
+  useMarkAsRead,
+  useMarkAsUnread,
+} from "@/hooks/notifications";
 import React, { useMemo, useState } from "react";
 import {
   FAB,
@@ -54,10 +54,10 @@ export const NotificationActionsMenu: React.FC<
 
   const { executeAction } = useNotificationActions();
   const { getActionTypeIcon } = useNotificationUtils();
-  const markAsRead = useMarkNotificationRead();
-  const markAsUnread = useMarkNotificationUnread();
+  const { mutate: markAsRead } = useMarkAsRead();
+  const { mutate: markAsUnread } = useMarkAsUnread();
   const isRead = !!notification.readAt;
-  const deleteNotification = useDeleteNotification();
+  const { mutate: deleteNotification } = useDeleteNotification();
 
   const menuItems = useMemo((): MenuItem[] => {
     const items: MenuItem[] = onlyActions

@@ -20,7 +20,6 @@ import {
 } from '@/generated/gql-operations-generated';
 import {
     UseNotificationsOptions,
-    UseBucketNotificationsOptions,
     UseNotificationStatsOptions,
     NotificationQueryResult,
     NotificationStats,
@@ -55,9 +54,6 @@ export const notificationKeys = {
         [...notificationKeys.lists(), { filters, sort, pagination }] as const,
     details: () => [...notificationKeys.all, 'detail'] as const,
     detail: (id: string) => [...notificationKeys.details(), id] as const,
-    buckets: () => [...notificationKeys.all, 'bucket'] as const,
-    bucket: (bucketId: string, filters?: any, sort?: any, pagination?: any) =>
-        [...notificationKeys.buckets(), bucketId, { filters, sort, pagination }] as const,
     stats: () => [...notificationKeys.all, 'stats'] as const,
     stat: (bucketIds?: string[]) => [...notificationKeys.stats(), { bucketIds }] as const,
     bucketStats: () => [...notificationKeys.all, 'bucketStats'] as const,
@@ -68,76 +64,6 @@ export const notificationKeys = {
 // ====================
 // QUERY HOOKS
 // ====================
-
-/**
- * Hook for fetching notifications with filters, sorting, and pagination
- * Combines API data with local DB for offline-first approach
- * 
- * @example
- * ```tsx
- * const { data, isLoading, error } = useNotifications({
- *   filters: { isRead: false },
- *   sort: { field: 'createdAt', direction: 'desc' },
- *   pagination: { limit: 50, offset: 0 },
- *   autoSync: true,
- * });
- * ```
- */
-export function useNotifications(
-    options?: UseNotificationsOptions
-): UseQueryResult<NotificationQueryResult> {
-    const [fetchNotifications] = useGetNotificationsLazyQuery();
-    const [massDeleteNotifications] = useMassDeleteNotificationsMutation();
-
-    const {
-        filters,
-        sort,
-        pagination,
-        autoSync = true,
-        refetchInterval = 0,
-    } = options || {};
-
-    return useQuery({
-        queryKey: notificationKeys.list(filters, sort, pagination),
-        queryFn: async (): Promise<NotificationQueryResult> => {
-            try {
-                // If autoSync is enabled, fetch from API first and sync with local DB
-                if (autoSync) {
-                    try {
-                        // Fetch new notifications from server (no filters - get all)
-                        const apiNotifications = await fetchNotificationsFromAPI(fetchNotifications);
-
-                        if (apiNotifications.length > 0) {
-                            console.log(`[useNotifications] Fetched ${apiNotifications.length} notifications from API`);
-
-                            // Save to local DB
-                            await upsertNotificationsBatch(apiNotifications);
-                            console.log(`[useNotifications] Saved ${apiNotifications.length} notifications to local DB`);
-
-                            // Delete from server immediately
-                            const notificationIds = apiNotifications.map((n: NotificationFragment) => n.id);
-                            await deleteNotificationsFromServer(massDeleteNotifications, notificationIds);
-                            console.log(`[useNotifications] Deleted ${apiNotifications.length} notifications from server`);
-                        }
-                    } catch (apiError) {
-                        console.warn('[useNotifications] API sync failed:', apiError);
-                        // Continue to query local DB
-                    }
-                }
-
-                // Always return data from local DB with filters applied
-                const localResult = await queryNotifications({ filters, sort, pagination });
-                return localResult;
-            } catch (error) {
-                console.error('[useNotifications] Error:', error);
-                throw error;
-            }
-        },
-        refetchInterval,
-        staleTime: 30000, // 30 seconds
-        gcTime: 5 * 60 * 1000, // 5 minutes (formerly cacheTime)
-    });
-}
 
 /**
  * Hook for fetching a single notification by ID
@@ -166,74 +92,6 @@ export function useNotification(
         staleTime: 60000, // 1 minute
         gcTime: 10 * 60 * 1000, // 10 minutes
         ...queryOptions,
-    });
-}
-
-/**
- * Hook for fetching notifications for a specific bucket
- * 
- * @example
- * ```tsx
- * const { data, isLoading } = useBucketNotifications({
- *   bucketId: 'bucket-id',
- *   sort: { field: 'createdAt', direction: 'desc' },
- *   pagination: { limit: 50, offset: 0 },
- * });
- * ```
- */
-export function useBucketNotifications(
-    options: UseBucketNotificationsOptions
-): UseQueryResult<NotificationQueryResult> {
-    const [fetchNotifications] = useGetNotificationsLazyQuery();
-    const [massDeleteNotifications] = useMassDeleteNotificationsMutation();
-    const {
-        bucketId,
-        filters,
-        sort,
-        pagination,
-        autoSync = true,
-        realtime = false,
-    } = options;
-
-    return useQuery({
-        queryKey: notificationKeys.bucket(bucketId, filters, sort, pagination),
-        queryFn: async (): Promise<NotificationQueryResult> => {
-            try {
-                // If autoSync is enabled, fetch from API first
-                if (autoSync) {
-                    try {
-                        // Fetch ALL new notifications from server (not just this bucket)
-                        const apiNotifications = await fetchNotificationsFromAPI(fetchNotifications);
-
-                        if (apiNotifications.length > 0) {
-                            console.log(`[useBucketNotifications] Fetched ${apiNotifications.length} notifications from API`);
-
-                            // Save to local DB
-                            await upsertNotificationsBatch(apiNotifications);
-                            console.log(`[useBucketNotifications] Saved to local DB`);
-
-                            // Delete from server immediately
-                            const notificationIds = apiNotifications.map((n: NotificationFragment) => n.id);
-                            await deleteNotificationsFromServer(massDeleteNotifications, notificationIds);
-                            console.log(`[useBucketNotifications] Deleted from server`);
-                        }
-                    } catch (apiError) {
-                        console.warn('[useBucketNotifications] API sync failed:', apiError);
-                        // Continue to query local DB
-                    }
-                }
-
-                // Always return data from local DB with filters applied
-                const localResult = await queryBucketNotifications(bucketId, { filters, sort, pagination });
-                return localResult;
-            } catch (error) {
-                console.error('[useBucketNotifications] Error:', error);
-                throw error;
-            }
-        },
-        refetchInterval: realtime ? 5000 : 0, // 5 seconds if realtime
-        staleTime: 30000,
-        gcTime: 5 * 60 * 1000,
     });
 }
 
@@ -557,7 +415,7 @@ export function useSyncNotificationsFromAPI() {
  * @example
  * ```tsx
  * function MyComponent() {
- *   const { data, refetch } = useNotifications();
+ *   const { data, refetch } = useInfiniteNotifications();
  *   const refreshWithSync = useRefreshNotifications();
  *   const [isRefreshing, setIsRefreshing] = useState(false);
  *   
@@ -629,53 +487,6 @@ export async function refreshNotificationQueries(
 // PREFETCH UTILITIES
 // ====================
 
-/**
- * Utility to prefetch notifications
- * Useful for optimistic navigation
- * 
- * @example
- * ```tsx
- * import { useQueryClient } from '@tanstack/react-query';
- * import { prefetchNotifications } from '@/hooks/notifications/useNotificationQueries';
- * 
- * function MyComponent() {
- *   const queryClient = useQueryClient();
- *   
- *   const handleMouseEnter = () => {
- *     prefetchNotifications(queryClient, { filters: { isRead: false } });
- *   };
- * }
- * ```
- */
-export async function prefetchNotifications(
-    queryClient: any, // QueryClient
-    options?: UseNotificationsOptions
-): Promise<void> {
-    const { filters, sort, pagination } = options || {};
 
-    await queryClient.prefetchQuery({
-        queryKey: notificationKeys.list(filters, sort, pagination),
-        queryFn: async () => {
-            const localResult = await queryNotifications({ filters, sort, pagination });
-            return localResult;
-        },
-    });
-}
 
-/**
- * Utility to prefetch bucket notifications
- */
-export async function prefetchBucketNotifications(
-    queryClient: any,
-    options: UseBucketNotificationsOptions
-): Promise<void> {
-    const { bucketId, filters, sort, pagination } = options;
 
-    await queryClient.prefetchQuery({
-        queryKey: notificationKeys.bucket(bucketId, filters, sort, pagination),
-        queryFn: async () => {
-            const localResult = await queryBucketNotifications(bucketId, { filters, sort, pagination });
-            return localResult;
-        },
-    });
-}

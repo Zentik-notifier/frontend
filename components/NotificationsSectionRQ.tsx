@@ -6,7 +6,7 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { useTheme } from "react-native-paper";
-import { NotificationsListRQWithContext } from "./NotificationsListRQ";
+import { NotificationsListWithContext } from "./NotificationsList";
 
 interface NotificationsSectionRQProps {
   /**
@@ -53,7 +53,7 @@ export default function NotificationsSectionRQ({
         { backgroundColor: theme.colors.background },
       ]}
     >
-      <NotificationsListRQWithContext
+      <NotificationsListWithContext
         bucketId={bucketId}
         hideBucketInfo={hideBucketInfo}
         customHeader={customHeader}

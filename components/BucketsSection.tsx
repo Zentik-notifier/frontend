@@ -1,11 +1,10 @@
 import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
-import { getBucketStats } from "@/hooks/useGetBucketData";
+import { useNotificationStats, useRefreshNotifications } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useEffect, useMemo, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
-import { FAB, Icon, Text, TouchableRipple, useTheme } from "react-native-paper";
+import React, { useMemo } from "react";
+import { StyleSheet, View } from "react-native";
+import { Icon, Text, TouchableRipple, useTheme } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
 import PaperScrollView from "./ui/PaperScrollView";
@@ -14,18 +13,55 @@ const BucketsSection: React.FC = () => {
   const { t } = useI18n();
   const theme = useTheme();
   const { data: bucketsData, loading: bucketsLoading } = useGetBucketsQuery();
-  const { notifications, refetchNotifications, notificationsLoading } =
-    useAppContext();
+  const refreshNotifications = useRefreshNotifications();
   const buckets = bucketsData?.buckets ?? [];
   const { navigateToCreateBucket, navigateToBucketDetail } =
     useNavigationUtils();
 
-  const loading = notificationsLoading || bucketsLoading;
+  // Reactive query for notification stats - auto-updates when notifications change
+  const { data: notificationStats, isLoading: statsLoading } = useNotificationStats({
+    bucketIds: buckets.map(b => b.id),
+    realtime: true, // Enable real-time updates
+  });
 
-  const { bucketStats } = useMemo(
-    () => getBucketStats(buckets, notifications),
-    [buckets, notifications]
-  );
+  const loading = statsLoading || bucketsLoading;
+
+  // Calculate bucket stats reactively from React Query data
+  const bucketStats = useMemo(() => {
+    if (!buckets.length || !notificationStats) {
+      return [];
+    }
+
+    // Build bucket stats array from React Query data
+    const statsArray = buckets.map(bucket => {
+      const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
+      return {
+        id: bucket.id,
+        name: bucket.name,
+        description: bucket.description ?? undefined,
+        icon: bucket.icon ?? undefined,
+        color: bucket.color ?? undefined,
+        totalMessages: bucketStat?.totalCount ?? 0,
+        unreadCount: bucketStat?.unreadCount ?? 0,
+        lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+      };
+    });
+
+    // Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
+    statsArray.sort((a, b) => {
+      if (a.unreadCount !== b.unreadCount) {
+        return b.unreadCount - a.unreadCount;
+      }
+      const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
+      const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
+      if (aTime !== bTime) {
+        return bTime - aTime;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    return statsArray;
+  }, [buckets, notificationStats]);
 
   const handleBucketPress = (bucketId: string) => {
     navigateToBucketDetail(bucketId);
@@ -78,7 +114,7 @@ const BucketsSection: React.FC = () => {
   );
 
   const refetch = async () => {
-    await refetchNotifications();
+    await refreshNotifications();
   };
 
   return (

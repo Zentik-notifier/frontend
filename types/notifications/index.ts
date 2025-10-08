@@ -247,23 +247,6 @@ export interface UseNotificationsOptions extends NotificationQueryOptions {
 }
 
 /**
- * Options for useBucketNotifications hook
- */
-export interface UseBucketNotificationsOptions extends Omit<NotificationQueryOptions, 'filters'> {
-  /** Bucket ID */
-  bucketId: string;
-  
-  /** Additional filters (bucketId is already set) */
-  filters?: Omit<NotificationFilters, 'bucketId'>;
-  
-  /** Enable real-time updates */
-  realtime?: boolean;
-  
-  /** Auto-sync with local DB */
-  autoSync?: boolean;
-}
-
-/**
  * Options for useNotificationStats hook
  */
 export interface UseNotificationStatsOptions {

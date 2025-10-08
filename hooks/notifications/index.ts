@@ -12,9 +12,7 @@ export {
 
 // Query Hooks
 export {
-  useNotifications,
   useNotification,
-  useBucketNotifications,
   useInfiniteNotifications,
   useNotificationStats,
   useBucketStats,
@@ -23,8 +21,6 @@ export {
   useSyncNotificationsFromAPI,
   useRefreshNotifications,
   notificationKeys,
-  prefetchNotifications,
-  prefetchBucketNotifications,
   refreshNotificationQueries,
 } from './useNotificationQueries';
 
@@ -54,7 +50,6 @@ export type {
   MarkAsReadInput,
   DeleteNotificationInput,
   UseNotificationsOptions,
-  UseBucketNotificationsOptions,
   UseNotificationStatsOptions,
   NotificationEventType,
   NotificationEvent,
