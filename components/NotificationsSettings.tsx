@@ -104,7 +104,7 @@ export default function NotificationsSettings() {
   );
 
   // Get bucket data and shared users
-  const { allPermissions } = useBucket(bucketId);
+  const { allPermissions } = useBucket(bucketId, { autoFetch: !!bucketId });
 
   // Set first bucket as default when buckets are loaded
   useEffect(() => {

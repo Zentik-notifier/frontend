@@ -1,8 +1,6 @@
 import { useAppContext } from "@/contexts/AppContext";
-import {
-  useCreateBucketMutation,
-} from "@/generated/gql-operations-generated";
-import { useBucketsStats } from "@/hooks/notifications";
+import { useCreateBucketMutation } from "@/generated/gql-operations-generated";
+import { useBucketsStats, useRefreshBucketsStatsFromDB } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -20,7 +18,10 @@ import {
 } from "react-native-paper";
 import BucketSelector from "./BucketSelector";
 import PaperScrollView from "./ui/PaperScrollView";
-import { upsertNotificationsBatch, getAllNotificationsFromCache } from "@/services/notifications-repository";
+import {
+  upsertNotificationsBatch,
+  getAllNotificationsFromCache,
+} from "@/services/notifications-repository";
 import { useNavigationUtils } from "@/utils/navigation";
 import { NotificationFragment } from "@/generated/gql-operations-generated";
 import { useQueryClient } from "@tanstack/react-query";
@@ -33,13 +34,15 @@ interface DanglingBucketResolverProps {
 export default function DanglingBucketResolver({
   onBack,
 }: DanglingBucketResolverProps) {
-  const { navigateToBucketDetail } = useNavigationUtils();
+  const { navigateBack } = useNavigationUtils();
   const theme = useTheme();
   const { t } = useI18n();
   const queryClient = useQueryClient();
 
   // Local state for notifications from DB
-  const [notifications, setNotifications] = useState<NotificationFragment[]>([]);
+  const [notifications, setNotifications] = useState<NotificationFragment[]>(
+    []
+  );
 
   const { id } = useLocalSearchParams<{
     id?: string;
@@ -55,7 +58,12 @@ export default function DanglingBucketResolver({
     useCreateBucketMutation({
       refetchQueries: ["GetBuckets"],
     });
-  const { data: bucketsWithStats = [], isLoading: loading, refreshBucketsStats } = useBucketsStats();
+  const {
+    data: bucketsWithStats = [],
+    isLoading: loading,
+    refreshBucketsStats,
+  } = useBucketsStats();
+  const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
   const buckets = bucketsWithStats;
 
   // Load notifications from local DB
@@ -65,7 +73,10 @@ export default function DanglingBucketResolver({
         const allNotifications = await getAllNotificationsFromCache();
         setNotifications(allNotifications);
       } catch (error) {
-        console.error('[DanglingBucketResolver] Error loading notifications:', error);
+        console.error(
+          "[DanglingBucketResolver] Error loading notifications:",
+          error
+        );
       }
     };
 
@@ -111,7 +122,8 @@ export default function DanglingBucketResolver({
   ) => {
     // Trova tutte le notifiche collegate al dangling bucket
     const danglingNotifications = notifications.filter(
-      (notification: NotificationFragment) => notification.message?.bucket?.id === fromBucketId
+      (notification: NotificationFragment) =>
+        notification.message?.bucket?.id === fromBucketId
     );
 
     if (danglingNotifications.length === 0) {
@@ -130,26 +142,28 @@ export default function DanglingBucketResolver({
     );
 
     // Crea le notifiche aggiornate con il nuovo bucket
-    const updatedNotifications = danglingNotifications.map((notification: NotificationFragment) => {
-      return {
-        ...notification,
-        message: {
-          ...notification.message,
-          bucket: {
-            id: targetBucket.id,
-            name: targetBucket.name,
-            description: targetBucket.description ?? null,
-            icon: targetBucket.icon ?? null,
-            color: targetBucket.color ?? null,
-            createdAt: targetBucket.createdAt,
-            updatedAt: targetBucket.updatedAt,
-            isProtected: targetBucket.isProtected,
-            isPublic: targetBucket.isPublic,
-            __typename: "Bucket" as const,
+    const updatedNotifications = danglingNotifications.map(
+      (notification: NotificationFragment) => {
+        return {
+          ...notification,
+          message: {
+            ...notification.message,
+            bucket: {
+              id: targetBucket.id,
+              name: targetBucket.name,
+              description: targetBucket.description ?? null,
+              icon: targetBucket.icon ?? null,
+              color: targetBucket.color ?? null,
+              createdAt: targetBucket.createdAt,
+              updatedAt: targetBucket.updatedAt,
+              isProtected: targetBucket.isProtected,
+              isPublic: targetBucket.isPublic,
+              __typename: "Bucket" as const,
+            },
           },
-        },
-      } as NotificationFragment;
-    });
+        } as NotificationFragment;
+      }
+    );
 
     // 1. Aggiorna il database locale
     try {
@@ -173,6 +187,9 @@ export default function DanglingBucketResolver({
       await queryClient.invalidateQueries({
         queryKey: notificationKeys.stats(),
       });
+
+      // Refresh bucketsStats from local DB to update counts
+      await refreshBucketsStatsFromDB();
 
       console.log(
         `✅ Successfully migrated ${danglingNotifications.length} notifications to bucket ${targetBucketName} and updated React Query cache`
@@ -212,7 +229,7 @@ export default function DanglingBucketResolver({
         })
       );
       setShowSuccessDialog(true);
-      navigateToBucketDetail(selectedBucketId);
+      navigateBack();
     } catch (error) {
       console.error("Migration error:", error);
       setDialogMessage(
@@ -270,7 +287,7 @@ export default function DanglingBucketResolver({
           })
         );
         setShowSuccessDialog(true);
-        navigateToBucketDetail(newBucket.id);
+        navigateBack();
       }
     } catch (error) {
       console.error("Create bucket error:", error);
@@ -287,13 +304,16 @@ export default function DanglingBucketResolver({
 
   const handleRefresh = async () => {
     await refreshBucketsStats();
-    
+
     // Reload notifications from DB
     try {
       const allNotifications = await getAllNotificationsFromCache();
       setNotifications(allNotifications);
     } catch (error) {
-      console.error('[DanglingBucketResolver] Error reloading notifications:', error);
+      console.error(
+        "[DanglingBucketResolver] Error reloading notifications:",
+        error
+      );
     }
   };
 

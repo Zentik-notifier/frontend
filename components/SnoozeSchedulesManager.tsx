@@ -1,11 +1,8 @@
 import {
-  GetBucketDocument,
   SnoozeScheduleInput,
-  UserRole,
-  useUpdateBucketSnoozesMutation,
 } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks";
-import { useBucket } from "@/hooks/notifications";
+import { useBucket, useUpdateBucketSnoozes } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useUserSettings } from "@/services/user-settings";
 import { TranslationKeyPath } from "@/utils";
@@ -63,7 +60,17 @@ export default function SnoozeSchedulesManager({
   });
   const { use24HourTime, datePickerLocale } = useDateFormat();
 
-  const { bucket } = useBucket(bucketId);
+  const { bucket } = useBucket(bucketId, { autoFetch: true });
+  const { updateSnoozes, isLoading: isUpdating } = useUpdateBucketSnoozes({
+    onSuccess: () => {
+      console.log("✅ Snooze schedules updated successfully");
+    },
+    onError: (error: Error) => {
+      console.error("Update snooze schedules error:", error);
+      Alert.alert("Error", "Failed to update snooze schedules");
+    },
+  });
+
   const schedules = useMemo(
     () =>
       (bucket?.userBucket?.snoozes ?? []).map(
@@ -72,116 +79,13 @@ export default function SnoozeSchedulesManager({
     [bucket]
   );
 
-  const [updateSnoozeSchedules] = useUpdateBucketSnoozesMutation({
-    optimisticResponse: (vars) => {
-      const snoozesArray = Array.isArray(vars.snoozes)
-        ? vars.snoozes
-        : [vars.snoozes];
-
-      return {
-        __typename: "Mutation" as const,
-        updateBucketSnoozes: {
-          __typename: "UserBucket" as const,
-          id: bucket?.userBucket?.id || `userBucket-${bucketId}`,
-          userId: bucket?.userBucket?.userId || "",
-          bucketId: bucketId,
-          snoozeUntil: bucket?.userBucket?.snoozeUntil || null,
-          createdAt: bucket?.userBucket?.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          snoozes: snoozesArray.map((schedule) => ({
-            __typename: "SnoozeSchedule" as const,
-            ...schedule,
-          })),
-          user: bucket?.userBucket?.user || {
-            __typename: "User" as const,
-            id: "",
-            email: "",
-            username: "",
-            firstName: null,
-            lastName: null,
-            avatar: null,
-            hasPassword: false,
-            role: UserRole.User,
-            createdAt: "",
-            updatedAt: "",
-            identities: [],
-            buckets: null,
-          },
-          bucket: bucket || {
-            __typename: "Bucket" as const,
-            id: bucketId,
-            name: "",
-            description: null,
-            color: null,
-            icon: null,
-            createdAt: "",
-            updatedAt: "",
-            isProtected: null,
-            isPublic: null,
-            user: {
-              __typename: "User" as const,
-              id: "",
-              email: "",
-              username: "",
-              firstName: null,
-              lastName: null,
-              avatar: null,
-              hasPassword: false,
-              role: UserRole.User,
-              createdAt: "",
-              updatedAt: "",
-              identities: [],
-              buckets: null,
-            },
-          },
-        },
-      };
-    },
-    update: (cache, { data }) => {
-      if (!data?.updateBucketSnoozes) return;
-
-      try {
-        // Update the bucket query cache
-        const existingData = cache.readQuery<any>({
-          query: GetBucketDocument,
-          variables: { bucketId },
-        });
-
-        if (existingData?.bucket) {
-          cache.writeQuery({
-            query: GetBucketDocument,
-            variables: { bucketId },
-            data: {
-              bucket: {
-                ...existingData.bucket,
-                userBucket: {
-                  ...existingData.bucket.userBucket,
-                  ...data.updateBucketSnoozes,
-                  snoozes: data.updateBucketSnoozes.snoozes || [],
-                },
-              },
-            },
-          });
-        }
-      } catch (error) {
-        console.error("Failed to update cache after snooze update:", error);
-      }
-    },
-    onError: (error: any) => {
-      console.error("Update snooze schedules error:", error);
-      Alert.alert("Error", "Failed to update snooze schedules");
-    },
-  });
-
   const handleSchedulesChange = async (newSchedules: SnoozeScheduleInput[]) => {
     if (!bucket) return;
 
     try {
-      await updateSnoozeSchedules({
-        variables: {
-          bucketId: bucket.id,
-          snoozes: newSchedules,
-        },
+      await updateSnoozes({
+        bucketId: bucket.id,
+        snoozes: newSchedules,
       });
     } catch (error: any) {
       console.error("Immediate snooze update failed:", error);

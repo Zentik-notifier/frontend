@@ -51,7 +51,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const isEditing = !!bucketId;
 
-  const { bucket, canWrite } = useBucket(bucketId);
+  const { bucket, canWrite } = useBucket(bucketId, { autoFetch: isEditing });
   const refreshBucket = useRefreshBucket();
   const { data: appConfig } = usePublicAppConfigQuery();
 

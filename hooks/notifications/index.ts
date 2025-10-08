@@ -38,8 +38,13 @@ export {
 } from './useBucketQueries';
 
 // Bucket Mutation Hooks
-// Bucket mutations
-export { useDeleteBucketWithNotifications, useSetBucketSnooze } from './useBucketMutations';
+export {
+  useDeleteBucketWithNotifications,
+  useSetBucketSnooze,
+  useUpdateBucketSnoozes,
+  useShareBucket,
+  useUnshareBucket,
+} from './useBucketMutations';
 
 // Bucket Stats Utilities
 export { getBucketStats } from './bucketStatsUtils';

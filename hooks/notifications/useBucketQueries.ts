@@ -62,25 +62,30 @@ export const bucketKeys = {
 // ====================
 
 /**
- * Hook for reading a single bucket from GLOBAL bucketsStats cache
- * Reads from GLOBAL bucketsStats cache (populated by useCleanup)
- * Only fetches from GraphQL when manually called via useRefreshBucket
+ * Hook for fetching a single bucket by ID with permissions
+ * Reads from GLOBAL bucketsStats cache for basic info
+ * Use useRefreshBucket to manually fetch full bucket details with permissions from GraphQL
+ * 
+ * @param bucketId - The bucket ID to fetch
+ * @param options - Hook options
+ * @param options.autoFetch - If true, automatically fetches full bucket details (with permissions) on mount
  * 
  * @example
  * ```tsx
- * const { 
- *   bucket, 
- *   isSnoozed,
- *   canDelete, 
- *   canAdmin,
- *   isOwner,
- *   loading 
- * } = useBucket('bucket-id');
+ * // Basic usage - reads from global cache only
+ * const { bucket, isSnoozed } = useBucket('bucket-id');
+ * 
+ * // Auto-fetch permissions on mount (for EditBucket, etc.)
+ * const { bucket, canAdmin, canDelete } = useBucket('bucket-id', { autoFetch: true });
  * ```
  */
-export function useBucket(bucketId?: string): BucketWithPermissions {
+export function useBucket(
+    bucketId?: string,
+    options?: { autoFetch?: boolean }
+): BucketWithPermissions {
     const { userId } = useAppContext();
     const queryClient = useQueryClient();
+    const { autoFetch = false } = options || {};
 
     // Use lazy query ONLY for manual refetch (via useRefreshBucket)
     const [getBucket] = useGetBucketLazyQuery({
@@ -88,7 +93,7 @@ export function useBucket(bucketId?: string): BucketWithPermissions {
     });
 
     // Read bucket details from separate query (for permissions and full data)
-    // This query is populated ONLY by manual refetch via useRefreshBucket
+    // This query is populated by manual refetch via useRefreshBucket OR autoFetch
     const { data: bucketDetail, isLoading: loadingDetail, error } = useQuery({
         queryKey: bucketKeys.detail(bucketId!),
         queryFn: async () => {
@@ -96,7 +101,7 @@ export function useBucket(bucketId?: string): BucketWithPermissions {
             const { data } = await getBucket({ variables: { id: bucketId! } });
             return data?.bucket ?? null;
         },
-        enabled: false, // ✅ MANUAL FETCH ONLY via useRefreshBucket
+        enabled: autoFetch && !!bucketId, // ✅ Auto-fetch if option is enabled
         staleTime: Infinity,
         gcTime: Infinity,
     });
@@ -109,7 +114,13 @@ export function useBucket(bucketId?: string): BucketWithPermissions {
     // bucketFromGlobal has: id, name, description, icon, color, isSnoozed, snoozeUntil, etc.
     // bucketDetail has: full BucketFragment with permissions, user, userBucket
     const bucket = bucketDetail ?? (bucketFromGlobal as any) ?? null;
-    const loading = loadingDetail && !bucketFromGlobal; // Only loading if no global data
+    
+    // Loading state logic:
+    // - If autoFetch is enabled: loading = true when fetching and no data yet
+    // - If autoFetch is disabled: loading = true only when manually fetching and no fallback data
+    const loading = autoFetch 
+        ? loadingDetail && !bucketDetail  // With autoFetch: loading until we have full details
+        : loadingDetail && !bucketFromGlobal; // Without autoFetch: loading only if no global data
     
     // Get snooze info from global cache (always up-to-date from bucketsStats)
     const isSnoozedFromGlobal = bucketFromGlobal?.isSnoozed ?? false;
