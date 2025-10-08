@@ -7,10 +7,10 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
-import { 
-  useDeleteNotification, 
-  useMarkAsRead, 
-  useMarkAsUnread 
+import {
+  useDeleteNotification,
+  useMarkAsRead,
+  useMarkAsUnread,
 } from "@/hooks/notifications";
 import { useNotificationActions, useNotificationUtils } from "@/hooks";
 import { mediaCache } from "@/services/media-cache-service";
@@ -161,6 +161,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const [fullScreenIndex, setFullScreenIndex] = useRecyclingState<number>(-1, [
     notification.id,
   ]);
+  const attachment = attachments[selectedPreviewIndex];
 
   useEffect(() => {
     if (!autoDownloadEnabled) return;
@@ -426,54 +427,31 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       {!!visibleAttachment && (
         <View pointerEvents="auto">
           <Surface style={[styles.mediaPreviewRow]} elevation={0}>
-            {attachments.map((attachment, index) => {
-              const isPreviewSelected = index === selectedPreviewIndex;
-              return (
-                <View
-                  key={`${attachment.url}-${index}`}
-                  style={[
-                    isPreviewSelected
-                      ? styles.expandedImage
-                      : {
-                          width: 0,
-                          height: 0,
-                          opacity: 0,
-                          position: "absolute",
-                        },
-                  ]}
-                >
-                  {(isItemVisible || !loadOnlyVisible) && (
-                    <CachedMedia
-                      notificationDate={new Date(
-                        notification.createdAt
-                      ).getTime()}
-                      mediaType={attachment.mediaType}
-                      url={attachment.url || ""}
-                      style={
-                        isPreviewSelected
-                          ? styles.expandedImage
-                          : { width: 0, height: 0 }
-                      }
-                      originalFileName={attachment.name || undefined}
-                      videoProps={{
-                        autoPlay: isPreviewSelected,
-                        isMuted: true,
-                        isLooping: true,
-                        showControls: false,
-                      }}
-                      audioProps={{
-                        shouldPlay: false,
-                        showControls: true,
-                      }}
-                      onPress={() => {
-                        mediaPressRef.current = true;
-                        handleVisualPress(attachment.url!);
-                      }}
-                    />
-                  )}
-                </View>
-              );
-            })}
+            <View key={`${attachment.url}`} style={styles.expandedImage}>
+              {(isItemVisible || !loadOnlyVisible) && (
+                <CachedMedia
+                  notificationDate={new Date(notification.createdAt).getTime()}
+                  mediaType={attachment.mediaType}
+                  url={attachment.url || ""}
+                  style={styles.expandedImage}
+                  originalFileName={attachment.name || undefined}
+                  videoProps={{
+                    autoPlay: isItemVisible,
+                    isMuted: true,
+                    isLooping: true,
+                    showControls: false,
+                  }}
+                  audioProps={{
+                    shouldPlay: false,
+                    showControls: true,
+                  }}
+                  onPress={() => {
+                    mediaPressRef.current = true;
+                    handleVisualPress(attachment.url!);
+                  }}
+                />
+              )}
+            </View>
           </Surface>
         </View>
       )}

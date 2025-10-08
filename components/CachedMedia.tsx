@@ -118,7 +118,7 @@ export const CachedMedia = React.memo(function CachedMedia({
       player.loop = videoProps?.isLooping ?? true;
       player.muted = videoProps?.isMuted ?? true;
 
-      if (videoProps?.autoPlay ?? true) {
+      if (videoProps?.autoPlay ?? false) {
         player.play();
       }
     }
@@ -227,7 +227,7 @@ export const CachedMedia = React.memo(function CachedMedia({
       videoPlayer
         .replaceAsync(videoSource)
         .then(() => {
-          if (videoProps?.autoPlay ?? true) {
+          if (videoProps?.autoPlay ?? false) {
             videoPlayer.play();
           }
         })
