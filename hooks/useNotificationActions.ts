@@ -53,30 +53,30 @@ export function useNotificationActions() {
   }, [markAsReadMutation]);
 
   const onNavigate = useCallback(async (destination: string) => {
-    console.log('🧭 Navigating to:', destination);
+    console.log('[useNotificationActions] Navigating to:', destination);
 
     // Clear any pending navigation intent to avoid conflicts
     try {
       await clearPendingNavigationIntent();
-      console.log('📱 Cleared pending navigation intent');
+      console.log('[useNotificationActions] Cleared pending navigation intent');
     } catch (error) {
-      console.warn('⚠️ Failed to clear pending navigation intent:', error);
+      console.warn('[useNotificationActions] Failed to clear pending navigation intent:', error);
     }
 
     try {
       if (destination.startsWith('http')) {
         Linking.openURL(destination);
       } else {
-        console.log('🧭 Navigating not supported:', destination);
+        console.log('[useNotificationActions] Navigating not supported:', destination);
       }
     } catch (error) {
-      console.error('❌ Navigation failed:', error);
+      console.error('[useNotificationActions] Navigation failed:', error);
       Alert.alert(t('common.navigationError'), t('common.navigationFailed'));
     }
   }, [t]);
 
   const onWebhook = useCallback(async (notificationId: string, action: NotificationActionFragment) => {
-    console.log('🪝 Executing webhook:', JSON.stringify(action));
+    console.log('[useNotificationActions] Executing webhook:', JSON.stringify(action));
 
     try {
       // The action.value contains the webhook ID, load the webhook entity
@@ -86,7 +86,7 @@ export function useNotificationActions() {
         throw new Error(t('webhooks.form.noWebhookId'));
       }
 
-      console.log('📡 Executing webhook via backend endpoint:', webhookId);
+      console.log('[useNotificationActions] Executing webhook via backend endpoint:', webhookId);
 
       // Execute the webhook using the new backend endpoint
       const response = await executeWebhook({
@@ -94,20 +94,20 @@ export function useNotificationActions() {
       });
 
       if (response.data?.executeWebhook) {
-        console.log('✅ Webhook executed successfully via backend');
+        console.log('[useNotificationActions] Webhook executed successfully via backend');
         // Show success feedback to user
         Alert.alert(t('common.success'), t('webhooks.form.webhookSuccess', { name: webhookId }));
       } else {
         throw new Error('Webhook execution returned false');
       }
     } catch (error) {
-      console.error('❌ Failed to execute webhook:', error);
+      console.error('[useNotificationActions] Failed to execute webhook:', error);
       Alert.alert(t('webhooks.form.webhookError'), t('webhooks.form.webhookExecutionFailed'));
     }
   }, [executeWebhook, t]);
 
   const onBackgroundCall = useCallback(async (action: NotificationActionFragment) => {
-    console.log('📞 Executing background call:', JSON.stringify(action));
+    console.log('[useNotificationActions] Executing background call:', JSON.stringify(action));
 
     try {
       // Parse method and URL from action value (format: "METHOD:URL")
@@ -128,49 +128,49 @@ export function useNotificationActions() {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      console.log('✅ Background call executed successfully');
+      console.log('[useNotificationActions] Background call executed successfully');
     } catch (error) {
-      console.error('❌ Failed to execute background call:', error);
+      console.error('[useNotificationActions] Failed to execute background call:', error);
       Alert.alert(t('common.actionError'), t('common.actionFailed'));
     }
   }, [t]);
 
   const onMarkAsRead = useCallback(async (notificationId: string) => {
-    console.log('✅ Marking notification as read:', notificationId);
+    console.log('[useNotificationActions] Marking notification as read:', notificationId);
 
     try {
       if (notificationId) {
         // Use GraphQL mutation to mark as read
         await markAsRead(notificationId);
-        console.log('✅ Notification marked as read successfully');
+        console.log('[useNotificationActions] Notification marked as read successfully');
       } else {
-        console.log('⚠️ No notification ID available, showing fallback message');
+        console.log('[useNotificationActions] No notification ID available, showing fallback message');
       }
     } catch (error) {
-      console.error('❌ Failed to mark notification as read:', error);
+      console.error('[useNotificationActions] Failed to mark notification as read:', error);
       Alert.alert(t('common.error'), t('webhooks.form.webhookExecutionFailed'));
     }
   }, [markAsRead, t]);
 
   const onDelete = useCallback(async (notificationId: string) => {
-    console.log('🗑️ Deleting notification:', notificationId);
+    console.log('[useNotificationActions] Deleting notification:', notificationId);
 
     try {
       if (notificationId) {
         await deleteNotification(notificationId);
-        console.log('✅ Notification deleted successfully');
+        console.log('[useNotificationActions] Notification deleted successfully');
       } else {
-        console.log('⚠️ No notification ID available, cannot delete notification');
+        console.log('[useNotificationActions] No notification ID available, cannot delete notification');
         Alert.alert(t('common.info'), t('webhooks.form.webhookExecutionFailed'));
       }
     } catch (error) {
-      console.error('❌ Failed to delete notification:', error);
+      console.error('[useNotificationActions] Failed to delete notification:', error);
       Alert.alert(t('common.error'), t('webhooks.form.webhookExecutionFailed'));
     }
   }, [deleteNotification, t]);
 
   const onSnooze = useCallback(async (notificationId: string, action: NotificationActionFragment) => {
-    console.log('⏰ Snoozing notification for:', action.value);
+    console.log('[useNotificationActions] Snoozing notification for:', action.value);
 
     try {
       // Get the notification to extract bucket ID
@@ -188,7 +188,7 @@ export function useNotificationActions() {
       // Parse snooze duration from action value (e.g., "5", "30")
       if (action.value && /^\d+$/.test(action.value)) {
         const minutes = parseInt(action.value, 10);
-        console.log(`⏰ Snoozing bucket ${bucketId} for ${minutes} minutes`);
+        console.log(`[useNotificationActions] Snoozing bucket ${bucketId} for ${minutes} minutes`);
 
         // Use the new endpoint to snooze the bucket
         await setBucketSnoozeMinutes({
@@ -198,81 +198,81 @@ export function useNotificationActions() {
           }
         });
 
-        console.log('✅ Bucket snoozed successfully');
+        console.log('[useNotificationActions] Bucket snoozed successfully');
         Alert.alert(t('common.success'), t('common.snoozeMessage', { minutes: minutes.toString() }));
       } else {
-        console.warn('⚠️ Invalid snooze format (expected number):', action.value);
+        console.warn('[useNotificationActions] Invalid snooze format (expected number):', action.value);
         Alert.alert(t('common.error'), 'Invalid snooze format');
       }
     } catch (error) {
-      console.error('❌ Failed to snooze bucket:', error);
+      console.error('[useNotificationActions] Failed to snooze bucket:', error);
       Alert.alert(t('common.error'), 'Failed to snooze notification');
     }
   }, [getNotification, setBucketSnoozeMinutes, t]);
 
   const onOpenNotification = useCallback(async (action: NotificationActionFragment) => {
-    console.log('📂 Opening notification:', JSON.stringify(action));
+    console.log('[useNotificationActions] Opening notification:', JSON.stringify(action));
 
     // Clear any pending navigation intent to avoid conflicts
     try {
       await clearPendingNavigationIntent();
-      console.log('📱 Cleared pending navigation intent');
+      console.log('[useNotificationActions] Cleared pending navigation intent');
     } catch (error) {
-      console.warn('⚠️ Failed to clear pending navigation intent:', error);
+      console.warn('[useNotificationActions] Failed to clear pending navigation intent:', error);
     }
 
     try {
       // Navigate to notifications list or specific notification
       if (action.value && action.value.trim() !== '') {
-        console.log('🧭 Navigating to notification detail:', action.value);
+        console.log('[useNotificationActions] Navigating to notification detail:', action.value);
         navigateToNotificationDetail(action.value);
       } else {
-        console.log('🧭 Navigating to home (no notification ID)');
+        console.log('[useNotificationActions] Navigating to home (no notification ID)');
         navigateToHome();
       }
     } catch (error) {
-      console.error('❌ Navigation failed:', error);
+      console.error('[useNotificationActions] Navigation failed:', error);
       Alert.alert(t('common.navigationError'), t('common.navigationFailed'));
     }
   }, [t]);
 
   const executeAction = useCallback(async (notificationId: string, action: NotificationActionFragment) => {
-    console.log('🎬 Executing action:', action.type, 'for notification:', notificationId);
-    console.log('🎬 Action details:', JSON.stringify(action));
+    console.log('[useNotificationActions] Executing action:', action.type, 'for notification:', notificationId);
+    console.log('[useNotificationActions] Action details:', JSON.stringify(action));
 
     switch (action.type) {
       case NotificationActionType.Navigate:
-        console.log('🧭 Navigate action');
+        console.log('[useNotificationActions] Navigate action');
         if (action.value) {
           onNavigate(action.value);
         }
         break;
       case NotificationActionType.Webhook:
-        console.log('🪝 Webhook action');
+        console.log('[useNotificationActions] Webhook action');
         await onWebhook(notificationId, action);
         break;
       case NotificationActionType.BackgroundCall:
-        console.log('📞 Background call action');
+        console.log('[useNotificationActions] Background call action');
         await onBackgroundCall(action);
         break;
       case NotificationActionType.MarkAsRead:
-        console.log('✅ Mark as read action');
+        console.log('[useNotificationActions] Mark as read action');
         await onMarkAsRead(notificationId);
         break;
       case NotificationActionType.Delete:
-        console.log('🗑️ Delete action');
+        console.log('[useNotificationActions] Delete action');
         await onDelete(notificationId);
         break;
       case NotificationActionType.Snooze:
-        console.log('⏰ Snooze action');
+        console.log('[useNotificationActions] Snooze action');
         await onSnooze(notificationId, action);
         break;
       case NotificationActionType.OpenNotification:
-        console.log('📂 Open notification action');
+        console.log('[useNotificationActions] Open notification action');
         onOpenNotification(action);
         break;
       default:
-        console.warn('❌ Unknown action type:', action.type);
+        console.warn('[useNotificationActions] Unknown action type:', action.type);
     }
   }, [onNavigate, onWebhook, onBackgroundCall, onMarkAsRead, onDelete, onSnooze, onOpenNotification, t]);
 
@@ -298,11 +298,11 @@ export function useNotificationActions() {
       try {
         await deviceReportReceived({ variables: { id: notificationId } });
       } catch (error) {
-        console.warn('⚠️ Failed to report notification received:', error);
+        console.warn('[useNotificationActions] Failed to report notification received:', error);
       }
 
       try {
-        console.log('[pushNotificationReceived] Processing notification:', notificationId);
+        console.log('[useNotificationActions] Processing notification:', notificationId);
 
         // Notification is already saved in DB by push notification system
         // Just invalidate React Query cache to refresh all lists
@@ -311,10 +311,10 @@ export function useNotificationActions() {
         const currentCount = await Notifications.getBadgeCountAsync();
         await setBadgeCount(currentCount + 1);
       } catch (e) {
-        console.warn('⚠️ Failed to handle push notification:', e);
+        console.warn('[useNotificationActions] Failed to handle push notification:', e);
       }
     } catch (error) {
-      console.error('pushNotificationReceived error', error);
+      console.error('[useNotificationActions] pushNotificationReceived error', error);
     }
   }, [queryClient, deviceReportReceived]);
 

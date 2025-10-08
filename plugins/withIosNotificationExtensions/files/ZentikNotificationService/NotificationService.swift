@@ -14,12 +14,6 @@ class NotificationService: UNNotificationServiceExtension {
   var contentHandler: ((UNNotificationContent) -> Void)?
   var bestAttemptContent: UNMutableNotificationContent?
 
-  // Cache for already registered categories to avoid duplicates
-  private static var registeredCategories: Set<String> = []
-  private static let categoryLock = NSLock()
-  private static var categorySlotCounter: Int = 0
-  private static let maxCategorySlots = 20
-
   override func didReceive(
     _ request: UNNotificationRequest,
     withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
@@ -112,33 +106,50 @@ class NotificationService: UNNotificationServiceExtension {
 
     var senderAvatarImageData: Data?
     
-    if let senderThumbnailUrl = URL(string: senderThumbnail ?? ""),
+    // Prima verifica se abbiamo già l'icona nella cache
+    if let bucketId = senderId, let bucketName = chatRoomName ?? senderDisplayName {
+      senderAvatarImageData = getBucketIconFromSharedCache(bucketId: bucketId, bucketName: bucketName)
+      if senderAvatarImageData != nil {
+        print("📱 [NotificationService] 🎭 ✅ Using cached bucket icon")
+      }
+    }
+    
+    // Se non in cache, prova a scaricare l'icona bucket
+    if senderAvatarImageData == nil,
+       let senderThumbnailUrl = URL(string: senderThumbnail ?? ""),
        let senderThumbnailImageData = try? Data(contentsOf: senderThumbnailUrl) {
       // Successfully downloaded the image - use it directly
       senderAvatarImageData = senderThumbnailImageData
       print("📱 [NotificationService] 🎭 ✅ Successfully loaded sender image from URL")
+      
+      // Salva nella cache per uso futuro (NSE e NCE)
+      if let bucketId = senderId, let bucketName = chatRoomName ?? senderDisplayName {
+        let _ = saveBucketIconToSharedCache(senderThumbnailImageData, bucketId: bucketId, bucketName: bucketName)
+      }
     }
     
-    // If no image data available, check shared cache first, then possibly generate placeholder
+    // Se ancora niente, genera placeholder solo se preferenza disabilitata
     if senderAvatarImageData == nil {
-      print("📱 [NotificationService] 🎭 ⚠️ Sender image not available, checking shared cache...")
-
-      // Try to get placeholder from shared cache first
-      if let bucketId = senderId, let bucketName = chatRoomName ?? senderDisplayName {
-        senderAvatarImageData = getPlaceholderFromSharedCache(bucketId: bucketId, bucketName: bucketName)
-      }
+      print("📱 [NotificationService] 🎭 ⚠️ Sender image not available")
 
       // Read UI preference: show app icon when bucket icon missing (skip custom avatar)
       let showAppIcon = readBoolFromKeychain(service: "zentik-setting-show-app-icon-missing") ?? true
 
-      // If still no image data, generate new placeholder ONLY if preference is disabled
-      if senderAvatarImageData == nil && showAppIcon == false {
-        print("📱 [NotificationService] 🎭 No cached placeholder found, generating new one")
-        senderAvatarImageData = generateAvatarPlaceholder(
-          name: chatRoomName ?? senderDisplayName ?? "Zentik",
-          hexColor: bucketColor,
-          bucketId: senderId
-        )
+      // Generate placeholder ONLY if preference is disabled
+      if showAppIcon == false {
+        print("📱 [NotificationService] 🎭 Generating placeholder")
+        if let bucketId = senderId, let bucketName = chatRoomName ?? senderDisplayName {
+          senderAvatarImageData = generateAvatarPlaceholder(
+            name: bucketName,
+            hexColor: bucketColor,
+            bucketId: bucketId
+          )
+          
+          // Salva il placeholder generato NELLO STESSO POSTO dell'icona bucket
+          if let placeholderData = senderAvatarImageData {
+            let _ = saveBucketIconToSharedCache(placeholderData, bucketId: bucketId, bucketName: bucketName)
+          }
+        }
       }
     }
     
@@ -640,238 +651,29 @@ class NotificationService: UNNotificationServiceExtension {
     if !actions.isEmpty {
       let notificationId = userInfo["notificationId"] as? String ?? UUID().uuidString
       
-      // Use a slot-based category system (0-9) to allow multiple notifications with different actions
-      let categorySlot = Self.getNextCategorySlot()
-      let categoryId = "zentik_cat_\(categorySlot)"
+      // Use DYNAMIC category (Home Assistant approach)
+      // NCE will inject actions from userInfo at runtime
+      content.categoryIdentifier = "DYNAMIC"
       
-      // Store the mapping for later retrieval
-      Self.storeCategoryMapping(notificationId: notificationId, categoryId: categoryId)
-
-      print("📱 [NotificationService] 🆕 Creating category with actions: \(categoryId) (slot \(categorySlot))")
-      print(
-        "📱 [NotificationService] 📊 Current registered categories count: \(Self.getRegisteredCategoriesCount())"
+      print("📱 [NotificationService] 🎭 Using DYNAMIC category for notification: \(notificationId)")
+      print("📱 [NotificationService] 🎭 NCE will inject \(actions.count) actions from userInfo")
+      
+      logToDatabase(
+        level: "info",
+        tag: "NotificationServiceExtension",
+        message: "[Actions] Using DYNAMIC category",
+        metadata: [
+          "notificationId": notificationId,
+          "actionsCount": actions.count
+        ]
       )
-
-      let notificationActions = actions.compactMap { actionData -> UNNotificationAction? in
-        guard let type = actionData["type"] as? String,
-          let value = actionData["value"] as? String
-        else {
-          print("📱 [NotificationService] ⚠️ Invalid action data: \(actionData)")
-          return nil
-        }
-
-        let title = actionData["title"] as? String ?? value
-
-        let destructive = actionData["destructive"] as? Bool ?? false
-        let authRequired = actionData["authRequired"] as? Bool ?? true
-        let actionId = "action_\(type)_\(value)_\(notificationId)"
-
-        var options: UNNotificationActionOptions = []
-        if destructive { options.insert(.destructive) }
-        if authRequired { options.insert(.authenticationRequired) }
-
-        var actionIcon: UNNotificationActionIcon?
-        if let iconName = actionData["icon"] as? String, !iconName.isEmpty {
-          let actualIconName =
-            iconName.hasPrefix("sfsymbols:")
-            ? String(iconName.dropFirst("sfsymbols:".count))
-            : iconName
-          actionIcon = UNNotificationActionIcon(systemImageName: actualIconName)
-        }
-
-        print("📱 [NotificationService] Created action: \(actionId) - \(title)")
-
-        return UNNotificationAction(
-          identifier: actionId,
-          title: title,
-          options: options,
-          icon: actionIcon
-        )
-      }
-
-      if !notificationActions.isEmpty {
-        // Use standard options for the main category
-        let options: UNNotificationCategoryOptions = [.customDismissAction]
-
-        let category = UNNotificationCategory(
-          identifier: categoryId,
-          actions: notificationActions,
-          intentIdentifiers: [],
-          options: options
-        )
-
-        // Register the category in a synchronized manner
-        registerCategorySynchronously(category) { [weak self] success in
-          if success {
-            print("📱 [NotificationService] ✅ Successfully registered category: \(categoryId)")
-            content.categoryIdentifier = categoryId
-            
-            self?.logToDatabase(
-              level: "info",
-              tag: "NotificationServiceExtension",
-              message: "[Actions] Category registered successfully",
-              metadata: [
-                "categoryId": categoryId,
-                "actionsCount": notificationActions.count,
-                "slot": categorySlot
-              ]
-            )
-          } else {
-            print("📱 [NotificationService] ❌ Failed to register category: \(categoryId)")
-            content.categoryIdentifier = "ZENTIK_FALLBACK_CATEGORY"
-            print(
-              "📱 [NotificationService] 🎯 Fallback category identifier set to: \(content.categoryIdentifier ?? "nil")"
-            )
-            
-            self?.logToDatabase(
-              level: "error",
-              tag: "NotificationServiceExtension",
-              message: "[Actions] Failed to register category",
-              metadata: ["categoryId": categoryId]
-            )
-          }
-          completion()
-        }
-      } else {
-        print("📱 [NotificationService] ⚠️ No valid actions created")
-        print("📱 [NotificationService] 🎯 No category set (no valid actions)")
-        completion()
-      }
     } else {
-      // Even without actions, use a category slot for NCE to show custom content
-      let notificationId = userInfo["notificationId"] as? String ?? UUID().uuidString
-      let categorySlot = Self.getNextCategorySlot()
-      let categoryId = "zentik_cat_\(categorySlot)"
-      
-      Self.storeCategoryMapping(notificationId: notificationId, categoryId: categoryId)
-      
-      print("📱 [NotificationService] 🎯 No actions, using category: \(categoryId) (slot \(categorySlot))")
-      content.categoryIdentifier = categoryId
-      completion()
+      // Use DYNAMIC category even without actions for NCE custom content
+      content.categoryIdentifier = "DYNAMIC"
+      print("📱 [NotificationService] 🎭 Using DYNAMIC category (no actions)")
     }
-  }
-
-  // MARK: - Category Management
-  
-  private static func getNextCategorySlot() -> Int {
-    categoryLock.lock()
-    defer { categoryLock.unlock() }
     
-    let slot = categorySlotCounter % maxCategorySlots
-    categorySlotCounter += 1
-    
-    print("📱 [NotificationService] 🎰 Assigned category slot: \(slot)")
-    return slot
-  }
-  
-  private static func storeCategoryMapping(notificationId: String, categoryId: String) {
-    let accessGroup = getKeychainAccessGroup()
-    
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: "zentik-category-mapping",
-      kSecAttrAccount as String: notificationId,
-      kSecAttrAccessGroup as String: accessGroup,
-      kSecValueData as String: categoryId.data(using: .utf8)!,
-      kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-    ]
-    
-    // Delete existing mapping first
-    let deleteQuery: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: "zentik-category-mapping",
-      kSecAttrAccount as String: notificationId,
-      kSecAttrAccessGroup as String: accessGroup,
-    ]
-    SecItemDelete(deleteQuery as CFDictionary)
-    
-    // Add new mapping
-    let status = SecItemAdd(query as CFDictionary, nil)
-    if status == errSecSuccess {
-      print("📱 [NotificationService] 💾 Stored category mapping: \(notificationId) -> \(categoryId)")
-    } else {
-      print("📱 [NotificationService] ❌ Failed to store category mapping (status: \(status))")
-    }
-  }
-  
-  private static func getKeychainAccessGroup() -> String {
-    let bundleIdentifier = Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationService", with: "") ?? "{{MAIN_BUNDLE_ID}}"
-    return "C3F24V5NS5.\(bundleIdentifier).keychain"
-  }
-
-  private static func isCategoryRegistered(_ categoryId: String) -> Bool {
-    categoryLock.lock()
-    defer { categoryLock.unlock() }
-    let isRegistered = registeredCategories.contains(categoryId)
-    print(
-      "📱 [NotificationService] Checking if category is registered: \(categoryId) - Result: \(isRegistered)"
-    )
-    print("📱 [NotificationService] Currently registered categories: \(registeredCategories)")
-    return isRegistered
-  }
-
-  private static func markCategoryAsRegistered(_ categoryId: String) {
-    categoryLock.lock()
-    defer { categoryLock.unlock() }
-
-    // Keep only the last 5 categories to avoid exceeding iOS limits
-    if registeredCategories.count >= 5 {
-      let oldestCategory = registeredCategories.removeFirst()
-      print("📱 [NotificationService] 🗑️ Removed oldest category to make space: \(oldestCategory)")
-    }
-
-    registeredCategories.insert(categoryId)
-    print("📱 [NotificationService] Marked category as registered: \(categoryId)")
-    print("📱 [NotificationService] Total registered categories: \(registeredCategories.count)")
-  }
-
-  private static func getRegisteredCategoriesCount() -> Int {
-    categoryLock.lock()
-    defer { categoryLock.unlock() }
-    return registeredCategories.count
-  }
-
-  private func registerCategorySynchronously(
-    _ category: UNNotificationCategory, completion: @escaping (Bool) -> Void
-  ) {
-    print("📱 [NotificationService] 🔧 Starting category registration for: \(category.identifier)")
-    print("📱 [NotificationService] 🔧 Category actions count: \(category.actions.count)")
-
-    // Register the category directly
-    UNUserNotificationCenter.current().getNotificationCategories { existingCategories in
-      print("📱 [NotificationService] 🔧 Found \(existingCategories.count) existing categories")
-
-      var updatedCategories = existingCategories
-
-      // Remove duplicate categories if they exist
-      let removedCount = updatedCategories.filter { $0.identifier == category.identifier }.count
-      updatedCategories = updatedCategories.filter { $0.identifier != category.identifier }
-      if removedCount > 0 {
-        print("📱 [NotificationService] 🔧 Removed \(removedCount) duplicate categories")
-      }
-
-      // Clean up obsolete categories (keep only the last 10)
-      if updatedCategories.count > 10 {
-        let categoriesToRemove = updatedCategories.count - 10
-        let sortedCategories = updatedCategories.sorted { $0.identifier < $1.identifier }
-        let obsoleteCategories = Array(sortedCategories.prefix(categoriesToRemove))
-
-        for obsoleteCategory in obsoleteCategories {
-          updatedCategories.remove(obsoleteCategory)
-          print(
-            "📱 [NotificationService] 🗑️ Removed obsolete category: \(obsoleteCategory.identifier)")
-        }
-      }
-
-      // Add the new category
-      updatedCategories.insert(category)
-      print(
-        "📱 [NotificationService] 🔧 Added new category, total categories: \(updatedCategories.count)"
-      )
-
-      UNUserNotificationCenter.current().setNotificationCategories(updatedCategories)
-      completion(true)
-    }
+    completion()
   }
 
   // MARK: - Media Attachments
@@ -2401,6 +2203,30 @@ class NotificationService: UNNotificationServiceExtension {
     }
   }
 
+  private func getBucketIconFromSharedCache(bucketId: String, bucketName: String) -> Data? {
+    let cacheDirectory = getSharedMediaCacheDirectory()
+    let bucketIconDirectory = cacheDirectory.appendingPathComponent("BUCKET_ICON")
+    
+    // Generate filename based on bucket info
+    let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
+    let fileName = "bucket_icon_\(bucketId)_\(safeBucketName).png"
+    let fileURL = bucketIconDirectory.appendingPathComponent(fileName)
+    
+    // Check if icon exists
+    guard FileManager.default.fileExists(atPath: fileURL.path) else {
+      return nil
+    }
+    
+    // Load icon data
+    do {
+      let data = try Data(contentsOf: fileURL)
+      return data
+    } catch {
+      print("📱 [NotificationService] ❌ Failed to load cached bucket icon: \(error)")
+      return nil
+    }
+  }
+  
   private func savePlaceholderToSharedCache(_ imageData: Data, bucketId: String, bucketName: String) -> URL? {
     let cacheDirectory = getSharedMediaCacheDirectory()
     let placeholderDirectory = cacheDirectory.appendingPathComponent("PLACEHOLDER")
@@ -2424,6 +2250,33 @@ class NotificationService: UNNotificationServiceExtension {
       return fileURL
     } catch {
       print("📱 [NotificationService] ❌ Failed to save placeholder to shared cache: \(error)")
+      return nil
+    }
+  }
+  
+  private func saveBucketIconToSharedCache(_ imageData: Data, bucketId: String, bucketName: String) -> URL? {
+    let cacheDirectory = getSharedMediaCacheDirectory()
+    let bucketIconDirectory = cacheDirectory.appendingPathComponent("BUCKET_ICON")
+    
+    // Create bucket icon directory if it doesn't exist
+    do {
+      try FileManager.default.createDirectory(at: bucketIconDirectory, withIntermediateDirectories: true, attributes: nil)
+    } catch {
+      print("📱 [NotificationService] ❌ Failed to create bucket icon directory: \(error)")
+      return nil
+    }
+    
+    // Generate filename based on bucket info
+    let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
+    let fileName = "bucket_icon_\(bucketId)_\(safeBucketName).png"
+    let fileURL = bucketIconDirectory.appendingPathComponent(fileName)
+    
+    do {
+      try imageData.write(to: fileURL)
+      print("📱 [NotificationService] ✅ Saved bucket icon to shared cache: \(fileURL.lastPathComponent)")
+      return fileURL
+    } catch {
+      print("📱 [NotificationService] ❌ Failed to save bucket icon to shared cache: \(error)")
       return nil
     }
   }

@@ -137,6 +137,70 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             metadata: ["notificationId": notificationId]
         )
         
+        // Inject dynamic actions from userInfo (Home Assistant approach)
+        // This allows notifications to have custom actions without pre-registering categories
+        let categoryId = notification.request.content.categoryIdentifier.lowercased()
+        if categoryId == "dynamic" || categoryId.hasPrefix("zentik_cat_") {
+            if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
+                let notificationActions = actionsData.compactMap { actionData -> UNNotificationAction? in
+                    guard let type = actionData["type"] as? String,
+                          let value = actionData["value"] as? String else {
+                        print("📱 [ContentExtension] ⚠️ Invalid action data: \(actionData)")
+                        return nil
+                    }
+                    
+                    let title = actionData["title"] as? String ?? value
+                    let destructive = actionData["destructive"] as? Bool ?? false
+                    let authRequired = actionData["authRequired"] as? Bool ?? true
+                    let actionId = "action_\(type)_\(value)"
+                    
+                    var options: UNNotificationActionOptions = []
+                    if destructive { options.insert(.destructive) }
+                    if authRequired { options.insert(.authenticationRequired) }
+                    
+                    var icon: UNNotificationActionIcon?
+                    if let iconName = actionData["icon"] as? String, !iconName.isEmpty {
+                        let actualIconName = iconName.hasPrefix("sfsymbols:")
+                            ? String(iconName.dropFirst("sfsymbols:".count))
+                            : iconName
+                        icon = UNNotificationActionIcon(systemImageName: actualIconName)
+                    }
+                    
+                    print("📱 [ContentExtension] 🎭 Created dynamic action: \(actionId) - \(title)")
+                    
+                    return UNNotificationAction(
+                        identifier: actionId,
+                        title: title,
+                        options: options,
+                        icon: icon
+                    )
+                }
+                
+                // Inject actions into extension context
+                if !notificationActions.isEmpty {
+                    extensionContext?.notificationActions = notificationActions
+                    print("📱 [ContentExtension] 🎭 Injected \(notificationActions.count) dynamic actions into NCE")
+                    
+                    logToDatabase(
+                        level: "INFO",
+                        tag: "NotificationContentExtension",
+                        message: "[Actions] Dynamic actions injected",
+                        metadata: [
+                            "notificationId": notificationId,
+                            "actionsCount": notificationActions.count,
+                            "categoryId": categoryId
+                        ]
+                    )
+                } else {
+                    print("📱 [ContentExtension] ⚠️ No valid actions to inject")
+                }
+            } else {
+                print("📱 [ContentExtension] ℹ️ No actions data in userInfo for category: \(categoryId)")
+            }
+        } else {
+            print("📱 [ContentExtension] ℹ️ Category '\(categoryId)' not eligible for dynamic actions")
+        }
+        
         // Store notification texts
         notificationTitleText = notification.request.content.title
         
@@ -281,7 +345,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         let title = UILabel()
         title.font = .systemFont(ofSize: 16, weight: .semibold)
         title.textColor = .label
-        title.numberOfLines = 2
+        title.numberOfLines = 0  // Auto-resize based on content
         title.text = notificationTitleText.isEmpty ? "" : notificationTitleText
         title.setContentCompressionResistancePriority(.required, for: .vertical)
         title.setContentHuggingPriority(.required, for: .vertical)
@@ -290,7 +354,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         let subtitle = UILabel()
         subtitle.font = .systemFont(ofSize: 12)
         subtitle.textColor = .secondaryLabel
-        subtitle.numberOfLines = 2
+        subtitle.numberOfLines = 0  // Auto-resize based on content
         subtitle.text = notificationSubtitleText
         subtitle.isHidden = notificationSubtitleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         subtitle.setContentCompressionResistancePriority(.required, for: .vertical)
@@ -300,7 +364,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         let body = UILabel()
         body.font = .systemFont(ofSize: 12)
         body.textColor = .secondaryLabel
-        body.numberOfLines = 3
+        body.numberOfLines = 0  // Auto-resize based on content
         body.text = normalizeLineSeparators(notificationBodyText)
         body.setContentCompressionResistancePriority(.required, for: .vertical)
         body.setContentHuggingPriority(.required, for: .vertical)
@@ -366,7 +430,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         return s
     }
 
-    // MARK: - Dynamic Header Lines (max total 10)
+    // MARK: - Dynamic Header Setup with Auto Layout
     private func adjustHeaderLineCounts() {
         print("📱 [ContentExtension] 🔧 adjustHeaderLineCounts() called")
         guard let titleLabel = headerTitleLabel,
@@ -376,75 +440,29 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             return 
         }
 
-        // Normalizza i separatori di riga (ad es. U+2028, U+2029) per un wrapping coerente
-        let normalizedTitle = normalizeLineSeparators(notificationTitleText)
-        let normalizedSubtitle = normalizeLineSeparators(notificationSubtitleText)
-        let normalizedBody = normalizeLineSeparators(notificationBodyText)
-
+        // Calcola la larghezza disponibile per il wrapping delle label
         let totalWidth = view.bounds.width
         let horizontalInsets: CGFloat = 12 + 12
         let headerStackInsets: CGFloat = 8 + 8
         let iconWidth: CGFloat = (headerIconImageView?.isHidden ?? false) ? 0 : 50
         let spacing: CGFloat = (headerIconImageView?.isHidden ?? false) ? 0 : 10
         let availableWidth = max(100, totalWidth - horizontalInsets - headerStackInsets - iconWidth - spacing)
-        // Ensure UILabels know their wrapping width for correct intrinsic height calculation
+        
+        // Imposta preferredMaxLayoutWidth per consentire il wrapping corretto
         titleLabel.preferredMaxLayoutWidth = availableWidth
         subtitleLabel.preferredMaxLayoutWidth = availableWidth
         bodyLabel.preferredMaxLayoutWidth = availableWidth
-        // Improve truncation appearance
-        bodyLabel.allowsDefaultTighteningForTruncation = true
-        print("📱 [ContentExtension] Header width calc -> total: \(totalWidth), available: \(availableWidth), iconHidden: \(headerIconImageView?.isHidden ?? false)")
-
-        func requiredLines(for text: String, font: UIFont, width: CGFloat) -> Int {
-            if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return 0 }
-            // Usa NSTextStorage + NSLayoutManager + NSTextContainer per un conteggio linee accurato, inclusi separatori Unicode
-            let textStorage = NSTextStorage(string: text)
-            let textContainer = NSTextContainer(size: CGSize(width: width, height: .greatestFiniteMagnitude))
-            textContainer.lineFragmentPadding = 0
-            let layoutManager = NSLayoutManager()
-            layoutManager.addTextContainer(textContainer)
-            textStorage.addLayoutManager(layoutManager)
-            textStorage.addAttribute(.font, value: font, range: NSRange(location: 0, length: textStorage.length))
-            var lineCount = 0
-            var index = 0
-            while index < layoutManager.numberOfGlyphs {
-                var lineRange = NSRange(location: 0, length: 0)
-                layoutManager.lineFragmentRect(forGlyphAt: index, effectiveRange: &lineRange)
-                lineCount += 1
-                index = NSMaxRange(lineRange)
-            }
-            return lineCount
-        }
-
-        let totalCap = 15
-
-        let needTitle = requiredLines(for: normalizedTitle, font: titleLabel.font, width: availableWidth)
-        let needSubtitle = requiredLines(for: normalizedSubtitle, font: subtitleLabel.font, width: availableWidth)
-        let needBody = requiredLines(for: normalizedBody, font: bodyLabel.font, width: availableWidth)
-        print("📱 [ContentExtension] Needed lines -> title: \(needTitle), subtitle: \(needSubtitle), body: \(needBody)")
-
-        // Title max 2, Subtitle max 1, rest to body up to total 10
-        var useTitle = min(needTitle, 2)
-        var useSubtitle = min(needSubtitle, 1)
-        var bodyCap = max(0, totalCap - (useTitle + useSubtitle))
-        var useBody = min(needBody, bodyCap)
-        print("📱 [ContentExtension] Initial alloc -> title: \(useTitle)/2, subtitle: \(useSubtitle)/1, bodyCap: \(bodyCap), body: \(useBody)")
-
-        titleLabel.numberOfLines = max(1, useTitle)
+        
+        // Aggiorna il testo normalizzato
+        titleLabel.text = normalizeLineSeparators(notificationTitleText)
+        subtitleLabel.text = normalizeLineSeparators(notificationSubtitleText)
         subtitleLabel.isHidden = notificationSubtitleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        subtitleLabel.numberOfLines = subtitleLabel.isHidden ? 0 : max(0, useSubtitle)
-        // If text is longer than allocated lines, add a visual buffer by allowing one extra truncation line when under total cap
-        if needBody > useBody {
-            let extra = min(1, max(0, totalCap - (useTitle + useSubtitle + useBody)))
-            useBody += extra
-        }
-        bodyLabel.numberOfLines = max(0, useBody)
-        print("📱 [ContentExtension] Applied lines -> title: \(titleLabel.numberOfLines), subtitle: \(subtitleLabel.numberOfLines), body: \(bodyLabel.numberOfLines) (cap: \(totalCap))")
-        titleLabel.lineBreakMode = .byTruncatingTail
-        subtitleLabel.lineBreakMode = .byTruncatingTail
-        bodyLabel.lineBreakMode = .byTruncatingTail
-
-        // Avoid forcing layout here to prevent potential layout loops
+        bodyLabel.text = normalizeLineSeparators(notificationBodyText)
+        
+        // Imposta numberOfLines = 0 per auto-sizing (già fatto in setupUI)
+        // Questo permette alle label di crescere in base al contenuto
+        
+        print("📱 [ContentExtension] Header auto-sizing enabled - availableWidth: \(availableWidth)")
     }
     
 
@@ -514,7 +532,14 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             // Se esiste un solo media non-ICON, comportati come nel caso icon/audio-only per il footer
             let count = nonIconMediaCount()
             if count <= 1 { hideFooterCompletely() }
-            // Display first non-ICON media from attachmentData
+            
+            // Imposta altezza iniziale con header visibile immediatamente
+            let headerHeight = headerViewHeight()
+            let mediaHeight: CGFloat = 200 // Placeholder finché media non carica
+            preferredContentSize = CGSize(width: view.bounds.width, height: headerHeight + mediaHeight)
+            mediaHeightConstraint?.constant = mediaHeight
+            
+            // Display first non-ICON media from attachmentData (async, non blocca UI)
             let firstNonIconIndex = findFirstNonIconMediaIndex()
             selectedMediaIndex = firstNonIconIndex
             displayMediaFromSharedCache(at: firstNonIconIndex)
@@ -537,72 +562,18 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             print("📱 [ContentExtension] Showing header-only mode (only ICON/AUDIO). Preferred size: \(preferredContentSize)")
             return
         }
-        
-        // Start with compact height, will expand when media loads
-        let headerHeight = headerViewHeight()
-        let mediaHeight: CGFloat = 120
-        let initialHeight = headerHeight + mediaHeight
-        
-        print("📱 [ContentExtension] 🎯 ========== INITIAL HEIGHT SETUP ==========")
-        print("📱 [ContentExtension] 🎯 Header height: \(headerHeight)")
-        print("📱 [ContentExtension] 🎯 Media height: \(mediaHeight)")
-        print("📱 [ContentExtension] 🎯 Initial total height: \(initialHeight)")
-        print("📱 [ContentExtension] 🎯 View bounds: \(view.bounds)")
-        
-        preferredContentSize = CGSize(width: view.bounds.width, height: initialHeight)
-        mediaHeightConstraint?.constant = mediaHeight
-        
-        print("📱 [ContentExtension] 🎯 preferredContentSize set to: \(preferredContentSize)")
-        print("📱 [ContentExtension] 🎯 mediaHeightConstraint set to: \(mediaHeight)")
-        
-        if nonIconMediaCount() <= 1 { hideFooterCompletely() }
     }
 
     private func refreshHeaderIcon() {
         guard let imageView = headerIconImageView else { return }
         
-        // Prima prova a scaricare da bucketIconUrl (esattamente come fa la NSE)
-        if let userInfo = currentNotificationUserInfo,
-           let bucketIconUrl = userInfo["bucketIconUrl"] as? String,
-           let url = URL(string: bucketIconUrl) {
-            print("📱 [ContentExtension] 🎭 Trying to load bucket icon from URL: \(bucketIconUrl)")
-            
-            // Prova a scaricare l'icona dal bucket
-            if let imageData = try? Data(contentsOf: url),
-               let image = UIImage(data: imageData) {
-                imageView.image = image
-                imageView.isHidden = false
-                print("📱 [ContentExtension] 🎭 ✅ Successfully loaded bucket icon from URL")
-                return
-            } else {
-                print("📱 [ContentExtension] 🎭 ❌ Failed to load bucket icon from URL")
-            }
-        }
-        
-        // Se non disponibile da URL, cerca placeholder nella cache condivisa
-        if let userInfo = currentNotificationUserInfo,
-           let bucketId = userInfo["bucketId"] as? String,
-           let bucketName = userInfo["bucketName"] as? String {
-            print("📱 [ContentExtension] 🎭 Checking shared cache for placeholder...")
-            
-            if let placeholderData = getPlaceholderFromSharedCache(bucketId: bucketId, bucketName: bucketName),
-               let placeholderImage = UIImage(data: placeholderData) {
-                imageView.image = placeholderImage
-                imageView.isHidden = false
-                print("📱 [ContentExtension] 🎭 ✅ Loaded placeholder from shared cache for \(bucketName)")
-                return
-            } else {
-                print("📱 [ContentExtension] 🎭 ❌ No placeholder found in shared cache")
-            }
-        }
-        
-        // Se ancora non disponibile, prova app icon
+        // Mostra app icon come placeholder immediato
         var fallbackImage: UIImage?
         let appIconNames = ["AppIcon", "AppIcon-60", "AppIcon-76", "AppIcon-83.5", "AppIcon-1024"]
         for iconName in appIconNames {
             if let appIcon = UIImage(named: iconName) {
                 fallbackImage = appIcon
-                print("📱 [ContentExtension] ✅ Found app icon: \(iconName)")
+                print("📱 [ContentExtension] ✅ Found app icon as placeholder: \(iconName)")
                 break
             }
         }
@@ -611,11 +582,56 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             imageView.image = appIcon
             imageView.isHidden = false
         } else {
-            // Nessuna icona disponibile: manteniamo comunque lo spazio dell'icona per non alterare la larghezza disponibile
-            // Impostiamo un placeholder trasparente 50x50 per mantenere la metrica coerente con il caso con icona
+            // Manteniamo lo spazio dell'icona per layout coerente
             imageView.image = UIImage()
             imageView.isHidden = false
-            print("📱 [ContentExtension] ⚠️ No icon available, keeping placeholder to preserve layout width")
+            print("📱 [ContentExtension] ⚠️ No app icon available, keeping placeholder to preserve layout width")
+        }
+        
+        // Cerca bucket icon nella cache condivisa (UNICO POSTO per icona reale o placeholder)
+        if let userInfo = currentNotificationUserInfo,
+           let bucketId = userInfo["bucketId"] as? String,
+           let bucketName = userInfo["bucketName"] as? String {
+            print("📱 [ContentExtension] 🎭 Checking shared cache for bucket icon...")
+            
+            if let bucketIconData = getBucketIconFromSharedCache(bucketId: bucketId, bucketName: bucketName),
+               let bucketIcon = UIImage(data: bucketIconData) {
+                imageView.image = bucketIcon
+                imageView.isHidden = false
+                print("📱 [ContentExtension] 🎭 ✅ Loaded bucket icon from shared cache for \(bucketName)")
+                return // Icon trovata nella cache, non serve altro
+            } else {
+                print("📱 [ContentExtension] 🎭 ⚠️ No bucket icon in shared cache, will try download in background")
+            }
+        }
+        
+        // Se non in cache, scarica l'icona del bucket in background (non blocca UI)
+        if let userInfo = currentNotificationUserInfo,
+           let bucketIconUrl = userInfo["bucketIconUrl"] as? String,
+           let url = URL(string: bucketIconUrl) {
+            print("📱 [ContentExtension] 🎭 Loading bucket icon from URL in background: \(bucketIconUrl)")
+            
+            DispatchQueue.global(qos: .userInitiated).async { [weak self, weak imageView] in
+                guard let self = self, let imageView = imageView else { return }
+                
+                if let imageData = try? Data(contentsOf: url),
+                   let image = UIImage(data: imageData) {
+                    
+                    // Salva nella cache per la prossima volta
+                    if let bucketId = userInfo["bucketId"] as? String,
+                       let bucketName = userInfo["bucketName"] as? String {
+                        let _ = self.saveBucketIconToSharedCache(imageData, bucketId: bucketId, bucketName: bucketName)
+                    }
+                    
+                    DispatchQueue.main.async {
+                        imageView.image = image
+                        imageView.isHidden = false
+                        print("📱 [ContentExtension] 🎭 ✅ Successfully loaded bucket icon from URL")
+                    }
+                } else {
+                    print("📱 [ContentExtension] 🎭 ❌ Failed to load bucket icon from URL")
+                }
+            }
         }
     }
 
@@ -641,65 +657,33 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
 
     private func headerViewHeight() -> CGFloat {
         guard let header = headerView else { return 0 }
+        
+        // Forza il layout dell'header per ottenere dimensioni accurate
         header.setNeedsLayout()
         header.layoutIfNeeded()
-        // Constrain width to available content width (leading/trailing 12)
+        
+        // Calcola la larghezza disponibile (margini leading/trailing di 12pt ciascuno)
         let availableWidth = max(100, view.bounds.width - 24)
         let targetSize = CGSize(width: availableWidth, height: UIView.layoutFittingCompressedSize.height)
-        let height = header.systemLayoutSizeFitting(
+        
+        // Usa systemLayoutSizeFitting per ottenere l'altezza reale basata su Auto Layout
+        let calculatedSize = header.systemLayoutSizeFitting(
             targetSize,
             withHorizontalFittingPriority: .required,
             verticalFittingPriority: .fittingSizeLevel
-        ).height
-        // Fallback expected height from line counts if AutoLayout underestimates
-        var expectedLabelsHeight: CGFloat = 0
-        if let t = headerTitleLabel { expectedLabelsHeight += t.font.lineHeight * CGFloat(max(1, t.numberOfLines)) }
-        if let s = headerSubtitleLabel, !(s.isHidden) { expectedLabelsHeight += s.font.lineHeight * CGFloat(max(0, s.numberOfLines)) + 2 }
-        if let b = headerBodyLabel { expectedLabelsHeight += b.font.lineHeight * CGFloat(max(0, b.numberOfLines)) }
-        // Stack paddings: headerStack top/bottom 8, header outer top 8 + bottom 8
-        let verticalPaddings: CGFloat = 8 + 8 + 8 + 8
-        let labelsTotal = expectedLabelsHeight + verticalPaddings
-        let iconBlock: CGFloat = 50 + (8 + 8 + 8 + 8) // icon 50 + same paddings
-        let expected = max(labelsTotal, iconBlock)
-        let final = max(56, max(height + 8, expected))
-        print("📱 [ContentExtension] headerViewHeight -> availableWidth: \(availableWidth), measured: \(height), expected: \(expected), final: \(final)")
-        return final
+        )
+        
+        // Aggiungi un piccolo padding per sicurezza (evita troncamenti)
+        let finalHeight = max(56, calculatedSize.height + 8)
+        
+        print("📱 [ContentExtension] headerViewHeight -> width: \(availableWidth), calculated: \(calculatedSize.height), final: \(finalHeight)")
+        return finalHeight
     }
 
     private func computeHeaderExpectedHeight() -> CGFloat {
-        let availableWidth = max(100, view.bounds.width - 24)
-        let normalizedTitle = normalizeLineSeparators(notificationTitleText)
-        let normalizedSubtitle = normalizeLineSeparators(notificationSubtitleText)
-        let normalizedBody = normalizeLineSeparators(notificationBodyText)
-        func neededLines(_ text: String, font: UIFont, cap: Int) -> (lines: Int, height: CGFloat) {
-            if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return (0, 0) }
-            let rect = (text as NSString).boundingRect(
-                with: CGSize(width: availableWidth, height: .greatestFiniteMagnitude),
-                options: [.usesLineFragmentOrigin, .usesFontLeading],
-                attributes: [.font: font],
-                context: nil
-            )
-            let lh = font.lineHeight
-            let maxH = lh * CGFloat(cap)
-            let usedH = min(rect.height, maxH)
-            let usedLines = Int(ceil(usedH / max(lh, 1)))
-            return (usedLines, usedH)
-        }
-        let titleFont = headerTitleLabel?.font ?? .systemFont(ofSize: 16, weight: .semibold)
-        let subtitleFont = headerSubtitleLabel?.font ?? .systemFont(ofSize: 12)
-        let bodyFont = headerBodyLabel?.font ?? .systemFont(ofSize: 12)
-        let totalCap = 15
-        let titleRes = neededLines(normalizedTitle, font: titleFont, cap: 2)
-        let subtitleCap = normalizedSubtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0 : 1
-        let subtitleRes = neededLines(normalizedSubtitle, font: subtitleFont, cap: subtitleCap)
-        let bodyCap = max(0, totalCap - (titleRes.lines + subtitleRes.lines))
-        let bodyRes = neededLines(normalizedBody, font: bodyFont, cap: bodyCap)
-        let labelsHeight = titleRes.height + subtitleRes.height + bodyRes.height
-        let verticalPaddings: CGFloat = 8 + 8 + 8 + 8
-        let iconBlock: CGFloat = (headerIconImageView?.isHidden ?? false) ? 0 : (50 + verticalPaddings)
-        let expected = max(labelsHeight + verticalPaddings, iconBlock, 56)
-        print("📱 [ContentExtension] computeHeaderExpectedHeight -> labels: \(labelsHeight), expected: \(expected)")
-        return expected
+        // Usa semplicemente headerViewHeight() che ora calcola tutto con Auto Layout
+        // Manteniamo questo metodo per compatibilità ma delega il calcolo
+        return headerViewHeight()
     }
 
     private func footerHeight() -> CGFloat {
@@ -3002,6 +2986,61 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         sqlite3_step(stmt)
     }
     
+    private func markNotificationAsReadInDatabase(notificationId: String) {
+        let dbPath = getDbPath()
+        var db: OpaquePointer?
+        
+        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE, nil) != SQLITE_OK {
+            print("📱 [ContentExtension] ❌ Failed to open database for mark as read")
+            logToDatabase(
+                level: "ERROR",
+                tag: "NotificationContentExtension",
+                message: "[Database] Failed to open database for mark as read",
+                metadata: ["notificationId": notificationId]
+            )
+            return
+        }
+        defer { sqlite3_close(db) }
+        
+        let sql = "UPDATE notifications SET read = 1, read_at = ? WHERE id = ?"
+        
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
+            print("📱 [ContentExtension] ❌ Failed to prepare UPDATE statement for mark as read")
+            logToDatabase(
+                level: "ERROR",
+                tag: "NotificationContentExtension",
+                message: "[Database] Failed to prepare UPDATE statement for mark as read",
+                metadata: ["notificationId": notificationId]
+            )
+            return
+        }
+        defer { sqlite3_finalize(stmt) }
+        
+        // Bind read_at timestamp (current time in milliseconds)
+        let readAtTimestamp = Int64(Date().timeIntervalSince1970 * 1000)
+        sqlite3_bind_int64(stmt, 1, readAtTimestamp)
+        sqlite3_bind_text(stmt, 2, (notificationId as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        
+        if sqlite3_step(stmt) == SQLITE_DONE {
+            print("📱 [ContentExtension] ✅ Notification marked as read in database: \(notificationId)")
+            logToDatabase(
+                level: "INFO",
+                tag: "NotificationContentExtension",
+                message: "[Database] Notification marked as read in database",
+                metadata: ["notificationId": notificationId]
+            )
+        } else {
+            print("📱 [ContentExtension] ❌ Failed to mark notification as read in database")
+            logToDatabase(
+                level: "ERROR",
+                tag: "NotificationContentExtension",
+                message: "[Database] Failed to execute UPDATE statement for mark as read",
+                metadata: ["notificationId": notificationId]
+            )
+        }
+    }
+    
     private func deleteNotificationFromDatabase(notificationId: String) {
         let dbPath = getDbPath()
         var db: OpaquePointer?
@@ -3472,7 +3511,7 @@ extension NotificationViewController {
         }
         
         // Try to match by action identifier pattern
-        // Format: action_TYPE_VALUE_NOTIFICATIONID
+        // Format: action_TYPE_VALUE oppure action_TYPE_VALUE_NOTIFICATIONID (vecchio formato)
         for (index, action) in actions.enumerated() {
             guard let type = action["type"] as? String,
                   let value = action["value"] as? String else { 
@@ -3480,22 +3519,33 @@ extension NotificationViewController {
                 continue 
             }
             
-            let expectedPrefix = "action_\(type)_\(value)_"
-            print("📱 [ContentExtension] 🔍 Checking if '\(actionIdentifier)' starts with '\(expectedPrefix)' for action type: \(type)")
-            
-            if actionIdentifier.hasPrefix(expectedPrefix) {
-                print("📱 [ContentExtension] ✅ Found matching action: \(type) with value: \(value)")
+            // Check exact match: action_TYPE_VALUE
+            let exactMatch = "action_\(type)_\(value)"
+            if actionIdentifier == exactMatch {
+                print("📱 [ContentExtension] ✅ Found exact matching action: \(type) with value: \(value)")
                 return action
             }
+            
+            // Check prefix match for old format: action_TYPE_VALUE_NOTIFICATIONID
+            let prefixMatch = "action_\(type)_\(value)_"
+            if actionIdentifier.hasPrefix(prefixMatch) {
+                print("📱 [ContentExtension] ✅ Found prefix matching action: \(type) with value: \(value)")
+                return action
+            }
+            
+            print("📱 [ContentExtension] 🔍 No match for '\(actionIdentifier)' with exact: '\(exactMatch)' or prefix: '\(prefixMatch)'")
         }
         
-        // Fallback: parse action identifier (format: action_TYPE_VALUE_NOTIFICATIONID)
+        // Fallback: parse action identifier manually
+        // Format: action_TYPE_VALUE o action_TYPE_VALUE_NOTIFICATIONID
         let parts = actionIdentifier.split(separator: "_")
         if parts.count >= 3 {
             let actionType = String(parts[1]).uppercased()
-            // Remove the last part (notificationId) and join the rest as the value
-            let valueParts = parts.count > 3 ? parts[2..<(parts.count - 1)] : [parts[2]]
+            // Join middle parts as value (excluding "action" prefix and optional notificationId suffix)
+            let valueParts = parts[2...]
             let actionValue = valueParts.joined(separator: "_")
+            
+            print("📱 [ContentExtension] 🔄 Fallback parsing - type: \(actionType), value: \(actionValue)")
             
             return [
                 "type": actionType,
@@ -3632,14 +3682,18 @@ extension NotificationViewController {
         
         // Launch mark as read execution in background without waiting
         Task.detached {
+            // Try to mark as read on server (but don't block local update on failure)
             do {
                 try await self.markNotificationAsRead(notificationId: notificationId)
-                // Decrease badge count since notification is marked as read
-                self.decrementBadgeCount()
-                print("📱 [ContentExtension] ✅ Notification marked as read successfully")
+                print("📱 [ContentExtension] ✅ Server mark as read successful")
             } catch {
-                print("📱 [ContentExtension] ❌ Mark as read failed: \(error)")
+                print("📱 [ContentExtension] ⚠️ Server mark as read failed (will update local DB anyway): \(error)")
             }
+            
+            // ALWAYS update local DB and badge, regardless of server call result
+            self.markNotificationAsReadInDatabase(notificationId: notificationId)
+            self.decrementBadgeCount()
+            print("📱 [ContentExtension] ✅ Local DB and badge updated")
         }
         
         // Complete immediately without waiting for mark as read execution
@@ -3659,36 +3713,42 @@ extension NotificationViewController {
         
         // Launch delete execution in background without waiting
         Task.detached {
+            // Try to delete from server (but don't block local update on failure)
             do {
-                // Delete from server
                 try await self.deleteNotification(notificationId: notificationId)
-                
-                // Delete from local SQLite database
-                self.deleteNotificationFromDatabase(notificationId: notificationId)
-                
-                // Decrease badge count since notification is deleted
-                self.decrementBadgeCount()
-                print("📱 [ContentExtension] ✅ Notification deleted successfully")
+                print("📱 [ContentExtension] ✅ Server delete successful")
                 
                 self.logToDatabase(
                     level: "INFO",
                     tag: "NotificationContentExtension",
-                    message: "[Delete] Notification deleted successfully",
+                    message: "[Delete] Server delete successful",
                     metadata: ["notificationId": notificationId]
                 )
             } catch {
-                print("📱 [ContentExtension] ❌ Delete notification failed: \(error)")
+                print("📱 [ContentExtension] ⚠️ Server delete failed (will update local DB anyway): \(error)")
                 
                 self.logToDatabase(
-                    level: "ERROR",
+                    level: "WARNING",
                     tag: "NotificationContentExtension",
-                    message: "[Delete] Failed to delete notification",
+                    message: "[Delete] Server delete failed (updating local DB anyway)",
                     metadata: [
                         "notificationId": notificationId,
                         "error": error.localizedDescription
                     ]
                 )
             }
+            
+            // ALWAYS update local DB and badge, regardless of server call result
+            self.deleteNotificationFromDatabase(notificationId: notificationId)
+            self.decrementBadgeCount()
+            print("📱 [ContentExtension] ✅ Local DB and badge updated")
+            
+            self.logToDatabase(
+                level: "INFO",
+                tag: "NotificationContentExtension",
+                message: "[Delete] Local DB and badge updated",
+                metadata: ["notificationId": notificationId]
+            )
         }
         
         // Complete immediately without waiting for delete execution
@@ -4267,33 +4327,50 @@ extension NotificationViewController {
         // Clean up previous media
         cleanupCurrentMedia()
         
-        // Try to load from shared cache first
-        if let cachedPath = getCachedMediaPath(url: urlString, mediaType: mediaTypeString) {
-            print("📱 [ContentExtension] ✅ Found media in shared cache: \(cachedPath)")
-            let cachedURL = URL(fileURLWithPath: cachedPath)
+        // Mostra loader immediatamente prima di qualsiasi operazione
+        showMediaLoadingIndicator()
+        
+        // Check cache in background to avoid blocking UI
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
             
-            DispatchQueue.main.async {
-                switch mediaType {
-                case .image, .gif:
-                    self.displayImage(from: cachedURL)
-                case .video:
-                    self.displayVideo(from: cachedURL)
-                case .audio:
-                    self.displayAudio(from: cachedURL)
+            // Try to load from shared cache first
+            if let cachedPath = self.getCachedMediaPath(url: urlString, mediaType: mediaTypeString) {
+                print("📱 [ContentExtension] ✅ Found media in shared cache: \(cachedPath)")
+                let cachedURL = URL(fileURLWithPath: cachedPath)
+                
+                DispatchQueue.main.async {
+                    self.hideMediaLoadingIndicator()
+                    
+                    switch mediaType {
+                    case .image, .gif:
+                        self.displayImage(from: cachedURL)
+                    case .video:
+                        self.displayVideo(from: cachedURL)
+                    case .audio:
+                        self.displayAudio(from: cachedURL)
+                    }
+                }
+            } else {
+                print("📱 [ContentExtension] ❌ Media not found in file system cache")
+                
+                // NCE should download media directly
+                print("📱 [ContentExtension] 🌐 Starting direct download by NCE")
+                guard let originalURL = URL(string: urlString) else {
+                    print("📱 [ContentExtension] Invalid URL: \(urlString)")
+                    DispatchQueue.main.async {
+                        self.hideMediaLoadingIndicator()
+                    }
+                    return
+                }
+                
+                // Download and display media directly (già mostra/nasconde loader internamente)
+                DispatchQueue.main.async {
+                    // downloadAndDisplayMedia gestisce già il loader, quindi lo nascondiamo prima
+                    self.hideMediaLoadingIndicator()
+                    self.downloadAndDisplayMedia(from: originalURL, mediaType: mediaType)
                 }
             }
-        } else {
-            print("📱 [ContentExtension] ❌ Media not found in file system cache")
-            
-            // NCE should download media directly, not wait for NSE or show CTA
-            print("📱 [ContentExtension] � Starting direct download by NCE")
-            guard let originalURL = URL(string: urlString) else {
-                print("📱 [ContentExtension] Invalid URL: \(urlString)")
-                return
-            }
-            
-            // Download and display media directly
-            downloadAndDisplayMedia(from: originalURL, mediaType: mediaType)
         }
     }
 
@@ -4715,6 +4792,59 @@ extension NotificationViewController {
     }
     
     // MARK: - Shared Storage Methods
+    
+    private func getBucketIconFromSharedCache(bucketId: String, bucketName: String) -> Data? {
+        let cacheDirectory = getSharedMediaCacheDirectory()
+        let bucketIconDirectory = cacheDirectory.appendingPathComponent("BUCKET_ICON")
+        
+        // Generate filename based on bucket info
+        let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
+        let fileName = "bucket_icon_\(bucketId)_\(safeBucketName).png"
+        let fileURL = bucketIconDirectory.appendingPathComponent(fileName)
+        
+        // Check if bucket icon exists
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            print("📱 [ContentExtension] 🎭 No cached bucket icon found for \(bucketName)")
+            return nil
+        }
+        
+        // Load bucket icon data
+        do {
+            let data = try Data(contentsOf: fileURL)
+            print("📱 [ContentExtension] 🎭 ✅ Found cached bucket icon for \(bucketName)")
+            return data
+        } catch {
+            print("📱 [ContentExtension] 🎭 ❌ Failed to load cached bucket icon: \(error)")
+            return nil
+        }
+    }
+    
+    private func saveBucketIconToSharedCache(_ imageData: Data, bucketId: String, bucketName: String) -> URL? {
+        let cacheDirectory = getSharedMediaCacheDirectory()
+        let bucketIconDirectory = cacheDirectory.appendingPathComponent("BUCKET_ICON")
+        
+        // Create bucket icon directory if it doesn't exist
+        do {
+            try FileManager.default.createDirectory(at: bucketIconDirectory, withIntermediateDirectories: true, attributes: nil)
+        } catch {
+            print("📱 [ContentExtension] ❌ Failed to create bucket icon directory: \(error)")
+            return nil
+        }
+        
+        // Generate filename based on bucket info
+        let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
+        let fileName = "bucket_icon_\(bucketId)_\(safeBucketName).png"
+        let fileURL = bucketIconDirectory.appendingPathComponent(fileName)
+        
+        do {
+            try imageData.write(to: fileURL)
+            print("📱 [ContentExtension] ✅ Saved bucket icon to shared cache: \(fileURL.lastPathComponent)")
+            return fileURL
+        } catch {
+            print("📱 [ContentExtension] ❌ Failed to save bucket icon to shared cache: \(error)")
+            return nil
+        }
+    }
     
     private func getPlaceholderFromSharedCache(bucketId: String, bucketName: String) -> Data? {
         let cacheDirectory = getSharedMediaCacheDirectory()

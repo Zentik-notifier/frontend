@@ -61,6 +61,22 @@ class IOSNativePushNotificationService {
     }
 
     /**
+     * Register DYNAMIC notification category (Home Assistant approach)
+     * This category has no predefined actions - the NCE will inject them at runtime
+     * based on the notification's userInfo data.
+     */
+    async registerDynamicCategory() {
+        try {
+            await Notifications.setNotificationCategoryAsync('DYNAMIC', [], {
+                customDismissAction: true,
+            });
+            console.log('[IOSNativePushNotificationService] 🎭 DYNAMIC category registered successfully');
+        } catch (error) {
+            console.error('[IOSNativePushNotificationService] ❌ Failed to register DYNAMIC category:', error);
+        }
+    }
+
+    /**
      * Initialize iOS native push notifications with enhanced features
      * Request permissions and register device token
      * Swift handles action buttons, React Native handles action responses
@@ -82,6 +98,10 @@ class IOSNativePushNotificationService {
                 console.error('[IOSNativePushNotificationService] Permissions not granted');
                 return { deviceInfo: null, hasPermissionError: true };
             }
+
+            // Register DYNAMIC category (Home Assistant approach)
+            // The category has no predefined actions - NCE will inject them at runtime
+            await this.registerDynamicCategory();
 
             const token = await Notifications.getDevicePushTokenAsync();
 

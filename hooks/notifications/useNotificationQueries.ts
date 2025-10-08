@@ -4,46 +4,42 @@
  */
 
 import {
-    useQuery,
-    useInfiniteQuery,
-    useQueryClient,
-    UseQueryResult,
-    UseQueryOptions,
-    UseInfiniteQueryResult,
-    InfiniteData,
-} from '@tanstack/react-query';
-import {
-    NotificationFragment,
-    useGetNotificationsLazyQuery,
-    useGetNotificationLazyQuery,
-    useMassDeleteNotificationsMutation,
-    useGetBucketsQuery,
-    useGetBucketsLazyQuery,
-    BucketFragment,
-    GetBucketsQuery,
-} from '@/generated/gql-operations-generated';
-import {
-    UseNotificationsOptions,
-    UseNotificationStatsOptions,
-    UseBucketsStatsOptions,
-    NotificationQueryResult,
-    NotificationStats,
-    BucketStats,
-    BucketWithStats,
-} from '@/types/notifications';
-import {
-    queryNotifications,
-    queryBucketNotifications,
+    getBucketStats,
     getNotificationById,
     getNotificationStats,
-    getBucketStats,
     getUnreadCountsByBucket,
+    queryNotifications
 } from '@/db/repositories/notifications-query-repository';
 import {
-    upsertNotificationsBatch,
+    GetBucketsQuery,
+    NotificationFragment,
+    useGetBucketsLazyQuery,
+    useGetNotificationLazyQuery,
+    useGetNotificationsLazyQuery,
+    useMassDeleteNotificationsMutation
+} from '@/generated/gql-operations-generated';
+import {
     saveNotificationToCache,
-    deleteNotificationFromCache,
+    upsertNotificationsBatch
 } from '@/services/notifications-repository';
+import {
+    BucketStats,
+    BucketWithStats,
+    NotificationQueryResult,
+    NotificationStats,
+    UseBucketsStatsOptions,
+    UseNotificationsOptions,
+    UseNotificationStatsOptions,
+} from '@/types/notifications';
+import {
+    InfiniteData,
+    useInfiniteQuery,
+    UseInfiniteQueryResult,
+    useQuery,
+    useQueryClient,
+    UseQueryOptions,
+    UseQueryResult,
+} from '@tanstack/react-query';
 
 // ====================
 // QUERY KEYS
