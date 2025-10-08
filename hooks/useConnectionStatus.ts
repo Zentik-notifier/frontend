@@ -25,7 +25,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
 
   const [healthcheck] = useHealthcheckLazyQuery();
   const errorCountRef = useRef(0);
-  const pollingIntervalRef = useRef<number | null>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isPollingRef = useRef(false);
   const { data: userData, loading } = useGetMeQuery();
 

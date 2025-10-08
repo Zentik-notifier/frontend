@@ -413,7 +413,7 @@ export default function Header() {
           {/* SEZIONE DESTRA: User Profile */}
           <View style={styles.rightSection}>
             {isPublic ? (
-              segments[1] !== "terms-acceptance" && (
+              segments[1] !== "terms-acceptance" && segments.length > 1 && (
                 <View style={styles.publicButtonsContainer}>
                   {/* Theme Toggle Button */}
                   <Surface style={styles.unauthButtonWrapper} elevation={2}>
