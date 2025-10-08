@@ -7,7 +7,7 @@ import { CURRENT_TERMS_VERSION } from "./auth-storage";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { lastUserId, isInitializing } = useAppContext();
-  const segments = useSegments();
+  const segments = useSegments() as string[];
   const showPrivateRoutes = !!lastUserId;
   const { navigateToHome, navigateToLogin, navigateToTerms } =
     useNavigationUtils();
@@ -20,8 +20,8 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const isPublic = segments[0] === "(common)";
     const isPrivate = !isPublic;
-    const isHome = segments.length > 1 && segments[1] === "(home)";
-    const isTerms = isPublic && segments.length > 1 && segments[1] === "terms-acceptance";
+    const isHome = segments[1] === "(home)";
+    const isTerms = isPublic && segments[1] === "terms-acceptance";
 
     // 1) Terms gate has highest priority
     const needsTerms =

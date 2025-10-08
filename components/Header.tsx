@@ -154,7 +154,7 @@ export default function Header() {
   const { t } = useI18n();
   const { navigateToHome, navigateBack, navigateToAppSettings } =
     useNavigationUtils();
-  const segments = useSegments();
+  const segments = useSegments() as string[];
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { themeMode, setThemeMode } = useAppTheme();
@@ -413,7 +413,7 @@ export default function Header() {
           {/* SEZIONE DESTRA: User Profile */}
           <View style={styles.rightSection}>
             {isPublic ? (
-              segments[1] !== "terms-acceptance" && segments.length > 1 && (
+              segments[1] !== "terms-acceptance" && (
                 <View style={styles.publicButtonsContainer}>
                   {/* Theme Toggle Button */}
                   <Surface style={styles.unauthButtonWrapper} elevation={2}>
