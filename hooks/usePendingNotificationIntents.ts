@@ -21,7 +21,7 @@ export function usePendingNotificationIntents() {
         if (intent.type === 'OPEN_NOTIFICATION') {
           console.log('[PendingIntents] 📂 Opening notification detail for ID:', intent.value);
           try {
-            navigateToNotificationDetail(intent.value, true);
+            navigateToNotificationDetail(intent.value);
           } catch (e) {
             console.warn('[PendingIntents] ⚠️ Failed to navigate via router, falling back to deep link');
             await Linking.openURL(`zentik://notifications/${intent.value}`);
