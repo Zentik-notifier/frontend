@@ -1,33 +1,30 @@
+import { useAppContext } from "@/contexts/AppContext";
 import {
   CreateBucketDto,
-  GetBucketsDocument,
-  GetBucketsQuery,
   UpdateBucketDto,
   useCreateBucketMutation,
   usePublicAppConfigQuery,
   useUpdateBucketMutation,
 } from "@/generated/gql-operations-generated";
-import { useBucket, useRefreshBucket } from "@/hooks/notifications";
-import { useDateFormat } from "@/hooks/useDateFormat";
+import { useBucket, useRefreshBucket, useRefreshBucketsStatsFromDB } from "@/hooks/notifications";
+import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/contexts/AppContext";
+import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import {
   Button,
-  Card,
   Icon,
   IconButton,
   Surface,
   Text,
   TextInput,
-  useTheme,
+  useTheme
 } from "react-native-paper";
 import ColorPicker, { ColorPickerRef } from "./ColorPicker";
 import IconEditor from "./IconEditor";
-import IdWithCopyButton from "./IdWithCopyButton";
 import SnoozeSchedulesManager from "./SnoozeSchedulesManager";
 
 const defaultColor = "#0a7ea4";
@@ -40,6 +37,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const router = useRouter();
   const theme = useTheme();
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const {
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
@@ -53,26 +51,53 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
 
   const { bucket, canWrite } = useBucket(bucketId, { autoFetch: isEditing });
   const refreshBucket = useRefreshBucket();
+  const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
   const { data: appConfig } = usePublicAppConfigQuery();
 
   const [createBucketMutation, { loading: creatingBucket }] =
     useCreateBucketMutation({
-      update: (cache, { data }) => {
-        if (data?.createBucket) {
-          const existingBuckets = cache.readQuery<GetBucketsQuery>({
-            query: GetBucketsDocument,
-          });
-          if (existingBuckets?.buckets) {
-            cache.writeQuery({
-              query: GetBucketsDocument,
-              data: {
-                buckets: [...existingBuckets.buckets, data.createBucket],
-              },
-            });
-          }
-        }
-      },
       onCompleted: async (data) => {
+        if (data?.createBucket) {
+          // Update React Query cache with the new bucket
+          const newBucket = data.createBucket;
+          console.log('[CreateBucketForm] Adding new bucket to React Query cache:', newBucket.id);
+
+          // Add to bucketsStats cache immediately with initial stats
+          queryClient.setQueryData<any[]>(notificationKeys.bucketsStats(), (old) => {
+            if (!old) {
+              console.log('[CreateBucketForm] No bucketsStats cache found, creating new');
+              return [{
+                ...newBucket,
+                unreadCount: 0,
+                totalCount: 0,
+                isSnoozed: false,
+              }];
+            }
+
+            // Check if bucket already exists (shouldn't happen but be safe)
+            const exists = old.some(b => b.id === newBucket.id);
+            if (exists) {
+              console.log('[CreateBucketForm] Bucket already exists in cache');
+              return old;
+            }
+
+            console.log('[CreateBucketForm] Adding new bucket to existing cache');
+            return [...old, {
+              ...newBucket,
+              unreadCount: 0,
+              totalCount: 0,
+              isSnoozed: false,
+            }];
+          });
+
+          console.log('[CreateBucketForm] Bucket added to cache successfully');
+
+          // Refresh bucket stats from DB to get real statistics (in case there are notifications)
+          console.log('[CreateBucketForm] Refreshing bucket stats from DB...');
+          await refreshBucketsStatsFromDB();
+          console.log('[CreateBucketForm] Bucket stats refreshed from DB');
+        }
+
         setBucketName("");
         setBucketColor(defaultColor);
         setBucketIcon("");
@@ -80,7 +105,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
         router.back();
       },
       onError: (error) => {
-        console.error("Create bucket error:", error);
+        console.error("[CreateBucketForm] Create bucket error:", error);
         Alert.alert(
           t("buckets.form.createErrorTitle"),
           error.message || t("buckets.form.createErrorMessage")
