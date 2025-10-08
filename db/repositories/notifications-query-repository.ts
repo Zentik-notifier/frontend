@@ -295,7 +295,9 @@ export async function queryNotifications(
         const tx = db.transaction('notifications', 'readonly');
         const store = tx.objectStore('notifications');
         
-        let cursor = await store.openCursor(null, sortDirection);
+        // Use the created_at index for sorted iteration
+        const index = store.index('created_at');
+        let cursor = await index.openCursor(null, sortDirection);
         const notifications: NotificationFragment[] = [];
         let totalCount = 0;
         let skipped = 0;

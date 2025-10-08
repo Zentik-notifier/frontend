@@ -13,6 +13,11 @@ export interface WebStorageDB extends DBSchema {
   notifications: {
     key: string; // notificationId
     value: any; // GraphQL Notification object
+    indexes: {
+      created_at: string; // ISO timestamp
+      read_at: string; // ISO timestamp
+      bucket_id: string;
+    };
   };
   app_log: {
     key: number; // timestamp
@@ -169,14 +174,32 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
 
   try {
     // await waitForIndexedDB();
-    webDbPromise = openDB<WebStorageDB>('zentik-storage', 6, {
-      upgrade(db) {
+    webDbPromise = openDB<WebStorageDB>('zentik-storage', 7, {
+      upgrade(db, oldVersion, newVersion, transaction) {
         if (!db.objectStoreNames.contains('keyvalue')) {
           db.createObjectStore('keyvalue');
         }
+        
+        // Notifications store with indices for efficient querying
         if (!db.objectStoreNames.contains('notifications')) {
-          db.createObjectStore('notifications');
+          const notificationsStore = db.createObjectStore('notifications');
+          notificationsStore.createIndex('created_at', 'created_at');
+          notificationsStore.createIndex('read_at', 'read_at');
+          notificationsStore.createIndex('bucket_id', 'bucket_id');
+        } else if (oldVersion < 7) {
+          // Upgrade existing store to add indices
+          const notificationsStore = transaction.objectStore('notifications');
+          if (!notificationsStore.indexNames.contains('created_at')) {
+            notificationsStore.createIndex('created_at', 'created_at');
+          }
+          if (!notificationsStore.indexNames.contains('read_at')) {
+            notificationsStore.createIndex('read_at', 'read_at');
+          }
+          if (!notificationsStore.indexNames.contains('bucket_id')) {
+            notificationsStore.createIndex('bucket_id', 'bucket_id');
+          }
         }
+        
         if (!db.objectStoreNames.contains('app_log')) {
           db.createObjectStore('app_log', { keyPath: 'timestamp' });
         }

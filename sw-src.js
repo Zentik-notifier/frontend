@@ -12,7 +12,7 @@ workbox.precaching.precacheAndRoute(self.__WB_MANIFEST);
 // Common IndexedDB helper function
 async function withIndexedDB(successCallback, mode = 'readonly', storeName = 'keyvalue') {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('zentik-storage', 6);
+    const request = indexedDB.open('zentik-storage', 7);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
