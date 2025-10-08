@@ -1,6 +1,6 @@
+import { NotificationsListWithContext } from "@/components/NotificationsList";
 import React from "react";
-import NotificationsSection from "@/components/NotificationsSection";
 
 export default function NotificationsPage() {
-  return <NotificationsSection />;
+  return <NotificationsListWithContext />;
 }
