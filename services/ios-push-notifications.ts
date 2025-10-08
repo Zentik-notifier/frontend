@@ -252,10 +252,23 @@ class IOSNativePushNotificationService {
 
     /**
      * Handle default notification tap
+     * Waits for cleanup to complete before executing navigation to ensure bucket data is loaded
      */
     private async handleDefaultTapAction(response: Notifications.NotificationResponse, payload: any) {
         const notificationId = payload?.notificationId;
         console.log('[IOSNativePushNotificationService] Extracted notification ID:', notificationId);
+
+        // // IMPORTANT: Run cleanup BEFORE navigation to ensure bucket data is loaded
+        // // This prevents missing bucket icons when opening notification detail from cold start
+        // if (this.actionCallbacks?.cleanup) {
+        //     console.log('[IOSNativePushNotificationService] Running cleanup before navigation...');
+        //     try {
+        //         await this.actionCallbacks.cleanup({ immediate: true });
+        //         console.log('[IOSNativePushNotificationService] Cleanup completed, proceeding with navigation');
+        //     } catch (error) {
+        //         console.warn('[IOSNativePushNotificationService] Cleanup failed, but proceeding with navigation:', error);
+        //     }
+        // }
 
         // Check if there's a tapAction defined
         if (payload?.tapAction) {

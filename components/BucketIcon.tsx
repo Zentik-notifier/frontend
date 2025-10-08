@@ -21,6 +21,7 @@ interface BucketIconProps {
   size?: "lg" | "xl" | "xxl";
   showBorder?: boolean;
   bucketId?: string;
+  iconUrl?: string;
   noRouting?: boolean;
   bucket?: BucketFragment;
 }
@@ -29,18 +30,20 @@ export default function BucketIcon({
   size = "lg",
   showBorder = true,
   bucketId: bucketIdParent,
+  iconUrl,
   noRouting = false,
   bucket: bucketParent,
 }: BucketIconProps) {
   const theme = useTheme();
   const { bucket: bucketData, error } = useBucket(bucketIdParent);
   const bucket = bucketParent || bucketData;
-  const { color, icon } = bucket || {};
+  const { color, icon: iconBucket } = bucket || {};
   const { navigateToDanglingBucket, navigateToBucketDetail } =
     useNavigationUtils();
   const bucketId = bucket?.id || bucketIdParent;
+  const icon = iconBucket ?? iconUrl;
 
-  if (!bucketId) {
+  if (!bucketId && !iconUrl) {
     return null;
   }
 
@@ -52,10 +55,12 @@ export default function BucketIcon({
   const currentSize = sizeMap[size];
 
   const handlePress = () => {
-    if (isOrphaned) {
-      navigateToDanglingBucket(bucketId, true);
-    } else if (!noRouting) {
-      navigateToBucketDetail(bucketId);
+    if (bucketId) {
+      if (isOrphaned) {
+        navigateToDanglingBucket(bucketId, true);
+      } else if (!noRouting) {
+        navigateToBucketDetail(bucketId);
+      }
     }
   };
 

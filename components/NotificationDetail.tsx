@@ -49,7 +49,11 @@ export default function NotificationDetail({
   const markAsReadMutation = useMarkAsRead();
   const deleteNotificationMutation = useDeleteNotification();
 
-  const { data: notification, isLoading: loading, error } = useNotificationDetail(notificationId);
+  const {
+    data: notification,
+    isLoading: loading,
+    error,
+  } = useNotificationDetail(notificationId);
   const [isCopying, setIsCopying] = useState(false);
 
   const handleMediaPress = (imageUri: string) => {
@@ -258,7 +262,11 @@ export default function NotificationDetail({
             {/* Left side: Bucket info */}
             <View style={styles.headerLeft}>
               <View style={styles.bucketContainer}>
-                <BucketIcon bucketId={message?.bucket?.id || ""} size="xxl" />
+                <BucketIcon
+                  iconUrl={message?.bucket?.icon!}
+                  bucketId={message?.bucket?.id || ""}
+                  size="xxl"
+                />
                 <View style={styles.bucketInfo}>
                   <Text
                     style={[
