@@ -260,6 +260,49 @@ async function updateCacheItemForPrefetch(key, url, mediaType, size, notificatio
   }, 'readwrite', 'cache_item');
 }
 
+// Validate notification structure
+function isValidNotification(notification) {
+  try {
+    // Check required top-level properties
+    if (!notification || typeof notification !== 'object') {
+      return false;
+    }
+
+    if (!notification.id || typeof notification.id !== 'string') {
+      return false;
+    }
+
+    if (!notification.createdAt || typeof notification.createdAt !== 'string') {
+      return false;
+    }
+
+    // readAt can be null/undefined (unread notifications)
+    if (notification.readAt !== null && notification.readAt !== undefined && typeof notification.readAt !== 'string') {
+      return false;
+    }
+
+    // Check required message object
+    if (!notification.message || typeof notification.message !== 'object') {
+      return false;
+    }
+
+    // Check required bucket object inside message
+    if (!notification.message.bucket || typeof notification.message.bucket !== 'object') {
+      return false;
+    }
+
+    if (!notification.message.bucket.id || typeof notification.message.bucket.id !== 'string') {
+      return false;
+    }
+
+    // All essential properties are present and valid
+    return true;
+  } catch (error) {
+    console.error('[Service Worker] [isValidNotification] Validation error:', error);
+    return false;
+  }
+}
+
 // Save notification to IndexedDB notifications table (same format as notification-repository)
 async function storePendingNotification(notificationData) {
   try {
@@ -324,6 +367,29 @@ async function storePendingNotification(notificationData) {
         }
       }
     };
+    
+    // Validate notification before saving
+    if (!isValidNotification(notificationFragment)) {
+      console.error('[Service Worker] ❌ Invalid notification structure, not saving:', {
+        id: notificationFragment?.id || 'unknown',
+        hasMessage: !!notificationFragment?.message,
+        hasBucket: !!notificationFragment?.message?.bucket,
+        hasCreatedAt: !!notificationFragment?.createdAt,
+      });
+      
+      // Log validation failure
+      logToDatabase(
+        'ERROR',
+        'ServiceWorker',
+        '[Database] Invalid notification structure',
+        {
+          notificationId: notificationFragment?.id || 'unknown',
+          bucketId: notificationData?.bucketId
+        }
+      ).catch(e => console.error('[Service Worker] Failed to log validation error:', e));
+      
+      throw new Error('Invalid notification structure');
+    }
     
     // Prepare data for database
     const dbData = {
@@ -586,10 +652,57 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
       event.waitUntil(
         (async () => {
           try {
-            await executeApiCall(`/notifications/${notificationId}/read`, 'PATCH');
-            console.log('[Service Worker] ✅ Notification marked as read:', notificationId);
+            // First, update local IndexedDB (optimistic update)
+            try {
+              const db = await indexedDB.open('zentik-storage', 7);
+              await new Promise((resolve, reject) => {
+                db.onsuccess = async () => {
+                  const database = db.result;
+                  const tx = database.transaction(['notifications'], 'readwrite');
+                  const store = tx.objectStore('notifications');
+                  
+                  // Get the notification
+                  const getRequest = store.get(notificationId);
+                  getRequest.onsuccess = () => {
+                    const notification = getRequest.result;
+                    if (notification) {
+                      // Update read_at timestamp
+                      notification.read_at = new Date().toISOString();
+                      
+                      // Update the notification in the store
+                      const putRequest = store.put(notification, notificationId);
+                      putRequest.onsuccess = () => {
+                        console.log('[Service Worker] ✅ Updated read_at in IndexedDB:', notificationId);
+                        resolve();
+                      };
+                      putRequest.onerror = () => reject(putRequest.error);
+                    } else {
+                      console.warn('[Service Worker] Notification not found in IndexedDB:', notificationId);
+                      resolve();
+                    }
+                  };
+                  getRequest.onerror = () => reject(getRequest.error);
+                };
+                db.onerror = () => reject(db.error);
+              });
+            } catch (dbError) {
+              console.warn('[Service Worker] ⚠️ Failed to update IndexedDB:', dbError);
+              // Continue with API call even if local update fails
+            }
 
-            // Notify app to refresh cache
+            // Then, call the API
+            await executeApiCall(`/notifications/${notificationId}/read`, 'PATCH');
+            console.log('[Service Worker] ✅ Notification marked as read on server:', notificationId);
+            
+            // Log success
+            logToDatabase(
+              'INFO',
+              'ServiceWorker',
+              '[MarkAsRead] Notification marked as read',
+              { notificationId: notificationId }
+            ).catch(e => console.error('[Service Worker] Failed to log mark as read:', e));
+
+            // Notify app to invalidate queries
             const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
             if (clientList.length > 0) {
               const focusedClient = clientList.find(client => client.focused) || clientList[0];
@@ -597,11 +710,23 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
                 type: 'notification-action-completed',
                 action: 'MARK_AS_READ',
                 notificationId: notificationId,
-                success: true
+                success: true,
+                invalidateQueries: true // Signal to invalidate React Query cache
               });
             }
           } catch (error) {
             console.error('[Service Worker] ❌ Failed to mark notification as read:', error);
+            
+            // Log error
+            logToDatabase(
+              'ERROR',
+              'ServiceWorker',
+              '[MarkAsRead] Failed to mark notification as read',
+              {
+                notificationId: notificationId,
+                error: error.message || String(error)
+              }
+            ).catch(e => console.error('[Service Worker] Failed to log error:', e));
           }
         })()
       );
@@ -638,7 +763,7 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
               console.error('[Service Worker] ⚠️ Failed to remove notification from IndexedDB:', error);
             }
 
-            // Notify app to refresh cache
+            // Notify app to invalidate queries
             const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
             if (clientList.length > 0) {
               const focusedClient = clientList.find(client => client.focused) || clientList[0];
@@ -646,7 +771,8 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
                 type: 'notification-action-completed',
                 action: 'DELETE',
                 notificationId: notificationId,
-                success: true
+                success: true,
+                invalidateQueries: true // Signal to invalidate React Query cache
               });
             }
           } catch (error) {

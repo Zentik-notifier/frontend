@@ -241,12 +241,13 @@ class WebPushNotificationService {
 
       // Handle notification-action-completed messages (action completed by service worker)
       if (payload.type === 'notification-action-completed') {
-        const { action, notificationId, success, error } = payload;
+        const { action, notificationId, success, error, invalidateQueries } = payload;
         console.log('[WebPushNotificationService] Action completed by service worker:', {
           action,
           notificationId,
           success,
-          error
+          error,
+          invalidateQueries
         });
 
         if (success) {
@@ -266,6 +267,14 @@ class WebPushNotificationService {
             if (this.callbacks?.pushNotificationReceived) {
               this.callbacks.pushNotificationReceived(notificationId);
             }
+          }
+          
+          // Invalidate React Query cache if requested
+          if (invalidateQueries && this.callbacks?.pushNotificationReceived) {
+            // Use pushNotificationReceived to trigger React Query invalidation
+            // This will refresh all notification queries
+            console.log('[WebPushNotificationService] Invalidating React Query cache');
+            this.callbacks.pushNotificationReceived(notificationId);
           }
         } else {
           console.error('[WebPushNotificationService] Action failed:', error);
