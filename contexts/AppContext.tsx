@@ -11,7 +11,7 @@ import {
 import { useCleanup } from "@/hooks/useCleanup";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { useI18n } from "@/hooks/useI18n";
-import { useMarkAllAsRead } from "@/hooks/notifications";
+import { useMarkAllAsRead } from "@/hooks/notifications/useNotificationMutations";
 import {
   UsePushNotifications,
   usePushNotifications,

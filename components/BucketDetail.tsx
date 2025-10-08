@@ -35,7 +35,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { mutateAsync: batchMarkAsRead, isPending: markAllAsReadLoading } = useBatchMarkAsRead();
   
   // Bucket data with permissions
-  const { bucket, error } = useBucket(bucketId);
+  const { bucket, isSnoozed, error } = useBucket(bucketId);
 
   const isOrphaned = error && error.message.includes("Bucket not found");
 
@@ -187,6 +187,8 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
               variant="detail"
               showText={false}
               style={{ width: 26, height: 26 }}
+              isSnoozed={isSnoozed}
+              snoozeUntilDate={bucket?.userBucket?.snoozeUntil ?? null}
             />
           </ButtonGroup>
         </View>

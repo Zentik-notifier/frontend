@@ -62,8 +62,9 @@ export const bucketKeys = {
 // ====================
 
 /**
- * Hook for fetching a single bucket with permissions
- * Uses React Query for caching and invalidation support
+ * Hook for reading a single bucket from GLOBAL bucketsStats cache
+ * Reads from GLOBAL bucketsStats cache (populated by useCleanup)
+ * Only fetches from GraphQL when manually called via useRefreshBucket
  * 
  * @example
  * ```tsx
@@ -79,30 +80,48 @@ export const bucketKeys = {
  */
 export function useBucket(bucketId?: string): BucketWithPermissions {
     const { userId } = useAppContext();
+    const queryClient = useQueryClient();
 
-    // Use lazy query to prevent Apollo from caching bucket data
+    // Use lazy query ONLY for manual refetch (via useRefreshBucket)
     const [getBucket] = useGetBucketLazyQuery({
-        fetchPolicy: 'network-only', // Don't use Apollo cache
+        fetchPolicy: 'network-only',
     });
 
-    // Use React Query for caching - enabled only when bucketId exists
-    const { data: bucket, isLoading: loading, error } = useQuery({
+    // Read bucket details from separate query (for permissions and full data)
+    // This query is populated ONLY by manual refetch via useRefreshBucket
+    const { data: bucketDetail, isLoading: loadingDetail, error } = useQuery({
         queryKey: bucketKeys.detail(bucketId!),
         queryFn: async () => {
-            console.log(`[useBucket] Fetching bucket ${bucketId} from GraphQL...`);
+            console.log(`[useBucket] Fetching bucket ${bucketId} details from GraphQL...`);
             const { data } = await getBucket({ variables: { id: bucketId! } });
             return data?.bucket ?? null;
         },
-        enabled: !!bucketId, // Only run query if bucketId exists
-        staleTime: 10000, // 10 seconds
-        gcTime: 5 * 60 * 1000, // 5 minutes
+        enabled: false, // ✅ MANUAL FETCH ONLY via useRefreshBucket
+        staleTime: Infinity,
+        gcTime: Infinity,
     });
 
+    // Read bucket from GLOBAL bucketsStats cache for basic info
+    const bucketsStats = queryClient.getQueryData<any[]>(['notifications', 'bucketsStats']);
+    const bucketFromGlobal = bucketsStats?.find((b: any) => b.id === bucketId);
+
+    // Use bucketDetail if manually fetched (has permissions), otherwise use bucketFromGlobal
+    // bucketFromGlobal has: id, name, description, icon, color, isSnoozed, snoozeUntil, etc.
+    // bucketDetail has: full BucketFragment with permissions, user, userBucket
+    const bucket = bucketDetail ?? (bucketFromGlobal as any) ?? null;
+    const loading = loadingDetail && !bucketFromGlobal; // Only loading if no global data
+    
+    // Get snooze info from global cache (always up-to-date from bucketsStats)
+    const isSnoozedFromGlobal = bucketFromGlobal?.isSnoozed ?? false;
+
     return useMemo(() => {
-        // Calculate isSnoozed
-        const isSnoozed = bucket?.userBucket?.snoozeUntil
-            ? new Date().getTime() < new Date(bucket.userBucket.snoozeUntil).getTime()
-            : false;
+        // Use snooze info from GLOBAL cache (always up-to-date)
+        // Fallback to bucket.userBucket.snoozeUntil if not in global cache yet
+        const isSnoozed = isSnoozedFromGlobal ?? (
+            bucket?.userBucket?.snoozeUntil
+                ? new Date().getTime() < new Date(bucket.userBucket.snoozeUntil).getTime()
+                : false
+        );
 
         // If no bucket or userId, return empty permissions
         if (!userId || !bucketId || !bucket) {
@@ -112,6 +131,27 @@ export function useBucket(bucketId?: string): BucketWithPermissions {
                 loading,
                 error: error ?? null,
                 canDelete: false,
+                canAdmin: false,
+                canWrite: false,
+                canRead: false,
+                isOwner: false,
+                isSharedWithMe: false,
+                sharedCount: 0,
+                allPermissions: [],
+            };
+        }
+
+        // Check if bucket has full details (fetched via useRefreshBucket)
+        const hasFullDetails = bucket.user !== undefined && bucket.permissions !== undefined;
+
+        // If no full details (using bucketFromGlobal), return basic info without permissions
+        if (!hasFullDetails) {
+            return {
+                bucket,
+                isSnoozed,
+                loading,
+                error,
+                canDelete: false, // Unknown without full details
                 canAdmin: false,
                 canWrite: false,
                 canRead: false,
@@ -132,7 +172,7 @@ export function useBucket(bucketId?: string): BucketWithPermissions {
 
         // Find permissions for current user
         const userPermissions = allPermissions.find(
-            (permission) => permission.user.id === userId
+            (permission: any) => permission.user.id === userId
         );
 
         // If no specific permissions found, but user is owner, they have all permissions
@@ -201,7 +241,7 @@ export function useBucket(bucketId?: string): BucketWithPermissions {
             sharedCount,
             allPermissions,
         };
-    }, [userId, bucket, bucketId, loading, error]);
+    }, [userId, bucket, bucketId, loading, error, isSnoozedFromGlobal]);
 }
 
 /**
@@ -222,22 +262,21 @@ export function useRefreshBucket() {
 
     const refreshBucket = async (bucketId: string): Promise<void> => {
         try {
-            console.log(`[refreshBucket] Refreshing bucket ${bucketId} from GraphQL...`);
+            console.log(`[refreshBucket] Manually fetching bucket ${bucketId} from GraphQL...`);
 
             // 1. Fetch fresh data from GraphQL API
-            await getBucket({ variables: { id: bucketId } });
+            const { data } = await getBucket({ variables: { id: bucketId } });
+            const freshBucket = data?.bucket;
 
-            // 2. Invalidate React Query cache to trigger re-renders
-            await queryClient.invalidateQueries({
-                queryKey: bucketKeys.detail(bucketId),
-            });
+            if (!freshBucket) {
+                console.warn(`[refreshBucket] Bucket ${bucketId} not found`);
+                return;
+            }
 
-            // 3. Also invalidate all buckets list
-            await queryClient.invalidateQueries({
-                queryKey: bucketKeys.lists(),
-            });
+            // 2. Set data directly in React Query cache for this bucket
+            queryClient.setQueryData(bucketKeys.detail(bucketId), freshBucket);
 
-            console.log(`[refreshBucket] Bucket ${bucketId} refreshed successfully`);
+            console.log(`[refreshBucket] Bucket ${bucketId} refreshed successfully and cached`);
         } catch (error) {
             console.error('[refreshBucket] Error refreshing bucket:', error);
             throw error;

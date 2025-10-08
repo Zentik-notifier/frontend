@@ -21,6 +21,7 @@ export {
   useNotificationDetail,
   useSyncNotificationsFromAPI,
   useRefreshNotifications,
+  useInitializeBucketsStats,
   notificationKeys,
   refreshNotificationQueries,
 } from './useNotificationQueries';

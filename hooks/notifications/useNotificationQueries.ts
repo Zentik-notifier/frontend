@@ -269,27 +269,29 @@ export function useBucketsStats(
                 throw error;
             }
         },
+        enabled: false, // ✅ MANUAL FETCH ONLY - initialized by useCleanup
         refetchInterval: realtime ? (refetchInterval || 5000) : refetchInterval,
-        staleTime: 10000, // 10 seconds - data stays fresh for 10 seconds
-        gcTime: 5 * 60 * 1000, // 5 minutes - keep in cache for 5 minutes when unused
+        staleTime: Infinity, // ✅ Never auto-refetch, always manual
+        gcTime: Infinity, // ✅ Keep in cache forever (until app restart)
     });
 
     /**
      * Refresh buckets from API (GraphQL) and re-calculate stats
-     * Forces a fresh fetch from the server
+     * Forces a fresh fetch from the server (even with enabled: false)
      * Updates ALL components using useBucketsStats automatically
      */
     const refreshBucketsStats = async (): Promise<void> => {
         try {
-            console.log('[refreshBucketsStats] Invalidating bucketsStats query...');
+            console.log('[refreshBucketsStats] Manually fetching bucketsStats from API...');
             
-            // Invalidate the bucketsStats query to trigger refetch
-            // This will update ALL components using useBucketsStats
-            await queryClient.invalidateQueries({ 
-                queryKey: notificationKeys.bucketsStats() 
+            // Force refetch even with enabled: false
+            // This is the ONLY way to populate the cache for bucketsStats
+            await queryClient.refetchQueries({ 
+                queryKey: notificationKeys.bucketsStats(),
+                type: 'active', // Only refetch if query is mounted
             });
             
-            console.log('[refreshBucketsStats] Buckets stats invalidated - all components will update');
+            console.log('[refreshBucketsStats] Buckets stats fetched and cached - all components updated');
         } catch (error) {
             console.error('[refreshBucketsStats] Error refreshing buckets stats:', error);
             throw error;
@@ -300,6 +302,93 @@ export function useBucketsStats(
         ...queryResult,
         refreshBucketsStats,
     };
+}
+
+/**
+ * Hook for MANUALLY initializing/refreshing the GLOBAL bucketsStats cache
+ * This is used by useCleanup to populate the cache on app startup
+ * and by user pull-to-refresh gestures
+ * 
+ * @example
+ * ```tsx
+ * const { initializeBucketsStats } = useInitializeBucketsStats();
+ * await initializeBucketsStats(); // Fetches and caches buckets
+ * ```
+ */
+export function useInitializeBucketsStats() {
+    const queryClient = useQueryClient();
+    const [fetchBuckets] = useGetBucketsLazyQuery({
+        fetchPolicy: 'network-only',
+    });
+
+    type BucketWithUserData = NonNullable<GetBucketsQuery['buckets']>[number];
+
+    const initializeBucketsStats = async (): Promise<void> => {
+        try {
+            console.log('[initializeBucketsStats] Fetching buckets from GraphQL...');
+            
+            // 1. Fetch buckets from GraphQL API
+            const { data } = await fetchBuckets();
+            const buckets = (data?.buckets ?? []) as BucketWithUserData[];
+            
+            console.log(`[initializeBucketsStats] Fetched ${buckets.length} buckets from API`);
+
+            // 2. Get all bucket IDs
+            const bucketIds = buckets.map((b) => b.id);
+
+            // 3. Get notification stats from local DB
+            const notificationStats = await getNotificationStats(bucketIds);
+
+            // 4. Combine bucket metadata with stats
+            const bucketsWithStats: BucketWithStats[] = buckets.map((bucket) => {
+                const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
+                const snoozeUntil = bucket.userBucket?.snoozeUntil;
+                const isSnoozed = snoozeUntil
+                    ? new Date().getTime() < new Date(snoozeUntil).getTime()
+                    : false;
+
+                return {
+                    id: bucket.id,
+                    name: bucket.name,
+                    description: bucket.description,
+                    icon: bucket.icon,
+                    color: bucket.color,
+                    createdAt: bucket.createdAt,
+                    updatedAt: bucket.updatedAt,
+                    isProtected: bucket.isProtected,
+                    isPublic: bucket.isPublic,
+                    totalMessages: bucketStat?.totalCount ?? 0,
+                    unreadCount: bucketStat?.unreadCount ?? 0,
+                    lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                    isSnoozed,
+                    snoozeUntil: snoozeUntil ?? null,
+                };
+            });
+
+            // 5. Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
+            bucketsWithStats.sort((a, b) => {
+                if (a.unreadCount !== b.unreadCount) {
+                    return b.unreadCount - a.unreadCount;
+                }
+                const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
+                const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
+                if (aTime !== bTime) {
+                    return bTime - aTime;
+                }
+                return a.name.localeCompare(b.name);
+            });
+
+            // 6. Set data directly in React Query GLOBAL cache
+            queryClient.setQueryData(notificationKeys.bucketsStats(), bucketsWithStats);
+
+            console.log(`[initializeBucketsStats] Cached ${bucketsWithStats.length} buckets in GLOBAL cache`);
+        } catch (error) {
+            console.error('[initializeBucketsStats] Error:', error);
+            throw error;
+        }
+    };
+
+    return { initializeBucketsStats };
 }
 
 /**

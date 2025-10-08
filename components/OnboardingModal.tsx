@@ -7,7 +7,7 @@ import {
   useCreateBucketMutation,
   useCreateMessageMutation,
 } from "@/generated/gql-operations-generated";
-import { useBucketsStats } from "@/hooks/notifications";
+import { useBucketsStats } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ApiConfigService } from "@/services/api-config";

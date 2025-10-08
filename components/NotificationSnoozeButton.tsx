@@ -35,6 +35,9 @@ interface NotificationSnoozeButtonProps {
   fullWidth?: boolean;
   onPress?: () => void;
   style?: any;
+  // Optional: pass snooze data to avoid fetching bucket (optimization for lists)
+  isSnoozed?: boolean;
+  snoozeUntilDate?: string | null;
 }
 
 const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
@@ -44,12 +47,17 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   fullWidth = false,
   onPress,
   style,
+  isSnoozed: isSnoozedProp,
+  snoozeUntilDate,
 }) => {
   const theme = useTheme();
   const { t } = useI18n();
   const { formatDate, datePickerLocale, use24HourTime } = useDateFormat();
 
-  const { bucket, isSnoozed } = useBucket(bucketId);
+  // Only fetch bucket if snooze data not provided (for BucketDetail page)
+  const { bucket, isSnoozed: isSnoozedFetched } = useBucket(
+    isSnoozedProp === undefined ? bucketId : undefined
+  );
   
   const { setSnooze, isLoading: settingSnooze } = useSetBucketSnooze({
     onSuccess: () => {
@@ -62,7 +70,11 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
     },
   });
 
-  const snoozeUntil = bucket?.userBucket?.snoozeUntil
+  // Use prop if provided, otherwise use fetched data
+  const isSnoozed = isSnoozedProp ?? isSnoozedFetched;
+  const snoozeUntil = snoozeUntilDate
+    ? new Date(snoozeUntilDate)
+    : bucket?.userBucket?.snoozeUntil
     ? new Date(bucket.userBucket.snoozeUntil)
     : null;
 

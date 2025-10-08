@@ -1,4 +1,4 @@
-import { useBucketsStats } from "@/hooks/notifications";
+import { useBucketsStats, useInitializeBucketsStats } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
@@ -14,13 +14,14 @@ const BucketsSection: React.FC = () => {
   const { navigateToCreateBucket, navigateToBucketDetail } =
     useNavigationUtils();
 
-  // Reactive query for buckets with stats - auto-updates when notifications change
-  // Automatically includes buckets with zero notifications from API
+  // Read buckets from GLOBAL cache (populated by useCleanup on startup)
   const {
     data: bucketStats = [],
     isLoading: loading,
-    refreshBucketsStats,
   } = useBucketsStats({});
+  
+  // Hook to manually refresh buckets from API (for pull-to-refresh)
+  const { initializeBucketsStats } = useInitializeBucketsStats();
 
   const handleBucketPress = (bucketId: string) => {
     navigateToBucketDetail(bucketId);
@@ -73,8 +74,7 @@ const BucketsSection: React.FC = () => {
   );
 
   const refetch = async () => {
-    // Refresh both notifications and buckets (including snooze status)
-    await Promise.all([refreshBucketsStats()]);
+    await initializeBucketsStats();
   };
 
   return (
@@ -133,6 +133,8 @@ const BucketsSection: React.FC = () => {
                     bucketId={bucket.id}
                     variant="swipeable"
                     showText
+                    isSnoozed={bucket.isSnoozed}
+                    snoozeUntilDate={bucket.snoozeUntil}
                   />
 
                   {/* Badge per notifiche non lette */}

@@ -4,7 +4,11 @@ import { userSettings } from "@/services/user-settings";
 import { setBadgeCount } from "@/utils/badgeUtils";
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useSyncNotificationsFromAPI, notificationKeys } from "@/hooks/notifications";
+import { 
+    useSyncNotificationsFromAPI, 
+    useInitializeBucketsStats,
+    notificationKeys 
+} from "@/hooks/notifications/useNotificationQueries";
 
 interface CleanupProps {
     immediate?: boolean,
@@ -14,6 +18,7 @@ interface CleanupProps {
 export const useCleanup = () => {
     const queryClient = useQueryClient();
     const { syncNotifications } = useSyncNotificationsFromAPI();
+    const { initializeBucketsStats } = useInitializeBucketsStats();
 
     const cleanup = useCallback(async ({ immediate, force }: CleanupProps) => {
         const shouldCleanup = !userSettings.shouldRunCleanup() ? false : true;
@@ -48,11 +53,11 @@ export const useCleanup = () => {
                 console.log('[Cleanup] Starting notification sync from API...');
                 const count = await syncNotifications();
                 console.log(`[Cleanup] Synced ${count} notifications from API`);
-                
-                // Invalidate all queries to refresh UI with new data
+
+                // Invalidate notification queries to refresh UI with new data
                 await queryClient.invalidateQueries({ queryKey: notificationKeys.all });
-                console.log('[Cleanup] React Query cache invalidated');
-                
+                console.log('[Cleanup] Notification queries invalidated');
+
                 // Update badge count with unread notifications
                 try {
                     const dbNotifications = await getAllNotificationsFromCache();
@@ -67,7 +72,18 @@ export const useCleanup = () => {
         ).catch(() => { }); // Continue on error
         await waitRAF();
 
-        // 2. Cleanup notifications by settings
+        // 2. Initialize buckets stats in GLOBAL cache (fetch from GraphQL + local DB stats)
+        await executeWithRAF(
+            async () => {
+                console.log('[Cleanup] Initializing buckets stats in cache...');
+                await initializeBucketsStats();
+                console.log('[Cleanup] Buckets stats initialized in GLOBAL cache');
+            },
+            'initializing buckets stats'
+        ).catch(() => { }); // Continue on error
+        await waitRAF();
+
+        // 3. Cleanup notifications by settings
         if (shouldCleanup || force) {
             await executeWithRAF(
                 async () => {
@@ -79,7 +95,7 @@ export const useCleanup = () => {
 
             await waitRAF();
 
-            // 3. Cleanup gallery by settings
+            // 4. Cleanup gallery by settings
             await executeWithRAF(
                 async () => {
                     await cleanupGalleryBySettings();
@@ -93,7 +109,7 @@ export const useCleanup = () => {
             await waitRAF();
         }
 
-        // 4. Reload media cache metadata
+        // 5. Reload media cache metadata
         await executeWithRAF(
             async () => {
                 await mediaCache.reloadMetadata();

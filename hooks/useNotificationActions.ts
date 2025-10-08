@@ -1,7 +1,6 @@
 import { UpdateUserDeviceInput, useUpdateUserDeviceMutation } from '@/generated/gql-operations-generated';
 import { clearPendingNavigationIntent } from '@/services/auth-storage';
 import { useNavigationUtils } from '@/utils/navigation';
-import { useApolloClient } from '@apollo/client';
 import * as Notifications from 'expo-notifications';
 import { useCallback } from 'react';
 import { Alert, Linking } from 'react-native';
@@ -18,11 +17,13 @@ import {
 import { useI18n } from './useI18n';
 import { useCleanup } from './useCleanup';
 import { setBadgeCount } from '@/utils/badgeUtils';
-import { 
+import {
   useMarkAsRead as useMarkAsReadRQ,
   useDeleteNotification as useDeleteNotificationRQ,
+} from '@/hooks/notifications/useNotificationMutations';
+import {
   refreshNotificationQueries,
-} from '@/hooks/notifications';
+} from '@/hooks/notifications/useNotificationQueries';
 import { useQueryClient } from '@tanstack/react-query';/**
  * Hook that provides callbacks for handling notification actions
  * Centralizes all action logic with access to GraphQL and API
