@@ -1,4 +1,4 @@
-name: Frontend TypeScript Check
+name: TypeScript Check
 
 on:
   push:
@@ -29,10 +29,3 @@ jobs:
       
       - name: Run TypeScript type check
         run: npx tsc --noEmit --pretty
-      
-      - name: Check results
-        if: failure()
-        run: |
-          echo "❌ TypeScript type check failed!"
-          echo "Fix the type errors before merging to main."
-          exit 1

@@ -614,7 +614,6 @@
     },
     "selectAll": "Seleziona Tutto",
     "deselectAll": "Deseleziona Tutto",
-    "selectOptions": "Seleziona opzioni",
     "endOfList": "Fine della lista",
     "unreadAbove": "Non lette sopra",
     "unreadBelow": "Non lette sotto",
@@ -805,6 +804,7 @@
   },
   "common": {
     "retry": "Riprova",
+    "selectOptions": "Seleziona opzioni",
     "home": "Homepage",
     "add": "Aggiungi",
     "cancel": "Annulla",

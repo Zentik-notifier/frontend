@@ -614,7 +614,6 @@
     },
     "selectAll": "Select All",
     "deselectAll": "Deselect All",
-    "selectOptions": "Select options",
     "endOfList": "End of list",
     "unreadAbove": "Unread above",
     "unreadBelow": "Unread below",
@@ -805,6 +804,7 @@
   },
   "common": {
     "retry": "Retry",
+    "selectOptions": "Select options",
     "add": "Add",
     "home": "Homepage",
     "cancel": "Cancel",

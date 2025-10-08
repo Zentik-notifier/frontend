@@ -82,14 +82,14 @@ export async function getNotificationFromCache(notificationId: string): Promise<
       if (Platform.OS === 'web') {
         // IndexedDB
         const result = await db.get('notifications', notificationId);
-        return result ? parseNotificationFromDB(result) : null;
+        return result ? parseNotificationFromDB(result, db) : null;
       } else {
         // SQLite
         const result = await db.getFirstAsync(
           'SELECT * FROM notifications WHERE id = ?',
           [notificationId]
         );
-        return result ? parseNotificationFromDB(result) : null;
+        return result ? parseNotificationFromDB(result, db) : null;
       }
     } catch {
       return null;
@@ -106,7 +106,9 @@ export async function getAllNotificationsFromCache(): Promise<NotificationFragme
       if (Platform.OS === 'web') {
         // IndexedDB
         const results = await db.getAll('notifications');
-        const notifications = results.map(parseNotificationFromDB);
+        const notifications = results
+          .map((record: any) => parseNotificationFromDB(record, db))
+          .filter((n: NotificationFragment | null): n is NotificationFragment => n !== null); // Filter out corrupted
         
         return notifications.sort((a: NotificationFragment, b: NotificationFragment) => {
           const aTime = new Date(a.createdAt).getTime();
@@ -116,7 +118,9 @@ export async function getAllNotificationsFromCache(): Promise<NotificationFragme
       } else {
         // SQLite
         const results = await db.getAllAsync('SELECT * FROM notifications ORDER BY created_at DESC');
-        const notifications = results.map(parseNotificationFromDB);
+        const notifications = results
+          .map((record: any) => parseNotificationFromDB(record, db))
+          .filter((n: NotificationFragment | null): n is NotificationFragment => n !== null); // Filter out corrupted
         
         return notifications;
       }
@@ -314,7 +318,11 @@ export async function updateNotificationReadStatus(notificationId: string, readA
         }
 
         // Parse the current notification from fragment
-        const notification = parseNotificationFromDB(existingRecord);
+        const notification = parseNotificationFromDB(existingRecord, db);
+        if (!notification) {
+          console.warn(`[updateNotificationReadStatus] Notification ${notificationId} is corrupted and was removed`);
+          return;
+        }
 
         // Update read_at in the notification object
         const updatedNotification: NotificationFragment = {
@@ -345,7 +353,11 @@ export async function updateNotificationReadStatus(notificationId: string, readA
         }
 
         // Parse the current notification from fragment
-        const notification = parseNotificationFromDB(existingRecord);
+        const notification = parseNotificationFromDB(existingRecord, db);
+        if (!notification) {
+          console.warn(`[updateNotificationReadStatus] Notification ${notificationId} is corrupted and was removed`);
+          return;
+        }
 
         // Update read_at in the notification object
         const updatedNotification: NotificationFragment = {
@@ -406,7 +418,11 @@ export async function updateNotificationsReadStatus(notificationIds: string[], r
           const existingRecord = await tx.store.get(id);
           if (existingRecord) {
             // Parse the current notification from fragment
-            const notification = parseNotificationFromDB(existingRecord);
+            const notification = parseNotificationFromDB(existingRecord, db);
+            if (!notification) {
+              console.warn(`[updateNotificationsReadStatus] Notification ${id} is corrupted and was removed`);
+              continue;
+            }
             updatedCount++;
 
             // Update read_at in the notification object
@@ -450,7 +466,11 @@ export async function updateNotificationsReadStatus(notificationIds: string[], r
 
           if (existingRecord) {
             // Parse the current notification from fragment
-            const notification = parseNotificationFromDB(existingRecord);
+            const notification = parseNotificationFromDB(existingRecord, db);
+            if (!notification) {
+              console.warn(`[updateNotificationsReadStatus] Notification ${id} is corrupted and was removed`);
+              continue;
+            }
 
             // Update read_at in the notification object
             const updatedNotification: NotificationFragment = {

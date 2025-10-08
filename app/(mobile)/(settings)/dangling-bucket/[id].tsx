@@ -22,7 +22,7 @@ export default function DanglingBucketPage() {
           style={styles.backButton}
         />
       </View>
-      <DanglingBucketResolver onBack={handleBack} />
+      <DanglingBucketResolver />
     </View>
   );
 }

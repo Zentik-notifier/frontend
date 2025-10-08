@@ -687,6 +687,7 @@ export interface TranslationKey {
     saving: string;
     search: string;
     selectOption: string;
+    selectOptions: string;
     selectAll: string;
     deselectAll: string;
     settings: string;

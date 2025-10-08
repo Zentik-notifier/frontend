@@ -243,7 +243,9 @@ export async function queryNotifications(
       if (Platform.OS === 'web') {
         // IndexedDB - fetch all and filter in memory
         const allNotifications = await db.getAll('notifications');
-        const parsed = allNotifications.map(parseNotificationFromDB);
+        const parsed = allNotifications
+          .map((record: any) => parseNotificationFromDB(record, db))
+          .filter((n: NotificationFragment | null): n is NotificationFragment => n !== null); // Filter out corrupted notifications
 
         // Apply filters
         let filtered = applyFilters(parsed, filters);
@@ -295,7 +297,9 @@ export async function queryNotifications(
         const query = `SELECT * FROM notifications ${where} ${orderBy} ${limit}`;
         const results = await db.getAllAsync(query, params);
         
-        let parsed = results.map(parseNotificationFromDB);
+        let parsed = results
+          .map((record: any) => parseNotificationFromDB(record, db))
+          .filter((n: NotificationFragment | null): n is NotificationFragment => n !== null); // Filter out corrupted
 
         // Apply search query filter in-memory if present
         if (filters?.searchQuery) {
@@ -362,13 +366,13 @@ export async function getNotificationById(
     try {
       if (Platform.OS === 'web') {
         const result = await db.get('notifications', notificationId);
-        return result ? parseNotificationFromDB(result) : null;
+        return result ? parseNotificationFromDB(result, db) : null;
       } else {
         const result = await db.getFirstAsync(
           'SELECT * FROM notifications WHERE id = ?',
           [notificationId]
         );
-        return result ? parseNotificationFromDB(result) : null;
+        return result ? parseNotificationFromDB(result, db) : null;
       }
     } catch {
       return null;
@@ -390,8 +394,8 @@ export async function getBucketStats(bucketId: string): Promise<BucketStats> {
         // IndexedDB - fetch and calculate in memory
         const allNotifications = await db.getAll('notifications');
         const bucketNotifications = allNotifications
-          .map(parseNotificationFromDB)
-          .filter((n: NotificationFragment) => n.message.bucket.id === bucketId);
+          .map((record: any) => parseNotificationFromDB(record, db))
+          .filter((n: NotificationFragment | null): n is NotificationFragment => n !== null && n.message?.bucket?.id === bucketId);
 
         if (bucketNotifications.length === 0) {
           return {
@@ -443,8 +447,8 @@ export async function getBucketStats(bucketId: string): Promise<BucketStats> {
 
         let bucketName: string | undefined;
         if (firstNotification) {
-          const parsed = parseNotificationFromDB(firstNotification);
-          bucketName = parsed.message.bucket.name;
+          const parsed = parseNotificationFromDB(firstNotification, db);
+          bucketName = parsed?.message?.bucket?.name;
         }
 
         return {
@@ -482,11 +486,13 @@ export async function getNotificationStats(
       if (Platform.OS === 'web') {
         // IndexedDB - fetch and calculate in memory
         const allNotifications = await db.getAll('notifications');
-        const parsed = allNotifications.map(parseNotificationFromDB);
+        const parsed = allNotifications
+          .map((record: any) => parseNotificationFromDB(record, db))
+          .filter((n: NotificationFragment | null): n is NotificationFragment => n !== null); // Filter out corrupted
 
         // Filter by bucket IDs if provided
         const filtered = bucketIds && bucketIds.length > 0
-          ? parsed.filter((n: NotificationFragment) => bucketIds.includes(n.message.bucket.id))
+          ? parsed.filter((n: NotificationFragment) => n.message?.bucket?.id && bucketIds.includes(n.message.bucket.id))
           : parsed;
 
         if (filtered.length === 0) {
@@ -595,8 +601,8 @@ export async function getNotificationStats(
 
             let bucketName: string | undefined;
             if (firstNotification) {
-              const parsed = parseNotificationFromDB(firstNotification);
-              bucketName = parsed.message.bucket.name;
+              const parsed = parseNotificationFromDB(firstNotification, db);
+              bucketName = parsed?.message?.bucket?.name;
             }
 
             return {
@@ -644,7 +650,9 @@ export async function getUnreadCountsByBucket(): Promise<Map<string, number>> {
     try {
       if (Platform.OS === 'web') {
         const allNotifications = await db.getAll('notifications');
-        const parsed = allNotifications.map(parseNotificationFromDB);
+        const parsed = allNotifications
+          .map((record: any) => parseNotificationFromDB(record, db))
+          .filter((n: NotificationFragment | null): n is NotificationFragment => n !== null); // Filter out corrupted
         const unread = parsed.filter((n: NotificationFragment) => !n.readAt);
 
         const countMap = new Map<string, number>();

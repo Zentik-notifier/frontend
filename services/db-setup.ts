@@ -222,6 +222,74 @@ export function parseNotificationForDB(notification: NotificationFragment) {
 }
 
 /**
+ * Validate that a notification has all required properties
+ * @param notification - The notification object to validate
+ * @returns true if valid, false if corrupted
+ */
+export function isValidNotification(notification: any): boolean {
+  try {
+    // Check required top-level properties
+    if (!notification || typeof notification !== 'object') {
+      return false;
+    }
+
+    if (!notification.id || typeof notification.id !== 'string') {
+      return false;
+    }
+
+    if (!notification.createdAt || typeof notification.createdAt !== 'string') {
+      return false;
+    }
+
+    // readAt can be null/undefined (unread notifications)
+    if (notification.readAt !== null && notification.readAt !== undefined && typeof notification.readAt !== 'string') {
+      return false;
+    }
+
+    // Check required message object
+    if (!notification.message || typeof notification.message !== 'object') {
+      return false;
+    }
+
+    // Check required bucket object inside message
+    if (!notification.message.bucket || typeof notification.message.bucket !== 'object') {
+      return false;
+    }
+
+    if (!notification.message.bucket.id || typeof notification.message.bucket.id !== 'string') {
+      return false;
+    }
+
+    // All essential properties are present and valid
+    return true;
+  } catch (error) {
+    console.error('[isValidNotification] Validation error:', error);
+    return false;
+  }
+}
+
+/**
+ * Delete a corrupted notification from the database
+ * @param notificationId - ID of the notification to delete
+ * @param db - Optional database instance (if already open)
+ */
+async function deleteCorruptedNotification(notificationId: string, db?: any): Promise<void> {
+  try {
+    if (Platform.OS === 'web') {
+      const database = db || await openWebStorageDb();
+      await database.delete('notifications', notificationId);
+      console.warn(`[deleteCorruptedNotification] Removed corrupted notification from cache: ${notificationId}`);
+    } else {
+      const database = db || await openSharedCacheDb();
+      await database.runAsync('DELETE FROM notifications WHERE id = ?', [notificationId]);
+      console.warn(`[deleteCorruptedNotification] Removed corrupted notification from cache: ${notificationId}`);
+    }
+  } catch (error) {
+    console.error(`[deleteCorruptedNotification] Failed to delete corrupted notification ${notificationId}:`, error);
+  }
+}
+
+/**
  * Helper function to parse database record back to NotificationFragment
  *
  * Reconstructs the complete NotificationFragment from database record.
@@ -231,20 +299,55 @@ export function parseNotificationForDB(notification: NotificationFragment) {
  * IMPORTANT: Column values take precedence over JSON fragment values to ensure consistency.
  *
  * @param dbRecord - The database record to parse
- * @returns Reconstructed NotificationFragment
+ * @param db - Optional database instance for removing corrupted records
+ * @returns Reconstructed NotificationFragment or null if corrupted
  */
-export function parseNotificationFromDB(dbRecord: any): NotificationFragment {
-  const notification = typeof dbRecord.fragment === 'string' ? JSON.parse(dbRecord.fragment) : dbRecord.fragment;
-  
-  // Override with column values to ensure consistency
-  // This fixes the bug where read_at column is null but fragment JSON has a timestamp
-  if (dbRecord.read_at !== undefined) {
-    notification.readAt = dbRecord.read_at;
+export function parseNotificationFromDB(dbRecord: any, db?: any): NotificationFragment | null {
+  try {
+    const notification = typeof dbRecord.fragment === 'string' ? JSON.parse(dbRecord.fragment) : dbRecord.fragment;
+    
+    // Override with column values to ensure consistency
+    // This fixes the bug where read_at column is null but fragment JSON has a timestamp
+    if (dbRecord.read_at !== undefined) {
+      notification.readAt = dbRecord.read_at;
+    }
+    
+    if (dbRecord.created_at !== undefined) {
+      notification.createdAt = dbRecord.created_at;
+    }
+
+    // Validate the notification
+    if (!isValidNotification(notification)) {
+      console.error('[parseNotificationFromDB] Corrupted notification detected:', {
+        id: notification?.id || 'unknown',
+        hasMessage: !!notification?.message,
+        hasBucket: !!notification?.message?.bucket,
+        hasCreatedAt: !!notification?.createdAt,
+      });
+      
+      // Delete corrupted notification from database (async, non-blocking)
+      const notificationId = notification?.id || dbRecord.id;
+      if (notificationId) {
+        deleteCorruptedNotification(notificationId, db).catch(err => {
+          console.error('[parseNotificationFromDB] Failed to delete corrupted notification:', err);
+        });
+      }
+      
+      return null;
+    }
+    
+    return notification as NotificationFragment;
+  } catch (error) {
+    console.error('[parseNotificationFromDB] Parse error:', error);
+    
+    // Try to delete using dbRecord.id if available
+    const notificationId = dbRecord?.id;
+    if (notificationId) {
+      deleteCorruptedNotification(notificationId, db).catch(err => {
+        console.error('[parseNotificationFromDB] Failed to delete corrupted notification:', err);
+      });
+    }
+    
+    return null;
   }
-  
-  if (dbRecord.created_at !== undefined) {
-    notification.createdAt = dbRecord.created_at;
-  }
-  
-  return notification;
 }
