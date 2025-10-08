@@ -16,6 +16,7 @@ export {
   useInfiniteNotifications,
   useNotificationStats,
   useBucketStats,
+  useBucketsStats,
   useUnreadCountsByBucket,
   useNotificationDetail,
   useSyncNotificationsFromAPI,
@@ -43,6 +44,7 @@ export type {
   PaginationOptions,
   NotificationQueryOptions,
   BucketStats,
+  BucketWithStats,
   NotificationStats,
   NotificationQueryResult,
   CreateNotificationInput,
@@ -51,6 +53,7 @@ export type {
   DeleteNotificationInput,
   UseNotificationsOptions,
   UseNotificationStatsOptions,
+  UseBucketsStatsOptions,
   NotificationEventType,
   NotificationEvent,
 } from '@/types/notifications';

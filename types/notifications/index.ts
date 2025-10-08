@@ -104,6 +104,42 @@ export interface BucketStats {
 }
 
 /**
+ * Bucket with stats - combines bucket metadata with notification statistics
+ * Used by useBucketsStats to return complete bucket information
+ */
+export interface BucketWithStats {
+  /** Bucket ID */
+  id: string;
+  
+  /** Bucket name */
+  name: string;
+  
+  /** Bucket description */
+  description?: string;
+  
+  /** Bucket icon */
+  icon?: string;
+  
+  /** Bucket color */
+  color?: string;
+  
+  /** Total number of notifications in this bucket */
+  totalMessages: number;
+  
+  /** Number of unread notifications */
+  unreadCount: number;
+  
+  /** Most recent notification date */
+  lastNotificationAt: string | null;
+  
+  /** Whether the bucket is currently snoozed */
+  isSnoozed: boolean;
+  
+  /** Snooze expiration date if snoozed */
+  snoozeUntil?: string | null;
+}
+
+/**
  * Overall statistics across all notifications
  */
 export interface NotificationStats {
@@ -253,6 +289,17 @@ export interface UseNotificationStatsOptions {
   /** Bucket IDs to include (empty = all buckets) */
   bucketIds?: string[];
   
+  /** Enable real-time updates */
+  realtime?: boolean;
+  
+  /** Refetch interval in ms */
+  refetchInterval?: number;
+}
+
+/**
+ * Options for useBucketsStats hook
+ */
+export interface UseBucketsStatsOptions {
   /** Enable real-time updates */
   realtime?: boolean;
   

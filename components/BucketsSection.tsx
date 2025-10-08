@@ -1,8 +1,7 @@
-import { useGetBucketsQuery } from "@/generated/gql-operations-generated";
-import { useNotificationStats, useRefreshNotifications } from "@/hooks/notifications";
+import { useBucketsStats } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useMemo } from "react";
+import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Icon, Text, TouchableRipple, useTheme } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
@@ -12,56 +11,18 @@ import PaperScrollView from "./ui/PaperScrollView";
 const BucketsSection: React.FC = () => {
   const { t } = useI18n();
   const theme = useTheme();
-  const { data: bucketsData, loading: bucketsLoading } = useGetBucketsQuery();
-  const refreshNotifications = useRefreshNotifications();
-  const buckets = bucketsData?.buckets ?? [];
   const { navigateToCreateBucket, navigateToBucketDetail } =
     useNavigationUtils();
 
-  // Reactive query for notification stats - auto-updates when notifications change
-  const { data: notificationStats, isLoading: statsLoading } = useNotificationStats({
-    bucketIds: buckets.map(b => b.id),
+  // Reactive query for buckets with stats - auto-updates when notifications change
+  // Automatically includes buckets with zero notifications from API
+  const { 
+    data: bucketStats = [], 
+    isLoading: loading,
+    refreshBucketsStats,
+  } = useBucketsStats({
     realtime: true, // Enable real-time updates
   });
-
-  const loading = statsLoading || bucketsLoading;
-
-  // Calculate bucket stats reactively from React Query data
-  const bucketStats = useMemo(() => {
-    if (!buckets.length || !notificationStats) {
-      return [];
-    }
-
-    // Build bucket stats array from React Query data
-    const statsArray = buckets.map(bucket => {
-      const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
-      return {
-        id: bucket.id,
-        name: bucket.name,
-        description: bucket.description ?? undefined,
-        icon: bucket.icon ?? undefined,
-        color: bucket.color ?? undefined,
-        totalMessages: bucketStat?.totalCount ?? 0,
-        unreadCount: bucketStat?.unreadCount ?? 0,
-        lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
-      };
-    });
-
-    // Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
-    statsArray.sort((a, b) => {
-      if (a.unreadCount !== b.unreadCount) {
-        return b.unreadCount - a.unreadCount;
-      }
-      const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
-      const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
-      if (aTime !== bTime) {
-        return bTime - aTime;
-      }
-      return a.name.localeCompare(b.name);
-    });
-
-    return statsArray;
-  }, [buckets, notificationStats]);
 
   const handleBucketPress = (bucketId: string) => {
     navigateToBucketDetail(bucketId);
@@ -114,7 +75,10 @@ const BucketsSection: React.FC = () => {
   );
 
   const refetch = async () => {
-    await refreshNotifications();
+    // Refresh both notifications and buckets (including snooze status)
+    await Promise.all([
+      refreshBucketsStats(),
+    ]);
   };
 
   return (

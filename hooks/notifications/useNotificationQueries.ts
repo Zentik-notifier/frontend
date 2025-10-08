@@ -17,13 +17,18 @@ import {
     useGetNotificationsLazyQuery,
     useGetNotificationLazyQuery,
     useMassDeleteNotificationsMutation,
+    useGetBucketsQuery,
+    BucketFragment,
+    GetBucketsQuery,
 } from '@/generated/gql-operations-generated';
 import {
     UseNotificationsOptions,
     UseNotificationStatsOptions,
+    UseBucketsStatsOptions,
     NotificationQueryResult,
     NotificationStats,
     BucketStats,
+    BucketWithStats,
 } from '@/types/notifications';
 import {
     queryNotifications,
@@ -58,6 +63,7 @@ export const notificationKeys = {
     stat: (bucketIds?: string[]) => [...notificationKeys.stats(), { bucketIds }] as const,
     bucketStats: () => [...notificationKeys.all, 'bucketStats'] as const,
     bucketStat: (bucketId: string) => [...notificationKeys.bucketStats(), bucketId] as const,
+    bucketsStats: () => [...notificationKeys.all, 'bucketsStats'] as const,
     unreadCounts: () => [...notificationKeys.all, 'unreadCounts'] as const,
 };
 
@@ -158,6 +164,128 @@ export function useBucketStats(
         staleTime: 10000,
         gcTime: 2 * 60 * 1000,
     });
+}
+
+/**
+ * Hook for fetching all buckets with their notification statistics
+ * Combines bucket metadata from API with local notification stats
+ * Automatically includes buckets with zero notifications
+ * 
+ * @example
+ * ```tsx
+ * const { data: bucketsWithStats, isLoading, refetch } = useBucketsStats({
+ *   realtime: true,
+ * });
+ * 
+ * // bucketsWithStats is BucketWithStats[] - sorted by unreadCount, lastNotificationAt, name
+ * 
+ * // To refresh buckets from API and re-calculate stats:
+ * await refetch();
+ * ```
+ */
+export function useBucketsStats(
+    options?: UseBucketsStatsOptions
+): UseQueryResult<BucketWithStats[]> & { refreshBucketsStats: () => Promise<void> } {
+    const queryClient = useQueryClient();
+    const {
+        realtime = false,
+        refetchInterval = 0,
+    } = options || {};
+
+    // Fetch buckets from API
+    const { data: bucketsData, loading: bucketsLoading, refetch: refetchBuckets } = useGetBucketsQuery();
+    const buckets = bucketsData?.buckets ?? [];
+
+    // Type for bucket from GetBucketsQuery (includes userBucket)
+    type BucketWithUserData = NonNullable<GetBucketsQuery['buckets']>[number];
+
+    const queryResult = useQuery({
+        queryKey: notificationKeys.bucketsStats(),
+        queryFn: async (): Promise<BucketWithStats[]> => {
+            try {
+                // Get all bucket IDs
+                const bucketIds = buckets.map((b: BucketWithUserData) => b.id);
+
+                // Get notification stats from local DB
+                const notificationStats = await getNotificationStats(bucketIds);
+
+                // Combine bucket metadata with stats
+                const bucketsWithStats: BucketWithStats[] = buckets.map((bucket: BucketWithUserData) => {
+                    // Find stats for this bucket
+                    const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
+
+                    // Calculate isSnoozed from bucket.userBucket.snoozeUntil
+                    const snoozeUntil = bucket.userBucket?.snoozeUntil;
+                    const isSnoozed = snoozeUntil
+                        ? new Date().getTime() < new Date(snoozeUntil).getTime()
+                        : false;
+
+                    return {
+                        id: bucket.id,
+                        name: bucket.name,
+                        description: bucket.description ?? undefined,
+                        icon: bucket.icon ?? undefined,
+                        color: bucket.color ?? undefined,
+                        totalMessages: bucketStat?.totalCount ?? 0,
+                        unreadCount: bucketStat?.unreadCount ?? 0,
+                        lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                        isSnoozed,
+                        snoozeUntil: snoozeUntil ?? null,
+                    };
+                });
+
+                // Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
+                bucketsWithStats.sort((a, b) => {
+                    if (a.unreadCount !== b.unreadCount) {
+                        return b.unreadCount - a.unreadCount;
+                    }
+                    const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
+                    const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
+                    if (aTime !== bTime) {
+                        return bTime - aTime;
+                    }
+                    return a.name.localeCompare(b.name);
+                });
+
+                return bucketsWithStats;
+            } catch (error) {
+                console.error('[useBucketsStats] Error:', error);
+                throw error;
+            }
+        },
+        enabled: !bucketsLoading && buckets.length >= 0, // Enable query when buckets are loaded
+        refetchInterval: realtime ? (refetchInterval || 5000) : refetchInterval,
+        staleTime: 10000, // 10 seconds
+        gcTime: 2 * 60 * 1000, // 2 minutes
+    });
+
+    /**
+     * Refresh buckets from API (GraphQL) and re-calculate stats
+     * Forces a fresh fetch from the server
+     */
+    const refreshBucketsStats = async (): Promise<void> => {
+        try {
+            console.log('[refreshBucketsStats] Refetching buckets from API...');
+            
+            // 1. Refetch buckets from GraphQL API
+            await refetchBuckets();
+            
+            // 2. Invalidate the bucketsStats query to trigger re-calculation
+            await queryClient.invalidateQueries({ 
+                queryKey: notificationKeys.bucketsStats() 
+            });
+            
+            console.log('[refreshBucketsStats] Buckets refreshed and stats re-calculated');
+        } catch (error) {
+            console.error('[refreshBucketsStats] Error refreshing buckets stats:', error);
+            throw error;
+        }
+    };
+
+    return {
+        ...queryResult,
+        refreshBucketsStats,
+    };
 }
 
 /**
