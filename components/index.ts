@@ -5,7 +5,6 @@ export { default as BucketIcon } from './BucketIcon';
 export { default as BucketDetail } from './BucketDetail';
 export { default as BucketsSection } from './BucketsSection';
 export { default as GallerySection } from './GallerySection';
-export { default as NotificationsSection } from './NotificationsSection';
 
 // Form Components
 export { default as ColorPicker } from './ColorPicker';

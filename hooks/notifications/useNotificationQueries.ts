@@ -18,6 +18,7 @@ import {
     useGetNotificationLazyQuery,
     useMassDeleteNotificationsMutation,
     useGetBucketsQuery,
+    useGetBucketsLazyQuery,
     BucketFragment,
     GetBucketsQuery,
 } from '@/generated/gql-operations-generated';
@@ -168,19 +169,20 @@ export function useBucketStats(
 
 /**
  * Hook for fetching all buckets with their notification statistics
- * Combines bucket metadata from API with local notification stats
- * Automatically includes buckets with zero notifications
+ * GLOBAL SINGLETON - Uses React Query to cache buckets data globally
+ * All components share the same cached data instance
  * 
  * @example
  * ```tsx
- * const { data: bucketsWithStats, isLoading, refetch } = useBucketsStats({
- *   realtime: true,
+ * const { data: bucketsWithStats, isLoading, refreshBucketsStats } = useBucketsStats({
+ *   realtime: true, // Auto-refresh every 5 seconds
  * });
  * 
  * // bucketsWithStats is BucketWithStats[] - sorted by unreadCount, lastNotificationAt, name
+ * // Data is SHARED across all components - updates propagate automatically
  * 
  * // To refresh buckets from API and re-calculate stats:
- * await refetch();
+ * await refreshBucketsStats();
  * ```
  */
 export function useBucketsStats(
@@ -192,9 +194,10 @@ export function useBucketsStats(
         refetchInterval = 0,
     } = options || {};
 
-    // Fetch buckets from API
-    const { data: bucketsData, loading: bucketsLoading, refetch: refetchBuckets } = useGetBucketsQuery();
-    const buckets = bucketsData?.buckets ?? [];
+    // Use lazy query for manual control
+    const [fetchBuckets] = useGetBucketsLazyQuery({
+        fetchPolicy: 'network-only', // Don't use Apollo cache
+    });
 
     // Type for bucket from GetBucketsQuery (includes userBucket)
     type BucketWithUserData = NonNullable<GetBucketsQuery['buckets']>[number];
@@ -203,14 +206,22 @@ export function useBucketsStats(
         queryKey: notificationKeys.bucketsStats(),
         queryFn: async (): Promise<BucketWithStats[]> => {
             try {
-                // Get all bucket IDs
-                const bucketIds = buckets.map((b: BucketWithUserData) => b.id);
+                console.log('[useBucketsStats] Fetching buckets from GraphQL...');
+                
+                // 1. Fetch buckets from GraphQL API
+                const { data } = await fetchBuckets();
+                const buckets = (data?.buckets ?? []) as BucketWithUserData[];
+                
+                console.log(`[useBucketsStats] Fetched ${buckets.length} buckets from API`);
 
-                // Get notification stats from local DB
+                // 2. Get all bucket IDs
+                const bucketIds = buckets.map((b) => b.id);
+
+                // 3. Get notification stats from local DB
                 const notificationStats = await getNotificationStats(bucketIds);
 
-                // Combine bucket metadata with stats
-                const bucketsWithStats: BucketWithStats[] = buckets.map((bucket: BucketWithUserData) => {
+                // 4. Combine bucket metadata with stats
+                const bucketsWithStats: BucketWithStats[] = buckets.map((bucket) => {
                     // Find stats for this bucket
                     const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
 
@@ -238,7 +249,7 @@ export function useBucketsStats(
                     };
                 });
 
-                // Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
+                // 5. Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
                 bucketsWithStats.sort((a, b) => {
                     if (a.unreadCount !== b.unreadCount) {
                         return b.unreadCount - a.unreadCount;
@@ -251,35 +262,34 @@ export function useBucketsStats(
                     return a.name.localeCompare(b.name);
                 });
 
+                console.log(`[useBucketsStats] Processed ${bucketsWithStats.length} buckets with stats`);
                 return bucketsWithStats;
             } catch (error) {
                 console.error('[useBucketsStats] Error:', error);
                 throw error;
             }
         },
-        enabled: !bucketsLoading && buckets.length >= 0, // Enable query when buckets are loaded
         refetchInterval: realtime ? (refetchInterval || 5000) : refetchInterval,
-        staleTime: 10000, // 10 seconds
-        gcTime: 2 * 60 * 1000, // 2 minutes
+        staleTime: 10000, // 10 seconds - data stays fresh for 10 seconds
+        gcTime: 5 * 60 * 1000, // 5 minutes - keep in cache for 5 minutes when unused
     });
 
     /**
      * Refresh buckets from API (GraphQL) and re-calculate stats
      * Forces a fresh fetch from the server
+     * Updates ALL components using useBucketsStats automatically
      */
     const refreshBucketsStats = async (): Promise<void> => {
         try {
-            console.log('[refreshBucketsStats] Refetching buckets from API...');
+            console.log('[refreshBucketsStats] Invalidating bucketsStats query...');
             
-            // 1. Refetch buckets from GraphQL API
-            await refetchBuckets();
-            
-            // 2. Invalidate the bucketsStats query to trigger re-calculation
+            // Invalidate the bucketsStats query to trigger refetch
+            // This will update ALL components using useBucketsStats
             await queryClient.invalidateQueries({ 
                 queryKey: notificationKeys.bucketsStats() 
             });
             
-            console.log('[refreshBucketsStats] Buckets refreshed and stats re-calculated');
+            console.log('[refreshBucketsStats] Buckets stats invalidated - all components will update');
         } catch (error) {
             console.error('[refreshBucketsStats] Error refreshing buckets stats:', error);
             throw error;

@@ -6,13 +6,11 @@
 import { useAppContext } from '@/contexts/AppContext';
 import {
     GetBucketQuery,
-    GetBucketsQuery,
     Permission,
-    useGetBucketLazyQuery,
-    useGetBucketsLazyQuery,
+    useGetBucketLazyQuery
 } from '@/generated/gql-operations-generated';
-import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 // ====================
 // TYPES
@@ -65,7 +63,7 @@ export const bucketKeys = {
 
 /**
  * Hook for fetching a single bucket with permissions
- * Replaces useGetBucketData from Apollo
+ * Uses React Query for caching and invalidation support
  * 
  * @example
  * ```tsx
@@ -82,40 +80,23 @@ export const bucketKeys = {
 export function useBucket(bucketId?: string): BucketWithPermissions {
     const { userId } = useAppContext();
 
-    // Local state for bucket data
-    const [bucketData, setBucketData] = useState<BucketDetailData | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<any>(null);
-
     // Use lazy query to prevent Apollo from caching bucket data
     const [getBucket] = useGetBucketLazyQuery({
         fetchPolicy: 'network-only', // Don't use Apollo cache
     });
 
-    // Fetch bucket when bucketId changes
-    useEffect(() => {
-        if (bucketId) {
-            setLoading(true);
-            getBucket({ variables: { id: bucketId } })
-                .then((result) => {
-                    setBucketData(result.data?.bucket ?? null);
-                    setError(result.error ?? null);
-                })
-                .catch((err) => {
-                    setError(err);
-                    setBucketData(null);
-                })
-                .finally(() => {
-                    setLoading(false);
-                });
-        } else {
-            setBucketData(null);
-            setLoading(false);
-            setError(null);
-        }
-    }, [bucketId, getBucket]);
-
-    const bucket = bucketData;
+    // Use React Query for caching - enabled only when bucketId exists
+    const { data: bucket, isLoading: loading, error } = useQuery({
+        queryKey: bucketKeys.detail(bucketId!),
+        queryFn: async () => {
+            console.log(`[useBucket] Fetching bucket ${bucketId} from GraphQL...`);
+            const { data } = await getBucket({ variables: { id: bucketId! } });
+            return data?.bucket ?? null;
+        },
+        enabled: !!bucketId, // Only run query if bucketId exists
+        staleTime: 10000, // 10 seconds
+        gcTime: 5 * 60 * 1000, // 5 minutes
+    });
 
     return useMemo(() => {
         // Calculate isSnoozed
@@ -126,10 +107,10 @@ export function useBucket(bucketId?: string): BucketWithPermissions {
         // If no bucket or userId, return empty permissions
         if (!userId || !bucketId || !bucket) {
             return {
-                bucket,
+                bucket: bucket ?? null,
                 isSnoozed,
                 loading,
-                error,
+                error: error ?? null,
                 canDelete: false,
                 canAdmin: false,
                 canWrite: false,

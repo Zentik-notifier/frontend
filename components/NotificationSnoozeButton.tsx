@@ -1,10 +1,5 @@
-import {
-  GetBucketDocument,
-  UserRole,
-  useSetBucketSnoozeMutation,
-} from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import { useBucket, useRefreshBucket } from "@/hooks/notifications";
+import { useBucket, useSetBucketSnooze } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { DatePickerInput, TimePickerModal } from "react-native-paper-dates";
 import React, { useMemo, useState } from "react";
@@ -55,7 +50,17 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   const { formatDate, datePickerLocale, use24HourTime } = useDateFormat();
 
   const { bucket, isSnoozed } = useBucket(bucketId);
-  const refreshBucket = useRefreshBucket();
+  
+  const { setSnooze, isLoading: settingSnooze } = useSetBucketSnooze({
+    onSuccess: () => {
+      console.log('[NotificationSnoozeButton] Snooze updated successfully');
+      setShowModal(false);
+    },
+    onError: (error) => {
+      console.error('[NotificationSnoozeButton] Snooze update failed:', error);
+      Alert.alert("Error", t("notificationDetail.snooze.errorSetting"));
+    },
+  });
 
   const snoozeUntil = bucket?.userBucket?.snoozeUntil
     ? new Date(bucket.userBucket.snoozeUntil)
@@ -67,104 +72,6 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [quickLoading, setQuickLoading] = useState<number | null>(null);
-  const [removingSnooze, setRemovingSnooze] = useState(false);
-
-  const [setBucketSnooze, { loading: settingSnooze }] =
-    useSetBucketSnoozeMutation({
-      optimisticResponse: (vars) => {
-        const now = new Date().toISOString();
-        
-        return {
-          __typename: "Mutation" as const,
-          setBucketSnooze: {
-            __typename: "UserBucket" as const,
-            id: bucket?.userBucket?.id || `userBucket-${vars.bucketId}`,
-            userId: bucket?.userBucket?.userId || "",
-            bucketId: vars.bucketId,
-            snoozeUntil: vars.snoozeUntil ?? null,
-            createdAt: bucket?.userBucket?.createdAt || now,
-            updatedAt: now,
-            snoozes: bucket?.userBucket?.snoozes || [],
-            user: bucket?.userBucket?.user || {
-              __typename: "User" as const,
-              id: "",
-              email: "",
-              username: "",
-              firstName: null,
-              lastName: null,
-              avatar: null,
-              hasPassword: false,
-              role: UserRole.User,
-              createdAt: "",
-              updatedAt: "",
-              identities: [],
-              buckets: null,
-            },
-            bucket: bucket || {
-              __typename: "Bucket" as const,
-              id: vars.bucketId,
-              name: "",
-              description: null,
-              color: null,
-              icon: null,
-              createdAt: "",
-              updatedAt: "",
-              isProtected: null,
-              isPublic: null,
-              user: {
-                __typename: "User" as const,
-                id: "",
-                email: "",
-                username: "",
-                firstName: null,
-                lastName: null,
-                avatar: null,
-                hasPassword: false,
-                role: UserRole.User,
-                createdAt: "",
-                updatedAt: "",
-                identities: [],
-                buckets: null,
-              },
-            },
-          },
-        };
-      },
-      update: (cache, { data }) => {
-        if (!data?.setBucketSnooze) return;
-        
-        try {
-          const existingData = cache.readQuery<any>({
-            query: GetBucketDocument,
-            variables: { id: bucketId },
-          });
-          
-          if (existingData?.bucket) {
-            cache.writeQuery({
-              query: GetBucketDocument,
-              variables: { id: bucketId },
-              data: {
-                bucket: {
-                  ...existingData.bucket,
-                  userBucket: {
-                    ...existingData.bucket.userBucket,
-                    ...data.setBucketSnooze,
-                  },
-                },
-              },
-            });
-          }
-        } catch (error) {
-          console.error("Failed to update cache after snooze update:", error);
-        }
-      },
-      onError: (error: any) => {
-        console.error("Set bucket snooze error:", error);
-        if (bucketId) {
-          refreshBucket(bucketId).catch(console.error);
-        }
-      },
-    });
 
   const quickSnoozeOptions: QuickSnoozeOption[] = useMemo(
     () => [
@@ -232,27 +139,19 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
 
   const handleSetSnooze = async (date: Date) => {
     if (!bucketId) return;
-    const snoozeUntilISO = date.toISOString();
     try {
-      await setBucketSnooze({
-        variables: { bucketId, snoozeUntil: snoozeUntilISO },
-      });
-      setShowModal(false);
+      await setSnooze({ bucketId, snoozeUntil: date });
     } catch (error) {
-      Alert.alert("Error", t("notificationDetail.snooze.errorSetting"));
+      // Error già gestito in onError
     }
   };
 
   const handleRemoveSnooze = async () => {
     if (!bucketId) return;
     try {
-      setRemovingSnooze(true);
-      await setBucketSnooze({ variables: { bucketId, snoozeUntil: null } });
-      setShowModal(false);
+      await setSnooze({ bucketId, snoozeUntil: null });
     } catch (error) {
       Alert.alert("Error", t("notificationDetail.snooze.errorRemoving"));
-    } finally {
-      setRemovingSnooze(false);
     }
   };
 
@@ -375,11 +274,11 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
                     styles.clearAllButton,
                     {
                       backgroundColor: theme.colors.error,
-                      opacity: removingSnooze ? 0.8 : 1,
+                      opacity: settingSnooze ? 0.8 : 1,
                     },
                   ]}
                   onPress={handleRemoveSnooze}
-                  disabled={removingSnooze}
+                  disabled={settingSnooze}
                 >
                   <View
                     style={{
@@ -388,7 +287,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
                       gap: 8,
                     }}
                   >
-                    {removingSnooze ? (
+                    {settingSnooze ? (
                       <ActivityIndicator
                         color={theme.colors.onPrimary}
                         size="small"

@@ -16,13 +16,11 @@ const BucketsSection: React.FC = () => {
 
   // Reactive query for buckets with stats - auto-updates when notifications change
   // Automatically includes buckets with zero notifications from API
-  const { 
-    data: bucketStats = [], 
+  const {
+    data: bucketStats = [],
     isLoading: loading,
     refreshBucketsStats,
-  } = useBucketsStats({
-    realtime: true, // Enable real-time updates
-  });
+  } = useBucketsStats({});
 
   const handleBucketPress = (bucketId: string) => {
     navigateToBucketDetail(bucketId);
@@ -76,9 +74,7 @@ const BucketsSection: React.FC = () => {
 
   const refetch = async () => {
     // Refresh both notifications and buckets (including snooze status)
-    await Promise.all([
-      refreshBucketsStats(),
-    ]);
+    await Promise.all([refreshBucketsStats()]);
   };
 
   return (
