@@ -203,7 +203,6 @@ export interface TranslationKey {
       description: string;
       inCache: string;
       items: string;
-      elements: string;
       mediaSize: string;
       notificationsCount: string;
       resetCache: string;
@@ -222,7 +221,6 @@ export interface TranslationKey {
       notifications: string;
       notificationsDescription: string;
       notificationsInfo: string;
-      graphqlInfo: string;
       media: string;
       mediaDescription: string;
       mediaInfo: string;
@@ -373,13 +371,6 @@ export interface TranslationKey {
       clearSuccessMessage: string;
       clearError: string;
       clearErrorMessage: string;
-    };
-    language: {
-      description: string;
-      searchLanguage: string;
-      selectLanguage: string;
-      selectPlaceholder: string;
-      title: string;
     };
     retentionPolicies: {
       description: string;
@@ -696,7 +687,6 @@ export interface TranslationKey {
     saving: string;
     search: string;
     selectOption: string;
-    selectOptions: string;
     selectAll: string;
     deselectAll: string;
     settings: string;

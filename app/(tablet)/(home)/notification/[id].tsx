@@ -5,9 +5,8 @@ import { useLocalSearchParams } from "expo-router";
 import React from "react";
 
 export default function NotificationDetailPage() {
-  const { id, forceFetch } = useLocalSearchParams<{
+  const { id } = useLocalSearchParams<{
     id: string;
-    forceFetch: string;
   }>();
   const { navigateBack } = useNavigationUtils();
 
@@ -22,11 +21,7 @@ export default function NotificationDetailPage() {
   return (
     <>
       <CloseHeader onClose={handleClose} />
-      <NotificationDetail
-        notificationId={id}
-        forceFetch={forceFetch === "true"}
-        onBack={handleClose}
-      />
+      <NotificationDetail notificationId={id} onBack={handleClose} />
     </>
   );
 }

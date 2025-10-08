@@ -16,11 +16,11 @@ export function useNavigationUtils() {
             router.back();
         },
 
-        navigateToNotificationDetail: (notificationId: string, forceFetch?: boolean) => {
+        navigateToNotificationDetail: (notificationId: string) => {
             if (isMobile) {
-                router.push(`/(mobile)/(home)/notification/${notificationId}?forceFetch=${forceFetch}`);
+                router.push(`/(mobile)/(home)/notification/${notificationId}`);
             } else {
-                router.push(`/(tablet)/(home)/notification/${notificationId}?forceFetch=${forceFetch}`);
+                router.push(`/(tablet)/(home)/notification/${notificationId}`);
             }
         },
 

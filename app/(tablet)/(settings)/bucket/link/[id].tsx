@@ -1,8 +1,7 @@
 import CloseHeader from "@/components/CloseHeader";
 import DanglingBucketResolver from "@/components/DanglingBucketResolver";
-import EditBucket from "@/components/EditBucket";
 import { useNavigationUtils } from "@/utils/navigation";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import React from "react";
 
 export default function EditBucketPage() {
@@ -16,7 +15,7 @@ export default function EditBucketPage() {
   return (
     <>
       <CloseHeader onClose={navigateBack} />
-      <DanglingBucketResolver bucketId={id} onBack={navigateBack} />
+      <DanglingBucketResolver id={id} />
     </>
   );
 }

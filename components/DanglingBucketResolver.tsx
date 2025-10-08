@@ -28,11 +28,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 
 interface DanglingBucketResolverProps {
-  onBack?: () => void;
+  id?: string;
 }
 
 export default function DanglingBucketResolver({
-  onBack,
+  id,
 }: DanglingBucketResolverProps) {
   const { navigateBack } = useNavigationUtils();
   const theme = useTheme();
@@ -43,10 +43,6 @@ export default function DanglingBucketResolver({
   const [notifications, setNotifications] = useState<NotificationFragment[]>(
     []
   );
-
-  const { id } = useLocalSearchParams<{
-    id?: string;
-  }>();
 
   const [isMigrating, setIsMigrating] = useState(false);
   const [selectedBucketId, setSelectedBucketId] = useState<string>();

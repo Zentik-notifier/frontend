@@ -1,11 +1,9 @@
 import DanglingBucketResolver from "@/components/DanglingBucketResolver";
-import { useNavigationUtils } from "@/utils/navigation";
 import { useLocalSearchParams } from "expo-router";
 import React from "react";
 
 export default function EditBucketPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { navigateBack } = useNavigationUtils();
 
   if (!id) {
     return null;
@@ -13,7 +11,7 @@ export default function EditBucketPage() {
 
   return (
     <>
-      <DanglingBucketResolver bucketId={id} onBack={navigateBack} />
+      <DanglingBucketResolver id={id} />
     </>
   );
 }

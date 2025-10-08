@@ -12,14 +12,10 @@ export default function DanglingBucketPage() {
     return null;
   }
 
-  const handleClose = () => {
-    navigateBack();
-  };
-
   return (
     <>
-      <CloseHeader onClose={handleClose} />
-      <DanglingBucketResolver bucketId={id} onBack={handleClose} />
+      <CloseHeader onClose={navigateBack} />
+      <DanglingBucketResolver id={id} />
     </>
   );
 }

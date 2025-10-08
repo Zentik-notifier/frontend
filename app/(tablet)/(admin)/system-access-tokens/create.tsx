@@ -9,7 +9,7 @@ export default function CreateSystemAccessTokenScreen() {
   return (
     <>
       <CloseHeader onClose={navigateBack} />
-      <SystemAccessTokenForm isEdit={false} />
+      <SystemAccessTokenForm />
     </>
   );
 }

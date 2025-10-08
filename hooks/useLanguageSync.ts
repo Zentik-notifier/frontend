@@ -25,7 +25,7 @@ export function useLanguageSync() {
   }, [setUserLocale]);
 
   return {
-    currentLocale: settings.locale,
+    currentLocale: settings.locale ?? 'en-EN',
     setLocale,
     availableLocales: i18nService.getAvailableLocales(),
     getLocaleDisplayName: i18nService.getLocaleDisplayName.bind(i18nService),
