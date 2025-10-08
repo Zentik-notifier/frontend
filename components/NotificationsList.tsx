@@ -3,23 +3,21 @@
  * Maintains existing filter system while using new react-query hooks
  */
 
+import { useAppContext } from "@/contexts/AppContext";
 import {
   NotificationsProvider,
   useNotificationsContext,
 } from "@/contexts/NotificationsContext";
 import { NotificationFragment } from "@/generated/gql-operations-generated";
-import { useI18n } from "@/hooks/useI18n";
 import {
-  useInfiniteNotifications,
-  useBatchMarkAsRead,
   useBatchDeleteNotifications,
-  useMarkAsRead,
-  useRefreshNotifications,
+  useBatchMarkAsRead,
+  useInfiniteNotifications,
+  useRefreshNotifications
 } from "@/hooks/notifications";
-import { useAppContext } from "@/contexts/AppContext";
-import { userSettings } from "@/services/user-settings";
+import { useI18n } from "@/hooks/useI18n";
+import type { NotificationFilters as RQFilters } from "@/types/notifications";
 import { FlashList } from "@shopify/flash-list";
-import { useQueryClient } from "@tanstack/react-query";
 import React, {
   useCallback,
   useEffect,
@@ -28,12 +26,12 @@ import React, {
   useState,
 } from "react";
 import {
+  ActivityIndicator,
   Alert,
   RefreshControl,
   StyleSheet,
   View,
   ViewToken,
-  ActivityIndicator,
 } from "react-native";
 import {
   Icon,
@@ -44,7 +42,6 @@ import {
 } from "react-native-paper";
 import NotificationFilters from "./NotificationFilters";
 import NotificationItem from "./NotificationItem";
-import type { NotificationFilters as RQFilters } from "@/types/notifications";
 
 interface NotificationsListProps {
   bucketId?: string;
