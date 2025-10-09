@@ -2,10 +2,7 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY . .
-COPY .npmrc ./.npmrc
-# Install all deps (including dev for build tools like workbox-cli)
 RUN npm install
-# Build static web output in dist/
 RUN npm run build:web
 
 FROM nginx:alpine
