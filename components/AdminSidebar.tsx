@@ -26,6 +26,15 @@ export default function AdminSidebar() {
 
   const adminOptions: AdminOption[] = [
     {
+      id: "server-settings",
+      title: t("administration.serverSettings"),
+      description: t("administration.serverSettingsDescription"),
+      icon: "server",
+      iconColor: "#8b5cf6", // Purple
+      onPress: nav.navigateToServerSettings,
+      selectionSegment: "server-settings",
+    },
+    {
       id: "user-management",
       title: t("administration.userManagement"),
       description: t("administration.userManagementDescription"),
@@ -60,15 +69,6 @@ export default function AdminSidebar() {
       iconColor: "#ef4444", // Red
       onPress: nav.navigateToEventsReview,
       selectionSegment: "events-review",
-    },
-    {
-      id: "server-settings",
-      title: t("administration.serverSettings"),
-      description: t("administration.serverSettingsDescription"),
-      icon: "server",
-      iconColor: "#8b5cf6", // Purple
-      onPress: nav.navigateToServerSettings,
-      selectionSegment: "server-settings",
     },
     {
       id: "backup-management",
