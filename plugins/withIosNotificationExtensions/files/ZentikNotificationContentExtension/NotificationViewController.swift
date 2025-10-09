@@ -137,15 +137,56 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             metadata: ["notificationId": notificationId]
         )
         
-        // Inject dynamic actions from userInfo (Home Assistant approach)
-        // This allows notifications to have custom actions without pre-registering categories
         let categoryId = notification.request.content.categoryIdentifier.lowercased()
+        
+        // Log category and actions data received
+        print("📱 [ContentExtension] 🎭 Category received: '\(categoryId)'")
+        if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
+            print("📱 [ContentExtension] 🎭 Raw actions data received: \(actionsData)")
+            
+            logToDatabase(
+                level: "INFO",
+                tag: "NotificationContentExtension",
+                message: "[Actions] Raw actions data received",
+                metadata: [
+                    "notificationId": notificationId,
+                    "categoryId": categoryId,
+                    "rawActionsData": String(describing: actionsData)
+                ]
+            )
+        } else {
+            print("📱 [ContentExtension] 🎭 No actions data in userInfo")
+            
+            logToDatabase(
+                level: "WARN",
+                tag: "NotificationContentExtension",
+                message: "[Actions] No actions data in userInfo",
+                metadata: [
+                    "notificationId": notificationId,
+                    "categoryId": categoryId,
+                    "userInfoKeys": notification.request.content.userInfo.keys.map { String(describing: $0) }.joined(separator: ", ")
+                ]
+            )
+        }
+        
         if categoryId == "dynamic" || categoryId.hasPrefix("zentik_cat_") {
             if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
+                print("📱 [ContentExtension] 🎭 Processing \(actionsData.count) actions for dynamic category")
+                
                 let notificationActions = actionsData.compactMap { actionData -> UNNotificationAction? in
                     guard let type = actionData["type"] as? String,
                           let value = actionData["value"] as? String else {
-                        print("📱 [ContentExtension] ⚠️ Invalid action data: \(actionData)")
+                        print("📱 [ContentExtension] ⚠️ Invalid action data (missing type/value): \(actionData)")
+                        
+                        logToDatabase(
+                            level: "WARN",
+                            tag: "NotificationContentExtension",
+                            message: "[Actions] Invalid action data",
+                            metadata: [
+                                "notificationId": notificationId,
+                                "actionData": String(describing: actionData)
+                            ]
+                        )
                         return nil
                     }
                     
@@ -166,7 +207,23 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                         icon = UNNotificationActionIcon(systemImageName: actualIconName)
                     }
                     
-                    print("📱 [ContentExtension] 🎭 Created dynamic action: \(actionId) - \(title)")
+                    print("📱 [ContentExtension] 🎭 Created dynamic action: \(actionId) - \(title) [type:\(type), value:\(value), destructive:\(destructive), auth:\(authRequired)]")
+                    
+                    logToDatabase(
+                        level: "INFO",
+                        tag: "NotificationContentExtension",
+                        message: "[Actions] Dynamic action created",
+                        metadata: [
+                            "notificationId": notificationId,
+                            "actionId": actionId,
+                            "title": title,
+                            "type": type,
+                            "value": value,
+                            "destructive": destructive,
+                            "authRequired": authRequired,
+                            "hasIcon": icon != nil
+                        ]
+                    )
                     
                     return UNNotificationAction(
                         identifier: actionId,
@@ -176,23 +233,41 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     )
                 }
                 
+                print("📱 [ContentExtension] 🎭 Successfully created \(notificationActions.count) actions from \(actionsData.count) action data items")
+                
                 // Inject actions into extension context
                 if !notificationActions.isEmpty {
                     extensionContext?.notificationActions = notificationActions
                     print("📱 [ContentExtension] 🎭 Injected \(notificationActions.count) dynamic actions into NCE")
                     
+                    // Log all action identifiers for debugging
+                    let actionIdentifiers = notificationActions.map { $0.identifier }.joined(separator: ", ")
+                    print("📱 [ContentExtension] 🎭 Action identifiers: [\(actionIdentifiers)]")
+                    
                     logToDatabase(
                         level: "INFO",
                         tag: "NotificationContentExtension",
-                        message: "[Actions] Dynamic actions injected",
+                        message: "[Actions] Dynamic actions injected successfully",
                         metadata: [
                             "notificationId": notificationId,
                             "actionsCount": notificationActions.count,
-                            "categoryId": categoryId
+                            "categoryId": categoryId,
+                            "actionIdentifiers": actionIdentifiers
                         ]
                     )
                 } else {
-                    print("📱 [ContentExtension] ⚠️ No valid actions to inject")
+                    print("📱 [ContentExtension] ⚠️ No valid actions to inject (all actions filtered out)")
+                    
+                    logToDatabase(
+                        level: "WARN",
+                        tag: "NotificationContentExtension",
+                        message: "[Actions] No valid actions to inject",
+                        metadata: [
+                            "notificationId": notificationId,
+                            "categoryId": categoryId,
+                            "originalActionsCount": actionsData.count
+                        ]
+                    )
                 }
             } else {
                 print("📱 [ContentExtension] ℹ️ No actions data in userInfo for category: \(categoryId)")
@@ -255,18 +330,33 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         print("📱 [ContentExtension] ========== ACTION RESPONSE RECEIVED ==========")
         print("📱 [ContentExtension] Action identifier: \(response.actionIdentifier)")
         print("📱 [ContentExtension] Notification ID: \(response.notification.request.identifier)")
+        print("📱 [ContentExtension] Category: \(response.notification.request.content.categoryIdentifier)")
         
         let userInfo = response.notification.request.content.userInfo
-        print("📱 [ContentExtension] UserInfo: \(userInfo)")
+        print("📱 [ContentExtension] UserInfo keys: \(userInfo.keys.map { String(describing: $0) }.joined(separator: ", "))")
         
-        // Log tap action
+        // Check if actions data is available in userInfo
+        if let actionsData = userInfo["actions"] as? [[String: Any]] {
+            print("📱 [ContentExtension] 🎭 Actions available in userInfo: \(actionsData.count) actions")
+        } else {
+            print("📱 [ContentExtension] 🎭 No actions found in userInfo")
+        }
+        
+        // Check if this is a dynamic action
+        let isDynamicAction = response.actionIdentifier.hasPrefix("action_")
+        print("📱 [ContentExtension] 🎭 Is dynamic action: \(isDynamicAction)")
+        
+        // Log tap action with detailed information
         logToDatabase(
             level: "INFO",
             tag: "NotificationContentExtension",
-            message: "[Tap] User tapped notification",
+            message: "[Tap] User action received in NCE",
             metadata: [
                 "notificationId": response.notification.request.identifier,
-                "actionIdentifier": response.actionIdentifier
+                "actionIdentifier": response.actionIdentifier,
+                "categoryId": response.notification.request.content.categoryIdentifier,
+                "isDynamicAction": isDynamicAction,
+                "hasActionsInUserInfo": userInfo["actions"] != nil
             ]
         )
         
