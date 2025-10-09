@@ -1654,7 +1654,6 @@
       "RateLimitMessagesTtlMs": "Messages Rate Limit TTL (ms)",
       "CorsOrigin": "CORS Origin",
       "CorsCredentials": "CORS Credentials",
-      "PublicBackendUrl": "Public Backend URL",
       "LogLevel": "Log Level"
     }
   },
@@ -1684,6 +1683,30 @@
       "tag": "tag",
       "message": "message",
       "meta": "meta"
+    }
+  },
+  "serverLogs": {
+    "title": "Server Logs",
+    "description": "View and manage server logs stored in PostgreSQL database.",
+    "refresh": "Refresh",
+    "loading": "Loading server logs...",
+    "filterPlaceholder": "Filter logs by text, level, context",
+    "logDetailsTitle": "Log Details",
+    "cleanupButton": "Cleanup Old Logs",
+    "cleanupTitle": "Cleanup Old Logs",
+    "cleanupMessage": "Are you sure you want to delete old logs according to the retention policy? This action cannot be undone.",
+    "cleanupConfirm": "Cleanup",
+    "cleanupSuccess": "Success",
+    "cleanupSuccessMessage": "Old logs have been cleaned up successfully.",
+    "cleanupError": "Error",
+    "cleanupErrorMessage": "Failed to cleanup old logs. Please try again.",
+    "fields": {
+      "level": "Level",
+      "timestamp": "Timestamp",
+      "context": "Context",
+      "message": "Message",
+      "trace": "Trace",
+      "meta": "Metadata"
     }
   },
   "notFound": {

@@ -1584,6 +1584,30 @@ export interface TranslationKey {
       description: string;
     };
   };
+  serverLogs: {
+    title: string;
+    description: string;
+    refresh: string;
+    loading: string;
+    filterPlaceholder: string;
+    logDetailsTitle: string;
+    cleanupButton: string;
+    cleanupTitle: string;
+    cleanupMessage: string;
+    cleanupConfirm: string;
+    cleanupSuccess: string;
+    cleanupSuccessMessage: string;
+    cleanupError: string;
+    cleanupErrorMessage: string;
+    fields: {
+      level: string;
+      timestamp: string;
+      context: string;
+      message: string;
+      trace: string;
+      meta: string;
+    };
+  };
   serverSettings: {
     title: string;
     description: string;
@@ -1670,7 +1694,6 @@ export interface TranslationKey {
       RateLimitMessagesTtlMs: string;
       CorsOrigin: string;
       CorsCredentials: string;
-      PublicBackendUrl: string;
       LogLevel: string;
     };
   };

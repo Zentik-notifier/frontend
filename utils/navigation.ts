@@ -252,6 +252,14 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToServerLogs: () => {
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)/server-logs`);
+            } else {
+                router.push(`/(tablet)/(admin)/server-logs`);
+            }
+        },
+
         navigateToCreateOAuthProvider: () => {
             if (isMobile) {
                 router.push(`/(mobile)/(admin)/oauth-providers/create`);

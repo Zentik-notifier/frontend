@@ -46,10 +46,6 @@ export function BackupManagement() {
               const result = await triggerBackupMutation();
 
               if (result.data?.triggerBackup) {
-                Alert.alert(
-                  t("backupManagement.success") as string,
-                  result.data.triggerBackup
-                );
                 await handleRefresh();
               }
             } catch (error) {
@@ -114,7 +110,11 @@ export function BackupManagement() {
 
   return (
     <>
-      <PaperScrollView onRefresh={handleRefresh} loading={loading}>
+      <PaperScrollView
+        onRefresh={handleRefresh}
+        loading={loading}
+        onAdd={handleTriggerBackup}
+      >
         {/* Stats Header */}
         <View style={styles.statsHeader}>
           <View style={styles.statItem}>
@@ -178,16 +178,6 @@ export function BackupManagement() {
           </View>
         )}
       </PaperScrollView>
-
-      {/* FAB for creating backup */}
-      <FAB
-        icon="database-plus"
-        label={t("backupManagement.triggerBackup")}
-        style={styles.fab}
-        onPress={handleTriggerBackup}
-        loading={triggeringBackup}
-        disabled={triggeringBackup}
-      />
     </>
   );
 }

@@ -1099,3 +1099,51 @@ mutation DeleteBackup($filename: String!) {
 mutation TriggerBackup {
   triggerBackup
 }
+
+# Server Logs Operations
+input GetLogsInput {
+  page: Float
+  limit: Float
+  level: LogLevel
+  context: String
+  search: String
+}
+
+query GetServerLogs($input: GetLogsInput!) {
+  logs(input: $input) {
+    logs {
+      id
+      level
+      message
+      context
+      trace
+      metadata
+      timestamp
+      createdAt
+    }
+    total
+    page
+    limit
+    totalPages
+  }
+}
+
+query GetTotalLogCount {
+  totalLogCount
+}
+
+query GetLogCountByLevel {
+  logCountByLevel
+}
+
+mutation TriggerLogCleanup {
+  triggerLogCleanup
+}
+
+mutation FlushLokiLogs {
+  flushLokiLogs
+}
+
+mutation ReloadLokiConfig {
+  reloadLokiConfig
+}

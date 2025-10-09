@@ -291,6 +291,14 @@ export type GetEntityExecutionsInput = {
   userId?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type GetLogsInput = {
+  context?: InputMaybe<Scalars['String']['input']>;
+  level?: InputMaybe<LogLevel>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type GetResourcePermissionsInput = {
   resourceId: Scalars['String']['input'];
   resourceType: ResourceType;
@@ -313,6 +321,29 @@ export enum HttpMethod {
   Patch = 'PATCH',
   Post = 'POST',
   Put = 'PUT'
+}
+
+export type Log = {
+  __typename?: 'Log';
+  context: Maybe<Scalars['String']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  level: LogLevel;
+  message: Scalars['String']['output'];
+  metadata: Maybe<Scalars['JSON']['output']>;
+  timestamp: Scalars['DateTime']['output'];
+  trace: Maybe<Scalars['String']['output']>;
+};
+
+/** Log level enum */
+export enum LogLevel {
+  Debug = 'DEBUG',
+  Error = 'ERROR',
+  Http = 'HTTP',
+  Info = 'INFO',
+  Silly = 'SILLY',
+  Verbose = 'VERBOSE',
+  Warn = 'WARN'
 }
 
 export type LoginDto = {
@@ -416,6 +447,8 @@ export type Mutation = {
   deleteWebhook: Scalars['Boolean']['output'];
   deviceReportNotificationReceived: Notification;
   executeWebhook: Scalars['Boolean']['output'];
+  /** Force flush all pending logs to Loki */
+  flushLokiLogs: Scalars['Boolean']['output'];
   grantEntityPermission: EntityPermission;
   login: LoginResponse;
   logout: Scalars['String']['output'];
@@ -429,6 +462,8 @@ export type Mutation = {
   refreshAccessToken: RefreshTokenResponse;
   register: RegisterResponse;
   registerDevice: UserDevice;
+  /** Reload Loki configuration from settings */
+  reloadLokiConfig: Scalars['Boolean']['output'];
   removeDevice: Scalars['Boolean']['output'];
   removeDeviceByToken: Scalars['Boolean']['output'];
   requestEmailConfirmation: EmailConfirmationResponseDto;
@@ -450,6 +485,8 @@ export type Mutation = {
   toggleOAuthProvider: OAuthProvider;
   /** Manually trigger a database backup */
   triggerBackup: Scalars['String']['output'];
+  /** Manually trigger log cleanup based on retention policy */
+  triggerLogCleanup: Scalars['Boolean']['output'];
   unshareBucket: Scalars['Boolean']['output'];
   updateBucket: Bucket;
   /** @deprecated Usa future Bucket mutation (updateBucketSnoozes) */
@@ -885,6 +922,15 @@ export enum OAuthProviderType {
   Google = 'GOOGLE'
 }
 
+export type PaginatedLogs = {
+  __typename?: 'PaginatedLogs';
+  limit: Scalars['Int']['output'];
+  logs: Array<Log>;
+  page: Scalars['Int']['output'];
+  total: Scalars['Int']['output'];
+  totalPages: Scalars['Int']['output'];
+};
+
 export type PasswordResetResponseDto = {
   __typename?: 'PasswordResetResponseDto';
   message: Scalars['String']['output'];
@@ -945,6 +991,10 @@ export type Query = {
   /** List all available database backups */
   listBackups: Array<BackupInfoDto>;
   listSystemTokens: Array<SystemAccessTokenDto>;
+  /** Get log count by level */
+  logCountByLevel: Scalars['String']['output'];
+  /** Get logs with pagination and filtering */
+  logs: PaginatedLogs;
   me: User;
   notification: Notification;
   notificationServices: Array<NotificationServiceInfo>;
@@ -957,6 +1007,8 @@ export type Query = {
   serverSetting: Maybe<ServerSetting>;
   /** Get all server settings */
   serverSettings: Array<ServerSetting>;
+  /** Get total log count */
+  totalLogCount: Scalars['Float']['output'];
   user: User;
   userDevice: Maybe<UserDevice>;
   userDevices: Array<UserDevice>;
@@ -1005,6 +1057,11 @@ export type QueryGetResourcePermissionsArgs = {
 
 export type QueryGetSystemTokenArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type QueryLogsArgs = {
+  input: GetLogsInput;
 };
 
 
@@ -1167,10 +1224,21 @@ export enum ServerSettingType {
   JwtRefreshTokenExpiration = 'JwtRefreshTokenExpiration',
   JwtSecret = 'JwtSecret',
   LogLevel = 'LogLevel',
+  LogRetentionDays = 'LogRetentionDays',
+  LogStorageEnabled = 'LogStorageEnabled',
+  LokiBatchIntervalMs = 'LokiBatchIntervalMs',
+  LokiBatchSize = 'LokiBatchSize',
+  LokiEnabled = 'LokiEnabled',
+  LokiLabels = 'LokiLabels',
+  LokiPassword = 'LokiPassword',
+  LokiUrl = 'LokiUrl',
+  LokiUsername = 'LokiUsername',
   MessagesDeleteCronJob = 'MessagesDeleteCronJob',
   MessagesDeleteJobEnabled = 'MessagesDeleteJobEnabled',
   MessagesMaxAge = 'MessagesMaxAge',
-  PublicBackendUrl = 'PublicBackendUrl',
+  PrometheusEnabled = 'PrometheusEnabled',
+  PrometheusPath = 'PrometheusPath',
+  PrometheusRequiresAuth = 'PrometheusRequiresAuth',
   PushNotificationsPassthroughServer = 'PushNotificationsPassthroughServer',
   PushPassthroughToken = 'PushPassthroughToken',
   RateLimitBlockMs = 'RateLimitBlockMs',
@@ -2272,6 +2340,38 @@ export type TriggerBackupMutationVariables = Exact<{ [key: string]: never; }>;
 
 
 export type TriggerBackupMutation = { __typename?: 'Mutation', triggerBackup: string };
+
+export type GetServerLogsQueryVariables = Exact<{
+  input: GetLogsInput;
+}>;
+
+
+export type GetServerLogsQuery = { __typename?: 'Query', logs: { __typename?: 'PaginatedLogs', total: number, page: number, limit: number, totalPages: number, logs: Array<{ __typename?: 'Log', id: string, level: LogLevel, message: string, context: string | null, trace: string | null, metadata: any | null, timestamp: string, createdAt: string }> } };
+
+export type GetTotalLogCountQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetTotalLogCountQuery = { __typename?: 'Query', totalLogCount: number };
+
+export type GetLogCountByLevelQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetLogCountByLevelQuery = { __typename?: 'Query', logCountByLevel: string };
+
+export type TriggerLogCleanupMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TriggerLogCleanupMutation = { __typename?: 'Mutation', triggerLogCleanup: boolean };
+
+export type FlushLokiLogsMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type FlushLokiLogsMutation = { __typename?: 'Mutation', flushLokiLogs: boolean };
+
+export type ReloadLokiConfigMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ReloadLokiConfigMutation = { __typename?: 'Mutation', reloadLokiConfig: boolean };
 
 export const MessageAttachmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageAttachmentFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MessageAttachment"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"saveOnServer"}}]}}]} as unknown as DocumentNode;
 export const NotificationActionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationActionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationAction"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"destructive"}}]}}]} as unknown as DocumentNode;
@@ -5408,3 +5508,181 @@ export function useTriggerBackupMutation(baseOptions?: ApolloReactHooks.Mutation
 export type TriggerBackupMutationHookResult = ReturnType<typeof useTriggerBackupMutation>;
 export type TriggerBackupMutationResult = Apollo.MutationResult<TriggerBackupMutation>;
 export type TriggerBackupMutationOptions = Apollo.BaseMutationOptions<TriggerBackupMutation, TriggerBackupMutationVariables>;
+export const GetServerLogsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetServerLogs"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"GetLogsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logs"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logs"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"level"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"context"}},{"kind":"Field","name":{"kind":"Name","value":"trace"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"}},{"kind":"Field","name":{"kind":"Name","value":"timestamp"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"page"}},{"kind":"Field","name":{"kind":"Name","value":"limit"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}}]}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetServerLogsQuery__
+ *
+ * To run a query within a React component, call `useGetServerLogsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetServerLogsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetServerLogsQuery({
+ *   variables: {
+ *      input: // value for 'input'
+ *   },
+ * });
+ */
+export function useGetServerLogsQuery(baseOptions: ApolloReactHooks.QueryHookOptions<GetServerLogsQuery, GetServerLogsQueryVariables> & ({ variables: GetServerLogsQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetServerLogsQuery, GetServerLogsQueryVariables>(GetServerLogsDocument, options);
+      }
+export function useGetServerLogsLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetServerLogsQuery, GetServerLogsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetServerLogsQuery, GetServerLogsQueryVariables>(GetServerLogsDocument, options);
+        }
+export function useGetServerLogsSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetServerLogsQuery, GetServerLogsQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetServerLogsQuery, GetServerLogsQueryVariables>(GetServerLogsDocument, options);
+        }
+export type GetServerLogsQueryHookResult = ReturnType<typeof useGetServerLogsQuery>;
+export type GetServerLogsLazyQueryHookResult = ReturnType<typeof useGetServerLogsLazyQuery>;
+export type GetServerLogsSuspenseQueryHookResult = ReturnType<typeof useGetServerLogsSuspenseQuery>;
+export type GetServerLogsQueryResult = Apollo.QueryResult<GetServerLogsQuery, GetServerLogsQueryVariables>;
+export const GetTotalLogCountDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetTotalLogCount"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"totalLogCount"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetTotalLogCountQuery__
+ *
+ * To run a query within a React component, call `useGetTotalLogCountQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetTotalLogCountQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetTotalLogCountQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useGetTotalLogCountQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<GetTotalLogCountQuery, GetTotalLogCountQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetTotalLogCountQuery, GetTotalLogCountQueryVariables>(GetTotalLogCountDocument, options);
+      }
+export function useGetTotalLogCountLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetTotalLogCountQuery, GetTotalLogCountQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetTotalLogCountQuery, GetTotalLogCountQueryVariables>(GetTotalLogCountDocument, options);
+        }
+export function useGetTotalLogCountSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetTotalLogCountQuery, GetTotalLogCountQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetTotalLogCountQuery, GetTotalLogCountQueryVariables>(GetTotalLogCountDocument, options);
+        }
+export type GetTotalLogCountQueryHookResult = ReturnType<typeof useGetTotalLogCountQuery>;
+export type GetTotalLogCountLazyQueryHookResult = ReturnType<typeof useGetTotalLogCountLazyQuery>;
+export type GetTotalLogCountSuspenseQueryHookResult = ReturnType<typeof useGetTotalLogCountSuspenseQuery>;
+export type GetTotalLogCountQueryResult = Apollo.QueryResult<GetTotalLogCountQuery, GetTotalLogCountQueryVariables>;
+export const GetLogCountByLevelDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetLogCountByLevel"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logCountByLevel"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetLogCountByLevelQuery__
+ *
+ * To run a query within a React component, call `useGetLogCountByLevelQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetLogCountByLevelQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetLogCountByLevelQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useGetLogCountByLevelQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>(GetLogCountByLevelDocument, options);
+      }
+export function useGetLogCountByLevelLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>(GetLogCountByLevelDocument, options);
+        }
+export function useGetLogCountByLevelSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>(GetLogCountByLevelDocument, options);
+        }
+export type GetLogCountByLevelQueryHookResult = ReturnType<typeof useGetLogCountByLevelQuery>;
+export type GetLogCountByLevelLazyQueryHookResult = ReturnType<typeof useGetLogCountByLevelLazyQuery>;
+export type GetLogCountByLevelSuspenseQueryHookResult = ReturnType<typeof useGetLogCountByLevelSuspenseQuery>;
+export type GetLogCountByLevelQueryResult = Apollo.QueryResult<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>;
+export const TriggerLogCleanupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"TriggerLogCleanup"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"triggerLogCleanup"}}]}}]} as unknown as DocumentNode;
+export type TriggerLogCleanupMutationFn = Apollo.MutationFunction<TriggerLogCleanupMutation, TriggerLogCleanupMutationVariables>;
+
+/**
+ * __useTriggerLogCleanupMutation__
+ *
+ * To run a mutation, you first call `useTriggerLogCleanupMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useTriggerLogCleanupMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [triggerLogCleanupMutation, { data, loading, error }] = useTriggerLogCleanupMutation({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useTriggerLogCleanupMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<TriggerLogCleanupMutation, TriggerLogCleanupMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<TriggerLogCleanupMutation, TriggerLogCleanupMutationVariables>(TriggerLogCleanupDocument, options);
+      }
+export type TriggerLogCleanupMutationHookResult = ReturnType<typeof useTriggerLogCleanupMutation>;
+export type TriggerLogCleanupMutationResult = Apollo.MutationResult<TriggerLogCleanupMutation>;
+export type TriggerLogCleanupMutationOptions = Apollo.BaseMutationOptions<TriggerLogCleanupMutation, TriggerLogCleanupMutationVariables>;
+export const FlushLokiLogsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"FlushLokiLogs"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"flushLokiLogs"}}]}}]} as unknown as DocumentNode;
+export type FlushLokiLogsMutationFn = Apollo.MutationFunction<FlushLokiLogsMutation, FlushLokiLogsMutationVariables>;
+
+/**
+ * __useFlushLokiLogsMutation__
+ *
+ * To run a mutation, you first call `useFlushLokiLogsMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useFlushLokiLogsMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [flushLokiLogsMutation, { data, loading, error }] = useFlushLokiLogsMutation({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useFlushLokiLogsMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<FlushLokiLogsMutation, FlushLokiLogsMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<FlushLokiLogsMutation, FlushLokiLogsMutationVariables>(FlushLokiLogsDocument, options);
+      }
+export type FlushLokiLogsMutationHookResult = ReturnType<typeof useFlushLokiLogsMutation>;
+export type FlushLokiLogsMutationResult = Apollo.MutationResult<FlushLokiLogsMutation>;
+export type FlushLokiLogsMutationOptions = Apollo.BaseMutationOptions<FlushLokiLogsMutation, FlushLokiLogsMutationVariables>;
+export const ReloadLokiConfigDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ReloadLokiConfig"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reloadLokiConfig"}}]}}]} as unknown as DocumentNode;
+export type ReloadLokiConfigMutationFn = Apollo.MutationFunction<ReloadLokiConfigMutation, ReloadLokiConfigMutationVariables>;
+
+/**
+ * __useReloadLokiConfigMutation__
+ *
+ * To run a mutation, you first call `useReloadLokiConfigMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useReloadLokiConfigMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [reloadLokiConfigMutation, { data, loading, error }] = useReloadLokiConfigMutation({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useReloadLokiConfigMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<ReloadLokiConfigMutation, ReloadLokiConfigMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<ReloadLokiConfigMutation, ReloadLokiConfigMutationVariables>(ReloadLokiConfigDocument, options);
+      }
+export type ReloadLokiConfigMutationHookResult = ReturnType<typeof useReloadLokiConfigMutation>;
+export type ReloadLokiConfigMutationResult = Apollo.MutationResult<ReloadLokiConfigMutation>;
+export type ReloadLokiConfigMutationOptions = Apollo.BaseMutationOptions<ReloadLokiConfigMutation, ReloadLokiConfigMutationVariables>;

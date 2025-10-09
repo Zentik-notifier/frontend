@@ -79,6 +79,15 @@ export default function AdminSidebar() {
       onPress: nav.navigateToBackupManagement,
       selectionSegment: "backup-management",
     },
+    {
+      id: "server-logs",
+      title: t("serverLogs.title"),
+      description: t("serverLogs.description"),
+      icon: "file-document-outline",
+      iconColor: "#f59e0b", // Amber
+      onPress: nav.navigateToServerLogs,
+      selectionSegment: "server-logs",
+    },
   ];
 
   if (!isMobile) {

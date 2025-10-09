@@ -253,7 +253,7 @@ const settingSections: Record<string, SectionConfig> = {
   cors: {
     title: "CORS & Security",
     icon: "shield-check" as const,
-    settings: ["CorsOrigin", "CorsCredentials", "PublicBackendUrl"],
+    settings: ["CorsOrigin", "CorsCredentials"],
   },
   logging: {
     title: "Logging",

@@ -269,6 +269,14 @@ input GetEntityExecutionsInput {
   userId: String
 }
 
+input GetLogsInput {
+  context: String
+  level: LogLevel
+  limit: Int = 50
+  page: Int = 1
+  search: String
+}
+
 input GetResourcePermissionsInput {
   resourceId: String!
   resourceType: ResourceType!
@@ -295,6 +303,28 @@ enum HttpMethod {
 
 """JSON custom scalar type"""
 scalar JSON
+
+type Log {
+  context: String
+  createdAt: DateTime!
+  id: ID!
+  level: LogLevel!
+  message: String!
+  metadata: JSON
+  timestamp: DateTime!
+  trace: String
+}
+
+"""Log level enum"""
+enum LogLevel {
+  DEBUG
+  ERROR
+  HTTP
+  INFO
+  SILLY
+  VERBOSE
+  WARN
+}
 
 input LoginDto {
   deviceInfo: DeviceInfoDto
@@ -392,6 +422,8 @@ type Mutation {
   deleteWebhook(id: ID!): Boolean!
   deviceReportNotificationReceived(id: String!): Notification!
   executeWebhook(id: ID!): Boolean!
+  """Force flush all pending logs to Loki"""
+  flushLokiLogs: Boolean!
   grantEntityPermission(input: GrantEntityPermissionInput!): EntityPermission!
   login(input: LoginDto!): LoginResponse!
   logout: String!
@@ -405,6 +437,8 @@ type Mutation {
   refreshAccessToken(refreshToken: String!): RefreshTokenResponse!
   register(input: RegisterDto!): RegisterResponse!
   registerDevice(input: RegisterDeviceDto!): UserDevice!
+  """Reload Loki configuration from settings"""
+  reloadLokiConfig: Boolean!
   removeDevice(deviceId: String!): Boolean!
   removeDeviceByToken(deviceToken: String!): Boolean!
   requestEmailConfirmation(input: RequestEmailConfirmationDto!): EmailConfirmationResponseDto!
@@ -425,6 +459,8 @@ type Mutation {
   toggleOAuthProvider(id: String!): OAuthProvider!
   """Manually trigger a database backup"""
   triggerBackup: String!
+  """Manually trigger log cleanup based on retention policy"""
+  triggerLogCleanup: Boolean!
   unshareBucket(input: RevokeEntityPermissionInput!): Boolean!
   updateBucket(id: String!, input: UpdateBucketDto!): Bucket!
   updateBucketSnoozes(bucketId: String!, snoozes: [SnoozeScheduleInput!]!): UserBucket! @deprecated(reason: "Usa future Bucket mutation (updateBucketSnoozes)")
@@ -548,6 +584,14 @@ enum OAuthProviderType {
   GOOGLE
 }
 
+type PaginatedLogs {
+  limit: Int!
+  logs: [Log!]!
+  page: Int!
+  total: Int!
+  totalPages: Int!
+}
+
 type PasswordResetResponseDto {
   message: String!
   success: Boolean!
@@ -604,6 +648,10 @@ type Query {
   """List all available database backups"""
   listBackups: [BackupInfoDto!]!
   listSystemTokens: [SystemAccessTokenDto!]!
+  """Get log count by level"""
+  logCountByLevel: String!
+  """Get logs with pagination and filtering"""
+  logs(input: GetLogsInput!): PaginatedLogs!
   me: User!
   notification(id: String!): Notification!
   notificationServices: [NotificationServiceInfo!]!
@@ -616,6 +664,8 @@ type Query {
   serverSetting(configType: ServerSettingType!): ServerSetting
   """Get all server settings"""
   serverSettings: [ServerSetting!]!
+  """Get total log count"""
+  totalLogCount: Float!
   user(id: String!): User!
   userDevice: UserDevice
   userDevices: [UserDevice!]!
@@ -743,10 +793,21 @@ enum ServerSettingType {
   JwtRefreshTokenExpiration
   JwtSecret
   LogLevel
+  LogRetentionDays
+  LogStorageEnabled
+  LokiBatchIntervalMs
+  LokiBatchSize
+  LokiEnabled
+  LokiLabels
+  LokiPassword
+  LokiUrl
+  LokiUsername
   MessagesDeleteCronJob
   MessagesDeleteJobEnabled
   MessagesMaxAge
-  PublicBackendUrl
+  PrometheusEnabled
+  PrometheusPath
+  PrometheusRequiresAuth
   PushNotificationsPassthroughServer
   PushPassthroughToken
   RateLimitBlockMs
