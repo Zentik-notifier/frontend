@@ -1,5 +1,4 @@
 import { ConfigContext, ExpoConfig } from '@expo/config';
-import 'tsx/cjs';
 
 // Set these in .env locally
 // APP_VARIANT=development
