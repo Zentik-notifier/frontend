@@ -11,9 +11,10 @@ import {
 
 interface CloseHeaderProps {
   onClose?: () => void;
+  title?: string;
 }
 
-export default function CloseHeader({ onClose }: CloseHeaderProps) {
+export default function CloseHeader({ onClose, title }: CloseHeaderProps) {
   const { t } = useI18n();
   const theme = useTheme();
   const { navigateBack } = useNavigationUtils();

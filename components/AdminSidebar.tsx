@@ -70,6 +70,15 @@ export default function AdminSidebar() {
       onPress: nav.navigateToServerSettings,
       selectionSegment: "server-settings",
     },
+    {
+      id: "backup-management",
+      title: t("administration.backupManagement"),
+      description: t("administration.backupManagementDescription"),
+      icon: "database",
+      iconColor: "#10b981", // Green
+      onPress: nav.navigateToBackupManagement,
+      selectionSegment: "backup-management",
+    },
   ];
 
   if (!isMobile) {

@@ -444,6 +444,26 @@
       "error": "Failed to delete bucket. Please try again."
     }
   },
+  "backupManagement": {
+    "title": "Backup Management",
+    "description": "Manage database backups and restore points for your system",
+    "createBackupTitle": "Create New Backup",
+    "createBackupDescription": "Manually trigger a database backup",
+    "triggerBackup": "Create Backup",
+    "success": "Success",
+    "triggerError": "Failed to create backup. Please try again.",
+    "deleteConfirmTitle": "Delete Backup",
+    "deleteConfirmMessage": "Are you sure you want to delete the backup \"{{filename}}\"? This action cannot be undone.",
+    "deleteSuccess": "Backup deleted successfully",
+    "deleteError": "Failed to delete backup. Please try again.",
+    "totalBackups": "Total Backups",
+    "totalSize": "Total Size",
+    "availableBackups": "Available Backups",
+    "noBackups": "No backups available",
+    "filename": "Filename",
+    "size": "Size",
+    "created": "Created"
+  },
   "devices": {
     "title": "Devices",
     "description": "Manage devices that can receive push notifications. Register this device to receive notifications.",
@@ -811,6 +831,7 @@
     "save": "Save",
     "importing": "Importing...",
     "delete": "Delete",
+    "actions": "Actions",
     "noConnection": "No connection",
     "updateAvailable": "Update available",
     "reset": "Reset",
@@ -1314,6 +1335,8 @@
     "oauthProvidersDescription": "Configure OAuth authentication providers",
     "serverSettings": "Server Settings",
     "serverSettingsDescription": "Configure server settings and manage the server instance",
+    "backupManagement": "Backup Management",
+    "backupManagementDescription": "Manage database backups and restore points",
     "errorLoadingOAuthProviders": "Error Loading Providers",
     "errorLoadingOAuthProvidersDescription": "Failed to load OAuth providers. Please try again.",
     "noOAuthProviders": "No OAuth Providers",

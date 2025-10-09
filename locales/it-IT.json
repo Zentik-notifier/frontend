@@ -444,6 +444,26 @@
       "error": "Impossibile eliminare il bucket. Riprova."
     }
   },
+  "backupManagement": {
+    "title": "Gestione Backup",
+    "description": "Gestisci i backup del database e i punti di ripristino del sistema",
+    "createBackupTitle": "Crea Nuovo Backup",
+    "createBackupDescription": "Avvia manualmente un backup del database",
+    "triggerBackup": "Crea Backup",
+    "success": "Successo",
+    "triggerError": "Impossibile creare il backup. Riprova.",
+    "deleteConfirmTitle": "Elimina Backup",
+    "deleteConfirmMessage": "Sei sicuro di voler eliminare il backup \"{{filename}}\"? Questa azione non può essere annullata.",
+    "deleteSuccess": "Backup eliminato con successo",
+    "deleteError": "Impossibile eliminare il backup. Riprova.",
+    "totalBackups": "Backup Totali",
+    "totalSize": "Dimensione Totale",
+    "availableBackups": "Backup Disponibili",
+    "noBackups": "Nessun backup disponibile",
+    "filename": "Nome File",
+    "size": "Dimensione",
+    "created": "Creato"
+  },
   "devices": {
     "title": "Dispositivi",
     "description": "Gestisci i dispositivi che possono ricevere notifiche push. Registra questo dispositivo per ricevere notifiche.",
@@ -811,6 +831,7 @@
     "importing": "Importo...",
     "save": "Salva",
     "delete": "Elimina",
+    "actions": "Azioni",
     "noConnection": "Nessuna connessione",
     "updateAvailable": "Aggiornamento disponibile",
     "reset": "Reimposta",
@@ -1314,6 +1335,8 @@
     "oauthProvidersDescription": "Configura i provider di autenticazione OAuth",
     "serverSettings": "Impostazioni Server",
     "serverSettingsDescription": "Configura le impostazioni del server e gestisci l'istanza",
+    "backupManagement": "Gestione Backup",
+    "backupManagementDescription": "Gestisci i backup del database e i punti di ripristino",
     "errorLoadingOAuthProviders": "Errore nel Caricamento dei Provider",
     "errorLoadingOAuthProvidersDescription": "Impossibile caricare i provider OAuth. Riprova di nuovo.",
     "noOAuthProviders": "Nessun Provider OAuth",

@@ -63,6 +63,7 @@ const ROUTES_WITH_BACK_BUTTON: string[] = [
   "/(mobile)/(admin)/oauth-providers/",
   "/(mobile)/(admin)/system-access-tokens/",
   "/(mobile)/(admin)/server-settings",
+  "/(mobile)/(admin)/backup-management",
   "/(mobile)/(admin)/events-review",
   "/(mobile)/(settings)/payload-mapper/",
   "/(common)/(auth)/app-settings",
@@ -131,6 +132,7 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(mobile)/(admin)/system-access-tokens/create":
     "systemAccessTokens.form.title",
   "/(mobile)/(admin)/server-settings": "administration.serverSettings",
+  "/(mobile)/(admin)/backup-management": "administration.backupManagement",
   "/(mobile)/(admin)/events-review": "eventsReview.title",
   "/(tablet)/(admin)/events-review": "eventsReview.title",
   "/(mobile)/(settings)/bucket/link/[id]": "buckets.danglingBucketTitle",

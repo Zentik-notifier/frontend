@@ -53,6 +53,8 @@ export interface TranslationKey {
       message: string;
       title: string;
     };
+    backupManagement: string;
+    backupManagementDescription: string;
     serverSettings: string;
     serverSettingsDescription: string;
     cannotModifyOwnRole: string;
@@ -636,6 +638,7 @@ export interface TranslationKey {
   common: {
     actionError: string;
     actionFailed: string;
+    actions: string;
     add: string;
     all: string;
     apply: string;
@@ -722,6 +725,26 @@ export interface TranslationKey {
         silent: string;
       };
     };
+  };
+  backupManagement: {
+    availableBackups: string;
+    created: string;
+    createBackupDescription: string;
+    createBackupTitle: string;
+    deleteConfirmMessage: string;
+    deleteConfirmTitle: string;
+    deleteError: string;
+    deleteSuccess: string;
+    description: string;
+    filename: string;
+    noBackups: string;
+    size: string;
+    success: string;
+    title: string;
+    totalBackups: string;
+    totalSize: string;
+    triggerBackup: string;
+    triggerError: string;
   };
   devices: {
     description: string;

@@ -244,6 +244,14 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToBackupManagement: () => {
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)/backup-management`);
+            } else {
+                router.push(`/(tablet)/(admin)/backup-management`);
+            }
+        },
+
         navigateToCreateOAuthProvider: () => {
             if (isMobile) {
                 router.push(`/(mobile)/(admin)/oauth-providers/create`);
