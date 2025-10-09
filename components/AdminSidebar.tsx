@@ -61,6 +61,15 @@ export default function AdminSidebar() {
       onPress: nav.navigateToEventsReview,
       selectionSegment: "events-review",
     },
+    {
+      id: "server-settings",
+      title: t("administration.serverSettings"),
+      description: t("administration.serverSettingsDescription"),
+      icon: "server",
+      iconColor: "#8b5cf6", // Purple
+      onPress: nav.navigateToServerSettings,
+      selectionSegment: "server-settings",
+    },
   ];
 
   if (!isMobile) {

@@ -52,6 +52,22 @@ export type Attachment = {
   userId: Scalars['String']['output'];
 };
 
+export type BackupInfoDto = {
+  __typename?: 'BackupInfoDto';
+  createdAt: Scalars['DateTime']['output'];
+  filename: Scalars['String']['output'];
+  path: Scalars['String']['output'];
+  size: Scalars['String']['output'];
+  sizeBytes: Scalars['Float']['output'];
+};
+
+export type BatchUpdateSettingInput = {
+  configType: ServerSettingType;
+  valueBool?: InputMaybe<Scalars['Boolean']['input']>;
+  valueNumber?: InputMaybe<Scalars['Float']['input']>;
+  valueText?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type Bucket = {
   __typename?: 'Bucket';
   color: Maybe<Scalars['String']['output']>;
@@ -377,6 +393,8 @@ export type MessageAttachment = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  /** Batch update multiple server settings */
+  batchUpdateServerSettings: Array<ServerSetting>;
   changePassword: Scalars['Boolean']['output'];
   cleanupExpiredPermissions: Scalars['Float']['output'];
   confirmEmail: EmailConfirmationResponseDto;
@@ -389,6 +407,8 @@ export type Mutation = {
   createSystemToken: SystemAccessTokenDto;
   createWebhook: UserWebhook;
   deleteAccount: Scalars['Boolean']['output'];
+  /** Delete a specific backup file */
+  deleteBackup: Scalars['Boolean']['output'];
   deleteBucket: Scalars['Boolean']['output'];
   deleteNotification: Scalars['Boolean']['output'];
   deleteOAuthProvider: Scalars['Boolean']['output'];
@@ -414,6 +434,8 @@ export type Mutation = {
   requestEmailConfirmation: EmailConfirmationResponseDto;
   requestPasswordReset: PasswordResetResponseDto;
   resetPassword: PasswordResetResponseDto;
+  /** Restart the server */
+  restartServer: Scalars['String']['output'];
   revokeAccessToken: Scalars['Boolean']['output'];
   revokeAllAccessTokens: Scalars['Boolean']['output'];
   revokeAllOtherSessions: Scalars['Boolean']['output'];
@@ -426,6 +448,8 @@ export type Mutation = {
   setPassword: Scalars['Boolean']['output'];
   shareBucket: EntityPermission;
   toggleOAuthProvider: OAuthProvider;
+  /** Manually trigger a database backup */
+  triggerBackup: Scalars['String']['output'];
   unshareBucket: Scalars['Boolean']['output'];
   updateBucket: Bucket;
   /** @deprecated Usa future Bucket mutation (updateBucketSnoozes) */
@@ -435,12 +459,19 @@ export type Mutation = {
   updatePayloadMapper: PayloadMapper;
   updateProfile: User;
   updateReceivedNotifications: UpdateReceivedResult;
+  /** Update an existing server setting */
+  updateServerSetting: ServerSetting;
   updateSystemToken: SystemAccessTokenDto;
   updateUserDevice: UserDevice;
   updateUserRole: User;
   updateWebhook: UserWebhook;
   upsertUserSetting: UserSetting;
   validateResetToken: Scalars['Boolean']['output'];
+};
+
+
+export type MutationBatchUpdateServerSettingsArgs = {
+  settings: Array<BatchUpdateSettingInput>;
 };
 
 
@@ -489,6 +520,11 @@ export type MutationCreateSystemTokenArgs = {
 
 export type MutationCreateWebhookArgs = {
   input: CreateWebhookDto;
+};
+
+
+export type MutationDeleteBackupArgs = {
+  filename: Scalars['String']['input'];
 };
 
 
@@ -699,6 +735,12 @@ export type MutationUpdateReceivedNotificationsArgs = {
 };
 
 
+export type MutationUpdateServerSettingArgs = {
+  configType: ServerSettingType;
+  input: UpdateServerSettingDto;
+};
+
+
 export type MutationUpdateSystemTokenArgs = {
   description?: InputMaybe<Scalars['String']['input']>;
   expiresAt?: InputMaybe<Scalars['String']['input']>;
@@ -900,6 +942,8 @@ export type Query = {
   getUserAccessTokens: Array<AccessTokenListDto>;
   getUserSessions: Array<SessionInfoDto>;
   healthcheck: Scalars['String']['output'];
+  /** List all available database backups */
+  listBackups: Array<BackupInfoDto>;
   listSystemTokens: Array<SystemAccessTokenDto>;
   me: User;
   notification: Notification;
@@ -909,6 +953,10 @@ export type Query = {
   payloadMapper: PayloadMapper;
   payloadMappers: Array<PayloadMapper>;
   publicAppConfig: PublicAppConfig;
+  /** Get a specific server setting by type */
+  serverSetting: Maybe<ServerSetting>;
+  /** Get all server settings */
+  serverSettings: Array<ServerSetting>;
   user: User;
   userDevice: Maybe<UserDevice>;
   userDevices: Array<UserDevice>;
@@ -972,6 +1020,11 @@ export type QueryOauthProviderArgs = {
 
 export type QueryPayloadMapperArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type QueryServerSettingArgs = {
+  configType: ServerSettingType;
 };
 
 
@@ -1058,6 +1111,79 @@ export type RevokeEntityPermissionInput = {
   userId?: InputMaybe<Scalars['String']['input']>;
   username?: InputMaybe<Scalars['String']['input']>;
 };
+
+export type ServerSetting = {
+  __typename?: 'ServerSetting';
+  configType: ServerSettingType;
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  /** Possible values for the setting (for enum-like settings) */
+  possibleValues: Maybe<Array<Scalars['String']['output']>>;
+  updatedAt: Scalars['DateTime']['output'];
+  /** Boolean value for the setting, when applicable */
+  valueBool: Maybe<Scalars['Boolean']['output']>;
+  /** Numeric value for the setting, when applicable */
+  valueNumber: Maybe<Scalars['Float']['output']>;
+  /** String value for the setting, when applicable */
+  valueText: Maybe<Scalars['String']['output']>;
+};
+
+export enum ServerSettingType {
+  ApnBundleId = 'ApnBundleId',
+  ApnKeyId = 'ApnKeyId',
+  ApnPrivateKeyPath = 'ApnPrivateKeyPath',
+  ApnProduction = 'ApnProduction',
+  ApnPush = 'ApnPush',
+  ApnTeamId = 'ApnTeamId',
+  AttachmentsAllowedMimeTypes = 'AttachmentsAllowedMimeTypes',
+  AttachmentsDeleteCronJob = 'AttachmentsDeleteCronJob',
+  AttachmentsDeleteJobEnabled = 'AttachmentsDeleteJobEnabled',
+  AttachmentsEnabled = 'AttachmentsEnabled',
+  AttachmentsMaxAge = 'AttachmentsMaxAge',
+  AttachmentsMaxFileSize = 'AttachmentsMaxFileSize',
+  AttachmentsStoragePath = 'AttachmentsStoragePath',
+  BackupCronJob = 'BackupCronJob',
+  BackupEnabled = 'BackupEnabled',
+  BackupExecuteOnStart = 'BackupExecuteOnStart',
+  BackupMaxToKeep = 'BackupMaxToKeep',
+  BackupStoragePath = 'BackupStoragePath',
+  CorsCredentials = 'CorsCredentials',
+  CorsOrigin = 'CorsOrigin',
+  EmailEnabled = 'EmailEnabled',
+  EmailFrom = 'EmailFrom',
+  EmailFromName = 'EmailFromName',
+  EmailHost = 'EmailHost',
+  EmailPass = 'EmailPass',
+  EmailPort = 'EmailPort',
+  EmailSecure = 'EmailSecure',
+  EmailType = 'EmailType',
+  EmailUser = 'EmailUser',
+  FirebaseClientEmail = 'FirebaseClientEmail',
+  FirebasePrivateKey = 'FirebasePrivateKey',
+  FirebaseProjectId = 'FirebaseProjectId',
+  FirebasePush = 'FirebasePush',
+  JwtAccessTokenExpiration = 'JwtAccessTokenExpiration',
+  JwtRefreshSecret = 'JwtRefreshSecret',
+  JwtRefreshTokenExpiration = 'JwtRefreshTokenExpiration',
+  JwtSecret = 'JwtSecret',
+  LogLevel = 'LogLevel',
+  MessagesDeleteCronJob = 'MessagesDeleteCronJob',
+  MessagesDeleteJobEnabled = 'MessagesDeleteJobEnabled',
+  MessagesMaxAge = 'MessagesMaxAge',
+  PublicBackendUrl = 'PublicBackendUrl',
+  PushNotificationsPassthroughServer = 'PushNotificationsPassthroughServer',
+  PushPassthroughToken = 'PushPassthroughToken',
+  RateLimitBlockMs = 'RateLimitBlockMs',
+  RateLimitForwardHeader = 'RateLimitForwardHeader',
+  RateLimitLimit = 'RateLimitLimit',
+  RateLimitMessagesRps = 'RateLimitMessagesRps',
+  RateLimitMessagesTtlMs = 'RateLimitMessagesTtlMs',
+  RateLimitTrustProxyEnabled = 'RateLimitTrustProxyEnabled',
+  RateLimitTtlMs = 'RateLimitTtlMs',
+  ResendApiKey = 'ResendApiKey',
+  VapidSubject = 'VapidSubject',
+  WebPush = 'WebPush'
+}
 
 export type SessionInfoDto = {
   __typename?: 'SessionInfoDto';
@@ -1179,6 +1305,12 @@ export type UpdateReceivedResult = {
   __typename?: 'UpdateReceivedResult';
   success: Scalars['Boolean']['output'];
   updatedCount: Scalars['Float']['output'];
+};
+
+export type UpdateServerSettingDto = {
+  valueBool?: InputMaybe<Scalars['Boolean']['input']>;
+  valueNumber?: InputMaybe<Scalars['Float']['input']>;
+  valueText?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateUserDeviceInput = {
@@ -2090,6 +2222,57 @@ export type GetEntityExecutionQueryVariables = Exact<{
 
 export type GetEntityExecutionQuery = { __typename?: 'Query', entityExecution: { __typename?: 'EntityExecution', id: string, type: ExecutionType, status: ExecutionStatus, entityName: string | null, entityId: string | null, userId: string, input: string, output: string | null, errors: string | null, durationMs: number | null, createdAt: string, updatedAt: string } | null };
 
+export type ServerSettingFragment = { __typename?: 'ServerSetting', id: string, configType: ServerSettingType, valueText: string | null, valueBool: boolean | null, valueNumber: number | null, possibleValues: Array<string> | null };
+
+export type GetServerSettingsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetServerSettingsQuery = { __typename?: 'Query', serverSettings: Array<{ __typename?: 'ServerSetting', id: string, configType: ServerSettingType, valueText: string | null, valueBool: boolean | null, valueNumber: number | null, possibleValues: Array<string> | null }> };
+
+export type GetServerSettingQueryVariables = Exact<{
+  configType: ServerSettingType;
+}>;
+
+
+export type GetServerSettingQuery = { __typename?: 'Query', serverSetting: { __typename?: 'ServerSetting', id: string, configType: ServerSettingType, valueText: string | null, valueBool: boolean | null, valueNumber: number | null, possibleValues: Array<string> | null } | null };
+
+export type UpdateServerSettingMutationVariables = Exact<{
+  configType: ServerSettingType;
+  input: UpdateServerSettingDto;
+}>;
+
+
+export type UpdateServerSettingMutation = { __typename?: 'Mutation', updateServerSetting: { __typename?: 'ServerSetting', id: string, configType: ServerSettingType, valueText: string | null, valueBool: boolean | null, valueNumber: number | null, possibleValues: Array<string> | null } };
+
+export type BatchUpdateServerSettingsMutationVariables = Exact<{
+  settings: Array<BatchUpdateSettingInput> | BatchUpdateSettingInput;
+}>;
+
+
+export type BatchUpdateServerSettingsMutation = { __typename?: 'Mutation', batchUpdateServerSettings: Array<{ __typename?: 'ServerSetting', id: string, configType: ServerSettingType, valueText: string | null, valueBool: boolean | null, valueNumber: number | null, possibleValues: Array<string> | null }> };
+
+export type RestartServerMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type RestartServerMutation = { __typename?: 'Mutation', restartServer: string };
+
+export type ListBackupsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ListBackupsQuery = { __typename?: 'Query', listBackups: Array<{ __typename?: 'BackupInfoDto', filename: string, path: string, size: string, sizeBytes: number, createdAt: string }> };
+
+export type DeleteBackupMutationVariables = Exact<{
+  filename: Scalars['String']['input'];
+}>;
+
+
+export type DeleteBackupMutation = { __typename?: 'Mutation', deleteBackup: boolean };
+
+export type TriggerBackupMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TriggerBackupMutation = { __typename?: 'Mutation', triggerBackup: string };
+
 export const MessageAttachmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageAttachmentFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MessageAttachment"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"saveOnServer"}}]}}]} as unknown as DocumentNode;
 export const NotificationActionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationActionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationAction"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"destructive"}}]}}]} as unknown as DocumentNode;
 export const BucketFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"BucketFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Bucket"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"isProtected"}},{"kind":"Field","name":{"kind":"Name","value":"isPublic"}}]}}]} as unknown as DocumentNode;
@@ -2113,6 +2296,7 @@ export const SystemAccessTokenFragmentDoc = {"kind":"Document","definitions":[{"
 export const EventFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EventFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Event"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"objectId"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"targetId"}}]}}]} as unknown as DocumentNode;
 export const PayloadMapperFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PayloadMapperFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"PayloadMapper"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"jsEvalFn"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"builtInName"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"avatar"}},{"kind":"Field","name":{"kind":"Name","value":"hasPassword"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"identities"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"provider"}},{"kind":"Field","name":{"kind":"Name","value":"providerId"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"avatarUrl"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"buckets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 export const EntityExecutionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EntityExecutionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EntityExecution"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"entityName"}},{"kind":"Field","name":{"kind":"Name","value":"entityId"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"input"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"errors"}},{"kind":"Field","name":{"kind":"Name","value":"durationMs"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
+export const ServerSettingFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerSettingFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ServerSetting"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"configType"}},{"kind":"Field","name":{"kind":"Name","value":"valueText"}},{"kind":"Field","name":{"kind":"Name","value":"valueBool"}},{"kind":"Field","name":{"kind":"Name","value":"valueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"possibleValues"}}]}}]} as unknown as DocumentNode;
 export const RequestPasswordResetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RequestPasswordReset"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RequestPasswordResetDto"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"requestPasswordReset"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode;
 export type RequestPasswordResetMutationFn = Apollo.MutationFunction<RequestPasswordResetMutation, RequestPasswordResetMutationVariables>;
 
@@ -4990,3 +5174,237 @@ export type GetEntityExecutionQueryHookResult = ReturnType<typeof useGetEntityEx
 export type GetEntityExecutionLazyQueryHookResult = ReturnType<typeof useGetEntityExecutionLazyQuery>;
 export type GetEntityExecutionSuspenseQueryHookResult = ReturnType<typeof useGetEntityExecutionSuspenseQuery>;
 export type GetEntityExecutionQueryResult = Apollo.QueryResult<GetEntityExecutionQuery, GetEntityExecutionQueryVariables>;
+export const GetServerSettingsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetServerSettings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"serverSettings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ServerSettingFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerSettingFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ServerSetting"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"configType"}},{"kind":"Field","name":{"kind":"Name","value":"valueText"}},{"kind":"Field","name":{"kind":"Name","value":"valueBool"}},{"kind":"Field","name":{"kind":"Name","value":"valueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"possibleValues"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetServerSettingsQuery__
+ *
+ * To run a query within a React component, call `useGetServerSettingsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetServerSettingsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetServerSettingsQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useGetServerSettingsQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<GetServerSettingsQuery, GetServerSettingsQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetServerSettingsQuery, GetServerSettingsQueryVariables>(GetServerSettingsDocument, options);
+      }
+export function useGetServerSettingsLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetServerSettingsQuery, GetServerSettingsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetServerSettingsQuery, GetServerSettingsQueryVariables>(GetServerSettingsDocument, options);
+        }
+export function useGetServerSettingsSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetServerSettingsQuery, GetServerSettingsQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetServerSettingsQuery, GetServerSettingsQueryVariables>(GetServerSettingsDocument, options);
+        }
+export type GetServerSettingsQueryHookResult = ReturnType<typeof useGetServerSettingsQuery>;
+export type GetServerSettingsLazyQueryHookResult = ReturnType<typeof useGetServerSettingsLazyQuery>;
+export type GetServerSettingsSuspenseQueryHookResult = ReturnType<typeof useGetServerSettingsSuspenseQuery>;
+export type GetServerSettingsQueryResult = Apollo.QueryResult<GetServerSettingsQuery, GetServerSettingsQueryVariables>;
+export const GetServerSettingDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetServerSetting"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"configType"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ServerSettingType"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"serverSetting"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"configType"},"value":{"kind":"Variable","name":{"kind":"Name","value":"configType"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ServerSettingFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerSettingFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ServerSetting"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"configType"}},{"kind":"Field","name":{"kind":"Name","value":"valueText"}},{"kind":"Field","name":{"kind":"Name","value":"valueBool"}},{"kind":"Field","name":{"kind":"Name","value":"valueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"possibleValues"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetServerSettingQuery__
+ *
+ * To run a query within a React component, call `useGetServerSettingQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetServerSettingQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetServerSettingQuery({
+ *   variables: {
+ *      configType: // value for 'configType'
+ *   },
+ * });
+ */
+export function useGetServerSettingQuery(baseOptions: ApolloReactHooks.QueryHookOptions<GetServerSettingQuery, GetServerSettingQueryVariables> & ({ variables: GetServerSettingQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetServerSettingQuery, GetServerSettingQueryVariables>(GetServerSettingDocument, options);
+      }
+export function useGetServerSettingLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetServerSettingQuery, GetServerSettingQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetServerSettingQuery, GetServerSettingQueryVariables>(GetServerSettingDocument, options);
+        }
+export function useGetServerSettingSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetServerSettingQuery, GetServerSettingQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetServerSettingQuery, GetServerSettingQueryVariables>(GetServerSettingDocument, options);
+        }
+export type GetServerSettingQueryHookResult = ReturnType<typeof useGetServerSettingQuery>;
+export type GetServerSettingLazyQueryHookResult = ReturnType<typeof useGetServerSettingLazyQuery>;
+export type GetServerSettingSuspenseQueryHookResult = ReturnType<typeof useGetServerSettingSuspenseQuery>;
+export type GetServerSettingQueryResult = Apollo.QueryResult<GetServerSettingQuery, GetServerSettingQueryVariables>;
+export const UpdateServerSettingDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateServerSetting"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"configType"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ServerSettingType"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateServerSettingDto"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateServerSetting"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"configType"},"value":{"kind":"Variable","name":{"kind":"Name","value":"configType"}}},{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ServerSettingFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerSettingFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ServerSetting"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"configType"}},{"kind":"Field","name":{"kind":"Name","value":"valueText"}},{"kind":"Field","name":{"kind":"Name","value":"valueBool"}},{"kind":"Field","name":{"kind":"Name","value":"valueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"possibleValues"}}]}}]} as unknown as DocumentNode;
+export type UpdateServerSettingMutationFn = Apollo.MutationFunction<UpdateServerSettingMutation, UpdateServerSettingMutationVariables>;
+
+/**
+ * __useUpdateServerSettingMutation__
+ *
+ * To run a mutation, you first call `useUpdateServerSettingMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useUpdateServerSettingMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [updateServerSettingMutation, { data, loading, error }] = useUpdateServerSettingMutation({
+ *   variables: {
+ *      configType: // value for 'configType'
+ *      input: // value for 'input'
+ *   },
+ * });
+ */
+export function useUpdateServerSettingMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<UpdateServerSettingMutation, UpdateServerSettingMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<UpdateServerSettingMutation, UpdateServerSettingMutationVariables>(UpdateServerSettingDocument, options);
+      }
+export type UpdateServerSettingMutationHookResult = ReturnType<typeof useUpdateServerSettingMutation>;
+export type UpdateServerSettingMutationResult = Apollo.MutationResult<UpdateServerSettingMutation>;
+export type UpdateServerSettingMutationOptions = Apollo.BaseMutationOptions<UpdateServerSettingMutation, UpdateServerSettingMutationVariables>;
+export const BatchUpdateServerSettingsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"BatchUpdateServerSettings"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"settings"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"BatchUpdateSettingInput"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"batchUpdateServerSettings"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"settings"},"value":{"kind":"Variable","name":{"kind":"Name","value":"settings"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ServerSettingFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerSettingFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ServerSetting"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"configType"}},{"kind":"Field","name":{"kind":"Name","value":"valueText"}},{"kind":"Field","name":{"kind":"Name","value":"valueBool"}},{"kind":"Field","name":{"kind":"Name","value":"valueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"possibleValues"}}]}}]} as unknown as DocumentNode;
+export type BatchUpdateServerSettingsMutationFn = Apollo.MutationFunction<BatchUpdateServerSettingsMutation, BatchUpdateServerSettingsMutationVariables>;
+
+/**
+ * __useBatchUpdateServerSettingsMutation__
+ *
+ * To run a mutation, you first call `useBatchUpdateServerSettingsMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useBatchUpdateServerSettingsMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [batchUpdateServerSettingsMutation, { data, loading, error }] = useBatchUpdateServerSettingsMutation({
+ *   variables: {
+ *      settings: // value for 'settings'
+ *   },
+ * });
+ */
+export function useBatchUpdateServerSettingsMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<BatchUpdateServerSettingsMutation, BatchUpdateServerSettingsMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<BatchUpdateServerSettingsMutation, BatchUpdateServerSettingsMutationVariables>(BatchUpdateServerSettingsDocument, options);
+      }
+export type BatchUpdateServerSettingsMutationHookResult = ReturnType<typeof useBatchUpdateServerSettingsMutation>;
+export type BatchUpdateServerSettingsMutationResult = Apollo.MutationResult<BatchUpdateServerSettingsMutation>;
+export type BatchUpdateServerSettingsMutationOptions = Apollo.BaseMutationOptions<BatchUpdateServerSettingsMutation, BatchUpdateServerSettingsMutationVariables>;
+export const RestartServerDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RestartServer"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"restartServer"}}]}}]} as unknown as DocumentNode;
+export type RestartServerMutationFn = Apollo.MutationFunction<RestartServerMutation, RestartServerMutationVariables>;
+
+/**
+ * __useRestartServerMutation__
+ *
+ * To run a mutation, you first call `useRestartServerMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useRestartServerMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [restartServerMutation, { data, loading, error }] = useRestartServerMutation({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useRestartServerMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<RestartServerMutation, RestartServerMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<RestartServerMutation, RestartServerMutationVariables>(RestartServerDocument, options);
+      }
+export type RestartServerMutationHookResult = ReturnType<typeof useRestartServerMutation>;
+export type RestartServerMutationResult = Apollo.MutationResult<RestartServerMutation>;
+export type RestartServerMutationOptions = Apollo.BaseMutationOptions<RestartServerMutation, RestartServerMutationVariables>;
+export const ListBackupsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ListBackups"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"listBackups"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"filename"}},{"kind":"Field","name":{"kind":"Name","value":"path"}},{"kind":"Field","name":{"kind":"Name","value":"size"}},{"kind":"Field","name":{"kind":"Name","value":"sizeBytes"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useListBackupsQuery__
+ *
+ * To run a query within a React component, call `useListBackupsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useListBackupsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useListBackupsQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useListBackupsQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<ListBackupsQuery, ListBackupsQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<ListBackupsQuery, ListBackupsQueryVariables>(ListBackupsDocument, options);
+      }
+export function useListBackupsLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<ListBackupsQuery, ListBackupsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<ListBackupsQuery, ListBackupsQueryVariables>(ListBackupsDocument, options);
+        }
+export function useListBackupsSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<ListBackupsQuery, ListBackupsQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<ListBackupsQuery, ListBackupsQueryVariables>(ListBackupsDocument, options);
+        }
+export type ListBackupsQueryHookResult = ReturnType<typeof useListBackupsQuery>;
+export type ListBackupsLazyQueryHookResult = ReturnType<typeof useListBackupsLazyQuery>;
+export type ListBackupsSuspenseQueryHookResult = ReturnType<typeof useListBackupsSuspenseQuery>;
+export type ListBackupsQueryResult = Apollo.QueryResult<ListBackupsQuery, ListBackupsQueryVariables>;
+export const DeleteBackupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteBackup"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filename"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteBackup"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"filename"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filename"}}}]}]}}]} as unknown as DocumentNode;
+export type DeleteBackupMutationFn = Apollo.MutationFunction<DeleteBackupMutation, DeleteBackupMutationVariables>;
+
+/**
+ * __useDeleteBackupMutation__
+ *
+ * To run a mutation, you first call `useDeleteBackupMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useDeleteBackupMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [deleteBackupMutation, { data, loading, error }] = useDeleteBackupMutation({
+ *   variables: {
+ *      filename: // value for 'filename'
+ *   },
+ * });
+ */
+export function useDeleteBackupMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<DeleteBackupMutation, DeleteBackupMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<DeleteBackupMutation, DeleteBackupMutationVariables>(DeleteBackupDocument, options);
+      }
+export type DeleteBackupMutationHookResult = ReturnType<typeof useDeleteBackupMutation>;
+export type DeleteBackupMutationResult = Apollo.MutationResult<DeleteBackupMutation>;
+export type DeleteBackupMutationOptions = Apollo.BaseMutationOptions<DeleteBackupMutation, DeleteBackupMutationVariables>;
+export const TriggerBackupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"TriggerBackup"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"triggerBackup"}}]}}]} as unknown as DocumentNode;
+export type TriggerBackupMutationFn = Apollo.MutationFunction<TriggerBackupMutation, TriggerBackupMutationVariables>;
+
+/**
+ * __useTriggerBackupMutation__
+ *
+ * To run a mutation, you first call `useTriggerBackupMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useTriggerBackupMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [triggerBackupMutation, { data, loading, error }] = useTriggerBackupMutation({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useTriggerBackupMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<TriggerBackupMutation, TriggerBackupMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<TriggerBackupMutation, TriggerBackupMutationVariables>(TriggerBackupDocument, options);
+      }
+export type TriggerBackupMutationHookResult = ReturnType<typeof useTriggerBackupMutation>;
+export type TriggerBackupMutationResult = Apollo.MutationResult<TriggerBackupMutation>;
+export type TriggerBackupMutationOptions = Apollo.BaseMutationOptions<TriggerBackupMutation, TriggerBackupMutationVariables>;

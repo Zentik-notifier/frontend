@@ -62,6 +62,7 @@ const ROUTES_WITH_BACK_BUTTON: string[] = [
   "/(mobile)/(admin)/user-management/",
   "/(mobile)/(admin)/oauth-providers/",
   "/(mobile)/(admin)/system-access-tokens/",
+  "/(mobile)/(admin)/server-settings",
   "/(mobile)/(admin)/events-review",
   "/(mobile)/(settings)/payload-mapper/",
   "/(common)/(auth)/app-settings",
@@ -129,6 +130,7 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
     "systemAccessTokens.form.title",
   "/(mobile)/(admin)/system-access-tokens/create":
     "systemAccessTokens.form.title",
+  "/(mobile)/(admin)/server-settings": "administration.serverSettings",
   "/(mobile)/(admin)/events-review": "eventsReview.title",
   "/(tablet)/(admin)/events-review": "eventsReview.title",
   "/(mobile)/(settings)/bucket/link/[id]": "buckets.danglingBucketTitle",
@@ -158,7 +160,6 @@ export default function Header() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { themeMode, setThemeMode } = useAppTheme();
-  const [isRegistering, setIsRegistering] = useState(false);
   const { isMobile } = useDeviceType();
   const isPublic = segments[0] === "(common)";
   const [isMenuOpen, setIsMenuOpen] = useState(false);

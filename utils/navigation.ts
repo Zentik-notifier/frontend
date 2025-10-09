@@ -236,6 +236,14 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToServerSettings: () => {
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)/server-settings`);
+            } else {
+                router.push(`/(tablet)/(admin)/server-settings`);
+            }
+        },
+
         navigateToCreateOAuthProvider: () => {
             if (isMobile) {
                 router.push(`/(mobile)/(admin)/oauth-providers/create`);

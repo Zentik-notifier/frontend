@@ -1032,3 +1032,70 @@ query GetEntityExecution($id: String!) {
     ...EntityExecutionFragment
   }
 }
+
+# Server Settings Operations
+fragment ServerSettingFragment on ServerSetting {
+  id
+  configType
+  valueText
+  valueBool
+  valueNumber
+  possibleValues
+}
+
+query GetServerSettings {
+  serverSettings {
+    ...ServerSettingFragment
+  }
+}
+
+query GetServerSetting($configType: ServerSettingType!) {
+  serverSetting(configType: $configType) {
+    ...ServerSettingFragment
+  }
+}
+
+mutation UpdateServerSetting(
+  $configType: ServerSettingType!
+  $input: UpdateServerSettingDto!
+) {
+  updateServerSetting(configType: $configType, input: $input) {
+    ...ServerSettingFragment
+  }
+}
+
+input BatchUpdateSettingInput {
+  configType: ServerSettingType!
+  valueText: String
+  valueBool: Boolean
+  valueNumber: Float
+}
+
+mutation BatchUpdateServerSettings($settings: [BatchUpdateSettingInput!]!) {
+  batchUpdateServerSettings(settings: $settings) {
+    ...ServerSettingFragment
+  }
+}
+
+mutation RestartServer {
+  restartServer
+}
+
+# Backup Operations
+query ListBackups {
+  listBackups {
+    filename
+    path
+    size
+    sizeBytes
+    createdAt
+  }
+}
+
+mutation DeleteBackup($filename: String!) {
+  deleteBackup(filename: $filename)
+}
+
+mutation TriggerBackup {
+  triggerBackup
+}
