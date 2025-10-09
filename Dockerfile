@@ -9,8 +9,6 @@ COPY .npmrc ./.npmrc
 # Install all deps (including dev for build tools like workbox-cli)
 RUN npm ci || npm install
 COPY . .
-# Clear Metro bundler cache before building
-RUN rm -rf .expo node_modules/.cache
 # Build static web output in dist/
 RUN npm run build:web
 
