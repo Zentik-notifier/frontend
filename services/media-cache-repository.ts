@@ -381,6 +381,56 @@ export class MediaCacheRepository {
     this.revokeAllObjectUrls();
   }
 
+  /**
+   * Get MIME type from media key
+   * Key format: MEDIATYPE/filename.ext (e.g., VIDEO/video_abc123.mp4, IMAGE/image_def456.jpg)
+   */
+  private getMimeTypeFromKey(key: string): string {
+    // Extract media type and extension from key
+    const parts = key.split('/');
+    if (parts.length < 2) {
+      return 'application/octet-stream';
+    }
+
+    const mediaTypeStr = parts[0].toUpperCase();
+    const filename = parts[1];
+    const extension = filename.split('.').pop()?.toLowerCase();
+
+    // Map media type and extension to MIME type
+    switch (mediaTypeStr) {
+      case 'VIDEO':
+        switch (extension) {
+          case 'mp4': return 'video/mp4';
+          case 'webm': return 'video/webm';
+          case 'ogg': return 'video/ogg';
+          case 'mov': return 'video/quicktime';
+          default: return 'video/mp4'; // Default to mp4
+        }
+      case 'AUDIO':
+        switch (extension) {
+          case 'mp3': return 'audio/mpeg';
+          case 'wav': return 'audio/wav';
+          case 'ogg': return 'audio/ogg';
+          case 'm4a': return 'audio/mp4';
+          default: return 'audio/mpeg'; // Default to mp3
+        }
+      case 'IMAGE':
+        switch (extension) {
+          case 'jpg':
+          case 'jpeg': return 'image/jpeg';
+          case 'png': return 'image/png';
+          case 'gif': return 'image/gif';
+          case 'webp': return 'image/webp';
+          case 'svg': return 'image/svg+xml';
+          default: return 'image/jpeg'; // Default to jpeg
+        }
+      case 'GIF':
+        return 'image/gif';
+      default:
+        return 'application/octet-stream';
+    }
+  }
+
   async getMediaUrl(key: string): Promise<string | null> {
     await this.ensureInitialized();
 
@@ -393,7 +443,11 @@ export class MediaCacheRepository {
 
       const mediaItem = await this.getMediaItem(key);
       if (mediaItem) {
-        const blob = new Blob([mediaItem.data]);
+        // Get MIME type from key to create proper Blob
+        const mimeType = this.getMimeTypeFromKey(key);
+        console.log(`[MediaCacheRepository] Creating Blob with MIME type: ${mimeType} for key: ${key}`);
+        
+        const blob = new Blob([mediaItem.data], { type: mimeType });
         const objectUrl = URL.createObjectURL(blob);
         this.objectUrlCache.set(key, objectUrl);
         return objectUrl;
