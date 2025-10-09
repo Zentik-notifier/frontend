@@ -41,8 +41,8 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
   // Use the bucket permissions hook to check permissions
   const { canDelete, isSharedWithMe, sharedCount } = useBucket(bucket.id);
 
-  const { deleteBucketWithNotifications, loading } = useDeleteBucketWithNotifications({
-    onCompleted: () => {
+  const { deleteBucket, isLoading: loading } = useDeleteBucketWithNotifications({
+    onSuccess: () => {
       bucketDeleted();
     },
     onError: (error) => {
@@ -68,7 +68,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
 
   const handleDeletePress = async () => {
     if (canDelete) {
-      await deleteBucketWithNotifications(bucket.id);
+      await deleteBucket(bucket.id);
     } else if (isSharedWithMe) {
       await unshareBucket({
         variables: {
