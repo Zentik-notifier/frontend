@@ -39,9 +39,9 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     await refreshBucket(bucketId).catch(console.error);
   };
 
-  const { deleteBucketWithNotifications, loading: deleteLoading } =
+  const { deleteBucket, isLoading: deleteLoading } =
     useDeleteBucketWithNotifications({
-      onCompleted: () => {
+      onSuccess: () => {
         navigateToHome();
       },
       onError: (error) => {
@@ -69,7 +69,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     if (canDelete) {
       actions.push({
         text: t("buckets.delete.deleteBucket"),
-        onPress: () => deleteBucketWithNotifications(bucket.id),
+        onPress: () => deleteBucket(bucket.id),
         style: "destructive" as const,
       });
     }

@@ -1,140 +1,143 @@
-import { useApolloClient } from '@apollo/client';
 import {
-  GetBucketsDocument,
-  useDeleteBucketMutation,
-  useSetBucketSnoozeMutation,
-  SnoozeScheduleInput,
-  UpdateBucketSnoozesDocument,
-  UpdateBucketSnoozesMutationVariables,
-  ShareBucketDocument,
-  ShareBucketMutationVariables,
-  UnshareBucketDocument,
-  UnshareBucketMutationVariables,
-  Permission,
   ResourceType,
+  ShareBucketMutationVariables,
+  SnoozeScheduleInput,
+  UnshareBucketMutationVariables,
+  UpdateBucketSnoozesMutationVariables,
+  useDeleteBucketMutation,
   UserRole,
-  useUpdateBucketSnoozesMutation,
+  useSetBucketSnoozeMutation,
   useShareBucketMutation,
   useUnshareBucketMutation,
+  useUpdateBucketSnoozesMutation
 } from '@/generated/gql-operations-generated';
 import { deleteNotificationsByBucketId } from '@/services/notifications-repository';
-import { useCallback } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { bucketKeys, BucketDetailData } from './useBucketQueries';
-import { notificationKeys } from './useNotificationQueries';
 import { BucketWithStats } from '@/types/notifications';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { BucketDetailData, bucketKeys } from './useBucketQueries';
+import { notificationKeys } from './useNotificationQueries';
 
 /**
- * Hook for deleting a bucket and all its notifications from cache
- * Combines the useDeleteBucketMutation with local notification cleanup
- *
+ * Hook for deleting a bucket and all its notifications with optimistic updates
+ * Removes bucket from all React Query caches and deletes local notifications
+ * 
  * @example
  * ```typescript
  * import { useDeleteBucketWithNotifications } from '@/hooks/notifications';
- *
- * const { deleteBucketWithNotifications, loading, error } = useDeleteBucketWithNotifications({
- *   onCompleted: () => navigateToHome(),
- *   onError: (error) => console.error('Delete failed:', error),
+ * 
+ * const { deleteBucket, isLoading } = useDeleteBucketWithNotifications();
+ * 
+ * await deleteBucket({
+ *   bucketId: 'bucket-id',
+ *   onSuccess: () => navigateToHome(),
+ *   onError: (error) => console.error('Delete failed:', error)
  * });
- *
- * await deleteBucketWithNotifications('bucket-id');
  * ```
  */
 export function useDeleteBucketWithNotifications(options?: {
-  onCompleted?: () => void;
+  onSuccess?: () => void;
   onError?: (error: Error) => void;
 }) {
-  const apolloClient = useApolloClient();
-  const [deleteBucketMutation, { loading, error }] = useDeleteBucketMutation({
-    onCompleted: options?.onCompleted,
-    onError: options?.onError,
-    refetchQueries: [{ query: GetBucketsDocument }],
-  });
+  const queryClient = useQueryClient();
+  const [deleteBucketMutation] = useDeleteBucketMutation();
 
-  const deleteBucketWithNotifications = useCallback(
-    async (bucketId: string) => {
-      try {
-        // First, delete all notifications for this bucket from local cache
-        const deletedCount = await deleteNotificationsByBucketId(bucketId);
-        console.log(
-          `🗑️ Deleted ${deletedCount} notifications from local cache for bucket ${bucketId}`
-        );
+  const mutation = useMutation({
+    mutationFn: async (bucketId: string) => {
+      console.log('[useDeleteBucketWithNotifications] Deleting bucket:', bucketId);
+      
+      // First, delete all notifications for this bucket from local database
+      const deletedCount = await deleteNotificationsByBucketId(bucketId);
+      console.log(
+        `[useDeleteBucketWithNotifications] Deleted ${deletedCount} notifications from local database for bucket ${bucketId}`
+      );
 
-        // Get all notifications from Apollo cache to identify which ones belong to this bucket
-        const cacheData = apolloClient.cache.extract();
-        const notificationIdsToEvict: string[] = [];
+      // Then delete the bucket from the server
+      const result = await deleteBucketMutation({
+        variables: { id: bucketId },
+      });
 
-        // Find all notification entities that belong to this bucket
-        for (const [key, value] of Object.entries(cacheData)) {
-          if (key.startsWith('Notification:') && value) {
-            const notification = value as any;
-            if (notification.message?.bucket?.id === bucketId) {
-              notificationIdsToEvict.push(key);
-            }
-          }
+      if (!result.data?.deleteBucket) {
+        throw new Error('Failed to delete bucket');
+      }
+
+      return { bucketId };
+    },
+    onMutate: async (bucketId) => {
+      console.log('[useDeleteBucketWithNotifications] Optimistic update:', { bucketId });
+
+      // Cancel outgoing queries to prevent overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: bucketKeys.detail(bucketId) });
+      await queryClient.cancelQueries({ queryKey: notificationKeys.bucketsStats() });
+      await queryClient.cancelQueries({ queryKey: notificationKeys.stats() });
+
+      // Snapshot previous values for rollback
+      const previousBucketDetail = queryClient.getQueryData(bucketKeys.detail(bucketId));
+      const previousBucketsStats = queryClient.getQueryData(notificationKeys.bucketsStats());
+      const previousStats = queryClient.getQueryData(notificationKeys.stats());
+
+      // Optimistically remove bucket from bucketsStats
+      queryClient.setQueryData<BucketWithStats[]>(notificationKeys.bucketsStats(), (old) => {
+        if (!old) {
+          console.log('[useDeleteBucketWithNotifications] No bucketsStats cache found, skipping optimistic update');
+          return old;
         }
+        
+        console.log(`[useDeleteBucketWithNotifications] Removing bucket ${bucketId} from bucketsStats cache`);
+        return old.filter((bucket) => bucket.id !== bucketId);
+      });
 
-        // Then delete the bucket from the server
-        await deleteBucketMutation({
-          variables: { id: bucketId },
-        });
+      // Optimistically remove bucket detail
+      queryClient.removeQueries({ queryKey: bucketKeys.detail(bucketId) });
 
-        // After successful deletion, evict notifications and bucket from Apollo cache
-        console.log(
-          `🗑️ Evicting ${notificationIdsToEvict.length} notifications for bucket ${bucketId}`
-        );
+      console.log('[useDeleteBucketWithNotifications] Optimistic updates applied');
 
-        // Evict all notifications that belonged to this bucket
-        for (const notificationId of notificationIdsToEvict) {
-          apolloClient.cache.evict({
-            id: notificationId,
-          });
-        }
+      // Return context for rollback
+      return { previousBucketDetail, previousBucketsStats, previousStats, bucketId };
+    },
+    onSuccess: async (data, variables, context) => {
+      console.log('[useDeleteBucketWithNotifications] Mutation successful, invalidating queries...');
 
-        // Evict the bucket itself
-        apolloClient.cache.evict({
-          id: `Bucket:${bucketId}`,
-        });
+      // Invalidate all related queries
+      await queryClient.invalidateQueries({
+        queryKey: notificationKeys.bucketsStats(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: notificationKeys.stats(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: bucketKeys.detail(data.bucketId),
+      });
 
-        // Also evict from GetNotifications query cache
-        apolloClient.cache.modify({
-          fields: {
-            notifications(existingNotifications = [], { readField }) {
-              return existingNotifications.filter((notificationRef: any) => {
-                const bucketIdFromCache = readField(
-                  'message',
-                  readField('bucket', readField('id', notificationRef))
-                );
-                return bucketIdFromCache !== bucketId;
-              });
-            },
-          },
-        });
+      console.log('[useDeleteBucketWithNotifications] Queries invalidated');
 
-        // Run garbage collection
-        const gcResult = apolloClient.cache.gc();
-        console.log(
-          `🧹 Cache garbage collection completed - removed ${gcResult.length} orphaned objects`
-        );
-
-        console.log(
-          `✅ Successfully deleted bucket ${bucketId} and evicted all related data from Apollo cache`
-        );
-      } catch (error) {
-        console.error('❌ Failed to delete bucket with notifications:', error);
-        if (options?.onError) {
-          options.onError(error as Error);
-        }
-        throw error;
+      if (options?.onSuccess) {
+        options.onSuccess();
       }
     },
-    [deleteBucketMutation, options?.onError, options?.onCompleted, apolloClient]
-  );
+    onError: (error, variables, context) => {
+      console.error('[useDeleteBucketWithNotifications] Mutation failed, rolling back optimistic updates:', error);
+
+      // Rollback optimistic updates
+      if (context?.previousBucketDetail) {
+        queryClient.setQueryData(bucketKeys.detail(context.bucketId), context.previousBucketDetail);
+      }
+      if (context?.previousBucketsStats) {
+        queryClient.setQueryData(notificationKeys.bucketsStats(), context.previousBucketsStats);
+      }
+      if (context?.previousStats) {
+        queryClient.setQueryData(notificationKeys.stats(), context.previousStats);
+      }
+
+      if (options?.onError) {
+        options.onError(error as Error);
+      }
+    },
+  });
 
   return {
-    deleteBucketWithNotifications,
-    loading,
-    error,
+    deleteBucket: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+    error: mutation.error,
   };
 }
 
