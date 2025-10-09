@@ -445,7 +445,6 @@ export class MediaCacheRepository {
       if (mediaItem) {
         // Get MIME type from key to create proper Blob
         const mimeType = this.getMimeTypeFromKey(key);
-        console.log(`[MediaCacheRepository] Creating Blob with MIME type: ${mimeType} for key: ${key}`);
         
         const blob = new Blob([mediaItem.data], { type: mimeType });
         const objectUrl = URL.createObjectURL(blob);
