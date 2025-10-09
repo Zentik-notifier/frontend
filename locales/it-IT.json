@@ -1599,7 +1599,10 @@
       "messages": "Conservazione Messaggi",
       "rateLimit": "Limitazione Rate",
       "cors": "CORS & Sicurezza",
-      "logging": "Logging"
+      "logging": "Logging",
+      "logStorage": "Archiviazione Log",
+      "loki": "Logging Remoto Loki",
+      "prometheus": "Metriche Prometheus"
     },
     "fields": {
       "JwtAccessTokenExpiration": "Scadenza Token di Accesso JWT (minuti)",
@@ -1654,7 +1657,19 @@
       "RateLimitMessagesTtlMs": "TTL Limite Rate Messaggi (ms)",
       "CorsOrigin": "Origine CORS",
       "CorsCredentials": "Credenziali CORS",
-      "LogLevel": "Livello di Log"
+      "LogLevel": "Livello di Log",
+      "LogStorageEnabled": "Abilita Archiviazione Log nel Database",
+      "LogRetentionDays": "Conservazione Log (giorni)",
+      "LokiEnabled": "Abilita Logging Remoto Loki",
+      "LokiUrl": "URL Server Loki",
+      "LokiUsername": "Nome Utente Loki",
+      "LokiPassword": "Password Loki",
+      "LokiLabels": "Etichette Loki (JSON)",
+      "LokiBatchSize": "Dimensione Batch Loki",
+      "LokiBatchIntervalMs": "Intervallo Batch Loki (ms)",
+      "PrometheusEnabled": "Abilita Metriche Prometheus",
+      "PrometheusPath": "Percorso Metriche Prometheus",
+      "PrometheusRequiresAuth": "Prometheus Richiede Autenticazione"
     }
   },
   "eventsReview": {

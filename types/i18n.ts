@@ -1640,6 +1640,9 @@ export interface TranslationKey {
       rateLimit: string;
       cors: string;
       logging: string;
+      logStorage: string;
+      loki: string;
+      prometheus: string;
     };
     fields: {
       JwtAccessTokenExpiration: string;
@@ -1695,6 +1698,18 @@ export interface TranslationKey {
       CorsOrigin: string;
       CorsCredentials: string;
       LogLevel: string;
+      LogStorageEnabled: string;
+      LogRetentionDays: string;
+      LokiEnabled: string;
+      LokiUrl: string;
+      LokiUsername: string;
+      LokiPassword: string;
+      LokiLabels: string;
+      LokiBatchSize: string;
+      LokiBatchIntervalMs: string;
+      PrometheusEnabled: string;
+      PrometheusPath: string;
+      PrometheusRequiresAuth: string;
     };
   };
   notFound: {

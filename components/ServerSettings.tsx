@@ -260,6 +260,63 @@ const settingSections: Record<string, SectionConfig> = {
     icon: "text-box-multiple" as const,
     settings: ["LogLevel"],
   },
+  logStorage: {
+    title: "Log Storage",
+    icon: "database-clock" as const,
+    settings: [
+      "LogStorageEnabled",
+      {
+        key: "LogRetentionDays",
+        dependsOn: { field: "LogStorageEnabled", values: [true] },
+      },
+    ],
+  },
+  loki: {
+    title: "Loki Remote Logging",
+    icon: "cloud-upload" as const,
+    settings: [
+      "LokiEnabled",
+      {
+        key: "LokiUrl",
+        dependsOn: { field: "LokiEnabled", values: [true] },
+      },
+      {
+        key: "LokiUsername",
+        dependsOn: { field: "LokiEnabled", values: [true] },
+      },
+      {
+        key: "LokiPassword",
+        dependsOn: { field: "LokiEnabled", values: [true] },
+      },
+      {
+        key: "LokiLabels",
+        dependsOn: { field: "LokiEnabled", values: [true] },
+      },
+      {
+        key: "LokiBatchSize",
+        dependsOn: { field: "LokiEnabled", values: [true] },
+      },
+      {
+        key: "LokiBatchIntervalMs",
+        dependsOn: { field: "LokiEnabled", values: [true] },
+      },
+    ],
+  },
+  prometheus: {
+    title: "Prometheus Metrics",
+    icon: "chart-line" as const,
+    settings: [
+      "PrometheusEnabled",
+      {
+        key: "PrometheusPath",
+        dependsOn: { field: "PrometheusEnabled", values: [true] },
+      },
+      {
+        key: "PrometheusRequiresAuth",
+        dependsOn: { field: "PrometheusEnabled", values: [true] },
+      },
+    ],
+  },
 };
 
 // Helper function to get field type
