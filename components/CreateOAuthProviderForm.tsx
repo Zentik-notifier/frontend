@@ -54,6 +54,9 @@ export default function CreateOAuthProviderForm({
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const textColorPickerRef = useRef<ColorPickerRef>(null);
 
+  // State for showing/hiding sensitive data
+  const [showClientSecret, setShowClientSecret] = useState(false);
+
   const [formData, setFormData] = useState({
     name: "",
     providerId: "",
@@ -284,8 +287,15 @@ export default function CreateOAuthProviderForm({
                 placeholder={t(
                   "administration.oauthProviderForm.clientSecretPlaceholder"
                 )}
-                secureTextEntry
+                multiline={showClientSecret}
+                secureTextEntry={!showClientSecret}
                 autoCapitalize="none"
+                right={
+                  <TextInput.Icon
+                    icon={showClientSecret ? "eye-off" : "eye"}
+                    onPress={() => setShowClientSecret(!showClientSecret)}
+                  />
+                }
               />
             </View>
 
@@ -341,6 +351,7 @@ export default function CreateOAuthProviderForm({
                 <TextInput
                   mode="outlined"
                   value={formData.tokenUrl}
+                  multiline
                   onChangeText={(text) =>
                     setFormData({ ...formData, tokenUrl: text })
                   }
@@ -371,100 +382,97 @@ export default function CreateOAuthProviderForm({
           </Card>
         )}
 
-        {isCustomProvider && (
-          <Card style={styles.section} mode="outlined">
-            <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>
-                {t("administration.oauthProviderForm.appearance")}
+        <Card style={styles.section} mode="outlined">
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              {t("administration.oauthProviderForm.appearance")}
+            </Text>
+
+            <View style={styles.formGroup}>
+              <Text variant="titleMedium" style={styles.label}>
+                {t("administration.oauthProviderForm.iconUrl")}
               </Text>
+              <TextInput
+                mode="outlined"
+                value={formData.iconUrl}
+                multiline
+                onChangeText={(text) =>
+                  setFormData({ ...formData, iconUrl: text })
+                }
+                placeholder={t(
+                  "administration.oauthProviderForm.iconUrlPlaceholder"
+                )}
+                autoCapitalize="none"
+              />
+            </View>
 
-              <View style={styles.formGroup}>
-                <Text variant="titleMedium" style={styles.label}>
-                  {t("administration.oauthProviderForm.iconUrl")}
-                </Text>
-                <TextInput
-                  mode="outlined"
-                  value={formData.iconUrl}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, iconUrl: text })
-                  }
-                  placeholder={t(
-                    "administration.oauthProviderForm.iconUrlPlaceholder"
-                  )}
-                  autoCapitalize="none"
+            <View style={styles.formGroup}>
+              <Text variant="titleMedium" style={styles.label}>
+                {t("administration.oauthProviderForm.color")}
+              </Text>
+              <Button
+                mode="outlined"
+                style={styles.colorInput}
+                onPress={() => colorPickerRef.current?.openModal()}
+                contentStyle={styles.colorInputContent}
+              >
+                <View
+                  style={[
+                    styles.colorPreview,
+                    { backgroundColor: formData.color || "#4285f4" },
+                  ]}
                 />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text variant="titleMedium" style={styles.label}>
-                  {t("administration.oauthProviderForm.color")}
-                </Text>
-                <Button
-                  mode="outlined"
-                  style={styles.colorInput}
-                  onPress={() => colorPickerRef.current?.openModal()}
-                  contentStyle={styles.colorInputContent}
+                <Text
+                  variant="bodyMedium"
+                  style={[
+                    styles.colorInputText,
+                    {
+                      color: formData.color
+                        ? theme.colors.onSurface
+                        : theme.colors.onSurfaceVariant,
+                    },
+                  ]}
                 >
-                  <View
-                    style={[
-                      styles.colorPreview,
-                      { backgroundColor: formData.color || "#4285f4" },
-                    ]}
-                  />
-                  <Text
-                    variant="bodyMedium"
-                    style={[
-                      styles.colorInputText,
-                      {
-                        color: formData.color
-                          ? theme.colors.onSurface
-                          : theme.colors.onSurfaceVariant,
-                      },
-                    ]}
-                  >
-                    {formData.color ||
-                      t("administration.oauthProviderForm.colorPlaceholder")}
-                  </Text>
-                </Button>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text variant="titleMedium" style={styles.label}>
-                  {t("administration.oauthProviderForm.textColor")}
+                  {formData.color ||
+                    t("administration.oauthProviderForm.colorPlaceholder")}
                 </Text>
-                <Button
-                  mode="outlined"
-                  style={styles.colorInput}
-                  onPress={() => textColorPickerRef.current?.openModal()}
-                  contentStyle={styles.colorInputContent}
+              </Button>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text variant="titleMedium" style={styles.label}>
+                {t("administration.oauthProviderForm.textColor")}
+              </Text>
+              <Button
+                mode="outlined"
+                style={styles.colorInput}
+                onPress={() => textColorPickerRef.current?.openModal()}
+                contentStyle={styles.colorInputContent}
+              >
+                <View
+                  style={[
+                    styles.colorPreview,
+                    { backgroundColor: formData.textColor || "#FFFFFF" },
+                  ]}
+                />
+                <Text
+                  variant="bodyMedium"
+                  style={[
+                    styles.colorInputText,
+                    {
+                      color: formData.textColor
+                        ? theme.colors.onSurface
+                        : theme.colors.onSurfaceVariant,
+                    },
+                  ]}
                 >
-                  <View
-                    style={[
-                      styles.colorPreview,
-                      { backgroundColor: formData.textColor || "#FFFFFF" },
-                    ]}
-                  />
-                  <Text
-                    variant="bodyMedium"
-                    style={[
-                      styles.colorInputText,
-                      {
-                        color: formData.textColor
-                          ? theme.colors.onSurface
-                          : theme.colors.onSurfaceVariant,
-                      },
-                    ]}
-                  >
-                    {formData.textColor ||
-                      t(
-                        "administration.oauthProviderForm.textColorPlaceholder"
-                      )}
-                  </Text>
-                </Button>
-              </View>
-            </Card.Content>
-          </Card>
-        )}
+                  {formData.textColor ||
+                    t("administration.oauthProviderForm.textColorPlaceholder")}
+                </Text>
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
 
         {/* Hidden Color Pickers */}
         <ColorPicker
