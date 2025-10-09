@@ -7,7 +7,7 @@ ENV NODE_ENV=production
 COPY package*.json ./
 COPY .npmrc ./.npmrc
 # Install all deps (including dev for build tools like workbox-cli)
-RUN npm ci || npm install
+RUN npm install
 COPY . .
 # Build static web output in dist/
 RUN npm run build:web
