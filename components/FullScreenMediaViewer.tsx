@@ -68,6 +68,7 @@ export default function FullScreenMediaViewer({
     localPath?: string;
     size?: number;
   } | null>(null);
+  const [showInfo, setShowInfo] = useState(true);
 
   // Swipe down to close: animate media container
   const translateY = useSharedValue(0);
@@ -138,6 +139,10 @@ export default function FullScreenMediaViewer({
   const pinchGesture = Gesture.Pinch()
     .onUpdate((e) => {
       scale.value = Math.max(0.5, Math.min(e.scale, 3)); // Limit zoom between 0.5x and 3x
+      // Nascondi le info quando si zooma
+      if (scale.value > 1.1) {
+        runOnJS(setShowInfo)(false);
+      }
     })
     .onEnd(() => {
       if (scale.value < 1) {
@@ -146,6 +151,7 @@ export default function FullScreenMediaViewer({
         savedScale.value = 1;
         savedTranslateX.value = withSpring(0);
         savedTranslateY.value = withSpring(0);
+        runOnJS(setShowInfo)(true);
       } else {
         // Save zoom level
         savedScale.value *= scale.value;
@@ -162,9 +168,11 @@ export default function FullScreenMediaViewer({
         savedScale.value = withSpring(1);
         savedTranslateX.value = withSpring(0);
         savedTranslateY.value = withSpring(0);
+        runOnJS(setShowInfo)(true);
       } else {
         // Zoom in
         savedScale.value = withSpring(2);
+        runOnJS(setShowInfo)(false);
       }
     });
 
@@ -185,6 +193,7 @@ export default function FullScreenMediaViewer({
       translateX.value = 0;
       savedTranslateX.value = 0;
       savedTranslateY.value = 0;
+      setShowInfo(true);
     } else {
       // ensure next open starts fresh
       translateY.value = 0;
@@ -194,6 +203,7 @@ export default function FullScreenMediaViewer({
       translateX.value = 0;
       savedTranslateX.value = 0;
       savedTranslateY.value = 0;
+      setShowInfo(true);
     }
   }, [visible]);
 
@@ -291,94 +301,107 @@ export default function FullScreenMediaViewer({
     }
   };
 
+  if (!visible) return null;
+
   return (
     <Modal
       visible={visible}
-      transparent={true}
+      transparent
       animationType="fade"
-      statusBarTranslucent={true}
+      statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={[styles.container]}>
-        <View
-          style={[
-            styles.topBar,
-            { top: insets.top + 16 },
-            enableSwipeNavigation
-              ? styles.topBarWithNavigation
-              : styles.topBarActionsOnly,
-          ]}
-        >
-          {enableSwipeNavigation && (
-            <ButtonGroup style={styles.navigationSection}>
-              <IconButton
-                icon="chevron-left"
-                size={18}
-                iconColor={textColor}
-                style={styles.iconButton}
-                onPress={onSwipeRight}
-                accessibilityLabel="previous-media"
-              />
-              {currentPosition && (
-                <Text style={[styles.counterText, { color: textColor }]}>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.container]}>
+          <View
+            style={[
+              styles.topBar,
+              { 
+                top: insets.top + 8,
+                backgroundColor: "rgba(0,0,0,0.7)",
+              },
+            ]}
+          >
+            {/* Navigation buttons (left) */}
+            {enableSwipeNavigation && (
+              <View style={styles.navigationSection}>
+                <IconButton
+                  icon="chevron-left"
+                  size={20}
+                  iconColor="white"
+                  style={styles.iconButton}
+                  onPress={onSwipeRight}
+                  accessibilityLabel="previous-media"
+                />
+                <Text style={styles.counterText}>
                   {currentPosition}
                 </Text>
-              )}
-              <IconButton
-                icon="chevron-right"
-                size={18}
-                iconColor={textColor}
-                style={styles.iconButton}
-                onPress={onSwipeLeft}
-                accessibilityLabel="next-media"
-              />
-            </ButtonGroup>
-          )}
+                <IconButton
+                  icon="chevron-right"
+                  size={20}
+                  iconColor="white"
+                  style={styles.iconButton}
+                  onPress={onSwipeLeft}
+                  accessibilityLabel="next-media"
+                />
+              </View>
+            )}
 
-          {/* Action buttons (grouped) */}
-          <ButtonGroup>
-            <IconButton
-              icon="content-copy"
-              size={18}
-              iconColor={textColor}
-              style={styles.iconButton}
-              onPress={handleCopyUrl}
-              accessibilityLabel="copy-url"
-            />
-            <IconButton
-              icon="download"
-              size={18}
-              iconColor={textColor}
-              style={styles.iconButton}
-              onPress={handleSave}
-              accessibilityLabel="save-to-gallery"
-            />
-            <IconButton
-              icon="share"
-              size={18}
-              iconColor={textColor}
-              style={styles.iconButton}
-              onPress={handleShare}
-              accessibilityLabel="share"
-            />
-            <IconButton
-              icon="delete"
-              size={18}
-              iconColor={theme.colors.error}
-              style={styles.iconButton}
-              onPress={handleDelete}
-              accessibilityLabel="delete"
-            />
-            <IconButton
-              icon="close"
-              size={18}
-              iconColor={textColor}
-              style={styles.iconButton}
-              onPress={onClose}
-              accessibilityLabel="close"
-            />
-          </ButtonGroup>
-        </View>
+            {/* Spacer */}
+            <View style={{ flex: 1 }} />
+
+            {/* Action buttons (right) */}
+            <View style={styles.actionsSection}>
+              <IconButton
+                icon={showInfo ? "information" : "information-outline"}
+                size={20}
+                iconColor="white"
+                style={styles.iconButton}
+                onPress={() => setShowInfo(!showInfo)}
+                accessibilityLabel="toggle-info"
+              />
+              <IconButton
+                icon="content-copy"
+                size={20}
+                iconColor="white"
+                style={styles.iconButton}
+                onPress={handleCopyUrl}
+                accessibilityLabel="copy-url"
+              />
+              <IconButton
+                icon="download"
+                size={20}
+                iconColor="white"
+                style={styles.iconButton}
+                onPress={handleSave}
+                accessibilityLabel="save-to-gallery"
+              />
+              <IconButton
+                icon="share"
+                size={20}
+                iconColor="white"
+                style={styles.iconButton}
+                onPress={handleShare}
+                accessibilityLabel="share"
+              />
+              <IconButton
+                icon="delete"
+                size={20}
+                iconColor="#ff4444"
+                style={styles.iconButton}
+                onPress={handleDelete}
+                accessibilityLabel="delete"
+              />
+              <IconButton
+                icon="close"
+                size={20}
+                iconColor="white"
+                style={styles.iconButton}
+                onPress={onClose}
+                accessibilityLabel="close"
+              />
+            </View>
+          </View>
 
         {/* Content with tap-to-close only outside media and gesture support on media */}
         <View
@@ -431,110 +454,141 @@ export default function FullScreenMediaViewer({
           </GestureDetector>
         </View>
 
-        {/* Bottom description with title and cache info */}
-        {(description || originalFileName || cacheInfo || notificationDate) && (
-          <View style={[styles.bottomBar, { bottom: insets.bottom + 16 }]}>
-            {originalFileName ? (
-              <Text
-                style={[styles.descTitle, { color: textColor }]}
-                numberOfLines={1}
-              >
-                {originalFileName}
-              </Text>
-            ) : null}
-            {description ? (
-              <Text
-                style={[styles.descText, { color: textColor }]}
-                numberOfLines={3}
-              >
-                {description}
-              </Text>
-            ) : null}
+          {/* Bottom description with title and cache info */}
+          {showInfo &&
+            (description ||
+              originalFileName ||
+              cacheInfo ||
+              notificationDate) && (
+              <View style={[styles.bottomBar, { bottom: insets.bottom }]}>
+                {originalFileName && (
+                  <Text
+                    style={styles.descTitle}
+                    numberOfLines={1}
+                  >
+                    {originalFileName}
+                  </Text>
+                )}
+                {description && (
+                  <Text
+                    style={styles.descText}
+                    numberOfLines={2}
+                  >
+                    {description}
+                  </Text>
+                )}
 
-            {/* Cache info section */}
-            <View style={styles.cacheInfoSection}>
-              {notificationDate && (
-                <Text style={[styles.cacheInfoText, { color: textColor }]}>
-                  {t("gallery.cachedOn")}:{" "}
-                  {formatDate(new Date(notificationDate))}
-                </Text>
-              )}
-              {cacheInfo?.localPath && (
-                <Text style={[styles.cacheInfoText, { color: textColor }]}>
-                  Local: {cacheInfo.localPath.split("/").pop()}
-                </Text>
-              )}
-              {url && (
-                <Text
-                  style={[styles.cacheInfoText, { color: textColor }]}
-                  numberOfLines={1}
-                >
-                  URL: {url}
-                </Text>
-              )}
-              {cacheInfo?.size && (
-                <Text style={[styles.cacheInfoText, { color: textColor }]}>
-                  Size: {(cacheInfo.size / 1024 / 1024).toFixed(2)} MB
-                </Text>
-              )}
-            </View>
-          </View>
-        )}
+                {/* Cache info section */}
+                <View style={styles.cacheInfoSection}>
+                  {notificationDate && (
+                    <Text style={styles.cacheInfoText}>
+                      {t("gallery.cachedOn")}:{" "}
+                      {formatDate(new Date(notificationDate))}
+                    </Text>
+                  )}
+                  {cacheInfo?.localPath && (
+                    <Text style={styles.cacheInfoText}>
+                      Local: {cacheInfo.localPath.split("/").pop()}
+                    </Text>
+                  )}
+                  {url && (
+                    <Text
+                      style={styles.cacheInfoText}
+                      numberOfLines={1}
+                    >
+                      URL: {url}
+                    </Text>
+                  )}
+                  {cacheInfo?.size && (
+                    <Text style={styles.cacheInfoText}>
+                      Size: {(cacheInfo.size / 1024 / 1024).toFixed(2)} MB
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
+        </View>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.95)",
+  },
   container: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.9)",
   },
   topBar: {
     position: "absolute",
-    left: 16,
-    right: 16,
+    left: 12,
+    right: 12,
     zIndex: 1,
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  topBarWithNavigation: { justifyContent: "space-between" },
-  topBarActionsOnly: { justifyContent: "flex-end" },
-  navigationSection: { flexDirection: "row", alignItems: "center" },
+  navigationSection: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  actionsSection: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   iconButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
+    margin: 0,
   },
   counterText: {
     fontSize: 14,
     fontWeight: "500",
-    minWidth: 60,
+    color: "white",
+    minWidth: 50,
     textAlign: "center",
-    height: 34,
-    lineHeight: 34,
+    paddingHorizontal: 8,
   },
   content: { flex: 1, alignItems: "center", justifyContent: "center" },
   media: { width: "95%", height: "80%" },
   bottomBar: {
     position: "absolute",
-    left: 16,
-    right: 16,
-    padding: 12,
-    borderRadius: 12,
+    left: 0,
+    right: 0,
+    padding: 16,
+    paddingBottom: 20,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   cacheInfoSection: {
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.1)",
+    borderTopColor: "rgba(255,255,255,0.2)",
   },
   cacheInfoText: {
     fontSize: 13,
+    color: "white",
     opacity: 0.6,
     marginBottom: 2,
   },
-  descTitle: { fontSize: 16, fontWeight: "600", marginBottom: 4 },
-  descText: { fontSize: 13 },
-  descDate: { fontSize: 12, opacity: 0.7, marginTop: 4 },
+  descTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+    color: "white",
+  },
+  descText: {
+    fontSize: 13,
+    color: "white",
+  },
+  descDate: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginTop: 4,
+    color: "white",
+  },
 });
