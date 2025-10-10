@@ -1694,7 +1694,10 @@
     "refresh": "Refresh",
     "loading": "Loading logs...",
     "filterPlaceholder": "Filter logs by text, tag, level",
+    "logDetailsTitle": "Log Details",
     "fields": {
+      "level": "level",
+      "timestamp": "timestamp",
       "tag": "tag",
       "message": "message",
       "meta": "meta"

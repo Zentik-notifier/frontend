@@ -2,12 +2,15 @@ export interface TranslationKey {
   appLogs: {
     description: string;
     fields: {
+      level: string;
+      timestamp: string;
       meta: string;
       message: string;
       tag: string;
     };
     filterPlaceholder: string;
     loading: string;
+    logDetailsTitle: string;
     refresh: string;
     title: string;
   };

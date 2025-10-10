@@ -302,70 +302,74 @@ export default function AppLogs() {
       {/* Log Detail Modal */}
       <Modal
         visible={showLogDialog}
-        transparent={true}
-        animationType="slide"
+        transparent
+        animationType="fade"
         onRequestClose={handleCloseLogDialog}
       >
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalBackdrop]}>
           <View
             style={[
-              styles.modalContainer,
+              styles.dialogContainer,
               { backgroundColor: theme.colors.surface },
             ]}
           >
-            {/* Header */}
-            <View
-              style={[
-                styles.modalHeader,
-                { borderBottomColor: theme.colors.outline },
-              ]}
-            >
-              {/* Level badge a sinistra */}
-              <View style={styles.levelBadgeContainer}>
-                <View
-                  style={[
-                    styles.levelBadge,
-                    {
-                      backgroundColor: selectedLog
-                        ? levelToColor[selectedLog.level]
-                        : theme.colors.primary,
-                    },
-                  ]}
+            <View style={styles.dialogHeader}>
+              <Text style={[styles.dialogTitle, { color: theme.colors.onSurface }]}>
+                {t("appLogs.logDetailsTitle")}
+              </Text>
+              <TouchableOpacity onPress={handleCloseLogDialog}>
+                <Icon
+                  source="close"
+                  size={24}
+                  color={theme.colors.onSurface}
                 />
-                <Text style={styles.levelText}>
-                  {selectedLog?.level.toUpperCase()}
-                </Text>
-              </View>
-
-              {/* Data in mezzo */}
-              <View style={styles.dateContainer}>
-                <Text style={styles.dialogDate}>
-                  {selectedLog
-                    ? new Date(selectedLog.timestamp).toLocaleString()
-                    : ""}
-                </Text>
-              </View>
-
-              {/* Close button a destra */}
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={handleCloseLogDialog}
-                accessibilityLabel={t("common.close")}
-              >
-                <Icon source="close" size={24} color={theme.colors.onSurface} />
               </TouchableOpacity>
             </View>
 
-            {/* Content */}
-            <ScrollView
-              style={styles.modalContent}
-              showsVerticalScrollIndicator={true}
-              indicatorStyle="default"
-            >
+            <ScrollView style={styles.dialogContent}>
               {selectedLog && (
                 <>
                   <View style={styles.dialogMetaRow}>
-                    <Text style={styles.dialogMetaLabel}>Message:</Text>
+                    <Text style={styles.dialogMetaLabel}>
+                      {t("appLogs.fields.level")}:
+                    </Text>
+                    <Text
+                      style={[
+                        styles.dialogMetaValue,
+                        {
+                          color: levelToColor[selectedLog.level],
+                          fontWeight: "bold",
+                        },
+                      ]}
+                    >
+                      {selectedLog.level.toUpperCase()}
+                    </Text>
+                  </View>
+
+                  <View style={styles.dialogMetaRow}>
+                    <Text style={styles.dialogMetaLabel}>
+                      {t("appLogs.fields.timestamp")}:
+                    </Text>
+                    <Text style={styles.dialogMetaValue}>
+                      {new Date(selectedLog.timestamp).toLocaleString()}
+                    </Text>
+                  </View>
+
+                  {selectedLog.tag && (
+                    <View style={styles.dialogMetaRow}>
+                      <Text style={styles.dialogMetaLabel}>
+                        {t("appLogs.fields.tag")}:
+                      </Text>
+                      <Text style={styles.dialogMetaValue}>
+                        {selectedLog.tag}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.dialogMetaRow}>
+                    <Text style={styles.dialogMetaLabel}>
+                      {t("appLogs.fields.message")}:
+                    </Text>
                     <Text style={styles.dialogMetaValue}>
                       {selectedLog.message}
                     </Text>
@@ -373,7 +377,9 @@ export default function AppLogs() {
 
                   {selectedLog.metaJson && (
                     <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>Meta:</Text>
+                      <Text style={styles.dialogMetaLabel}>
+                        {t("appLogs.fields.meta")}:
+                      </Text>
                       <Text style={styles.dialogMetaValue}>
                         {JSON.stringify(
                           JSON.parse(selectedLog.metaJson),
@@ -532,64 +538,47 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.9,
   },
-  modalOverlay: {
+  modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
   },
-  modalContainer: {
-    minHeight: "30%",
-    maxHeight: "30%",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+  dialogContainer: {
+    width: "100%",
+    maxWidth: 600,
+    maxHeight: "80%",
+    borderRadius: 16,
+    overflow: "hidden",
   },
-  modalHeader: {
+  dialogHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    padding: 16,
     borderBottomWidth: 1,
-    minHeight: 80,
+    borderBottomColor: "rgba(0,0,0,0.1)",
   },
-  modalContent: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    paddingBottom: 40,
-  },
-  closeButton: {
-    padding: 8,
-  },
-  dateContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dialogDate: {
-    fontSize: 14,
-    opacity: 0.7,
+  dialogTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
   },
   dialogContent: {
-    maxHeight: 400,
-    paddingHorizontal: 16,
+    padding: 16,
   },
   dialogMetaRow: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   dialogMetaLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     marginBottom: 4,
-    opacity: 0.8,
+    opacity: 0.7,
   },
   dialogMetaValue: {
     fontSize: 13,
-    lineHeight: 18,
-    fontFamily: "monospace",
-    backgroundColor: "rgba(0,0,0,0.05)",
-    padding: 8,
-    borderRadius: 4,
+    opacity: 0.9,
   },
   loadingFab: {
     position: "absolute",
