@@ -147,17 +147,35 @@ const settingSections: Record<string, SectionConfig> = {
         key: "EmailType",
         dependsOn: { field: "EmailEnabled", values: [true] },
       },
-      { key: "EmailHost", dependsOn: { field: "EmailType", values: ["SMTP"] } },
-      { key: "EmailPort", dependsOn: { field: "EmailType", values: ["SMTP"] } },
+      {
+        key: "EmailHost",
+        visibleWhen: (values) =>
+          values.EmailEnabled === true && values.EmailType === "SMTP",
+      },
+      {
+        key: "EmailPort",
+        visibleWhen: (values) =>
+          values.EmailEnabled === true && values.EmailType === "SMTP",
+      },
       {
         key: "EmailSecure",
-        dependsOn: { field: "EmailType", values: ["SMTP"] },
+        visibleWhen: (values) =>
+          values.EmailEnabled === true && values.EmailType === "SMTP",
       },
-      { key: "EmailUser", dependsOn: { field: "EmailType", values: ["SMTP"] } },
-      { key: "EmailPass", dependsOn: { field: "EmailType", values: ["SMTP"] } },
+      {
+        key: "EmailUser",
+        visibleWhen: (values) =>
+          values.EmailEnabled === true && values.EmailType === "SMTP",
+      },
+      {
+        key: "EmailPass",
+        visibleWhen: (values) =>
+          values.EmailEnabled === true && values.EmailType === "SMTP",
+      },
       {
         key: "ResendApiKey",
-        dependsOn: { field: "EmailType", values: ["Resend"] },
+        visibleWhen: (values) =>
+          values.EmailEnabled === true && values.EmailType === "Resend",
       },
     ],
   },
@@ -271,33 +289,7 @@ const settingSections: Record<string, SectionConfig> = {
   loki: {
     title: "Loki Remote Logging",
     icon: "cloud-upload" as const,
-    settings: [
-      "LokiEnabled",
-      {
-        key: "LokiUrl",
-        dependsOn: { field: "LokiEnabled", values: [true] },
-      },
-      {
-        key: "LokiUsername",
-        dependsOn: { field: "LokiEnabled", values: [true] },
-      },
-      {
-        key: "LokiPassword",
-        dependsOn: { field: "LokiEnabled", values: [true] },
-      },
-      {
-        key: "LokiLabels",
-        dependsOn: { field: "LokiEnabled", values: [true] },
-      },
-      {
-        key: "LokiBatchSize",
-        dependsOn: { field: "LokiEnabled", values: [true] },
-      },
-      {
-        key: "LokiBatchIntervalMs",
-        dependsOn: { field: "LokiEnabled", values: [true] },
-      },
-    ],
+    settings: ["LokiEnabled"],
   },
   prometheus: {
     title: "Prometheus Metrics",

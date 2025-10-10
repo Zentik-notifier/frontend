@@ -789,13 +789,7 @@ enum ServerSettingType {
   LogLevel
   LogRetentionDays
   LogStorageEnabled
-  LokiBatchIntervalMs
-  LokiBatchSize
   LokiEnabled
-  LokiLabels
-  LokiPassword
-  LokiUrl
-  LokiUsername
   MessagesDeleteCronJob
   MessagesDeleteJobEnabled
   MessagesMaxAge

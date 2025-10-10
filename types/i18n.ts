@@ -1706,12 +1706,6 @@ export interface TranslationKey {
       LogStorageEnabled: string;
       LogRetentionDays: string;
       LokiEnabled: string;
-      LokiUrl: string;
-      LokiUsername: string;
-      LokiPassword: string;
-      LokiLabels: string;
-      LokiBatchSize: string;
-      LokiBatchIntervalMs: string;
       PrometheusEnabled: string;
     };
   };
