@@ -42,6 +42,7 @@ import {
 } from "react-native-paper";
 import NotificationFilters from "./NotificationFilters";
 import NotificationItem from "./NotificationItem";
+import { useBadgeSync } from "@/hooks/useBadgeSync";
 
 interface NotificationsListProps {
   bucketId?: string;
@@ -79,6 +80,7 @@ export default function NotificationsList({
   const batchMarkAsReadMutation = useBatchMarkAsRead();
   const batchDeleteMutation = useBatchDeleteNotifications();
   const refreshWithSync = useRefreshNotifications();
+  const { hasUnreadNotifications } = useBadgeSync();
 
   const [visibleItems, setVisibileItems] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -91,9 +93,15 @@ export default function NotificationsList({
   const {
     state: { selectionMode, selectedItems },
     handleCloseSelectionMode,
-    handleSetAllNotifications,
     dispatch,
   } = useNotificationsContext();
+
+  useEffect(() => {
+    if (!hasUnreadNotifications) {
+      setHasUnreadAbove(false);
+      setHasUnreadBelow(false);
+    }
+  }, [hasUnreadNotifications]);
 
   const {
     userSettings: {
@@ -210,11 +218,6 @@ export default function NotificationsList({
     // Query will automatically refetch due to key change
     setLimit(50);
   }, [queryFilters, querySort]);
-
-  // Update context with current notifications
-  //   useEffect(() => {
-  //     handleSetAllNotifications(filteredNotifications);
-  //   }, [filteredNotifications]);
 
   // Update loading state
   useEffect(() => {
