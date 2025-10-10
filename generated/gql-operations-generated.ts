@@ -1238,7 +1238,6 @@ export enum ServerSettingType {
   MessagesMaxAge = 'MessagesMaxAge',
   PrometheusEnabled = 'PrometheusEnabled',
   PrometheusPath = 'PrometheusPath',
-  PrometheusRequiresAuth = 'PrometheusRequiresAuth',
   PushNotificationsPassthroughServer = 'PushNotificationsPassthroughServer',
   PushPassthroughToken = 'PushPassthroughToken',
   RateLimitBlockMs = 'RateLimitBlockMs',

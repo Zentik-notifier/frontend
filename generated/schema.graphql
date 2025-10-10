@@ -807,7 +807,6 @@ enum ServerSettingType {
   MessagesMaxAge
   PrometheusEnabled
   PrometheusPath
-  PrometheusRequiresAuth
   PushNotificationsPassthroughServer
   PushPassthroughToken
   RateLimitBlockMs

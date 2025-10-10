@@ -1669,8 +1669,7 @@
       "LokiBatchSize": "Loki Batch Size",
       "LokiBatchIntervalMs": "Loki Batch Interval (ms)",
       "PrometheusEnabled": "Enable Prometheus Metrics",
-      "PrometheusPath": "Prometheus Metrics Path",
-      "PrometheusRequiresAuth": "Prometheus Requires Authentication"
+      "PrometheusPath": "Prometheus Metrics Path"
     }
   },
   "eventsReview": {
@@ -1687,8 +1686,7 @@
       "title": "No events found",
       "description": "Adjust filters or try refreshing."
     }
-  }
-  ,
+  },
   "appLogs": {
     "title": "Application Logs",
     "description": "View and refresh application logs stored on device.",

@@ -311,10 +311,6 @@ const settingSections: Record<string, SectionConfig> = {
         key: "PrometheusPath",
         dependsOn: { field: "PrometheusEnabled", values: [true] },
       },
-      {
-        key: "PrometheusRequiresAuth",
-        dependsOn: { field: "PrometheusEnabled", values: [true] },
-      },
     ],
   },
 };
@@ -687,36 +683,14 @@ export function ServerSettings() {
         onRefresh={handleRefresh}
         loading={loading}
         error={!!error}
+        customActions={[
+          {
+            label: t("serverSettings.restartServer"),
+            icon: "restart",
+            onPress: () => setShowRestartDialog(true),
+          },
+        ]}
       >
-        <View style={styles.topPadding} />
-
-        {/* Action Buttons */}
-        <Card style={styles.actionCard}>
-          <Card.Content>
-            <Text variant="headlineSmall" style={styles.sectionTitle}>
-              {t("serverSettings.serverManagement" as any)}
-            </Text>
-            <Text
-              variant="bodyMedium"
-              style={[
-                styles.sectionDescription,
-                { color: theme.colors.onSurfaceVariant, marginBottom: 16 },
-              ]}
-            >
-              {t("serverSettings.serverManagementDescription" as any)}
-            </Text>
-
-            <Button
-              mode="contained-tonal"
-              onPress={() => setShowRestartDialog(true)}
-              icon="restart"
-              style={styles.actionButton}
-            >
-              {t("serverSettings.restartServer" as any)}
-            </Button>
-          </Card.Content>
-        </Card>
-
         {/* Setting Sections */}
         {Object.keys(settingSections).map((sectionKey) => (
           <SettingSection
@@ -846,12 +820,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  topPadding: {
-    height: 16,
-  },
-  actionCard: {
-    marginBottom: 20,
   },
   sectionCard: {
     marginBottom: 20,

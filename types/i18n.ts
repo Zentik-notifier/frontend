@@ -1075,8 +1075,8 @@ export interface TranslationKey {
     description: string;
     deselectAll: string;
     endOfList: string;
-          unreadAbove: string;
-      unreadBelow: string;
+    unreadAbove: string;
+    unreadBelow: string;
     errors: {
       markAllAsReadFailed: string;
     };
@@ -1713,7 +1713,6 @@ export interface TranslationKey {
       LokiBatchIntervalMs: string;
       PrometheusEnabled: string;
       PrometheusPath: string;
-      PrometheusRequiresAuth: string;
     };
   };
   notFound: {

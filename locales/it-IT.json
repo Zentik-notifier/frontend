@@ -1669,8 +1669,7 @@
       "LokiBatchSize": "Dimensione Batch Loki",
       "LokiBatchIntervalMs": "Intervallo Batch Loki (ms)",
       "PrometheusEnabled": "Abilita Metriche Prometheus",
-      "PrometheusPath": "Percorso Metriche Prometheus",
-      "PrometheusRequiresAuth": "Prometheus Richiede Autenticazione"
+      "PrometheusPath": "Percorso Metriche Prometheus"
     }
   },
   "eventsReview": {
