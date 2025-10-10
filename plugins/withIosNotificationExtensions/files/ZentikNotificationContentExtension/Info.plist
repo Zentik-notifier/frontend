@@ -26,27 +26,6 @@
 		<dict>
 			<key>UNNotificationExtensionCategory</key>
 			<array>
-				<string>myNotificationCategory</string>
-				<string>zentik_cat_0</string>
-				<string>zentik_cat_1</string>
-				<string>zentik_cat_2</string>
-				<string>zentik_cat_3</string>
-				<string>zentik_cat_4</string>
-				<string>zentik_cat_5</string>
-				<string>zentik_cat_6</string>
-				<string>zentik_cat_7</string>
-				<string>zentik_cat_8</string>
-				<string>zentik_cat_9</string>
-				<string>zentik_cat_10</string>
-				<string>zentik_cat_11</string>
-				<string>zentik_cat_12</string>
-				<string>zentik_cat_13</string>
-				<string>zentik_cat_14</string>
-				<string>zentik_cat_15</string>
-				<string>zentik_cat_16</string>
-				<string>zentik_cat_17</string>
-				<string>zentik_cat_18</string>
-				<string>zentik_cat_19</string>
 				<string>DYNAMIC</string>
 			</array>
 			<key>UNNotificationExtensionMediaPlayback</key>

@@ -169,7 +169,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             )
         }
         
-        if categoryId == "dynamic" || categoryId.hasPrefix("zentik_cat_") {
+        if categoryId == "dynamic" {
             if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
                 print("📱 [ContentExtension] 🎭 Processing \(actionsData.count) actions for dynamic category")
                 
