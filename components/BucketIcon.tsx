@@ -35,13 +35,13 @@ export default function BucketIcon({
   bucket: bucketParent,
 }: BucketIconProps) {
   const theme = useTheme();
-  const { bucket: bucketData, error } = useBucket(bucketIdParent);
+  const { bucket: bucketData, error } = useBucket(bucketIdParent ?? bucketParent?.id);
   const bucket = bucketParent || bucketData;
   const { color, icon: iconBucket } = bucket || {};
   const { navigateToDanglingBucket, navigateToBucketDetail } =
     useNavigationUtils();
   const bucketId = bucket?.id || bucketIdParent;
-  const icon = iconBucket ?? iconUrl;
+  const icon = bucketData?.icon ?? iconBucket ?? iconUrl;
 
   if (!bucketId && !iconUrl) {
     return null;
