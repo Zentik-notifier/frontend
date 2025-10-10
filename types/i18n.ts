@@ -1626,13 +1626,9 @@ export interface TranslationKey {
     restartConfirmMessage: string;
     restartSuccess: string;
     restartFailed: string;
-    restartError: string;
     saveSuccess: string;
     savedSuccessfully: string;
-    saveSuccessMessage: string;
-    saveError: string;
     failedToSave: string;
-    loadError: string;
     failedToLoad: string;
     selectPlaceholder: string;
     warningFooter: string;
