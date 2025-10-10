@@ -1717,7 +1717,6 @@ export interface TranslationKey {
       LokiBatchSize: string;
       LokiBatchIntervalMs: string;
       PrometheusEnabled: string;
-      PrometheusPath: string;
     };
   };
   notFound: {

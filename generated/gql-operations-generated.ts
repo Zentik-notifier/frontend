@@ -1231,7 +1231,6 @@ export enum ServerSettingType {
   MessagesDeleteJobEnabled = 'MessagesDeleteJobEnabled',
   MessagesMaxAge = 'MessagesMaxAge',
   PrometheusEnabled = 'PrometheusEnabled',
-  PrometheusPath = 'PrometheusPath',
   PushNotificationsPassthroughServer = 'PushNotificationsPassthroughServer',
   PushPassthroughToken = 'PushPassthroughToken',
   RateLimitBlockMs = 'RateLimitBlockMs',

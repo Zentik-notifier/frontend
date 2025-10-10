@@ -302,13 +302,7 @@ const settingSections: Record<string, SectionConfig> = {
   prometheus: {
     title: "Prometheus Metrics",
     icon: "chart-line" as const,
-    settings: [
-      "PrometheusEnabled",
-      {
-        key: "PrometheusPath",
-        dependsOn: { field: "PrometheusEnabled", values: [true] },
-      },
-    ],
+    settings: ["PrometheusEnabled"],
   },
 };
 
@@ -472,7 +466,9 @@ function SettingField({
             options={selectorOptions}
             selectedValue={value ?? setting.possibleValues[0]}
             onValueChange={onValueChange}
-            placeholder={t("serverSettings.selectPlaceholder", { field: label } as any)}
+            placeholder={t("serverSettings.selectPlaceholder", {
+              field: label,
+            } as any)}
           />
         </View>
       );

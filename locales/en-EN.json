@@ -1669,8 +1669,7 @@
       "LokiLabels": "Loki Labels (JSON)",
       "LokiBatchSize": "Loki Batch Size",
       "LokiBatchIntervalMs": "Loki Batch Interval (ms)",
-      "PrometheusEnabled": "Enable Prometheus Metrics",
-      "PrometheusPath": "Prometheus Metrics Path"
+      "PrometheusEnabled": "Enable Prometheus Metrics"
     }
   },
   "eventsReview": {

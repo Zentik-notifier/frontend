@@ -1669,8 +1669,7 @@
       "LokiLabels": "Etichette Loki (JSON)",
       "LokiBatchSize": "Dimensione Batch Loki",
       "LokiBatchIntervalMs": "Intervallo Batch Loki (ms)",
-      "PrometheusEnabled": "Abilita Metriche Prometheus",
-      "PrometheusPath": "Percorso Metriche Prometheus"
+      "PrometheusEnabled": "Abilita Metriche Prometheus"
     }
   },
   "eventsReview": {
