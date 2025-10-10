@@ -302,7 +302,6 @@ export function UserSessionsSettings() {
         loading={loading}
         error={!loading && !!error}
         customActions={customActions}
-        useFabGroup
       >
         {sortedSessions.length === 0 ? (
           <View style={styles.emptyState}>
