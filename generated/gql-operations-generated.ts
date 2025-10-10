@@ -447,8 +447,6 @@ export type Mutation = {
   deleteWebhook: Scalars['Boolean']['output'];
   deviceReportNotificationReceived: Notification;
   executeWebhook: Scalars['Boolean']['output'];
-  /** Force flush all pending logs to Loki */
-  flushLokiLogs: Scalars['Boolean']['output'];
   grantEntityPermission: EntityPermission;
   login: LoginResponse;
   logout: Scalars['String']['output'];
@@ -2352,11 +2350,6 @@ export type TriggerLogCleanupMutationVariables = Exact<{ [key: string]: never; }
 
 
 export type TriggerLogCleanupMutation = { __typename?: 'Mutation', triggerLogCleanup: boolean };
-
-export type FlushLokiLogsMutationVariables = Exact<{ [key: string]: never; }>;
-
-
-export type FlushLokiLogsMutation = { __typename?: 'Mutation', flushLokiLogs: boolean };
 
 export const MessageAttachmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageAttachmentFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MessageAttachment"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"saveOnServer"}}]}}]} as unknown as DocumentNode;
 export const NotificationActionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationActionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationAction"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"destructive"}}]}}]} as unknown as DocumentNode;
@@ -5586,29 +5579,3 @@ export function useTriggerLogCleanupMutation(baseOptions?: ApolloReactHooks.Muta
 export type TriggerLogCleanupMutationHookResult = ReturnType<typeof useTriggerLogCleanupMutation>;
 export type TriggerLogCleanupMutationResult = Apollo.MutationResult<TriggerLogCleanupMutation>;
 export type TriggerLogCleanupMutationOptions = Apollo.BaseMutationOptions<TriggerLogCleanupMutation, TriggerLogCleanupMutationVariables>;
-export const FlushLokiLogsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"FlushLokiLogs"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"flushLokiLogs"}}]}}]} as unknown as DocumentNode;
-export type FlushLokiLogsMutationFn = Apollo.MutationFunction<FlushLokiLogsMutation, FlushLokiLogsMutationVariables>;
-
-/**
- * __useFlushLokiLogsMutation__
- *
- * To run a mutation, you first call `useFlushLokiLogsMutation` within a React component and pass it any options that fit your needs.
- * When your component renders, `useFlushLokiLogsMutation` returns a tuple that includes:
- * - A mutate function that you can call at any time to execute the mutation
- * - An object with fields that represent the current status of the mutation's execution
- *
- * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
- *
- * @example
- * const [flushLokiLogsMutation, { data, loading, error }] = useFlushLokiLogsMutation({
- *   variables: {
- *   },
- * });
- */
-export function useFlushLokiLogsMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<FlushLokiLogsMutation, FlushLokiLogsMutationVariables>) {
-        const options = {...defaultOptions, ...baseOptions}
-        return ApolloReactHooks.useMutation<FlushLokiLogsMutation, FlushLokiLogsMutationVariables>(FlushLokiLogsDocument, options);
-      }
-export type FlushLokiLogsMutationHookResult = ReturnType<typeof useFlushLokiLogsMutation>;
-export type FlushLokiLogsMutationResult = Apollo.MutationResult<FlushLokiLogsMutation>;
-export type FlushLokiLogsMutationOptions = Apollo.BaseMutationOptions<FlushLokiLogsMutation, FlushLokiLogsMutationVariables>;

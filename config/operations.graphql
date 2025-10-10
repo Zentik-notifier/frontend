@@ -324,8 +324,6 @@ mutation UpdateReceivedNotifications($id: String!) {
   }
 }
 
-
-
 mutation UpdateBucket($id: String!, $input: UpdateBucketDto!) {
   updateBucket(id: $id, input: $input) {
     ...BucketWithDevicesFragment
@@ -392,14 +390,28 @@ mutation Login($input: LoginDto!) {
   login(input: $input) {
     accessToken
     refreshToken
-    user { id email username firstName lastName avatar }
+    user {
+      id
+      email
+      username
+      firstName
+      lastName
+      avatar
+    }
   }
 }
 
 mutation Register($input: RegisterDto!) {
   register(input: $input) {
-    message 
-    user { id email username firstName lastName avatar }
+    message
+    user {
+      id
+      email
+      username
+      firstName
+      lastName
+      avatar
+    }
     emailConfirmationRequired
     accessToken
     refreshToken
@@ -799,7 +811,10 @@ mutation SetBucketSnooze($bucketId: String!, $snoozeUntil: String) {
   }
 }
 
-mutation UpdateBucketSnoozes($bucketId: String!, $snoozes: [SnoozeScheduleInput!]!) {
+mutation UpdateBucketSnoozes(
+  $bucketId: String!
+  $snoozes: [SnoozeScheduleInput!]!
+) {
   updateBucketSnoozes(bucketId: $bucketId, snoozes: $snoozes) {
     ...UserBucketFragment
   }
@@ -849,7 +864,12 @@ query GetSystemToken($id: String!) {
   }
 }
 
-mutation CreateSystemAccessToken($maxCalls: Float!, $expiresAt: String, $requesterId: String, $description: String) {
+mutation CreateSystemAccessToken(
+  $maxCalls: Float!
+  $expiresAt: String
+  $requesterId: String
+  $description: String
+) {
   createSystemToken(
     maxCalls: $maxCalls
     expiresAt: $expiresAt
@@ -861,7 +881,13 @@ mutation CreateSystemAccessToken($maxCalls: Float!, $expiresAt: String, $request
   }
 }
 
-mutation UpdateSystemAccessToken($id: String!, $maxCalls: Float, $expiresAt: String, $requesterId: String, $description: String) {
+mutation UpdateSystemAccessToken(
+  $id: String!
+  $maxCalls: Float
+  $expiresAt: String
+  $requesterId: String
+  $description: String
+) {
   updateSystemToken(
     id: $id
     maxCalls: $maxCalls
@@ -952,7 +978,10 @@ mutation ExecuteWebhook($id: ID!) {
   executeWebhook(id: $id)
 }
 
-mutation SetBucketSnoozeMinutes($bucketId: String!, $input: SetBucketSnoozeMinutesInput!) {
+mutation SetBucketSnoozeMinutes(
+  $bucketId: String!
+  $input: SetBucketSnoozeMinutesInput!
+) {
   setBucketSnoozeMinutes(bucketId: $bucketId, input: $input) {
     id
     snoozeUntil
@@ -1134,8 +1163,4 @@ query GetTotalLogCount {
 
 mutation TriggerLogCleanup {
   triggerLogCleanup
-}
-
-mutation FlushLokiLogs {
-  flushLokiLogs
 }
