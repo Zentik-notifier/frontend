@@ -462,8 +462,6 @@ export type Mutation = {
   refreshAccessToken: RefreshTokenResponse;
   register: RegisterResponse;
   registerDevice: UserDevice;
-  /** Reload Loki configuration from settings */
-  reloadLokiConfig: Scalars['Boolean']['output'];
   removeDevice: Scalars['Boolean']['output'];
   removeDeviceByToken: Scalars['Boolean']['output'];
   requestEmailConfirmation: EmailConfirmationResponseDto;
@@ -991,8 +989,6 @@ export type Query = {
   /** List all available database backups */
   listBackups: Array<BackupInfoDto>;
   listSystemTokens: Array<SystemAccessTokenDto>;
-  /** Get log count by level */
-  logCountByLevel: Scalars['String']['output'];
   /** Get logs with pagination and filtering */
   logs: PaginatedLogs;
   me: User;
@@ -2352,11 +2348,6 @@ export type GetTotalLogCountQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type GetTotalLogCountQuery = { __typename?: 'Query', totalLogCount: number };
 
-export type GetLogCountByLevelQueryVariables = Exact<{ [key: string]: never; }>;
-
-
-export type GetLogCountByLevelQuery = { __typename?: 'Query', logCountByLevel: string };
-
 export type TriggerLogCleanupMutationVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -2366,11 +2357,6 @@ export type FlushLokiLogsMutationVariables = Exact<{ [key: string]: never; }>;
 
 
 export type FlushLokiLogsMutation = { __typename?: 'Mutation', flushLokiLogs: boolean };
-
-export type ReloadLokiConfigMutationVariables = Exact<{ [key: string]: never; }>;
-
-
-export type ReloadLokiConfigMutation = { __typename?: 'Mutation', reloadLokiConfig: boolean };
 
 export const MessageAttachmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageAttachmentFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MessageAttachment"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"saveOnServer"}}]}}]} as unknown as DocumentNode;
 export const NotificationActionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationActionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationAction"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"destructive"}}]}}]} as unknown as DocumentNode;
@@ -5574,39 +5560,6 @@ export type GetTotalLogCountQueryHookResult = ReturnType<typeof useGetTotalLogCo
 export type GetTotalLogCountLazyQueryHookResult = ReturnType<typeof useGetTotalLogCountLazyQuery>;
 export type GetTotalLogCountSuspenseQueryHookResult = ReturnType<typeof useGetTotalLogCountSuspenseQuery>;
 export type GetTotalLogCountQueryResult = Apollo.QueryResult<GetTotalLogCountQuery, GetTotalLogCountQueryVariables>;
-export const GetLogCountByLevelDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetLogCountByLevel"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logCountByLevel"}}]}}]} as unknown as DocumentNode;
-
-/**
- * __useGetLogCountByLevelQuery__
- *
- * To run a query within a React component, call `useGetLogCountByLevelQuery` and pass it any options that fit your needs.
- * When your component renders, `useGetLogCountByLevelQuery` returns an object from Apollo Client that contains loading, error, and data properties
- * you can use to render your UI.
- *
- * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
- *
- * @example
- * const { data, loading, error } = useGetLogCountByLevelQuery({
- *   variables: {
- *   },
- * });
- */
-export function useGetLogCountByLevelQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>) {
-        const options = {...defaultOptions, ...baseOptions}
-        return ApolloReactHooks.useQuery<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>(GetLogCountByLevelDocument, options);
-      }
-export function useGetLogCountByLevelLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>) {
-          const options = {...defaultOptions, ...baseOptions}
-          return ApolloReactHooks.useLazyQuery<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>(GetLogCountByLevelDocument, options);
-        }
-export function useGetLogCountByLevelSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>) {
-          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
-          return ApolloReactHooks.useSuspenseQuery<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>(GetLogCountByLevelDocument, options);
-        }
-export type GetLogCountByLevelQueryHookResult = ReturnType<typeof useGetLogCountByLevelQuery>;
-export type GetLogCountByLevelLazyQueryHookResult = ReturnType<typeof useGetLogCountByLevelLazyQuery>;
-export type GetLogCountByLevelSuspenseQueryHookResult = ReturnType<typeof useGetLogCountByLevelSuspenseQuery>;
-export type GetLogCountByLevelQueryResult = Apollo.QueryResult<GetLogCountByLevelQuery, GetLogCountByLevelQueryVariables>;
 export const TriggerLogCleanupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"TriggerLogCleanup"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"triggerLogCleanup"}}]}}]} as unknown as DocumentNode;
 export type TriggerLogCleanupMutationFn = Apollo.MutationFunction<TriggerLogCleanupMutation, TriggerLogCleanupMutationVariables>;
 
@@ -5659,29 +5612,3 @@ export function useFlushLokiLogsMutation(baseOptions?: ApolloReactHooks.Mutation
 export type FlushLokiLogsMutationHookResult = ReturnType<typeof useFlushLokiLogsMutation>;
 export type FlushLokiLogsMutationResult = Apollo.MutationResult<FlushLokiLogsMutation>;
 export type FlushLokiLogsMutationOptions = Apollo.BaseMutationOptions<FlushLokiLogsMutation, FlushLokiLogsMutationVariables>;
-export const ReloadLokiConfigDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ReloadLokiConfig"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reloadLokiConfig"}}]}}]} as unknown as DocumentNode;
-export type ReloadLokiConfigMutationFn = Apollo.MutationFunction<ReloadLokiConfigMutation, ReloadLokiConfigMutationVariables>;
-
-/**
- * __useReloadLokiConfigMutation__
- *
- * To run a mutation, you first call `useReloadLokiConfigMutation` within a React component and pass it any options that fit your needs.
- * When your component renders, `useReloadLokiConfigMutation` returns a tuple that includes:
- * - A mutate function that you can call at any time to execute the mutation
- * - An object with fields that represent the current status of the mutation's execution
- *
- * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
- *
- * @example
- * const [reloadLokiConfigMutation, { data, loading, error }] = useReloadLokiConfigMutation({
- *   variables: {
- *   },
- * });
- */
-export function useReloadLokiConfigMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<ReloadLokiConfigMutation, ReloadLokiConfigMutationVariables>) {
-        const options = {...defaultOptions, ...baseOptions}
-        return ApolloReactHooks.useMutation<ReloadLokiConfigMutation, ReloadLokiConfigMutationVariables>(ReloadLokiConfigDocument, options);
-      }
-export type ReloadLokiConfigMutationHookResult = ReturnType<typeof useReloadLokiConfigMutation>;
-export type ReloadLokiConfigMutationResult = Apollo.MutationResult<ReloadLokiConfigMutation>;
-export type ReloadLokiConfigMutationOptions = Apollo.BaseMutationOptions<ReloadLokiConfigMutation, ReloadLokiConfigMutationVariables>;

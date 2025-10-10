@@ -1132,18 +1132,10 @@ query GetTotalLogCount {
   totalLogCount
 }
 
-query GetLogCountByLevel {
-  logCountByLevel
-}
-
 mutation TriggerLogCleanup {
   triggerLogCleanup
 }
 
 mutation FlushLokiLogs {
   flushLokiLogs
-}
-
-mutation ReloadLokiConfig {
-  reloadLokiConfig
 }
