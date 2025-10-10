@@ -54,6 +54,7 @@ type Bucket {
   description: String
   icon: String
   id: ID!
+  isAdmin: Boolean
   isProtected: Boolean
   isPublic: Boolean
   messages: [Message!]
@@ -471,6 +472,7 @@ type Mutation {
   updateUserDevice(input: UpdateUserDeviceInput!): UserDevice!
   updateUserRole(input: UpdateUserRoleInput!): User!
   updateWebhook(id: ID!, input: UpdateWebhookDto!): UserWebhook!
+  upsertMyAdminSubscription(eventTypes: [String!]!): [String!]!
   upsertUserSetting(input: UpsertUserSettingInput!): UserSetting!
   validateResetToken(resetToken: String!): Boolean!
 }
@@ -647,6 +649,7 @@ type Query {
   """Get logs with pagination and filtering"""
   logs(input: GetLogsInput!): PaginatedLogs!
   me: User!
+  myAdminSubscription: [String!]
   notification(id: String!): Notification!
   notificationServices: [NotificationServiceInfo!]!
   notifications: [Notification!]!

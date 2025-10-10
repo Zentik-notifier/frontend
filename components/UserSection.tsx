@@ -4,10 +4,8 @@ import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
-  RefreshControl,
-  ScrollView,
   StyleSheet,
-  View,
+  View
 } from "react-native";
 import {
   Button,
@@ -28,6 +26,7 @@ import {
   usePublicAppConfigQuery,
   useUpdateProfileMutation,
 } from "../generated/gql-operations-generated";
+import AdminSubscriptions from "./AdminSubscriptions";
 import IdWithCopyButton from "./IdWithCopyButton";
 import NotificationStats from "./NotificationStats";
 import OAuthConnections from "./OAuthConnections";
@@ -429,6 +428,9 @@ export default function UserSection() {
 
         {/* OAuth Connections Section */}
         <OAuthConnections identities={user.identities} />
+
+        {/* Admin Subscriptions Section - Only for admins */}
+        {user.role === "ADMIN" && <AdminSubscriptions />}
 
         {/* Notification Statistics Section */}
         <NotificationStats refreshing={refreshing} />

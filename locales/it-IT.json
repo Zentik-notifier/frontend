@@ -822,6 +822,29 @@
     "ICON": "Icona",
     "undefined": "Others"
   },
+  "eventTypes": {
+    "LOGIN": "Login",
+    "LOGIN_OAUTH": "Login OAuth",
+    "LOGOUT": "Logout",
+    "REGISTER": "Registrazione",
+    "PUSH_PASSTHROUGH": "Notifica Push",
+    "MESSAGE": "Messaggio",
+    "NOTIFICATION": "Notifica",
+    "BUCKET_SHARING": "Condivisione Bucket",
+    "BUCKET_UNSHARING": "Rimozione Condivisione",
+    "DEVICE_REGISTER": "Registrazione Dispositivo",
+    "DEVICE_UNREGISTER": "Rimozione Dispositivo",
+    "ACCOUNT_DELETE": "Eliminazione Account"
+  },
+  "adminSubscriptions": {
+    "title": "Sottoscrizioni Eventi Admin",
+    "description": "Seleziona gli eventi per cui ricevere notifiche",
+    "selectPlaceholder": "Seleziona eventi...",
+    "selectedInfo": "Eventi selezionati: {{count}} / {{total}}",
+    "successMessage": "Sottoscrizioni aggiornate con successo",
+    "errorMessage": "Errore durante l'aggiornamento",
+    "loading": "Caricamento..."
+  },
   "common": {
     "retry": "Riprova",
     "selectOptions": "Seleziona opzioni",

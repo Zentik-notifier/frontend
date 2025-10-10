@@ -75,6 +75,7 @@ export type Bucket = {
   description: Maybe<Scalars['String']['output']>;
   icon: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
+  isAdmin: Maybe<Scalars['Boolean']['output']>;
   isProtected: Maybe<Scalars['Boolean']['output']>;
   isPublic: Maybe<Scalars['Boolean']['output']>;
   messages: Maybe<Array<Message>>;
@@ -498,6 +499,7 @@ export type Mutation = {
   updateUserDevice: UserDevice;
   updateUserRole: User;
   updateWebhook: UserWebhook;
+  upsertMyAdminSubscription: Array<Scalars['String']['output']>;
   upsertUserSetting: UserSetting;
   validateResetToken: Scalars['Boolean']['output'];
 };
@@ -799,6 +801,11 @@ export type MutationUpdateWebhookArgs = {
 };
 
 
+export type MutationUpsertMyAdminSubscriptionArgs = {
+  eventTypes: Array<Scalars['String']['input']>;
+};
+
+
 export type MutationUpsertUserSettingArgs = {
   input: UpsertUserSettingInput;
 };
@@ -990,6 +997,7 @@ export type Query = {
   /** Get logs with pagination and filtering */
   logs: PaginatedLogs;
   me: User;
+  myAdminSubscription: Maybe<Array<Scalars['String']['output']>>;
   notification: Notification;
   notificationServices: Array<NotificationServiceInfo>;
   notifications: Array<Notification>;
@@ -2343,6 +2351,18 @@ export type TriggerLogCleanupMutationVariables = Exact<{ [key: string]: never; }
 
 
 export type TriggerLogCleanupMutation = { __typename?: 'Mutation', triggerLogCleanup: boolean };
+
+export type GetMyAdminSubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetMyAdminSubscriptionsQuery = { __typename?: 'Query', myAdminSubscription: Array<string> | null };
+
+export type UpsertMyAdminSubscriptionsMutationVariables = Exact<{
+  eventTypes: Array<Scalars['String']['input']> | Scalars['String']['input'];
+}>;
+
+
+export type UpsertMyAdminSubscriptionsMutation = { __typename?: 'Mutation', upsertMyAdminSubscription: Array<string> };
 
 export const MessageAttachmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageAttachmentFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MessageAttachment"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"saveOnServer"}}]}}]} as unknown as DocumentNode;
 export const NotificationActionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationActionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationAction"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"destructive"}}]}}]} as unknown as DocumentNode;
@@ -5572,3 +5592,63 @@ export function useTriggerLogCleanupMutation(baseOptions?: ApolloReactHooks.Muta
 export type TriggerLogCleanupMutationHookResult = ReturnType<typeof useTriggerLogCleanupMutation>;
 export type TriggerLogCleanupMutationResult = Apollo.MutationResult<TriggerLogCleanupMutation>;
 export type TriggerLogCleanupMutationOptions = Apollo.BaseMutationOptions<TriggerLogCleanupMutation, TriggerLogCleanupMutationVariables>;
+export const GetMyAdminSubscriptionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetMyAdminSubscriptions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myAdminSubscription"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useGetMyAdminSubscriptions__
+ *
+ * To run a query within a React component, call `useGetMyAdminSubscriptions` and pass it any options that fit your needs.
+ * When your component renders, `useGetMyAdminSubscriptions` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetMyAdminSubscriptions({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useGetMyAdminSubscriptions(baseOptions?: ApolloReactHooks.QueryHookOptions<GetMyAdminSubscriptionsQuery, GetMyAdminSubscriptionsQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<GetMyAdminSubscriptionsQuery, GetMyAdminSubscriptionsQueryVariables>(GetMyAdminSubscriptionsDocument, options);
+      }
+export function useGetMyAdminSubscriptionsLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<GetMyAdminSubscriptionsQuery, GetMyAdminSubscriptionsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<GetMyAdminSubscriptionsQuery, GetMyAdminSubscriptionsQueryVariables>(GetMyAdminSubscriptionsDocument, options);
+        }
+export function useGetMyAdminSubscriptionsSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<GetMyAdminSubscriptionsQuery, GetMyAdminSubscriptionsQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<GetMyAdminSubscriptionsQuery, GetMyAdminSubscriptionsQueryVariables>(GetMyAdminSubscriptionsDocument, options);
+        }
+export type GetMyAdminSubscriptionsHookResult = ReturnType<typeof useGetMyAdminSubscriptions>;
+export type GetMyAdminSubscriptionsLazyQueryHookResult = ReturnType<typeof useGetMyAdminSubscriptionsLazyQuery>;
+export type GetMyAdminSubscriptionsSuspenseQueryHookResult = ReturnType<typeof useGetMyAdminSubscriptionsSuspenseQuery>;
+export type GetMyAdminSubscriptionsQueryResult = Apollo.QueryResult<GetMyAdminSubscriptionsQuery, GetMyAdminSubscriptionsQueryVariables>;
+export const UpsertMyAdminSubscriptionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpsertMyAdminSubscriptions"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"eventTypes"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"upsertMyAdminSubscription"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"eventTypes"},"value":{"kind":"Variable","name":{"kind":"Name","value":"eventTypes"}}}]}]}}]} as unknown as DocumentNode;
+export type UpsertMyAdminSubscriptionsMutationFn = Apollo.MutationFunction<UpsertMyAdminSubscriptionsMutation, UpsertMyAdminSubscriptionsMutationVariables>;
+
+/**
+ * __useUpsertMyAdminSubscriptions__
+ *
+ * To run a mutation, you first call `useUpsertMyAdminSubscriptions` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useUpsertMyAdminSubscriptions` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [upsertMyAdminSubscriptions, { data, loading, error }] = useUpsertMyAdminSubscriptions({
+ *   variables: {
+ *      eventTypes: // value for 'eventTypes'
+ *   },
+ * });
+ */
+export function useUpsertMyAdminSubscriptions(baseOptions?: ApolloReactHooks.MutationHookOptions<UpsertMyAdminSubscriptionsMutation, UpsertMyAdminSubscriptionsMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<UpsertMyAdminSubscriptionsMutation, UpsertMyAdminSubscriptionsMutationVariables>(UpsertMyAdminSubscriptionsDocument, options);
+      }
+export type UpsertMyAdminSubscriptionsHookResult = ReturnType<typeof useUpsertMyAdminSubscriptions>;
+export type UpsertMyAdminSubscriptionsMutationResult = Apollo.MutationResult<UpsertMyAdminSubscriptionsMutation>;
+export type UpsertMyAdminSubscriptionsMutationOptions = Apollo.BaseMutationOptions<UpsertMyAdminSubscriptionsMutation, UpsertMyAdminSubscriptionsMutationVariables>;

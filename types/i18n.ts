@@ -907,6 +907,29 @@ export interface TranslationKey {
     };
     welcomeBack: string;
   };
+  eventTypes: {
+    LOGIN: string;
+    LOGIN_OAUTH: string;
+    LOGOUT: string;
+    REGISTER: string;
+    PUSH_PASSTHROUGH: string;
+    MESSAGE: string;
+    NOTIFICATION: string;
+    BUCKET_SHARING: string;
+    BUCKET_UNSHARING: string;
+    DEVICE_REGISTER: string;
+    DEVICE_UNREGISTER: string;
+    ACCOUNT_DELETE: string;
+  };
+  adminSubscriptions: {
+    title: string;
+    description: string;
+    selectPlaceholder: string;
+    selectedInfo: string;
+    successMessage: string;
+    errorMessage: string;
+    loading: string;
+  };
   mediaTypes: {
     AUDIO: string;
     GIF: string;

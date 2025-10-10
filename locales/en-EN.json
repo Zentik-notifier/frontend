@@ -822,6 +822,29 @@
     "ICON": "Icon",
     "undefined": "Others"
   },
+  "eventTypes": {
+    "LOGIN": "Login",
+    "LOGIN_OAUTH": "OAuth Login",
+    "LOGOUT": "Logout",
+    "REGISTER": "Registration",
+    "PUSH_PASSTHROUGH": "Push Notification",
+    "MESSAGE": "Message",
+    "NOTIFICATION": "Notification",
+    "BUCKET_SHARING": "Bucket Sharing",
+    "BUCKET_UNSHARING": "Bucket Unsharing",
+    "DEVICE_REGISTER": "Device Registration",
+    "DEVICE_UNREGISTER": "Device Removal",
+    "ACCOUNT_DELETE": "Account Deletion"
+  },
+  "adminSubscriptions": {
+    "title": "Admin Event Subscriptions",
+    "description": "Select events for which to receive notifications",
+    "selectPlaceholder": "Select events...",
+    "selectedInfo": "Selected events: {{count}} / {{total}}",
+    "successMessage": "Subscriptions updated successfully",
+    "errorMessage": "Error during update",
+    "loading": "Loading..."
+  },
   "common": {
     "retry": "Retry",
     "selectOptions": "Select options",

@@ -1164,3 +1164,12 @@ query GetTotalLogCount {
 mutation TriggerLogCleanup {
   triggerLogCleanup
 }
+
+# Admin Subscriptions Operations
+query GetMyAdminSubscriptions {
+  myAdminSubscription
+}
+
+mutation UpsertMyAdminSubscriptions($eventTypes: [String!]!) {
+  upsertMyAdminSubscription(eventTypes: $eventTypes)
+}

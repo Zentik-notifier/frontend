@@ -483,7 +483,7 @@ export default function FullScreenMediaViewer({
                   {notificationDate && (
                     <Text style={styles.cacheInfoText}>
                       {t("gallery.cachedOn")}:{" "}
-                      {formatDate(new Date(notificationDate))}
+                      {formatDate(new Date(notificationDate), true)}
                     </Text>
                   )}
                   {cacheInfo?.localPath && (
