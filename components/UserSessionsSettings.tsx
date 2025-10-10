@@ -283,26 +283,27 @@ export function UserSessionsSettings() {
     await refetch();
   };
 
+  const customActions =
+    sortedSessions.length > 1
+      ? [
+          {
+            icon: "logout",
+            label: t("userSessions.revokeAllOthers") as string,
+            onPress: () => setShowConfirmDialog(true),
+            style: { backgroundColor: theme.colors.error },
+          },
+        ]
+      : [];
+
   return (
     <>
       <PaperScrollView
         onRefresh={handleRefresh}
         loading={loading}
         error={!loading && !!error}
+        customActions={customActions}
+        useFabGroup
       >
-        {sortedSessions.length > 1 && (
-          <Button
-            mode="contained"
-            buttonColor={theme.colors.error}
-            textColor={theme.colors.onError}
-            icon="logout"
-            onPress={() => setShowConfirmDialog(true)}
-            style={styles.revokeAllButton}
-          >
-            {t("userSessions.revokeAllOthers") as string}
-          </Button>
-        )}
-
         {sortedSessions.length === 0 ? (
           <View style={styles.emptyState}>
             <Icon
@@ -377,9 +378,6 @@ export function UserSessionsSettings() {
 }
 
 const styles = StyleSheet.create({
-  revokeAllButton: {
-    marginBottom: 24,
-  },
   emptyState: {
     flex: 1,
     justifyContent: "center",

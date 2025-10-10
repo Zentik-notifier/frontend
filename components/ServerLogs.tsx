@@ -24,6 +24,7 @@ import {
   useGetServerLogsQuery,
   useTriggerLogCleanupMutation,
 } from "@/generated/gql-operations-generated";
+import PaperScrollView from "./ui/PaperScrollView";
 
 interface ServerLog {
   id: string;
@@ -50,18 +51,19 @@ export default function ServerLogs() {
   const [levelFilter, setLevelFilter] = useState<string | null>(null);
 
   // GraphQL queries
-  const { data, loading, refetch, fetchMore, networkStatus } = useGetServerLogsQuery({
-    variables: {
-      input: {
-        page: 1,
-        limit: 50,
-        search: query || undefined,
-        level: levelFilter as any,
+  const { data, loading, refetch, fetchMore, networkStatus } =
+    useGetServerLogsQuery({
+      variables: {
+        input: {
+          page: 1,
+          limit: 50,
+          search: query || undefined,
+          level: levelFilter as any,
+        },
       },
-    },
-    fetchPolicy: "cache-and-network",
-    notifyOnNetworkStatusChange: true,
-  });
+      fetchPolicy: "cache-and-network",
+      notifyOnNetworkStatusChange: true,
+    });
 
   const [triggerCleanup, { loading: cleanupLoading }] =
     useTriggerLogCleanupMutation();
@@ -106,44 +108,40 @@ export default function ServerLogs() {
 
   const handleCleanupLogs = useCallback(async () => {
     setFabOpen(false);
-    Alert.alert(
-      t("serverLogs.cleanupTitle"),
-      t("serverLogs.cleanupMessage"),
-      [
-        {
-          text: t("common.cancel"),
-          style: "cancel",
+    Alert.alert(t("serverLogs.cleanupTitle"), t("serverLogs.cleanupMessage"), [
+      {
+        text: t("common.cancel"),
+        style: "cancel",
+      },
+      {
+        text: t("serverLogs.cleanupConfirm"),
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await triggerCleanup();
+            await refetch();
+            Alert.alert(
+              t("serverLogs.cleanupSuccess"),
+              t("serverLogs.cleanupSuccessMessage")
+            );
+          } catch (error) {
+            console.error("Error cleaning up logs:", error);
+            Alert.alert(
+              t("serverLogs.cleanupError"),
+              t("serverLogs.cleanupErrorMessage")
+            );
+          }
         },
-        {
-          text: t("serverLogs.cleanupConfirm"),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await triggerCleanup();
-              await refetch();
-              Alert.alert(
-                t("serverLogs.cleanupSuccess"),
-                t("serverLogs.cleanupSuccessMessage")
-              );
-            } catch (error) {
-              console.error("Error cleaning up logs:", error);
-              Alert.alert(
-                t("serverLogs.cleanupError"),
-                t("serverLogs.cleanupErrorMessage")
-              );
-            }
-          },
-        },
-      ]
-    );
+      },
+    ]);
   }, [t, triggerCleanup, refetch]);
 
   const handleLoadMore = useCallback(async () => {
     if (!hasMore || isLoadingMore || loading) return;
-    
+
     setIsLoadingMore(true);
     const nextPage = currentPage + 1;
-    
+
     try {
       await fetchMore({
         variables: {
@@ -156,7 +154,7 @@ export default function ServerLogs() {
         },
         updateQuery: (prev, { fetchMoreResult }) => {
           if (!fetchMoreResult) return prev;
-          
+
           return {
             logs: {
               ...fetchMoreResult.logs,
@@ -168,14 +166,22 @@ export default function ServerLogs() {
           };
         },
       });
-      
+
       setCurrentPage(nextPage);
     } catch (error) {
       console.error("Error loading more logs:", error);
     } finally {
       setIsLoadingMore(false);
     }
-  }, [hasMore, isLoadingMore, loading, currentPage, fetchMore, query, levelFilter]);
+  }, [
+    hasMore,
+    isLoadingMore,
+    loading,
+    currentPage,
+    fetchMore,
+    query,
+    levelFilter,
+  ]);
 
   const refreshFromDb = useCallback(async () => {
     setIsRefreshing(true);
@@ -217,7 +223,11 @@ export default function ServerLogs() {
               <View
                 style={[
                   styles.levelBadge,
-                  { backgroundColor: levelToColor[item.level as keyof typeof levelToColor] || theme.colors.onSurfaceVariant },
+                  {
+                    backgroundColor:
+                      levelToColor[item.level as keyof typeof levelToColor] ||
+                      theme.colors.onSurfaceVariant,
+                  },
                 ]}
               />
               <Text style={styles.levelText}>{item.level.toUpperCase()}</Text>
@@ -237,17 +247,23 @@ export default function ServerLogs() {
           </View>
           {!!item.context && (
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>{t("serverLogs.fields.context")}:</Text>
+              <Text style={styles.metaLabel}>
+                {t("serverLogs.fields.context")}:
+              </Text>
               <Text style={styles.metaValue}>{item.context}</Text>
             </View>
           )}
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>{t("serverLogs.fields.message")}:</Text>
+            <Text style={styles.metaLabel}>
+              {t("serverLogs.fields.message")}:
+            </Text>
             <Text style={styles.metaValue}>{truncate(item.message, 150)}</Text>
           </View>
           {!!item.metadata && (
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>{t("serverLogs.fields.meta")}:</Text>
+              <Text style={styles.metaLabel}>
+                {t("serverLogs.fields.meta")}:
+              </Text>
               <Text style={styles.metaValue}>
                 {truncate(JSON.stringify(item.metadata), 150)}
               </Text>
@@ -269,54 +285,64 @@ export default function ServerLogs() {
   }, [hasMore, theme.colors.primary]);
 
   return (
-    <View style={[styles.safe, { backgroundColor: theme.colors.background }]}>
-      <Surface style={styles.container}>
-        <Surface style={[styles.searchContainer]}>
-          <Icon source="magnify" size={20} color="#666" />
-          <TextInput
-            style={[styles.searchInput, { color: theme.colors.onSurface }]}
-            placeholder={t("serverLogs.filterPlaceholder")}
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-            value={query}
-            onChangeText={setQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {query.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setQuery("")}
-              style={styles.clearBtn}
-            >
-              <Icon source="close" size={20} color="#666" />
-            </TouchableOpacity>
-          )}
-        </Surface>
-
-        {loading && logs.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text style={styles.loadingText}>{t("serverLogs.loading")}</Text>
-          </View>
-        ) : (
-          <FlashList
-            data={logs}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={renderFooter}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={refreshFromDb}
-                colors={[theme.colors.primary]}
-                tintColor={theme.colors.primary}
-              />
-            }
-            contentContainerStyle={styles.listContent}
-          />
+    <PaperScrollView
+      withScroll={false}
+      onRefresh={refreshFromDb}
+      loading={isRefreshing}
+      customActions={[
+        {
+          icon: "delete-sweep",
+          label: t("serverLogs.cleanupButton"),
+          onPress: handleCleanupLogs,
+          style: { backgroundColor: theme.colors.primaryContainer },
+        },
+      ]}
+    >
+      <Surface style={[styles.searchContainer]}>
+        <Icon source="magnify" size={20} color="#666" />
+        <TextInput
+          style={[styles.searchInput, { color: theme.colors.onSurface }]}
+          placeholder={t("serverLogs.filterPlaceholder")}
+          placeholderTextColor={theme.colors.onSurfaceVariant}
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {query.length > 0 && (
+          <TouchableOpacity
+            onPress={() => setQuery("")}
+            style={styles.clearBtn}
+          >
+            <Icon source="close" size={20} color="#666" />
+          </TouchableOpacity>
         )}
       </Surface>
+
+      {loading && logs.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>{t("serverLogs.loading")}</Text>
+        </View>
+      ) : (
+        <FlashList
+          data={logs}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={renderFooter}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={refreshFromDb}
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+            />
+          }
+          contentContainerStyle={styles.listContent}
+        />
+      )}
 
       {/* Log Detail Modal */}
       <Modal
@@ -333,15 +359,13 @@ export default function ServerLogs() {
             ]}
           >
             <View style={styles.dialogHeader}>
-              <Text style={[styles.dialogTitle, { color: theme.colors.onSurface }]}>
+              <Text
+                style={[styles.dialogTitle, { color: theme.colors.onSurface }]}
+              >
                 {t("serverLogs.logDetailsTitle")}
               </Text>
               <TouchableOpacity onPress={handleCloseLogDialog}>
-                <Icon
-                  source="close"
-                  size={24}
-                  color={theme.colors.onSurface}
-                />
+                <Icon source="close" size={24} color={theme.colors.onSurface} />
               </TouchableOpacity>
             </View>
 
@@ -349,14 +373,17 @@ export default function ServerLogs() {
               {selectedLog && (
                 <>
                   <View style={styles.dialogMetaRow}>
-                    <Text style={styles.dialogMetaLabel}>{t("serverLogs.fields.level")}:</Text>
+                    <Text style={styles.dialogMetaLabel}>
+                      {t("serverLogs.fields.level")}:
+                    </Text>
                     <Text
                       style={[
                         styles.dialogMetaValue,
                         {
                           color:
-                            levelToColor[selectedLog.level as keyof typeof levelToColor] ||
-                            theme.colors.onSurface,
+                            levelToColor[
+                              selectedLog.level as keyof typeof levelToColor
+                            ] || theme.colors.onSurface,
                           fontWeight: "bold",
                         },
                       ]}
@@ -366,7 +393,9 @@ export default function ServerLogs() {
                   </View>
 
                   <View style={styles.dialogMetaRow}>
-                    <Text style={styles.dialogMetaLabel}>{t("serverLogs.fields.timestamp")}:</Text>
+                    <Text style={styles.dialogMetaLabel}>
+                      {t("serverLogs.fields.timestamp")}:
+                    </Text>
                     <Text style={styles.dialogMetaValue}>
                       {new Date(selectedLog.timestamp).toLocaleString()}
                     </Text>
@@ -374,7 +403,9 @@ export default function ServerLogs() {
 
                   {selectedLog.context && (
                     <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>{t("serverLogs.fields.context")}:</Text>
+                      <Text style={styles.dialogMetaLabel}>
+                        {t("serverLogs.fields.context")}:
+                      </Text>
                       <Text style={styles.dialogMetaValue}>
                         {selectedLog.context}
                       </Text>
@@ -382,7 +413,9 @@ export default function ServerLogs() {
                   )}
 
                   <View style={styles.dialogMetaRow}>
-                    <Text style={styles.dialogMetaLabel}>{t("serverLogs.fields.message")}:</Text>
+                    <Text style={styles.dialogMetaLabel}>
+                      {t("serverLogs.fields.message")}:
+                    </Text>
                     <Text style={styles.dialogMetaValue}>
                       {selectedLog.message}
                     </Text>
@@ -390,7 +423,9 @@ export default function ServerLogs() {
 
                   {selectedLog.trace && (
                     <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>{t("serverLogs.fields.trace")}:</Text>
+                      <Text style={styles.dialogMetaLabel}>
+                        {t("serverLogs.fields.trace")}:
+                      </Text>
                       <Text style={styles.dialogMetaValue}>
                         {selectedLog.trace}
                       </Text>
@@ -399,7 +434,9 @@ export default function ServerLogs() {
 
                   {selectedLog.metadata && (
                     <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>{t("serverLogs.fields.meta")}:</Text>
+                      <Text style={styles.dialogMetaLabel}>
+                        {t("serverLogs.fields.meta")}:
+                      </Text>
                       <Text style={styles.dialogMetaValue}>
                         {JSON.stringify(selectedLog.metadata, null, 2)}
                       </Text>
@@ -411,38 +448,7 @@ export default function ServerLogs() {
           </View>
         </View>
       </Modal>
-
-      {/* FAB Group */}
-      <FAB.Group
-        open={fabOpen}
-        visible={!isOperationInProgress}
-        icon={fabOpen ? "close" : "cog"}
-        actions={[
-          {
-            icon: "delete-sweep",
-            label: t("serverLogs.cleanupButton"),
-            onPress: handleCleanupLogs,
-            style: { backgroundColor: theme.colors.primaryContainer },
-          },
-        ]}
-        onStateChange={({ open }) => setFabOpen(open)}
-        fabStyle={{
-          backgroundColor: theme.colors.primaryContainer,
-        }}
-      />
-
-      {/* Loading FAB */}
-      {isOperationInProgress && (
-        <FAB
-          icon={() => <ActivityIndicator size="small" color={theme.colors.onPrimaryContainer} />}
-          style={[
-            styles.loadingFab,
-            { backgroundColor: theme.colors.primaryContainer }
-          ]}
-          disabled
-        />
-      )}
-    </View>
+    </PaperScrollView>
   );
 }
 
@@ -452,14 +458,6 @@ function truncate(text: string, max: number = 300): string {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -586,10 +584,5 @@ const styles = StyleSheet.create({
   dialogMetaValue: {
     fontSize: 13,
     opacity: 0.9,
-  },
-  loadingFab: {
-    position: "absolute",
-    right: 16,
-    bottom: 16,
   },
 });

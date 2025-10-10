@@ -121,36 +121,22 @@ export default function DevicesSettings() {
       onRefresh={handleRefresh}
       loading={loading}
       error={!loading && !!error}
+      customActions={[
+        {
+          icon: "plus",
+          label: t("devices.registerDevice"),
+          onPress: handleRegisterDevice,
+          style: { backgroundColor: theme.colors.primary },
+        },
+        {
+          icon: "minus",
+          label: t("devices.unregisterDevice"),
+          onPress: handleUnregisterDevice,
+          style: { backgroundColor: theme.colors.errorContainer },
+        },
+      ]}
     >
       <View style={styles.content}>
-        <View style={styles.buttonContainer}>
-          <Button
-            mode="contained"
-            onPress={handleRegisterDevice}
-            disabled={disabledRegister}
-            loading={managingDevice}
-            style={styles.button}
-          >
-            {managingDevice
-              ? t("devices.registering")
-              : t("devices.registerDevice")}
-          </Button>
-
-          <Button
-            mode="outlined"
-            onPress={handleUnregisterDevice}
-            disabled={disabledUnregister}
-            loading={managingDevice}
-            buttonColor={theme.colors.errorContainer}
-            textColor={theme.colors.onErrorContainer}
-            style={styles.button}
-          >
-            {managingDevice
-              ? t("devices.unregistering")
-              : t("devices.unregisterDevice")}
-          </Button>
-        </View>
-
         {/* Messaggio di errore per PWA */}
         {push.needsPwa ? (
           <Text style={[styles.errorMessage, { color: theme.colors.error }]}>
@@ -201,14 +187,6 @@ export default function DevicesSettings() {
 
 const styles = StyleSheet.create({
   content: {},
-  buttonContainer: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 24,
-  },
-  button: {
-    flex: 1,
-  },
   errorMessage: {
     color: "#FF3B30",
     fontSize: 14,

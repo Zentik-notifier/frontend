@@ -14,15 +14,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  ActivityIndicator,
-  FAB,
-  Icon,
-  Surface,
-  Text,
-  useTheme,
-} from "react-native-paper";
+import { Icon, Surface, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import PaperScrollView from "./ui/PaperScrollView";
 
 export default function AppLogs() {
   const { t } = useI18n();
@@ -36,8 +30,7 @@ export default function AppLogs() {
   const [isClearing, setIsClearing] = useState<boolean>(false);
   const [selectedLog, setSelectedLog] = useState<AppLog | null>(null);
   const [showLogDialog, setShowLogDialog] = useState<boolean>(false);
-  const [fabOpen, setFabOpen] = useState<boolean>(false);
-  
+
   const isOperationInProgress = isExporting || isClearing;
 
   const loadLogs = useCallback(async () => {
@@ -169,7 +162,6 @@ export default function AppLogs() {
   const handleExportLogs = useCallback(async () => {
     try {
       setIsExporting(true);
-      setFabOpen(false);
       const logs = await readLogs(0);
 
       const formattedLogs = logs.map((l: any) => ({
@@ -216,7 +208,6 @@ export default function AppLogs() {
   }, [t]);
 
   const handleClearLogs = useCallback(async () => {
-    setFabOpen(false);
     Alert.alert(
       t("appSettings.logs.clearTitle"),
       t("appSettings.logs.clearMessage"),
@@ -253,51 +244,60 @@ export default function AppLogs() {
   }, [t, loadLogs]);
 
   return (
-    <View style={[styles.safe, { backgroundColor: theme.colors.background }]}>
-      <Surface style={styles.container}>
-        <Surface style={[styles.searchContainer]}>
-          <Icon source="magnify" size={20} color="#666" />
-          <TextInput
-            style={[styles.searchInput, { color: theme.colors.onSurface }]}
-            placeholder={t("appLogs.filterPlaceholder")}
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-            value={query}
-            onChangeText={setQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {query.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setQuery("")}
-              style={styles.clearBtn}
-            >
-              <Icon source="close" size={20} color="#666" />
-            </TouchableOpacity>
-          )}
-        </Surface>
-
-        {isLoading && logs.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text style={styles.loadingText}>{t("appLogs.loading")}</Text>
-          </View>
-        ) : (
-          <FlashList
-            data={filteredLogs}
-            keyExtractor={(item) => String(item.id ?? item.timestamp)}
-            renderItem={renderItem}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={refreshFromDb}
-                colors={[theme.colors.primary]}
-                tintColor={theme.colors.primary}
-              />
-            }
-            contentContainerStyle={styles.listContent}
-          />
+    <PaperScrollView
+      onRefresh={refreshFromDb}
+      withScroll={false}
+      loading={isLoading}
+      customActions={[
+        {
+          icon: "delete",
+          label: t("appSettings.logs.clearButton"),
+          onPress: handleClearLogs,
+          style: { backgroundColor: theme.colors.errorContainer },
+        },
+        {
+          icon: "share",
+          label: t("appSettings.logs.exportButton"),
+          onPress: handleExportLogs,
+          style: { backgroundColor: theme.colors.primaryContainer },
+        },
+      ]}
+    >
+      <Surface style={[styles.searchContainer]}>
+        <Icon source="magnify" size={20} color="#666" />
+        <TextInput
+          style={[styles.searchInput, { color: theme.colors.onSurface }]}
+          placeholder={t("appLogs.filterPlaceholder")}
+          placeholderTextColor={theme.colors.onSurfaceVariant}
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {query.length > 0 && (
+          <TouchableOpacity
+            onPress={() => setQuery("")}
+            style={styles.clearBtn}
+          >
+            <Icon source="close" size={20} color="#666" />
+          </TouchableOpacity>
         )}
       </Surface>
+
+      <FlashList
+        data={filteredLogs}
+        keyExtractor={(item) => String(item.id ?? item.timestamp)}
+        renderItem={renderItem}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={refreshFromDb}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
+        contentContainerStyle={styles.listContent}
+      />
 
       {/* Log Detail Modal */}
       <Modal
@@ -314,15 +314,13 @@ export default function AppLogs() {
             ]}
           >
             <View style={styles.dialogHeader}>
-              <Text style={[styles.dialogTitle, { color: theme.colors.onSurface }]}>
+              <Text
+                style={[styles.dialogTitle, { color: theme.colors.onSurface }]}
+              >
                 {t("appLogs.logDetailsTitle")}
               </Text>
               <TouchableOpacity onPress={handleCloseLogDialog}>
-                <Icon
-                  source="close"
-                  size={24}
-                  color={theme.colors.onSurface}
-                />
+                <Icon source="close" size={24} color={theme.colors.onSurface} />
               </TouchableOpacity>
             </View>
 
@@ -395,44 +393,7 @@ export default function AppLogs() {
           </View>
         </View>
       </Modal>
-
-      {/* FAB Group */}
-      <FAB.Group
-        open={fabOpen}
-        visible={!isOperationInProgress}
-        icon={fabOpen ? "close" : "cog"}
-        actions={[
-          {
-            icon: "share",
-            label: t("appSettings.logs.exportButton"),
-            onPress: handleExportLogs,
-            style: { backgroundColor: theme.colors.primaryContainer },
-          },
-          {
-            icon: "delete",
-            label: t("appSettings.logs.clearButton"),
-            onPress: handleClearLogs,
-            style: { backgroundColor: theme.colors.errorContainer },
-          },
-        ]}
-        onStateChange={({ open }) => setFabOpen(open)}
-        fabStyle={{
-          backgroundColor: theme.colors.primaryContainer,
-        }}
-      />
-
-      {/* Loading FAB */}
-      {isOperationInProgress && (
-        <FAB
-          icon={() => <ActivityIndicator size="small" color={theme.colors.onPrimaryContainer} />}
-          style={[
-            styles.loadingFab,
-            { backgroundColor: theme.colors.primaryContainer }
-          ]}
-          disabled
-        />
-      )}
-    </View>
+    </PaperScrollView>
   );
 }
 

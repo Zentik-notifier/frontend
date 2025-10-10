@@ -10,17 +10,27 @@ import {
 import {
   ActivityIndicator,
   Button,
+  FAB,
   IconButton,
   Text,
   useTheme,
 } from "react-native-paper";
 import { useI18n } from "../../hooks/useI18n";
 
+export interface CustomFabAction {
+  icon: string;
+  label: string;
+  onPress: () => void | Promise<void>;
+  style?: ViewStyle;
+}
+
 interface PaperScrollViewProps {
   children: React.ReactNode;
   onRefresh?: () => Promise<void>;
   refetch?: () => Promise<void>;
   onAdd?: () => void;
+  customActions?: CustomFabAction[];
+  fabGroupIcon?: string;
   style?: ViewStyle;
   contentContainerStyle?: ViewStyle;
   showsVerticalScrollIndicator?: boolean;
@@ -38,6 +48,8 @@ export default function PaperScrollView({
   onRefresh,
   refetch,
   onAdd,
+  customActions = [],
+  fabGroupIcon = "cog",
   style,
   contentContainerStyle,
   showsVerticalScrollIndicator = false,
@@ -53,6 +65,8 @@ export default function PaperScrollView({
   const { t } = useI18n();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -88,7 +102,52 @@ export default function PaperScrollView({
     children
   );
 
-  const showFab = (onRefresh && Platform.OS === "web") || (refetch && Platform.OS === "web") || onAdd;
+  // Handler per wrappare le azioni e gestire il loading
+  const handleActionPress = async (action: CustomFabAction) => {
+    setFabOpen(false); // Chiudi il FAB group
+    setActionLoading(true);
+    try {
+      await action.onPress();
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Build FAB actions array
+  const fabActions: CustomFabAction[] = [];
+
+  if (onAdd) {
+    fabActions.push({
+      icon: "plus",
+      label: t("common.add"),
+      onPress: onAdd,
+      style: { backgroundColor: theme.colors.primary },
+    });
+  }
+
+  if (onRefresh && Platform.OS === "web") {
+    fabActions.push({
+      icon: "refresh",
+      label: t("common.refresh"),
+      onPress: handleRefresh,
+      style: { backgroundColor: theme.colors.secondaryContainer },
+    });
+  }
+
+  if (refetch && Platform.OS === "web") {
+    fabActions.push({
+      icon: "refresh",
+      label: t("common.refresh"),
+      onPress: refetch,
+      style: { backgroundColor: theme.colors.tertiaryContainer },
+    });
+  }
+
+  // Add custom actions
+  fabActions.push(...customActions);
+
+  const showFab = fabActions.length > 0;
+  const useFabGroup = !!customActions.length || fabActions.length > 1;
 
   return (
     <View
@@ -100,45 +159,38 @@ export default function PaperScrollView({
     >
       {!loading && scrollViewContent}
 
-      {/* FAB buttons in bottom right corner (Web only) */}
-      {showFab && !error && (
-        <View style={styles.fabContainer}>
-          {onAdd && (
-            <IconButton
-              icon="plus"
-              size={24}
-              onPress={onAdd}
-              mode="contained"
-              containerColor={theme.colors.primary}
-              iconColor={theme.colors.onPrimary}
-              style={styles.fabButton}
+      {/* FAB buttons - either as Group or single FAB */}
+      {showFab && !error && !loading && (
+        <>
+          {useFabGroup ? (
+            <FAB.Group
+              open={fabOpen && !actionLoading}
+              visible
+              icon={
+                actionLoading ? "loading" : fabOpen ? "close" : fabGroupIcon
+              }
+              actions={fabActions.map((action) => ({
+                icon: action.icon,
+                label: action.label,
+                onPress: () => handleActionPress(action),
+                style: action.style,
+              }))}
+              onStateChange={({ open }) => !actionLoading && setFabOpen(open)}
+              style={styles.fabGroup}
+              fabStyle={{
+                backgroundColor: theme.colors.primaryContainer,
+              }}
+            />
+          ) : (
+            <FAB
+              icon={actionLoading ? "loading" : fabActions[0].icon}
+              visible
+              onPress={() => !actionLoading && handleActionPress(fabActions[0])}
+              style={styles.fabSingle}
+              loading={actionLoading}
             />
           )}
-          {onRefresh && Platform.OS === "web" && (
-            <IconButton
-              icon="refresh"
-              size={24}
-              onPress={handleRefresh}
-              disabled={refreshing}
-              loading={refreshing}
-              mode="contained"
-              containerColor={theme.colors.secondaryContainer}
-              iconColor={theme.colors.secondary}
-              style={styles.fabButton}
-            />
-          )}
-          {refetch && Platform.OS === "web" && (
-            <IconButton
-              icon="refresh"
-              size={24}
-              onPress={refetch}
-              mode="contained"
-              containerColor={theme.colors.tertiaryContainer}
-              iconColor={theme.colors.tertiary}
-              style={styles.fabButton}
-            />
-          )}
-        </View>
+        </>
       )}
 
       {/* Loading overlay */}
@@ -207,24 +259,14 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  fabContainer: {
-    position: "absolute",
-    bottom: 24,
-    right: 24,
-    flexDirection: "row",
-    gap: 12,
-    zIndex: 1000,
+  fabGroup: {
+    paddingBottom: 0,
+    paddingRight: 0,
   },
-  fabButton: {
-    margin: 0,
-    elevation: 6,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+  fabSingle: {
+    position: "absolute",
+    bottom: 16,
+    right: 16,
   },
   loadingContainer: {
     flex: 1,

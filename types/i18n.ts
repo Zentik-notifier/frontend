@@ -679,6 +679,7 @@ export interface TranslationKey {
     notice: string;
     notificationsDisabled: string;
     of: string;
+    refresh: string;
     offline: string;
     ok: string;
     page: string;
