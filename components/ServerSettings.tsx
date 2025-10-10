@@ -1,21 +1,18 @@
-import PaperScrollView from "@/components/ui/PaperScrollView";
+import PaperScrollView, {
+  CustomFabAction,
+} from "@/components/ui/PaperScrollView";
 import Selector, { SelectorOption } from "@/components/ui/Selector";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useEffect, useState } from "react";
-import { StyleSheet, View, TouchableOpacity } from "react-native";
+import { StyleSheet, View, Alert } from "react-native";
 import {
   Button,
   Card,
-  Dialog,
-  Portal,
   SegmentedButtons,
-  Surface,
   Switch,
   Text,
   TextInput,
   useTheme,
-  IconButton,
-  FAB,
 } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "@apollo/client";
@@ -475,7 +472,7 @@ function SettingField({
             options={selectorOptions}
             selectedValue={value ?? setting.possibleValues[0]}
             onValueChange={onValueChange}
-            placeholder={`Select ${label}`}
+            placeholder={t("serverSettings.selectPlaceholder", { field: label } as any)}
           />
         </View>
       );
@@ -562,13 +559,6 @@ export function ServerSettings() {
   const [values, setValues] = useState<Record<string, any>>({});
   const [originalValues, setOriginalValues] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
-  const [fabOpen, setFabOpen] = useState(false);
-
-  // Dialog states
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [showErrorDialog, setShowErrorDialog] = useState(false);
-  const [showRestartDialog, setShowRestartDialog] = useState(false);
-  const [dialogMessage, setDialogMessage] = useState("");
 
   // GraphQL operations
   const { data, loading, error, refetch } = useQuery(GetServerSettingsDocument);
@@ -604,10 +594,12 @@ export function ServerSettings() {
   useEffect(() => {
     if (error) {
       console.error("Failed to load server settings:", error);
-      setDialogMessage("Failed to load server settings");
-      setShowErrorDialog(true);
+      Alert.alert(
+        t("common.error" as any),
+        t("serverSettings.failedToLoad" as any)
+      );
     }
-  }, [error]);
+  }, [error, t]);
 
   const handleValueChange = (configType: string, value: any) => {
     setValues((prev) => ({ ...prev, [configType]: value }));
@@ -640,14 +632,16 @@ export function ServerSettings() {
       });
 
       setOriginalValues(values);
-      setDialogMessage(
-        `Successfully saved ${changes.length} setting(s). Restart the server for changes to take effect.`
+      Alert.alert(
+        t("common.success" as any),
+        t("serverSettings.savedSuccessfully", { count: changes.length } as any)
       );
-      setShowSuccessDialog(true);
     } catch (error) {
       console.error("Failed to save settings:", error);
-      setDialogMessage("Failed to save settings");
-      setShowErrorDialog(true);
+      Alert.alert(
+        t("common.error" as any),
+        t("serverSettings.failedToSave" as any)
+      );
     } finally {
       setSaving(false);
     }
@@ -657,18 +651,36 @@ export function ServerSettings() {
     setValues(originalValues);
   };
 
-  const restartServer = async () => {
-    try {
-      await restartServerMutation();
-
-      setDialogMessage("Server restart initiated successfully");
-      setShowSuccessDialog(true);
-      setShowRestartDialog(false);
-    } catch (error) {
-      console.error("Failed to restart server:", error);
-      setDialogMessage("Failed to restart server");
-      setShowErrorDialog(true);
-    }
+  const confirmRestartServer = () => {
+    Alert.alert(
+      t("serverSettings.restartConfirm" as any),
+      t("serverSettings.restartConfirmMessage" as any),
+      [
+        {
+          text: t("common.cancel" as any),
+          style: "cancel",
+        },
+        {
+          text: t("serverSettings.restartServer" as any),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await restartServerMutation();
+              Alert.alert(
+                t("common.success" as any),
+                t("serverSettings.restartSuccess" as any)
+              );
+            } catch (error) {
+              console.error("Failed to restart server:", error);
+              Alert.alert(
+                t("common.error" as any),
+                t("serverSettings.restartFailed" as any)
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
   const hasChanges = JSON.stringify(values) !== JSON.stringify(originalValues);
@@ -677,17 +689,38 @@ export function ServerSettings() {
     await refetch();
   };
 
+  const additionalActions: CustomFabAction[] = hasChanges
+    ? [
+        {
+          icon: "restore",
+          label: t("serverSettings.reset" as any),
+          onPress: () => {
+            !saving && resetSettings();
+          },
+        },
+        {
+          icon: "content-save",
+          label: t("serverSettings.saveChanges" as any),
+          onPress: () => {
+            !saving && saveSettings();
+          },
+        },
+      ]
+    : [];
+
   return (
     <>
       <PaperScrollView
         onRefresh={handleRefresh}
         loading={loading}
         error={!!error}
+        fabGroupIcon={hasChanges ? "content-save" : undefined}
         customActions={[
+          ...additionalActions,
           {
             label: t("serverSettings.restartServer"),
             icon: "restart",
-            onPress: () => setShowRestartDialog(true),
+            onPress: confirmRestartServer,
           },
         ]}
       >
@@ -715,102 +748,6 @@ export function ServerSettings() {
           </Text>
         </View>
       </PaperScrollView>
-
-      {/* FAB Group for Save/Reset */}
-      {hasChanges && (
-        <FAB.Group
-          open={fabOpen}
-          visible={hasChanges}
-          icon={fabOpen ? "close" : "content-save"}
-          actions={[
-            {
-              icon: "restore",
-              label: t("serverSettings.reset" as any),
-              onPress: () => {
-                !saving && resetSettings();
-                setFabOpen(false);
-              },
-            },
-            {
-              icon: "content-save",
-              label: t("serverSettings.saveChanges" as any),
-              onPress: () => {
-                !saving && saveSettings();
-                setFabOpen(false);
-              },
-            },
-          ]}
-          onStateChange={({ open }) => setFabOpen(open)}
-        />
-      )}
-
-      {/* Success Dialog */}
-      <Portal>
-        <Dialog
-          visible={showSuccessDialog}
-          onDismiss={() => setShowSuccessDialog(false)}
-        >
-          <Dialog.Title>{t("common.success" as any)}</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{dialogMessage}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowSuccessDialog(false)}>
-              {t("common.ok" as any)}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-
-      {/* Error Dialog */}
-      <Portal>
-        <Dialog
-          visible={showErrorDialog}
-          onDismiss={() => setShowErrorDialog(false)}
-        >
-          <Dialog.Title>{t("common.error" as any)}</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{dialogMessage}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowErrorDialog(false)}>
-              {t("common.ok" as any)}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-
-      {/* Restart Confirmation Dialog */}
-      <Portal>
-        <Dialog
-          visible={showRestartDialog}
-          onDismiss={() => !restarting && setShowRestartDialog(false)}
-        >
-          <Dialog.Title>
-            {t("serverSettings.restartConfirm" as any)}
-          </Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">
-              {t("serverSettings.restartConfirmMessage" as any)}
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button
-              onPress={() => setShowRestartDialog(false)}
-              disabled={restarting}
-            >
-              {t("common.cancel" as any)}
-            </Button>
-            <Button
-              onPress={restartServer}
-              disabled={restarting}
-              loading={restarting}
-            >
-              {t("serverSettings.restartServer" as any)}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
     </>
   );
 }
