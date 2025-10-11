@@ -644,6 +644,7 @@ export interface TranslationKey {
   };
   common: {
     actionError: string;
+    download: string;
     actionFailed: string;
     actions: string;
     add: string;
@@ -1411,6 +1412,16 @@ export interface TranslationKey {
       theme: string;
     };
     unknownUser: string;
+  };
+  userAttachments: {
+    attachments: string;
+    description: string;
+    downloadFailed: string;
+    downloadStarted: string;
+    noAttachmentsFound: string;
+    title: string;
+    totalSize: string;
+    unableToDownload: string;
   };
   userProfile: {
     accountDeletedMessage: string;

@@ -116,6 +116,14 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToUserAttachments: () => {
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/user/attachments`);
+            } else {
+                router.push(`/(tablet)/(settings)/user/attachments`);
+            }
+        },
+
         navigateToBucketsSettings: () => {
             if (isMobile) {
                 router.push({ pathname: `/(mobile)/(settings)/bucket/list` });

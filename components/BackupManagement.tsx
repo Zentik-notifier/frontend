@@ -9,6 +9,7 @@ import {
   useTriggerBackupMutation,
 } from "@/generated/gql-operations-generated";
 import { SwipeableBackupItem } from "./SwipeableBackupItem";
+import { formatFileSize } from "@/utils/fileUtils";
 
 export function BackupManagement() {
   const { t } = useI18n();
@@ -96,14 +97,6 @@ export function BackupManagement() {
         },
       ]
     );
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
   };
 
   const totalSize = backups.reduce((acc, b) => acc + (b.sizeBytes || 0), 0);

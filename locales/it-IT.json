@@ -322,6 +322,16 @@
     "last30Days": "Ultimi 30 Giorni",
     "total": "Totale"
   },
+  "userAttachments": {
+    "title": "I Miei Allegati",
+    "description": "Visualizza e gestisci tutti i tuoi file e allegati caricati",
+    "attachments": "Allegati",
+    "totalSize": "Dimensione Totale",
+    "noAttachmentsFound": "Nessun allegato trovato",
+    "unableToDownload": "Impossibile scaricare l'allegato",
+    "downloadStarted": "Download allegato avviato",
+    "downloadFailed": "Impossibile scaricare l'allegato"
+  },
   "buckets": {
     "title": "Bucket",
     "description": "Gestisci i tuoi bucket di notifiche e l'organizzazione",
@@ -459,6 +469,8 @@
     "deleteConfirmMessage": "Sei sicuro di voler eliminare il backup \"{{filename}}\"? Questa azione non può essere annullata.",
     "deleteSuccess": "Backup eliminato con successo",
     "deleteError": "Impossibile eliminare il backup. Riprova.",
+    "downloadSuccess": "Backup scaricato con successo",
+    "downloadError": "Impossibile scaricare il backup",
     "totalBackups": "Backup Totali",
     "totalSize": "Dimensione Totale",
     "availableBackups": "Backup Disponibili",
@@ -858,6 +870,7 @@
     "importing": "Importo...",
     "save": "Salva",
     "delete": "Elimina",
+    "download": "Scarica",
     "actions": "Azioni",
     "noConnection": "Nessuna connessione",
     "updateAvailable": "Aggiornamento disponibile",

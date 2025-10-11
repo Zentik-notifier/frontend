@@ -1188,3 +1188,15 @@ query GetMyAdminSubscriptions {
 mutation UpsertMyAdminSubscriptions($eventTypes: [String!]!) {
   upsertMyAdminSubscription(eventTypes: $eventTypes)
 }
+
+# User Attachments Operations
+query UserAttachments($userId: ID!) {
+  userAttachments(userId: $userId) {
+    id
+    filename
+    filepath
+    size
+    mediaType
+    createdAt
+  }
+}

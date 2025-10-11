@@ -71,6 +71,15 @@ export default function SettingsSidebar() {
       selectionSegment: "webhook",
     },
     {
+      id: "user-attachments",
+      title: t("userAttachments.title"),
+      description: t("userAttachments.description"),
+      icon: "paperclip",
+      iconColor: "#EC4899", // Pink
+      onPress: nav.navigateToUserAttachments,
+      selectionSegment: "attachments",
+    },
+    {
       id: "payload-mappers-settings",
       title: t("payloadMappers.title"),
       description: t("payloadMappers.description"),

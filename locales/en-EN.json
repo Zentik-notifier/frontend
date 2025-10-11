@@ -322,6 +322,16 @@
     "last30Days": "Last 30 Days",
     "total": "Total"
   },
+  "userAttachments": {
+    "title": "My Attachments",
+    "description": "View and manage all your uploaded files and attachments",
+    "attachments": "Attachments",
+    "totalSize": "Total Size",
+    "noAttachmentsFound": "No attachments found",
+    "unableToDownload": "Unable to download attachment",
+    "downloadStarted": "Attachment download started",
+    "downloadFailed": "Failed to download attachment"
+  },
   "buckets": {
     "title": "Buckets",
     "description": "Manage your notification buckets and organization",
@@ -459,6 +469,8 @@
     "deleteConfirmMessage": "Are you sure you want to delete the backup \"{{filename}}\"? This action cannot be undone.",
     "deleteSuccess": "Backup deleted successfully",
     "deleteError": "Failed to delete backup. Please try again.",
+    "downloadSuccess": "Backup downloaded successfully",
+    "downloadError": "Failed to download backup",
     "totalBackups": "Total Backups",
     "totalSize": "Total Size",
     "availableBackups": "Available Backups",
@@ -858,6 +870,7 @@
     "save": "Save",
     "importing": "Importing...",
     "delete": "Delete",
+    "download": "Download",
     "actions": "Actions",
     "noConnection": "No connection",
     "updateAvailable": "Update available",
