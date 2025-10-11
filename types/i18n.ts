@@ -88,6 +88,10 @@ export interface TranslationKey {
     loadingStats: string;
     noStatsAvailable: string;
     userNotFound: string;
+    userDevices: string;
+    noDevicesFound: string;
+    localOnly: string;
+    lastUsed: string;
     totalUsers: string;
     searchUsers: string;
     noUsersFound: string;

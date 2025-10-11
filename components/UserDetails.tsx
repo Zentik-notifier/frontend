@@ -282,6 +282,88 @@ export default function UserDetails({ userId }: UserDetailsProps) {
         </Card.Content>
       </Card>
 
+      {/* User Devices Section */}
+      <Card style={styles.section} mode="outlined">
+        <Card.Content>
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            {t("administration.userDevices")}
+          </Text>
+
+          {user.devices && user.devices.length > 0 ? (
+            <View style={styles.devicesList}>
+              {user.devices.map((device) => (
+                <Card key={device.id} style={styles.deviceItem} mode="outlined">
+                  <Card.Content>
+                    <View style={styles.deviceInfo}>
+                      <View style={styles.deviceHeader}>
+                        <Text variant="titleSmall" style={styles.deviceName}>
+                          {device.deviceName || device.platform}
+                        </Text>
+                        <Chip
+                          mode="flat"
+                          compact
+                          style={[
+                            {
+                              backgroundColor:
+                                device.platform === "IOS"
+                                  ? theme.colors.primary
+                                  : device.platform === "ANDROID"
+                                  ? "#3DDC84"
+                                  : device.platform === "WEB"
+                                  ? theme.colors.secondary
+                                  : theme.colors.outline,
+                            },
+                          ]}
+                          textStyle={styles.chipText}
+                        >
+                          {device.platform}
+                        </Chip>
+                      </View>
+
+                      {device.deviceModel && (
+                        <Text variant="bodySmall" style={styles.deviceDetail}>
+                          📱 {device.deviceModel}
+                        </Text>
+                      )}
+
+                      {device.osVersion && (
+                        <Text variant="bodySmall" style={styles.deviceDetail}>
+                          💿 {device.osVersion}
+                        </Text>
+                      )}
+
+                      {device.onlyLocal && (
+                        <Chip
+                          mode="outlined"
+                          compact
+                          style={styles.localChip}
+                          textStyle={styles.localChipText}
+                        >
+                          🏠 {t("administration.localOnly")}
+                        </Chip>
+                      )}
+
+                      <Text variant="bodySmall" style={styles.deviceDate}>
+                        {t("administration.lastUsed")}:{" "}
+                        {new Date(device.lastUsed).toLocaleString()}
+                      </Text>
+
+                      <Text variant="bodySmall" style={styles.deviceId}>
+                        ID: {device.id}
+                      </Text>
+                    </View>
+                  </Card.Content>
+                </Card>
+              ))}
+            </View>
+          ) : (
+            <Text variant="bodyMedium" style={styles.noDataText}>
+              {t("administration.noDevicesFound")}
+            </Text>
+          )}
+        </Card.Content>
+      </Card>
+
       {/* Notification Statistics Section */}
       <Card style={styles.section} mode="outlined">
         <Card.Content>
@@ -397,6 +479,53 @@ const styles = StyleSheet.create({
   bucketId: {
     opacity: 0.6,
     fontFamily: "monospace",
+  },
+  devicesList: {
+    gap: 12,
+  },
+  deviceItem: {
+    marginBottom: 8,
+  },
+  deviceInfo: {
+    flex: 1,
+  },
+  deviceHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  deviceName: {
+    flex: 1,
+    marginRight: 8,
+  },
+  chipText: {
+    fontSize: 10,
+    color: "#fff",
+    flexShrink: 1,
+  },
+  deviceDetail: {
+    opacity: 0.7,
+    marginBottom: 4,
+  },
+  localChip: {
+    alignSelf: "flex-start",
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  localChipText: {
+    fontSize: 10,
+  },
+  deviceDate: {
+    opacity: 0.6,
+    marginTop: 8,
+    fontSize: 11,
+  },
+  deviceId: {
+    opacity: 0.5,
+    fontFamily: "monospace",
+    fontSize: 10,
+    marginTop: 4,
   },
   loadingContainer: {
     alignItems: "center",

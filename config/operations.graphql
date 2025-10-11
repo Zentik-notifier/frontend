@@ -164,6 +164,17 @@ fragment UserFragment on User {
     createdAt
     updatedAt
   }
+  devices {
+    id
+    platform
+    deviceName
+    deviceModel
+    osVersion
+    onlyLocal
+    lastUsed
+    createdAt
+    updatedAt
+  }
   createdAt
   updatedAt
 }
