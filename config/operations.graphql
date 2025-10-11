@@ -43,6 +43,17 @@ mutation ResetPassword($input: ResetPasswordDto!) {
 }
 
 # Fragments
+fragment AttachmentFragment on Attachment {
+  id
+  filename
+  originalFilename
+  size
+  filepath
+  mediaType
+  createdAt
+  userId
+}
+
 fragment MessageAttachmentFragment on MessageAttachment {
   mediaType
   url
@@ -1192,11 +1203,6 @@ mutation UpsertMyAdminSubscriptions($eventTypes: [String!]!) {
 # User Attachments Operations
 query UserAttachments($userId: ID!) {
   userAttachments(userId: $userId) {
-    id
-    filename
-    filepath
-    mediaType
-    createdAt
-    userId
+    ...AttachmentFragment
   }
 }

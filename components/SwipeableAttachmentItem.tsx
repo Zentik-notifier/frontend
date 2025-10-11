@@ -8,20 +8,13 @@ import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { ApiConfigService } from "@/services/api-config";
 import { getAccessToken } from "@/services/auth-storage";
-
-interface AttachmentInfo {
-  id: string;
-  filename: string;
-  filepath: string;
-  mediaType: string | null;
-  createdAt: string;
-  userId: string;
-}
+import { AttachmentFragment } from "@/generated/gql-operations-generated";
+import { formatFileSize } from "@/utils/fileUtils";
 
 interface SwipeableAttachmentItemProps {
-  attachment: AttachmentInfo;
+  attachment: AttachmentFragment;
   onDelete: (attachmentId: string) => void;
-  onPress?: (attachment: AttachmentInfo) => void;
+  onPress?: (attachment: AttachmentFragment) => void;
 }
 
 export const SwipeableAttachmentItem: React.FC<
@@ -169,7 +162,7 @@ export const SwipeableAttachmentItem: React.FC<
 
         <View style={styles.contentContainer}>
           <Text variant="bodyLarge" style={styles.filename} numberOfLines={1}>
-            {attachment.filename}
+            {attachment.originalFilename || attachment.filename}
           </Text>
 
           <View style={styles.detailsRow}>
@@ -183,6 +176,19 @@ export const SwipeableAttachmentItem: React.FC<
                 {formatDate(attachment.createdAt, true)}
               </Text>
             </View>
+
+            {attachment.size && (
+              <View style={styles.detailItem}>
+                <Icon
+                  source="file"
+                  size={16}
+                  color={theme.colors.secondary}
+                />
+                <Text variant="bodySmall" style={styles.detailText}>
+                  {formatFileSize(attachment.size)}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </Pressable>
