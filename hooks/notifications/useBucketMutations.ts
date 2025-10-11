@@ -508,6 +508,7 @@ export function useShareBucket(options?: {
               updatedAt: new Date().toISOString(),
               identities: null,
               buckets: null,
+              devices: null,
             },
             grantedBy: null,
           };
