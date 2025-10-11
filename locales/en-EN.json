@@ -330,7 +330,10 @@
     "noAttachmentsFound": "No attachments found",
     "unableToDownload": "Unable to download attachment",
     "downloadStarted": "Attachment download started",
-    "downloadFailed": "Failed to download attachment"
+    "downloadFailed": "Failed to download attachment",
+    "confirmDelete": "Are you sure you want to delete this attachment?",
+    "deleteFailed": "Failed to delete attachment",
+    "deleteSuccess": "Attachment deleted successfully"
   },
   "buckets": {
     "title": "Buckets",

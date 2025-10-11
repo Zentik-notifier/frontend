@@ -330,7 +330,10 @@
     "noAttachmentsFound": "Nessun allegato trovato",
     "unableToDownload": "Impossibile scaricare l'allegato",
     "downloadStarted": "Download allegato avviato",
-    "downloadFailed": "Impossibile scaricare l'allegato"
+    "downloadFailed": "Impossibile scaricare l'allegato",
+    "confirmDelete": "Sei sicuro di voler eliminare questo allegato?",
+    "deleteFailed": "Impossibile eliminare l'allegato",
+    "deleteSuccess": "Allegato eliminato con successo"
   },
   "buckets": {
     "title": "Bucket",
