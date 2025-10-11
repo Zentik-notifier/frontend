@@ -9,6 +9,29 @@ This is the frontend application for Zentik Notifier, built with:
 - **TanStack Query (React Query)** for data fetching and caching
 - **Internationalization (i18n)** with English and Italian translations
 
+## Code Style and Documentation
+
+### Language and Comments
+- **Always use English** for all code comments, documentation, commit messages, and PR descriptions
+- **Add comments only for critical or complex logic** - avoid self-explanatory comments
+- **Don't create README files** or test scripts unless explicitly requested
+- Keep comments concise and meaningful
+
+**Examples:**
+```typescript
+// ✅ Good - explains why, not what
+// Using useMemo to prevent recalculating options on every render
+const options = useMemo(() => generateOptions(), [language]);
+
+// ❌ Bad - self-explanatory
+// Set the title
+setTitle("New Title");
+
+// ❌ Bad - in Italian
+// Carica i dati dell'utente
+const loadUserData = async () => { }
+```
+
 ## Important Development Guidelines
 
 ### 1. Internationalization (i18n) Type Generation

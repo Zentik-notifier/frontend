@@ -34,10 +34,6 @@ export default function AdminSubscriptions() {
 
   const [upsertMutation, { loading: saving }] = useUpsertMyAdminSubscriptions({
     onCompleted: () => {
-      Alert.alert(
-        t("common.success"),
-        t("adminSubscriptions.successMessage")
-      );
       refetch();
     },
     onError: (error) => {
