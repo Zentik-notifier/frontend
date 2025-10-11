@@ -10,13 +10,13 @@ export const useNotificationUtils = () => {
   const getDeliveryTypeIcon = (deliveryType: NotificationDeliveryType): string => {
     switch (deliveryType) {
       case NotificationDeliveryType.Silent:
-        return "priorityLow";
+        return "volume-off"; // Silenzioso - no suono
       case NotificationDeliveryType.Normal:
-        return "priorityNormal";
+        return "bell"; // Normale - notifica standard
       case NotificationDeliveryType.Critical:
-        return "priorityHigh";
+        return "bell-alert"; // Critico - notifica urgente
       default:
-        return "priorityNormal";
+        return "bell";
     }
   };
 

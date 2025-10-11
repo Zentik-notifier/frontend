@@ -32,7 +32,7 @@ export default function NotificationTapActionSelector({
 }: NotificationTapActionSelectorProps) {
   const { t } = useI18n();
   const theme = useTheme();
-  const { getActionTypeFriendlyName } = useNotificationUtils();
+  const { getActionTypeFriendlyName,getActionTypeIcon } = useNotificationUtils();
 
   const [showTapActionForm, setShowTapActionForm] = useState(false);
   const [editingAction, setEditingAction] =
@@ -106,7 +106,7 @@ export default function NotificationTapActionSelector({
       type: NotificationActionType.OpenNotification,
       value: "default",
       destructive: false,
-      icon: "sfsymbols:info.circle",
+      icon: "",
       title: "Open",
     };
     onTapActionChange(newAction);
@@ -162,7 +162,7 @@ export default function NotificationTapActionSelector({
         >
           <View style={styles.actionInfo}>
             <Icon
-              source="action"
+              source={getActionTypeIcon(tapAction.type)}
               size={20}
               color={theme.colors.primary}
             />

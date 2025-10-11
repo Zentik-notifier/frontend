@@ -28,7 +28,8 @@ export default function NotificationActionsSelector({
 }: NotificationActionsSelectorProps) {
   const { t } = useI18n();
   const theme = useTheme();
-  const { getActionTypeFriendlyName } = useNotificationUtils();
+  const { getActionTypeFriendlyName, getActionTypeIcon } =
+    useNotificationUtils();
 
   const [showActionForm, setShowActionForm] = useState(false);
   const [actionType, setActionType] = useState<NotificationActionType>();
@@ -77,8 +78,8 @@ export default function NotificationActionsSelector({
         title: actionTitle,
         destructive: actionDestructive,
         icon: actionIconName.trim()
-          ? `sfsymbols:${actionIconName.trim()}`
-          : "action",
+          ? `${actionIconName.trim()}`
+          : getActionTypeIcon(actionType),
       };
       onActionsChange([...actions, newAction]);
       setActionValue("");
@@ -123,7 +124,11 @@ export default function NotificationActionsSelector({
           ]}
         >
           <View style={styles.actionInfo}>
-            <Icon source="action" size={20} color={theme.colors.primary} />
+            <Icon
+              source={getActionTypeIcon(action.type)}
+              size={20}
+              color={theme.colors.primary}
+            />
             <View style={styles.actionDetails}>
               <Text
                 style={[styles.actionValue, { color: theme.colors.onSurface }]}

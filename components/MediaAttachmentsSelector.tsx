@@ -55,8 +55,6 @@ export default function MediaAttachmentsSelector({
     onAttachmentsChange(attachments.filter((_, i) => i !== index));
   };
 
-
-
   return (
     <View style={styles.field}>
       <Text style={styles.label}>

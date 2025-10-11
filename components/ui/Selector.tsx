@@ -1,24 +1,23 @@
 import { useI18n } from "@/hooks";
+import { Image } from "expo-image";
 import React, {
-  useState,
+  useCallback,
   useMemo,
   useRef,
-  useEffect,
-  useCallback,
+  useState
 } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  TextInput,
   Dimensions,
+  FlatList,
   StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { useTheme, Icon, Portal } from "react-native-paper";
-import { Image } from "expo-image";
-import ThemedBottomSheet, { ThemedBottomSheetRef } from "./ThemedBottomSheet";
+import { Icon, Portal, useTheme } from "react-native-paper";
 import { IconSource } from "react-native-paper/lib/typescript/components/Icon";
+import ThemedBottomSheet, { ThemedBottomSheetRef } from "./ThemedBottomSheet";
 
 export interface SelectorOption {
   id: any;

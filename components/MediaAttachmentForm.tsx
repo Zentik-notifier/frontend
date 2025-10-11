@@ -4,7 +4,7 @@ import { useI18n } from "@/hooks/useI18n";
 import React from "react";
 import { StyleSheet, TextInput, View } from "react-native";
 import { Text, Surface, Button, useTheme } from "react-native-paper";
-import Selector from "./ui/Selector";
+import Selector, { SelectorOption } from "./ui/Selector";
 
 interface MediaAttachmentFormProps {
   attachmentType: MediaType | undefined;
@@ -36,11 +36,13 @@ export default function MediaAttachmentForm({
   const { getMediaTypeFriendlyName, getMediaTypeIcon, getMediaTypeColor } =
     useNotificationUtils();
 
-  const mediaTypeOptions = Object.values(
+  const mediaTypeOptions: SelectorOption[] = Object.values(
     MediaType
   ).map((mediaType) => ({
     id: mediaType,
     name: getMediaTypeFriendlyName(mediaType),
+    iconName: getMediaTypeIcon(mediaType),
+    iconColor: getMediaTypeColor(mediaType)
   }));
 
   const isFormValid = () => {
