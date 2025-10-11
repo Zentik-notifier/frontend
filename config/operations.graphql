@@ -1195,8 +1195,8 @@ query UserAttachments($userId: ID!) {
     id
     filename
     filepath
-    size
     mediaType
     createdAt
+    userId
   }
 }

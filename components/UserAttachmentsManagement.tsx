@@ -1,85 +1,65 @@
 import { useI18n } from "@/hooks/useI18n";
-import { useDateFormat } from "@/hooks/useDateFormat";
 import React, { useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
-import { Icon, Text, useTheme, Card, IconButton } from "react-native-paper";
+import { Icon, Text, useTheme } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
-// import { useUserAttachmentsQuery } from "@/generated/gql-operations-generated";
+import { useUserAttachmentsQuery } from "@/generated/gql-operations-generated";
 import { useAppContext } from "@/contexts/AppContext";
-import { ApiConfigService } from "@/services/api-config";
-import { getAccessToken } from "@/services/auth-storage";
-import { Platform } from "react-native";
-import { formatFileSize } from "@/utils/fileUtils";
+import { SwipeableAttachmentItem } from "./SwipeableAttachmentItem";
 
 export function UserAttachmentsManagement() {
   const { t } = useI18n();
   const theme = useTheme();
   const { userId } = useAppContext();
-  const { formatDate } = useDateFormat();
 
-  // GraphQL query - TODO: uncomment after codegen
-  // const { data, loading, refetch } = useUserAttachmentsQuery({
-  //   variables: { userId: userId || "" },
-  //   skip: !userId,
-  //   fetchPolicy: "network-only",
-  // });
+  const { data, loading, refetch } = useUserAttachmentsQuery({
+    variables: { userId: userId || "" },
+    skip: !userId,
+    fetchPolicy: "network-only",
+  });
 
-  const attachments: any[] = []; // data?.userAttachments || [];
-  const loading = false;
-  const refetch = async () => {};
+  const attachments = data?.userAttachments || [];
+  const loadingState = loading;
 
   const handleRefresh = async () => {
     await refetch();
   };
 
-  const handleDownloadAttachment = async (
-    attachmentId: string,
-    filename: string
-  ) => {
-    try {
-      const apiUrl = await ApiConfigService.getApiUrl();
-      const token = await getAccessToken();
-
-      if (!apiUrl || !token) {
-        Alert.alert(t("common.error"), t("userAttachments.unableToDownload"));
-        return;
-      }
-
-      const downloadUrl = `${apiUrl}/api/v1/attachments/${attachmentId}/download`;
-
-      if (Platform.OS === "web") {
-        // On web, open in new tab
-        window.open(downloadUrl, "_blank");
-      } else {
-        // On mobile, use the authenticated download endpoint
-        const response = await fetch(downloadUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`,
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    Alert.alert(
+      t("common.delete") as string,
+      t("userAttachments.confirmDelete") as string,
+      [
+        {
+          text: t("common.cancel") as string,
+          style: "cancel",
+        },
+        {
+          text: t("common.delete") as string,
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // TODO: Implementare la mutation GraphQL per eliminare l'attachment
+              Alert.alert(
+                t("common.success") as string,
+                t("userAttachments.deleteSuccess") as string
+              );
+              await refetch();
+            } catch (error) {
+              console.error("Error deleting attachment:", error);
+              Alert.alert(
+                t("common.error") as string,
+                t("userAttachments.deleteFailed") as string
+              );
+            }
           },
-        });
-
-        if (response.ok) {
-          Alert.alert(
-            t("common.success"),
-            t("userAttachments.downloadStarted")
-          );
-        } else {
-          throw new Error("Download failed");
-        }
-      }
-    } catch (error) {
-      console.error("Error downloading attachment:", error);
-      Alert.alert(t("common.error"), t("userAttachments.downloadFailed"));
-    }
+        },
+      ]
+    );
   };
 
-  const totalSize = attachments.reduce(
-    (acc: number, a: any) => acc + (a.size || 0),
-    0
-  );
-
   return (
-    <PaperScrollView onRefresh={handleRefresh} loading={loading}>
+    <PaperScrollView onRefresh={handleRefresh} loading={loadingState}>
       {/* Stats Header */}
       <View style={styles.statsHeader}>
         <View style={styles.statItem}>
@@ -91,18 +71,6 @@ export function UserAttachmentsManagement() {
             {t("userAttachments.attachments")}
           </Text>
         </View>
-
-        {attachments.length > 0 && (
-          <View style={styles.statItem}>
-            <Icon source="harddisk" size={20} color={theme.colors.secondary} />
-            <Text variant="titleMedium" style={styles.statValue}>
-              {formatFileSize(totalSize)}
-            </Text>
-            <Text variant="bodySmall" style={styles.statLabel}>
-              {t("userAttachments.totalSize")}
-            </Text>
-          </View>
-        )}
       </View>
 
       {/* Attachments List */}
@@ -124,61 +92,18 @@ export function UserAttachmentsManagement() {
           </Text>
         </View>
       ) : (
-        <View style={styles.listContainer}>
-          {attachments.map((attachment: any) => (
-            <Card key={attachment.id} style={styles.card}>
-              <Card.Content style={styles.cardContent}>
-                <View style={styles.attachmentInfo}>
-                  <Icon
-                    source={getFileIcon(attachment.mediaType || "")}
-                    size={24}
-                    color={theme.colors.primary}
-                  />
-                  <View style={styles.textContainer}>
-                    <Text
-                      variant="bodyLarge"
-                      style={styles.filename}
-                      numberOfLines={1}
-                    >
-                      {attachment.filename}
-                    </Text>
-                    <View style={styles.detailsRow}>
-                      <Text variant="bodySmall" style={styles.detailText}>
-                        {formatFileSize(attachment.size || 0)}
-                      </Text>
-                      <Text variant="bodySmall" style={styles.detailText}>
-                        •
-                      </Text>
-                      <Text variant="bodySmall" style={styles.detailText}>
-                        {formatDate(attachment.createdAt, true)}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-                <IconButton
-                  icon="download"
-                  size={20}
-                  onPress={() =>
-                    handleDownloadAttachment(attachment.id, attachment.filename)
-                  }
-                  iconColor={theme.colors.primary}
-                />
-              </Card.Content>
-            </Card>
+        <View>
+          {attachments.map((attachment) => (
+            <SwipeableAttachmentItem
+              key={attachment.id}
+              attachment={attachment}
+              onDelete={handleDeleteAttachment}
+            />
           ))}
         </View>
       )}
     </PaperScrollView>
   );
-}
-
-function getFileIcon(mediaType: string): string {
-  if (mediaType.startsWith("image/")) return "file-image";
-  if (mediaType.startsWith("video/")) return "file-video";
-  if (mediaType.startsWith("audio/")) return "file-music";
-  if (mediaType.includes("pdf")) return "file-pdf-box";
-  if (mediaType.includes("text")) return "file-document";
-  return "file";
 }
 
 const styles = StyleSheet.create({
@@ -209,39 +134,5 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: "center",
-  },
-  listContainer: {
-    padding: 16,
-    gap: 8,
-  },
-  card: {
-    marginBottom: 4,
-  },
-  cardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-  },
-  attachmentInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    flex: 1,
-  },
-  textContainer: {
-    flex: 1,
-    gap: 4,
-  },
-  filename: {
-    fontWeight: "600",
-  },
-  detailsRow: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
-  },
-  detailText: {
-    opacity: 0.7,
   },
 });

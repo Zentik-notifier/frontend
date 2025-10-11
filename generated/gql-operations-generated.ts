@@ -977,6 +977,7 @@ export type PublicAppConfig = {
 export type Query = {
   __typename?: 'Query';
   allOAuthProviders: Array<OAuthProvider>;
+  attachment: Attachment;
   bucket: Bucket;
   bucketPermissions: Array<EntityPermission>;
   buckets: Array<Bucket>;
@@ -985,6 +986,8 @@ export type Query = {
   entityExecution: Maybe<EntityExecution>;
   events: EventsResponseDto;
   getBackendVersion: Scalars['String']['output'];
+  /** Get the download URL for a specific backup file */
+  getBackupDownloadUrl: Scalars['String']['output'];
   getEntityExecutions: Array<EntityExecution>;
   getResourcePermissions: Array<EntityPermission>;
   getSystemToken: Maybe<SystemAccessTokenDto>;
@@ -997,6 +1000,7 @@ export type Query = {
   /** Get logs with pagination and filtering */
   logs: PaginatedLogs;
   me: User;
+  messageAttachments: Array<Attachment>;
   myAdminSubscription: Maybe<Array<Scalars['String']['output']>>;
   notification: Notification;
   notificationServices: Array<NotificationServiceInfo>;
@@ -1012,6 +1016,7 @@ export type Query = {
   /** Get total log count */
   totalLogCount: Scalars['Float']['output'];
   user: User;
+  userAttachments: Array<Attachment>;
   userDevice: Maybe<UserDevice>;
   userDevices: Array<UserDevice>;
   userNotificationStats: UserNotificationStats;
@@ -1019,6 +1024,11 @@ export type Query = {
   userWebhooks: Array<UserWebhook>;
   users: Array<User>;
   webhook: UserWebhook;
+};
+
+
+export type QueryAttachmentArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -1047,6 +1057,11 @@ export type QueryEventsArgs = {
 };
 
 
+export type QueryGetBackupDownloadUrlArgs = {
+  filename: Scalars['String']['input'];
+};
+
+
 export type QueryGetEntityExecutionsArgs = {
   input: GetEntityExecutionsInput;
 };
@@ -1064,6 +1079,11 @@ export type QueryGetSystemTokenArgs = {
 
 export type QueryLogsArgs = {
   input: GetLogsInput;
+};
+
+
+export type QueryMessageAttachmentsArgs = {
+  messageId: Scalars['ID']['input'];
 };
 
 
@@ -1089,6 +1109,11 @@ export type QueryServerSettingArgs = {
 
 export type QueryUserArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type QueryUserAttachmentsArgs = {
+  userId: Scalars['ID']['input'];
 };
 
 
@@ -2365,6 +2390,13 @@ export type UpsertMyAdminSubscriptionsMutationVariables = Exact<{
 
 
 export type UpsertMyAdminSubscriptionsMutation = { __typename?: 'Mutation', upsertMyAdminSubscription: Array<string> };
+
+export type UserAttachmentsQueryVariables = Exact<{
+  userId: Scalars['ID']['input'];
+}>;
+
+
+export type UserAttachmentsQuery = { __typename?: 'Query', userAttachments: Array<{ __typename?: 'Attachment', id: string, filename: string, filepath: string, mediaType: MediaType | null, createdAt: string, userId: string }> };
 
 export const MessageAttachmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageAttachmentFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MessageAttachment"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"saveOnServer"}}]}}]} as unknown as DocumentNode;
 export const NotificationActionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationActionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationAction"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"destructive"}}]}}]} as unknown as DocumentNode;
@@ -5654,3 +5686,37 @@ export function useUpsertMyAdminSubscriptions(baseOptions?: ApolloReactHooks.Mut
 export type UpsertMyAdminSubscriptionsHookResult = ReturnType<typeof useUpsertMyAdminSubscriptions>;
 export type UpsertMyAdminSubscriptionsMutationResult = Apollo.MutationResult<UpsertMyAdminSubscriptionsMutation>;
 export type UpsertMyAdminSubscriptionsMutationOptions = Apollo.BaseMutationOptions<UpsertMyAdminSubscriptionsMutation, UpsertMyAdminSubscriptionsMutationVariables>;
+export const UserAttachmentsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserAttachments"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userAttachments"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"filename"}},{"kind":"Field","name":{"kind":"Name","value":"filepath"}},{"kind":"Field","name":{"kind":"Name","value":"mediaType"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}}]}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useUserAttachmentsQuery__
+ *
+ * To run a query within a React component, call `useUserAttachmentsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useUserAttachmentsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useUserAttachmentsQuery({
+ *   variables: {
+ *      userId: // value for 'userId'
+ *   },
+ * });
+ */
+export function useUserAttachmentsQuery(baseOptions: ApolloReactHooks.QueryHookOptions<UserAttachmentsQuery, UserAttachmentsQueryVariables> & ({ variables: UserAttachmentsQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<UserAttachmentsQuery, UserAttachmentsQueryVariables>(UserAttachmentsDocument, options);
+      }
+export function useUserAttachmentsLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<UserAttachmentsQuery, UserAttachmentsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<UserAttachmentsQuery, UserAttachmentsQueryVariables>(UserAttachmentsDocument, options);
+        }
+export function useUserAttachmentsSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<UserAttachmentsQuery, UserAttachmentsQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<UserAttachmentsQuery, UserAttachmentsQueryVariables>(UserAttachmentsDocument, options);
+        }
+export type UserAttachmentsQueryHookResult = ReturnType<typeof useUserAttachmentsQuery>;
+export type UserAttachmentsLazyQueryHookResult = ReturnType<typeof useUserAttachmentsLazyQuery>;
+export type UserAttachmentsSuspenseQueryHookResult = ReturnType<typeof useUserAttachmentsSuspenseQuery>;
+export type UserAttachmentsQueryResult = Apollo.QueryResult<UserAttachmentsQuery, UserAttachmentsQueryVariables>;

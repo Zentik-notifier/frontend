@@ -1415,6 +1415,9 @@ export interface TranslationKey {
   };
   userAttachments: {
     attachments: string;
+    confirmDelete: string;
+    deleteFailed: string;
+    deleteSuccess: string;
     description: string;
     downloadFailed: string;
     downloadStarted: string;
