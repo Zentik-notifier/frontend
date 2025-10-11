@@ -305,7 +305,8 @@
       "connectedAs": "Connesso come {{providerId}}",
       "connected": "Connesso",
       "connect": "Connetti",
-      "connectionError": "Connessione fallita. Riprova."
+      "connectionError": "Connessione fallita. Riprova.",
+      "availableToConnect": "Disponibile per la connessione"
     },
     "continue": "Continua",
     "deleteAccountConfirm": "Elimina Definitivamente",

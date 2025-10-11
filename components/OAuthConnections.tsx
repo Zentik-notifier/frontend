@@ -204,7 +204,7 @@ export default function OAuthConnections({
                     ? t("userProfile.oauthConnections.connectedAs", {
                         providerId: connectedIdentity.providerId,
                       })
-                    : "Available to connect"
+                    : t("userProfile.oauthConnections.availableToConnect")
                 }
                 left={(props) => (
                   <View

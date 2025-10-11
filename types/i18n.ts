@@ -1455,6 +1455,7 @@ export interface TranslationKey {
       connectionError: string;
       noConnections: string;
       title: string;
+      availableToConnect: string;
     };
     profileUpdateError: string;
     profileUpdateSuccess: string;

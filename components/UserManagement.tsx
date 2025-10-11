@@ -1,4 +1,3 @@
-import { useAppContext } from "@/contexts/AppContext";
 import {
   useGetAllUsersQuery,
   UserFragment,
@@ -6,7 +5,7 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import {
   Card,

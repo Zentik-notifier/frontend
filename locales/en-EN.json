@@ -305,7 +305,8 @@
       "connectedAs": "Connected as {{providerId}}",
       "connected": "Connected",
       "connect": "Connect",
-      "connectionError": "Failed to connect. Please try again."
+      "connectionError": "Failed to connect. Please try again.",
+      "availableToConnect": "Available to connect"
     },
     "continue": "Continue",
     "deleteAccountConfirm": "Delete Permanently",
