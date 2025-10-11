@@ -117,9 +117,10 @@ class IOSNativePushNotificationService {
                 console.error('[IOSNativePushNotificationService] Device token not found');
                 return { deviceInfo: null, hasPermissionError: false };
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('[IOSNativePushNotificationService] Error initializing:', error);
-            return { deviceInfo: null, hasPermissionError: false };
+            const hasPermissionError = error?.code === 'ERR_PERMISSIONS_REQUEST_NOTIFICATIONS';
+            return { deviceInfo: null, hasPermissionError };
         }
     }
 

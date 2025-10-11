@@ -154,7 +154,10 @@ export function usePushNotifications() {
     let hasPermissionError = false;
 
     const info = await getDeviceInfo();
-    if (!info) return false;
+    if (!info) {
+      console.error("[usePushNotifications] Device infos not retrieved");
+      return false;
+    };
 
     try {
       const res = await registerDeviceMutation({ variables: { input: info } });
