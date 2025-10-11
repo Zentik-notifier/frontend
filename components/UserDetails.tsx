@@ -400,10 +400,28 @@ export default function UserDetails({ userId }: UserDetailsProps) {
 
               <Surface style={styles.statItem} elevation={1}>
                 <Text variant="headlineSmall" style={styles.statValue}>
+                  {statsData.userNotificationStats.last7Days}
+                </Text>
+                <Text variant="bodySmall" style={styles.statLabel}>
+                  {t("userProfile.last7Days")}
+                </Text>
+              </Surface>
+
+              <Surface style={styles.statItem} elevation={1}>
+                <Text variant="headlineSmall" style={styles.statValue}>
                   {statsData.userNotificationStats.thisMonth}
                 </Text>
                 <Text variant="bodySmall" style={styles.statLabel}>
                   {t("userProfile.thisMonth")}
+                </Text>
+              </Surface>
+
+              <Surface style={styles.statItem} elevation={1}>
+                <Text variant="headlineSmall" style={styles.statValue}>
+                  {statsData.userNotificationStats.last30Days}
+                </Text>
+                <Text variant="bodySmall" style={styles.statLabel}>
+                  {t("userProfile.last30Days")}
                 </Text>
               </Surface>
 

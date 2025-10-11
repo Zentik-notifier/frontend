@@ -1441,7 +1441,9 @@ export interface TranslationKey {
     notificationStats: string;
     today: string;
     thisWeek: string;
+    last7Days: string;
     thisMonth: string;
+    last30Days: string;
     total: string;
     noDataAvailable: string;
     notAvailable: string;

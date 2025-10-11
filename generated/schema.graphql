@@ -1034,6 +1034,8 @@ type UserIdentity {
 }
 
 type UserNotificationStats {
+  last7Days: Float!
+  last30Days: Float!
   thisMonth: Float!
   thisWeek: Float!
   today: Float!

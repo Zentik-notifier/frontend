@@ -1491,6 +1491,8 @@ export type UserIdentity = {
 
 export type UserNotificationStats = {
   __typename?: 'UserNotificationStats';
+  last7Days: Scalars['Float']['output'];
+  last30Days: Scalars['Float']['output'];
   thisMonth: Scalars['Float']['output'];
   thisWeek: Scalars['Float']['output'];
   today: Scalars['Float']['output'];
@@ -2208,14 +2210,14 @@ export type GetEventsPaginatedQuery = { __typename?: 'Query', events: { __typena
 export type UserNotificationStatsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type UserNotificationStatsQuery = { __typename?: 'Query', userNotificationStats: { __typename?: 'UserNotificationStats', today: number, thisWeek: number, thisMonth: number, total: number } };
+export type UserNotificationStatsQuery = { __typename?: 'Query', userNotificationStats: { __typename?: 'UserNotificationStats', today: number, thisWeek: number, last7Days: number, thisMonth: number, last30Days: number, total: number } };
 
 export type UserNotificationStatsByUserIdQueryVariables = Exact<{
   userId: Scalars['String']['input'];
 }>;
 
 
-export type UserNotificationStatsByUserIdQuery = { __typename?: 'Query', userNotificationStats: { __typename?: 'UserNotificationStats', today: number, thisWeek: number, thisMonth: number, total: number } };
+export type UserNotificationStatsByUserIdQuery = { __typename?: 'Query', userNotificationStats: { __typename?: 'UserNotificationStats', today: number, thisWeek: number, last7Days: number, thisMonth: number, last30Days: number, total: number } };
 
 export type ExecuteWebhookMutationVariables = Exact<{
   id: Scalars['ID']['input'];
@@ -4926,7 +4928,7 @@ export type GetEventsPaginatedQueryHookResult = ReturnType<typeof useGetEventsPa
 export type GetEventsPaginatedLazyQueryHookResult = ReturnType<typeof useGetEventsPaginatedLazyQuery>;
 export type GetEventsPaginatedSuspenseQueryHookResult = ReturnType<typeof useGetEventsPaginatedSuspenseQuery>;
 export type GetEventsPaginatedQueryResult = Apollo.QueryResult<GetEventsPaginatedQuery, GetEventsPaginatedQueryVariables>;
-export const UserNotificationStatsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserNotificationStats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userNotificationStats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"today"}},{"kind":"Field","name":{"kind":"Name","value":"thisWeek"}},{"kind":"Field","name":{"kind":"Name","value":"thisMonth"}},{"kind":"Field","name":{"kind":"Name","value":"total"}}]}}]}}]} as unknown as DocumentNode;
+export const UserNotificationStatsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserNotificationStats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userNotificationStats"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"today"}},{"kind":"Field","name":{"kind":"Name","value":"thisWeek"}},{"kind":"Field","name":{"kind":"Name","value":"last7Days"}},{"kind":"Field","name":{"kind":"Name","value":"thisMonth"}},{"kind":"Field","name":{"kind":"Name","value":"last30Days"}},{"kind":"Field","name":{"kind":"Name","value":"total"}}]}}]}}]} as unknown as DocumentNode;
 
 /**
  * __useUserNotificationStatsQuery__
@@ -4959,7 +4961,7 @@ export type UserNotificationStatsQueryHookResult = ReturnType<typeof useUserNoti
 export type UserNotificationStatsLazyQueryHookResult = ReturnType<typeof useUserNotificationStatsLazyQuery>;
 export type UserNotificationStatsSuspenseQueryHookResult = ReturnType<typeof useUserNotificationStatsSuspenseQuery>;
 export type UserNotificationStatsQueryResult = Apollo.QueryResult<UserNotificationStatsQuery, UserNotificationStatsQueryVariables>;
-export const UserNotificationStatsByUserIdDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserNotificationStatsByUserId"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userNotificationStats"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"today"}},{"kind":"Field","name":{"kind":"Name","value":"thisWeek"}},{"kind":"Field","name":{"kind":"Name","value":"thisMonth"}},{"kind":"Field","name":{"kind":"Name","value":"total"}}]}}]}}]} as unknown as DocumentNode;
+export const UserNotificationStatsByUserIdDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserNotificationStatsByUserId"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userNotificationStats"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"today"}},{"kind":"Field","name":{"kind":"Name","value":"thisWeek"}},{"kind":"Field","name":{"kind":"Name","value":"last7Days"}},{"kind":"Field","name":{"kind":"Name","value":"thisMonth"}},{"kind":"Field","name":{"kind":"Name","value":"last30Days"}},{"kind":"Field","name":{"kind":"Name","value":"total"}}]}}]}}]} as unknown as DocumentNode;
 
 /**
  * __useUserNotificationStatsByUserIdQuery__

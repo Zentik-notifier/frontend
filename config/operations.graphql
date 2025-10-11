@@ -970,7 +970,9 @@ query UserNotificationStats {
   userNotificationStats {
     today
     thisWeek
+    last7Days
     thisMonth
+    last30Days
     total
   }
 }
@@ -980,7 +982,9 @@ query UserNotificationStatsByUserId($userId: String!) {
   userNotificationStats(userId: $userId) {
     today
     thisWeek
+    last7Days
     thisMonth
+    last30Days
     total
   }
 }

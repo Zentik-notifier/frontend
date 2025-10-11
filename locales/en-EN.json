@@ -316,7 +316,9 @@
     "notificationStats": "Notification Statistics",
     "today": "Today",
     "thisWeek": "This Week",
+    "last7Days": "Last 7 Days",
     "thisMonth": "This Month",
+    "last30Days": "Last 30 Days",
     "total": "Total"
   },
   "buckets": {
