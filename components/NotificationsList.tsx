@@ -393,6 +393,7 @@ export default function NotificationsList({
           hideBucketInfo={hideBucketInfo}
           isMultiSelectionMode={selectionMode}
           isSelected={isSelected}
+          noBucketRouting={!!bucketId}
           onToggleSelection={() => toggleItemSelection(item.id)}
         />
       );

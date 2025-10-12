@@ -102,6 +102,7 @@ interface NotificationItemProps {
   isMultiSelectionMode?: boolean;
   isSelected?: boolean;
   isItemVisible: boolean;
+  noBucketRouting?: boolean;
   onToggleSelection?: () => void;
 }
 
@@ -110,6 +111,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   hideBucketInfo,
   isMultiSelectionMode,
   isSelected,
+  noBucketRouting,
   isItemVisible,
   onToggleSelection,
 }) => {
@@ -179,8 +181,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       Alert.alert(t("common.error"), t("swipeActions.delete.error"));
     }
   };
-
-  // handlers already defined above (avoid redeclaration)
 
   const isRead = !!notification.readAt;
   const bucketName = notification.message?.bucket?.name || t("common.general");
@@ -343,6 +343,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 key={notification.message?.bucket?.id}
                 size={"lg"}
                 bucket={notification.message?.bucket}
+                noRouting={noBucketRouting}
               />
             </View>
           </View>
