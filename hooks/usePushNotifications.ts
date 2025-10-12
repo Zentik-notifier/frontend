@@ -65,6 +65,7 @@ export function usePushNotifications() {
           isAndroid ? DevicePlatform.Android :
             DevicePlatform.Web)
     );
+    console.log("[usePushNotifications] Detected push type:", pushType);
 
     if (pushType?.service) {
       if (pushType.service === NotificationServiceType.Push) {

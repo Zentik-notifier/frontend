@@ -52,6 +52,7 @@ class WebPushNotificationService {
       needsPwa = !isPwa;
 
       if (!hasPermissions) {
+        console.error('[WebPushNotificationService] Permissions not granted', needsPwa);
         return { deviceInfo: null, hasPermissionError: true, needsPwa };
       }
 
@@ -120,7 +121,7 @@ class WebPushNotificationService {
         infoJson = json;
         this.pushSubscription = await this.swRegistration.pushManager.getSubscription();
       } else {
-        console.error('[WebPushNotificationService] Public key not found');
+        console.error('[WebPushNotificationService] Public key not found or Service Worker not registered', publicKey, this.swRegistration);
       }
     } catch (e) {
       console.error('[WebPushNotificationService] Registration failed:', e);
@@ -268,7 +269,7 @@ class WebPushNotificationService {
               this.callbacks.pushNotificationReceived(notificationId);
             }
           }
-          
+
           // Invalidate React Query cache if requested
           if (invalidateQueries && this.callbacks?.pushNotificationReceived) {
             // Use pushNotificationReceived to trigger React Query invalidation
