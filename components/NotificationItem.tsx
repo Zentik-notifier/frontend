@@ -119,12 +119,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const { t } = useI18n();
   const { formatRelativeTime } = useDateFormat();
   const {
+    connectionStatus: { canAutoDownload },
     userSettings: {
       settings: {
         isCompactMode,
-        mediaCache: {
-          downloadSettings: { autoDownloadEnabled },
-        },
         notificationFilters: { loadOnlyVisible },
       },
     },
@@ -157,16 +155,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const attachment = attachments[selectedPreviewIndex];
 
   useEffect(() => {
-    if (!autoDownloadEnabled) return;
-    for (const attachment of attachments) {
-      attachment.url &&
-        mediaCache.checkMediaExists({
-          url: attachment.url,
-          mediaType: attachment.mediaType,
-          notificationDate: new Date(notification.createdAt).getTime(),
-        });
-    }
-  }, [attachments, autoDownloadEnabled, notification]);
+    canAutoDownload &&
+      mediaCache.tryAutoDownload(notification).catch(console.error);
+  }, [notification, canAutoDownload]);
 
   const handlePress = () => {
     if (mediaPressRef.current) {

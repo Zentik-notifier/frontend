@@ -1,11 +1,11 @@
-import { Directory, File } from '../utils/filesystem-wrapper';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { BehaviorSubject } from "rxjs";
-import { MediaType } from '../generated/gql-operations-generated';
-import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
-import { MediaCacheRepository, MediaItem } from './media-cache-repository';
 import { Platform } from 'react-native';
+import { BehaviorSubject } from "rxjs";
+import { MediaType, NotificationFragment } from '../generated/gql-operations-generated';
+import { Directory, File } from '../utils/filesystem-wrapper';
+import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
+import { MediaCacheRepository } from './media-cache-repository';
 
 const isWeb = Platform.OS === 'web';
 
@@ -410,37 +410,6 @@ class MediaCacheService {
 
     async reloadMetadata(): Promise<void> {
         await this.loadMetadata();
-    }
-
-    async checkMediaExists(props: { url: string, mediaType: MediaType, notificationDate: number }) {
-        await this.initialize();
-
-        const { url, mediaType, notificationDate } = props;
-        const key = this.generateCacheKey(url, mediaType);
-        const cachedItem = this.metadata[key];
-
-        let shouldDownload = false;
-        let shouldGenerateThumbnail = false;
-
-        if (cachedItem && cachedItem.localPath && cachedItem.localThumbPath) {
-            return;
-        }
-
-        if (cachedItem && !cachedItem.localPath) {
-            shouldDownload = true;
-        }
-
-        if (cachedItem && cachedItem.localPath && !cachedItem.localThumbPath) {
-            shouldGenerateThumbnail = true;
-        }
-
-        if (shouldDownload) {
-            await this.downloadMedia({ url, mediaType, notificationDate });
-        }
-
-        if (shouldGenerateThumbnail) {
-            await this.generateThumbnail({ url, mediaType });
-        }
     }
 
     async downloadMedia(
@@ -944,6 +913,22 @@ class MediaCacheService {
             filteredByAge,
             filteredBySize,
         };
+    }
+
+    async tryAutoDownload(notification: NotificationFragment): Promise<void> {
+        const attachments = notification.message?.attachments || [];
+        if (attachments.length === 0) return;
+
+        await this.initialize();
+
+        for (const attachment of attachments) {
+            if (!attachment.url) continue;
+            await this.downloadMedia({
+                url: attachment.url,
+                mediaType: attachment.mediaType,
+                notificationDate: new Date(notification.createdAt).getTime(),
+            });
+        }
     }
 }
 

@@ -18,6 +18,8 @@ export function useConnectionStatus(push: UsePushNotifications) {
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [status, setStatus] = useState<ConnectionStatus | undefined>();
+  const [isWifi, setIsWifi] = useState(true);
+  const [canAutoDownload, setCanAutoDownload] = useState(true);
 
   // Manage auth state internally
   const [isOfflineAuth, setIsOfflineAuth] = useState(false);
@@ -168,7 +170,10 @@ export function useConnectionStatus(push: UsePushNotifications) {
     const unsubscribe = NetInfo.addEventListener(state => {
       const wasOnline = isOnline;
       const newOnlineState = state.isConnected ?? true;
+      const newIsWifi = state.type === 'wifi';
+      
       setIsOnline(newOnlineState);
+      setIsWifi(newIsWifi);
 
       // If network comes back online, reset backend unreachable flag
       if (!wasOnline && newOnlineState) {
@@ -181,6 +186,27 @@ export function useConnectionStatus(push: UsePushNotifications) {
 
     return () => unsubscribe();
   }, [isOnline]);
+
+  // Update canAutoDownload based on WiFi state and user settings
+  useEffect(() => {
+    const updateAutoDownloadStatus = async () => {
+      const { userSettings } = await import('../services/user-settings');
+      const downloadSettings = userSettings.getMediaCacheDownloadSettings();
+      
+      if (!downloadSettings.autoDownloadEnabled) {
+        setCanAutoDownload(false);
+        return;
+      }
+      
+      if (downloadSettings.wifiOnlyDownload) {
+        setCanAutoDownload(isOnline && isWifi);
+      } else {
+        setCanAutoDownload(isOnline);
+      }
+    };
+    
+    updateAutoDownloadStatus();
+  }, [isOnline, isWifi]);
 
   const isOtaUpdatesEnabled = useMemo(() => {
     return !__DEV__ && Updates.isEnabled;
@@ -225,6 +251,8 @@ export function useConnectionStatus(push: UsePushNotifications) {
     isCheckingUpdate,
     isUpdating,
     status,
+    isWifi,
+    canAutoDownload,
     applyUpdate,
     setOfflineAuth,
     setBackendUnreachable,
