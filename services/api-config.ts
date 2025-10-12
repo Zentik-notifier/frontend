@@ -3,7 +3,13 @@ import { saveApiEndpoint } from './auth-storage';
 
 const CUSTOM_API_URL_KEY = 'custom_api_url';
 const apiPrefix = 'api/v1';
-const envApiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://notifier-api.zentik.app';
+
+const isSelfHosted = process.env.EXPO_PUBLIC_SELFHOSTED === 'true';
+const defaultApiUrl = isSelfHosted && typeof window !== 'undefined' 
+  ? window.location.origin 
+  : (process.env.EXPO_PUBLIC_API_URL || 'https://notifier-api.zentik.app');
+
+const envApiUrl = defaultApiUrl;
 
 export class ApiConfigService {
   private static customApiUrl: string | null = null;
