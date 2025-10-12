@@ -119,16 +119,6 @@ export default function GallerySection() {
     );
   };
 
-  const renderSectionHeader = ({ section }: any) => (
-    <View style={styles.dateSection}>
-      <Text
-        style={[styles.dateSectionTitle, { color: theme.colors.onBackground }]}
-      >
-        {section.title}
-      </Text>
-    </View>
-  );
-
   const renderEmptyState = () => {
     return (
       <Surface
