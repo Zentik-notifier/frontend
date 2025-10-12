@@ -2,9 +2,10 @@ import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useAppContext } from "@/contexts/AppContext";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
+import { getStoredDeviceId } from "@/services/auth-storage";
 import React, { useEffect, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
-import { Button, Icon, Text, useTheme } from "react-native-paper";
+import { Icon, Text, useTheme } from "react-native-paper";
 import { useGetUserDevicesQuery } from "../generated/gql-operations-generated";
 import SwipeableDeviceItem from "./SwipeableDeviceItem";
 
@@ -12,6 +13,7 @@ export default function DevicesSettings() {
   const { t } = useI18n();
   const theme = useTheme();
   const [managingDevice, setManagingDevice] = useState(false);
+  const [storedDeviceId, setStoredDeviceId] = useState<string | null>(null);
 
   const {
     data: userDevicesData,
@@ -24,6 +26,11 @@ export default function DevicesSettings() {
     push,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
+
+  // Load stored device ID on mount
+  useEffect(() => {
+    getStoredDeviceId().then((id) => setStoredDeviceId(id));
+  }, []);
 
   const handleRefresh = async () => {
     await refetch();
@@ -169,15 +176,20 @@ export default function DevicesSettings() {
           </View>
         ) : (
           <View style={styles.devicesContainer}>
-            {sortedDevices.map((item) => (
-              <SwipeableDeviceItem
-                key={item.id}
-                device={item}
-                isCurrentDevice={
-                  !!deviceToken && deviceToken === item.deviceToken
-                }
-              />
-            ))}
+            {sortedDevices.map((item) => {
+              // Match device by ID first, then fall back to token
+              const isCurrentDevice = storedDeviceId
+                ? item.id === storedDeviceId
+                : !!deviceToken && deviceToken === item.deviceToken;
+
+              return (
+                <SwipeableDeviceItem
+                  key={item.id}
+                  device={item}
+                  isCurrentDevice={isCurrentDevice}
+                />
+              );
+            })}
           </View>
         )}
       </View>
