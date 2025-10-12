@@ -68,7 +68,6 @@ export function OAuthSelector({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    maxWidth: 500,
     marginTop: 16,
   },
   orText: {

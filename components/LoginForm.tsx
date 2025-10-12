@@ -173,26 +173,25 @@ export default function LoginForm({
 const styles = StyleSheet.create({
   formContainer: {
     width: "100%",
-    alignItems: "center",
+    maxWidth: 500,
+    alignSelf: "center",
   },
   input: {
     width: "100%",
-    maxWidth: 500,
   },
   errorText: {
     width: "100%",
-    maxWidth: 500,
     textAlign: "left",
   },
   loginButton: {
     width: "100%",
-    maxWidth: 500,
     marginTop: 16,
   },
   oauthButton: {
     flex: 1,
   },
   cancelBtn: {
+    width: "100%",
     marginTop: 12,
   },
 });
