@@ -39,6 +39,10 @@ export type AccessTokenResponseDto = {
   token: Scalars['String']['output'];
 };
 
+export type ApproveSystemAccessTokenRequestDto = {
+  expiresAt?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type Attachment = {
   __typename?: 'Attachment';
   createdAt: Scalars['DateTime']['output'];
@@ -163,12 +167,21 @@ export type CreatePayloadMapperDto = {
   userId?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type CreateSystemAccessTokenRequestDto = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  maxRequests: Scalars['Int']['input'];
+};
+
 export type CreateWebhookDto = {
   body?: InputMaybe<Scalars['JSON']['input']>;
   headers: Array<WebhookHeaderDto>;
   method: HttpMethod;
   name: Scalars['String']['input'];
   url: Scalars['String']['input'];
+};
+
+export type DeclineSystemAccessTokenRequestDto = {
+  reason?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type DeviceInfoDto = {
@@ -427,6 +440,7 @@ export type MessageAttachment = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  approveSystemAccessTokenRequest: SystemAccessTokenRequest;
   /** Batch update multiple server settings */
   batchUpdateServerSettings: Array<ServerSetting>;
   changePassword: Scalars['Boolean']['output'];
@@ -438,8 +452,10 @@ export type Mutation = {
   createMessage: Message;
   createOAuthProvider: OAuthProvider;
   createPayloadMapper: PayloadMapper;
+  createSystemAccessTokenRequest: SystemAccessTokenRequest;
   createSystemToken: SystemAccessTokenDto;
   createWebhook: UserWebhook;
+  declineSystemAccessTokenRequest: SystemAccessTokenRequest;
   deleteAccount: Scalars['Boolean']['output'];
   /** Delete a specific backup file */
   deleteBackup: Scalars['Boolean']['output'];
@@ -507,6 +523,12 @@ export type Mutation = {
 };
 
 
+export type MutationApproveSystemAccessTokenRequestArgs = {
+  id: Scalars['String']['input'];
+  input?: InputMaybe<ApproveSystemAccessTokenRequestDto>;
+};
+
+
 export type MutationBatchUpdateServerSettingsArgs = {
   settings: Array<BatchUpdateSettingInput>;
 };
@@ -547,6 +569,11 @@ export type MutationCreatePayloadMapperArgs = {
 };
 
 
+export type MutationCreateSystemAccessTokenRequestArgs = {
+  input: CreateSystemAccessTokenRequestDto;
+};
+
+
 export type MutationCreateSystemTokenArgs = {
   description?: InputMaybe<Scalars['String']['input']>;
   expiresAt?: InputMaybe<Scalars['String']['input']>;
@@ -557,6 +584,12 @@ export type MutationCreateSystemTokenArgs = {
 
 export type MutationCreateWebhookArgs = {
   input: CreateWebhookDto;
+};
+
+
+export type MutationDeclineSystemAccessTokenRequestArgs = {
+  id: Scalars['String']['input'];
+  input?: InputMaybe<DeclineSystemAccessTokenRequestDto>;
 };
 
 
@@ -1004,6 +1037,7 @@ export type Query = {
   me: User;
   messageAttachments: Array<Attachment>;
   myAdminSubscription: Maybe<Array<Scalars['String']['output']>>;
+  mySystemAccessTokenRequests: Array<SystemAccessTokenRequest>;
   notification: Notification;
   notificationServices: Array<NotificationServiceInfo>;
   notifications: Array<Notification>;
@@ -1015,6 +1049,7 @@ export type Query = {
   serverSetting: Maybe<ServerSetting>;
   /** Get all server settings */
   serverSettings: Array<ServerSetting>;
+  systemAccessTokenRequests: Array<SystemAccessTokenRequest>;
   /** Get total log count */
   totalLogCount: Scalars['Float']['output'];
   user: User;
@@ -1141,6 +1176,7 @@ export type RefreshTokenResponse = {
 };
 
 export type RegisterDeviceDto = {
+  deviceId?: InputMaybe<Scalars['String']['input']>;
   deviceModel?: InputMaybe<Scalars['String']['input']>;
   deviceName?: InputMaybe<Scalars['String']['input']>;
   deviceToken?: InputMaybe<Scalars['String']['input']>;
@@ -1333,6 +1369,20 @@ export type SubscriptionUserBucketUpdatedArgs = {
   bucketId?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type SystemAccessToken = {
+  __typename?: 'SystemAccessToken';
+  calls: Scalars['Float']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  description: Maybe<Scalars['String']['output']>;
+  expiresAt: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['String']['output'];
+  maxCalls: Scalars['Float']['output'];
+  requester: Maybe<User>;
+  requesterId: Maybe<Scalars['String']['output']>;
+  tokenHash: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
 export type SystemAccessTokenDto = {
   __typename?: 'SystemAccessTokenDto';
   calls: Scalars['Float']['output'];
@@ -1345,6 +1395,28 @@ export type SystemAccessTokenDto = {
   requester: Maybe<User>;
   updatedAt: Scalars['DateTime']['output'];
 };
+
+export type SystemAccessTokenRequest = {
+  __typename?: 'SystemAccessTokenRequest';
+  createdAt: Scalars['DateTime']['output'];
+  description: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  maxRequests: Scalars['Float']['output'];
+  plainTextToken: Maybe<Scalars['String']['output']>;
+  status: SystemAccessTokenRequestStatus;
+  systemAccessToken: Maybe<SystemAccessToken>;
+  systemAccessTokenId: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+  user: User;
+  userId: Scalars['String']['output'];
+};
+
+/** Status of a system access token request */
+export enum SystemAccessTokenRequestStatus {
+  Approved = 'APPROVED',
+  Declined = 'DECLINED',
+  Pending = 'PENDING'
+}
 
 export type UpdateBucketDto = {
   color?: InputMaybe<Scalars['String']['input']>;

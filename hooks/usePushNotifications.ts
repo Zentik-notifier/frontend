@@ -3,7 +3,9 @@ import { useNotificationActions } from '@/hooks/useNotificationActions';
 import {
   clearDeviceTokens,
   getPushNotificationsInitialized,
+  getStoredDeviceId,
   getStoredDeviceToken,
+  saveDeviceId,
   saveDeviceToken,
   savePrivateKey,
   savePublicKey,
@@ -160,6 +162,13 @@ export function usePushNotifications() {
       return false;
     };
 
+    // Get stored deviceId if available
+    const storedDeviceId = await getStoredDeviceId();
+    if (storedDeviceId) {
+      console.log("[usePushNotifications] Found stored deviceId, will update existing device:", storedDeviceId);
+      info.deviceId = storedDeviceId;
+    }
+
     try {
       const res = await registerDeviceMutation({ variables: { input: info } });
       const device = res.data?.registerDevice;
@@ -167,6 +176,8 @@ export function usePushNotifications() {
       console.log("[usePushNotifications] RegisterDevice response:", device);
 
       if (device) {
+        await saveDeviceId(device.id);
+
         if (device.publicKey) {
           await savePublicKey(device.publicKey);
         }
@@ -241,7 +252,7 @@ export function usePushNotifications() {
 
       await clearDeviceTokens();
       setDeviceToken(null);
-      console.log('[usePushNotifications] Tokens cleared');
+      console.log('[usePushNotifications] Tokens and device ID cleared');
 
       return true;
     } catch (e) {

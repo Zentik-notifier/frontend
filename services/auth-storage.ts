@@ -8,6 +8,7 @@ import * as Keychain from 'react-native-keychain';
 const TERMS_ACCEPTED_KEY = 'terms_accepted';
 const TERMS_VERSION_KEY = 'terms_version';
 const DEVICE_TOKEN_KEY = 'device_token';
+const DEVICE_ID_KEY = 'device_id';
 const LAST_USER_ID_KEY = 'last_user_id';
 const PUBLIC_KEY_KEY = 'public_key';
 const PRIVATE_KEY_KEY = 'private_key';
@@ -45,6 +46,9 @@ export let clearTokens: () => Promise<void>;
 export let clearDeviceTokens: () => Promise<void>;
 export let saveDeviceToken: (deviceToken: string) => Promise<void>;
 export let getStoredDeviceToken: () => Promise<string | null>;
+export let saveDeviceId: (deviceId: string) => Promise<void>;
+export let getStoredDeviceId: () => Promise<string | null>;
+export let clearDeviceId: () => Promise<void>;
 export let saveLastUserId: (userId: string) => Promise<void>;
 export let getLastUserId: () => Promise<string | null>;
 export let clearLastUserId: () => Promise<void>;
@@ -95,6 +99,24 @@ getStoredDeviceToken = async () => {
     return null;
   }
 };
+
+// Device ID - not secret; store via AsyncStorage
+saveDeviceId = async (deviceId: string) => {
+  await AsyncStorage.setItem(DEVICE_ID_KEY, deviceId);
+};
+getStoredDeviceId = async () => {
+  try {
+    return await AsyncStorage.getItem(DEVICE_ID_KEY);
+  } catch {
+    return null;
+  }
+};
+clearDeviceId = async () => {
+  try {
+    await AsyncStorage.removeItem(DEVICE_ID_KEY);
+  } catch { }
+};
+
 saveLastUserId = async (userId: string) => {
   await AsyncStorage.setItem(LAST_USER_ID_KEY, userId);
 };
@@ -177,6 +199,7 @@ if (Platform.OS === 'ios' || Platform.OS === 'macos') {
     await Keychain.resetGenericPassword(publicKeyOptions);
     await Keychain.resetGenericPassword(privateKeyOptions);
     await AsyncStorage.removeItem(DEVICE_TOKEN_KEY);
+    await AsyncStorage.removeItem(DEVICE_ID_KEY);
   };
 
   // Public key - use keychain for iOS (more secure), AsyncStorage fallback
@@ -441,6 +464,7 @@ if (Platform.OS === 'ios' || Platform.OS === 'macos') {
 
   clearDeviceTokens = async () => {
     try { await AsyncStorage.removeItem(DEVICE_TOKEN_KEY); } catch {}
+    try { await AsyncStorage.removeItem(DEVICE_ID_KEY); } catch {}
     try { await AsyncStorage.removeItem(PUBLIC_KEY_KEY); } catch {}
     try { await AsyncStorage.removeItem(PRIVATE_KEY_KEY); } catch {}
   };
