@@ -39,7 +39,6 @@ interface CachedMediaProps {
   noAutoDownload?: boolean;
   showMediaIndicator?: boolean;
   useThumbnail?: boolean;
-  ignoreClicks?: boolean;
   noBorder?: boolean;
 
   imageProps?: {
@@ -77,7 +76,6 @@ export const CachedMedia = React.memo(function CachedMedia({
   noAutoDownload,
   showMediaIndicator,
   useThumbnail,
-  ignoreClicks,
   imageProps,
   videoProps,
   audioProps,
@@ -365,7 +363,7 @@ export const CachedMedia = React.memo(function CachedMedia({
       <View style={defaultStyles.buttonContainer}>
         {/* Pulsante sinistro (download/refresh) */}
         <Pressable
-          onPress={ignoreClicks ? undefined : handleForceDownload}
+          onPress={handleForceDownload}
           style={[
             defaultStyles.actionButton,
             isCompact
@@ -395,7 +393,7 @@ export const CachedMedia = React.memo(function CachedMedia({
         {/* Pulsante destro (delete) */}
         {withDelete && !isCompact && (
           <Pressable
-            onPress={ignoreClicks ? undefined : handleDeleteCachedMedia}
+            onPress={handleDeleteCachedMedia}
             style={[
               defaultStyles.actionButton,
               defaultStyles.rectangularButton,

@@ -2,7 +2,7 @@ import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useAppContext } from "@/contexts/AppContext";
-import { CacheItem } from "@/services/media-cache-service";
+import { CacheItem, mediaCache } from "@/services/media-cache-service";
 import { DEFAULT_MEDIA_TYPES } from "@/services/user-settings";
 import React, {
   createContext,
@@ -12,6 +12,7 @@ import React, {
   useMemo,
   useEffect,
 } from "react";
+import { Alert } from "react-native";
 
 // Types
 interface GallerySection {
@@ -167,20 +168,82 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
   const handleDeleteSelected = async () => {
     if (state.selectedItems.size === 0) return;
 
-    dispatch({ type: "SET_DELETE_LOADING", payload: true });
+    const count = state.selectedItems.size;
 
-    try {
-      // TODO: Implement actual delete logic here
-      // This should call the appropriate API to delete the selected media items
-      console.log("Deleting selected items:", Array.from(state.selectedItems));
+    // Confirm deletion
+    return new Promise<void>((resolve) => {
+      Alert.alert(
+        t("common.delete"),
+        `Delete ${count} ${count === 1 ? "item" : "items"}?`,
+        [
+          {
+            text: t("common.cancel"),
+            style: "cancel",
+            onPress: () => resolve(),
+          },
+          {
+            text: t("common.delete"),
+            style: "destructive",
+            onPress: async () => {
+              dispatch({ type: "SET_DELETE_LOADING", payload: true });
 
-      // For now, just clear the selection
-      dispatch({ type: "CLEAR_SELECTION" });
-    } catch (error) {
-      console.error("Error deleting selected items:", error);
-    } finally {
-      dispatch({ type: "SET_DELETE_LOADING", payload: false });
-    }
+              try {
+                const selectedKeys = Array.from(state.selectedItems);
+                let successCount = 0;
+                let failCount = 0;
+
+                // Delete each selected item
+                for (const key of selectedKeys) {
+                  const item = state.filteredMedia.find((item) => item.key === key);
+                  if (item) {
+                    const success = await mediaCache.deleteCachedMedia(
+                      item.url,
+                      item.mediaType,
+                      false // soft delete - marks as deleted but keeps metadata
+                    );
+                    if (success) {
+                      successCount++;
+                    } else {
+                      failCount++;
+                    }
+                  }
+                }
+
+                console.log(
+                  `[Gallery] Deleted ${successCount} items, ${failCount} failed`
+                );
+
+                // Show result message
+                if (failCount === 0) {
+                  Alert.alert(
+                    t("common.success"),
+                    `${successCount} ${successCount === 1 ? "item" : "items"} deleted successfully`
+                  );
+                } else {
+                  Alert.alert(
+                    t("common.success"),
+                    `${successCount} ${successCount === 1 ? "item" : "items"} deleted, ${failCount} failed`
+                  );
+                }
+
+                // Clear selection and exit selection mode
+                dispatch({ type: "CLEAR_SELECTION" });
+                dispatch({ type: "SET_SELECTION_MODE", payload: false });
+              } catch (error) {
+                console.error("Error deleting selected items:", error);
+                Alert.alert(
+                  t("common.error"),
+                  t("common.errorOccurred")
+                );
+              } finally {
+                dispatch({ type: "SET_DELETE_LOADING", payload: false });
+                resolve();
+              }
+            },
+          },
+        ]
+      );
+    });
   };
 
   const value: GalleryContextType = {

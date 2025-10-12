@@ -33,7 +33,7 @@ export default function GallerySection() {
 
   const {
     state: { selectionMode, selectedItems, filteredMedia, sections, flatOrder },
-    handleSetSections,
+    handleToggleItemSelection,
   } = useGalleryContext();
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const { updateStats } = useGetCacheStats();
@@ -52,16 +52,6 @@ export default function GallerySection() {
     const availableWidth = containerWidth - horizontalPadding;
     return availableWidth / numColumns;
   }, [numColumns, containerWidth]);
-
-  const toggleItemSelection = (itemId: string) => {
-    const newSelection = new Set(selectedItems);
-    if (newSelection.has(itemId)) {
-      newSelection.delete(itemId);
-    } else {
-      newSelection.add(itemId);
-    }
-    handleSetSections(sections);
-  };
 
   const renderMediaRow = ({ item }: { item: CacheItem[] }) => {
     return (
@@ -85,7 +75,6 @@ export default function GallerySection() {
                   url={mediaItem.url}
                   mediaType={mediaItem.mediaType}
                   useThumbnail={!userSettings.settings.gallery.autoPlay}
-                  ignoreClicks={selectionMode}
                   style={styles.gridMediaThumbnail}
                   originalFileName={mediaItem.originalFileName}
                   videoProps={{
@@ -99,7 +88,7 @@ export default function GallerySection() {
                   isCompact
                   onPress={() => {
                     if (selectionMode) {
-                      toggleItemSelection(mediaItem.key);
+                      handleToggleItemSelection(mediaItem.key);
                     } else {
                       const index = flatOrder.findIndex(
                         (m) => m.key === mediaItem.key

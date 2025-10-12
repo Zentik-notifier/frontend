@@ -64,7 +64,7 @@ export default function BucketIcon({
     }
   };
 
-  return (
+  const iconContent = (
     <View
       style={[
         styles.container,
@@ -167,6 +167,20 @@ export default function BucketIcon({
       )}
     </View>
   );
+
+  // Se noRouting è true, wrappa il contenuto per bloccare la propagazione degli eventi
+  if (noRouting) {
+    return (
+      <View
+        onStartShouldSetResponder={() => true}
+        onTouchEnd={(e) => e.stopPropagation()}
+      >
+        {iconContent}
+      </View>
+    );
+  }
+
+  return iconContent;
 }
 
 const styles = StyleSheet.create({

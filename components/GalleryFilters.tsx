@@ -1,11 +1,11 @@
+import { useAppContext } from "@/contexts/AppContext";
 import { useGalleryContext } from "@/contexts/GalleryContext";
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { useAppContext } from "@/contexts/AppContext";
 import { DEFAULT_MEDIA_TYPES } from "@/services/user-settings";
 import { formatFileSize } from "@/utils";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
@@ -16,14 +16,13 @@ import {
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
-import GalleryFiltersModal from "./GalleryFiltersModal";
-import { MediaTypeIcon } from "./MediaTypeIcon";
 import {
   Menu,
-  MenuOptions,
   MenuOption,
+  MenuOptions,
   MenuTrigger,
 } from "react-native-popup-menu";
+import GalleryFiltersModal from "./GalleryFiltersModal";
 
 const availableMediaTypes = Object.values(MediaType);
 
