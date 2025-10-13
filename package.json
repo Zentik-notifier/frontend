@@ -2,7 +2,7 @@
   "name": "zentik-mobile",
   "main": "expo-router/entry",
   "version": "0.1.20",
-  "dockerVersion": "1.0.0",
+  "dockerVersion": "0.0.6",
   "scripts": {
     "start": "expo start",
     "export:web": "npx expo export --platform web --output-dir dist",
