@@ -1,4 +1,7 @@
-import { useBucketsStats, useInitializeBucketsStats } from "@/hooks/notifications";
+import {
+  useBucketsStats,
+  useInitializeBucketsStats,
+} from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
@@ -15,11 +18,8 @@ const BucketsSection: React.FC = () => {
     useNavigationUtils();
 
   // Read buckets from GLOBAL cache (populated by useCleanup on startup)
-  const {
-    data: bucketStats = [],
-    isLoading: loading,
-  } = useBucketsStats({});
-  
+  const { data: bucketStats = [], isLoading: loading } = useBucketsStats({});
+
   // Hook to manually refresh buckets from API (for pull-to-refresh)
   const { initializeBucketsStats } = useInitializeBucketsStats();
 
@@ -102,7 +102,7 @@ const BucketsSection: React.FC = () => {
               <View style={styles.bucketCardContent}>
                 {/* Header con icona e nome */}
                 <View style={styles.bucketHeader}>
-                  <BucketIcon bucketId={bucket.id} size="lg" noRouting />
+                  <BucketIcon bucketId={bucket.id} size="lg" />
 
                   <View style={styles.bucketInfo}>
                     <Text

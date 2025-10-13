@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { ApiConfigService } from './api-config';
 import { getAccessToken } from './auth-storage';
 
@@ -20,11 +21,22 @@ export const uploadBucketIcon = async (
     }
 
     const formData = new FormData();
-    formData.append('file', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: filename,
-    } as any);
+    
+    // On web, we need to fetch the image and create a proper File object
+    if (Platform.OS === 'web') {
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        const file = new File([blob], filename, { type: 'image/jpeg' });
+        formData.append('file', file);
+    } else {
+        // On native (iOS/Android), use the React Native format
+        formData.append('file', {
+            uri: imageUri,
+            type: 'image/jpeg',
+            name: filename,
+        } as any);
+    }
+    
     formData.append('filename', `bucket-icon-${Date.now()}`);
     formData.append('mediaType', 'ICON');
 

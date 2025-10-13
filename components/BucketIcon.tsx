@@ -5,8 +5,8 @@ import {
 import { useBucket } from "@/hooks/notifications";
 import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
-import { StyleSheet, View } from "react-native";
-import { Icon, Text, TouchableRipple, useTheme } from "react-native-paper";
+import { StyleSheet, TouchableWithoutFeedback, View } from "react-native";
+import { Icon, Text, useTheme } from "react-native-paper";
 import { CachedMedia } from "./CachedMedia";
 
 const sizeMap = {
@@ -93,77 +93,77 @@ export default function BucketIcon({
 
       {/* Icon container */}
       {isOrphaned ? (
-        // TouchableRipple per bucket orfani
-        <TouchableRipple
-          style={[
-            styles.iconContainer,
-            {
-              width: currentSize.icon,
-              height: currentSize.icon,
-              borderRadius: currentSize.icon / 2,
-              backgroundColor: theme.colors.error,
-            },
-          ]}
-          onPress={handlePress}
-        >
-          <View>
+        // TouchableWithoutFeedback per bucket orfani
+        <TouchableWithoutFeedback onPress={handlePress}>
+          <View
+            style={[
+              styles.iconContainer,
+              {
+                width: currentSize.icon,
+                height: currentSize.icon,
+                borderRadius: currentSize.icon / 2,
+                backgroundColor: theme.colors.error,
+              },
+            ]}
+          >
             <Icon
               source="link"
               size={currentSize.text}
               color={theme.colors.onError}
             />
           </View>
-        </TouchableRipple>
+        </TouchableWithoutFeedback>
       ) : (
-        <View
-          style={[
-            styles.iconContainer,
-            {
-              width: currentSize.icon,
-              height: currentSize.icon,
-              borderRadius: currentSize.icon / 2,
-              backgroundColor: bucketColor,
-            },
-          ]}
-        >
-          {icon && typeof icon === "string" && icon.startsWith("http") ? (
-            <CachedMedia
-              noBorder
-              url={icon}
-              mediaType={MediaType.Icon}
-              style={[
-                {
-                  width: currentSize.icon,
-                  height: currentSize.icon,
-                  borderRadius: currentSize.icon / 2,
-                },
-              ]}
-              isCompact
-              onPress={handlePress}
-            />
-          ) : icon &&
-            typeof icon === "string" &&
-            !icon.startsWith("sfsymbols:") &&
-            icon.length <= 2 ? (
-            <Text
-              style={[
-                styles.bucketIconText,
-                {
-                  fontSize: currentSize.text,
-                  color: theme.colors.onPrimary,
-                },
-              ]}
-            >
-              {icon}
-            </Text>
-          ) : (
-            <Icon
-              source={icon?.replace("sfsymbols:", "") || "folder"}
-              size={currentSize.text}
-              color={theme.colors.onPrimary}
-            />
-          )}
-        </View>
+        <TouchableWithoutFeedback onPress={handlePress}>
+          <View
+            style={[
+              styles.iconContainer,
+              {
+                width: currentSize.icon,
+                height: currentSize.icon,
+                borderRadius: currentSize.icon / 2,
+                backgroundColor: bucketColor,
+              },
+            ]}
+          >
+            {icon && typeof icon === "string" && icon.startsWith("http") ? (
+              <CachedMedia
+                noBorder
+                url={icon}
+                mediaType={MediaType.Icon}
+                style={[
+                  {
+                    width: currentSize.icon,
+                    height: currentSize.icon,
+                    borderRadius: currentSize.icon / 2,
+                  },
+                ]}
+                isCompact
+              />
+            ) : icon &&
+              typeof icon === "string" &&
+              !icon.startsWith("sfsymbols:") &&
+              icon.length <= 2 ? (
+              <Text
+                style={[
+                  styles.bucketIconText,
+                  {
+                    fontSize: currentSize.text,
+                    color: theme.colors.onPrimary,
+                  },
+                ]}
+              >
+                {icon}
+              </Text>
+            ) : (
+              <Icon
+                source={icon?.replace("sfsymbols:", "") || "folder"}
+                size={currentSize.text}
+                color={theme.colors.onPrimary}
+              />
+            )}
+          </View>
+        </TouchableWithoutFeedback>
       )}
     </View>
   );
