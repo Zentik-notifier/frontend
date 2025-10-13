@@ -3,6 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as Updates from 'expo-updates';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UsePushNotifications } from './usePushNotifications';
+import { Platform } from 'react-native';
 
 
 interface ConnectionStatus {
@@ -171,7 +172,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
       const wasOnline = isOnline;
       const newOnlineState = state.isConnected ?? true;
       const newIsWifi = state.type === 'wifi';
-      
+
       setIsOnline(newOnlineState);
       setIsWifi(newIsWifi);
 
@@ -192,19 +193,19 @@ export function useConnectionStatus(push: UsePushNotifications) {
     const updateAutoDownloadStatus = async () => {
       const { userSettings } = await import('../services/user-settings');
       const downloadSettings = userSettings.getMediaCacheDownloadSettings();
-      
+
       if (!downloadSettings.autoDownloadEnabled) {
         setCanAutoDownload(false);
         return;
       }
-      
+
       if (downloadSettings.wifiOnlyDownload) {
         setCanAutoDownload(isOnline && isWifi);
       } else {
         setCanAutoDownload(isOnline);
       }
     };
-    
+
     updateAutoDownloadStatus();
   }, [isOnline, isWifi]);
 
@@ -213,30 +214,109 @@ export function useConnectionStatus(push: UsePushNotifications) {
   }, []);
 
   const checkForUpdates = useCallback(async () => {
-    if (isOtaUpdatesEnabled) {
-      setIsCheckingUpdate(true);
-      try {
-        const update = await Updates.checkForUpdateAsync();
-        setHasUpdateAvailable(update.isAvailable);
-      } catch (error) {
-        console.error('[useConnectionStatus] Error checking for updates:', error);
-        setHasUpdateAvailable(false);
-      } finally {
-        setIsCheckingUpdate(false);
-      }
-    }
-  }, []);
+    if (!isOtaUpdatesEnabled) return; // Per PWA il check è gestito dal listener
 
+    setIsCheckingUpdate(true);
+    try {
+      const update = await Updates.checkForUpdateAsync();
+      setHasUpdateAvailable(update.isAvailable);
+    } catch (error) {
+      console.error('[useConnectionStatus] Error checking for updates:', error);
+      setHasUpdateAvailable(false);
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  }, [isOtaUpdatesEnabled]);
+
+  // Setup Service Worker update detection listener (PWA only)
   useEffect(() => {
-    checkForUpdates().catch(console.error);
-  }, [checkForUpdates]);
+    if (Platform.OS !== 'web' || !('serviceWorker' in navigator)) return;
+
+    let updateListenerAttached = false;
+
+    const setupPwaUpdateListener = async () => {
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (!registration || updateListenerAttached) return;
+
+        console.log('[useConnectionStatus] Setting up PWA update detection listener');
+
+        // Check if there's already a waiting service worker
+        if (registration.waiting) {
+          console.log('[useConnectionStatus] Service Worker update already available');
+          setHasUpdateAvailable(true);
+        }
+
+        // Listen for new service worker installing
+        const handleUpdateFound = () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            console.log('[useConnectionStatus] New Service Worker found, waiting for installation...');
+            const handleStateChange = () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('[useConnectionStatus] New Service Worker installed and waiting');
+                setHasUpdateAvailable(true);
+              }
+            };
+            newWorker.addEventListener('statechange', handleStateChange);
+          }
+        };
+
+        registration.addEventListener('updatefound', handleUpdateFound);
+        updateListenerAttached = true;
+
+        // Perform initial update check
+        console.log('[useConnectionStatus] Performing initial PWA update check...');
+        await registration.update();
+        if (registration.waiting) {
+          setHasUpdateAvailable(true);
+        }
+      } catch (error) {
+        console.warn('[useConnectionStatus] Failed to setup PWA update listener:', error);
+      }
+    };
+
+    setupPwaUpdateListener();
+  }, [isOtaUpdatesEnabled]);
+
+  // Initial check for OTA updates (native apps only)
+  useEffect(() => {
+    if (isOtaUpdatesEnabled) {
+      checkForUpdates().catch(console.error);
+    }
+  }, [checkForUpdates, isOtaUpdatesEnabled]);
 
   const applyUpdate = async () => {
     if (!hasUpdateAvailable || isUpdating) return;
 
     setIsUpdating(true);
     try {
-      await Updates.reloadAsync();
+      // Apply OTA update (native apps)
+      if (isOtaUpdatesEnabled) {
+        await Updates.reloadAsync();
+        return;
+      }
+
+      // Apply Service Worker update (PWA)
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration?.waiting) {
+          console.log('[useConnectionStatus] Activating new Service Worker...');
+
+          // Tell the waiting service worker to skip waiting and become active
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+
+          // Listen for the controller change, then reload
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            console.log('[useConnectionStatus] New Service Worker activated, reloading...');
+            window.location.reload();
+          }, { once: true });
+        } else {
+          // No waiting worker, just reload to get the latest version
+          console.log('[useConnectionStatus] No waiting worker, reloading to fetch updates...');
+          window.location.reload();
+        }
+      }
     } catch (error) {
       console.error('[useConnectionStatus] Error applying update:', error);
       setIsUpdating(false);

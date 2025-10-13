@@ -1276,4 +1276,10 @@ self.addEventListener('message', (event) => {
     // Respond to ping messages
     event.ports && event.ports[0] && event.ports[0].postMessage('PONG');
   }
+  
+  // Handle skip waiting message for updates
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('[Service Worker] SKIP_WAITING message received, activating new version...');
+    self.skipWaiting();
+  }
 });
