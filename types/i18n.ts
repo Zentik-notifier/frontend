@@ -407,6 +407,8 @@ export interface TranslationKey {
     versions: {
       app: string;
       appDescription: string;
+      docker: string;
+      dockerDescription: string;
       backend: string;
       backendDescription: string;
       description: string;

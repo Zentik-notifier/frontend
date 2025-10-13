@@ -7,6 +7,7 @@ import React, { useEffect, useState } from "react";
 import { Image } from "expo-image";
 import { Linking, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Avatar, Icon, Surface, Text, useTheme } from "react-native-paper";
+import { VersionInfo } from "./VersionInfo";
 import {
   Menu,
   MenuOption,
@@ -313,6 +314,19 @@ export default function UserDropdown({
               </Text>
             </View>
           </MenuOption>
+
+          {/* Version Info Footer */}
+          <View
+            style={[
+              styles.versionInfoBox,
+              {
+                backgroundColor: theme.colors.surfaceVariant,
+                borderTopColor: theme.colors.outlineVariant,
+              },
+            ]}
+          >
+            <VersionInfo compact />
+          </View>
         </MenuOptions>
       </Menu>
     </Surface>
@@ -384,5 +398,10 @@ const styles = StyleSheet.create({
   menuItemText: {
     marginLeft: 12,
     fontSize: 16,
+  },
+  versionInfoBox: {
+    borderTopWidth: 1,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
   },
 });

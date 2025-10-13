@@ -1,10 +1,10 @@
+import { useAppContext } from "@/contexts/AppContext";
 import { useGetBackendVersionQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import Constants from "expo-constants";
-import * as Device from "expo-device";
 import * as Updates from "expo-updates";
 import React, { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import {
   Button,
   Card,
@@ -16,13 +16,13 @@ import {
   useTheme,
 } from "react-native-paper";
 import packageJson from "../package.json";
-import { useAppContext } from "@/contexts/AppContext";
 
 interface VersionInfoProps {
   style?: any;
+  compact?: boolean;
 }
 
-export function VersionInfo({ style }: VersionInfoProps) {
+export function VersionInfo({ style, compact = false }: VersionInfoProps) {
   const theme = useTheme();
   const { t } = useI18n();
   const { data, loading, refetch, error } = useGetBackendVersionQuery();
@@ -56,28 +56,6 @@ export function VersionInfo({ style }: VersionInfoProps) {
       setErrorMessage(t("appSettings.versions.reloadErrorMessage"));
       setShowErrorDialog(true);
     }
-  };
-
-  const getPlatformVersion = () => {
-    if (Device.isDevice) {
-      if (Device.osName === "iOS") {
-        return Device.osVersion || t("appSettings.versions.unknown");
-      } else if (Device.osName === "Android") {
-        return Device.osVersion || t("appSettings.versions.unknown");
-      }
-    }
-    return t("appSettings.versions.unknown");
-  };
-
-  const getPlatformName = () => {
-    if (Device.isDevice) {
-      if (Device.osName === "iOS") {
-        return "iOS";
-      } else if (Device.osName === "Android") {
-        return "Android";
-      }
-    }
-    return t("appSettings.versions.unknown");
   };
 
   const renderVersionItem = (
@@ -118,6 +96,106 @@ export function VersionInfo({ style }: VersionInfoProps) {
       </Card.Content>
     </Card>
   );
+
+  // Compact mode - horizontal pills with icons on top
+  if (compact) {
+    const nativeVersion =
+      Constants.expoConfig?.version || t("appSettings.versions.unknown");
+    const showNativeVersion = Platform.OS !== "web";
+    const isSelfHosted = process.env.EXPO_PUBLIC_SELFHOSTED === "true";
+    const dockerVersion = (packageJson as any).dockerVersion || "1.0.0";
+
+    return (
+      <View style={[styles.compactContainer, style]}>
+        <View style={styles.compactPillsRow}>
+          {/* App Version Pill */}
+          <View
+            style={[
+              styles.compactPill,
+              { backgroundColor: theme.colors.surfaceVariant },
+            ]}
+          >
+            <Icon source="react" size={18} color={theme.colors.primary} />
+            <Text
+              variant="bodySmall"
+              style={[styles.compactPillText, { color: theme.colors.onSurface }]}
+            >
+              {packageJson.version}
+            </Text>
+          </View>
+
+          {/* Native Version Pill (only on mobile) */}
+          {showNativeVersion && (
+            <View
+              style={[
+                styles.compactPill,
+                { backgroundColor: theme.colors.surfaceVariant },
+              ]}
+            >
+              <Icon source="cellphone" size={18} color={theme.colors.primary} />
+              <Text
+                variant="bodySmall"
+                style={[styles.compactPillText, { color: theme.colors.onSurface }]}
+              >
+                {nativeVersion}
+              </Text>
+            </View>
+          )}
+
+          {/* Docker Version Pill (only for self-hosted) */}
+          {isSelfHosted && (
+            <View
+              style={[
+                styles.compactPill,
+                { backgroundColor: theme.colors.surfaceVariant },
+              ]}
+            >
+              <Icon source="docker" size={18} color={theme.colors.primary} />
+              <Text
+                variant="bodySmall"
+                style={[styles.compactPillText, { color: theme.colors.onSurface }]}
+              >
+                {dockerVersion}
+              </Text>
+            </View>
+          )}
+
+          {/* Backend Version Pill */}
+          <View
+            style={[
+              styles.compactPill,
+              { backgroundColor: theme.colors.surfaceVariant },
+            ]}
+          >
+            <Icon source="server" size={18} color={theme.colors.primary} />
+            <Text
+              variant="bodySmall"
+              style={[styles.compactPillText, { color: theme.colors.onSurface }]}
+            >
+              {backendVersion}
+            </Text>
+          </View>
+        </View>
+
+        {/* OTA Update notification (if available) */}
+        {isOtaUpdatesEnabled && hasUpdateAvailable && (
+          <View style={styles.compactUpdateRow}>
+            <Icon
+              source="information"
+              size={14}
+              color={theme.colors.primary}
+            />
+            <Text
+              variant="bodySmall"
+              style={[styles.compactUpdate, { color: theme.colors.primary }]}
+            >
+              {t("appSettings.versions.updateAvailable")}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, style]}>
@@ -176,12 +254,13 @@ export function VersionInfo({ style }: VersionInfoProps) {
         </Card>
       )}
 
-      {renderVersionItem(
-        t("appSettings.versions.expo"),
-        Constants.expoConfig?.version || t("appSettings.versions.unknown"),
-        "cellphone",
-        t("appSettings.versions.expoDescription")
-      )}
+      {Platform.OS !== "web" &&
+        renderVersionItem(
+          t("appSettings.versions.expo"),
+          Constants.expoConfig?.version || t("appSettings.versions.unknown"),
+          "cellphone",
+          t("appSettings.versions.expoDescription")
+        )}
 
       {/* {renderVersionItem(
         t("appSettings.versions.platform"),
@@ -196,6 +275,15 @@ export function VersionInfo({ style }: VersionInfoProps) {
         "react",
         t("appSettings.versions.appDescription")
       )}
+
+      {/* Docker Version (only for self-hosted) */}
+      {process.env.EXPO_PUBLIC_SELFHOSTED === "true" &&
+        renderVersionItem(
+          t("appSettings.versions.docker" as any),
+          (packageJson as any).dockerVersion || "1.0.0",
+          "docker",
+          t("appSettings.versions.dockerDescription" as any)
+        )}
 
       {/* OTA Update Section */}
       {isOtaUpdatesEnabled && (
@@ -354,5 +442,37 @@ const styles = StyleSheet.create({
   },
   otaButtonContent: {
     height: 32,
+  },
+  compactContainer: {
+    padding: 12,
+    gap: 8,
+  },
+  compactPillsRow: {
+    flexDirection: "row",
+    justifyContent: "space-evenly",
+    gap: 6,
+  },
+  compactPill: {
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 10,
+    minWidth: 50,
+  },
+  compactPillText: {
+    fontWeight: "600",
+    fontSize: 10,
+  },
+  compactUpdateRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+  },
+  compactUpdate: {
+    fontWeight: "500",
   },
 });

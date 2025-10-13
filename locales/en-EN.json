@@ -198,6 +198,8 @@
       "platformDescription": "Version of the operating system",
       "app": "UI version",
       "appDescription": "Version of the mobile application",
+      "docker": "Docker version",
+      "dockerDescription": "Version of the Docker container",
       "unknown": "unknown",
       "refresh": "Refresh version information",
       "otaUpdate": "OTA Update",
