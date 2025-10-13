@@ -68,7 +68,7 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
       <Card.Content>
         <View style={styles.versionInfo}>
           <View style={styles.versionIcon}>
-            <Icon source={icon as any} size={20} color={theme.colors.primary} />
+            <Icon source={icon} size={20} color={theme.colors.primary} />
           </View>
           <View style={styles.versionTextContainer}>
             <Text variant="titleMedium" style={styles.versionTitle}>
@@ -99,11 +99,10 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
 
   // Compact mode - horizontal pills with icons on top
   if (compact) {
-    const nativeVersion =
-      Constants.expoConfig?.version || t("appSettings.versions.unknown");
+    const nativeVersion = Constants.expoConfig?.version || "-";
     const showNativeVersion = Platform.OS !== "web";
     const isSelfHosted = process.env.EXPO_PUBLIC_SELFHOSTED === "true";
-    const dockerVersion = (packageJson as any).dockerVersion || "1.0.0";
+    const dockerVersion = packageJson.dockerVersion || "-";
 
     return (
       <View style={[styles.compactContainer, style]}>
@@ -118,7 +117,10 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
             <Icon source="react" size={18} color={theme.colors.primary} />
             <Text
               variant="bodySmall"
-              style={[styles.compactPillText, { color: theme.colors.onSurface }]}
+              style={[
+                styles.compactPillText,
+                { color: theme.colors.onSurface },
+              ]}
             >
               {packageJson.version}
             </Text>
@@ -135,7 +137,10 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
               <Icon source="cellphone" size={18} color={theme.colors.primary} />
               <Text
                 variant="bodySmall"
-                style={[styles.compactPillText, { color: theme.colors.onSurface }]}
+                style={[
+                  styles.compactPillText,
+                  { color: theme.colors.onSurface },
+                ]}
               >
                 {nativeVersion}
               </Text>
@@ -153,7 +158,10 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
               <Icon source="docker" size={18} color={theme.colors.primary} />
               <Text
                 variant="bodySmall"
-                style={[styles.compactPillText, { color: theme.colors.onSurface }]}
+                style={[
+                  styles.compactPillText,
+                  { color: theme.colors.onSurface },
+                ]}
               >
                 {dockerVersion}
               </Text>
@@ -170,7 +178,10 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
             <Icon source="server" size={18} color={theme.colors.primary} />
             <Text
               variant="bodySmall"
-              style={[styles.compactPillText, { color: theme.colors.onSurface }]}
+              style={[
+                styles.compactPillText,
+                { color: theme.colors.onSurface },
+              ]}
             >
               {backendVersion}
             </Text>
@@ -180,11 +191,7 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
         {/* OTA Update notification (if available) */}
         {isOtaUpdatesEnabled && hasUpdateAvailable && (
           <View style={styles.compactUpdateRow}>
-            <Icon
-              source="information"
-              size={14}
-              color={theme.colors.primary}
-            />
+            <Icon source="information" size={14} color={theme.colors.primary} />
             <Text
               variant="bodySmall"
               style={[styles.compactUpdate, { color: theme.colors.primary }]}
@@ -279,10 +286,10 @@ export function VersionInfo({ style, compact = false }: VersionInfoProps) {
       {/* Docker Version (only for self-hosted) */}
       {process.env.EXPO_PUBLIC_SELFHOSTED === "true" &&
         renderVersionItem(
-          t("appSettings.versions.docker" as any),
-          (packageJson as any).dockerVersion || "1.0.0",
+          t("appSettings.versions.docker"),
+          packageJson.dockerVersion || t("appSettings.versions.unknown"),
           "docker",
-          t("appSettings.versions.dockerDescription" as any)
+          t("appSettings.versions.dockerDescription")
         )}
 
       {/* OTA Update Section */}
