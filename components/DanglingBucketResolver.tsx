@@ -1,8 +1,13 @@
-import { useAppContext } from "@/contexts/AppContext";
-import { useCreateBucketMutation } from "@/generated/gql-operations-generated";
+import { NotificationFragment, useCreateBucketMutation } from "@/generated/gql-operations-generated";
 import { useBucketsStats, useRefreshBucketsStatsFromDB } from "@/hooks/notifications";
+import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
-import { useLocalSearchParams } from "expo-router";
+import {
+  getAllNotificationsFromCache,
+  upsertNotificationsBatch,
+} from "@/services/notifications-repository";
+import { useNavigationUtils } from "@/utils/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import {
@@ -18,14 +23,6 @@ import {
 } from "react-native-paper";
 import BucketSelector from "./BucketSelector";
 import PaperScrollView from "./ui/PaperScrollView";
-import {
-  upsertNotificationsBatch,
-  getAllNotificationsFromCache,
-} from "@/services/notifications-repository";
-import { useNavigationUtils } from "@/utils/navigation";
-import { NotificationFragment } from "@/generated/gql-operations-generated";
-import { useQueryClient } from "@tanstack/react-query";
-import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 
 interface DanglingBucketResolverProps {
   id?: string;
@@ -268,6 +265,11 @@ export default function DanglingBucketResolver({
       if (result.data?.createBucket) {
         const newBucket = result.data.createBucket;
         console.log("✅ Created new bucket:", newBucket.id);
+
+        // Refresh buckets from GraphQL to get the new bucket and save it to local DB
+        console.log("🔄 Refreshing buckets from API to include new bucket...");
+        await refreshBucketsStats();
+        console.log("✅ Buckets refreshed, new bucket is now available");
 
         // Migra le notifiche al nuovo bucket
         await migrateNotificationsToBucket(
