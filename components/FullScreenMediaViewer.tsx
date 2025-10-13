@@ -6,7 +6,7 @@ import { saveMediaToGallery } from "@/services/media-gallery";
 import * as Clipboard from "expo-clipboard";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
-import { Alert, Modal, Platform, StyleSheet, View } from "react-native";
+import { Alert, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { IconButton, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -69,6 +69,7 @@ export default function FullScreenMediaViewer({
     size?: number;
   } | null>(null);
   const [showInfo, setShowInfo] = useState(true);
+  const [isFooterHovered, setIsFooterHovered] = useState(false);
 
   // Swipe down to close: animate media container
   const translateY = useSharedValue(0);
@@ -312,16 +313,16 @@ export default function FullScreenMediaViewer({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.container]}>
-          <View
-            style={[
-              styles.topBar,
-              { 
-                top: insets.top + 8,
-                backgroundColor: "rgba(0,0,0,0.7)",
-              },
-            ]}
-          >
+        {/* Top bar with absolute positioning over content */}
+        <View
+          style={[
+            styles.topBar,
+            {
+              top: insets.top + 8,
+              backgroundColor: "rgba(0,0,0,0.7)",
+            },
+          ]}
+        >
             {/* Navigation buttons (left) */}
             {enableSwipeNavigation && (
               <View style={styles.navigationSection}>
@@ -333,9 +334,7 @@ export default function FullScreenMediaViewer({
                   onPress={onSwipeRight}
                   accessibilityLabel="previous-media"
                 />
-                <Text style={styles.counterText}>
-                  {currentPosition}
-                </Text>
+                <Text style={styles.counterText}>{currentPosition}</Text>
                 <IconButton
                   icon="chevron-right"
                   size={20}
@@ -400,80 +399,84 @@ export default function FullScreenMediaViewer({
                 onPress={onClose}
                 accessibilityLabel="close"
               />
-            </View>
           </View>
-
-        {/* Content with tap-to-close only outside media and gesture support on media */}
-        <View
-          style={styles.content}
-          onStartShouldSetResponderCapture={(e) => {
-            const { locationX, locationY } = e.nativeEvent;
-            if (!mediaLayout) return true; // if unknown, allow close
-            const inside =
-              locationX >= mediaLayout.x &&
-              locationX <= mediaLayout.x + mediaLayout.width &&
-              locationY >= mediaLayout.y &&
-              locationY <= mediaLayout.y + mediaLayout.height;
-            return !inside;
-          }}
-          onResponderRelease={(e) => {
-            const { locationX, locationY } = e.nativeEvent;
-            if (!mediaLayout) {
-              onClose();
-              return;
-            }
-            const inside =
-              locationX >= mediaLayout.x &&
-              locationX <= mediaLayout.x + mediaLayout.width &&
-              locationY >= mediaLayout.y &&
-              locationY <= mediaLayout.y + mediaLayout.height;
-            if (!inside) onClose();
-          }}
-        >
-          <GestureDetector gesture={composedGesture}>
-            <Animated.View
-              style={[styles.media, animatedMediaStyle]}
-              onLayout={(e) => setMediaLayout(e.nativeEvent.layout)}
-            >
-              <CachedMedia
-                key={url}
-                mediaType={mediaType}
-                url={url}
-                style={{ width: "100%", height: mediaLayout?.height }}
-                originalFileName={originalFileName}
-                videoProps={{
-                  isMuted: false,
-                  showControls: true,
-                  autoPlay: true,
-                  isLooping: true,
-                }}
-                imageProps={{ contentFit: "contain" }}
-                notificationDate={notificationDate}
-              />
-            </Animated.View>
-          </GestureDetector>
         </View>
 
-          {/* Bottom description with title and cache info */}
+        {/* Main content area with flex layout */}
+        <View style={styles.container}>
+          {/* Content with tap-to-close only outside media and gesture support on media */}
+          <View
+            style={styles.content}
+            onStartShouldSetResponderCapture={(e) => {
+              const { locationX, locationY } = e.nativeEvent;
+              if (!mediaLayout) return true; // if unknown, allow close
+              const inside =
+                locationX >= mediaLayout.x &&
+                locationX <= mediaLayout.x + mediaLayout.width &&
+                locationY >= mediaLayout.y &&
+                locationY <= mediaLayout.y + mediaLayout.height;
+              return !inside;
+            }}
+            onResponderRelease={(e) => {
+              const { locationX, locationY } = e.nativeEvent;
+              if (!mediaLayout) {
+                onClose();
+                return;
+              }
+              const inside =
+                locationX >= mediaLayout.x &&
+                locationX <= mediaLayout.x + mediaLayout.width &&
+                locationY >= mediaLayout.y &&
+                locationY <= mediaLayout.y + mediaLayout.height;
+              if (!inside) onClose();
+            }}
+          >
+            <GestureDetector gesture={composedGesture}>
+              <Animated.View
+                style={[styles.media, animatedMediaStyle]}
+                onLayout={(e) => setMediaLayout(e.nativeEvent.layout)}
+              >
+                <CachedMedia
+                  key={url}
+                  mediaType={mediaType}
+                  url={url}
+                  style={{ width: "100%", height: mediaLayout?.height }}
+                  originalFileName={originalFileName}
+                  videoProps={{
+                    isMuted: false,
+                    showControls: true,
+                    autoPlay: true,
+                    isLooping: true,
+                  }}
+                  imageProps={{ contentFit: "contain" }}
+                  notificationDate={notificationDate}
+                />
+              </Animated.View>
+            </GestureDetector>
+          </View>
+
+          {/* Bottom description with title and cache info - now in flex layout */}
           {showInfo &&
             (description ||
               originalFileName ||
               cacheInfo ||
               notificationDate) && (
-              <View style={[styles.bottomBar, { bottom: insets.bottom }]}>
+              <Pressable 
+                style={[
+                  styles.bottomBar,
+                  { paddingBottom: insets.bottom + 20 },
+                  Platform.OS === 'web' && isFooterHovered && styles.bottomBarHovered
+                ]}
+                onHoverIn={() => setIsFooterHovered(true)}
+                onHoverOut={() => setIsFooterHovered(false)}
+              >
                 {originalFileName && (
-                  <Text
-                    style={styles.descTitle}
-                    numberOfLines={1}
-                  >
+                  <Text style={styles.descTitle} numberOfLines={1}>
                     {originalFileName}
                   </Text>
                 )}
                 {description && (
-                  <Text
-                    style={styles.descText}
-                    numberOfLines={2}
-                  >
+                  <Text style={styles.descText} numberOfLines={2}>
                     {description}
                   </Text>
                 )}
@@ -492,10 +495,7 @@ export default function FullScreenMediaViewer({
                     </Text>
                   )}
                   {url && (
-                    <Text
-                      style={styles.cacheInfoText}
-                      numberOfLines={1}
-                    >
+                    <Text style={styles.cacheInfoText} numberOfLines={1}>
                       URL: {url}
                     </Text>
                   )}
@@ -505,7 +505,7 @@ export default function FullScreenMediaViewer({
                     </Text>
                   )}
                 </View>
-              </View>
+              </Pressable>
             )}
         </View>
       </View>
@@ -520,12 +520,13 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    flexDirection: 'column',
   },
   topBar: {
     position: "absolute",
     left: 12,
     right: 12,
-    zIndex: 1,
+    zIndex: 10,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
@@ -551,17 +552,29 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: 8,
   },
-  content: { flex: 1, alignItems: "center", justifyContent: "center" },
+  content: { 
+    flex: 1, 
+    alignItems: "center", 
+    justifyContent: "center",
+  },
   media: { width: "95%", height: "80%" },
   bottomBar: {
-    position: "absolute",
-    left: 0,
-    right: 0,
     padding: 16,
-    paddingBottom: 20,
     backgroundColor: "rgba(0,0,0,0.75)",
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
+  },
+  bottomBarHovered: {
+    backgroundColor: "rgba(0,0,0,0.95)",
+    transform: [{ translateY: -4 }],
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -4,
+    },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 12,
   },
   cacheInfoSection: {
     marginTop: 8,
