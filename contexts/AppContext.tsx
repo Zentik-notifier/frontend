@@ -39,6 +39,7 @@ import {
   saveTokens,
 } from "../services/auth-storage";
 import { useUserSettings } from "../services/user-settings";
+import OnboardingModalV2 from "@/components/Onboarding";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -449,10 +450,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      <OnboardingModal
+      <OnboardingModalV2
         visible={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
       />
+      {/* <OnboardingModal
+        visible={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+      /> */}
     </AppContext.Provider>
   );
 }
