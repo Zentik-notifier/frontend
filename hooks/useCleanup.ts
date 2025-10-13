@@ -4,12 +4,21 @@ import { userSettings } from "@/services/user-settings";
 import { setBadgeCount } from "@/utils/badgeUtils";
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { 
-    useSyncNotificationsFromAPI, 
+import {
+    useSyncNotificationsFromAPI,
     useInitializeBucketsStats,
     useLoadBucketsFromCache,
-    notificationKeys 
+    notificationKeys
 } from "@/hooks/notifications/useNotificationQueries";
+
+// Polyfill for requestIdleCallback (not available in React Native)
+const requestIdleCallbackPolyfill = (callback: () => void) => {
+    if (typeof requestIdleCallback !== 'undefined') {
+        return requestIdleCallback(callback);
+    }
+    // Fallback: use setTimeout with 0ms delay
+    return setTimeout(callback, 0) as any;
+};
 
 interface CleanupProps {
     immediate?: boolean,
@@ -27,7 +36,7 @@ export const useCleanup = () => {
 
         const executeWithRAF = <T>(fn: () => Promise<T>, label: string): Promise<T> => {
             return new Promise((resolve, reject) => {
-                requestIdleCallback(async () => {
+                requestIdleCallbackPolyfill(async () => {
                     try {
                         const result = await fn();
                         resolve(result);
@@ -40,7 +49,7 @@ export const useCleanup = () => {
         };
 
         const waitRAF = () => new Promise<void>(resolve => {
-            requestIdleCallback(() => {
+            requestIdleCallbackPolyfill(() => {
                 setTimeout(resolve, 0);
             });
         });
@@ -71,7 +80,9 @@ export const useCleanup = () => {
                 }
             },
             'syncing notifications from API'
-        ).catch(() => { }); // Continue on error
+        ).catch((e) => {
+            console.error('[Cleanup] Error during sync of notifications with backend', e);
+        });
         await waitRAF();
 
         // 2. Load buckets from local DB cache (instant display)
@@ -82,7 +93,9 @@ export const useCleanup = () => {
                 console.log('[Cleanup] Buckets loaded from cache into React Query');
             },
             'loading buckets from cache'
-        ).catch(() => { }); // Continue on error - will fetch from backend
+        ).catch((e) => {
+            console.error('[Cleanup] Error loading buckets from local DB cache', e);
+        });
         await waitRAF();
 
         // 3. Sync buckets with backend (fetch from GraphQL + save to DB + update stats)
@@ -93,7 +106,9 @@ export const useCleanup = () => {
                 console.log('[Cleanup] Buckets synced with backend and saved to DB');
             },
             'syncing buckets with backend'
-        ).catch(() => { }); // Continue on error
+        ).catch((e) => {
+            console.error('[Cleanup] Error during sync of buckets with backend', e);
+        });
         await waitRAF();
 
         // 4. Cleanup notifications by settings
@@ -104,7 +119,9 @@ export const useCleanup = () => {
                     console.log('[Cleanup] Cleaned up notifications');
                 },
                 'cleaning notifications'
-            ).catch(() => { }); // Continue on error
+            ).catch(() => {
+                console.error('[Cleanup] Error during cleanup of notifications');
+            });
 
             await waitRAF();
 
@@ -115,7 +132,9 @@ export const useCleanup = () => {
                     console.log('[Cleanup] Cleaned up gallery');
                 },
                 'cleaning gallery'
-            ).catch(() => { }); // Continue on error
+            ).catch((e) => {
+                console.error('[Cleanup] Error during gallery cleanup', e);
+            });
             await userSettings.setLastCleanup(new Date().toISOString());
             console.log('[Cleanup] Updated last cleanup timestamp');
 
@@ -129,7 +148,9 @@ export const useCleanup = () => {
                 console.log('[Cleanup] Reloaded media cache metadata');
             },
             'reloading media cache'
-        ).catch(() => { }); // Continue on error
+        ).catch((e) => {
+            console.error('[Cleanup] Error reloading media cache metadata', e);
+        });
 
         await waitRAF();
 

@@ -113,8 +113,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "[AppContext] Setting initial locale to device locale:",
         deviceLocale
       );
-      i18nService.setLocale(deviceLocale).catch(console.error);
-      userSettings.setLocale(deviceLocale).catch(console.error);
+      i18nService.setLocale(deviceLocale).catch((e) => {
+        console.error("Error setting locale:", e);
+      });
+      userSettings.setLocale(deviceLocale).catch((e) => {
+        console.error("Error setting userSettings locale:", e);
+      });
     }
   }, [userSettings.settings.locale]);
 
@@ -246,7 +250,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await push.initialize();
 
       setIsInitializing(false);
-      cleanup({ immediate: true }).catch(console.error);
+      cleanup({ immediate: true }).catch((e) => {
+        console.error(
+          "Error during cleanup after completeAuth:",
+          JSON.stringify(e)
+        );
+      });
       return true;
     } catch (e) {
       console.error("Error during completeAuth:", e);

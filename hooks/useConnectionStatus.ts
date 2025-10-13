@@ -35,7 +35,14 @@ export function useConnectionStatus(push: UsePushNotifications) {
   useEffect(() => {
     let newStatus: ConnectionStatus | undefined;
 
-    if (push.needsPwa) {
+    if (isOfflineAuth) {
+      newStatus = {
+        type: 'offline',
+        icon: 'cloud-off',
+        action: null, // Si aprirà il modal di login
+        color: '#FF3B30'
+      };
+    } else if (push.needsPwa) {
       newStatus = {
         type: 'push-needs-pwa',
         icon: 'progress-download',
@@ -63,13 +70,6 @@ export function useConnectionStatus(push: UsePushNotifications) {
         action: applyUpdate,
         color: '#007AFF'
       };
-    } else if (isOfflineAuth) {
-      newStatus = {
-        type: 'offline',
-        icon: 'cloud-off',
-        action: null, // Si aprirà il modal di login
-        color: '#FF3B30'
-      };
     } else if (isBackendUnreachable) {
       newStatus = {
         type: 'backend',
@@ -89,14 +89,13 @@ export function useConnectionStatus(push: UsePushNotifications) {
     setStatus(newStatus);
   }, [isOnline, isOfflineAuth, isBackendUnreachable, hasUpdateAvailable, push.needsPwa, push.pushPermissionError, push.deviceRegistered, push.registeringDevice])
 
-  // Functions to update auth state (for external use)
-  const setOfflineAuth = useCallback((value: boolean) => {
-    setIsOfflineAuth(value);
-  }, []);
-
   const setBackendUnreachable = useCallback((value: boolean) => {
     setIsBackendUnreachable(value);
   }, []);
+
+  useEffect(() => {
+    setIsOfflineAuth(!userData?.me && !loading);
+  }, [userData, loading])
 
   // Server health polling
   const checkServerHealth = async () => {
@@ -106,20 +105,12 @@ export function useConnectionStatus(push: UsePushNotifications) {
     try {
       const result = await healthcheck({ fetchPolicy: 'network-only' });
 
-      if (!userData?.me && !loading) {
-        setIsOfflineAuth(true);
-        return;
-      } else {
-        setIsOfflineAuth(false);
-      }
-
       if (result.error) {
         // Check for 401 Unauthorized
         if (result.error.graphQLErrors?.some(err =>
           err.extensions?.code === 'UNAUTHENTICATED' ||
           err.message.includes('401')
         )) {
-          setIsOfflineAuth(true);
           errorCountRef.current = 0; // Reset error count for auth errors
         } else {
           // Other errors - increment counter
@@ -130,7 +121,6 @@ export function useConnectionStatus(push: UsePushNotifications) {
         }
       } else {
         // Success - reset flags and error count
-        setIsOfflineAuth(false);
         setIsBackendUnreachable(false);
         errorCountRef.current = 0;
       }
@@ -282,7 +272,9 @@ export function useConnectionStatus(push: UsePushNotifications) {
   // Initial check for OTA updates (native apps only)
   useEffect(() => {
     if (isOtaUpdatesEnabled) {
-      checkForUpdates().catch(console.error);
+      checkForUpdates().catch(e => {
+        console.error("Error during initial OTA update check:", e);
+      });
     }
   }, [checkForUpdates, isOtaUpdatesEnabled]);
 
@@ -334,7 +326,6 @@ export function useConnectionStatus(push: UsePushNotifications) {
     isWifi,
     canAutoDownload,
     applyUpdate,
-    setOfflineAuth,
     setBackendUnreachable,
     checkForUpdates,
     isOtaUpdatesEnabled,
