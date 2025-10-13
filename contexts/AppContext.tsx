@@ -114,6 +114,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deviceLocale
       );
       i18nService.setLocale(deviceLocale).catch(console.error);
+      userSettings.setLocale(deviceLocale).catch(console.error);
     }
   }, [userSettings.settings.locale]);
 
