@@ -494,6 +494,8 @@
     "registerErrorMessage": "Impossibile registrare il dispositivo",
     "unregisterErrorMessage": "Impossibile deregistrare il dispositivo",
     "removeErrorMessage": "Impossibile rimuovere il dispositivo",
+    "unauthorizedErrorMessage": "Non autorizzato: Potresti non avere il permesso di deregistrare questo dispositivo o la tua sessione potrebbe essere scaduta. Prova a disconnetterti e riconnetterti.",
+    "deviceNotFoundErrorMessage": "Dispositivo corrente non trovato nell'elenco dei dispositivi registrati",
     "item": {
       "delete": "Elimina",
       "removeDeviceTitle": "Rimuovi Dispositivo",

@@ -57,8 +57,10 @@ export default function DevicesSettings() {
   const handleUnregisterDevice = async () => {
     setManagingDevice(true);
     try {
-      // Find the current device in the list
-      const currentDevice = deviceToken
+      // Find the current device in the list - match by ID first, then fall back to token
+      const currentDevice = storedDeviceId
+        ? sortedDevices.find((device) => device.id === storedDeviceId)
+        : deviceToken
         ? sortedDevices.find((device) => device.deviceToken === deviceToken)
         : undefined;
 
@@ -66,7 +68,7 @@ export default function DevicesSettings() {
         console.warn("⚠️ Current device not found in registered devices list");
         Alert.alert(
           t("common.error"),
-          "Current device not found in registered devices list"
+          t("devices.deviceNotFoundErrorMessage" as any)
         );
         return;
       }
@@ -95,7 +97,7 @@ export default function DevicesSettings() {
       ) {
         Alert.alert(
           t("common.error"),
-          "Unauthorized: You may not have permission to unregister this device or your session may have expired. Please try logging out and back in."
+          t("devices.unauthorizedErrorMessage" as any)
         );
       } else {
         Alert.alert(t("common.error"), t("devices.unregisterErrorMessage"));
@@ -133,12 +135,14 @@ export default function DevicesSettings() {
           icon: "plus",
           label: t("devices.registerDevice"),
           onPress: handleRegisterDevice,
+          disabled: disabledRegister,
           style: { backgroundColor: theme.colors.primary },
         },
         {
           icon: "minus",
           label: t("devices.unregisterDevice"),
           onPress: handleUnregisterDevice,
+          disabled: disabledUnregister,
           style: { backgroundColor: theme.colors.errorContainer },
         },
       ]}

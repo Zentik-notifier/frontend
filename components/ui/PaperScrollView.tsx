@@ -21,6 +21,7 @@ export interface CustomFabAction {
   icon: string;
   label: string;
   onPress: () => void | Promise<void>;
+  disabled?: boolean;
   style?: ViewStyle;
 }
 
@@ -169,12 +170,14 @@ export default function PaperScrollView({
               icon={
                 actionLoading ? "loading" : fabOpen ? "close" : fabGroupIcon
               }
-              actions={fabActions.map((action) => ({
-                icon: action.icon,
-                label: action.label,
-                onPress: () => handleActionPress(action),
-                style: action.style,
-              }))}
+              actions={fabActions
+                .filter((action) => !action.disabled)
+                .map((action) => ({
+                  icon: action.icon,
+                  label: action.label,
+                  onPress: () => handleActionPress(action),
+                  style: action.style,
+                }))}
               onStateChange={({ open }) => !actionLoading && setFabOpen(open)}
               style={styles.fabGroup}
               fabStyle={{
@@ -185,7 +188,8 @@ export default function PaperScrollView({
             <FAB
               icon={actionLoading ? "loading" : fabActions[0].icon}
               visible
-              onPress={() => !actionLoading && handleActionPress(fabActions[0])}
+              disabled={fabActions[0].disabled}
+              onPress={() => !actionLoading && !fabActions[0].disabled && handleActionPress(fabActions[0])}
               style={styles.fabSingle}
               loading={actionLoading}
             />

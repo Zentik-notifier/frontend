@@ -494,6 +494,8 @@
     "registerErrorMessage": "Failed to register device",
     "unregisterErrorMessage": "Failed to unregister device",
     "removeErrorMessage": "Failed to remove device",
+    "unauthorizedErrorMessage": "Unauthorized: You may not have permission to unregister this device or your session may have expired. Please try logging out and back in.",
+    "deviceNotFoundErrorMessage": "Current device not found in registered devices list",
     "item": {
       "delete": "Delete",
       "removeDeviceTitle": "Remove Device",

@@ -757,6 +757,8 @@ export interface TranslationKey {
   };
   devices: {
     description: string;
+    unauthorizedErrorMessage: string;
+    deviceNotFoundErrorMessage: string;
     editName: {
       cancel: string;
       description: string;
