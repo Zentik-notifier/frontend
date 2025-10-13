@@ -7,6 +7,50 @@ importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.5.4/workbox
 // NON MODIFICARE QUESTA LINEA
 workbox.precaching.precacheAndRoute(self.__WB_MANIFEST);
 
+// --- CACHING STRATEGY PER FONT (TTF) E CSS ---
+
+// Cache dei font con strategia Cache First (priorità alla cache)
+// I font raramente cambiano, quindi usiamo cache-first con un lungo TTL
+workbox.routing.registerRoute(
+  ({ request, url }) => {
+    return request.destination === 'font' || url.pathname.endsWith('.ttf');
+  },
+  new workbox.strategies.CacheFirst({
+    cacheName: 'zentik-fonts-cache',
+    plugins: [
+      new workbox.expiration.ExpirationPlugin({
+        maxEntries: 30, // Massimo 30 font in cache
+        maxAgeSeconds: 365 * 24 * 60 * 60, // 1 anno
+        purgeOnQuotaError: true, // Rimuovi automaticamente se si esaurisce lo spazio
+      }),
+      new workbox.cacheableResponse.CacheableResponsePlugin({
+        statuses: [0, 200], // Caching anche per richieste opache (CORS)
+      }),
+    ],
+  })
+);
+
+// Cache dei CSS con strategia Stale-While-Revalidate
+// Serve dalla cache ma aggiorna in background
+workbox.routing.registerRoute(
+  ({ request }) => request.destination === 'style',
+  new workbox.strategies.StaleWhileRevalidate({
+    cacheName: 'zentik-css-cache',
+    plugins: [
+      new workbox.expiration.ExpirationPlugin({
+        maxEntries: 50, // Massimo 50 file CSS
+        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 giorni
+        purgeOnQuotaError: true,
+      }),
+      new workbox.cacheableResponse.CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
+    ],
+  })
+);
+
+console.log('[Service Worker] ✅ Font and CSS caching strategies registered');
+
 // --- LOGICA PER LE NOTIFICHE PUSH ---
 
 // Common IndexedDB helper function

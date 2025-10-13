@@ -1,38 +1,3 @@
-async function withIndexedDB(successCallback, mode = 'readonly', storeName = 'keyvalue') {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('zentik-storage', 7);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction([storeName], mode);
-      const store = transaction.objectStore(storeName);
-      try {
-        successCallback(store, resolve, reject);
-      } catch (error) {
-        reject(error);
-      }
-    };
-
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('keyvalue')) {
-        db.createObjectStore('keyvalue');
-      }
-      if (!db.objectStoreNames.contains('notifications')) {
-        db.createObjectStore('notifications');
-      }
-      if (!db.objectStoreNames.contains('media_item')) {
-        db.createObjectStore('media_item');
-      }
-      if (!db.objectStoreNames.contains('cache_item')) {
-        db.createObjectStore('cache_item');
-      }
-    };
-  });
-}
-
-// IndexedDB helper for service worker
 async function storeIntentInIndexedDB(intentData) {
   return withIndexedDB((store, resolve, reject) => {
     const putRequest = store.put(JSON.stringify(intentData), 'pending_navigation_intent');
