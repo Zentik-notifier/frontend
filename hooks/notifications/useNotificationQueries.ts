@@ -11,6 +11,11 @@ import {
     queryNotifications
 } from '@/db/repositories/notifications-query-repository';
 import {
+    getAllBuckets,
+    saveBuckets,
+    BucketData
+} from '@/db/repositories/buckets-repository';
+import {
     GetBucketsQuery,
     NotificationFragment,
     useGetBucketsLazyQuery,
@@ -234,13 +239,33 @@ export function useBucketsStats(
                 
                 console.log(`[useBucketsStats] Fetched ${buckets.length} buckets from API`);
 
-                // 2. Get all bucket IDs
+                // 2. Save buckets to local DB for offline access
+                if (buckets.length > 0) {
+                    const bucketsToSave: BucketData[] = buckets.map(bucket => ({
+                        id: bucket.id,
+                        name: bucket.name,
+                        icon: bucket.icon,
+                        description: bucket.description,
+                        updatedAt: bucket.updatedAt,
+                        // Include all bucket fields for complete caching
+                        color: bucket.color,
+                        createdAt: bucket.createdAt,
+                        isProtected: bucket.isProtected,
+                        isPublic: bucket.isPublic,
+                        userBucket: bucket.userBucket,
+                    }));
+                    
+                    await saveBuckets(bucketsToSave);
+                    console.log(`[useBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
+                }
+
+                // 3. Get all bucket IDs
                 const bucketIds = buckets.map((b) => b.id);
 
-                // 3. Get notification stats from local DB
+                // 4. Get notification stats from local DB
                 const notificationStats = await getNotificationStats(bucketIds);
 
-                // 4. Combine bucket metadata with stats
+                // 5. Combine bucket metadata with stats
                 const bucketsWithStats: BucketWithStats[] = buckets.map((bucket) => {
                     // Find stats for this bucket
                     const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
@@ -269,7 +294,7 @@ export function useBucketsStats(
                     };
                 });
 
-                // 5. Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
+                // 6. Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
                 bucketsWithStats.sort((a, b) => {
                     if (a.unreadCount !== b.unreadCount) {
                         return b.unreadCount - a.unreadCount;
@@ -353,14 +378,120 @@ export function useInitializeBucketsStats() {
             
             console.log(`[initializeBucketsStats] Fetched ${buckets.length} buckets from API`);
 
-            // 2. Get all bucket IDs
+            // 2. Save buckets to local DB for offline access
+            if (buckets.length > 0) {
+                const bucketsToSave: BucketData[] = buckets.map(bucket => ({
+                    id: bucket.id,
+                    name: bucket.name,
+                    icon: bucket.icon,
+                    description: bucket.description,
+                    updatedAt: bucket.updatedAt,
+                    // Include all bucket fields for complete caching
+                    color: bucket.color,
+                    createdAt: bucket.createdAt,
+                    isProtected: bucket.isProtected,
+                    isPublic: bucket.isPublic,
+                    userBucket: bucket.userBucket,
+                }));
+                
+                await saveBuckets(bucketsToSave);
+                console.log(`[initializeBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
+            }
+
+            // 3. Get all bucket IDs
             const bucketIds = buckets.map((b) => b.id);
 
-            // 3. Get notification stats from local DB
+            // 4. Get notification stats from local DB
             const notificationStats = await getNotificationStats(bucketIds);
 
-            // 4. Combine bucket metadata with stats
+            // 5. Combine bucket metadata with stats
             const bucketsWithStats: BucketWithStats[] = buckets.map((bucket) => {
+                const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
+                const snoozeUntil = bucket.userBucket?.snoozeUntil;
+                const isSnoozed = snoozeUntil
+                    ? new Date().getTime() < new Date(snoozeUntil).getTime()
+                    : false;
+
+                return {
+                    id: bucket.id,
+                    name: bucket.name,
+                    description: bucket.description,
+                    icon: bucket.icon,
+                    color: bucket.color,
+                    createdAt: bucket.createdAt,
+                    updatedAt: bucket.updatedAt,
+                    isProtected: bucket.isProtected,
+                    isPublic: bucket.isPublic,
+                    totalMessages: bucketStat?.totalCount ?? 0,
+                    unreadCount: bucketStat?.unreadCount ?? 0,
+                    lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                    isSnoozed,
+                    snoozeUntil: snoozeUntil ?? null,
+                };
+            });
+
+            // 6. Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
+            bucketsWithStats.sort((a, b) => {
+                if (a.unreadCount !== b.unreadCount) {
+                    return b.unreadCount - a.unreadCount;
+                }
+                const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
+                const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
+                if (aTime !== bTime) {
+                    return bTime - aTime;
+                }
+                return a.name.localeCompare(b.name);
+            });
+
+            // 7. Set data directly in React Query GLOBAL cache
+            queryClient.setQueryData(notificationKeys.bucketsStats(), bucketsWithStats);
+
+            console.log(`[initializeBucketsStats] Cached ${bucketsWithStats.length} buckets in GLOBAL cache`);
+        } catch (error) {
+            console.error('[initializeBucketsStats] Error:', error);
+            throw error;
+        }
+    };
+
+    return { initializeBucketsStats };
+}
+
+/**
+ * Hook for loading bucketsStats from LOCAL DB cache (instant display on startup)
+ * Loads cached bucket metadata from local DB and combines with fresh notification stats
+ * Used on app startup to show buckets immediately before backend sync
+ * 
+ * @example
+ * ```tsx
+ * const { loadBucketsFromCache } = useLoadBucketsFromCache();
+ * await loadBucketsFromCache(); // Loads from DB and sets in React Query cache
+ * ```
+ */
+export function useLoadBucketsFromCache() {
+    const queryClient = useQueryClient();
+
+    const loadBucketsFromCache = async (): Promise<void> => {
+        try {
+            console.log('[loadBucketsFromCache] Loading buckets from local DB...');
+            
+            // 1. Load buckets from local DB
+            const cachedBuckets = await getAllBuckets();
+            
+            if (cachedBuckets.length === 0) {
+                console.log('[loadBucketsFromCache] No cached buckets found in DB');
+                return;
+            }
+
+            console.log(`[loadBucketsFromCache] Loaded ${cachedBuckets.length} buckets from local DB`);
+
+            // 2. Get all bucket IDs
+            const bucketIds = cachedBuckets.map((b) => b.id);
+
+            // 3. Get fresh notification stats from local DB
+            const notificationStats = await getNotificationStats(bucketIds);
+
+            // 4. Combine cached bucket metadata with fresh stats
+            const bucketsWithStats: BucketWithStats[] = cachedBuckets.map((bucket) => {
                 const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
                 const snoozeUntil = bucket.userBucket?.snoozeUntil;
                 const isSnoozed = snoozeUntil
@@ -401,14 +532,14 @@ export function useInitializeBucketsStats() {
             // 6. Set data directly in React Query GLOBAL cache
             queryClient.setQueryData(notificationKeys.bucketsStats(), bucketsWithStats);
 
-            console.log(`[initializeBucketsStats] Cached ${bucketsWithStats.length} buckets in GLOBAL cache`);
+            console.log(`[loadBucketsFromCache] Cached ${bucketsWithStats.length} buckets from DB in React Query`);
         } catch (error) {
-            console.error('[initializeBucketsStats] Error:', error);
-            throw error;
+            console.error('[loadBucketsFromCache] Error:', error);
+            // Don't throw - allow app to continue with backend fetch
         }
     };
 
-    return { initializeBucketsStats };
+    return { loadBucketsFromCache };
 }
 
 /**

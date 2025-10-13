@@ -22,6 +22,7 @@ export {
   useSyncNotificationsFromAPI,
   useRefreshNotifications,
   useInitializeBucketsStats,
+  useLoadBucketsFromCache,
   useRefreshBucketsStatsFromDB,
   notificationKeys,
   refreshNotificationQueries,

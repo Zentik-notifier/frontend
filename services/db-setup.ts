@@ -19,6 +19,22 @@ export interface WebStorageDB extends DBSchema {
       bucket_id: string;
     };
   };
+  buckets: {
+    key: string; // bucketId
+    value: {
+      id: string;
+      name: string;
+      icon?: string;
+      description?: string;
+      fragment: string; // Complete bucket data as JSON
+      updated_at: string; // ISO timestamp
+      synced_at: number; // Timestamp when last synced with backend
+    };
+    indexes: {
+      updated_at: string;
+      synced_at: number;
+    };
+  };
   app_log: {
     key: number; // timestamp
     value: {
@@ -158,6 +174,23 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
     await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_bucket_id ON notifications(bucket_id);`);
     await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_has_attachments ON notifications(has_attachments);`);
 
+    // Buckets table for caching bucket metadata
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS buckets (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        icon TEXT,
+        description TEXT,
+        fragment TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        synced_at INTEGER NOT NULL
+      );
+    `);
+
+    // Create indexes for buckets
+    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_buckets_updated_at ON buckets(updated_at);`);
+    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_buckets_synced_at ON buckets(synced_at);`);
+
     return db;
   })();
 
@@ -174,7 +207,7 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
 
   try {
     // await waitForIndexedDB();
-    webDbPromise = openDB<WebStorageDB>('zentik-storage', 7, {
+    webDbPromise = openDB<WebStorageDB>('zentik-storage', 8, {
       upgrade(db, oldVersion, newVersion, transaction) {
         if (!db.objectStoreNames.contains('keyvalue')) {
           db.createObjectStore('keyvalue');
@@ -198,6 +231,13 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
           if (!notificationsStore.indexNames.contains('bucket_id')) {
             notificationsStore.createIndex('bucket_id', 'bucket_id');
           }
+        }
+        
+        // Buckets store for caching bucket metadata
+        if (!db.objectStoreNames.contains('buckets')) {
+          const bucketsStore = db.createObjectStore('buckets');
+          bucketsStore.createIndex('updated_at', 'updated_at');
+          bucketsStore.createIndex('synced_at', 'synced_at');
         }
         
         if (!db.objectStoreNames.contains('app_log')) {

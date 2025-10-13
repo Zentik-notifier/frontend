@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { 
     useSyncNotificationsFromAPI, 
     useInitializeBucketsStats,
+    useLoadBucketsFromCache,
     notificationKeys 
 } from "@/hooks/notifications/useNotificationQueries";
 
@@ -19,6 +20,7 @@ export const useCleanup = () => {
     const queryClient = useQueryClient();
     const { syncNotifications } = useSyncNotificationsFromAPI();
     const { initializeBucketsStats } = useInitializeBucketsStats();
+    const { loadBucketsFromCache } = useLoadBucketsFromCache();
 
     const cleanup = useCallback(async ({ immediate, force }: CleanupProps) => {
         const shouldCleanup = !userSettings.shouldRunCleanup() ? false : true;
@@ -72,18 +74,29 @@ export const useCleanup = () => {
         ).catch(() => { }); // Continue on error
         await waitRAF();
 
-        // 2. Initialize buckets stats in GLOBAL cache (fetch from GraphQL + local DB stats)
+        // 2. Load buckets from local DB cache (instant display)
         await executeWithRAF(
             async () => {
-                console.log('[Cleanup] Initializing buckets stats in cache...');
-                await initializeBucketsStats();
-                console.log('[Cleanup] Buckets stats initialized in GLOBAL cache');
+                console.log('[Cleanup] Loading buckets from local DB cache...');
+                await loadBucketsFromCache();
+                console.log('[Cleanup] Buckets loaded from cache into React Query');
             },
-            'initializing buckets stats'
+            'loading buckets from cache'
+        ).catch(() => { }); // Continue on error - will fetch from backend
+        await waitRAF();
+
+        // 3. Sync buckets with backend (fetch from GraphQL + save to DB + update stats)
+        await executeWithRAF(
+            async () => {
+                console.log('[Cleanup] Syncing buckets with backend...');
+                await initializeBucketsStats();
+                console.log('[Cleanup] Buckets synced with backend and saved to DB');
+            },
+            'syncing buckets with backend'
         ).catch(() => { }); // Continue on error
         await waitRAF();
 
-        // 3. Cleanup notifications by settings
+        // 4. Cleanup notifications by settings
         if (shouldCleanup || force) {
             await executeWithRAF(
                 async () => {
@@ -95,7 +108,7 @@ export const useCleanup = () => {
 
             await waitRAF();
 
-            // 4. Cleanup gallery by settings
+            // 5. Cleanup gallery by settings
             await executeWithRAF(
                 async () => {
                     await cleanupGalleryBySettings();
@@ -109,7 +122,7 @@ export const useCleanup = () => {
             await waitRAF();
         }
 
-        // 5. Reload media cache metadata
+        // 6. Reload media cache metadata
         await executeWithRAF(
             async () => {
                 await mediaCache.reloadMetadata();
@@ -121,7 +134,7 @@ export const useCleanup = () => {
         await waitRAF();
 
         console.log('[Cleanup] Cleanup completed');
-    }, [queryClient, syncNotifications]);
+    }, [queryClient, syncNotifications, loadBucketsFromCache, initializeBucketsStats]);
 
     return { cleanup };
 }
