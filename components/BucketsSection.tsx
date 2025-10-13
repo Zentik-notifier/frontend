@@ -23,6 +23,14 @@ const BucketsSection: React.FC = () => {
   // Hook to manually refresh buckets from API (for pull-to-refresh)
   const { initializeBucketsStats } = useInitializeBucketsStats();
 
+  // Initialize buckets on mount if not already loaded
+  React.useEffect(() => {
+    if (bucketStats.length === 0 && !loading) {
+      console.log("[BucketsSection] No buckets in cache, initializing...");
+      initializeBucketsStats().catch(console.error);
+    }
+  }, []);
+
   const handleBucketPress = (bucketId: string) => {
     navigateToBucketDetail(bucketId);
   };
