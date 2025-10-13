@@ -356,15 +356,22 @@ export default function Header() {
             {shouldShowStatusBadges && hasUnreadNotifications && (
               <View style={styles.markAllButtonContainer}>
                 <Animated.View style={{ opacity: markAllOpacity }}>
-                  <IconButton
-                    icon="check-all"
-                    loading={isMarkingAllAsRead}
-                    size={20}
-                    iconColor="#fff"
-                    onPress={handleMarkAllAsRead}
-                    disabled={!hasUnreadNotifications || isMarkingAllAsRead}
-                    style={styles.markAllIcon}
-                  />
+                  <Surface style={styles.iconButtonSurface} elevation={2}>
+                    <TouchableRipple
+                      onPress={handleMarkAllAsRead}
+                      disabled={!hasUnreadNotifications || isMarkingAllAsRead}
+                      style={styles.iconButtonRipple}
+                      borderless
+                    >
+                      <View style={styles.iconButtonContent}>
+                        {isMarkingAllAsRead ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Icon source="check-all" size={20} color="#fff" />
+                        )}
+                      </View>
+                    </TouchableRipple>
+                  </Surface>
                 </Animated.View>
                 {unreadCount > 0 && (
                   <Surface style={styles.badge} elevation={3}>
@@ -380,13 +387,17 @@ export default function Header() {
             {shouldShowStatusBadges && inProcessing && (
               <View style={styles.downloadQueueContainer}>
                 <Animated.View style={{ opacity: downloadOpacity }}>
-                  <IconButton
-                    icon="download"
-                    size={20}
-                    iconColor="#fff"
-                    style={styles.downloadIcon}
-                    disabled
-                  />
+                  <Surface style={styles.iconButtonSurface} elevation={2}>
+                    <TouchableRipple
+                      disabled
+                      style={styles.iconButtonRipple}
+                      borderless
+                    >
+                      <View style={styles.iconButtonContent}>
+                        <Icon source="download" size={20} color="#fff" />
+                      </View>
+                    </TouchableRipple>
+                  </Surface>
                 </Animated.View>
                 <Surface style={styles.downloadQueueBadge} elevation={3}>
                   <Text
@@ -698,6 +709,21 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     backgroundColor: "#f4b400",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconButtonSurface: {
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+  iconButtonRipple: {
+    borderRadius: 18,
+  },
+  iconButtonContent: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#0a7ea4",
     alignItems: "center",
     justifyContent: "center",
   },
