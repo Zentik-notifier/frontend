@@ -1,7 +1,7 @@
 {
   "name": "zentik-mobile",
   "main": "expo-router/entry",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "dockerVersion": "1.0.0",
   "scripts": {
     "start": "expo start",
