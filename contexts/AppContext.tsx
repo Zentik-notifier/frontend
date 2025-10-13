@@ -1,17 +1,16 @@
 import {
   DeviceInfoDto,
   LoginDto,
-  NotificationFragment,
   RegisterDto,
   useGetMeLazyQuery,
   useLoginMutation,
   useLogoutMutation,
   useRegisterMutation,
 } from "@/generated/gql-operations-generated";
+import { useMarkAllAsRead } from "@/hooks/notifications/useNotificationMutations";
 import { useCleanup } from "@/hooks/useCleanup";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { useI18n } from "@/hooks/useI18n";
-import { useMarkAllAsRead } from "@/hooks/notifications/useNotificationMutations";
 import {
   UsePushNotifications,
   usePushNotifications,
@@ -378,6 +377,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (nextAppState === "active" && userId) {
         console.log("[AppContext] App is active, cleaning up");
         await cleanup({ immediate: true });
+        await connectionStatus.checkForUpdates();
       } else if (
         nextAppState === "inactive" &&
         userSettings.settings.notificationsPreferences?.markAsReadMode ===
