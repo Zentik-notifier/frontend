@@ -3,8 +3,8 @@ import {
   NotificationAttachmentDto,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import React, { useRef, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import React, { useState } from "react";
+import { Platform, StyleSheet, View } from "react-native";
 import { Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
 import { CachedMedia } from "./CachedMedia";
 import { MediaTypeIcon } from "./MediaTypeIcon";
@@ -19,94 +19,6 @@ interface AttachmentGalleryProps {
   notificationDate: number;
 }
 
-interface AttachmentItemProps {
-  attachment: NotificationAttachmentDto;
-  onPress?: () => void;
-  isSingle?: boolean;
-  isSelected?: boolean;
-  notificationDate: number;
-  containerWidth?: number;
-}
-
-const AttachmentItem: React.FC<AttachmentItemProps> = ({
-  attachment,
-  onPress,
-  isSingle,
-  isSelected,
-  notificationDate,
-  containerWidth = 0,
-}) => {
-  const getDynamicItemStyles = (containerWidth: number) => {
-    if (containerWidth === 0) return {};
-
-    return {
-      attachmentContainer: {
-        width: "100%",
-        height: containerWidth * 0.4,
-        borderRadius: 12,
-        position: "relative" as const,
-      },
-      singleAttachmentContainer: {
-        height: containerWidth * 0.6, // Larger height for single attachment
-      },
-    };
-  };
-
-  const dynamicItemStyles = getDynamicItemStyles(containerWidth);
-  const containerStyle = [
-    styles.attachmentContainer,
-    dynamicItemStyles.attachmentContainer,
-  ];
-  const singleAttachmentStyle = isSingle
-    ? [
-        styles.singleAttachmentContainer,
-        dynamicItemStyles.singleAttachmentContainer,
-      ]
-    : [];
-  const finalContainerStyle = [...containerStyle, ...singleAttachmentStyle];
-
-  const renderContent = () => {
-    return (
-      <View style={finalContainerStyle}>
-        <CachedMedia
-          url={attachment.url!}
-          mediaType={attachment.mediaType}
-          style={finalContainerStyle}
-          originalFileName={attachment.name || undefined}
-          onPress={onPress}
-          notificationDate={notificationDate}
-          videoProps={{
-            autoPlay: isSelected,
-            isMuted: true,
-            isLooping: true,
-            showControls: false,
-          }}
-          audioProps={{
-            shouldPlay: false,
-            isLooping: false,
-            showControls: true,
-          }}
-        />
-      </View>
-    );
-  };
-
-  const itemContainerStyle = isSingle
-    ? [styles.itemContainer]
-    : [styles.itemContainer];
-
-  return (
-    <View style={itemContainerStyle}>
-      {renderContent()}
-      {attachment.name && (
-        <Text style={styles.attachmentName} numberOfLines={2}>
-          {attachment.name}
-        </Text>
-      )}
-    </View>
-  );
-};
-
 const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   attachments,
   onMediaPress,
@@ -116,71 +28,26 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   const { t } = useI18n();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [containerWidth, setContainerWidth] = useState<number>(0);
-  const flatListRef = useRef<FlatList<NotificationAttachmentDto>>(null);
 
   if (!attachments || attachments.length === 0) {
     return null;
   }
 
+  const currentAttachment = attachments[currentIndex];
+
   const handleSelectorPress = (index: number) => {
     setCurrentIndex(index);
-    // Scroll to the selected attachment
-    flatListRef.current?.scrollToIndex({
-      index,
-      animated: true,
-    });
   };
 
-  const handleAttachmentPress = (attachment: NotificationAttachmentDto) => {
+  const handleAttachmentPress = () => {
     onMediaPress?.(
-      attachment.url!,
-      attachment.mediaType,
-      attachment.name || undefined
+      currentAttachment.url!,
+      currentAttachment.mediaType,
+      currentAttachment.name || undefined
     );
   };
 
-  const getDynamicStyles = (containerWidth: number) => {
-    if (containerWidth === 0) return {};
-
-    return {
-      itemContainer: {
-        width: containerWidth,
-      },
-      singleItemContainer: {
-        width: containerWidth,
-      },
-      attachmentContainer: {
-        width: "100%",
-        height: containerWidth * 0.4,
-        borderRadius: 12,
-        position: "relative" as const,
-      },
-      singleAttachmentContainer: {
-        height: containerWidth * 0.6, // Larger height for single attachment
-      },
-    };
-  };
-
-  const dynamicStyles = getDynamicStyles(containerWidth);
-
-  const renderAttachment = ({
-    item,
-    index,
-  }: {
-    item: NotificationAttachmentDto;
-    index: number;
-  }) => (
-    <View style={[dynamicStyles.singleItemContainer]}>
-      <AttachmentItem
-        attachment={item}
-        onPress={() => handleAttachmentPress(item)}
-        isSingle
-        isSelected={currentIndex === index}
-        notificationDate={notificationDate}
-        containerWidth={containerWidth}
-      />
-    </View>
-  );
+  const mediaHeight = containerWidth > 0 ? containerWidth * 0.6 : 200;
 
   return (
     <View
@@ -242,35 +109,38 @@ const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
         </Surface>
       )}
 
+      {/* Media selezionato */}
       <Surface
         style={[styles.mediaSurface, { backgroundColor: theme.colors.surface }]}
         elevation={0}
       >
-        <FlatList
-          ref={flatListRef}
-          data={attachments}
-          renderItem={renderAttachment}
-          keyExtractor={(item, index) => `${item.url}-${index}`}
-          horizontal={true}
-          showsHorizontalScrollIndicator={false}
-          onScrollBeginDrag={() => {
-            // Pause all media when user starts scrolling
-            setCurrentIndex(-1);
-          }}
-          onMomentumScrollEnd={(event) => {
-            if (containerWidth > 0) {
-              const newIndex = Math.round(
-                event.nativeEvent.contentOffset.x / containerWidth
-              );
-              setCurrentIndex(newIndex);
-            }
-          }}
-          pagingEnabled={true}
-          scrollEnabled={true}
-          decelerationRate="fast"
-          snapToInterval={containerWidth > 0 ? containerWidth : undefined}
-          snapToAlignment="start"
-        />
+        <View style={[styles.mediaContainer, { height: mediaHeight }]}>
+          <CachedMedia
+            key={`${currentAttachment.url}-${currentIndex}`}
+            url={currentAttachment.url!}
+            mediaType={currentAttachment.mediaType}
+            style={[styles.media, { height: mediaHeight }]}
+            originalFileName={currentAttachment.name || undefined}
+            onPress={handleAttachmentPress}
+            notificationDate={notificationDate}
+            videoProps={{
+              autoPlay: true,
+              isMuted: true,
+              isLooping: true,
+              showControls: Platform.OS === "web"
+            }}
+            audioProps={{
+              shouldPlay: false,
+              isLooping: false,
+              showControls: true,
+            }}
+          />
+        </View>
+        {currentAttachment.name && (
+          <Text style={styles.attachmentName} numberOfLines={2}>
+            {currentAttachment.name}
+          </Text>
+        )}
       </Surface>
 
       {attachments.length > 1 && (
@@ -339,148 +209,22 @@ const styles = StyleSheet.create({
   },
   mediaSurface: {
     borderRadius: 12,
+    padding: 12,
   },
-  selectorButtonText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  selectorButtonTextActive: {
-    color: "#FFFFFF",
-  },
-  swipeIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    opacity: 0.6,
-  },
-  swipeText: {
-    fontSize: 12,
-    marginHorizontal: 4,
-  },
-  listContainer: {
-    paddingHorizontal: 16,
-  },
-  singleListContainer: {
-    paddingHorizontal: 0, // Padding for all items
-    flex: 1,
-  },
-  separator: {
-    width: 12,
-  },
-  itemContainer: {
-    // Dynamic width will be set via getDynamicStyles
-  },
-  attachmentContainer: {
+  mediaContainer: {
     width: "100%",
-    // Dynamic height will be set via getDynamicItemStyles
     borderRadius: 12,
-    position: "relative",
+    overflow: "hidden",
   },
-  singleAttachmentContainer: {
-    // Dynamic height will be set via getDynamicItemStyles
-  },
-  image: {
+  media: {
     width: "100%",
-    height: "100%",
-  },
-  videoPlaceholder: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
     borderRadius: 12,
-  },
-  audioPlaceholder: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 12,
-  },
-  filePlaceholder: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 12,
-  },
-  loadingOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 12,
-  },
-  errorOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 12,
-  },
-  errorText: {
-    marginTop: 8,
-    fontSize: 12,
-    textAlign: "center",
-  },
-  typeIndicator: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  typeIndicatorText: {
-    color: "white",
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  videoText: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  audioText: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  fileText: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: "500",
   },
   attachmentName: {
     marginTop: 8,
     fontSize: 12,
     textAlign: "center",
     lineHeight: 16,
-  },
-  video: {
-    width: "100%",
-    height: "100%",
-  },
-  audio: {
-    width: "100%",
-    height: "100%",
-  },
-  audioControls: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  audioStatus: {
-    marginTop: 4,
-    fontSize: 10,
-    textAlign: "center",
-    opacity: 0.7,
   },
   paginationContainer: {
     flexDirection: "row",

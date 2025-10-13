@@ -19,6 +19,7 @@ import { AppProvider, useAppContext } from "../contexts/AppContext";
 import { ApiConfigService } from "../services/api-config";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb, openWebStorageDb } from "../services/db-setup";
+import { Platform } from "react-native";
 
 function DeepLinkHandler() {
   const { refreshUserData } = useAppContext();
@@ -98,7 +99,7 @@ export default function RootLayout() {
                   <DeepLinkHandler />
                   <RequireAuth>
                     {isMobile ? <MobileLayout /> : <TabletLayout />}
-                    {!isMobile && <AlertDialog />}
+                    {Platform.OS === "web" && <AlertDialog />}
                   </RequireAuth>
                 </MenuProvider>
               </AppProvider>

@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Dialog, Portal, Text, Button, useTheme } from "react-native-paper";
-import { StyleSheet, Dimensions, Alert, Platform } from "react-native";
-import { useDeviceType } from "@/hooks/useDeviceType";
+import { Alert, Dimensions, StyleSheet } from "react-native";
+import { Button, Dialog, Portal, Text } from "react-native-paper";
 
 type AlertButton = {
   text?: string;
@@ -47,8 +46,6 @@ export function AlertDialog() {
   };
 
   useEffect(() => {
-    if (Platform.OS !== "web") return;
-
     if (!originalAlertRef.current) {
       originalAlertRef.current = Alert.alert;
     }
@@ -97,11 +94,6 @@ export function AlertDialog() {
   }, []);
 
   const handleCloseAlert = () => setWebAlert((s) => ({ ...s, visible: false }));
-
-  const handleButtonPress = (button: AlertButton) => {
-    button.onPress?.();
-    handleCloseAlert();
-  };
 
   return (
     <Portal>
