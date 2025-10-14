@@ -54,6 +54,7 @@ interface OnboardingContextType {
   setStep4TokenName: (name: string) => void;
   setStep4TokenCreated: (created: boolean) => void;
   setStep4GeneratedToken: (token: string | null) => void;
+  isStep4Complete: () => boolean;
   
   // Step 5: Test Notification
   sendTestNotification: () => void;
@@ -175,6 +176,19 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     console.log("Sending test notification...");
   }, []);
 
+  const isStep4Complete = useCallback(() => {
+    // Step4 è completo se:
+    // 1. C'è almeno un bucket (caricato o creato)
+    // 2. C'è un bucket selezionato
+    // 3. Il token è stato creato
+    return (
+      step4Buckets.length > 0 &&
+      step4SelectedBucketId !== "" &&
+      step4TokenCreated &&
+      step4GeneratedToken !== null
+    );
+  }, [step4Buckets, step4SelectedBucketId, step4TokenCreated, step4GeneratedToken]);
+
   const applySettings = useCallback(async () => {
     try {
       console.log("[Onboarding] Applying all settings...");
@@ -234,6 +248,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     setStep4TokenName,
     setStep4TokenCreated,
     setStep4GeneratedToken,
+    isStep4Complete,
     sendTestNotification,
     generatedToken,
     bucketId: selectedBucketId,

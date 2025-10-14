@@ -1886,7 +1886,26 @@
       "defaultTokenName": "Onboarding Token",
       "tokenCreated": "Token Created Successfully",
       "tokenHint": "Save this token in a secure place. It won't be visible again after closing this screen.",
-      "disclaimer": "You can manage buckets and tokens at any time from the Settings section."
+      "disclaimer": "You can manage buckets and tokens at any time from the Settings section.",
+      "setupStatus": "Setup Status",
+      "bucketStatus": "Bucket selected",
+      "tokenStatus": "Token generated",
+      "completeSetupWarning": "⚠️ Complete bucket and token setup to continue"
+    },
+    "step5": {
+      "title": "Test Notification",
+      "description": "Send a test notification to verify everything is working correctly.",
+      "titleLabel": "Title",
+      "bodyLabel": "Message",
+      "defaultTitle": "Test Notification",
+      "defaultBody": "This is a test notification from Zentik Notifier!",
+      "sendButton": "Send Test Notification",
+      "sending": "Sending...",
+      "sendSuccess": "✅ Notification sent successfully! You should receive it shortly.",
+      "sendError": "❌ Error sending notification. Check your token and try again.",
+      "missingTokenOrBucket": "❌ Token or bucket missing. Go back to Step 4 to generate the token.",
+      "missingFields": "❌ Fill in all fields before sending.",
+      "info": "You should receive a notification shortly. If you don't, check your device notification settings."
     }
   }
 }

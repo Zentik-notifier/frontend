@@ -65,7 +65,7 @@ interface NavigationButtonsProps {
 }
 
 const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
-  const { currentStep, goToPreviousStep, goToNextStep, applySettings } = useOnboarding();
+  const { currentStep, goToPreviousStep, goToNextStep, applySettings, isStep4Complete } = useOnboarding();
   const [isApplying, setIsApplying] = React.useState(false);
 
   const handleNext = useCallback(async () => {
@@ -87,6 +87,9 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
     }
   }, [currentStep, goToNextStep, onClose, applySettings]);
 
+  // Disabilita Next in Step4 se non è completo
+  const isNextDisabled = isApplying || (currentStep === 4 && !isStep4Complete());
+
   return (
     <View style={styles.navigationButtons}>
       {currentStep > 1 && (
@@ -104,7 +107,7 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
         onPress={handleNext} 
         style={styles.navButton}
         loading={isApplying}
-        disabled={isApplying}
+        disabled={isNextDisabled}
       >
         {currentStep === 6 ? "Finish" : "Next"}
       </Button>

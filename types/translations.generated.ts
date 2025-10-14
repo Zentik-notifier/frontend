@@ -1899,6 +1899,25 @@ export interface Translation {
       tokenCreated: string;
       tokenHint: string;
       disclaimer: string;
+      setupStatus: string;
+      bucketStatus: string;
+      tokenStatus: string;
+      completeSetupWarning: string;
+    };
+    step5: {
+      title: string;
+      description: string;
+      titleLabel: string;
+      bodyLabel: string;
+      defaultTitle: string;
+      defaultBody: string;
+      sendButton: string;
+      sending: string;
+      sendSuccess: string;
+      sendError: string;
+      missingTokenOrBucket: string;
+      missingFields: string;
+      info: string;
     };
   };
 }

@@ -411,6 +411,88 @@ const Step4 = memo(({ push }: Step4Props) => {
           </View>
         )}
 
+        {/* Setup Completion Status */}
+        <View style={styles.completionSection}>
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            {t("onboardingV2.step4.setupStatus")}
+          </Text>
+          
+          {/* Bucket Status */}
+          <Card 
+            style={[
+              styles.statusCheckCard,
+              { backgroundColor: selectedBucketId ? "rgba(0, 200, 0, 0.1)" : "rgba(128, 128, 128, 0.1)" }
+            ]} 
+            elevation={0}
+          >
+            <Card.Content>
+              <View style={styles.statusRow}>
+                <Icon
+                  source={selectedBucketId ? "check-circle" : "circle-outline"}
+                  size={24}
+                  color={selectedBucketId ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text variant="bodyMedium" style={styles.statusText}>
+                    {t("onboardingV2.step4.bucketStatus")}
+                  </Text>
+                  {selectedBucketId && (
+                    <Text variant="bodySmall" style={{ opacity: 0.7 }}>
+                      {buckets.find(b => b.id === selectedBucketId)?.name}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </Card.Content>
+          </Card>
+
+          {/* Token Status */}
+          <Card 
+            style={[
+              styles.statusCheckCard,
+              { backgroundColor: tokenCreated ? "rgba(0, 200, 0, 0.1)" : "rgba(128, 128, 128, 0.1)" }
+            ]} 
+            elevation={0}
+          >
+            <Card.Content>
+              <View style={styles.statusRow}>
+                <Icon
+                  source={tokenCreated ? "check-circle" : "circle-outline"}
+                  size={24}
+                  color={tokenCreated ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                />
+                <Text variant="bodyMedium" style={styles.statusText}>
+                  {t("onboardingV2.step4.tokenStatus")}
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+
+          {/* Warning se non completo */}
+          {(!selectedBucketId || !tokenCreated) && (
+            <Card 
+              style={[
+                styles.warningCard,
+                { backgroundColor: "rgba(255, 152, 0, 0.1)" }
+              ]} 
+              elevation={0}
+            >
+              <Card.Content>
+                <View style={styles.statusRow}>
+                  <Icon
+                    source="alert-circle"
+                    size={20}
+                    color={theme.colors.error}
+                  />
+                  <Text variant="bodySmall" style={[styles.statusText, { opacity: 0.8 }]}>
+                    {t("onboardingV2.step4.completeSetupWarning")}
+                  </Text>
+                </View>
+              </Card.Content>
+            </Card>
+          )}
+        </View>
+
         {/* Disclaimer */}
         <View style={styles.disclaimer}>
           <Icon
@@ -535,6 +617,16 @@ const styles = StyleSheet.create({
   tokenText: {
     fontFamily: "monospace",
     fontSize: 12,
+  },
+  completionSection: {
+    width: "100%",
+    marginBottom: 16,
+  },
+  statusCheckCard: {
+    marginBottom: 12,
+  },
+  warningCard: {
+    marginTop: 8,
   },
   disclaimer: {
     flexDirection: "row",
