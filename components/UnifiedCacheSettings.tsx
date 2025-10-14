@@ -33,6 +33,9 @@ export default function UnifiedCacheSettings() {
     setUnencryptOnBigPayload,
     setMarkAsReadMode,
     setShowAppIconOnBucketIconMissing,
+    setAutoAddDeleteAction,
+    setAutoAddMarkAsReadAction,
+    setAutoAddOpenNotificationAction,
   } = useUserSettings();
   const [showResetModal, setShowResetModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -774,6 +777,105 @@ export default function UnifiedCacheSettings() {
                   !!notificationsPreferences?.showAppIconOnBucketIconMissing
                 }
                 onValueChange={setShowAppIconOnBucketIconMissing}
+              />
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Auto-add Delete Action */}
+        <Card style={styles.settingCard} elevation={0}>
+          <Card.Content>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <View style={styles.settingTextContainer}>
+                  <Text variant="titleMedium" style={styles.settingTitle}>
+                    {t("appSettings.notifications.autoAddDeleteAction")}
+                  </Text>
+                  <Text
+                    variant="bodyMedium"
+                    style={[
+                      styles.settingDescription,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {t(
+                      "appSettings.notifications.autoAddDeleteActionDescription"
+                    )}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={
+                  notificationsPreferences?.autoAddDeleteAction ?? true
+                }
+                onValueChange={setAutoAddDeleteAction}
+              />
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Auto-add Mark as Read Action */}
+        <Card style={styles.settingCard} elevation={0}>
+          <Card.Content>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <View style={styles.settingTextContainer}>
+                  <Text variant="titleMedium" style={styles.settingTitle}>
+                    {t("appSettings.notifications.autoAddMarkAsReadAction")}
+                  </Text>
+                  <Text
+                    variant="bodyMedium"
+                    style={[
+                      styles.settingDescription,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {t(
+                      "appSettings.notifications.autoAddMarkAsReadActionDescription"
+                    )}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={
+                  notificationsPreferences?.autoAddMarkAsReadAction ?? true
+                }
+                onValueChange={setAutoAddMarkAsReadAction}
+              />
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Auto-add Open Notification Action */}
+        <Card style={styles.settingCard} elevation={0}>
+          <Card.Content>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <View style={styles.settingTextContainer}>
+                  <Text variant="titleMedium" style={styles.settingTitle}>
+                    {t(
+                      "appSettings.notifications.autoAddOpenNotificationAction"
+                    )}
+                  </Text>
+                  <Text
+                    variant="bodyMedium"
+                    style={[
+                      styles.settingDescription,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {t(
+                      "appSettings.notifications.autoAddOpenNotificationActionDescription"
+                    )}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={
+                  notificationsPreferences?.autoAddOpenNotificationAction ??
+                  true
+                }
+                onValueChange={setAutoAddOpenNotificationAction}
               />
             </View>
           </Card.Content>

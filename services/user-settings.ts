@@ -99,6 +99,10 @@ export interface UserSettings {
     unencryptOnBigPayload?: boolean;
     markAsReadMode?: MarkAsReadMode;
     showAppIconOnBucketIconMissing?: boolean;
+    // Auto-add notification actions when not explicitly set in payload
+    autoAddDeleteAction?: boolean;
+    autoAddMarkAsReadAction?: boolean;
+    autoAddOpenNotificationAction?: boolean;
   };
 
   // Gallery settings
@@ -171,6 +175,10 @@ const DEFAULT_SETTINGS: UserSettings = {
     unencryptOnBigPayload: false,
     markAsReadMode: 'on-view',
     showAppIconOnBucketIconMissing: false,
+    // Auto-add notification actions by default
+    autoAddDeleteAction: true,
+    autoAddMarkAsReadAction: true,
+    autoAddOpenNotificationAction: true,
   },
   gallery: {
     autoPlay: true,
@@ -886,6 +894,10 @@ export function useUserSettings() {
     const timezoneSetting = list.find((s: any) => s?.configType === UserSettingType.Timezone);
     const languageSetting = list.find((s: any) => s?.configType === UserSettingType.Language);
     const unencryptOnBigPayload = list.find((s: any) => s?.configType === UserSettingType.UnencryptOnBigPayload);
+    const autoAddDeleteAction = list.find((s: any) => s?.configType === UserSettingType.AutoAddDeleteAction);
+    const autoAddMarkAsReadAction = list.find((s: any) => s?.configType === UserSettingType.AutoAddMarkAsReadAction);
+    const autoAddOpenNotificationAction = list.find((s: any) => s?.configType === UserSettingType.AutoAddOpenNotificationAction);
+    
     const updates: Partial<UserSettings> = {};
     if (timezoneSetting?.valueText && timezoneSetting.valueText !== userSettings.getTimezone()) {
       updates.timezone = timezoneSetting.valueText;
@@ -899,6 +911,18 @@ export function useUserSettings() {
     
     if (unencryptOnBigPayload?.valueBool !== undefined && unencryptOnBigPayload.valueBool !== currentPrefs?.unencryptOnBigPayload) {
       nextPrefs.unencryptOnBigPayload = !!unencryptOnBigPayload.valueBool; 
+      touchPrefs = true;
+    }
+    if (autoAddDeleteAction?.valueBool !== undefined && autoAddDeleteAction.valueBool !== currentPrefs?.autoAddDeleteAction) {
+      nextPrefs.autoAddDeleteAction = !!autoAddDeleteAction.valueBool;
+      touchPrefs = true;
+    }
+    if (autoAddMarkAsReadAction?.valueBool !== undefined && autoAddMarkAsReadAction.valueBool !== currentPrefs?.autoAddMarkAsReadAction) {
+      nextPrefs.autoAddMarkAsReadAction = !!autoAddMarkAsReadAction.valueBool;
+      touchPrefs = true;
+    }
+    if (autoAddOpenNotificationAction?.valueBool !== undefined && autoAddOpenNotificationAction.valueBool !== currentPrefs?.autoAddOpenNotificationAction) {
+      nextPrefs.autoAddOpenNotificationAction = !!autoAddOpenNotificationAction.valueBool;
       touchPrefs = true;
     }
     if (touchPrefs) {
@@ -946,6 +970,18 @@ export function useUserSettings() {
     setShowAppIconOnBucketIconMissing: async (v: boolean) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), showAppIconOnBucketIconMissing: v } });
       try { const { saveNseShowAppIconOnBucketIconMissing } = await import('./auth-storage'); await saveNseShowAppIconOnBucketIconMissing(v); } catch { }
+    },
+    setAutoAddDeleteAction: async (v: boolean) => {
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), autoAddDeleteAction: v } });
+      try { await upsertUserSetting({ variables: { input: { configType: UserSettingType.AutoAddDeleteAction, valueBool: v } } }); } catch { }
+    },
+    setAutoAddMarkAsReadAction: async (v: boolean) => {
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), autoAddMarkAsReadAction: v } });
+      try { await upsertUserSetting({ variables: { input: { configType: UserSettingType.AutoAddMarkAsReadAction, valueBool: v } } }); } catch { }
+    },
+    setAutoAddOpenNotificationAction: async (v: boolean) => {
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), autoAddOpenNotificationAction: v } });
+      try { await upsertUserSetting({ variables: { input: { configType: UserSettingType.AutoAddOpenNotificationAction, valueBool: v } } }); } catch { }
     },
     resetSettings: userSettings.resetSettings.bind(userSettings),
     resetSection: userSettings.resetSection.bind(userSettings),

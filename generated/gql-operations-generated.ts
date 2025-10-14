@@ -1641,6 +1641,9 @@ export type UserSetting = {
 };
 
 export enum UserSettingType {
+  AutoAddDeleteAction = 'AutoAddDeleteAction',
+  AutoAddMarkAsReadAction = 'AutoAddMarkAsReadAction',
+  AutoAddOpenNotificationAction = 'AutoAddOpenNotificationAction',
   ExpoKey = 'ExpoKey',
   HomeassistantToken = 'HomeassistantToken',
   HomeassistantUrl = 'HomeassistantUrl',

@@ -126,6 +126,12 @@ export interface Translation {
       maxStoredDescription: string;
       showAppIconOnBucketIconMissing: string;
       showAppIconOnBucketIconMissingDescription: string;
+      autoAddDeleteAction: string;
+      autoAddDeleteActionDescription: string;
+      autoAddMarkAsReadAction: string;
+      autoAddMarkAsReadActionDescription: string;
+      autoAddOpenNotificationAction: string;
+      autoAddOpenNotificationActionDescription: string;
       unencryptOnBigPayload: string;
       unencryptOnBigPayloadDescription: string;
       markAsReadModeTitle: string;
