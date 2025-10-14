@@ -1,8 +1,8 @@
-import React, { memo, useCallback, useMemo, useState, useEffect } from "react";
+import React, { memo, useCallback, useMemo } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Card, Chip, Icon, Switch, Text, TextInput, useTheme } from "react-native-paper";
 import { useI18n } from "@/hooks";
-import { userSettings } from "@/services/user-settings";
+import { useOnboarding } from "./OnboardingContext";
 
 // Retention Presets
 type RetentionPreset = "low" | "balanced" | "longer" | "custom";
@@ -38,62 +38,33 @@ const RETENTION_PRESETS: Record<Exclude<RetentionPreset, "custom">, RetentionCon
 const Step3 = memo(() => {
   const theme = useTheme();
   const { t } = useI18n();
-
-  // State for selected preset
-  const [selectedPreset, setSelectedPreset] = useState<RetentionPreset>("balanced");
-
-  // State for custom values
-  const [maxCacheSizeMB, setMaxCacheSizeMB] = useState<string>("");
-  const [maxCacheAgeDays, setMaxCacheAgeDays] = useState<string>("");
-  const [maxNotifications, setMaxNotifications] = useState<string>("");
-  const [maxNotificationsDays, setMaxNotificationsDays] = useState<string>("");
-
-  // Auto-download settings
-  const [autoDownloadEnabled, setAutoDownloadEnabled] = useState(false);
-  const [wifiOnlyDownload, setWifiOnlyDownload] = useState(true);
-
-  // Initialize from userSettings on mount
-  useEffect(() => {
-    const settings = userSettings.getSettings();
-    
-    // Auto-download settings
-    setAutoDownloadEnabled(settings.mediaCache.downloadSettings?.autoDownloadEnabled ?? false);
-    setWifiOnlyDownload(settings.mediaCache.downloadSettings?.wifiOnlyDownload ?? true);
-
-    // Retention settings
-    const currentSizeMB = settings.mediaCache.retentionPolicies?.maxCacheSizeMB;
-    const currentAgeDays = settings.mediaCache.retentionPolicies?.maxCageAgeDays;
-    const currentMaxNotif = settings.maxCachedNotifications;
-    const currentMaxNotifDays = settings.maxCachedNotificationsDay;
-
-    // Check if matches a preset
-    let matchedPreset: RetentionPreset | null = null;
-    for (const [preset, config] of Object.entries(RETENTION_PRESETS)) {
-      if (
-        currentSizeMB === config.maxCacheSizeMB &&
-        currentAgeDays === config.maxCacheAgeDays &&
-        currentMaxNotif === config.maxNotifications &&
-        currentMaxNotifDays === config.maxNotificationsDays
-      ) {
-        matchedPreset = preset as RetentionPreset;
-        break;
-      }
-    }
-
-    if (matchedPreset) {
-      setSelectedPreset(matchedPreset);
-    } else {
-      // Custom values
-      setSelectedPreset("custom");
-      setMaxCacheSizeMB(currentSizeMB?.toString() || "");
-      setMaxCacheAgeDays(currentAgeDays?.toString() || "");
-      setMaxNotifications(currentMaxNotif?.toString() || "");
-      setMaxNotificationsDays(currentMaxNotifDays?.toString() || "");
-    }
-  }, []);
+  
+  // Get context state
+  const {
+    step3RetentionPreset: selectedPreset,
+    setStep3RetentionPreset: setSelectedPreset,
+    step3MaxCacheSizeMB,
+    setStep3MaxCacheSizeMB,
+    step3MaxCacheAgeDays,
+    setStep3MaxCacheAgeDays,
+    step3MaxNotifications,
+    setStep3MaxNotifications,
+    step3MaxNotificationsDays,
+    setStep3MaxNotificationsDays,
+    step3AutoDownloadEnabled: autoDownloadEnabled,
+    setStep3AutoDownloadEnabled: setAutoDownloadEnabled,
+    step3WifiOnlyDownload: wifiOnlyDownload,
+    setStep3WifiOnlyDownload: setWifiOnlyDownload,
+  } = useOnboarding();
+  
+  // Convert numbers to strings for display
+  const maxCacheSizeMB = step3MaxCacheSizeMB?.toString() || "";
+  const maxCacheAgeDays = step3MaxCacheAgeDays?.toString() || "";
+  const maxNotifications = step3MaxNotifications?.toString() || "";
+  const maxNotificationsDays = step3MaxNotificationsDays?.toString() || "";
 
   // Apply preset
-  const handlePresetSelect = useCallback(async (preset: RetentionPreset) => {
+  const handlePresetSelect = useCallback((preset: RetentionPreset) => {
     setSelectedPreset(preset);
 
     if (preset === "custom") {
@@ -103,23 +74,15 @@ const Step3 = memo(() => {
 
     const config = RETENTION_PRESETS[preset];
 
-    // Update userSettings
-    await userSettings.updateMediaCacheRetentionPolicies({
-      maxCacheSizeMB: config.maxCacheSizeMB,
-      maxCageAgeDays: config.maxCacheAgeDays,
-    });
-    await userSettings.setMaxCachedNotifications(config.maxNotifications);
-    await userSettings.setMaxCachedNotificationsDay(config.maxNotificationsDays);
-
-    // Update local state for display
-    setMaxCacheSizeMB(config.maxCacheSizeMB?.toString() || "");
-    setMaxCacheAgeDays(config.maxCacheAgeDays?.toString() || "");
-    setMaxNotifications(config.maxNotifications?.toString() || "");
-    setMaxNotificationsDays(config.maxNotificationsDays?.toString() || "");
-  }, []);
+    // Update context state (no immediate persistence)
+    setStep3MaxCacheSizeMB(config.maxCacheSizeMB);
+    setStep3MaxCacheAgeDays(config.maxCacheAgeDays);
+    setStep3MaxNotifications(config.maxNotifications);
+    setStep3MaxNotificationsDays(config.maxNotificationsDays);
+  }, [setSelectedPreset, setStep3MaxCacheSizeMB, setStep3MaxCacheAgeDays, setStep3MaxNotifications, setStep3MaxNotificationsDays]);
 
   // Update custom values
-  const handleCustomValueChange = useCallback(async (
+  const handleCustomValueChange = useCallback((
     field: keyof RetentionConfig,
     value: string
   ) => {
@@ -132,43 +95,54 @@ const Step3 = memo(() => {
 
     switch (field) {
       case "maxCacheSizeMB":
-        setMaxCacheSizeMB(value);
         if (numValue === undefined || (!isNaN(numValue) && numValue >= 0 && numValue <= 10000)) {
-          await userSettings.updateMediaCacheRetentionPolicies({ maxCacheSizeMB: numValue });
+          setStep3MaxCacheSizeMB(numValue);
         }
         break;
       case "maxCacheAgeDays":
-        setMaxCacheAgeDays(value);
         if (numValue === undefined || (!isNaN(numValue) && numValue >= 0 && numValue <= 365)) {
-          await userSettings.updateMediaCacheRetentionPolicies({ maxCageAgeDays: numValue });
+          setStep3MaxCacheAgeDays(numValue);
         }
         break;
       case "maxNotifications":
-        setMaxNotifications(value);
         if (numValue === undefined || (!isNaN(numValue) && numValue >= 0 && numValue <= 100000)) {
-          await userSettings.setMaxCachedNotifications(numValue);
+          setStep3MaxNotifications(numValue);
         }
         break;
       case "maxNotificationsDays":
-        setMaxNotificationsDays(value);
         if (numValue === undefined || (!isNaN(numValue) && numValue >= 0 && numValue <= 3650)) {
-          await userSettings.setMaxCachedNotificationsDay(numValue);
+          setStep3MaxNotificationsDays(numValue);
         }
         break;
     }
-  }, [selectedPreset]);
+  }, [selectedPreset, setSelectedPreset, setStep3MaxCacheSizeMB, setStep3MaxCacheAgeDays, setStep3MaxNotifications, setStep3MaxNotificationsDays]);
 
   // Auto-download handlers
-  const handleAutoDownloadChange = useCallback(async (enabled: boolean) => {
+  const handleAutoDownloadChange = useCallback((enabled: boolean) => {
     setAutoDownloadEnabled(enabled);
-    await userSettings.updateMediaCacheDownloadSettings({ autoDownloadEnabled: enabled });
-  }, []);
+  }, [setAutoDownloadEnabled]);
 
-  const handleWifiOnlyChange = useCallback(async (wifiOnly: boolean) => {
+  const handleWifiOnlyChange = useCallback((wifiOnly: boolean) => {
     setWifiOnlyDownload(wifiOnly);
-    await userSettings.updateMediaCacheDownloadSettings({ wifiOnlyDownload: wifiOnly });
-  }, []);
+  }, [setWifiOnlyDownload]);
 
+  // Helper for getting preset text
+  const getPresetText = useCallback((key: "name" | "description") => {
+    if (selectedPreset === "custom") {
+      return t(`onboardingV2.step3.presets.custom.${key}` as any);
+    }
+    switch (selectedPreset) {
+      case "low":
+        return t(`onboardingV2.step3.presets.low.${key}` as any);
+      case "balanced":
+        return t(`onboardingV2.step3.presets.balanced.${key}` as any);
+      case "longer":
+        return t(`onboardingV2.step3.presets.longer.${key}` as any);
+      default:
+        return "";
+    }
+  }, [selectedPreset, t]);
+  
   // Get current preset config for display
   const currentConfig = useMemo(() => {
     if (selectedPreset === "custom") {
@@ -179,7 +153,7 @@ const Step3 = memo(() => {
         maxNotificationsDays: maxNotificationsDays || "-",
       };
     }
-    const config = RETENTION_PRESETS[selectedPreset];
+    const config = RETENTION_PRESETS[selectedPreset as Exclude<RetentionPreset, "custom">];
     return {
       maxCacheSizeMB: config.maxCacheSizeMB?.toString() || "-",
       maxCacheAgeDays: config.maxCacheAgeDays?.toString() || "-",
@@ -247,14 +221,10 @@ const Step3 = memo(() => {
           <Card style={styles.presetCard} elevation={1}>
             <Card.Content>
               <Text variant="titleSmall" style={styles.presetCardTitle}>
-                {selectedPreset === "custom" 
-                  ? t("onboardingV2.step3.presets.custom.name")
-                  : t(`onboardingV2.step3.presets.${selectedPreset}.name`)}
+                {getPresetText("name")}
               </Text>
               <Text variant="bodySmall" style={styles.presetCardDescription}>
-                {selectedPreset === "custom"
-                  ? t("onboardingV2.step3.presets.custom.description")
-                  : t(`onboardingV2.step3.presets.${selectedPreset}.description`)}
+                {getPresetText("description")}
               </Text>
 
               {selectedPreset === "custom" ? (

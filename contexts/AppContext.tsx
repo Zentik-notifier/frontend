@@ -1,4 +1,4 @@
-import OnboardingModalV2 from "@/components/Onboarding";
+import OnboardingModal from "@/components/Onboarding";
 import {
   DeviceInfoDto,
   LoginDto,
@@ -448,15 +448,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      <OnboardingModalV2
+      <OnboardingModal
         visible={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
         push={push}
       />
-      {/* <OnboardingModal
-        visible={isOnboardingOpen}
-        onClose={() => setIsOnboardingOpen(false)}
-      /> */}
     </AppContext.Provider>
   );
 }

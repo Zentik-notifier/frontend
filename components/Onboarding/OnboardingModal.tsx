@@ -10,7 +10,7 @@ import Step4 from "./Step4";
 import Step5 from "./Step5";
 import Step6 from "./Step6";
 
-interface OnboardingModalV2Props {
+interface OnboardingModalProps {
   visible: boolean;
   onClose: () => void;
   push: UsePushNotifications;
@@ -146,7 +146,7 @@ const StepRenderer = memo(({ push }: { push: UsePushNotifications }) => {
 StepRenderer.displayName = "StepRenderer";
 
 // Main Modal Component with Content
-const OnboardingModalV2Content: React.FC<OnboardingModalV2Props> = memo(
+const OnboardingModalV2Content: React.FC<OnboardingModalProps> = memo(
   ({ visible, onClose, push }) => {
     const theme = useTheme();
 
@@ -171,7 +171,7 @@ const OnboardingModalV2Content: React.FC<OnboardingModalV2Props> = memo(
 OnboardingModalV2Content.displayName = "OnboardingModalV2Content";
 
 // Wrapper with Provider and Portal
-const OnboardingModalV2: React.FC<OnboardingModalV2Props> = ({
+const OnboardingModal: React.FC<OnboardingModalProps> = ({
   visible,
   onClose,
   push,
@@ -241,4 +241,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default OnboardingModalV2;
+export default OnboardingModal;

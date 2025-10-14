@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
 import { i18nService } from "@/services/i18n";
-import { DateFormatStyle, MarkAsReadMode } from "@/services/user-settings";
+import { DateFormatStyle, MarkAsReadMode, userSettings } from "@/services/user-settings";
 import { ThemePreset } from "@/services/theme-presets";
 import { Locale } from "@/hooks/useI18n";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
@@ -37,6 +37,22 @@ interface OnboardingContextType {
   setSelectedDateFormat: (format: DateFormatStyle) => void;
   setSelectedTimezone: (timezone: string) => void;
   setSelectedMarkAsReadMode: (mode: MarkAsReadMode) => void;
+  
+  // Step 3: Retention and Auto-download
+  step3RetentionPreset: string;
+  setStep3RetentionPreset: (preset: string) => void;
+  step3MaxCacheSizeMB: number | undefined;
+  setStep3MaxCacheSizeMB: (value: number | undefined) => void;
+  step3MaxCacheAgeDays: number | undefined;
+  setStep3MaxCacheAgeDays: (value: number | undefined) => void;
+  step3MaxNotifications: number | undefined;
+  setStep3MaxNotifications: (value: number | undefined) => void;
+  step3MaxNotificationsDays: number | undefined;
+  setStep3MaxNotificationsDays: (value: number | undefined) => void;
+  step3AutoDownloadEnabled: boolean;
+  setStep3AutoDownloadEnabled: (enabled: boolean) => void;
+  step3WifiOnlyDownload: boolean;
+  setStep3WifiOnlyDownload: (wifiOnly: boolean) => void;
   
   // Step 4: Messaging Setup
   deviceRegistered: boolean;
@@ -106,6 +122,15 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
   const [selectedDateFormat, setSelectedDateFormat] = useState<DateFormatStyle>("medium");
   const [selectedTimezone, setSelectedTimezone] = useState<string>("UTC");
   const [selectedMarkAsReadMode, setSelectedMarkAsReadMode] = useState<MarkAsReadMode>("on-view");
+  
+  // Step 3: Retention and Auto-download - Just local state, no persistence here
+  const [step3RetentionPreset, setStep3RetentionPreset] = useState<string>("balanced");
+  const [step3MaxCacheSizeMB, setStep3MaxCacheSizeMB] = useState<number | undefined>(500);
+  const [step3MaxCacheAgeDays, setStep3MaxCacheAgeDays] = useState<number | undefined>(30);
+  const [step3MaxNotifications, setStep3MaxNotifications] = useState<number | undefined>(1000);
+  const [step3MaxNotificationsDays, setStep3MaxNotificationsDays] = useState<number | undefined>(90);
+  const [step3AutoDownloadEnabled, setStep3AutoDownloadEnabled] = useState<boolean>(false);
+  const [step3WifiOnlyDownload, setStep3WifiOnlyDownload] = useState<boolean>(true);
   
   // Step 4: Messaging Setup
   const [deviceRegistered] = useState(true);
@@ -202,13 +227,45 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
         console.log("[Onboarding] Clearing custom API URL");
         await ApiConfigService.clearCustomApiUrl();
       }
+
+      // Apply Step 3 retention and auto-download settings
+      console.log("[Onboarding] Applying retention policies:", {
+        maxCacheSizeMB: step3MaxCacheSizeMB,
+        maxCageAgeDays: step3MaxCacheAgeDays,
+        maxNotifications: step3MaxNotifications,
+        maxNotificationsDays: step3MaxNotificationsDays,
+      });
+      await userSettings.updateMediaCacheRetentionPolicies({
+        maxCacheSizeMB: step3MaxCacheSizeMB,
+        maxCageAgeDays: step3MaxCacheAgeDays,
+      });
+      await userSettings.setMaxCachedNotifications(step3MaxNotifications);
+      await userSettings.setMaxCachedNotificationsDay(step3MaxNotificationsDays);
+
+      console.log("[Onboarding] Applying auto-download settings:", {
+        autoDownloadEnabled: step3AutoDownloadEnabled,
+        wifiOnlyDownload: step3WifiOnlyDownload,
+      });
+      await userSettings.updateMediaCacheDownloadSettings({
+        autoDownloadEnabled: step3AutoDownloadEnabled,
+        wifiOnlyDownload: step3WifiOnlyDownload,
+      });
       
       console.log("[Onboarding] All settings applied successfully");
     } catch (error) {
       console.error("[Onboarding] Error applying settings:", error);
       throw error;
     }
-  }, [useCustomServer, customServerUrl]);
+  }, [
+    useCustomServer,
+    customServerUrl,
+    step3MaxCacheSizeMB,
+    step3MaxCacheAgeDays,
+    step3MaxNotifications,
+    step3MaxNotificationsDays,
+    step3AutoDownloadEnabled,
+    step3WifiOnlyDownload,
+  ]);
 
   const value: OnboardingContextType = {
     currentStep,
@@ -233,6 +290,20 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     setSelectedDateFormat,
     setSelectedTimezone,
     setSelectedMarkAsReadMode,
+    step3RetentionPreset,
+    setStep3RetentionPreset,
+    step3MaxCacheSizeMB,
+    setStep3MaxCacheSizeMB,
+    step3MaxCacheAgeDays,
+    setStep3MaxCacheAgeDays,
+    step3MaxNotifications,
+    setStep3MaxNotifications,
+    step3MaxNotificationsDays,
+    setStep3MaxNotificationsDays,
+    step3AutoDownloadEnabled,
+    setStep3AutoDownloadEnabled,
+    step3WifiOnlyDownload,
+    setStep3WifiOnlyDownload,
     deviceRegistered,
     bucketCreated,
     tokenCreated,

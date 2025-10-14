@@ -1,2 +1,2 @@
-export { default } from "./OnboardingModalV2";
+export { default } from "./OnboardingModal";
 export { OnboardingProvider, useOnboarding } from "./OnboardingContext";

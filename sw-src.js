@@ -98,6 +98,31 @@ async function storeIntentInIndexedDB(intentData) {
   }, 'readwrite');
 }
 
+// ====================================================================================
+// MEDIA CACHE COMPATIBILITY LAYER
+// ====================================================================================
+// The following functions generate keys and paths that MUST be compatible with
+// MediaCacheService and MediaCacheRepository implementations.
+//
+// KEY STRUCTURE:
+// 1. cache_item key: "MEDIATYPE_url" (e.g., "IMAGE_https://example.com/image.jpg")
+//    - Used to lookup cache metadata
+//    - Format: generateCacheItemKey()
+//
+// 2. media_item key / localPath: "MEDIATYPE/mediatype_hash.ext"
+//    - On Web: IndexedDB key in media_item table (e.g., "IMAGE/image_abc123.jpg")
+//    - On Mobile: Filesystem path (e.g., "/path/to/cache/IMAGE/image_abc123.jpg")
+//    - Format: generateMediaItemPath()
+//
+// 3. cache_item.localPath points to media_item key (web) or filesystem path (mobile)
+//    - This creates the link between cache metadata and actual media data
+//
+// COMPATIBILITY REQUIREMENTS:
+// - Hash function MUST match MediaCacheService.generateLongHash()
+// - File extension MUST match MediaCacheService.getFileExtension()
+// - Path format MUST match MediaCacheService.getLocalPath()
+// ====================================================================================
+
 // Priority order for media types: IMAGE > GIF > VIDEO > AUDIO
 function getMediaTypePriority(mediaType) {
   const priorities = {
@@ -135,39 +160,45 @@ function selectFirstAttachmentForPrefetch(attachmentData) {
   return validAttachments[0];
 }
 
-// Generate cache key for cache_item table - must match React app implementation
+// Generate hash - MUST match MediaCacheService implementation exactly
+function generateLongHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash * 31 + char) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
+// Get file extension - MUST match MediaCacheService implementation exactly
+function getFileExtension(url, mediaType) {
+  switch (String(mediaType).toUpperCase()) {
+    case 'VIDEO':
+      return 'mp4';
+    case 'IMAGE':
+      return 'jpg';
+    case 'GIF':
+      return 'gif';
+    case 'AUDIO':
+      return 'mp3';
+    case 'ICON':
+      return 'png';
+    default:
+      return 'jpg';
+  }
+}
+
+// Generate cache key for cache_item table - MUST match MediaCacheService.generateCacheKey()
+// Format: "MEDIATYPE_url" (e.g., "IMAGE_https://example.com/image.jpg")
 function generateCacheItemKey(url, mediaType) {
   return `${String(mediaType).toUpperCase()}_${url}`;
 }
 
-// Generate cache key for media_item table - must match React app implementation
-function generateMediaCacheKey(url, mediaType) {
-  // Generate hash like React app does
-  function generateLongHash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash * 31 + char) >>> 0;
-    }
-    return hash.toString(16).padStart(8, '0');
-  }
-
-  // Get file extension like React app does
-  function getFileExtension(url, mediaType) {
-    switch (mediaType) {
-      case 'VIDEO':
-        return 'mp4';
-      case 'IMAGE':
-        return 'jpg';
-      case 'GIF':
-        return 'gif';
-      case 'AUDIO':
-        return 'mp3';
-      default:
-        return 'jpg';
-    }
-  }
-
+// Generate local path for media_item table - MUST match MediaCacheService.getLocalPath()
+// For Web: Returns key for media_item IndexedDB table
+// Format: "MEDIATYPE/mediatype_hash.ext" (e.g., "IMAGE/image_abc123.jpg")
+// This matches the filesystem path structure used on mobile and IndexedDB key on web
+function generateMediaItemPath(url, mediaType) {
   const hash = generateLongHash(url);
   const safeFileName = `${String(mediaType).toLowerCase()}_${hash}`;
   const extension = getFileExtension(url, mediaType);
@@ -183,11 +214,11 @@ async function prefetchMediaAttachment(attachment, notificationId) {
 
   const { url, mediaType } = attachment;
   const cacheItemKey = generateCacheItemKey(url, mediaType);
-  const mediaItemKey = generateMediaCacheKey(url, mediaType);
+  const mediaItemPath = generateMediaItemPath(url, mediaType);
 
   console.log(`[Service Worker] Prefetching media attachment: ${mediaType} from ${url}`);
   console.log(`[Service Worker] Cache item key: ${cacheItemKey}`);
-  console.log(`[Service Worker] Media item key: ${mediaItemKey}`);
+  console.log(`[Service Worker] Media item path: ${mediaItemPath}`);
 
   try {
     // Use backend proxy to fetch the media data (bypasses CORS)
@@ -217,13 +248,15 @@ async function prefetchMediaAttachment(attachment, notificationId) {
 
     console.log(`[Service Worker] Media downloaded: ${size} bytes from ${url}`);
 
-    // Save to media_item table in IndexedDB with media_item key
-    await saveMediaItemToIndexedDB(mediaItemKey, arrayBuffer);
+    // Save to media_item table in IndexedDB with mediaItemPath as key
+    // This matches MediaCacheService format: "MEDIATYPE/mediatype_hash.ext"
+    await saveMediaItemToIndexedDB(mediaItemPath, arrayBuffer);
 
-    // Update cache_item with download status using cache_item key and media_item key as localPath
-    await updateCacheItemForPrefetch(cacheItemKey, url, mediaType, size, notificationId, undefined, mediaItemKey);
+    // Update cache_item with download status
+    // localPath points to the media_item key (on web) or filesystem path (on mobile)
+    await updateCacheItemForPrefetch(cacheItemKey, url, mediaType, size, notificationId, undefined, mediaItemPath);
 
-    console.log(`[Service Worker] Media prefetched successfully: ${mediaItemKey}`);
+    console.log(`[Service Worker] Media prefetched successfully: ${mediaItemPath}`);
     
     // Log successful prefetch
     if (notificationId) {
@@ -235,12 +268,13 @@ async function prefetchMediaAttachment(attachment, notificationId) {
           notificationId: notificationId,
           mediaType: mediaType,
           url: url,
-          size: size
+          size: size,
+          localPath: mediaItemPath
         }
       ).catch(e => console.error('[Service Worker] Failed to log prefetch:', e));
     }
     
-    return { cacheKey: cacheItemKey, mediaKey: mediaItemKey, size, mediaType };
+    return { cacheKey: cacheItemKey, mediaPath: mediaItemPath, size, mediaType };
 
   } catch (error) {
     console.error(`[Service Worker] Failed to prefetch media attachment:`, error);
@@ -267,17 +301,19 @@ async function prefetchMediaAttachment(attachment, notificationId) {
 }
 
 // Save media item to IndexedDB media_item table
+// Format MUST match MediaCacheRepository.saveMediaItem()
+// Key format: "MEDIATYPE/mediatype_hash.ext" (e.g., "IMAGE/image_abc123.jpg")
 async function saveMediaItemToIndexedDB(key, data) {
   return withIndexedDB((store, resolve, reject) => {
     const mediaItem = {
-      key,
-      data,
+      key: key,
+      data: data,
     };
 
     const putRequest = store.put(mediaItem, key);
 
     putRequest.onsuccess = () => {
-      console.log(`[Service Worker] Media item saved to IndexedDB: ${key}`);
+      console.log(`[Service Worker] Media item saved to IndexedDB media_item table: ${key}`);
       resolve();
     };
     putRequest.onerror = () => reject(putRequest.error);
@@ -285,31 +321,32 @@ async function saveMediaItemToIndexedDB(key, data) {
 }
 
 // Update cache_item table for prefetched media
+// Format MUST match MediaCacheRepository.upsertCacheItem()
 async function updateCacheItemForPrefetch(key, url, mediaType, size, notificationId, errorCode = undefined, localPath = undefined) {
   return withIndexedDB((store, resolve, reject) => {
     const cacheItem = {
-      key,
-      url,
-      localPath: localPath, // The media_item key that contains the actual data
+      key: key,
+      url: url,
+      localPath: localPath, // Points to media_item key on web (e.g., "IMAGE/image_hash.jpg") or filesystem path on mobile
       localThumbPath: undefined,
       generatingThumbnail: false,
       timestamp: Date.now(),
-      size,
-      mediaType,
+      size: size,
+      mediaType: String(mediaType).toUpperCase(),
       originalFileName: undefined,
       downloadedAt: errorCode ? undefined : Date.now(),
       notificationDate: Date.now(),
       isDownloading: false,
       isPermanentFailure: !!errorCode,
       isUserDeleted: false,
-      errorCode,
-      notificationId
+      errorCode: errorCode,
+      // Note: notificationId is not stored in cache_item by MediaCacheService
     };
 
     const putRequest = store.put(cacheItem, key);
 
     putRequest.onsuccess = () => {
-      console.log(`[Service Worker] Cache item updated for prefetch: ${key}`);
+      console.log(`[Service Worker] Cache item updated in cache_item table: ${key} -> localPath: ${localPath}`);
       resolve();
     };
     putRequest.onerror = () => reject(putRequest.error);
