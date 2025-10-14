@@ -109,7 +109,7 @@
     },
     "notifications": {
       "title": "Notifiche",
-      "description": "Impostazioni di memorizzazione locale e preferenze per le notifiche",
+      "description": "Preferenze per le notifiche",
       "maxStoredTitle": "Notifiche massime da conservare",
       "maxStoredDescription": "Mantieni al massimo questo numero di notifiche in locale",
       "showAppIconOnBucketIconMissing": "Mostra icona app se il bucket non ha icona (Solo iOS)",

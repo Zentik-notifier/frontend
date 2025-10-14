@@ -58,57 +58,61 @@ export const useCleanup = () => {
 
         await new Promise(resolve => setTimeout(resolve, delay));
 
-        // 1. Sync notifications from API (initial startup sync)
-        await executeWithRAF(
-            async () => {
-                console.log('[Cleanup] Starting notification sync from API...');
-                const count = await syncNotifications();
-                console.log(`[Cleanup] Synced ${count} notifications from API`);
+        // 1. Load from LOCAL CACHE in parallel (instant UI)
+        await Promise.all([
+            executeWithRAF(
+                async () => {
+                    console.log('[Cleanup] Starting notification sync from API...');
+                    const count = await syncNotifications();
+                    console.log(`[Cleanup] Synced ${count} notifications from API`);
 
-                // Invalidate notification queries to refresh UI with new data
-                await queryClient.invalidateQueries({ queryKey: notificationKeys.all });
-                console.log('[Cleanup] Notification queries invalidated');
+                    // Invalidate notification queries to refresh UI with new data
+                    await queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+                    console.log('[Cleanup] Notification queries invalidated');
 
-                // Update badge count with unread notifications
-                try {
-                    const dbNotifications = await getAllNotificationsFromCache();
-                    const unreadCount = dbNotifications.filter(n => !n.readAt).length;
-                    await setBadgeCount(unreadCount);
-                    console.log(`[Cleanup] Badge count updated: ${unreadCount} unread`);
-                } catch (error) {
-                    console.error('[Cleanup] Error updating badge count:', error);
-                }
-            },
-            'syncing notifications from API'
-        ).catch((e) => {
-            console.error('[Cleanup] Error during sync of notifications with backend', e);
-        });
+                    // Update badge count with unread notifications
+                    try {
+                        const dbNotifications = await getAllNotificationsFromCache();
+                        const unreadCount = dbNotifications.filter(n => !n.readAt).length;
+                        await setBadgeCount(unreadCount);
+                        console.log(`[Cleanup] Badge count updated: ${unreadCount} unread`);
+                    } catch (error) {
+                        console.error('[Cleanup] Error updating badge count:', error);
+                    }
+                },
+                'syncing notifications from API'
+            ).catch((e) => {
+                console.error('[Cleanup] Error during sync of notifications with backend', e);
+            }),
+            executeWithRAF(
+                async () => {
+                    console.log('[Cleanup] Loading buckets from local DB cache...');
+                    await loadBucketsFromCache();
+                    console.log('[Cleanup] Buckets loaded from cache into React Query');
+                },
+                'loading buckets from cache'
+            ).catch((e) => {
+                console.error('[Cleanup] Error loading buckets from local DB cache', e);
+            }),
+
+            // Note: Notifications are loaded on-demand by useInfiniteNotifications from local DB
+            // No need to preload all notifications into memory
+        ]);
         await waitRAF();
 
-        // 2. Load buckets from local DB cache (instant display)
-        await executeWithRAF(
-            async () => {
-                console.log('[Cleanup] Loading buckets from local DB cache...');
-                await loadBucketsFromCache();
-                console.log('[Cleanup] Buckets loaded from cache into React Query');
-            },
-            'loading buckets from cache'
-        ).catch((e) => {
-            console.error('[Cleanup] Error loading buckets from local DB cache', e);
-        });
-        await waitRAF();
-
-        // 3. Sync buckets with backend (fetch from GraphQL + save to DB + update stats)
-        await executeWithRAF(
-            async () => {
-                console.log('[Cleanup] Syncing buckets with backend...');
-                await initializeBucketsStats();
-                console.log('[Cleanup] Buckets synced with backend and saved to DB');
-            },
-            'syncing buckets with backend'
-        ).catch((e) => {
-            console.error('[Cleanup] Error during sync of buckets with backend', e);
-        });
+        // 2. Sync with BACKEND in parallel (background updates)
+        await Promise.all([
+            executeWithRAF(
+                async () => {
+                    console.log('[Cleanup] Syncing buckets with backend...');
+                    await initializeBucketsStats();
+                    console.log('[Cleanup] Buckets synced with backend and saved to DB');
+                },
+                'syncing buckets with backend'
+            ).catch((e) => {
+                console.error('[Cleanup] Error during sync of buckets with backend', e);
+            }),
+        ]);
         await waitRAF();
 
         // 4. Cleanup notifications by settings

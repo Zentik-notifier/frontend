@@ -109,7 +109,7 @@
     },
     "notifications": {
       "title": "Notifications",
-      "description": "Local storage and preferences for notifications",
+      "description": "Preferences for notifications",
       "maxStoredTitle": "Max notifications to keep",
       "maxStoredDescription": "Keep at most this number of notifications locally",
       "showAppIconOnBucketIconMissing": "Show app icon when bucket icon is missing (Only iOS)",

@@ -370,15 +370,74 @@ export function useInitializeBucketsStats() {
 
     const initializeBucketsStats = async (): Promise<void> => {
         try {
-            console.log('[initializeBucketsStats] Fetching buckets from GraphQL...');
+            // STEP 1: Load buckets from LOCAL CACHE immediately for instant UI
+            console.log('[initializeBucketsStats] Loading buckets from local cache...');
+            const cachedBuckets = await getAllBuckets();
             
-            // 1. Fetch buckets from GraphQL API
+            if (cachedBuckets.length > 0) {
+                console.log(`[initializeBucketsStats] Found ${cachedBuckets.length} cached buckets`);
+                
+                // Get bucket IDs from cached buckets
+                const cachedBucketIds = cachedBuckets.map((b) => b.id);
+                
+                // Get notification stats from local DB
+                const cachedStats = await getNotificationStats(cachedBucketIds);
+                
+                // Combine cached bucket metadata with stats
+                const cachedBucketsWithStats: BucketWithStats[] = cachedBuckets.map((bucket) => {
+                    const bucketStat = cachedStats.byBucket?.find(s => s.bucketId === bucket.id);
+                    const snoozeUntil = bucket.userBucket?.snoozeUntil;
+                    const isSnoozed = snoozeUntil
+                        ? new Date().getTime() < new Date(snoozeUntil).getTime()
+                        : false;
+
+                    return {
+                        id: bucket.id,
+                        name: bucket.name,
+                        description: bucket.description,
+                        icon: bucket.icon,
+                        color: bucket.color,
+                        createdAt: bucket.createdAt,
+                        updatedAt: bucket.updatedAt,
+                        isProtected: bucket.isProtected,
+                        isPublic: bucket.isPublic,
+                        totalMessages: bucketStat?.totalCount ?? 0,
+                        unreadCount: bucketStat?.unreadCount ?? 0,
+                        lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                        isSnoozed,
+                        snoozeUntil: snoozeUntil ?? null,
+                    };
+                });
+                
+                // Sort cached buckets
+                cachedBucketsWithStats.sort((a, b) => {
+                    if (a.unreadCount !== b.unreadCount) {
+                        return b.unreadCount - a.unreadCount;
+                    }
+                    const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
+                    const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
+                    if (aTime !== bTime) {
+                        return bTime - aTime;
+                    }
+                    return a.name.localeCompare(b.name);
+                });
+                
+                // Set cached data in React Query IMMEDIATELY for instant UI
+                queryClient.setQueryData(notificationKeys.bucketsStats(), cachedBucketsWithStats);
+                console.log(`[initializeBucketsStats] ✅ Cached ${cachedBucketsWithStats.length} buckets loaded instantly`);
+            } else {
+                console.log('[initializeBucketsStats] No cached buckets found');
+            }
+            
+            // STEP 2: Fetch fresh buckets from GraphQL API in background
+            console.log('[initializeBucketsStats] Fetching fresh buckets from GraphQL...');
+            
             const { data } = await fetchBuckets();
             const buckets = (data?.buckets ?? []) as BucketWithUserData[];
             
             console.log(`[initializeBucketsStats] Fetched ${buckets.length} buckets from API`);
 
-            // 2. Save buckets to local DB for offline access
+            // STEP 3: Save fresh buckets to local DB for next launch
             if (buckets.length > 0) {
                 const bucketsToSave: BucketData[] = buckets.map(bucket => ({
                     id: bucket.id,
@@ -398,13 +457,13 @@ export function useInitializeBucketsStats() {
                 console.log(`[initializeBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
             }
 
-            // 3. Get all bucket IDs
+            // STEP 4: Get all bucket IDs
             const bucketIds = buckets.map((b) => b.id);
 
-            // 4. Get notification stats from local DB
+            // STEP 5: Get notification stats from local DB
             const notificationStats = await getNotificationStats(bucketIds);
 
-            // 5. Combine bucket metadata with stats
+            // STEP 6: Combine bucket metadata with stats
             const bucketsWithStats: BucketWithStats[] = buckets.map((bucket) => {
                 const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
                 const snoozeUntil = bucket.userBucket?.snoozeUntil;
@@ -430,7 +489,7 @@ export function useInitializeBucketsStats() {
                 };
             });
 
-            // 6. Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
+            // STEP 7: Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
             bucketsWithStats.sort((a, b) => {
                 if (a.unreadCount !== b.unreadCount) {
                     return b.unreadCount - a.unreadCount;
@@ -443,10 +502,10 @@ export function useInitializeBucketsStats() {
                 return a.name.localeCompare(b.name);
             });
 
-            // 7. Set data directly in React Query GLOBAL cache
+            // STEP 8: Update React Query cache with fresh data from backend
             queryClient.setQueryData(notificationKeys.bucketsStats(), bucketsWithStats);
 
-            console.log(`[initializeBucketsStats] Cached ${bucketsWithStats.length} buckets in GLOBAL cache`);
+            console.log(`[initializeBucketsStats] ✅ Updated cache with ${bucketsWithStats.length} fresh buckets from backend`);
         } catch (error) {
             console.error('[initializeBucketsStats] Error:', error);
             throw error;
