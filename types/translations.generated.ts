@@ -1872,6 +1872,34 @@ export interface Translation {
       wifiOnlyDescription: string;
       disclaimer: string;
     };
+    step4: {
+      title: string;
+      description: string;
+      checkingDevice: string;
+      deviceNotRegistered: string;
+      deviceNotRegisteredDescription: string;
+      registerDevice: string;
+      registeringDevice: string;
+      deviceRegistered: string;
+      selectBucket: string;
+      selectBucketDescription: string;
+      bucketLabel: string;
+      noBuckets: string;
+      createBucket: string;
+      bucketNameLabel: string;
+      bucketNamePlaceholder: string;
+      defaultBucketName: string;
+      defaultBucketDescription: string;
+      createToken: string;
+      createTokenDescription: string;
+      generateToken: string;
+      tokenNameLabel: string;
+      tokenNamePlaceholder: string;
+      defaultTokenName: string;
+      tokenCreated: string;
+      tokenHint: string;
+      disclaimer: string;
+    };
   };
 }
 

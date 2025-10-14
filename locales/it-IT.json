@@ -1860,6 +1860,34 @@
       "wifiOnly": "Solo su WiFi",
       "wifiOnlyDescription": "Limita i download automatici quando connesso a WiFi per risparmiare dati mobili.",
       "disclaimer": "Tutte queste impostazioni potranno essere modificate in qualsiasi momento nella sezione Impostazioni App."
+    },
+    "step4": {
+      "title": "Bucket e Token di Accesso",
+      "description": "Configura il tuo primo bucket per organizzare le notifiche e crea un token di accesso per l'API.",
+      "checkingDevice": "Verifica registrazione dispositivo...",
+      "deviceNotRegistered": "Dispositivo Non Registrato",
+      "deviceNotRegisteredDescription": "Il tuo dispositivo non è ancora registrato per ricevere notifiche push. Registralo ora per continuare.",
+      "registerDevice": "Registra Dispositivo",
+      "registeringDevice": "Registrazione in corso...",
+      "deviceRegistered": "Dispositivo registrato correttamente",
+      "selectBucket": "Seleziona un Bucket",
+      "selectBucketDescription": "I bucket ti aiutano ad organizzare le tue notifiche. Seleziona un bucket esistente o creane uno nuovo.",
+      "bucketLabel": "Bucket",
+      "noBuckets": "Non hai ancora nessun bucket. Crea il tuo primo bucket per iniziare.",
+      "createBucket": "Crea Bucket",
+      "bucketNameLabel": "Nome Bucket",
+      "bucketNamePlaceholder": "Es: Notifiche Importanti",
+      "defaultBucketName": "Il Mio Primo Bucket",
+      "defaultBucketDescription": "Bucket creato durante l'onboarding",
+      "createToken": "Token di Accesso",
+      "createTokenDescription": "Genera un token di accesso per consentire alle tue applicazioni di inviare notifiche al bucket selezionato.",
+      "generateToken": "Genera Token",
+      "tokenNameLabel": "Nome Token",
+      "tokenNamePlaceholder": "Es: Token App Principale",
+      "defaultTokenName": "Token Onboarding",
+      "tokenCreated": "Token Creato con Successo",
+      "tokenHint": "Salva questo token in un luogo sicuro. Non sarà più visibile dopo aver chiuso questa schermata.",
+      "disclaimer": "Potrai gestire bucket e token in qualsiasi momento dalla sezione Impostazioni."
     }
   }
 }

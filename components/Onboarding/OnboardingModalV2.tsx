@@ -2,6 +2,7 @@ import React, { memo, useCallback, useMemo } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { Button, Modal, Portal, Text, useTheme } from "react-native-paper";
 import { OnboardingProvider, useOnboarding } from "./OnboardingContext";
+import { UsePushNotifications } from "@/hooks/usePushNotifications";
 import Step1 from "./Step1";
 import Step2 from "./Step2";
 import Step3 from "./Step3";
@@ -12,6 +13,7 @@ import Step6 from "./Step6";
 interface OnboardingModalV2Props {
   visible: boolean;
   onClose: () => void;
+  push: UsePushNotifications;
 }
 
 // Modal Header Component
@@ -63,15 +65,27 @@ interface NavigationButtonsProps {
 }
 
 const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
-  const { currentStep, goToPreviousStep, goToNextStep } = useOnboarding();
+  const { currentStep, goToPreviousStep, goToNextStep, applySettings } = useOnboarding();
+  const [isApplying, setIsApplying] = React.useState(false);
 
-  const handleNext = useCallback(() => {
+  const handleNext = useCallback(async () => {
     if (currentStep === 6) {
-      onClose();
+      // Apply all settings before closing
+      setIsApplying(true);
+      try {
+        await applySettings();
+        onClose();
+      } catch (error) {
+        console.error("[Onboarding] Error applying settings:", error);
+        // Still close even if there's an error
+        onClose();
+      } finally {
+        setIsApplying(false);
+      }
     } else {
       goToNextStep();
     }
-  }, [currentStep, goToNextStep, onClose]);
+  }, [currentStep, goToNextStep, onClose, applySettings]);
 
   return (
     <View style={styles.navigationButtons}>
@@ -80,11 +94,18 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
           mode="outlined"
           onPress={goToPreviousStep}
           style={styles.navButton}
+          disabled={isApplying}
         >
           Back
         </Button>
       )}
-      <Button mode="contained" onPress={handleNext} style={styles.navButton}>
+      <Button 
+        mode="contained" 
+        onPress={handleNext} 
+        style={styles.navButton}
+        loading={isApplying}
+        disabled={isApplying}
+      >
         {currentStep === 6 ? "Finish" : "Next"}
       </Button>
     </View>
@@ -94,7 +115,7 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
 NavigationButtons.displayName = "NavigationButtons";
 
 // Step Renderer Component
-const StepRenderer = memo(() => {
+const StepRenderer = memo(({ push }: { push: UsePushNotifications }) => {
   const { currentStep } = useOnboarding();
 
   const currentStepComponent = useMemo(() => {
@@ -106,7 +127,7 @@ const StepRenderer = memo(() => {
       case 3:
         return <Step3 />;
       case 4:
-        return <Step4 />;
+        return <Step4 push={push} />;
       case 5:
         return <Step5 />;
       case 6:
@@ -121,11 +142,9 @@ const StepRenderer = memo(() => {
 
 StepRenderer.displayName = "StepRenderer";
 
-
-
 // Main Modal Component with Content
 const OnboardingModalV2Content: React.FC<OnboardingModalV2Props> = memo(
-  ({ visible, onClose }) => {
+  ({ visible, onClose, push }) => {
     const theme = useTheme();
 
     return (
@@ -138,7 +157,7 @@ const OnboardingModalV2Content: React.FC<OnboardingModalV2Props> = memo(
         >
           <ModalHeader onSkip={onClose} />
           <ProgressIndicator />
-          <StepRenderer />
+          <StepRenderer push={push} />
           <NavigationButtons onClose={onClose} />
         </View>
       </Modal>
@@ -152,11 +171,16 @@ OnboardingModalV2Content.displayName = "OnboardingModalV2Content";
 const OnboardingModalV2: React.FC<OnboardingModalV2Props> = ({
   visible,
   onClose,
+  push,
 }) => {
   return (
     <Portal>
-      <OnboardingProvider>
-        <OnboardingModalV2Content visible={visible} onClose={onClose} />
+      <OnboardingProvider push={push}>
+        <OnboardingModalV2Content
+          visible={visible}
+          onClose={onClose}
+          push={push}
+        />
       </OnboardingProvider>
     </Portal>
   );

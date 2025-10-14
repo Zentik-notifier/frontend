@@ -1859,6 +1859,34 @@
       "wifiOnly": "WiFi Only",
       "wifiOnlyDescription": "Limit automatic downloads when connected to WiFi to save mobile data.",
       "disclaimer": "All these settings can be changed at any time in the App Settings section."
+    },
+    "step4": {
+      "title": "Bucket and Access Token",
+      "description": "Set up your first bucket to organize notifications and create an access token for API access.",
+      "checkingDevice": "Checking device registration...",
+      "deviceNotRegistered": "Device Not Registered",
+      "deviceNotRegisteredDescription": "Your device is not yet registered to receive push notifications. Register it now to continue.",
+      "registerDevice": "Register Device",
+      "registeringDevice": "Registering...",
+      "deviceRegistered": "Device registered successfully",
+      "selectBucket": "Select a Bucket",
+      "selectBucketDescription": "Buckets help you organize your notifications. Select an existing bucket or create a new one.",
+      "bucketLabel": "Bucket",
+      "noBuckets": "You don't have any buckets yet. Create your first bucket to get started.",
+      "createBucket": "Create Bucket",
+      "bucketNameLabel": "Bucket Name",
+      "bucketNamePlaceholder": "e.g., Important Notifications",
+      "defaultBucketName": "My First Bucket",
+      "defaultBucketDescription": "Bucket created during onboarding",
+      "createToken": "Access Token",
+      "createTokenDescription": "Generate an access token to allow your applications to send notifications to the selected bucket.",
+      "generateToken": "Generate Token",
+      "tokenNameLabel": "Token Name",
+      "tokenNamePlaceholder": "e.g., Main App Token",
+      "defaultTokenName": "Onboarding Token",
+      "tokenCreated": "Token Created Successfully",
+      "tokenHint": "Save this token in a secure place. It won't be visible again after closing this screen.",
+      "disclaimer": "You can manage buckets and tokens at any time from the Settings section."
     }
   }
 }

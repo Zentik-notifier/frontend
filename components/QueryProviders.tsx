@@ -1,5 +1,6 @@
 import { ApolloClient, ApolloProvider } from "@apollo/client";
 import React, { useEffect, useState } from "react";
+import { Portal } from "react-native-paper";
 import { initApolloClient } from "../config/apollo-client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -36,7 +37,9 @@ export const QueryProviders: React.FC<GraphQLProviderProps> = ({
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ApolloProvider client={client}>{children}</ApolloProvider>
+      <ApolloProvider client={client}>
+        <Portal.Host>{children}</Portal.Host>
+      </ApolloProvider>
     </QueryClientProvider>
   );
 };

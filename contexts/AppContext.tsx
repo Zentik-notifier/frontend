@@ -451,6 +451,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       <OnboardingModalV2
         visible={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
+        push={push}
       />
       {/* <OnboardingModal
         visible={isOnboardingOpen}
