@@ -1835,6 +1835,43 @@ export interface Translation {
       };
       disclaimer: string;
     };
+    step3: {
+      title: string;
+      description: string;
+      retentionPreset: string;
+      retentionPresetDescription: string;
+      presets: {
+        low: {
+          name: string;
+          description: string;
+        };
+        balanced: {
+          name: string;
+          description: string;
+        };
+        longer: {
+          name: string;
+          description: string;
+        };
+        custom: {
+          name: string;
+          description: string;
+        };
+      };
+      maxMediaSize: string;
+      maxMediaAge: string;
+      maxNotifications: string;
+      maxNotificationsAge: string;
+      days: string;
+      customValues: string;
+      autoDownload: string;
+      autoDownloadDescription: string;
+      enableAutoDownload: string;
+      enableAutoDownloadDescription: string;
+      wifiOnly: string;
+      wifiOnlyDescription: string;
+      disclaimer: string;
+    };
   };
 }
 

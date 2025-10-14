@@ -1823,6 +1823,43 @@
         "onAppClose": "Alla Chiusura App"
       },
       "disclaimer": "Tutte queste impostazioni potranno essere modificate in qualsiasi momento nella sezione Impostazioni App."
+    },
+    "step3": {
+      "title": "Gestione Dati e Download",
+      "description": "Configura come vengono conservati i dati e gestiti i download automatici.",
+      "retentionPreset": "Politica di Conservazione",
+      "retentionPresetDescription": "Scegli quanto a lungo conservare notifiche e media sul tuo dispositivo.",
+      "presets": {
+        "low": {
+          "name": "Bassa Conservazione",
+          "description": "Mantiene solo i dati recenti per risparmiare spazio. Ideale per dispositivi con poco spazio disponibile."
+        },
+        "balanced": {
+          "name": "Bilanciato",
+          "description": "Raccomandato per la maggior parte degli utenti. Bilancia conservazione dati e spazio disponibile."
+        },
+        "longer": {
+          "name": "Conservazione Estesa",
+          "description": "Mantiene i dati più a lungo per un accesso esteso alla cronologia. Richiede più spazio di archiviazione."
+        },
+        "custom": {
+          "name": "Personalizzato",
+          "description": "Configura manualmente le politiche di conservazione secondo le tue esigenze specifiche."
+        }
+      },
+      "maxMediaSize": "Dimensione max media",
+      "maxMediaAge": "Età max media",
+      "maxNotifications": "Max notifiche",
+      "maxNotificationsAge": "Età max notifiche",
+      "days": "giorni",
+      "customValues": "Valori Personalizzati",
+      "autoDownload": "Download Automatico",
+      "autoDownloadDescription": "Configura come vengono scaricati gli allegati multimediali.",
+      "enableAutoDownload": "Abilita download automatico",
+      "enableAutoDownloadDescription": "Scarica automaticamente tutti gli allegati multimediali delle notifiche.",
+      "wifiOnly": "Solo su WiFi",
+      "wifiOnlyDescription": "Limita i download automatici quando connesso a WiFi per risparmiare dati mobili.",
+      "disclaimer": "Tutte queste impostazioni potranno essere modificate in qualsiasi momento nella sezione Impostazioni App."
     }
   }
 }

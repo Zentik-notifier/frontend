@@ -35,16 +35,6 @@ interface OnboardingContextType {
   setSelectedTimezone: (timezone: string) => void;
   setSelectedMarkAsReadMode: (mode: MarkAsReadMode) => void;
   
-  // Step 3: Data Retention
-  selectedRetentionLevel: "minimal" | "balanced" | "maximum";
-  autoDownloadImages: boolean;
-  autoDownloadVideos: boolean;
-  autoDownloadAudio: boolean;
-  setSelectedRetentionLevel: (level: "minimal" | "balanced" | "maximum") => void;
-  setAutoDownloadImages: (value: boolean) => void;
-  setAutoDownloadVideos: (value: boolean) => void;
-  setAutoDownloadAudio: (value: boolean) => void;
-  
   // Step 4: Messaging Setup
   deviceRegistered: boolean;
   bucketCreated: boolean;
@@ -91,12 +81,6 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
   const [selectedDateFormat, setSelectedDateFormat] = useState<DateFormatStyle>("medium");
   const [selectedTimezone, setSelectedTimezone] = useState<string>("UTC");
   const [selectedMarkAsReadMode, setSelectedMarkAsReadMode] = useState<MarkAsReadMode>("on-view");
-  
-  // Step 3: Data Retention
-  const [selectedRetentionLevel, setSelectedRetentionLevel] = useState<"minimal" | "balanced" | "maximum">("balanced");
-  const [autoDownloadImages, setAutoDownloadImages] = useState(true);
-  const [autoDownloadVideos, setAutoDownloadVideos] = useState(false);
-  const [autoDownloadAudio, setAutoDownloadAudio] = useState(true);
   
   // Step 4: Messaging Setup
   const [deviceRegistered] = useState(true);
@@ -184,14 +168,6 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     setSelectedDateFormat,
     setSelectedTimezone,
     setSelectedMarkAsReadMode,
-    selectedRetentionLevel,
-    autoDownloadImages,
-    autoDownloadVideos,
-    autoDownloadAudio,
-    setSelectedRetentionLevel,
-    setAutoDownloadImages,
-    setAutoDownloadVideos,
-    setAutoDownloadAudio,
     deviceRegistered,
     bucketCreated,
     tokenCreated,

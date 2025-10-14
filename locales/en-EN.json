@@ -1822,6 +1822,43 @@
         "onAppClose": "On App Close"
       },
       "disclaimer": "All these settings can be changed at any time in the App Settings section."
+    },
+    "step3": {
+      "title": "Data Management and Downloads",
+      "description": "Configure how data is retained and automatic downloads are handled.",
+      "retentionPreset": "Retention Policy",
+      "retentionPresetDescription": "Choose how long to keep notifications and media on your device.",
+      "presets": {
+        "low": {
+          "name": "Low Retention",
+          "description": "Keeps only recent data to save space. Ideal for devices with limited storage."
+        },
+        "balanced": {
+          "name": "Balanced",
+          "description": "Recommended for most users. Balances data retention and available space."
+        },
+        "longer": {
+          "name": "Extended Retention",
+          "description": "Keeps data longer for extended history access. Requires more storage space."
+        },
+        "custom": {
+          "name": "Custom",
+          "description": "Manually configure retention policies according to your specific needs."
+        }
+      },
+      "maxMediaSize": "Max media size",
+      "maxMediaAge": "Max media age",
+      "maxNotifications": "Max notifications",
+      "maxNotificationsAge": "Max notifications age",
+      "days": "days",
+      "customValues": "Custom Values",
+      "autoDownload": "Auto Download",
+      "autoDownloadDescription": "Configure how media attachments are downloaded.",
+      "enableAutoDownload": "Enable auto download",
+      "enableAutoDownloadDescription": "Automatically download all notification media attachments.",
+      "wifiOnly": "WiFi Only",
+      "wifiOnlyDescription": "Limit automatic downloads when connected to WiFi to save mobile data.",
+      "disclaimer": "All these settings can be changed at any time in the App Settings section."
     }
   }
 }
