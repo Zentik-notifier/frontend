@@ -1793,5 +1793,20 @@
     "close": "Chiudi",
     "hour": "Ora",
     "minute": "Minuto"
+  },
+  "onboardingV2": {
+    "step1": {
+      "title": "Benvenuto in Zentik Notifier",
+      "description": "Un potente sistema di gestione notifiche che ti aiuta ad organizzare e controllare le tue notifiche.",
+      "serverConfiguration": "Configurazione Server",
+      "useCustomServer": "Usa server personalizzato",
+      "customServerUrl": "URL Server Personalizzato",
+      "customServerPlaceholder": "https://tuo-server.com",
+      "testConnection": "Testa Connessione",
+      "enterServerUrl": "Inserisci un URL del server",
+      "connectionSuccessful": "Connessione al server riuscita!",
+      "serverNotResponding": "Il server non risponde",
+      "connectionFailed": "Connessione fallita. Controlla l'URL"
+    }
   }
 }

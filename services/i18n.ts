@@ -1,8 +1,9 @@
-import { GetTranslationValue, Locale, Translation } from '@/types/i18n';
 
 // Import translations
+import { GetTranslationValue, Locale } from '@/hooks/useI18n';
 import enTranslations from '@/locales/en-EN.json';
 import itTranslations from '@/locales/it-IT.json';
+import { Translation } from '@/types/translations.generated';
 
 const translations: Record<Locale, Translation> = {
   'en-EN': enTranslations,

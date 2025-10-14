@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { dateFormatService } from '../services/date-format';
-import { useI18n } from './useI18n';
-import { localeToDatePickerLocale, type DatePickerLocale } from '@/types/i18n';
+import { DatePickerLocale, localeToDatePickerLocale, useI18n } from './useI18n';
 import { useUserSettings } from '@/services/user-settings';
 
 /**

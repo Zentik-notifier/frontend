@@ -3,8 +3,7 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks";
 import { useBucket, useUpdateBucketSnoozes } from "@/hooks/notifications";
-import { useI18n } from "@/hooks/useI18n";
-import { TranslationKeyPath } from "@/utils";
+import { TranslationKeyPath, useI18n } from "@/hooks/useI18n";
 import React, { useMemo, useState } from "react";
 import {
   Alert,

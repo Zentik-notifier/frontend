@@ -5,7 +5,7 @@
  - Exposes a unified API similar to native services
 */
 
-import { DevicePlatform, RegisterDeviceDto, UserDeviceFragment } from '@/generated/gql-operations-generated';
+import { DevicePlatform, NotificationActionType, RegisterDeviceDto, UserDeviceFragment } from '@/generated/gql-operations-generated';
 import { NotificationActionCallbacks } from '@/hooks/useNotificationActions';
 import { mediaCache } from './media-cache-service';
 
@@ -168,12 +168,12 @@ class WebPushNotificationService {
         try {
           this.callbacks?.executeAction(notificationId || '', {
             __typename: 'NotificationAction',
-            type: action as any,
+            type: action as NotificationActionType,
             value,
             title: '',
             icon: '',
             destructive: false,
-          } as any);
+          });
         } catch (e) {
           console.error('Failed to execute SW tap action', e);
         }
@@ -199,12 +199,12 @@ class WebPushNotificationService {
         try {
           this.callbacks?.executeAction(notificationId || '', {
             __typename: 'NotificationAction',
-            type: type as any,
+            type: type as NotificationActionType,
             value,
             title: '',
             icon: '',
             destructive: false,
-          } as any);
+          });
         } catch (e) {
           console.error('Failed to execute SW notification action', e);
         }

@@ -1,10 +1,9 @@
 import { useAppContext } from "@/contexts/AppContext";
 import { useBadgeSync } from "@/hooks";
 import { useDeviceType } from "@/hooks/useDeviceType";
-import { useI18n } from "@/hooks/useI18n";
+import { TranslationKeyPath, useI18n } from "@/hooks/useI18n";
 import { useDownloadQueue } from "@/hooks/useMediaCache";
 import { useAppTheme } from "@/hooks/useTheme";
-import { TranslationKeyPath } from "@/utils";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useSegments } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";

@@ -5,11 +5,11 @@ import {
   DateFormatPreferences,
   DateFormatStyle,
 } from "@/services/date-format";
-import { Locale } from "@/types/i18n";
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import Selector, { SelectorOption } from "./ui/Selector";
 import { Card, Switch, Text, useTheme } from "react-native-paper";
+import { Locale } from "@/hooks/useI18n";
 
 export function LocalizationSettings() {
   const theme = useTheme();

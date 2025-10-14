@@ -1,9 +1,9 @@
 import { MediaType, NotificationFragment, UserSettingType, useGetUserSettingsLazyQuery, useUpsertUserSettingMutation } from '@/generated/gql-operations-generated';
-import { Locale } from '@/types/i18n';
 import AsyncStorage from '@/utils/async-storage-wrapper';
 import React, { useEffect } from 'react';
 import { ThemePreset } from './theme-presets';
 import { startOfDay, subDays, isWithinInterval } from 'date-fns';
+import { Locale } from '@/hooks/useI18n';
 
 // Current version of terms (update this when terms change)
 const CURRENT_TERMS_VERSION = '1.0.0';
@@ -96,8 +96,8 @@ export interface UserSettings {
   notificationFilters: NotificationFilters;
 
   notificationsPreferences?: {
-    unencryptOnBigPayload: boolean;
-    markAsReadMode: MarkAsReadMode;
+    unencryptOnBigPayload?: boolean;
+    markAsReadMode?: MarkAsReadMode;
     showAppIconOnBucketIconMissing?: boolean;
   };
 
@@ -891,16 +891,18 @@ export function useUserSettings() {
       updates.timezone = timezoneSetting.valueText;
     }
     if (languageSetting?.valueText && languageSetting.valueText !== userSettings.getLocale()) {
-      updates.locale = languageSetting.valueText as any;
+      updates.locale = languageSetting.valueText as Locale;
     }
     const currentPrefs = userSettings.getSettings().notificationsPreferences;
-    const nextPrefs = { ...(currentPrefs || {}) } as any;
+    const nextPrefs = { ...(currentPrefs || {}) };
     let touchPrefs = false;
+    
     if (unencryptOnBigPayload?.valueBool !== undefined && unencryptOnBigPayload.valueBool !== currentPrefs?.unencryptOnBigPayload) {
-      nextPrefs.unencryptOnBigPayload = !!unencryptOnBigPayload.valueBool; touchPrefs = true;
+      nextPrefs.unencryptOnBigPayload = !!unencryptOnBigPayload.valueBool; 
+      touchPrefs = true;
     }
     if (touchPrefs) {
-      (updates as any).notificationsPreferences = nextPrefs;
+      updates.notificationsPreferences = nextPrefs;
     }
     if (Object.keys(updates).length > 0) {
       userSettings.updateSettings(updates).catch(() => { });

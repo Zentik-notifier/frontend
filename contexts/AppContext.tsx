@@ -1,3 +1,4 @@
+import OnboardingModalV2 from "@/components/Onboarding";
 import {
   DeviceInfoDto,
   LoginDto,
@@ -10,13 +11,12 @@ import {
 import { useMarkAllAsRead } from "@/hooks/notifications/useNotificationMutations";
 import { useCleanup } from "@/hooks/useCleanup";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
-import { useI18n } from "@/hooks/useI18n";
+import { Locale, localeToDatePickerLocale, useI18n } from "@/hooks/useI18n";
 import {
   UsePushNotifications,
   usePushNotifications,
 } from "@/hooks/usePushNotifications";
 import { i18nService } from "@/services/i18n";
-import { localeToDatePickerLocale, type Locale } from "@/types/i18n";
 import * as Localization from "expo-localization";
 import React, {
   createContext,
@@ -27,7 +27,6 @@ import React, {
 } from "react";
 import { Alert, AppState } from "react-native";
 import { registerTranslation } from "react-native-paper-dates";
-import OnboardingModal from "../components/OnboardingModal";
 import {
   clearLastUserId,
   clearTokens,
@@ -39,7 +38,6 @@ import {
   saveTokens,
 } from "../services/auth-storage";
 import { useUserSettings } from "../services/user-settings";
-import OnboardingModalV2 from "@/components/Onboarding";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -150,7 +148,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       close: t("dateTime.close"),
       hour: t("dateTime.hour"),
       minute: t("dateTime.minute"),
-    } as any);
+    });
   }, [userSettings.settings.locale, t]);
 
   const logout = async () => {

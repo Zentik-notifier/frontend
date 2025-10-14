@@ -11,6 +11,7 @@
     "release:web:minor": "node scripts/release-web.js minor",
     "release:web:major": "node scripts/release-web.js major",
     "lint": "npx expo lint",
+    "ts-check": "tsc --noEmit",
     "codegen": "graphql-codegen",
     "release:ios:patch": "node scripts/release-ios.js patch",
     "release:ios:minor": "node scripts/release-ios.js minor",
@@ -35,6 +36,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "regen:icons": "node scripts/regen-icons.js",
+    "generate:i18n-types": "node scripts/generate-i18n-types.js",
     "eas-build-pre-install": "npm config set legacy-peer-deps true"
   },
   "dependencies": {

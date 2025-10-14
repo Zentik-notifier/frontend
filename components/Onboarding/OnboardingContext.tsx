@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { i18nService } from "@/services/i18n";
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -113,7 +114,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     if (!customServerUrl) {
       setTestResult({
         success: false,
-        message: "Please enter a server URL",
+        message: i18nService.t("onboardingV2.step1.enterServerUrl"),
       });
       return;
     }
@@ -128,18 +129,18 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
       if (response.ok) {
         setTestResult({
           success: true,
-          message: "Server connection successful!",
+          message: i18nService.t("onboardingV2.step1.connectionSuccessful"),
         });
       } else {
         setTestResult({
           success: false,
-          message: "Server not responding",
+          message: i18nService.t("onboardingV2.step1.serverNotResponding"),
         });
       }
     } catch (error) {
       setTestResult({
         success: false,
-        message: "Connection failed. Please check the URL",
+        message: i18nService.t("onboardingV2.step1.connectionFailed"),
       });
     } finally {
       setTestingServer(false);

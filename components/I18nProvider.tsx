@@ -1,6 +1,6 @@
+import { Locale } from "@/hooks/useI18n";
 import { i18nService } from "@/services/i18n";
 import { userSettings } from "@/services/user-settings";
-import { Locale } from "@/types/i18n";
 import React from "react";
 
 interface I18nContextType {

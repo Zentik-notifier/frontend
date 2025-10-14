@@ -1,213 +1,397 @@
+````instructions
 # GitHub Copilot Instructions - Zentik Notifier Frontend
 
 ## Project Overview
-This is the frontend application for Zentik Notifier, built with:
-- **React Native** with Expo Router
-- **TypeScript** for type safety
-- **React Native Paper** for UI components
-- **Apollo Client** for GraphQL (being migrated to TanStack Query)
-- **TanStack Query (React Query)** for data fetching and caching
-- **Internationalization (i18n)** with English and Italian translations
+Cross-platform notification management app built with:
+- **Expo/React Native** (iOS, Android, Web)
+- **TypeScript** with strict type checking
+- **expo-router** for file-based navigation
+- **Apollo Client** + **TanStack Query** for data fetching
+- **GraphQL** with code generation
+- **Material Design 3** (react-native-paper)
+- **SQLite** for offline storage
+- **i18n** with type-safe translations (en-EN, it-IT)
 
 ## Code Style and Documentation
 
-### Language and Comments
-- **Always use English** for all code comments, documentation, commit messages, and PR descriptions
-- **Add comments only for critical or complex logic** - avoid self-explanatory comments
-- **Don't create README files** or test scripts unless explicitly requested
-- Keep comments concise and meaningful
+### Language Requirements
+- **All code, comments, and documentation must be in English**
+- **Never create README files** unless explicitly requested
+- **Never create example/test components** unless explicitly requested
+- Add comments only for critical/complex logic - avoid self-explanatory comments
+- Keep log messages concise and in English
 
 **Examples:**
 ```typescript
-// ✅ Good - explains why, not what
-// Using useMemo to prevent recalculating options on every render
-const options = useMemo(() => generateOptions(), [language]);
+// ✅ Good - explains why
+// Using forwardRef to avoid circular dependency between bucket queries and AppContext
+const { userId } = useAppContext();
 
 // ❌ Bad - self-explanatory
-// Set the title
-setTitle("New Title");
+// Get the user ID
+const userId = getUserId();
 
 // ❌ Bad - in Italian
-// Carica i dati dell'utente
-const loadUserData = async () => { }
+// Ottieni l'ID utente
 ```
 
-## Important Development Guidelines
+## Critical Workflows
 
-### 1. Internationalization (i18n) Type Generation
+### 1. i18n Type Generation Workflow
 
-**CRITICAL**: When adding new translation keys to the i18n files, you **MUST** update the TypeScript type definitions.
+**Whenever adding/modifying translations:**
 
-#### Process:
-1. Add new translation keys to both:
-   - `frontend/locales/en-EN.json`
-   - `frontend/locales/it-IT.json`
-
-2. **Immediately after**, update `frontend/types/i18n.ts` to include the new keys in the `TranslationKey` interface.
-
-#### Example:
-If you add a new section called `newFeature` to the JSON files:
-
-```json
-// en-EN.json and it-IT.json
-{
-  "newFeature": {
-    "title": "New Feature",
-    "description": "This is a new feature"
-  }
-}
-```
-
-You must add the corresponding TypeScript interface:
+1. Update both locale files: `locales/en-EN.json` and `locales/it-IT.json`
+2. Run: `npm run generate:i18n-types` (generates `types/translations.generated.ts`)
+3. Use type-safe keys in components:
 
 ```typescript
-// types/i18n.ts
-export interface TranslationKey {
-  // ... existing keys ...
-  newFeature: {
-    title: string;
-    description: string;
-  };
-  // ... rest of keys ...
+import { useI18n } from '@/hooks/useI18n';
+
+function MyComponent() {
+  const { t } = useI18n();
+  
+  // ✅ Type-safe - autocomplete and compile-time checking
+  return <Text>{t('settings.notifications.title')}</Text>;
+  
+  // ❌ Wrong - no type safety
+  return <Text>{t('nonexistent.key')}</Text>;
 }
 ```
-
-#### Recent Example:
-The `backupManagement` section was added:
-- JSON files: Added complete translations in both languages
-- TypeScript: Added interface in `types/i18n.ts`
-- Location: Between `buckets` and `devices` sections
 
 ### 2. GraphQL Code Generation
 
-After modifying GraphQL operations in `frontend/config/operations.graphql`, run:
+**After modifying GraphQL operations in `config/operations.graphql`:**
+
+1. Ensure backend is running: `npm run start:dev` (in `backend/` folder)
+2. Run: `npm run codegen` (generates `generated/gql-operations-generated.ts`)
+3. Import generated hooks/types:
+
+```typescript
+import { 
+  useGetBucketsQuery, 
+  useCreateBucketMutation,
+  Bucket 
+} from '@/generated/gql-operations-generated';
+```
+
+### 3. iOS Extension Sync
+
+**After modifying Swift files in `plugins/` folder:**
+
+Run: `npm run sync-ios-extensions` (or `./scripts/sync-ios-extensions.sh`)
+
+This syncs notification service extensions with iOS native code.
+
+## Architecture Patterns
+
+### Navigation (expo-router)
+
+File-based routing with platform-specific layouts:
+
+```
+app/
+  _layout.tsx              # Root layout
+  index.tsx                # Redirect to main route
+  (mobile)/                # Mobile-specific routes
+    (home)/
+      (tabs)/
+        _layout.tsx        # Tab navigator
+        index.tsx          # Home tab
+        settings.tsx       # Settings tab
+  (tablet)/                # Tablet/desktop routes
+    (home)/
+      index.tsx            # Split view layout
+  (common)/                # Shared routes
+    (auth)/
+      login.tsx
+```
+
+**Navigation patterns:**
+- Use `router.push()`, `router.replace()` from `expo-router`
+- Dynamic routes: `[id].tsx` → accessed via `useLocalSearchParams()`
+- Groups: `(group)/` for logical organization without affecting URL
+
+### Data Fetching Strategy
+
+**Dual approach - GraphQL + REST:**
+
+```typescript
+// ✅ GraphQL for structured data (Apollo Client)
+const { data, loading } = useGetBucketsQuery();
+
+// ✅ TanStack Query for REST/custom endpoints
+const { data: attachments } = useQuery({
+  queryKey: ['attachments', bucketId],
+  queryFn: () => fetchAttachments(bucketId),
+});
+```
+
+**Offline support:**
+- SQLite database: `services/db-setup.ts`
+- Notification cache: `services/notifications-repository.ts`
+- Media cache: `services/media-cache-service.ts`
+
+### State Management
+
+**Primary state container: `AppContext`**
+
+```typescript
+// contexts/AppContext.tsx provides:
+const {
+  userId,                  // Current user ID
+  login,                   // Login function
+  logout,                  // Logout function
+  push,                    // Push notification service
+  userSettings,            // User preferences
+  connectionStatus,        // Network status
+} = useAppContext();
+```
+
+**Key hooks:**
+- `useI18n()` - translations and locale
+- `useTheme()` - theme colors and helpers
+- `useDeviceType()` - platform detection (mobile/tablet/desktop)
+- `usePushNotifications()` - notification permissions and tokens
+- Custom hooks in `hooks/` for domain logic
+
+### Component Patterns
+
+**Prefer common components from `components/ui/`:**
+
+```typescript
+// ✅ Use existing UI components
+import { AlertDialog, Selector, ButtonGroup } from '@/components/ui';
+
+// ✅ Use React Native Paper for Material Design
+import { Button, Card, List } from 'react-native-paper';
+
+// ❌ Don't duplicate logic - extract to common component
+```
+
+**Component organization:**
+- `components/ui/` - reusable UI primitives
+- `components/` - feature-specific components
+- `layouts/` - platform-specific layouts (mobile.tsx, tablet.tsx)
+- Export from `components/index.ts` for clean imports
+
+### Theme System
+
+**Material Design 3 with custom theme generation:**
+
+```typescript
+// services/theme-generator.ts creates dynamic themes
+// services/theme-presets.ts for predefined palettes
+
+const theme = useTheme();
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.outline,
+  },
+});
+```
+
+**Key theme colors:**
+- `primary`, `onPrimary` - main brand color
+- `surface`, `onSurface` - backgrounds
+- `surfaceVariant`, `onSurfaceVariant` - secondary backgrounds
+- `outline`, `outlineVariant` - borders
+- `error`, `errorContainer` - error states
+
+## Expo Config & Plugins
+
+### Custom Expo Config Plugins
+
+Located in `plugins/`:
+- `withIosNotificationExtensions/` - iOS notification service extensions
+- `withAndroidManifestFix/` - Android manifest patches
+- `withIosExtensionsSharedUtils/` - Shared keychain/app groups
+
+**Never modify `ios/` or `android/` folders directly** - use plugins and prebuild.
+
+### Environment Variables
+
 ```bash
-npm run codegen
+# .env
+EXPO_PUBLIC_API_URL=http://localhost:3000
+EXPO_PUBLIC_SELFHOSTED=false
+APP_VARIANT=development  # or production
 ```
 
-This generates TypeScript types in `frontend/generated/gql-operations-generated.ts`.
+Access via: `process.env.EXPO_PUBLIC_API_URL`
 
-### 3. Data Fetching Pattern
+## Platform-Specific Code
 
-**Preferred**: Use TanStack Query (React Query) for new features:
-- Better caching control
-- Optimistic updates
-- Consistent API across components
-- See `hooks/notifications/useBucketMutations.ts` for examples
-
-**Legacy**: Apollo Client is being phased out but still used in some places.
-
-### 4. Navigation
-
-All navigation functions are centralized in `utils/navigation.ts`. When adding new routes:
-1. Create the route files in both `app/(mobile)/` and `app/(tablet)/`
-2. Add navigation function in `utils/navigation.ts`
-3. Update `AdminSidebar.tsx` if it's an admin page
-
-### 5. Component Structure
-
-Admin pages follow this pattern:
 ```typescript
-// app/(mobile)/(admin)/feature-name.tsx
-import { FeatureComponent } from "@/components/FeatureComponent";
+import { Platform } from 'react-native';
 
-export default function FeatureScreen() {
-  return <FeatureComponent />;
+if (Platform.OS === 'ios') {
+  // iOS-specific logic
+} else if (Platform.OS === 'android') {
+  // Android-specific logic
+} else if (Platform.OS === 'web') {
+  // Web-specific logic
 }
 ```
 
-The actual logic lives in `components/FeatureComponent.tsx`.
-
-### 6. TypeScript Type Safety
-
-- Always use proper TypeScript types
-- Avoid `any` unless absolutely necessary
-- Use type assertions sparingly and only when types are verified
-- For i18n translations in React components, cast to `string` when needed: `t("key") as string`
-
-### 7. Styling
-
-- Use React Native Paper components for consistency
-- Follow Material Design 3 principles
-- Use theme colors from `useTheme()` hook
-- Responsive design for mobile, tablet, and desktop
-
-### 8. Testing
-
-Before committing, ensure:
-- No TypeScript errors: `npm run typecheck`
-- GraphQL codegen is up to date: `npm run codegen`
-- All translations are complete in both languages
-
-## Common Patterns
-
-### i18n Usage with Type Safety
+**Responsive layouts:**
 ```typescript
-import { useI18n } from "@/hooks/useI18n";
-
-const { t } = useI18n();
-
-// In JSX
-<Text>{t("section.key") as string}</Text>
-
-// In Alert
-Alert.alert(
-  t("section.title") as string,
-  t("section.message") as string
-);
+const { isPhone, isTablet, isDesktop } = useDeviceType();
 ```
 
-### Data Fetching with TanStack Query
+## Common Commands
+
+```bash
+# Development
+npm run start:dev           # Start with dev client
+npm run start:ios:dev       # Start iOS with dev client
+npm run start:android       # Start Android
+npm run start:web           # Start web
+
+# Code generation
+npm run codegen             # Generate GraphQL types
+npm run generate:i18n-types # Generate translation types
+npm run regen:icons         # Regenerate app icons
+
+# Build & Release
+npm run build:ios           # Build iOS with EAS
+npm run build:android       # Build Android with EAS
+npm run update:patch        # OTA update (patch version)
+
+# Quality checks
+npm run lint                # ESLint
+npm run ts-check            # TypeScript type checking
+```
+
+## Testing & Debugging
+
+```bash
+# Type checking (run before commits)
+npm run ts-check
+
+# Check for errors
+npx expo doctor
+```
+
+**Debugging tips:**
+- Use Expo Dev Tools: Press `j` in terminal
+- React DevTools: Press `m` in terminal
+- Network inspect: Reactotron or Flipper
+- Check logs: `npx expo logs --follow`
+
+## Security & Performance
+
+### Authentication Flow
+
 ```typescript
-const { data, loading, refetch } = useQuery({
-  queryKey: ['resource', id],
-  queryFn: fetchResource,
-});
+// Tokens stored in secure storage
+import { saveTokens, getAccessToken } from '@/services/auth-storage';
 
-const mutation = useMutation({
-  mutationFn: updateResource,
-  onSuccess: () => queryClient.invalidateQueries(['resource']),
-});
+// Use RequireAuth wrapper for protected routes
+import { RequireAuth } from '@/services/require-auth';
 ```
 
-### GraphQL Operations
-```graphql
-# config/operations.graphql
-query GetResource($id: ID!) {
-  resource(id: $id) {
-    id
-    name
-  }
-}
+### Media Handling
 
-mutation UpdateResource($id: ID!, $input: UpdateInput!) {
-  updateResource(id: $id, input: $input) {
-    id
-    name
-  }
-}
+```typescript
+// Use cached media component for images
+import { CachedMedia } from '@/components/CachedMedia';
+
+// Media cache service handles:
+// - Automatic caching with SQLite
+// - File system storage
+// - Cleanup policies
 ```
+
+### Performance Optimization
+
+- Use `React.memo()` for expensive renders
+- Use `FlashList` instead of `FlatList` for large lists
+- Lazy load screens with expo-router
+- Optimize images with `expo-image`
 
 ## Key Files Reference
 
-- **Translations**: `locales/en-EN.json`, `locales/it-IT.json`, `types/i18n.ts`
-- **GraphQL**: `config/operations.graphql`, `generated/gql-operations-generated.ts`
-- **Navigation**: `utils/navigation.ts`
-- **Admin Menu**: `components/AdminSidebar.tsx`
-- **Hooks**: `hooks/` directory (especially `hooks/notifications/`)
-- **Routes**: `app/(mobile)/` and `app/(tablet)/` directories
+- **Entry point**: `app/_layout.tsx`
+- **App context**: `contexts/AppContext.tsx`
+- **GraphQL operations**: `config/operations.graphql`
+- **API config**: `services/api-config.ts`
+- **Database setup**: `services/db-setup.ts`
+- **Push notifications**: `services/*-push-notifications.ts`
+- **i18n service**: `services/i18n.ts`
+
+## Circular Dependencies
+
+**Known safe cycles (intentional):**
+
+```
+app/(mobile)/onboarding → components/Onboarding → hooks → contexts/AppContext
+```
+
+These are carefully managed with React hooks and lazy loading.
+
+**Avoid creating new circular dependencies** - refactor shared logic into separate modules.
 
 ## Checklist for New Features
 
-- [ ] Add translations to both `en-EN.json` and `it-IT.json`
-- [ ] Update TypeScript types in `types/i18n.ts`
-- [ ] Add GraphQL operations if needed
-- [ ] Run `npm run codegen` if GraphQL changed
-- [ ] Create component in `components/`
-- [ ] Create routes in both `app/(mobile)/` and `app/(tablet)/`
-- [ ] Add navigation function in `utils/navigation.ts`
-- [ ] Update `AdminSidebar.tsx` if admin feature
-- [ ] Use TanStack Query for data fetching
-- [ ] Follow existing code patterns and styling
-- [ ] Test on both mobile and tablet layouts
-- [ ] Verify TypeScript types with `npm run typecheck`
+- [ ] Add translations to both `locales/*.json` files
+- [ ] Run `npm run generate:i18n-types`
+- [ ] Update GraphQL operations if needed → `npm run codegen`
+- [ ] Create components using existing `components/ui/*`
+- [ ] Add route in appropriate `app/(platform)/` directory
+- [ ] Use `useAppContext()` for auth/user state
+- [ ] Apply theme colors via `useTheme()`
+- [ ] Test on iOS, Android, and Web
+- [ ] Run `npm run ts-check` before commit
+- [ ] Avoid directly editing `ios/` or `android/` folders
+
+## Cross-Component Communication
+
+**GraphQL subscriptions for real-time:**
+```typescript
+const { data } = useNewNotificationSubscription();
+```
+
+**Local event bus:**
+```typescript
+// events/ directory for custom events
+// Use pub-sub pattern for cross-component updates
+```
+
+**Shared state via context:**
+- `AppContext` for global state
+- `QueryProviders` wrapper for Apollo + TanStack Query setup
+
+## Common Patterns
+
+### Swipeable List Items
+
+```typescript
+// See components/swipeable/ for reusable patterns
+import { SwipeableItem } from '@/components/swipeable';
+```
+
+### Modal Patterns
+
+```typescript
+// Use ThemedBottomSheet for mobile
+import { ThemedBottomSheet } from '@/components/ui/ThemedBottomSheet';
+
+// Use Dialog for desktop/tablet
+import { Dialog } from 'react-native-paper';
+```
+
+### Form Handling
+
+```typescript
+// Controlled components with React state
+const [value, setValue] = useState('');
+
+// Use validation before mutation
+if (!isValid) {
+  showError(t('errors.invalidInput'));
+  return;
+}
+```
+````

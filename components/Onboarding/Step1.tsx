@@ -9,10 +9,12 @@ import {
   TextInput,
   useTheme,
 } from "react-native-paper";
+import { useI18n } from "@/hooks";
 import { useOnboarding } from "./OnboardingContext";
 
 const Step1 = memo(() => {
   const theme = useTheme();
+  const { t } = useI18n();
   const {
     customServerUrl,
     useCustomServer,
@@ -41,20 +43,19 @@ const Step1 = memo(() => {
       <View style={styles.stepContent}>
         <Icon source="server" size={64} color={theme.colors.primary} />
         <Text variant="headlineMedium" style={styles.stepTitle}>
-          Welcome to Zentik Notifier
+          {t("onboardingV2.step1.title")}
         </Text>
         <Text variant="bodyLarge" style={styles.stepDescription}>
-          A powerful notification management system that helps you organize and
-          control your notifications.
+          {t("onboardingV2.step1.description")}
         </Text>
 
         <View style={styles.section}>
           <Text variant="titleMedium" style={styles.sectionTitle}>
-            Server Configuration
+            {t("onboardingV2.step1.serverConfiguration")}
           </Text>
 
           <View style={styles.switchRow}>
-            <Text variant="bodyMedium">Use custom server</Text>
+            <Text variant="bodyMedium">{t("onboardingV2.step1.useCustomServer")}</Text>
             <Switch
               value={useCustomServer}
               onValueChange={handleUseCustomServerChange}
@@ -65,10 +66,10 @@ const Step1 = memo(() => {
             <View style={styles.customServerSection}>
               <TextInput
                 mode="outlined"
-                label="Custom Server URL"
+                label={t("onboardingV2.step1.customServerUrl")}
                 value={customServerUrl}
                 onChangeText={handleCustomServerUrlChange}
-                placeholder="https://your-server.com"
+                placeholder={t("onboardingV2.step1.customServerPlaceholder")}
                 style={styles.input}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -82,7 +83,7 @@ const Step1 = memo(() => {
                 icon="test-tube"
                 style={styles.testButton}
               >
-                Test Connection
+                {t("onboardingV2.step1.testConnection")}
               </Button>
 
               {testResult && (

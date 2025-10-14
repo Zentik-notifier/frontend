@@ -340,7 +340,7 @@ export default function Selector({
         ) : item?.iconName ? (
           <View style={{ marginRight: 8 }}>
             <Icon
-              source={item.iconName as any}
+              source={item.iconName}
               size={16}
               color={item.iconColor || theme.colors.onSurfaceVariant}
             />

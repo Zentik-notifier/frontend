@@ -1,7 +1,7 @@
 import { useAppContext } from '@/contexts/AppContext';
 import { i18nService } from '@/services/i18n';
-import { Locale } from '@/types/i18n';
 import React from 'react';
+import { Locale } from './useI18n';
 
 /**
  * Hook that synchronizes language settings between UserSettings and I18nService
