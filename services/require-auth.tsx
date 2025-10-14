@@ -33,6 +33,12 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // 1b) If terms are accepted and user is on terms page, redirect to home
+    if (!isInitializing && !needsTerms && isTerms) {
+      navigateToHome();
+      return;
+    }
+
     // 2) If not logged in, send to login (avoid loop when already in public routes)
     if (!isInitializing && !showPrivateRoutes) {
       if (isPrivate) {
