@@ -1,6 +1,6 @@
 async function withIndexedDB(successCallback, mode = 'readonly', storeName = 'keyvalue') {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('zentik-storage', 7);
+    const request = indexedDB.open('zentik-storage', 8);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
@@ -16,17 +16,49 @@ async function withIndexedDB(successCallback, mode = 'readonly', storeName = 'ke
 
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
+      const oldVersion = event.oldVersion;
+      const transaction = event.target.transaction;
+      
       if (!db.objectStoreNames.contains('keyvalue')) {
         db.createObjectStore('keyvalue');
       }
+      
+      // Notifications store with indices
       if (!db.objectStoreNames.contains('notifications')) {
-        db.createObjectStore('notifications');
+        const notificationsStore = db.createObjectStore('notifications');
+        notificationsStore.createIndex('created_at', 'created_at');
+        notificationsStore.createIndex('read_at', 'read_at');
+        notificationsStore.createIndex('bucket_id', 'bucket_id');
+      } else if (oldVersion < 7) {
+        const notificationsStore = transaction.objectStore('notifications');
+        if (!notificationsStore.indexNames.contains('created_at')) {
+          notificationsStore.createIndex('created_at', 'created_at');
+        }
+        if (!notificationsStore.indexNames.contains('read_at')) {
+          notificationsStore.createIndex('read_at', 'read_at');
+        }
+        if (!notificationsStore.indexNames.contains('bucket_id')) {
+          notificationsStore.createIndex('bucket_id', 'bucket_id');
+        }
       }
-      if (!db.objectStoreNames.contains('media_item')) {
-        db.createObjectStore('media_item');
+      
+      // Buckets store
+      if (!db.objectStoreNames.contains('buckets')) {
+        const bucketsStore = db.createObjectStore('buckets');
+        bucketsStore.createIndex('updated_at', 'updated_at');
+        bucketsStore.createIndex('synced_at', 'synced_at');
       }
+      
+      if (!db.objectStoreNames.contains('app_log')) {
+        db.createObjectStore('app_log', { keyPath: 'timestamp' });
+      }
+      
       if (!db.objectStoreNames.contains('cache_item')) {
         db.createObjectStore('cache_item');
+      }
+      
+      if (!db.objectStoreNames.contains('media_item')) {
+        db.createObjectStore('media_item');
       }
     };
   });
@@ -691,7 +723,7 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
           try {
             // First, update local IndexedDB (optimistic update)
             try {
-              const db = await indexedDB.open('zentik-storage', 7);
+              const db = await indexedDB.open('zentik-storage', 8);
               await new Promise((resolve, reject) => {
                 db.onsuccess = async () => {
                   const database = db.result;

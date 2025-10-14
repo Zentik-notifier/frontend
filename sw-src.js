@@ -56,7 +56,7 @@ console.log('[Service Worker] ✅ Font and CSS caching strategies registered');
 // Common IndexedDB helper function
 async function withIndexedDB(successCallback, mode = 'readonly', storeName = 'keyvalue') {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('zentik-storage', 7);
+    const request = indexedDB.open('zentik-storage', 8);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {

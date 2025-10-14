@@ -381,6 +381,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Auto-show onboarding for first-time users
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      // Wait for initialization to complete
+      if (isInitializing) return;
+      
+      // Only show onboarding if user is logged in
+      if (!userId) return;
+      
+      const onboardingSettings = userSettings.getOnboardingSettings();
+      
+      if (!onboardingSettings.hasCompletedOnboarding && onboardingSettings.showOnboardingV2) {
+        console.log("[AppContext] Auto-showing onboarding for first-time user");
+        setIsOnboardingOpen(true);
+      }
+    };
+    
+    checkOnboarding();
+  }, [isInitializing, userId, userSettings.settings.onboarding]);
+
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {

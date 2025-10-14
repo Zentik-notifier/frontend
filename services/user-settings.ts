@@ -114,7 +114,7 @@ export interface UserSettings {
   // Onboarding settings
   onboarding: {
     hasCompletedOnboarding: boolean;
-    showOnboarding: boolean;
+    showOnboardingV2: boolean;
   };
 
   // Terms acceptance settings
@@ -180,7 +180,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   },
   onboarding: {
     hasCompletedOnboarding: false,
-    showOnboarding: false,
+    showOnboardingV2: true, // Show onboarding by default for new users
   },
   termsAcceptance: {
     termsAccepted: false,
@@ -752,7 +752,7 @@ class UserSettingsService {
   async completeOnboarding(): Promise<void> {
     await this.updateOnboardingSettings({
       hasCompletedOnboarding: true,
-      showOnboarding: false,
+      showOnboardingV2: false,
     });
   }
 
@@ -761,7 +761,7 @@ class UserSettingsService {
    */
   async startOnboarding(): Promise<void> {
     await this.updateOnboardingSettings({
-      showOnboarding: true,
+      showOnboardingV2: true,
     });
   }
 
@@ -770,7 +770,7 @@ class UserSettingsService {
    */
   async skipOnboarding(): Promise<void> {
     await this.updateOnboardingSettings({
-      showOnboarding: false,
+      showOnboardingV2: false,
     });
   }
 
@@ -780,7 +780,7 @@ class UserSettingsService {
   async resetOnboarding(): Promise<void> {
     await this.updateOnboardingSettings({
       hasCompletedOnboarding: false,
-      showOnboarding: false,
+      showOnboardingV2: false,
     });
   }
 

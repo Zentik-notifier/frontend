@@ -3,6 +3,7 @@ import { Platform, StyleSheet, View } from "react-native";
 import { Button, Modal, Portal, Text, useTheme } from "react-native-paper";
 import { OnboardingProvider, useOnboarding } from "./OnboardingContext";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
+import { userSettings } from "@/services/user-settings";
 import Step1 from "./Step1";
 import Step2 from "./Step2";
 import Step3 from "./Step3";
@@ -74,10 +75,14 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
       setIsApplying(true);
       try {
         await applySettings();
+        // Mark onboarding as completed
+        await userSettings.completeOnboarding();
+        console.log("[Onboarding] Completed successfully");
         onClose();
       } catch (error) {
         console.error("[Onboarding] Error applying settings:", error);
-        // Still close even if there's an error
+        // Still close and mark as completed even if there's an error
+        await userSettings.completeOnboarding();
         onClose();
       } finally {
         setIsApplying(false);
@@ -150,15 +155,21 @@ const OnboardingModalV2Content: React.FC<OnboardingModalProps> = memo(
   ({ visible, onClose, push }) => {
     const theme = useTheme();
 
+    const handleSkip = useCallback(async () => {
+      console.log("[Onboarding] Skipped by user");
+      await userSettings.skipOnboarding();
+      onClose();
+    }, [onClose]);
+
     return (
-      <Modal visible={visible} onDismiss={onClose}>
+      <Modal visible={visible} onDismiss={handleSkip}>
         <View
           style={[
             styles.modalContent,
             { backgroundColor: theme.colors.background },
           ]}
         >
-          <ModalHeader onSkip={onClose} />
+          <ModalHeader onSkip={handleSkip} />
           <ProgressIndicator />
           <StepRenderer push={push} />
           <NavigationButtons onClose={onClose} />
