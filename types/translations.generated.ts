@@ -1919,6 +1919,24 @@ export interface Translation {
       missingFields: string;
       info: string;
     };
+    step6: {
+      title: string;
+      description: string;
+      apiConfiguration: string;
+      apiUrl: string;
+      accessToken: string;
+      bucketId: string;
+      curlExample: string;
+      copyCurl: string;
+      copied: string;
+      copyError: string;
+      congratulations: string;
+      completionMessage: string;
+      documentationTitle: string;
+      documentationDescription: string;
+      openDocumentation: string;
+      openDocError: string;
+    };
   };
 }
 

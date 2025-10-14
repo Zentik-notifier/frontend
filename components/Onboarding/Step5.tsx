@@ -1,6 +1,13 @@
 import React, { memo, useState, useCallback } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { Button, Card, Icon, Text, TextInput, useTheme } from "react-native-paper";
+import {
+  Button,
+  Card,
+  Icon,
+  Text,
+  TextInput,
+  useTheme,
+} from "react-native-paper";
 import { useOnboarding } from "./OnboardingContext";
 import { useI18n } from "@/hooks";
 import { ApiConfigService } from "@/services/api-config";
@@ -13,7 +20,10 @@ const Step5 = memo(() => {
   const [title, setTitle] = useState(t("onboardingV2.step5.defaultTitle"));
   const [body, setBody] = useState(t("onboardingV2.step5.defaultBody"));
   const [sending, setSending] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [result, setResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   const sendTestNotification = useCallback(async () => {
     if (!generatedToken || !bucketId) {
@@ -36,7 +46,8 @@ const Step5 = memo(() => {
     setResult(null);
 
     try {
-      const apiUrl = await ApiConfigService.getApiUrl();
+      const apiUrl = ApiConfigService.getApiBaseWithPrefix();
+      console.log(apiUrl, generatedToken);
       const response = await fetch(`${apiUrl}/messages`, {
         method: "POST",
         headers: {
@@ -64,7 +75,11 @@ const Step5 = memo(() => {
         });
       } else {
         const errorText = await response.text();
-        console.error("[Step5] Error sending test notification:", response.status, errorText);
+        console.error(
+          "[Step5] Error sending test notification:",
+          response.status,
+          errorText
+        );
         setResult({
           success: false,
           message: t("onboardingV2.step5.sendError"),
@@ -142,7 +157,9 @@ const Step5 = memo(() => {
                   <Icon
                     source={result.success ? "check-circle" : "alert-circle"}
                     size={24}
-                    color={result.success ? theme.colors.primary : theme.colors.error}
+                    color={
+                      result.success ? theme.colors.primary : theme.colors.error
+                    }
                   />
                   <Text variant="bodyMedium" style={styles.resultText}>
                     {result.message}

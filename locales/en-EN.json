@@ -1906,6 +1906,24 @@
       "missingTokenOrBucket": "❌ Token or bucket missing. Go back to Step 4 to generate the token.",
       "missingFields": "❌ Fill in all fields before sending.",
       "info": "You should receive a notification shortly. If you don't, check your device notification settings."
+    },
+    "step6": {
+      "title": "All Set!",
+      "description": "Setup is complete. Here's the information you need to integrate Zentik into your application.",
+      "apiConfiguration": "API Configuration",
+      "apiUrl": "API URL",
+      "accessToken": "Access Token",
+      "bucketId": "Bucket ID",
+      "curlExample": "cURL Example",
+      "copyCurl": "Copy cURL",
+      "copied": "{{item}} copied to clipboard!",
+      "copyError": "Error copying to clipboard",
+      "congratulations": "Congratulations! 🎉",
+      "completionMessage": "You've successfully completed the Zentik Notifier setup. You can now start receiving notifications from your applications!",
+      "documentationTitle": "Complete Documentation",
+      "documentationDescription": "Discover all advanced features, integration examples and best practices.",
+      "openDocumentation": "Open Documentation",
+      "openDocError": "Error opening documentation"
     }
   }
 }
