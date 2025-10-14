@@ -111,18 +111,18 @@ const Step2 = memo(() => {
       <View style={styles.stepContent}>
         <Icon source="palette" size={64} color={theme.colors.primary} />
         <Text variant="headlineMedium" style={styles.stepTitle}>
-          {t("onboardingV2.step2.title" as any)}
+          {t("onboardingV2.step2.title")}
         </Text>
         <Text variant="bodyLarge" style={styles.stepDescription}>
-          {t("onboardingV2.step2.description" as any)}
+          {t("onboardingV2.step2.description")}
         </Text>
 
         {/* Language Section */}
         <View style={styles.section}>
           <Selector
             mode="inline"
-            label={t("onboardingV2.step2.language" as any)}
-            placeholder={t("common.selectOption" as any)}
+            label={t("onboardingV2.step2.language")}
+            placeholder={t("common.selectOption")}
             options={languageOptions}
             selectedValue={selectedLanguage}
             onValueChange={handleLanguageSelect}
@@ -133,11 +133,11 @@ const Step2 = memo(() => {
         <View style={styles.section}>
           <Selector
             mode="inline"
-            label={t("onboardingV2.step2.themePreset" as any)}
-            placeholder={t("common.selectOption" as any)}
+            label={t("onboardingV2.step2.themePreset")}
+            placeholder={t("common.selectOption")}
             options={themePresets.map((preset) => ({
               id: preset.id,
-              name: t(`appSettings.theme.presets.${preset.id}` as any),
+              name: t(`appSettings.theme.presets.${preset.id}`),
               iconName: preset.icon,
             }))}
             selectedValue={selectedThemePreset}
@@ -149,11 +149,11 @@ const Step2 = memo(() => {
         <View style={styles.section}>
           <Selector
             mode="inline"
-            label={t("onboardingV2.step2.dateFormat" as any)}
-            placeholder={t("common.selectOption" as any)}
+            label={t("onboardingV2.step2.dateFormat")}
+            placeholder={t("common.selectOption")}
             options={dateFormatOptions.map((format) => ({
               id: format.id,
-              name: `${t(`appSettings.dateFormat.styles.${format.id}.name` as any)} (${format.example})`,
+              name: `${t(`appSettings.dateFormat.styles.${format.id}.name`)} (${format.example})`,
               iconName: "calendar",
             }))}
             selectedValue={selectedDateFormat}
@@ -165,8 +165,8 @@ const Step2 = memo(() => {
         <View style={styles.section}>
           <Selector
             mode="inline"
-            label={t("onboardingV2.step2.timezone" as any)}
-            placeholder={t("common.selectOption" as any)}
+            label={t("onboardingV2.step2.timezone")}
+            placeholder={t("common.selectOption")}
             options={timezoneOptions}
             selectedValue={selectedTimezone}
             onValueChange={handleTimezoneSelect}
@@ -178,23 +178,23 @@ const Step2 = memo(() => {
         <View style={styles.section}>
           <Selector
             mode="inline"
-            label={t("onboardingV2.step2.markAsReadMode" as any)}
-            placeholder={t("common.selectOption" as any)}
-            helperText={t("onboardingV2.step2.markAsReadModeDescription" as any)}
+            label={t("onboardingV2.step2.markAsReadMode")}
+            placeholder={t("common.selectOption")}
+            helperText={t("onboardingV2.step2.markAsReadModeDescription")}
             options={[
               {
                 id: "on-tap",
-                name: t("onboardingV2.step2.markAsReadModes.onTap" as any),
+                name: t("onboardingV2.step2.markAsReadModes.onTap"),
                 iconName: "hand-pointing-right",
               },
               {
                 id: "on-view",
-                name: t("onboardingV2.step2.markAsReadModes.onView" as any),
+                name: t("onboardingV2.step2.markAsReadModes.onView"),
                 iconName: "eye",
               },
               {
                 id: "on-app-close",
-                name: t("onboardingV2.step2.markAsReadModes.onAppClose" as any),
+                name: t("onboardingV2.step2.markAsReadModes.onAppClose"),
                 iconName: "exit-to-app",
               },
             ]}
@@ -207,7 +207,7 @@ const Step2 = memo(() => {
         <View style={styles.disclaimer}>
           <Icon source="information-outline" size={20} color={theme.colors.onSurfaceVariant} />
           <Text variant="bodySmall" style={[styles.disclaimerText, { color: theme.colors.onSurfaceVariant }]}>
-            {t("onboardingV2.step2.disclaimer" as any)}
+            {t("onboardingV2.step2.disclaimer")}
           </Text>
         </View>
       </View>

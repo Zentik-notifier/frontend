@@ -1819,6 +1819,22 @@ export interface Translation {
       serverNotResponding: string;
       connectionFailed: string;
     };
+    step2: {
+      title: string;
+      description: string;
+      language: string;
+      themePreset: string;
+      dateFormat: string;
+      timezone: string;
+      markAsReadMode: string;
+      markAsReadModeDescription: string;
+      markAsReadModes: {
+        onTap: string;
+        onView: string;
+        onAppClose: string;
+      };
+      disclaimer: string;
+    };
   };
 }
 
