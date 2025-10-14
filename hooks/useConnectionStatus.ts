@@ -4,6 +4,7 @@ import * as Updates from 'expo-updates';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UsePushNotifications } from './usePushNotifications';
 import { Platform } from 'react-native';
+import { userSettings } from '@/services/user-settings';
 
 
 interface ConnectionStatus {
@@ -181,7 +182,6 @@ export function useConnectionStatus(push: UsePushNotifications) {
   // Update canAutoDownload based on WiFi state and user settings
   useEffect(() => {
     const updateAutoDownloadStatus = async () => {
-      const { userSettings } = await import('../services/user-settings');
       const downloadSettings = userSettings.getMediaCacheDownloadSettings();
 
       if (!downloadSettings.autoDownloadEnabled) {

@@ -194,19 +194,14 @@ export const CachedMedia = React.memo(function CachedMedia({
     [audioPlayer, audioState.duration]
   );
 
+  const canDownload =
+    mediaType === MediaType.Icon || (!noAutoDownload && autoDownloadEnabled);
+
   useEffect(() => {
-    if (
-      !noAutoDownload &&
-      autoDownloadEnabled &&
-      !mediaSource?.localPath &&
-      !mediaSource?.isUserDeleted &&
-      !mediaSource?.isDownloading &&
-      !mediaSource?.isPermanentFailure
-    ) {
-      // console.log("downloadMedia", mediaSource);
+    if (canDownload) {
       mediaCache.downloadMedia({ url, mediaType, notificationDate });
     }
-  }, [mediaSource, notificationDate]);
+  }, [mediaSource, notificationDate, canDownload]);
 
   useEffect(() => {
     if (
