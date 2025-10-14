@@ -1797,7 +1797,7 @@
   "onboardingV2": {
     "step1": {
       "title": "Benvenuto in Zentik Notifier",
-      "description": "Un potente sistema di gestione notifiche che ti aiuta ad organizzare e controllare le tue notifiche.",
+      "description": "Un potente sistema di gestione notifiche che ti aiuta ad organizzare e controllare le tue notifiche.\n\nPuoi connetterti al tuo server personale self-hosted attivando la checkbox qui sotto e inserendo l'URL del tuo server.",
       "serverConfiguration": "Configurazione Server",
       "useCustomServer": "Usa server personalizzato",
       "customServerUrl": "URL Server Personalizzato",
@@ -1807,6 +1807,22 @@
       "connectionSuccessful": "Connessione al server riuscita!",
       "serverNotResponding": "Il server non risponde",
       "connectionFailed": "Connessione fallita. Controlla l'URL"
+    },
+    "step2": {
+      "title": "Personalizza la Tua Esperienza",
+      "description": "Configura l'aspetto e il comportamento dell'app secondo le tue preferenze.",
+      "language": "Lingua",
+      "themePreset": "Tema",
+      "dateFormat": "Formato Data",
+      "timezone": "Fuso Orario",
+      "markAsReadMode": "Modalità Segna come Letto",
+      "markAsReadModeDescription": "Seleziona quando le notifiche devono essere marcate come lette.",
+      "markAsReadModes": {
+        "onTap": "Manuale",
+        "onView": "Alla Visualizzazione",
+        "onAppClose": "Alla Chiusura App"
+      },
+      "disclaimer": "Tutte queste impostazioni potranno essere modificate in qualsiasi momento nella sezione Impostazioni App."
     }
   }
 }

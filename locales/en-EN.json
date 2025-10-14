@@ -1796,7 +1796,7 @@
   "onboardingV2": {
     "step1": {
       "title": "Welcome to Zentik Notifier",
-      "description": "A powerful notification management system that helps you organize and control your notifications.",
+      "description": "A powerful notification management system that helps you organize and control your notifications.\n\nYou can connect to your personal self-hosted server by enabling the checkbox below and entering your server URL.",
       "serverConfiguration": "Server Configuration",
       "useCustomServer": "Use custom server",
       "customServerUrl": "Custom Server URL",
@@ -1806,6 +1806,22 @@
       "connectionSuccessful": "Server connection successful!",
       "serverNotResponding": "Server not responding",
       "connectionFailed": "Connection failed. Please check the URL"
+    },
+    "step2": {
+      "title": "Personalize Your Experience",
+      "description": "Customize the app appearance and behavior to your preferences.",
+      "language": "Language",
+      "themePreset": "Theme",
+      "dateFormat": "Date Format",
+      "timezone": "Timezone",
+      "markAsReadMode": "Mark as Read Mode",
+      "markAsReadModeDescription": "Select when notifications should be marked as read.",
+      "markAsReadModes": {
+        "onTap": "Manual",
+        "onView": "On View",
+        "onAppClose": "On App Close"
+      },
+      "disclaimer": "All these settings can be changed at any time in the App Settings section."
     }
   }
 }

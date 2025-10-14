@@ -1,5 +1,8 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
 import { i18nService } from "@/services/i18n";
+import { DateFormatStyle, MarkAsReadMode } from "@/services/user-settings";
+import { ThemePreset } from "@/services/theme-presets";
+import { Locale } from "@/hooks/useI18n";
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -21,12 +24,16 @@ interface OnboardingContextType {
   testServerConnection: () => Promise<void>;
   
   // Step 2: UI Preferences
-  selectedLanguage: "en" | "it";
-  selectedTheme: "light" | "dark" | "auto";
-  selectedMarkAsReadMode: "manual" | "onOpen" | "onClose";
-  setSelectedLanguage: (lang: "en" | "it") => void;
-  setSelectedTheme: (theme: "light" | "dark" | "auto") => void;
-  setSelectedMarkAsReadMode: (mode: "manual" | "onOpen" | "onClose") => void;
+  selectedLanguage: Locale;
+  selectedThemePreset: ThemePreset;
+  selectedDateFormat: DateFormatStyle;
+  selectedTimezone: string;
+  selectedMarkAsReadMode: MarkAsReadMode;
+  setSelectedLanguage: (lang: Locale) => void;
+  setSelectedThemePreset: (preset: ThemePreset) => void;
+  setSelectedDateFormat: (format: DateFormatStyle) => void;
+  setSelectedTimezone: (timezone: string) => void;
+  setSelectedMarkAsReadMode: (mode: MarkAsReadMode) => void;
   
   // Step 3: Data Retention
   selectedRetentionLevel: "minimal" | "balanced" | "maximum";
@@ -78,10 +85,12 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     message: string;
   } | null>(null);
   
-  // Step 2: UI Preferences
-  const [selectedLanguage, setSelectedLanguage] = useState<"en" | "it">("en");
-  const [selectedTheme, setSelectedTheme] = useState<"light" | "dark" | "auto">("auto");
-  const [selectedMarkAsReadMode, setSelectedMarkAsReadMode] = useState<"manual" | "onOpen" | "onClose">("manual");
+  // Step 2: UI Preferences - Just local state, no persistence here
+  const [selectedLanguage, setSelectedLanguage] = useState<Locale>("en-EN");
+  const [selectedThemePreset, setSelectedThemePreset] = useState<ThemePreset>(ThemePreset.Material3);
+  const [selectedDateFormat, setSelectedDateFormat] = useState<DateFormatStyle>("medium");
+  const [selectedTimezone, setSelectedTimezone] = useState<string>("UTC");
+  const [selectedMarkAsReadMode, setSelectedMarkAsReadMode] = useState<MarkAsReadMode>("on-view");
   
   // Step 3: Data Retention
   const [selectedRetentionLevel, setSelectedRetentionLevel] = useState<"minimal" | "balanced" | "maximum">("balanced");
@@ -166,10 +175,14 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     setTestResult,
     testServerConnection,
     selectedLanguage,
-    selectedTheme,
+    selectedThemePreset,
+    selectedDateFormat,
+    selectedTimezone,
     selectedMarkAsReadMode,
     setSelectedLanguage,
-    setSelectedTheme,
+    setSelectedThemePreset,
+    setSelectedDateFormat,
+    setSelectedTimezone,
     setSelectedMarkAsReadMode,
     selectedRetentionLevel,
     autoDownloadImages,
