@@ -1,7 +1,17 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Platform } from 'react-native';
-import { BehaviorSubject } from "rxjs";
+import { BehaviorSubject, Subject, merge, Observable } from "rxjs";
+import {
+    concatMap,
+    tap,
+    catchError,
+    filter,
+    map,
+    scan,
+    shareReplay,
+    distinctUntilChanged
+} from "rxjs/operators";
 import { MediaType, NotificationFragment } from '../generated/gql-operations-generated';
 import { Directory, File } from '../utils/filesystem-wrapper';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
@@ -56,11 +66,21 @@ export interface DownloadQueueItem {
     notificationDate?: number;
     timestamp: number;
     op: QueueOperation;
+    priority?: number;
 }
 
 export interface DownloadQueueState {
     queue: DownloadQueueItem[];
     isProcessing: boolean;
+    currentItem?: DownloadQueueItem;
+    completedCount: number;
+    failedCount: number;
+}
+
+interface QueueAction {
+    type: 'ADD' | 'REMOVE' | 'START' | 'COMPLETE' | 'FAIL' | 'CLEAR';
+    item?: DownloadQueueItem;
+    key?: string;
 }
 
 class MediaCacheService {
@@ -70,22 +90,164 @@ class MediaCacheService {
     private initializing = false;
     public metadata$ = new BehaviorSubject<CacheMetadata>(this.metadata);
 
-    // Download queue management
-    private downloadQueue: DownloadQueueItem[] = [];
-    private isProcessingQueue = false;
-    public downloadQueue$ = new BehaviorSubject<DownloadQueueState>({
+    // Modern reactive queue management with RxJS
+    private queueAction$ = new Subject<QueueAction>();
+    private queueItem$ = new Subject<DownloadQueueItem>();
+    
+    // Track current queue state for synchronous access
+    private currentQueueState: DownloadQueueState = {
         queue: [],
         isProcessing: false,
-    });
+        completedCount: 0,
+        failedCount: 0
+    };
+
+    public downloadQueue$: Observable<DownloadQueueState>;
 
     constructor() {
-        // this.initialize();
+        this.downloadQueue$ = this.setupQueueObservable();
     }
 
-    private updateQueueState(): void {
-        this.downloadQueue$.next({
-            queue: [...this.downloadQueue],
-            isProcessing: this.isProcessingQueue,
+    /**
+     * Setup reactive queue processing using RxJS operators
+     * This creates a clean, declarative flow for queue management
+     */
+    private setupQueueObservable(): Observable<DownloadQueueState> {
+        // State reducer for queue actions
+        const queueStateReducer$ = this.queueAction$.pipe(
+            scan((state: DownloadQueueState, action: QueueAction): DownloadQueueState => {
+                let newState: DownloadQueueState;
+                
+                switch (action.type) {
+                    case 'ADD':
+                        if (!action.item) return state;
+                        const exists = state.queue.some(i => i.key === action.item!.key);
+                        if (exists) return state;
+
+                        // Insert sorted by priority (higher first) then timestamp
+                        const newQueue = [...state.queue, action.item].sort((a, b) => {
+                            const priorityDiff = (b.priority || 0) - (a.priority || 0);
+                            return priorityDiff !== 0 ? priorityDiff : a.timestamp - b.timestamp;
+                        });
+
+                        newState = { ...state, queue: newQueue };
+                        break;
+
+                    case 'REMOVE':
+                        if (!action.key) return state;
+                        newState = {
+                            ...state,
+                            queue: state.queue.filter(i => i.key !== action.key)
+                        };
+                        break;
+
+                    case 'START':
+                        if (!action.item) return state;
+                        newState = {
+                            ...state,
+                            isProcessing: true,
+                            currentItem: action.item
+                        };
+                        break;
+
+                    case 'COMPLETE':
+                        newState = {
+                            ...state,
+                            isProcessing: false,
+                            currentItem: undefined,
+                            completedCount: state.completedCount + 1
+                        };
+                        break;
+
+                    case 'FAIL':
+                        newState = {
+                            ...state,
+                            isProcessing: false,
+                            currentItem: undefined,
+                            failedCount: state.failedCount + 1
+                        };
+                        break;
+
+                    case 'CLEAR':
+                        newState = {
+                            queue: [],
+                            isProcessing: false,
+                            currentItem: undefined,
+                            completedCount: 0,
+                            failedCount: 0
+                        };
+                        break;
+
+                    default:
+                        newState = state;
+                }
+                
+                // Update internal state for synchronous access
+                this.currentQueueState = newState;
+                return newState;
+            }, {
+                queue: [],
+                isProcessing: false,
+                completedCount: 0,
+                failedCount: 0
+            }),
+            shareReplay(1)
+        );
+
+        // Process queue items sequentially using concatMap
+        this.queueItem$.pipe(
+            tap(item => {
+                console.log('[MediaCache] Processing queue item:', item.op, item.url);
+                this.queueAction$.next({ type: 'START', item });
+            }),
+            concatMap(item =>
+                this.processQueueItem(item).pipe(
+                    tap(() => {
+                        this.queueAction$.next({ type: 'COMPLETE' });
+                    }),
+                    catchError(error => {
+                        console.error('[MediaCache] Queue item failed:', item.op, error);
+                        this.queueAction$.next({ type: 'FAIL' });
+                        return [];
+                    })
+                )
+            )
+        ).subscribe();
+
+        // Emit items to processing stream when queue has items and not processing
+        queueStateReducer$.pipe(
+            filter(state => state.queue.length > 0 && !state.isProcessing),
+            map(state => state.queue[0]),
+            tap(item => {
+                console.log('[MediaCache] Triggering processing for:', item.op, item.url);
+                this.queueAction$.next({ type: 'REMOVE', key: item.key });
+                this.queueItem$.next(item);
+            })
+        ).subscribe();
+
+        return queueStateReducer$;
+    }
+
+    /**
+     * Process a single queue item and return an observable
+     */
+    private processQueueItem(item: DownloadQueueItem): Observable<void> {
+        return new Observable<void>(observer => {
+            const processAsync = async () => {
+                try {
+                    if (item.op === 'download') {
+                        await this.performDownload(item);
+                    } else if (item.op === 'thumbnail') {
+                        await this.performThumbnail(item);
+                    }
+                    observer.next();
+                    observer.complete();
+                } catch (error) {
+                    observer.error(error);
+                }
+            };
+
+            processAsync();
         });
     }
 
@@ -93,59 +255,30 @@ class MediaCacheService {
         return `${this.generateCacheKey(url, mediaType)}::${op}`;
     }
 
-    private async addToQueue(item: Omit<DownloadQueueItem, 'timestamp' | 'key'>) {
+    /**
+     * Add item to queue using reactive approach
+     */
+    private async addToQueue(item: Omit<DownloadQueueItem, 'timestamp' | 'key'> & { priority?: number }) {
         const key = this.buildQueueKey(item.url, item.mediaType, item.op);
-        if (this.isInQueue(item.url, item.mediaType, item.op)) {
-            return;
-        }
-        console.log('[MediaCache] Adding item to queue:', item.op, item.url);
-        this.downloadQueue.push({ ...item, key, timestamp: Date.now() });
+
+        console.log('[MediaCache] Adding item to queue:', item.op, item.url, item.priority ? `priority: ${item.priority}` : '');
+
+        const queueItem: DownloadQueueItem = {
+            ...item,
+            key,
+            timestamp: Date.now(),
+            priority: item.priority || 0
+        };
+
         const cacheKey = this.generateCacheKey(item.url, item.mediaType);
+
         if (item.op === 'download') {
             await this.upsertItem(cacheKey, { isDownloading: true, timestamp: Date.now() });
         } else if (item.op === 'thumbnail') {
             await this.upsertItem(cacheKey, { generatingThumbnail: true, timestamp: Date.now() });
         }
 
-        this.updateQueueState();
-        this.processQueue();
-    }
-
-    private async processQueue(): Promise<void> {
-        if (this.isProcessingQueue || this.downloadQueue.length === 0) {
-            return;
-        }
-
-        this.isProcessingQueue = true;
-        this.updateQueueState();
-
-        await this.processNextItem();
-    }
-
-    private async processNextItem(): Promise<void> {
-        if (this.downloadQueue.length === 0) {
-            this.isProcessingQueue = false;
-            this.updateQueueState();
-            return;
-        }
-
-        const item = this.downloadQueue.shift()!;
-        this.updateQueueState();
-
-        try {
-            if (item.op === 'download') {
-                await this.performDownload(item);
-            } else if (item.op === 'thumbnail') {
-                await this.performThumbnail(item);
-            }
-        } catch (error) {
-            console.error('[MediaCache] Queue task failed:', item.op, error);
-        }
-
-        // Use setTimeout to yield control back to the event loop before processing next item
-        setTimeout(() => {
-            this.processNextItem();
-        }, 0);
+        this.queueAction$.next({ type: 'ADD', item: queueItem });
     }
 
     private async performDownload(item: DownloadQueueItem) {
@@ -309,11 +442,44 @@ class MediaCacheService {
                 // Ensure repository is initialized before using it
                 items = await this.repo.listCacheItems();
             }
+            
+            // Get current queue state to preserve active operations
+            const activeDownloadKeys = new Set<string>();
+            const activeThumbnailKeys = new Set<string>();
+            
+            // Check current queue for items being processed
+            this.currentQueueState.queue.forEach((queueItem: DownloadQueueItem) => {
+                const key = this.generateCacheKey(queueItem.url, queueItem.mediaType);
+                if (queueItem.op === 'download') {
+                    activeDownloadKeys.add(key);
+                } else if (queueItem.op === 'thumbnail') {
+                    activeThumbnailKeys.add(key);
+                }
+            });
+            
+            // Also check if there's a current item being processed
+            if (this.currentQueueState.currentItem) {
+                const currentKey = this.generateCacheKey(
+                    this.currentQueueState.currentItem.url, 
+                    this.currentQueueState.currentItem.mediaType
+                );
+                if (this.currentQueueState.currentItem.op === 'download') {
+                    activeDownloadKeys.add(currentKey);
+                } else if (this.currentQueueState.currentItem.op === 'thumbnail') {
+                    activeThumbnailKeys.add(currentKey);
+                }
+            }
+            
+            // Save current metadata to preserve items added to queue but not yet in DB
+            const currentMetadata = { ...this.metadata };
+            
             this.metadata = {};
             const pendingDownloads: CacheItem[] = [];
             const pendingThumbnails: CacheItem[] = [];
             for (const item of items) {
                 const key = this.generateCacheKey(item.url, item.mediaType);
+                
+                // Check if this item was marked as downloading/generating in DB
                 if (item.isDownloading) {
                     pendingDownloads.push(item);
                     pendingThumbnails.push(item);
@@ -321,19 +487,53 @@ class MediaCacheService {
                 if (item.generatingThumbnail) {
                     pendingThumbnails.push(item);
                 }
+                
+                // Preserve active operation states from current queue
+                const isActivelyDownloading = activeDownloadKeys.has(key);
+                const isActivelyGeneratingThumbnail = activeThumbnailKeys.has(key);
+                
+                // Merge with current metadata if it exists (for items in queue but not yet in DB)
+                const currentItem = currentMetadata[key];
+                
                 this.metadata[key] = {
                     ...item,
-                    isDownloading: false,
-                    generatingThumbnail: false,
+                    ...currentItem, // Preserve current metadata (e.g., from items added to queue)
+                    isDownloading: isActivelyDownloading, // Preserve if in active download queue
+                    generatingThumbnail: isActivelyGeneratingThumbnail, // Preserve if in active thumbnail queue
                     isPermanentFailure: item.isPermanentFailure ?? false,
                 };
             }
+            
+            // Also preserve items that are in current metadata but not in DB (newly added to queue)
+            for (const key in currentMetadata) {
+                if (!this.metadata[key]) {
+                    const currentItem = currentMetadata[key];
+                    const isActivelyDownloading = activeDownloadKeys.has(key);
+                    const isActivelyGeneratingThumbnail = activeThumbnailKeys.has(key);
+                    
+                    console.log('[MediaCache] Preserving queued item not yet in DB:', currentItem.url);
+                    this.metadata[key] = {
+                        ...currentItem,
+                        isDownloading: isActivelyDownloading,
+                        generatingThumbnail: isActivelyGeneratingThumbnail,
+                    };
+                }
+            }
 
+            // Only restart downloads/thumbnails that were marked in DB but are NOT already in the active queue
             for (const item of pendingDownloads) {
-                await this.downloadMedia({ url: item.url, mediaType: item.mediaType, notificationDate: item.notificationDate });
+                const key = this.generateCacheKey(item.url, item.mediaType);
+                if (!activeDownloadKeys.has(key)) {
+                    console.log('[MediaCache] Restarting interrupted download:', item.url);
+                    await this.downloadMedia({ url: item.url, mediaType: item.mediaType, notificationDate: item.notificationDate });
+                }
             }
             for (const item of pendingThumbnails) {
-                await this.generateThumbnail({ url: item.url, mediaType: item.mediaType });
+                const key = this.generateCacheKey(item.url, item.mediaType);
+                if (!activeThumbnailKeys.has(key)) {
+                    console.log('[MediaCache] Restarting interrupted thumbnail:', item.url);
+                    await this.generateThumbnail({ url: item.url, mediaType: item.mediaType });
+                }
             }
             this.emitMetadata();
         } catch (error) {
@@ -418,9 +618,10 @@ class MediaCacheService {
             mediaType: MediaType,
             force?: boolean,
             notificationDate?: number,
+            priority?: number,
         },
     ): Promise<void> {
-        const { url, mediaType, force, notificationDate } = props;
+        const { url, mediaType, force, notificationDate, priority = 0 } = props;
         await this.initialize();
 
         if (!url || !mediaType || !this.repo) return;
@@ -432,7 +633,7 @@ class MediaCacheService {
             cachedItem = await this.repo.getCacheItem(key) ?? undefined;
         }
 
-        if (cachedItem && (cachedItem.localPath || cachedItem.isUserDeleted || cachedItem.isPermanentFailure) && !force) {
+        if (cachedItem && (cachedItem.isDownloading || cachedItem.localPath || cachedItem.isUserDeleted || cachedItem.isPermanentFailure) && !force) {
             return;
         }
 
@@ -477,12 +678,13 @@ class MediaCacheService {
             timestamp: Date.now(),
         });
 
-        this.addToQueue({
+        await this.addToQueue({
             url,
             mediaType,
             op: 'download',
             notificationDate,
-            force
+            force,
+            priority
         });
     }
 
@@ -638,34 +840,50 @@ class MediaCacheService {
         await this.downloadMedia({ url, mediaType, force: true, notificationDate });
     }
 
-    // Queue management methods
-    getDownloadQueueState(): DownloadQueueState {
-        return this.downloadQueue$.value;
+    // Queue management methods - Modern reactive approach
+
+    /**
+     * Get current queue state as a snapshot
+     * Note: For reactive subscriptions, subscribe directly to downloadQueue$
+     */
+    async getDownloadQueueState(): Promise<DownloadQueueState> {
+        return new Promise((resolve) => {
+            let subscription: any;
+            subscription = this.downloadQueue$.subscribe(state => {
+                resolve(state);
+                if (subscription) {
+                    subscription.unsubscribe();
+                }
+            });
+        });
     }
 
+    /**
+     * Clear the entire download queue
+     */
     clearDownloadQueue(): void {
-        this.downloadQueue = [];
-        this.updateQueueState();
+        console.log('[MediaCache] Clearing download queue');
+        this.queueAction$.next({ type: 'CLEAR' });
     }
 
-    removeFromQueue(url: string, mediaType: MediaType): boolean {
+    /**
+     * Remove specific item from queue by URL and media type
+     */
+    removeFromQueue(url: string, mediaType: MediaType): void {
         const keyBase = this.generateCacheKey(url, mediaType);
-        const index = this.downloadQueue.findIndex(
-            item => item.key.startsWith(`${keyBase}::`)
-        );
-
-        if (index !== -1) {
-            this.downloadQueue.splice(index, 1);
-            this.updateQueueState();
-            return true;
-        }
-
-        return false;
+        // Remove both download and thumbnail operations for this item
+        this.queueAction$.next({ type: 'REMOVE', key: `${keyBase}::download` });
+        this.queueAction$.next({ type: 'REMOVE', key: `${keyBase}::thumbnail` });
+        console.log('[MediaCache] Removed from queue:', url);
     }
 
-    isInQueue(url: string, mediaType: MediaType, op: QueueOperation = 'download'): boolean {
+    /**
+     * Check if item is currently in queue
+     */
+    async isInQueue(url: string, mediaType: MediaType, op: QueueOperation = 'download'): Promise<boolean> {
         const key = this.buildQueueKey(url, mediaType, op);
-        return this.downloadQueue.some(item => item.key === key);
+        const state = await this.getDownloadQueueState();
+        return state.queue.some((item: DownloadQueueItem) => item.key === key);
     }
 
     private getFileExtension(url: string, mediaType: MediaType): string {
@@ -915,7 +1133,7 @@ class MediaCacheService {
         };
     }
 
-    async tryAutoDownload(notification: NotificationFragment): Promise<void> {
+    async tryAutoDownload(notification: NotificationFragment, priority: number = 0): Promise<void> {
         const attachments = notification.message?.attachments || [];
         if (attachments.length === 0) return;
 
@@ -927,8 +1145,93 @@ class MediaCacheService {
                 url: attachment.url,
                 mediaType: attachment.mediaType,
                 notificationDate: new Date(notification.createdAt).getTime(),
+                priority,
             });
         }
+    }
+
+    /**
+     * Get observable stream of queue progress
+     * Emits percentage completion (0-100)
+     */
+    getQueueProgress$(): Observable<number> {
+        return this.downloadQueue$.pipe(
+            map(state => {
+                const total = state.completedCount + state.failedCount + state.queue.length + (state.currentItem ? 1 : 0);
+                if (total === 0) return 100;
+                return Math.round(((state.completedCount + state.failedCount) / total) * 100);
+            }),
+            distinctUntilChanged()
+        );
+    }
+
+    /**
+     * Get observable stream of cache items for a specific media type
+     */
+    getCacheItemsByType$(mediaType: MediaType): Observable<CacheItem[]> {
+        return this.metadata$.pipe(
+            map(metadata =>
+                Object.values(metadata).filter(item =>
+                    item.mediaType === mediaType && !item.isUserDeleted
+                )
+            ),
+            distinctUntilChanged((prev, curr) =>
+                JSON.stringify(prev) === JSON.stringify(curr)
+            )
+        );
+    }
+
+    /**
+     * Get observable stream of total cache size
+     */
+    getCacheSize$(): Observable<number> {
+        return this.metadata$.pipe(
+            map(metadata =>
+                Object.values(metadata)
+                    .filter(item => !item.isUserDeleted)
+                    .reduce((sum, item) => sum + (item.size || 0), 0)
+            ),
+            distinctUntilChanged()
+        );
+    }
+
+    /**
+     * Watch specific cache item for changes
+     */
+    watchCacheItem$(url: string, mediaType: MediaType): Observable<CacheItem | undefined> {
+        const key = this.generateCacheKey(url, mediaType);
+        return this.metadata$.pipe(
+            map(metadata => metadata[key]),
+            distinctUntilChanged((prev, curr) =>
+                JSON.stringify(prev) === JSON.stringify(curr)
+            )
+        );
+    }
+
+    /**
+     * Batch download with priority
+     */
+    async batchDownload(
+        items: Array<{ url: string; mediaType: MediaType; notificationDate?: number }>,
+        priority: number = 0
+    ): Promise<void> {
+        await this.initialize();
+
+        for (const item of items) {
+            await this.downloadMedia({
+                ...item,
+                priority,
+            });
+        }
+    }
+
+    /**
+     * Cleanup and destroy observables
+     */
+    destroy(): void {
+        this.queueAction$.complete();
+        this.queueItem$.complete();
+        this.metadata$.complete();
     }
 }
 

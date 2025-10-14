@@ -83,7 +83,6 @@ export default function GallerySection() {
                   }}
                   imageProps={{ cachePolicy: "none" }}
                   audioProps={{ showControls: true }}
-                  noAutoDownload
                   showMediaIndicator
                   isCompact
                   onPress={() => {

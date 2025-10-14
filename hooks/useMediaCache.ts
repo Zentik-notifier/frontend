@@ -3,34 +3,98 @@ import { Subscription } from 'rxjs';
 import { MediaType } from '../generated/gql-operations-generated';
 import { CacheItem, CacheStats, DownloadQueueState, mediaCache } from '../services/media-cache-service';
 import { Platform } from 'react-native';
+import { useAppContext } from '@/contexts/AppContext';
 
 const isWeb = Platform.OS === 'web';
 
-export const useCachedItem = (url: string, mediaType: MediaType) => {
-  const [key] = useState(mediaCache.generateCacheKey(url, mediaType));
+/**
+ * Hook reattivo per un singolo item della cache
+ * Usa il nuovo watchCacheItem$ observable per aggiornamenti efficienti
+ * Gestisce automaticamente il download se richiesto
+ */
+export const useCachedItem = (url: string, mediaType: MediaType, options?: {
+  priority?: number;
+  notificationDate?: number;
+  force?: boolean;
+}) => {
+  const {
+    priority = 5,
+    notificationDate,
+    force = false
+  } = options || {};
+  const {
+    userSettings: {
+      settings: {
+        mediaCache: {
+          downloadSettings: { autoDownloadEnabled },
+        },
+      },
+    },
+  } = useAppContext();
+  const shouldAutoDownload =
+    mediaType === MediaType.Icon || (autoDownloadEnabled);
+
   const [item, setItem] = useState<CacheItem | undefined>();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const sub: Subscription = mediaCache.metadata$.subscribe(async (all) => {
-      const newItem = all[key];
-
+    // Usa il nuovo watchCacheItem$ observable per aggiornamenti specifici
+    const sub: Subscription = mediaCache.watchCacheItem$(url, mediaType).subscribe(async (newItem) => {
       if (!isWeb) {
-        if (newItem) {
-          setItem(newItem);
-        }
+        setItem(newItem);
+        setIsLoading(newItem?.isDownloading ?? false);
       } else {
-        let url: string | undefined;
+        let localUrl: string | undefined;
         if (newItem?.localPath) {
-          url = await mediaCache.getMediaUrl(newItem?.localPath) || undefined;
+          localUrl = await mediaCache.getMediaUrl(newItem.localPath) || undefined;
         }
-        setItem({ ...newItem, localPath: url, mediaType });
+        setItem(newItem ? { ...newItem, localPath: localUrl } : undefined);
+        setIsLoading(newItem?.isDownloading ?? false);
       }
     });
 
     return () => sub.unsubscribe();
-  }, [mediaCache, key]);
+  }, [url, mediaType]);
 
-  return { item };
+  useEffect(() => {
+    if (shouldAutoDownload && url) {
+      mediaCache.downloadMedia({
+        url,
+        mediaType,
+        priority,
+        notificationDate,
+        force
+      });
+    }
+  }, [url, mediaType, shouldAutoDownload, priority, notificationDate, force]);
+
+  const download = useCallback((forceDownload: boolean = true) => {
+    return mediaCache.downloadMedia({
+      url,
+      mediaType,
+      force: forceDownload,
+      priority,
+      notificationDate
+    });
+  }, [url, mediaType, priority, notificationDate]);
+
+  const forceDownload = useCallback(() => {
+    return mediaCache.forceMediaDownload({ url, mediaType, notificationDate });
+  }, [url, mediaType, notificationDate]);
+
+  const remove = useCallback(async () => {
+    return mediaCache.deleteCachedMedia(url, mediaType);
+  }, [url, mediaType]);
+
+  return {
+    item,
+    isLoading,
+    isError: item?.isPermanentFailure ?? false,
+    isDeleted: item?.isUserDeleted ?? false,
+    download,
+    forceDownload,
+    remove
+  };
 }
 
 export const useCachedItems = () => {
@@ -48,6 +112,10 @@ export const useCachedItems = () => {
   return items;
 }
 
+/**
+ * Hook reattivo per le statistiche della cache
+ * Ora include anche il size tracking in tempo reale
+ */
 export function useGetCacheStats() {
   const [cacheStats, setCacheStats] = useState<CacheStats>({
     totalItems: 0,
@@ -61,6 +129,7 @@ export function useGetCacheStats() {
     }
   });
   const [cachedItems, setCachedItems] = useState<CacheItem[]>([]);
+  const [totalSizeBytes, setTotalSizeBytes] = useState(0);
 
   const updateStats = useCallback(() => {
     const { stats, items } = mediaCache.getCacheStats();
@@ -71,60 +140,126 @@ export function useGetCacheStats() {
   useEffect(() => {
     updateStats();
 
-    const sub: Subscription = mediaCache.metadata$.subscribe(updateStats);
+    // Subscribe a metadata per stats completi
+    const metadataSub: Subscription = mediaCache.metadata$.subscribe(updateStats);
 
-    return () => sub.unsubscribe();
-  }, []);
+    // Subscribe a getCacheSize$ per size in tempo reale
+    const sizeSub: Subscription = mediaCache.getCacheSize$().subscribe(setTotalSizeBytes);
+
+    return () => {
+      metadataSub.unsubscribe();
+      sizeSub.unsubscribe();
+    };
+  }, [updateStats]);
 
   return {
     cacheStats,
     cachedItems,
+    totalSizeBytes,
+    totalSizeMB: totalSizeBytes / 1024 / 1024,
     updateStats,
   };
 }
 
+/**
+ * Hook reattivo per la gestione della queue di download
+ * Subscribe automaticamente agli aggiornamenti della coda
+ */
 export const useDownloadQueue = () => {
-  const [queueState, setQueueState] = useState<DownloadQueueState>(mediaCache.getDownloadQueueState());
+  const [queueState, setQueueState] = useState<DownloadQueueState>({
+    queue: [],
+    isProcessing: false,
+    completedCount: 0,
+    failedCount: 0,
+  });
+  const [progress, setProgress] = useState(100);
 
   useEffect(() => {
-    const subscription = mediaCache.downloadQueue$.subscribe(setQueueState);
-    return () => subscription.unsubscribe();
+    // Subscribe allo stato della coda
+    const queueSub = mediaCache.downloadQueue$.subscribe(setQueueState);
+
+    // Subscribe al progresso percentuale
+    const progressSub = mediaCache.getQueueProgress$().subscribe(setProgress);
+
+    return () => {
+      queueSub.unsubscribe();
+      progressSub.unsubscribe();
+    };
   }, []);
 
-  const downloadMedia = (props: {
+  const downloadMedia = useCallback((props: {
     url: string;
-    mediaType: any;
+    mediaType: MediaType;
     force?: boolean;
     notificationDate?: number;
     priority?: number;
   }) => {
     return mediaCache.downloadMedia(props);
-  };
+  }, []);
 
-  const clearQueue = () => {
+  const batchDownload = useCallback((items: Array<{ url: string; mediaType: MediaType; notificationDate?: number }>, priority?: number) => {
+    return mediaCache.batchDownload(items, priority);
+  }, []);
+
+  const clearQueue = useCallback(() => {
     mediaCache.clearDownloadQueue();
-  };
+  }, []);
 
-  const removeFromQueue = (url: string, mediaType: any) => {
-    return mediaCache.removeFromQueue(url, mediaType);
-  };
+  const removeFromQueue = useCallback((url: string, mediaType: MediaType) => {
+    mediaCache.removeFromQueue(url, mediaType);
+  }, []);
 
-  const isInQueue = (url: string, mediaType: any) => {
+  const isInQueue = useCallback(async (url: string, mediaType: MediaType) => {
     return mediaCache.isInQueue(url, mediaType);
-  };
+  }, []);
 
-  const getQueueState = () => {
+  const getQueueState = useCallback(async () => {
     return mediaCache.getDownloadQueueState();
-  };
+  }, []);
 
   return {
     queueState,
+    progress,
     downloadMedia,
+    batchDownload,
     clearQueue,
     removeFromQueue,
     isInQueue,
     getQueueState,
     inProcessing: queueState.isProcessing,
-    itemsInQueue: queueState.isProcessing ? queueState.queue.length + 1 : 0
+    itemsInQueue: queueState.queue.length + (queueState.isProcessing ? 1 : 0),
+    currentItem: queueState.currentItem,
+    completedCount: queueState.completedCount,
+    failedCount: queueState.failedCount,
   };
+};
+
+/**
+ * Hook per monitorare items di un tipo specifico
+ * Usa getCacheItemsByType$ per aggiornamenti filtrati
+ */
+export const useCachedItemsByType = (mediaType: MediaType) => {
+  const [items, setItems] = useState<CacheItem[]>([]);
+
+  useEffect(() => {
+    const sub = mediaCache.getCacheItemsByType$(mediaType).subscribe(setItems);
+    return () => sub.unsubscribe();
+  }, [mediaType]);
+
+  return { items, count: items.length };
+};
+
+/**
+ * Hook per il progresso della coda in percentuale (0-100)
+ * Perfetto per progress bars
+ */
+export const useQueueProgress = () => {
+  const [progress, setProgress] = useState(100);
+
+  useEffect(() => {
+    const sub = mediaCache.getQueueProgress$().subscribe(setProgress);
+    return () => sub.unsubscribe();
+  }, []);
+
+  return { progress, isDownloading: progress < 100 };
 };

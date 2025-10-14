@@ -36,7 +36,6 @@ interface CachedMediaProps {
   contentFit?: ImageContentFit;
   onPress?: () => void;
   isCompact?: boolean;
-  noAutoDownload?: boolean;
   showMediaIndicator?: boolean;
   useThumbnail?: boolean;
   noBorder?: boolean;
@@ -73,7 +72,6 @@ export const CachedMedia = React.memo(function CachedMedia({
   contentFit = "cover",
   onPress: onPressParent,
   isCompact,
-  noAutoDownload,
   showMediaIndicator,
   useThumbnail,
   imageProps,
@@ -83,15 +81,6 @@ export const CachedMedia = React.memo(function CachedMedia({
 }: CachedMediaProps) {
   const { t } = useI18n();
   const theme = useTheme();
-  const {
-    userSettings: {
-      settings: {
-        mediaCache: {
-          downloadSettings: { autoDownloadEnabled },
-        },
-      },
-    },
-  } = useAppContext();
   const [audioState, setAudioState] = useState({
     isLoaded: false,
     duration: 0,
@@ -103,7 +92,19 @@ export const CachedMedia = React.memo(function CachedMedia({
     width: number;
     height: number;
   } | null>(null);
-  const { item: mediaSource } = useCachedItem(url, mediaType);
+
+  const {
+    item: mediaSource,
+    isLoading,
+    isError,
+    isDeleted,
+    forceDownload,
+    remove,
+  } = useCachedItem(url, mediaType, {
+    priority: useThumbnail ? 3 : 7, // Priorità più alta per media completi
+    notificationDate,
+  });
+
   const isVideoType = mediaType === MediaType.Video && !useThumbnail;
   const isAudioType = mediaType === MediaType.Audio && !useThumbnail;
   const localSource = mediaSource?.localPath;
@@ -160,13 +161,9 @@ export const CachedMedia = React.memo(function CachedMedia({
   const handleForceDownload = useCallback(
     async (event?: any) => {
       event?.stopPropagation?.();
-      await mediaCache.forceMediaDownload({
-        url,
-        mediaType,
-        notificationDate,
-      });
+      await forceDownload(); // Usa forceDownload dal hook
     },
-    [url, mediaType, notificationDate]
+    [forceDownload]
   );
 
   const handleFrameClick = useCallback(
@@ -179,9 +176,9 @@ export const CachedMedia = React.memo(function CachedMedia({
   const handleDeleteCachedMedia = useCallback(
     async (event?: any) => {
       event?.stopPropagation?.();
-      await mediaCache.deleteCachedMedia(url, mediaType);
+      await remove(); // Usa il metodo dal hook
     },
-    [url, mediaType]
+    [remove]
   );
 
   const handleSeek = useCallback(
@@ -193,27 +190,6 @@ export const CachedMedia = React.memo(function CachedMedia({
     },
     [audioPlayer, audioState.duration]
   );
-
-  const canDownload =
-    mediaType === MediaType.Icon || (!noAutoDownload && autoDownloadEnabled);
-
-  useEffect(() => {
-    if (canDownload) {
-      mediaCache.downloadMedia({ url, mediaType, notificationDate });
-    }
-  }, [mediaSource, notificationDate, canDownload]);
-
-  useEffect(() => {
-    if (
-      useThumbnail &&
-      supportsThumbnail &&
-      !mediaSource?.localThumbPath &&
-      !mediaSource?.isPermanentFailure
-    ) {
-      // console.log("generateThumbnail", mediaSource);
-      mediaCache.generateThumbnail({ url, mediaType });
-    }
-  }, [mediaSource, notificationDate]);
 
   useEffect(() => {
     if (videoSource && isVideoType && videoPlayer) {
@@ -410,19 +386,19 @@ export const CachedMedia = React.memo(function CachedMedia({
   };
 
   const renderMedia = () => {
-    // Loading states
+    // Loading states (ora usa isLoading dal hook)
     if (
+      isLoading ||
       (mediaSource?.generatingThumbnail && useThumbnail) ||
-      mediaSource?.isDownloading ||
       isVideoLoading
     ) {
-      const stateType = mediaSource?.isDownloading ? "downloading" : "loading";
+      const stateType = isLoading ? "downloading" : "loading";
       return (
         <View style={getStateContainerStyle(stateType) as any}>
           <ActivityIndicator size="small" color={stateColors[stateType]} />
           {!isCompact && (
             <Text style={getStateTextStyle(stateType)}>
-              {mediaSource?.isDownloading
+              {isLoading
                 ? t("cachedMedia.downloadProgress")
                 : t("cachedMedia.loadingProgress")}
             </Text>
@@ -431,8 +407,8 @@ export const CachedMedia = React.memo(function CachedMedia({
       );
     }
 
-    // Permanent failure - click to retry
-    if (mediaSource?.isPermanentFailure || isVideoError) {
+    // Permanent failure - click to retry (ora usa isError dal hook)
+    if (isError || isVideoError) {
       return (
         <View
           style={[
@@ -446,8 +422,8 @@ export const CachedMedia = React.memo(function CachedMedia({
       );
     }
 
-    // User deleted - click to redownload
-    if (mediaSource?.isUserDeleted) {
+    // User deleted - click to redownload (ora usa isDeleted dal hook)
+    if (isDeleted) {
       return (
         <View
           style={[
