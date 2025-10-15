@@ -226,6 +226,7 @@ export default function NotificationsList({
 
   // Track currently visible item ids and debounce marking as read
   const visibleIdsRef = useRef<Set<string>>(new Set());
+  const everVisibleIdsRef = useRef<Set<string>>(new Set()); // Set di tutte le notifiche mai visibili
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didUserScrollRef = useRef(false);
   const listRef = useRef<any>(null);
@@ -241,6 +242,9 @@ export default function NotificationsList({
       const visibleSet = new Set(visibleIds);
       setVisibileItems(visibleSet);
       visibleIdsRef.current = visibleSet;
+      
+      // Aggiungi tutte le notifiche attualmente visibili al set di quelle mai visibili
+      visibleIds.forEach(id => everVisibleIdsRef.current.add(id));
 
       // Determina il primo e ultimo indice visibile
       const firstVisibleItem = viewableItems[0];
@@ -277,7 +281,6 @@ export default function NotificationsList({
       }
 
       try {
-        // FIX: Use index 0 (first notification) instead of 1 (second notification)
         const firstId = filteredNotifications[0]?.id;
         setShowScrollTop(firstId ? !visibleSet.has(firstId) : false);
       } catch {}
@@ -293,7 +296,7 @@ export default function NotificationsList({
         didUserScrollRef.current = false;
         const candidates: string[] = [];
         for (const n of filteredNotifications) {
-          if (visibleIdsRef.current.has(n.id) && !n.readAt) {
+          if (everVisibleIdsRef.current.has(n.id) && !n.readAt) {
             candidates.push(n.id);
           }
         }
@@ -302,6 +305,7 @@ export default function NotificationsList({
             notificationIds: candidates,
             readAt: new Date().toISOString(),
           });
+          everVisibleIdsRef.current.clear();
         }
       }, 1000);
     },
