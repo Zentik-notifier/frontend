@@ -3688,6 +3688,8 @@ extension NotificationViewController {
             handleDeleteAction(notificationId: notificationId, completion: completion)
         case "SNOOZE":
             handleSnoozeAction(value: value, completion: completion)
+        case "POSTPONE":
+            handlePostponeAction(notificationId: notificationId, value: value, completion: completion)
         case "OPEN_NOTIFICATION":
             handleOpenNotificationAction(value: value, completion: completion)
         default:
@@ -3870,6 +3872,30 @@ extension NotificationViewController {
         }
     }
     
+    private func handlePostponeAction(notificationId: String, value: String, completion: @escaping (Bool) -> Void) {
+        print("📱 [ContentExtension] ⏳ Postpone action: \(value) for notification: \(notificationId)")
+        
+        // Parse postpone duration (format: number as string, e.g., "5", "30")
+        if let minutes = Int(value) {
+            // Launch postpone execution in background without waiting
+            Task.detached {
+                do {
+                    try await self.postponeViaNotificationsEndpoint(notificationId: notificationId, minutes: minutes)
+                    print("📱 [ContentExtension] ✅ Postponed notification \(notificationId) for \(minutes) minutes")
+                } catch {
+                    print("📱 [ContentExtension] ❌ Failed to postpone notification: \(error)")
+                }
+            }
+            
+            // Complete immediately without waiting for postpone execution
+            print("📱 [ContentExtension] 🚀 Postpone launched in background, completing action immediately")
+            completion(true)
+        } else {
+            print("📱 [ContentExtension] ❌ Invalid postpone format (expected number): \(value)")
+            completion(false)
+        }
+    }
+    
     private func handleOpenNotificationAction(value: String, completion: @escaping (Bool) -> Void) {
         print("📱 [ContentExtension] 📂 Open notification action: \(value)")
         
@@ -3959,6 +3985,52 @@ extension NotificationViewController {
         // Optionally parse response for additional info
         if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             print("📱 [ContentExtension] 📥 Webhook execution response: \(json)")
+        }
+    }
+    
+    private func postponeViaNotificationsEndpoint(notificationId: String, minutes: Int) async throws {
+        print("📱 [ContentExtension] ⏳ Postponing notification \(notificationId) for \(minutes) minutes via backend")
+        
+        guard let apiEndpoint = getApiEndpoint() else {
+            throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not configured"])
+        }
+        
+        let urlString = "\(apiEndpoint)/api/v1/notifications/postpone"
+        guard let url = URL(string: urlString) else {
+            throw NSError(domain: "PostponeError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Zentik-iOS-Extension/1.0", forHTTPHeaderField: "User-Agent")
+        
+        // Add authentication token if available
+        if let authToken = getStoredAuthToken() {
+            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let body: [String: Any] = [
+            "notificationId": notificationId,
+            "minutes": minutes
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "PostponeError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+        
+        print("📱 [ContentExtension] 📥 Postpone notification response: \(httpResponse.statusCode)")
+        
+        guard httpResponse.statusCode == 200 || httpResponse.statusCode == 201 else {
+            let responseText = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "PostponeError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Server error: \(responseText)"])
+        }
+        
+        if let json = try? JSONSerialization.jsonObject(with: data) {
+            print("📱 [ContentExtension] 📥 Notification postpone response: \(json)")
         }
     }
     

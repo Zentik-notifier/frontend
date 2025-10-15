@@ -23,7 +23,8 @@ export const filteredActions = (notification: NotificationFragment) => {
       [
         NotificationActionType.BackgroundCall,
         NotificationActionType.Webhook,
-        NotificationActionType.Snooze,
+        // NotificationActionType.Snooze,
+        // NotificationActionType.Postpone,
         NotificationActionType.Navigate,
       ].includes(action.type)
   ) || []) as NotificationActionFragment[];

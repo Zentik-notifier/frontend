@@ -111,6 +111,7 @@ input CreateMessageDto {
   groupId: String
   imageUrl: String
   locale: String
+  postpones: [Float!]
   snoozes: [Float!]
   sound: String
   subtitle: String
@@ -396,6 +397,7 @@ type Message {
   groupId: String
   id: ID!
   locale: String
+  postpones: [Float!]
   snoozes: [Float!]
   sound: String
   subtitle: String
@@ -416,6 +418,7 @@ type Mutation {
   approveSystemAccessTokenRequest(id: String!, input: ApproveSystemAccessTokenRequestDto): SystemAccessTokenRequest!
   """Batch update multiple server settings"""
   batchUpdateServerSettings(settings: [BatchUpdateSettingInput!]!): [ServerSetting!]!
+  cancelPostpone(id: String!): Boolean!
   changePassword(input: ChangePasswordInput!): Boolean!
   cleanupExpiredPermissions: Float!
   confirmEmail(input: ConfirmEmailDto!): EmailConfirmationResponseDto!
@@ -451,6 +454,7 @@ type Mutation {
   massDeleteNotifications(ids: [String!]!): MassDeleteResult!
   massMarkNotificationsAsRead(ids: [String!]!): MassMarkResult!
   massMarkNotificationsAsUnread(ids: [String!]!): MassMarkResult!
+  postponeNotification(input: PostponeNotificationDto!): PostponeResponseDto!
   refreshAccessToken(refreshToken: String!): RefreshTokenResponse!
   register(input: RegisterDto!): RegisterResponse!
   registerDevice(input: RegisterDeviceDto!): UserDevice!
@@ -532,6 +536,7 @@ enum NotificationActionType {
   MARK_AS_READ
   NAVIGATE
   OPEN_NOTIFICATION
+  POSTPONE
   SNOOZE
   WEBHOOK
 }
@@ -548,6 +553,19 @@ enum NotificationDeliveryType {
   CRITICAL
   NORMAL
   SILENT
+}
+
+type NotificationPostpone {
+  createdAt: DateTime!
+  id: ID!
+  message: Message!
+  messageId: String!
+  notification: Notification!
+  notificationId: String!
+  sendAt: DateTime!
+  updatedAt: DateTime!
+  user: User!
+  userId: String!
 }
 
 type NotificationServiceInfo {
@@ -627,6 +645,7 @@ type PayloadMapper {
 """Built-in payload mapper types"""
 enum PayloadMapperBuiltInType {
   ZENTIK_AUTHENTIK
+  ZENTIK_GITHUB
   ZENTIK_RAILWAY
   ZENTIK_SERVARR
 }
@@ -637,6 +656,18 @@ enum Permission {
   DELETE
   READ
   WRITE
+}
+
+input PostponeNotificationDto {
+  minutes: Int!
+  notificationId: String!
+}
+
+type PostponeResponseDto {
+  createdAt: DateTime!
+  id: String!
+  notificationId: String!
+  sendAt: DateTime!
 }
 
 type PublicAppConfig {
@@ -679,6 +710,7 @@ type Query {
   oauthProvider(id: String!): OAuthProvider!
   payloadMapper(id: String!): PayloadMapper!
   payloadMappers: [PayloadMapper!]!
+  pendingPostpones: [NotificationPostpone!]!
   publicAppConfig: PublicAppConfig!
   """Get a specific server setting by type"""
   serverSetting(configType: ServerSettingType!): ServerSetting
@@ -1143,6 +1175,9 @@ type UserSetting {
 }
 
 enum UserSettingType {
+  AutoAddDeleteAction
+  AutoAddMarkAsReadAction
+  AutoAddOpenNotificationAction
   ExpoKey
   HomeassistantToken
   HomeassistantUrl

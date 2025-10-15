@@ -132,6 +132,7 @@ export type CreateMessageDto = {
   groupId?: InputMaybe<Scalars['String']['input']>;
   imageUrl?: InputMaybe<Scalars['String']['input']>;
   locale?: InputMaybe<Scalars['String']['input']>;
+  postpones?: InputMaybe<Array<Scalars['Float']['input']>>;
   snoozes?: InputMaybe<Array<Scalars['Float']['input']>>;
   sound?: InputMaybe<Scalars['String']['input']>;
   subtitle?: InputMaybe<Scalars['String']['input']>;
@@ -421,6 +422,7 @@ export type Message = {
   groupId: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   locale: Maybe<Scalars['String']['output']>;
+  postpones: Maybe<Array<Scalars['Float']['output']>>;
   snoozes: Maybe<Array<Scalars['Float']['output']>>;
   sound: Maybe<Scalars['String']['output']>;
   subtitle: Maybe<Scalars['String']['output']>;
@@ -443,6 +445,7 @@ export type Mutation = {
   approveSystemAccessTokenRequest: SystemAccessTokenRequest;
   /** Batch update multiple server settings */
   batchUpdateServerSettings: Array<ServerSetting>;
+  cancelPostpone: Scalars['Boolean']['output'];
   changePassword: Scalars['Boolean']['output'];
   cleanupExpiredPermissions: Scalars['Float']['output'];
   confirmEmail: EmailConfirmationResponseDto;
@@ -476,6 +479,7 @@ export type Mutation = {
   massDeleteNotifications: MassDeleteResult;
   massMarkNotificationsAsRead: MassMarkResult;
   massMarkNotificationsAsUnread: MassMarkResult;
+  postponeNotification: PostponeResponseDto;
   refreshAccessToken: RefreshTokenResponse;
   register: RegisterResponse;
   registerDevice: UserDevice;
@@ -531,6 +535,11 @@ export type MutationApproveSystemAccessTokenRequestArgs = {
 
 export type MutationBatchUpdateServerSettingsArgs = {
   settings: Array<BatchUpdateSettingInput>;
+};
+
+
+export type MutationCancelPostponeArgs = {
+  id: Scalars['String']['input'];
 };
 
 
@@ -671,6 +680,11 @@ export type MutationMassMarkNotificationsAsReadArgs = {
 
 export type MutationMassMarkNotificationsAsUnreadArgs = {
   ids: Array<Scalars['String']['input']>;
+};
+
+
+export type MutationPostponeNotificationArgs = {
+  input: PostponeNotificationDto;
 };
 
 
@@ -889,6 +903,7 @@ export enum NotificationActionType {
   MarkAsRead = 'MARK_AS_READ',
   Navigate = 'NAVIGATE',
   OpenNotification = 'OPEN_NOTIFICATION',
+  Postpone = 'POSTPONE',
   Snooze = 'SNOOZE',
   Webhook = 'WEBHOOK'
 }
@@ -906,6 +921,20 @@ export enum NotificationDeliveryType {
   Normal = 'NORMAL',
   Silent = 'SILENT'
 }
+
+export type NotificationPostpone = {
+  __typename?: 'NotificationPostpone';
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  message: Message;
+  messageId: Scalars['String']['output'];
+  notification: Notification;
+  notificationId: Scalars['String']['output'];
+  sendAt: Scalars['DateTime']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  user: User;
+  userId: Scalars['String']['output'];
+};
 
 export type NotificationServiceInfo = {
   __typename?: 'NotificationServiceInfo';
@@ -990,6 +1019,7 @@ export type PayloadMapper = {
 /** Built-in payload mapper types */
 export enum PayloadMapperBuiltInType {
   ZentikAuthentik = 'ZENTIK_AUTHENTIK',
+  ZentikGithub = 'ZENTIK_GITHUB',
   ZentikRailway = 'ZENTIK_RAILWAY',
   ZentikServarr = 'ZENTIK_SERVARR'
 }
@@ -1001,6 +1031,19 @@ export enum Permission {
   Read = 'READ',
   Write = 'WRITE'
 }
+
+export type PostponeNotificationDto = {
+  minutes: Scalars['Int']['input'];
+  notificationId: Scalars['String']['input'];
+};
+
+export type PostponeResponseDto = {
+  __typename?: 'PostponeResponseDto';
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['String']['output'];
+  notificationId: Scalars['String']['output'];
+  sendAt: Scalars['DateTime']['output'];
+};
 
 export type PublicAppConfig = {
   __typename?: 'PublicAppConfig';
@@ -1044,6 +1087,7 @@ export type Query = {
   oauthProvider: OAuthProvider;
   payloadMapper: PayloadMapper;
   payloadMappers: Array<PayloadMapper>;
+  pendingPostpones: Array<NotificationPostpone>;
   publicAppConfig: PublicAppConfig;
   /** Get a specific server setting by type */
   serverSetting: Maybe<ServerSetting>;

@@ -906,6 +906,29 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
       break;
     }
 
+    case 'POSTPONE': {
+      const minutes = parseInt(actionValue, 10);
+      if (isNaN(minutes) || minutes <= 0) {
+        console.error('[Service Worker] ❌ Invalid postpone duration:', actionValue);
+        return;
+      }
+
+      event.waitUntil(
+        (async () => {
+          try {
+            await executeApiCall('/notifications/postpone', 'POST', { 
+              notificationId: notificationId, 
+              minutes: minutes 
+            });
+            console.log(`[Service Worker] ✅ Notification ${notificationId} postponed for ${minutes} minutes`);
+          } catch (error) {
+            console.error('[Service Worker] ❌ Failed to postpone notification:', error);
+          }
+        })()
+      );
+      break;
+    }
+
     case 'WEBHOOK':
       event.waitUntil(
         (async () => {
