@@ -21,7 +21,7 @@ import {
     useGetBucketsLazyQuery,
     useGetNotificationLazyQuery,
     useGetNotificationsLazyQuery,
-    useMassDeleteNotificationsMutation
+    useUpdateReceivedNotificationsMutation
 } from '@/generated/gql-operations-generated';
 import {
     saveNotificationToCache,
@@ -161,9 +161,9 @@ export function useBucketStats(
             const bucketsStats = queryClient.getQueryData<BucketWithStats[]>(
                 notificationKeys.bucketsStats()
             );
-            
+
             const bucketFromGlobal = bucketsStats?.find(b => b.id === bucketId);
-            
+
             if (bucketFromGlobal) {
                 // Return stats from global cache
                 return {
@@ -232,11 +232,11 @@ export function useBucketsStats(
         queryFn: async (): Promise<BucketWithStats[]> => {
             try {
                 console.log('[useBucketsStats] Fetching buckets from GraphQL...');
-                
+
                 // 1. Fetch buckets from GraphQL API
                 const { data } = await fetchBuckets();
                 const buckets = (data?.buckets ?? []) as BucketWithUserData[];
-                
+
                 console.log(`[useBucketsStats] Fetched ${buckets.length} buckets from API`);
 
                 // 2. Save buckets to local DB for offline access
@@ -254,7 +254,7 @@ export function useBucketsStats(
                         isPublic: bucket.isPublic,
                         userBucket: bucket.userBucket,
                     }));
-                    
+
                     await saveBuckets(bucketsToSave);
                     console.log(`[useBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
                 }
@@ -328,14 +328,14 @@ export function useBucketsStats(
     const refreshBucketsStats = async (): Promise<void> => {
         try {
             console.log('[refreshBucketsStats] Manually fetching bucketsStats from API...');
-            
+
             // Force refetch even with enabled: false
             // This is the ONLY way to populate the cache for bucketsStats
-            await queryClient.refetchQueries({ 
+            await queryClient.refetchQueries({
                 queryKey: notificationKeys.bucketsStats(),
                 type: 'active', // Only refetch if query is mounted
             });
-            
+
             console.log('[refreshBucketsStats] Buckets stats fetched and cached - all components updated');
         } catch (error) {
             console.error('[refreshBucketsStats] Error refreshing buckets stats:', error);
@@ -373,16 +373,16 @@ export function useInitializeBucketsStats() {
             // STEP 1: Load buckets from LOCAL CACHE immediately for instant UI
             console.log('[initializeBucketsStats] Loading buckets from local cache...');
             const cachedBuckets = await getAllBuckets();
-            
+
             if (cachedBuckets.length > 0) {
                 console.log(`[initializeBucketsStats] Found ${cachedBuckets.length} cached buckets`);
-                
+
                 // Get bucket IDs from cached buckets
                 const cachedBucketIds = cachedBuckets.map((b) => b.id);
-                
+
                 // Get notification stats from local DB
                 const cachedStats = await getNotificationStats(cachedBucketIds);
-                
+
                 // Combine cached bucket metadata with stats
                 const cachedBucketsWithStats: BucketWithStats[] = cachedBuckets.map((bucket) => {
                     const bucketStat = cachedStats.byBucket?.find(s => s.bucketId === bucket.id);
@@ -408,7 +408,7 @@ export function useInitializeBucketsStats() {
                         snoozeUntil: snoozeUntil ?? null,
                     };
                 });
-                
+
                 // Sort cached buckets
                 cachedBucketsWithStats.sort((a, b) => {
                     if (a.unreadCount !== b.unreadCount) {
@@ -421,20 +421,20 @@ export function useInitializeBucketsStats() {
                     }
                     return a.name.localeCompare(b.name);
                 });
-                
+
                 // Set cached data in React Query IMMEDIATELY for instant UI
                 queryClient.setQueryData(notificationKeys.bucketsStats(), cachedBucketsWithStats);
                 console.log(`[initializeBucketsStats] ✅ Cached ${cachedBucketsWithStats.length} buckets loaded instantly`);
             } else {
                 console.log('[initializeBucketsStats] No cached buckets found');
             }
-            
+
             // STEP 2: Fetch fresh buckets from GraphQL API in background
             console.log('[initializeBucketsStats] Fetching fresh buckets from GraphQL...');
-            
+
             const { data } = await fetchBuckets();
             const buckets = (data?.buckets ?? []) as BucketWithUserData[];
-            
+
             console.log(`[initializeBucketsStats] Fetched ${buckets.length} buckets from API`);
 
             // STEP 3: Save fresh buckets to local DB for next launch
@@ -452,7 +452,7 @@ export function useInitializeBucketsStats() {
                     isPublic: bucket.isPublic,
                     userBucket: bucket.userBucket,
                 }));
-                
+
                 await saveBuckets(bucketsToSave);
                 console.log(`[initializeBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
             }
@@ -532,10 +532,10 @@ export function useLoadBucketsFromCache() {
     const loadBucketsFromCache = async (): Promise<void> => {
         try {
             console.log('[loadBucketsFromCache] Loading buckets from local DB...');
-            
+
             // 1. Load buckets from local DB
             const cachedBuckets = await getAllBuckets();
-            
+
             if (cachedBuckets.length === 0) {
                 console.log('[loadBucketsFromCache] No cached buckets found in DB');
                 return;
@@ -850,10 +850,11 @@ async function fetchNotificationsFromAPI(
 }
 
 /**
- * Helper function to delete notifications from server using mass delete mutation
+ * Helper function to mark notifications as received on server
+ * Uses the last notification ID to mark all up to that point as received
  */
-async function deleteNotificationsFromServer(
-    massDeleteNotifications: ReturnType<typeof useMassDeleteNotificationsMutation>[0],
+async function updateReceivedNotificationsOnServer(
+    updateReceivedNotifications: ReturnType<typeof useUpdateReceivedNotificationsMutation>[0],
     notificationIds: string[]
 ): Promise<void> {
     if (notificationIds.length === 0) {
@@ -861,15 +862,18 @@ async function deleteNotificationsFromServer(
     }
 
     try {
-        const result = await massDeleteNotifications({ 
-            variables: { ids: notificationIds } 
+        // Use the last (most recent) notification ID to mark all as received up to that point
+        const lastNotificationId = notificationIds[notificationIds.length - 1];
+
+        const result = await updateReceivedNotifications({
+            variables: { id: lastNotificationId }
         });
-        
-        if (result.data?.massDeleteNotifications.success) {
-            console.log(`[deleteNotificationsFromServer] Successfully deleted ${result.data.massDeleteNotifications.deletedCount} notifications from server`);
+
+        if (result.data?.updateReceivedNotifications.success) {
+            console.log(`[updateReceivedNotificationsOnServer] Successfully marked ${result.data.updateReceivedNotifications.updatedCount} notifications as received on server`);
         }
     } catch (err) {
-        console.warn(`[deleteNotificationsFromServer] Failed to delete ${notificationIds.length} notifications:`, err);
+        console.warn(`[updateReceivedNotificationsOnServer] Failed to mark ${notificationIds.length} notifications as received:`, err);
         throw err;
     }
 }
@@ -896,9 +900,9 @@ async function deleteNotificationsFromServer(
  */
 export function useSyncNotificationsFromAPI() {
     const [fetchNotifications] = useGetNotificationsLazyQuery({
-        fetchPolicy: 'network-only', // Don't use Apollo cache
+        fetchPolicy: 'network-only',
     });
-    const [massDeleteNotifications] = useMassDeleteNotificationsMutation();
+    const [updateReceivedNotifications] = useUpdateReceivedNotificationsMutation();
 
     const syncNotifications = async (): Promise<number> => {
         try {
@@ -913,8 +917,8 @@ export function useSyncNotificationsFromAPI() {
                 console.log(`[syncNotifications] Saved ${apiNotifications.length} to local DB`);
 
                 const notificationIds = apiNotifications.map((n: NotificationFragment) => n.id);
-                await deleteNotificationsFromServer(massDeleteNotifications, notificationIds);
-                console.log(`[syncNotifications] Deleted ${apiNotifications.length} from server`);
+                await updateReceivedNotificationsOnServer(updateReceivedNotifications, notificationIds);
+                console.log(`[syncNotifications] Marked ${apiNotifications.length} notifications as received on server`);
 
                 return apiNotifications.length;
             }
