@@ -76,8 +76,23 @@ export interface WebStorageDB extends DBSchema {
 
 let dbPromise: Promise<SQLiteDatabase> | null = null;
 let webDbPromise: Promise<IDBPDatabase<WebStorageDB>> | null = null;
+let dbInstance: SQLiteDatabase | null = null;
+
+// Prevent concurrent database operations
+let dbOperationQueue: Promise<any> = Promise.resolve();
+
+/**
+ * Queue database operations to prevent concurrent access issues
+ * This prevents the mutex contention issues seen in crash logs
+ */
+export function queueDbOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const queued = dbOperationQueue.then(() => operation());
+  dbOperationQueue = queued.catch(() => {}); // Don't propagate errors to next operations
+  return queued;
+}
 
 export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
+  if (dbInstance) return dbInstance;
   if (dbPromise) return dbPromise;
 
   if (Platform.OS === 'web') {
@@ -90,10 +105,15 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
     const directory = sharedDir.startsWith('file://') ? sharedDir.replace('file://', '') : sharedDir;
     const db = await openDatabaseAsync('cache.db', undefined, directory);
 
+    // Database configuration optimized for iOS stability
+    // Use DELETE journal mode instead of WAL to prevent mutex contention
+    // and reduce memory pressure in background mode
     await db.execAsync(`
-      PRAGMA journal_mode=WAL;
+      PRAGMA journal_mode=DELETE;
       PRAGMA synchronous=NORMAL;
       PRAGMA foreign_keys=ON;
+      PRAGMA cache_size=-2000;
+      PRAGMA temp_store=MEMORY;
     `);
 
     await db.execAsync(`
@@ -191,10 +211,30 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
     await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_buckets_updated_at ON buckets(updated_at);`);
     await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_buckets_synced_at ON buckets(synced_at);`);
 
+    // Store instance for reuse
+    dbInstance = db;
+    
     return db;
   })();
 
   return dbPromise;
+}
+
+/**
+ * Close database connection when app goes to background
+ * Helps prevent memory pressure and improves iOS stability
+ */
+export async function closeSharedCacheDb(): Promise<void> {
+  if (dbInstance && Platform.OS !== 'web') {
+    try {
+      await dbInstance.closeAsync();
+      dbInstance = null;
+      dbPromise = null;
+      console.log('[DB] Database closed successfully');
+    } catch (error) {
+      console.error('[DB] Error closing database:', error);
+    }
+  }
 }
 
 // Initialize IndexedDB for web

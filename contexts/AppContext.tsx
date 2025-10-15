@@ -38,6 +38,7 @@ import {
   saveTokens,
 } from "../services/auth-storage";
 import { useUserSettings } from "../services/user-settings";
+import { closeSharedCacheDb, openSharedCacheDb } from "@/services/db-setup";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -386,18 +387,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const checkOnboarding = async () => {
       // Wait for initialization to complete
       if (isInitializing) return;
-      
+
       // Only show onboarding if user is logged in
       if (!userId) return;
-      
+
       const onboardingSettings = userSettings.getOnboardingSettings();
-      
-      if (!onboardingSettings.hasCompletedOnboarding && onboardingSettings.showOnboardingV2) {
+
+      if (
+        !onboardingSettings.hasCompletedOnboarding &&
+        onboardingSettings.showOnboardingV2
+      ) {
         console.log("[AppContext] Auto-showing onboarding for first-time user");
         setIsOnboardingOpen(true);
       }
     };
-    
+
     checkOnboarding();
   }, [isInitializing, userId, userSettings.settings.onboarding]);
 
@@ -405,6 +409,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
         console.log("[AppContext] App is active, cleaning up");
+        await openSharedCacheDb();
         await cleanup({ immediate: true });
         await connectionStatus.checkForUpdates();
       } else if (
@@ -416,6 +421,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           "[AppContext] App is inactive, marking all notifications as read"
         );
         await markAllAsRead();
+      } else if (nextAppState === "background") {
+        console.log(
+          "[AppContext] App going to background, closing database..."
+        );
+        try {
+          await closeSharedCacheDb();
+          console.log("[RootLayout] Database closed successfully");
+        } catch (error) {
+          console.error("[RootLayout] Error closing database:", error);
+        }
       }
     };
 
