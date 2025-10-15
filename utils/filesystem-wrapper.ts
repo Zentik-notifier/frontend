@@ -120,11 +120,14 @@ class WebFile {
     }
   }
 
-  static async downloadFileAsync(url: string, file: WebFile): Promise<{ uri: string; size?: number }> {
+  static async downloadAsync(url: string, fileOrPath: WebFile | string): Promise<{ uri: string; size?: number }> {
     if (!isWeb) {
-      // Fallback to expo-file-system for non-web platforms
-      return ExpoFileSystem.downloadAsync(url, file.path);
+      // This should never happen as WebFile is only used on web
+      const filePath = typeof fileOrPath === 'string' ? fileOrPath : fileOrPath.path;
+      return ExpoFileSystem.downloadAsync(url, filePath);
     }
+
+    const webFile = typeof fileOrPath === 'string' ? new WebFile(fileOrPath) : fileOrPath;
 
     try {
       // Use backend proxy to fetch media (bypasses CORS)
@@ -155,15 +158,15 @@ class WebFile {
       const repo = await getWebRepo();
       // Save to media_item table using MediaCacheRepository
       await repo.saveMediaItem({
-        key: file.path,
+        key: webFile.path,
         data: arrayBuffer,
       });
 
-      file._exists = true;
-      file._size = blob.size;
+      webFile._exists = true;
+      webFile._size = blob.size;
 
       return {
-        uri: file.path,
+        uri: webFile.path,
         size: blob.size
       };
     } catch (proxyError) {
@@ -182,15 +185,15 @@ class WebFile {
         const repo = await getWebRepo();
         // Save to media_item table using MediaCacheRepository
         await repo.saveMediaItem({
-          key: file.path,
+          key: webFile.path,
           data: arrayBuffer,
         });
 
-        file._exists = true;
-        file._size = blob.size;
+        webFile._exists = true;
+        webFile._size = blob.size;
 
         return {
-          uri: file.path,
+          uri: webFile.path,
           size: blob.size
         };
       } catch (directError) {
@@ -331,13 +334,13 @@ class NativeFileWrapper {
       throw error;
     }
   }
+
+  static async downloadAsync(url: string, fileOrPath: NativeFileWrapper | string): Promise<{ uri: string; size?: number }> {
+    const filePath = typeof fileOrPath === 'string' ? fileOrPath : fileOrPath.path;
+    return await ExpoFileSystem.downloadAsync(url, filePath);
+  }
 }
 
 // Export the appropriate classes based on platform
 export const File = isWeb ? WebFile : NativeFileWrapper;
 export const Directory = isWeb ? WebDirectory : ExpoFileSystem.Directory;
-
-// Export download method
-export const downloadFileAsync = isWeb
-  ? WebFile.downloadFileAsync
-  : ExpoFileSystem.downloadAsync;

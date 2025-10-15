@@ -82,10 +82,7 @@ export default function AppLogs() {
 
   const renderItem = useCallback(
     ({ item }: { item: AppLog }) => {
-      let meta: any = null;
-      try {
-        meta = item.metaJson ? JSON.parse(item.metaJson) : null;
-      } catch {}
+      const meta = item.metadata;
 
       const hasLongContent =
         item.message.length > 100 ||
@@ -117,6 +114,11 @@ export default function AppLogs() {
               <Text style={styles.dateText}>
                 {new Date(item.timestamp).toLocaleString()}
               </Text>
+              {!!item.source && (
+                <Text style={[styles.sourceText, { color: theme.colors.primary }]}>
+                  [{item.source}]
+                </Text>
+              )}
               {hasLongContent && (
                 <Icon
                   source="open-in-new"
@@ -154,7 +156,13 @@ export default function AppLogs() {
     if (!query) return logs;
     const q = query.toLowerCase();
     return logs.filter((l) => {
-      const parts = [l.level, l.tag ?? "", l.message, l.metaJson ?? ""];
+      const parts = [
+        l.level,
+        l.tag ?? "",
+        l.message,
+        l.source ?? "",
+        l.metadata ? JSON.stringify(l.metadata) : "",
+      ];
       return parts.some((p) => (p ?? "").toString().toLowerCase().includes(q));
     });
   }, [logs, query]);
@@ -286,7 +294,7 @@ export default function AppLogs() {
 
       <FlashList
         data={filteredLogs}
-        keyExtractor={(item) => String(item.id ?? item.timestamp)}
+        keyExtractor={(item) => String(item.timestamp)}
         renderItem={renderItem}
         refreshControl={
           <RefreshControl
@@ -373,17 +381,24 @@ export default function AppLogs() {
                     </Text>
                   </View>
 
-                  {selectedLog.metaJson && (
+                  {selectedLog.source && (
+                    <View style={styles.dialogMetaRow}>
+                      <Text style={styles.dialogMetaLabel}>
+                        Source:
+                      </Text>
+                      <Text style={styles.dialogMetaValue}>
+                        {selectedLog.source}
+                      </Text>
+                    </View>
+                  )}
+
+                  {selectedLog.metadata && (
                     <View style={styles.dialogMetaRow}>
                       <Text style={styles.dialogMetaLabel}>
                         {t("appLogs.fields.meta")}:
                       </Text>
                       <Text style={styles.dialogMetaValue}>
-                        {JSON.stringify(
-                          JSON.parse(selectedLog.metaJson),
-                          null,
-                          2
-                        )}
+                        {JSON.stringify(selectedLog.metadata, null, 2)}
                       </Text>
                     </View>
                   )}
@@ -477,6 +492,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     opacity: 0.85,
+  },
+  sourceText: {
+    fontSize: 11,
+    fontWeight: "600",
+    marginRight: 8,
   },
   dateText: {
     fontSize: 12,

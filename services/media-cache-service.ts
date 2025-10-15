@@ -307,7 +307,7 @@ class MediaCacheService {
                     console.log('[MediaCache] File exists:', filePath, file.size);
                     file.delete();
                 }
-                const downloadResult = await File.downloadFileAsync(url, file as any);
+                const downloadResult = await File.downloadAsync(url, isWeb ? (file as any) : filePath);
                 console.log('[MediaCache] Download result:', url, downloadResult);
 
                 console.log('[MediaCache] Media saved at:', downloadResult.uri, url);
