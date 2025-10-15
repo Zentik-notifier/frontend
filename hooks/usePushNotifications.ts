@@ -138,7 +138,7 @@ export function usePushNotifications() {
 
       try {
         await BackgroundFetch.registerTaskAsync(NOTIFICATION_REFRESH_TASK, {
-          minimumInterval: 60
+          minimumInterval: 180
         });
         console.debug("[usePushNotifications] Background fetch task registered successfully");
       } catch (e) {
