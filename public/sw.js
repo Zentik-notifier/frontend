@@ -16,49 +16,17 @@ async function withIndexedDB(successCallback, mode = 'readonly', storeName = 'ke
 
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
-      const oldVersion = event.oldVersion;
-      const transaction = event.target.transaction;
-      
       if (!db.objectStoreNames.contains('keyvalue')) {
         db.createObjectStore('keyvalue');
       }
-      
-      // Notifications store with indices
       if (!db.objectStoreNames.contains('notifications')) {
-        const notificationsStore = db.createObjectStore('notifications');
-        notificationsStore.createIndex('created_at', 'created_at');
-        notificationsStore.createIndex('read_at', 'read_at');
-        notificationsStore.createIndex('bucket_id', 'bucket_id');
-      } else if (oldVersion < 7) {
-        const notificationsStore = transaction.objectStore('notifications');
-        if (!notificationsStore.indexNames.contains('created_at')) {
-          notificationsStore.createIndex('created_at', 'created_at');
-        }
-        if (!notificationsStore.indexNames.contains('read_at')) {
-          notificationsStore.createIndex('read_at', 'read_at');
-        }
-        if (!notificationsStore.indexNames.contains('bucket_id')) {
-          notificationsStore.createIndex('bucket_id', 'bucket_id');
-        }
+        db.createObjectStore('notifications');
       }
-      
-      // Buckets store
-      if (!db.objectStoreNames.contains('buckets')) {
-        const bucketsStore = db.createObjectStore('buckets');
-        bucketsStore.createIndex('updated_at', 'updated_at');
-        bucketsStore.createIndex('synced_at', 'synced_at');
-      }
-      
-      if (!db.objectStoreNames.contains('app_log')) {
-        db.createObjectStore('app_log', { keyPath: 'timestamp' });
-      }
-      
-      if (!db.objectStoreNames.contains('cache_item')) {
-        db.createObjectStore('cache_item');
-      }
-      
       if (!db.objectStoreNames.contains('media_item')) {
         db.createObjectStore('media_item');
+      }
+      if (!db.objectStoreNames.contains('cache_item')) {
+        db.createObjectStore('cache_item');
       }
     };
   });
@@ -312,11 +280,11 @@ async function updateCacheItemForPrefetch(key, url, mediaType, size, notificatio
       originalFileName: undefined,
       downloadedAt: errorCode ? undefined : Date.now(),
       notificationDate: Date.now(),
+      notificationId: notificationId, // Track which notification this media belongs to
       isDownloading: false,
       isPermanentFailure: !!errorCode,
       isUserDeleted: false,
       errorCode: errorCode,
-      // Note: notificationId is not stored in cache_item by MediaCacheService
     };
 
     const putRequest = store.put(cacheItem, key);
@@ -723,7 +691,7 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
           try {
             // First, update local IndexedDB (optimistic update)
             try {
-              const db = await indexedDB.open('zentik-storage', 8);
+              const db = await indexedDB.open('zentik-storage', 7);
               await new Promise((resolve, reject) => {
                 db.onsuccess = async () => {
                   const database = db.result;
@@ -876,6 +844,29 @@ async function handleNotificationAction(actionType, actionValue, notificationDat
             console.log(`[Service Worker] ✅ Bucket ${bucketId} snoozed for ${minutes} minutes`);
           } catch (error) {
             console.error('[Service Worker] ❌ Failed to snooze bucket:', error);
+          }
+        })()
+      );
+      break;
+    }
+
+    case 'POSTPONE': {
+      const minutes = parseInt(actionValue, 10);
+      if (isNaN(minutes) || minutes <= 0) {
+        console.error('[Service Worker] ❌ Invalid postpone duration:', actionValue);
+        return;
+      }
+
+      event.waitUntil(
+        (async () => {
+          try {
+            await executeApiCall('/notifications/postpone', 'POST', { 
+              notificationId: notificationId, 
+              minutes: minutes 
+            });
+            console.log(`[Service Worker] ✅ Notification ${notificationId} postponed for ${minutes} minutes`);
+          } catch (error) {
+            console.error('[Service Worker] ❌ Failed to postpone notification:', error);
           }
         })()
       );

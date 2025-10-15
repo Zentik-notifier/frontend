@@ -108,6 +108,7 @@ export class MediaCacheRepository {
         originalFileName: item.originalFileName ?? undefined,
         downloadedAt: item.downloadedAt ?? undefined,
         notificationDate: item.notificationDate ?? undefined,
+        notificationId: item.notificationId ?? undefined,
         isDownloading: item.isDownloading ?? false,
         isPermanentFailure: item.isPermanentFailure ?? false,
         isUserDeleted: item.isUserDeleted ?? false,
@@ -120,9 +121,9 @@ export class MediaCacheRepository {
         `INSERT INTO cache_item (
           key, url, local_path, local_thumb_path, generating_thumbnail,
           timestamp, size, media_type, original_file_name,
-          downloaded_at, notification_date, is_downloading,
+          downloaded_at, notification_date, notification_id, is_downloading,
           is_permanent_failure, is_user_deleted, error_code
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(key) DO UPDATE SET
           url=excluded.url,
           local_path=excluded.local_path,
@@ -134,6 +135,7 @@ export class MediaCacheRepository {
           original_file_name=excluded.original_file_name,
           downloaded_at=excluded.downloaded_at,
           notification_date=excluded.notification_date,
+          notification_id=excluded.notification_id,
           is_downloading=excluded.is_downloading,
           is_permanent_failure=excluded.is_permanent_failure,
           is_user_deleted=excluded.is_user_deleted,
@@ -151,6 +153,7 @@ export class MediaCacheRepository {
           item.originalFileName ?? null,
           item.downloadedAt ?? null,
           item.notificationDate ?? null,
+          item.notificationId ?? null,
           item.isDownloading ? 1 : 0,
           item.isPermanentFailure ? 1 : 0,
           item.isUserDeleted ? 1 : 0,
@@ -229,6 +232,7 @@ export class MediaCacheRepository {
             originalFileName: item.originalFileName ?? undefined,
             downloadedAt: item.downloadedAt ?? undefined,
             notificationDate: item.notificationDate ?? undefined,
+            notificationId: item.notificationId ?? undefined,
             isDownloading: item.isDownloading ?? false,
             isPermanentFailure: item.isPermanentFailure ?? false,
             isUserDeleted: item.isUserDeleted ?? false,
@@ -250,9 +254,9 @@ export class MediaCacheRepository {
             `INSERT INTO cache_item (
               key, url, local_path, local_thumb_path, generating_thumbnail,
               timestamp, size, media_type, original_file_name,
-              downloaded_at, notification_date, is_downloading,
+              downloaded_at, notification_date, notification_id, is_downloading,
               is_permanent_failure, is_user_deleted, error_code
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(key) DO UPDATE SET
               url=excluded.url,
               local_path=excluded.local_path,
@@ -264,6 +268,7 @@ export class MediaCacheRepository {
               original_file_name=excluded.original_file_name,
               downloaded_at=excluded.downloaded_at,
               notification_date=excluded.notification_date,
+              notification_id=excluded.notification_id,
               is_downloading=excluded.is_downloading,
               is_permanent_failure=excluded.is_permanent_failure,
               is_user_deleted=excluded.is_user_deleted,
@@ -281,6 +286,7 @@ export class MediaCacheRepository {
               item.originalFileName ?? null,
               item.downloadedAt ?? null,
               item.notificationDate ?? null,
+              item.notificationId ?? null,
               item.isDownloading ? 1 : 0,
               item.isPermanentFailure ? 1 : 0,
               item.isUserDeleted ? 1 : 0,
@@ -491,6 +497,7 @@ function mapWebRecordToCacheItem(record: any): CacheItem {
     originalFileName: record.originalFileName ?? undefined,
     downloadedAt: record.downloadedAt ? Number(record.downloadedAt) : undefined,
     notificationDate: record.notificationDate ? Number(record.notificationDate) : undefined,
+    notificationId: record.notificationId ?? undefined,
     isDownloading: record.isDownloading ?? false,
     isPermanentFailure: record.isPermanentFailure ?? false,
     isUserDeleted: record.isUserDeleted ?? false,
@@ -511,6 +518,7 @@ function mapSQLiteRowToCacheItem(row: any): CacheItem {
     originalFileName: row.original_file_name ?? undefined,
     downloadedAt: Number(row.downloaded_at),
     notificationDate: row.notification_date != null ? Number(row.notification_date) : undefined,
+    notificationId: row.notification_id ?? undefined,
     isDownloading: row.is_downloading === 1,
     isPermanentFailure: row.is_permanent_failure === 1,
     isUserDeleted: row.is_user_deleted === 1,

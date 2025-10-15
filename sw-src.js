@@ -336,11 +336,11 @@ async function updateCacheItemForPrefetch(key, url, mediaType, size, notificatio
       originalFileName: undefined,
       downloadedAt: errorCode ? undefined : Date.now(),
       notificationDate: Date.now(),
+      notificationId: notificationId, // Track which notification this media belongs to
       isDownloading: false,
       isPermanentFailure: !!errorCode,
       isUserDeleted: false,
       errorCode: errorCode,
-      // Note: notificationId is not stored in cache_item by MediaCacheService
     };
 
     const putRequest = store.put(cacheItem, key);

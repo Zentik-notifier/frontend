@@ -59,6 +59,7 @@ export interface WebStorageDB extends DBSchema {
       originalFileName?: string;
       downloadedAt?: number;
       notificationDate?: number;
+      notificationId?: string;
       isDownloading: boolean;
       isPermanentFailure: boolean;
       isUserDeleted: boolean;
@@ -129,6 +130,7 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
         original_file_name TEXT,
         downloaded_at INTEGER NOT NULL,
         notification_date INTEGER,
+        notification_id TEXT,
         is_downloading INTEGER NOT NULL DEFAULT 0 CHECK (is_downloading IN (0,1)),
         is_permanent_failure INTEGER NOT NULL DEFAULT 0 CHECK (is_permanent_failure IN (0,1)),
         is_user_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_user_deleted IN (0,1)),

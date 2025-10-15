@@ -13,6 +13,7 @@ class NotificationService: UNNotificationServiceExtension {
 
   var contentHandler: ((UNNotificationContent) -> Void)?
   var bestAttemptContent: UNMutableNotificationContent?
+  var currentNotificationId: String?
 
   override func didReceive(
     _ request: UNNotificationRequest,
@@ -31,8 +32,10 @@ class NotificationService: UNNotificationServiceExtension {
       // Decrypt encrypted values first
       decryptNotificationContent(content: bestAttemptContent)
 
-      // Log notification received
+      // Store notificationId for media tracking
       if let notificationId = bestAttemptContent.userInfo["notificationId"] as? String {
+        self.currentNotificationId = notificationId
+        
         logToDatabase(
           level: "info",
           tag: "NotificationServiceExtension",
@@ -625,6 +628,10 @@ class NotificationService: UNNotificationServiceExtension {
 
   override func serviceExtensionTimeWillExpire() {
     print("📱 [NotificationService] Service extension time will expire")
+    
+    // Flush any pending logs before extension terminates
+    flushLogs()
+    
     if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {
       contentHandler(bestAttemptContent)
     }
@@ -1601,7 +1608,7 @@ class NotificationService: UNNotificationServiceExtension {
   ) {
     guard let url = URL(string: mediaAttachment.url) else {
       print("📱 [NotificationService] ❌ Invalid URL for pre-cache: \(mediaAttachment.url)")
-      markMediaAsCompleted(mediaAttachment, success: false, isNewDownload: true)
+      markMediaAsCompleted(mediaAttachment, success: false, isNewDownload: true, notificationId: currentNotificationId)
       completion()
       return
     }
@@ -1743,17 +1750,17 @@ class NotificationService: UNNotificationServiceExtension {
         print(
           "📱 [NotificationService] ✅ Downloaded to shared cache: \(mediaAttachment.mediaType) (\(dataToSave.count) bytes) - \(finalCacheFile.lastPathComponent)"
         )
-        self?.markMediaAsCompleted(mediaAttachment, success: true, isNewDownload: true)
+        self?.markMediaAsCompleted(mediaAttachment, success: true, isNewDownload: true, notificationId: self?.currentNotificationId)
       } catch {
         print("📱 [NotificationService] ❌ Failed to save to shared cache: \(error)")
-        self?.markMediaAsCompleted(mediaAttachment, success: false, isNewDownload: true)
+        self?.markMediaAsCompleted(mediaAttachment, success: false, isNewDownload: true, notificationId: self?.currentNotificationId)
       }
     }.resume()
   }
 
   private func markMediaAsCompleted(
     _ mediaAttachment: MediaAttachment, success: Bool, isNewDownload: Bool = true,
-    errorCode: String? = nil
+    errorCode: String? = nil, notificationId: String? = nil
   ) {
     let sharedCacheDirectory = getSharedMediaCacheDirectory()
     let filename = generateSafeFileName(
@@ -1789,6 +1796,7 @@ class NotificationService: UNNotificationServiceExtension {
       fields["downloaded_at"] = Int(Date().timeIntervalSince1970 * 1000)
     }
     if let errorCode { fields["error_code"] = errorCode }
+    if let notificationId { fields["notification_id"] = notificationId }
 
     print(
       "📱 [NotificationService] 📊 Marking media as completed: success=\(success), errorCode=\(errorCode ?? "nil")"
@@ -1802,56 +1810,140 @@ class NotificationService: UNNotificationServiceExtension {
     return dir.appendingPathComponent("cache.db").path
   }
   
-  // MARK: - Logging to SQLite
+  // MARK: - Batch JSON Logging
   
+  private struct LogEntry: Codable {
+    let level: String
+    let tag: String?
+    let message: String
+    let metadata: [String: String]? // Simplified for JSON encoding
+    let timestamp: Int64
+    let source: String // "NSE" or "NCE"
+  }
+  
+  private static var logBuffer: [LogEntry] = []
+  private static var logBufferLock = NSLock()
+  private static let BATCH_SIZE = 20
+  private static var flushTimer: Timer?
+  
+  private func logToJSON(
+    level: String,
+    tag: String? = nil,
+    message: String,
+    metadata: [String: Any]? = nil
+  ) {
+    let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+    
+    // Convert metadata to string dictionary for JSON encoding
+    var metadataStrings: [String: String]?
+    if let metadata = metadata {
+      metadataStrings = metadata.reduce(into: [String: String]()) { result, item in
+        if let stringValue = item.value as? String {
+          result[item.key] = stringValue
+        } else if let numberValue = item.value as? NSNumber {
+          result[item.key] = numberValue.stringValue
+        } else {
+          // Convert complex objects to JSON string
+          if let jsonData = try? JSONSerialization.data(withJSONObject: item.value),
+             let jsonString = String(data: jsonData, encoding: .utf8) {
+            result[item.key] = jsonString
+          }
+        }
+      }
+    }
+    
+    let entry = LogEntry(
+      level: level,
+      tag: tag,
+      message: message,
+      metadata: metadataStrings,
+      timestamp: timestamp,
+      source: "NSE"
+    )
+    
+    NotificationService.logBufferLock.lock()
+    NotificationService.logBuffer.append(entry)
+    let shouldFlush = NotificationService.logBuffer.count >= NotificationService.BATCH_SIZE
+    NotificationService.logBufferLock.unlock()
+    
+    if shouldFlush {
+      flushLogs()
+    } else {
+      scheduleFlush()
+    }
+  }
+  
+  private func scheduleFlush() {
+    NotificationService.logBufferLock.lock()
+    if NotificationService.flushTimer == nil {
+      NotificationService.flushTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
+        self?.flushLogs()
+      }
+    }
+    NotificationService.logBufferLock.unlock()
+  }
+  
+  private func flushLogs() {
+    NotificationService.logBufferLock.lock()
+    
+    // Cancel timer
+    NotificationService.flushTimer?.invalidate()
+    NotificationService.flushTimer = nil
+    
+    guard !NotificationService.logBuffer.isEmpty else {
+      NotificationService.logBufferLock.unlock()
+      return
+    }
+    
+    // Copy buffer and clear
+    let logsToWrite = NotificationService.logBuffer
+    NotificationService.logBuffer = []
+    NotificationService.logBufferLock.unlock()
+    
+    // Write to JSON file
+    let logFilePath = getSharedMediaCacheDirectory().appendingPathComponent("logs.json")
+    
+    do {
+      var existingLogs: [LogEntry] = []
+      
+      // Read existing logs if file exists
+      if FileManager.default.fileExists(atPath: logFilePath.path) {
+        let data = try Data(contentsOf: logFilePath)
+        existingLogs = (try? JSONDecoder().decode([LogEntry].self, from: data)) ?? []
+      }
+      
+      // Append new logs
+      existingLogs.append(contentsOf: logsToWrite)
+      
+      // Retention: keep only last 24 hours
+      let cutoff = Int64(Date().timeIntervalSince1970 * 1000) - (24 * 60 * 60 * 1000)
+      existingLogs = existingLogs.filter { $0.timestamp > cutoff }
+      
+      // Keep max 1000 logs to prevent file growth
+      if existingLogs.count > 1000 {
+        existingLogs = Array(existingLogs.suffix(1000))
+      }
+      
+      // Write back to file
+      let encoder = JSONEncoder()
+      encoder.outputFormatting = .prettyPrinted
+      let jsonData = try encoder.encode(existingLogs)
+      try jsonData.write(to: logFilePath, options: [.atomic])
+      
+      print("📱 [NotificationService] ✅ Flushed \(logsToWrite.count) logs to JSON")
+    } catch {
+      print("📱 [NotificationService] ❌ Failed to flush logs: \(error)")
+    }
+  }
+  
+  // Legacy function that redirects to JSON logging
   private func logToDatabase(
     level: String,
     tag: String? = nil,
     message: String,
     metadata: [String: Any]? = nil
   ) {
-    let dbPath = getDbPath()
-    var db: OpaquePointer?
-    
-    if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE, nil) != SQLITE_OK {
-      return
-    }
-    defer { sqlite3_close(db) }
-    
-    let sql = """
-      INSERT INTO app_log (level, tag, message, meta_json, timestamp)
-      VALUES (?, ?, ?, ?, ?)
-    """
-    
-    var stmt: OpaquePointer?
-    if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
-      return
-    }
-    defer { sqlite3_finalize(stmt) }
-    
-    let timestamp = Int(Date().timeIntervalSince1970 * 1000)
-    
-    sqlite3_bind_text(stmt, 1, (level as NSString).utf8String, -1, SQLITE_TRANSIENT)
-    
-    if let tag = tag {
-      sqlite3_bind_text(stmt, 2, (tag as NSString).utf8String, -1, SQLITE_TRANSIENT)
-    } else {
-      sqlite3_bind_null(stmt, 2)
-    }
-    
-    sqlite3_bind_text(stmt, 3, (message as NSString).utf8String, -1, SQLITE_TRANSIENT)
-    
-    if let metadata = metadata,
-       let jsonData = try? JSONSerialization.data(withJSONObject: metadata),
-       let jsonString = String(data: jsonData, encoding: .utf8) {
-      sqlite3_bind_text(stmt, 4, (jsonString as NSString).utf8String, -1, SQLITE_TRANSIENT)
-    } else {
-      sqlite3_bind_null(stmt, 4)
-    }
-    
-    sqlite3_bind_int64(stmt, 5, Int64(timestamp))
-    
-    sqlite3_step(stmt)
+    logToJSON(level: level, tag: tag, message: message, metadata: metadata)
   }
   
   // MARK: - Save Notification to SQLite
@@ -2079,12 +2171,12 @@ class NotificationService: UNNotificationServiceExtension {
 
     let columns = [
       "key", "url", "local_path", "local_thumb_path", "generating_thumbnail", "timestamp", "size",
-      "media_type", "original_file_name", "downloaded_at", "notification_date", "is_downloading",
+      "media_type", "original_file_name", "downloaded_at", "notification_date", "notification_id", "is_downloading",
       "is_permanent_failure", "is_user_deleted", "error_code",
     ]
     let placeholders = Array(repeating: "?", count: columns.count).joined(separator: ",")
     let sql =
-      "INSERT INTO cache_item (\(columns.joined(separator: ","))) VALUES (\(placeholders)) ON CONFLICT(key) DO UPDATE SET url=excluded.url, local_path=excluded.local_path, local_thumb_path=excluded.local_thumb_path, generating_thumbnail=excluded.generating_thumbnail, timestamp=excluded.timestamp, size=excluded.size, media_type=excluded.media_type, original_file_name=excluded.original_file_name, downloaded_at=excluded.downloaded_at, notification_date=excluded.notification_date, is_downloading=excluded.is_downloading, is_permanent_failure=excluded.is_permanent_failure, is_user_deleted=excluded.is_user_deleted, error_code=excluded.error_code;"
+      "INSERT INTO cache_item (\(columns.joined(separator: ","))) VALUES (\(placeholders)) ON CONFLICT(key) DO UPDATE SET url=excluded.url, local_path=excluded.local_path, local_thumb_path=excluded.local_thumb_path, generating_thumbnail=excluded.generating_thumbnail, timestamp=excluded.timestamp, size=excluded.size, media_type=excluded.media_type, original_file_name=excluded.original_file_name, downloaded_at=excluded.downloaded_at, notification_date=excluded.notification_date, notification_id=excluded.notification_id, is_downloading=excluded.is_downloading, is_permanent_failure=excluded.is_permanent_failure, is_user_deleted=excluded.is_user_deleted, error_code=excluded.error_code;"
     var stmt: OpaquePointer?
     if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
       print(
@@ -2119,6 +2211,7 @@ class NotificationService: UNNotificationServiceExtension {
       allFields["original_file_name"],
       allFields["downloaded_at"],
       allFields["notification_date"],
+      allFields["notification_id"],
       allFields["is_downloading"],
       allFields["is_permanent_failure"],
       allFields["is_user_deleted"],

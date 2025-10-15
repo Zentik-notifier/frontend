@@ -31,6 +31,7 @@ export interface CacheItem {
     originalFileName?: string;
     downloadedAt?: number;
     notificationDate?: number;
+    notificationId?: string;
     isDownloading?: boolean;
     inDownload?: boolean;
     isPermanentFailure?: boolean;
@@ -64,6 +65,7 @@ export interface DownloadQueueItem {
     force?: boolean;
     mediaType: MediaType;
     notificationDate?: number;
+    notificationId?: string;
     timestamp: number;
     op: QueueOperation;
     priority?: number;
@@ -319,6 +321,7 @@ class MediaCacheService {
                     errorCode: undefined,
                     downloadedAt: Date.now(),
                     timestamp: Date.now(),
+                    notificationId: item.notificationId,
                 });
 
                 await this.generateThumbnail({ url, mediaType, force });
@@ -618,10 +621,11 @@ class MediaCacheService {
             mediaType: MediaType,
             force?: boolean,
             notificationDate?: number,
+            notificationId?: string,
             priority?: number,
         },
     ): Promise<void> {
-        const { url, mediaType, force, notificationDate, priority = 0 } = props;
+        const { url, mediaType, force, notificationDate, notificationId, priority = 0 } = props;
         await this.initialize();
 
         if (!url || !mediaType || !this.repo) return;
@@ -657,6 +661,7 @@ class MediaCacheService {
                     downloadedAt: Date.now(),
                     timestamp: Date.now(),
                     notificationDate: notificationDate ?? this.metadata[key]?.notificationDate,
+                    notificationId: notificationId ?? this.metadata[key]?.notificationId,
                 });
 
                 // Ensure thumbnail exists or generate it
@@ -683,6 +688,7 @@ class MediaCacheService {
             mediaType,
             op: 'download',
             notificationDate,
+            notificationId,
             force,
             priority
         });
@@ -1145,6 +1151,7 @@ class MediaCacheService {
                 url: attachment.url,
                 mediaType: attachment.mediaType,
                 notificationDate: new Date(notification.createdAt).getTime(),
+                notificationId: notification.id,
                 priority,
             });
         }
@@ -1212,7 +1219,7 @@ class MediaCacheService {
      * Batch download with priority
      */
     async batchDownload(
-        items: Array<{ url: string; mediaType: MediaType; notificationDate?: number }>,
+        items: Array<{ url: string; mediaType: MediaType; notificationDate?: number; notificationId?: string }>,
         priority: number = 0
     ): Promise<void> {
         await this.initialize();

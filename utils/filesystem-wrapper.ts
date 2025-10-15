@@ -208,6 +208,49 @@ class WebFile {
     this._checked = false;
     // Accessing exists/size will trigger checkExistence()
   }
+
+  // Read file content as string (for web, reads from IndexedDB)
+  async read(): Promise<string | null> {
+    if (!isWeb) return null;
+
+    try {
+      const repo = await getWebRepo();
+      const item = await repo.getMediaItem(this.path);
+      if (item) {
+        // Convert ArrayBuffer to string
+        const decoder = new TextDecoder('utf-8');
+        return decoder.decode(item.data);
+      }
+      return null;
+    } catch (error) {
+      console.warn('[WebFS] Failed to read file:', error);
+      return null;
+    }
+  }
+
+  // Write string content to file (for web, writes to IndexedDB)
+  async write(content: string): Promise<void> {
+    if (!isWeb) return;
+
+    try {
+      // Convert string to ArrayBuffer
+      const encoder = new TextEncoder();
+      const arrayBuffer = encoder.encode(content);
+
+      const repo = await getWebRepo();
+      await repo.saveMediaItem({
+        key: this.path,
+        data: arrayBuffer.buffer,
+      });
+
+      this._exists = true;
+      this._size = arrayBuffer.byteLength;
+      this._checked = true;
+    } catch (error) {
+      console.warn('[WebFS] Failed to write file:', error);
+      throw error;
+    }
+  }
 }
 
 // Web Directory class implementation using IndexedDB
@@ -239,8 +282,59 @@ class WebDirectory {
   }
 }
 
+// Wrapper for native File with async read/write methods
+class NativeFileWrapper {
+  private file: any;
+
+  constructor(path: string) {
+    this.file = new ExpoFileSystem.File(path);
+  }
+
+  get exists(): boolean {
+    return this.file.exists;
+  }
+
+  get size(): number {
+    return this.file.size;
+  }
+
+  get path(): string {
+    return this.file.uri;
+  }
+
+  async delete(): Promise<void> {
+    await ExpoFileSystem.deleteAsync(this.file.uri, { idempotent: true });
+  }
+
+  async copy(destination: NativeFileWrapper): Promise<void> {
+    await ExpoFileSystem.copyAsync({
+      from: this.file.uri,
+      to: destination.path,
+    });
+  }
+
+  async read(): Promise<string | null> {
+    try {
+      if (!this.exists) return null;
+      return await ExpoFileSystem.readAsStringAsync(this.file.uri);
+    } catch (error) {
+      console.warn('[NativeFS] Failed to read file:', error);
+      return null;
+    }
+  }
+
+  async write(content: string): Promise<void> {
+    try {
+      await ExpoFileSystem.writeAsStringAsync(this.file.uri, content);
+    } catch (error) {
+      console.warn('[NativeFS] Failed to write file:', error);
+      throw error;
+    }
+  }
+}
+
 // Export the appropriate classes based on platform
-export const File = isWeb ? WebFile : ExpoFileSystem.File;
+export const File = isWeb ? WebFile : NativeFileWrapper;
 export const Directory = isWeb ? WebDirectory : ExpoFileSystem.Directory;
 
 // Export download method
