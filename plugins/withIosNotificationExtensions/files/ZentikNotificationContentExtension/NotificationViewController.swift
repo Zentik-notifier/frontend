@@ -3147,7 +3147,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             let jsonData = try encoder.encode(existingLogs)
             try jsonData.write(to: logFilePath, options: [.atomic])
             
-            print("📱 [ContentExtension] ✅ Flushed \(logsToWrite.count) logs to JSON")
+            // print("📱 [ContentExtension] ✅ Flushed \(logsToWrite.count) logs to JSON")
         } catch {
             print("📱 [ContentExtension] ❌ Failed to flush logs: \(error)")
         }

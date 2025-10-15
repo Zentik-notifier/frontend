@@ -3,7 +3,6 @@
  * Provides hooks for fetching and managing buckets with React Query
  */
 
-import { useAppContext } from '@/contexts/AppContext';
 import {
     GetBucketQuery,
     Permission,
@@ -69,23 +68,23 @@ export const bucketKeys = {
  * @param bucketId - The bucket ID to fetch
  * @param options - Hook options
  * @param options.autoFetch - If true, automatically fetches full bucket details (with permissions) on mount
+ * @param options.userId - User ID for permission checks (optional, for breaking circular dependencies)
  * 
  * @example
  * ```tsx
  * // Basic usage - reads from global cache only
- * const { bucket, isSnoozed } = useBucket('bucket-id');
+ * const { bucket, isSnoozed } = useBucket('bucket-id', { userId });
  * 
  * // Auto-fetch permissions on mount (for EditBucket, etc.)
- * const { bucket, canAdmin, canDelete } = useBucket('bucket-id', { autoFetch: true });
+ * const { bucket, canAdmin, canDelete } = useBucket('bucket-id', { autoFetch: true, userId });
  * ```
  */
 export function useBucket(
     bucketId?: string,
-    options?: { autoFetch?: boolean }
+    options?: { autoFetch?: boolean; userId?: string }
 ): BucketWithPermissions {
-    const { userId } = useAppContext();
     const queryClient = useQueryClient();
-    const { autoFetch = false } = options || {};
+    const { autoFetch = false, userId } = options || {};
 
     // Use lazy query ONLY for manual refetch (via useRefreshBucket)
     const [getBucket] = useGetBucketLazyQuery({

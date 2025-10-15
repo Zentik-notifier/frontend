@@ -1,6 +1,7 @@
 import { useI18n } from "@/hooks/useI18n";
 import { useBucketsStats, useBatchMarkAsRead, useBucket } from "@/hooks/notifications";
 import { queryBucketNotifications } from "@/db/repositories/notifications-query-repository";
+import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
@@ -27,6 +28,7 @@ interface BucketDetailProps {
 export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { t } = useI18n();
   const theme = useTheme();
+  const { userId } = useAppContext();
   const { navigateToEditBucket, navigateToDanglingBucket } =
     useNavigationUtils();
   
@@ -35,7 +37,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const bucketStats = bucketsStats?.find((b) => b.id === bucketId);
   
   // Bucket data with permissions
-  const { bucket, isSnoozed, error } = useBucket(bucketId);
+  const { bucket, isSnoozed, error } = useBucket(bucketId, { userId: userId ?? undefined });
 
   const isOrphaned = error && error.message.includes("Bucket not found");
 

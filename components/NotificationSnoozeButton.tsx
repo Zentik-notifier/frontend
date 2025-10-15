@@ -1,6 +1,7 @@
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useBucket, useSetBucketSnooze } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
+import { useAppContext } from "@/contexts/AppContext";
 import { DatePickerInput, TimePickerModal } from "react-native-paper-dates";
 import React, { useMemo, useState } from "react";
 import {
@@ -54,9 +55,11 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   const { t } = useI18n();
   const { formatDate, datePickerLocale, use24HourTime } = useDateFormat();
 
+  const { userId } = useAppContext();
   // Only fetch bucket if snooze data not provided (for BucketDetail page)
   const { bucket, isSnoozed: isSnoozedFetched } = useBucket(
-    isSnoozedProp === undefined ? bucketId : undefined
+    isSnoozedProp === undefined ? bucketId : undefined,
+    { userId: userId ?? undefined }
   );
   
   const { setSnooze, isLoading: settingSnooze } = useSetBucketSnooze({

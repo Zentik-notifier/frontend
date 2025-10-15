@@ -45,6 +45,7 @@ export default function AppLogs() {
       setIsLoading(false);
     }
   }, []);
+  // console.log({ isLoading, logs });
 
   const refreshFromDb = useCallback(async () => {
     setIsRefreshing(true);
@@ -153,9 +154,13 @@ export default function AppLogs() {
   );
 
   const filteredLogs = useMemo(() => {
-    if (!query) return logs;
+    // Filter out logs with empty messages first
+    const validLogs = logs.filter((l) => l.message && l.message.trim() !== "");
+    
+    if (!query) return validLogs;
+    
     const q = query.toLowerCase();
-    return logs.filter((l) => {
+    return validLogs.filter((l) => {
       const parts = [
         l.level,
         l.tag ?? "",

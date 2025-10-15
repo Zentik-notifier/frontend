@@ -429,7 +429,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         try {
           // Flush pending logs before closing database
           await logger.flush();
-          console.log("[AppContext] Logs flushed successfully");
+          // console.log("[AppContext] Logs flushed successfully");
 
           await closeSharedCacheDb();
           console.log("[AppContext] Database closed successfully");

@@ -1930,7 +1930,7 @@ class NotificationService: UNNotificationServiceExtension {
       let jsonData = try encoder.encode(existingLogs)
       try jsonData.write(to: logFilePath, options: [.atomic])
       
-      print("📱 [NotificationService] ✅ Flushed \(logsToWrite.count) logs to JSON")
+      // print("📱 [NotificationService] ✅ Flushed \(logsToWrite.count) logs to JSON")
     } catch {
       print("📱 [NotificationService] ❌ Failed to flush logs: \(error)")
     }

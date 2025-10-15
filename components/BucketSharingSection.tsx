@@ -7,6 +7,7 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useBucket, useShareBucket, useUnshareBucket } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
+import { useAppContext } from "@/contexts/AppContext";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -444,7 +445,8 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
   const [editingPermission, setEditingPermission] =
     useState<EntityPermissionFragment | null>(null);
 
-  const { canAdmin, allPermissions, loading, bucket } = useBucket(bucketId, { autoFetch: true });
+  const { userId } = useAppContext();
+  const { canAdmin, allPermissions, loading, bucket } = useBucket(bucketId, { autoFetch: true, userId: userId ?? undefined });
 
   const { shareBucket, isLoading: sharingBucket } = useShareBucket({
     onSuccess: () => {

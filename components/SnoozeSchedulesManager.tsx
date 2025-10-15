@@ -4,6 +4,7 @@ import {
 import { useDateFormat } from "@/hooks";
 import { useBucket, useUpdateBucketSnoozes } from "@/hooks/notifications";
 import { TranslationKeyPath, useI18n } from "@/hooks/useI18n";
+import { useAppContext } from "@/contexts/AppContext";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
@@ -58,7 +59,8 @@ export default function SnoozeSchedulesManager({
   });
   const { use24HourTime, datePickerLocale } = useDateFormat();
 
-  const { bucket } = useBucket(bucketId, { autoFetch: true });
+  const { userId } = useAppContext();
+  const { bucket } = useBucket(bucketId, { autoFetch: true, userId: userId ?? undefined });
   const { updateSnoozes, isLoading: isUpdating } = useUpdateBucketSnoozes({
     onSuccess: () => {
       console.log("✅ Snooze schedules updated successfully");

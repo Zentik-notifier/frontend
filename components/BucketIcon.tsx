@@ -3,6 +3,7 @@ import {
   MediaType,
 } from "@/generated/gql-operations-generated";
 import { useBucket } from "@/hooks/notifications";
+import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
 import { StyleSheet, TouchableWithoutFeedback, View } from "react-native";
@@ -35,7 +36,8 @@ export default function BucketIcon({
   bucket: bucketParent,
 }: BucketIconProps) {
   const theme = useTheme();
-  const { bucket: bucketData, error } = useBucket(bucketIdParent ?? bucketParent?.id);
+  const { userId } = useAppContext();
+  const { bucket: bucketData, error } = useBucket(bucketIdParent ?? bucketParent?.id, { userId: userId ?? undefined });
   const bucket = bucketParent || bucketData;
   const { color, icon: iconBucket } = bucket || {};
   const { navigateToDanglingBucket, navigateToBucketDetail } =

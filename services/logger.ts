@@ -86,7 +86,7 @@ class JsonFileLogger {
         // Write back to file
         await logFile.write(JSON.stringify(existingLogs, null, 2));
         
-        console.log(`[Logger] ✅ Flushed ${logsToWrite.length} logs to JSON`);
+        // console.log(`[Logger] ✅ Flushed ${logsToWrite.length} logs to JSON`);
       } catch (e) {
         // Avoid throwing from logger
         console.warn('[Logger] Failed to write log batch', e);
@@ -227,7 +227,7 @@ class WebJsonFileLogger {
         // Write back to localStorage
         localStorage.setItem(this.logKey, JSON.stringify(existingLogs));
         
-        console.log(`[Logger] ✅ Flushed ${logsToWrite.length} logs to localStorage`);
+        // console.log(`[Logger] ✅ Flushed ${logsToWrite.length} logs to localStorage`);
       } catch (e) {
         // avoid throwing from logger
         console.warn('[Logger] Failed to write log batch', e);

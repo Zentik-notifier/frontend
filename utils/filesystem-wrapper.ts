@@ -306,20 +306,19 @@ class NativeFileWrapper {
   }
 
   async delete(): Promise<void> {
-    await ExpoFileSystem.deleteAsync(this.file.uri, { idempotent: true });
+    if (this.exists) {
+      await this.file.delete();
+    }
   }
 
   async copy(destination: NativeFileWrapper): Promise<void> {
-    await ExpoFileSystem.copyAsync({
-      from: this.file.uri,
-      to: destination.path,
-    });
+    await this.file.copy(destination.file);
   }
 
   async read(): Promise<string | null> {
     try {
       if (!this.exists) return null;
-      return await ExpoFileSystem.readAsStringAsync(this.file.uri);
+      return await this.file.text();
     } catch (error) {
       console.warn('[NativeFS] Failed to read file:', error);
       return null;
@@ -328,7 +327,7 @@ class NativeFileWrapper {
 
   async write(content: string): Promise<void> {
     try {
-      await ExpoFileSystem.writeAsStringAsync(this.file.uri, content);
+      await this.file.write(content);
     } catch (error) {
       console.warn('[NativeFS] Failed to write file:', error);
       throw error;

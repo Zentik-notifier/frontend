@@ -33,7 +33,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   const { formatDate } = useDateFormat();
 
   const { bucket, loading, error, canAdmin, canDelete, isSharedWithMe } =
-    useBucket(bucketId, { autoFetch: true });
+    useBucket(bucketId, { autoFetch: true, userId: userId ?? undefined });
   const refreshBucket = useRefreshBucket();
   const handleRefresh = async () => {
     await refreshBucket(bucketId).catch(console.error);

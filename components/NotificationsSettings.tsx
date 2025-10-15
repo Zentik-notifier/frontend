@@ -35,6 +35,7 @@ import Selector, { SelectorOption } from "./ui/Selector";
 
 export default function NotificationsSettings() {
   const {
+    userId,
     push,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
@@ -110,7 +111,7 @@ export default function NotificationsSettings() {
   );
 
   // Get bucket data and shared users
-  const { allPermissions } = useBucket(bucketId, { autoFetch: !!bucketId });
+  const { allPermissions } = useBucket(bucketId, { autoFetch: !!bucketId, userId: userId ?? undefined });
 
   // Set first bucket as default when buckets are loaded
   useEffect(() => {
@@ -988,7 +989,6 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 16,
     borderRadius: 12,
-    overflow: "hidden",
   },
   field: {
     marginBottom: 16,

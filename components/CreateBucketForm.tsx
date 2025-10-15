@@ -39,6 +39,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const {
+    userId,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const offline = isOfflineAuth || isBackendUnreachable;
@@ -49,7 +50,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const isEditing = !!bucketId;
 
-  const { bucket, canWrite } = useBucket(bucketId, { autoFetch: isEditing });
+  const { bucket, canWrite } = useBucket(bucketId, { autoFetch: isEditing, userId: userId ?? undefined });
   const refreshBucket = useRefreshBucket();
   const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
   const { data: appConfig } = usePublicAppConfigQuery();

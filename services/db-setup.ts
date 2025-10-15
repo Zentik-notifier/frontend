@@ -138,6 +138,19 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
       );
     `);
 
+    // Migration: Add notification_id column if it doesn't exist (for existing databases)
+    try {
+      await db.execAsync(`
+        ALTER TABLE cache_item ADD COLUMN notification_id TEXT;
+      `);
+      console.log('[DB] Migration: Added notification_id column to cache_item');
+    } catch (error: any) {
+      // Column already exists or other error - safe to ignore
+      if (!error?.message?.includes('duplicate column name')) {
+        console.warn('[DB] Migration warning (safe to ignore if column exists):', error?.message);
+      }
+    }
+
     await db.execAsync(`
       CREATE INDEX IF NOT EXISTS idx_cache_item_downloaded_at ON cache_item(downloaded_at);
     `);

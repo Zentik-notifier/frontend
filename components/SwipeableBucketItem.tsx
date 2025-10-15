@@ -39,7 +39,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
   const { navigateToEditBucket } = useNavigationUtils();
 
   // Use the bucket permissions hook to check permissions
-  const { canDelete, isSharedWithMe, sharedCount } = useBucket(bucket.id);
+  const { canDelete, isSharedWithMe, sharedCount } = useBucket(bucket.id, { userId: userId ?? undefined });
 
   const { deleteBucket, isLoading: loading } = useDeleteBucketWithNotifications({
     onSuccess: () => {
