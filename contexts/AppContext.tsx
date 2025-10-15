@@ -39,6 +39,7 @@ import {
 } from "../services/auth-storage";
 import { useUserSettings } from "../services/user-settings";
 import { closeSharedCacheDb, openSharedCacheDb } from "@/services/db-setup";
+import { logger } from "@/services/logger";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -423,13 +424,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await markAllAsRead();
       } else if (nextAppState === "background") {
         console.log(
-          "[AppContext] App going to background, closing database..."
+          "[AppContext] App going to background, flushing logs and closing database..."
         );
         try {
+          // Flush pending logs before closing database
+          await logger.flush();
+          console.log("[AppContext] Logs flushed successfully");
+
           await closeSharedCacheDb();
-          console.log("[RootLayout] Database closed successfully");
+          console.log("[AppContext] Database closed successfully");
         } catch (error) {
-          console.error("[RootLayout] Error closing database:", error);
+          console.error("[AppContext] Error during background cleanup:", error);
         }
       }
     };
