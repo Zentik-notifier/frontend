@@ -299,7 +299,7 @@ class NotificationService: UNNotificationServiceExtension {
           message: "[Communication] Communication style applied successfully",
           metadata: [
             "notificationId": notificationId,
-            "sender": senderName ?? "unknown",
+            "sender": senderDisplayName ?? "unknown",
             "hasSubtitle": !content.subtitle.isEmpty,
             "hasAvatar": senderAvatar != nil
           ]

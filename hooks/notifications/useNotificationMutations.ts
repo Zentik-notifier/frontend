@@ -3,7 +3,7 @@
  * Provides hooks for creating, updating, and deleting notifications with local DB sync
  */
 
-import { NotificationFragment } from '@/generated/gql-operations-generated';
+import { NotificationFragment, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation } from '@/generated/gql-operations-generated';
 import {
     deleteNotificationFromCache,
     deleteNotificationsFromCache,
@@ -89,10 +89,16 @@ export function useMarkAsRead(
     mutationOptions?: Omit<UseMutationOptions<string, Error, string>, 'mutationFn'>
 ): UseMutationResult<string, Error, string> {
     const queryClient = useQueryClient();
+    const [markAsReadGQL] = useMarkNotificationAsReadMutation();
 
     return useMutation({
         mutationFn: async (notificationId: string) => {
-            // LOCAL ONLY: Update local DB immediately
+            // 1. Call backend GraphQL mutation (this cancels reminders)
+            await markAsReadGQL({
+                variables: { id: notificationId }
+            });
+
+            // 2. Update local DB
             const now = new Date().toISOString();
             await updateNotificationReadStatus(notificationId, now);
 
@@ -270,10 +276,23 @@ export function useBatchMarkAsRead(
 ): UseMutationResult<string[], Error, MarkAsReadInput> {
     const queryClient = useQueryClient();
     const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
+    const [markAsReadGQL] = useMarkNotificationAsReadMutation();
+    const [markAsUnreadGQL] = useMarkNotificationAsUnreadMutation();
 
     return useMutation({
         mutationFn: async (input: MarkAsReadInput) => {
-            // LOCAL ONLY: Update local DB
+            const isMarkingAsRead = input.readAt !== null;
+            
+            // 1. Call backend GraphQL mutations for each notification (this cancels reminders)
+            await Promise.all(
+                input.notificationIds.map(id =>
+                    isMarkingAsRead
+                        ? markAsReadGQL({ variables: { id } })
+                        : markAsUnreadGQL({ variables: { id } })
+                )
+            );
+
+            // 2. Update local DB
             await updateNotificationsReadStatus(input.notificationIds, input.readAt);
 
             return input.notificationIds;
