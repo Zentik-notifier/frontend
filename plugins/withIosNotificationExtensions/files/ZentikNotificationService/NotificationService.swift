@@ -209,11 +209,8 @@ class NotificationService: UNNotificationServiceExtension {
     // profile picture that will be displayed in the notification (left side)
     let senderAvatar: INImage? = senderAvatarImageData.map { INImage(imageData: $0) }
 
-    // Use bucketName (chatRoomName) as sender name if available, otherwise fallback to title
-    let senderName = chatRoomName ?? senderDisplayName
-
     var personNameComponents = PersonNameComponents()
-    personNameComponents.nickname = senderName
+    personNameComponents.nickname = senderDisplayName
 
     // the person that sent the message
     // we need that as it is used by the OS trying to identify/match the sender with a contact
@@ -225,7 +222,7 @@ class NotificationService: UNNotificationServiceExtension {
         type: .unknown
       ),
       nameComponents: personNameComponents,
-      displayName: senderName,
+      displayName: senderDisplayName,
       image: senderAvatar,
       contactIdentifier: nil,
       customIdentifier: nil,
