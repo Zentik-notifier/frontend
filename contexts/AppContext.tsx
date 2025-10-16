@@ -1,4 +1,4 @@
-import OnboardingModal from "@/components/Onboarding";
+import OnboardingModal from "@/components/Onboarding/OnboardingModal";
 import {
   DeviceInfoDto,
   LoginDto,
@@ -40,6 +40,7 @@ import {
 import { useUserSettings } from "../services/user-settings";
 import { closeSharedCacheDb, openSharedCacheDb } from "@/services/db-setup";
 import { logger } from "@/services/logger";
+import { mediaCache } from "@/services/media-cache-service";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -433,6 +434,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
           await closeSharedCacheDb();
           console.log("[AppContext] Database closed successfully");
+          
+          // Notify media cache service that database is closed
+          // This allows automatic reopening on next operation
+          mediaCache.notifyDatabaseClosed();
         } catch (error) {
           console.error("[AppContext] Error during background cleanup:", error);
         }

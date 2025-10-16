@@ -5,6 +5,7 @@ import { File } from '../utils/filesystem-wrapper';
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export interface AppLog {
+  id: string; // Unique identifier (UUID)
   level: LogLevel;
   tag?: string;
   message: string;
@@ -23,6 +24,15 @@ class JsonFileLogger {
   private flushTimeout: NodeJS.Timeout | null = null;
   private isFlushingPromise: Promise<void> | null = null;
   private logFilePath: string | null = null;
+
+  // Generate UUID v4 (simplified version)
+  private generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
 
   private async getLogFilePath(): Promise<string> {
     if (!this.logFilePath) {
@@ -135,6 +145,7 @@ class JsonFileLogger {
   private async write(level: LogLevel, tag: string | undefined, message: string, meta?: any) {
     try {
       const log: AppLog = {
+        id: this.generateUUID(),
         level,
         tag,
         message,
@@ -177,6 +188,15 @@ class WebJsonFileLogger {
   private flushTimeout: number | null = null;
   private isFlushingPromise: Promise<void> | null = null;
   private logKey = 'zentik-logs-json';
+
+  // Generate UUID v4 (simplified version)
+  private generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
 
   private async flushLogs(): Promise<void> {
     // Prevent concurrent flushes
@@ -276,6 +296,7 @@ class WebJsonFileLogger {
   private async write(level: LogLevel, tag: string | undefined, message: string, meta?: any) {
     try {
       const log: AppLog = {
+        id: this.generateUUID(),
         level,
         tag,
         message,

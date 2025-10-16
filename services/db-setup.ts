@@ -106,15 +106,17 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
     const directory = sharedDir.startsWith('file://') ? sharedDir.replace('file://', '') : sharedDir;
     const db = await openDatabaseAsync('cache.db', undefined, directory);
 
-    // Database configuration optimized for iOS stability
-    // Use DELETE journal mode instead of WAL to prevent mutex contention
-    // and reduce memory pressure in background mode
+    // Database configuration optimized for iOS stability and concurrent access
+    // WAL mode allows multiple concurrent readers (NCE, NSE, main app)
+    // DELETE mode blocks all access when one process has the database open
     await db.execAsync(`
-      PRAGMA journal_mode=DELETE;
+      PRAGMA journal_mode=WAL;
       PRAGMA synchronous=NORMAL;
       PRAGMA foreign_keys=ON;
       PRAGMA cache_size=-2000;
       PRAGMA temp_store=MEMORY;
+      PRAGMA wal_autocheckpoint=1000;
+      PRAGMA wal_checkpoint(TRUNCATE);
     `);
 
     await db.execAsync(`

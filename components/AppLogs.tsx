@@ -1,11 +1,11 @@
 import { useI18n } from "@/hooks/useI18n";
 import { AppLog, clearAllLogs, readLogs } from "@/services/logger";
-import { FlashList } from "@shopify/flash-list";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  FlatList,
   Modal,
   RefreshControl,
   ScrollView,
@@ -116,7 +116,9 @@ export default function AppLogs() {
                 {new Date(item.timestamp).toLocaleString()}
               </Text>
               {!!item.source && (
-                <Text style={[styles.sourceText, { color: theme.colors.primary }]}>
+                <Text
+                  style={[styles.sourceText, { color: theme.colors.primary }]}
+                >
                   [{item.source}]
                 </Text>
               )}
@@ -156,9 +158,9 @@ export default function AppLogs() {
   const filteredLogs = useMemo(() => {
     // Filter out logs with empty messages first
     const validLogs = logs.filter((l) => l.message && l.message.trim() !== "");
-    
+
     if (!query) return validLogs;
-    
+
     const q = query.toLowerCase();
     return validLogs.filter((l) => {
       const parts = [
@@ -297,9 +299,9 @@ export default function AppLogs() {
         )}
       </Surface>
 
-      <FlashList
+      <FlatList
         data={filteredLogs}
-        keyExtractor={(item) => String(item.timestamp)}
+        keyExtractor={(item) => String(item.id ?? item.timestamp)}
         renderItem={renderItem}
         refreshControl={
           <RefreshControl
@@ -388,9 +390,7 @@ export default function AppLogs() {
 
                   {selectedLog.source && (
                     <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>
-                        Source:
-                      </Text>
+                      <Text style={styles.dialogMetaLabel}>Source:</Text>
                       <Text style={styles.dialogMetaValue}>
                         {selectedLog.source}
                       </Text>

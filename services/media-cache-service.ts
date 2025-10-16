@@ -385,6 +385,17 @@ class MediaCacheService {
         }
     }
 
+    /**
+     * Notify the cache service that the database has been closed externally
+     * This allows automatic reopening on next operation
+     */
+    public notifyDatabaseClosed(): void {
+        console.log('[MediaCache] Database closed externally, notifying repository');
+        if (this.repo) {
+            this.repo.notifyDatabaseClosed();
+        }
+    }
+
     private async ensureDirectories(): Promise<void> {
         const typeDirs = ['IMAGE', 'VIDEO', 'GIF', 'AUDIO', 'ICON'];
         for (const type of typeDirs) {

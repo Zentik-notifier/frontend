@@ -36,6 +36,16 @@ export class MediaCacheRepository {
   }
 
   /**
+   * Notify repository that the database has been closed externally
+   * This allows automatic reopening on next operation
+   */
+  notifyDatabaseClosed(): void {
+    console.log('[MediaCacheRepository] Database closed externally, marking for reopen');
+    this.initialized = false;
+    this.db = null;
+  }
+
+  /**
    * Create and initialize a MediaCacheRepository instance
    * This ensures the repository is properly initialized before use
    */
@@ -65,9 +75,39 @@ export class MediaCacheRepository {
     }
   }
 
+  /**
+   * Ensure database is initialized and reopen if closed
+   * This handles cases where the database was closed during app backgrounding
+   */
   private async ensureInitialized(): Promise<void> {
     if (!this.initialized) {
       await this.initialize();
+      return;
+    }
+
+    // On mobile, check if database is still accessible
+    // If not, reinitialize (database may have been closed in background)
+    if (!this.isWeb() && this.db) {
+      try {
+        const sqliteDb = this.db as any;
+        // Try a simple operation to verify database is still open
+        // If this fails, the database was closed and needs reopening
+        if (sqliteDb.prepareAsync) {
+          // Test if database is accessible
+          const stmt = await sqliteDb.prepareAsync('SELECT 1');
+          await stmt.finalizeAsync();
+        }
+      } catch (error: any) {
+        // Database is closed or inaccessible, reinitialize
+        if (error?.message?.includes('closed resource')) {
+          console.log('[MediaCacheRepository] Database was closed, reopening...');
+          this.initialized = false;
+          this.db = null;
+          await this.initialize();
+        } else {
+          throw error;
+        }
+      }
     }
   }
 

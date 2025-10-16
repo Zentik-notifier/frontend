@@ -9,11 +9,32 @@ import UserNotifications
 // SQLite helper for Swift bindings
 private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
+// Database operation result types
+private enum DatabaseOperationResult {
+    case success
+    case failure(String)
+    case timeout
+    case locked
+}
+
+private enum DatabaseOperationType {
+    case read
+    case write
+}
+
 class NotificationService: UNNotificationServiceExtension {
 
   var contentHandler: ((UNNotificationContent) -> Void)?
   var bestAttemptContent: UNMutableNotificationContent?
   var currentNotificationId: String?
+  
+  // Database queue for thread-safe operations
+  private static let dbQueue = DispatchQueue(label: "com.zentik.nse.database", qos: .userInitiated)
+  
+  // Database operation configuration
+  private static let DB_OPERATION_TIMEOUT: TimeInterval = 5.0  // Max 5 seconds per operation
+  private static let DB_BUSY_TIMEOUT: Int32 = 3000  // 3 seconds busy timeout
+  private static let DB_MAX_RETRIES: Int = 3  // Max 3 retry attempts
 
   override func didReceive(
     _ request: UNNotificationRequest,
@@ -1810,9 +1831,228 @@ class NotificationService: UNNotificationServiceExtension {
     return dir.appendingPathComponent("cache.db").path
   }
   
+  // MARK: - Generic Database Operation Handler
+  
+  /// Generic database operation executor with timeout protection, retry logic and error handling
+  /// - Parameters:
+  ///   - operationType: Type of operation (read/write)
+  ///   - operationName: Name for logging purposes
+  ///   - timeout: Maximum time allowed for operation (default: 3 seconds)
+  ///   - operation: The actual database operation to perform
+  ///   - completion: Completion handler with result
+  private func performDatabaseOperation(
+    type operationType: DatabaseOperationType,
+    name operationName: String,
+    timeout: TimeInterval = DB_OPERATION_TIMEOUT,
+    operation: @escaping (OpaquePointer) -> DatabaseOperationResult,
+    completion: @escaping (DatabaseOperationResult) -> Void
+  ) {
+    // Execute on dedicated serial queue
+    NotificationService.dbQueue.async { [weak self] in
+      guard let self = self else {
+        completion(.failure("Extension deallocated"))
+        return
+      }
+      
+      let startTime = Date()
+      var operationCompleted = false
+      var finalResult: DatabaseOperationResult = .timeout
+      
+      // Timeout protection: dispatch operation with timeout
+      let timeoutWorkItem = DispatchWorkItem {
+        print("📱 [NotificationService] 🔓 [\(operationName)] Starting database operation...")
+        let dbPath = self.getDbPath()
+        print("📱 [NotificationService] 📂 [\(operationName)] DB path: \(dbPath)")
+        var db: OpaquePointer?
+        
+        // Open database with appropriate flags
+        let openFlags = operationType == .read ? 
+          SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX :
+          SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
+        
+        print("📱 [NotificationService] 🔐 [\(operationName)] Attempting to open database with flags: \(openFlags)...")
+        let openStartTime = Date()
+        var result = sqlite3_open_v2(dbPath, &db, openFlags, nil)
+        let openElapsed = Date().timeIntervalSince(openStartTime)
+        print("📱 [NotificationService] 🔓 [\(operationName)] Database open attempt completed in \(String(format: "%.3f", openElapsed))s with result: \(result)")
+        
+        if result != SQLITE_OK {
+          let errorMsg = "Failed to open database: \(result)"
+          print("📱 [NotificationService] ❌ [\(operationName)] \(errorMsg)")
+          self.logToDatabase(
+            level: "ERROR",
+            tag: "NSE-DB",
+            message: "[\(operationName)] \(errorMsg)",
+            metadata: ["sqliteError": String(result)]
+          )
+          finalResult = .failure(errorMsg)
+          operationCompleted = true
+          return
+        }
+        
+        guard let database = db else {
+          finalResult = .failure("Database pointer is nil")
+          operationCompleted = true
+          return
+        }
+        
+        defer {
+          sqlite3_close(database)
+        }
+        
+        // Configure SQLite for concurrent access with WAL mode
+        // WAL allows multiple concurrent readers (critical when app is foreground)
+        sqlite3_busy_timeout(database, NotificationService.DB_BUSY_TIMEOUT)
+        
+        // Set journal mode to WAL for concurrent access
+        var pragmaStmt: OpaquePointer?
+        if sqlite3_prepare_v2(database, "PRAGMA journal_mode=WAL", -1, &pragmaStmt, nil) == SQLITE_OK {
+          sqlite3_step(pragmaStmt)
+          sqlite3_finalize(pragmaStmt)
+        }
+        
+        // Optimize WAL checkpoint
+        if sqlite3_prepare_v2(database, "PRAGMA wal_autocheckpoint=1000", -1, &pragmaStmt, nil) == SQLITE_OK {
+          sqlite3_step(pragmaStmt)
+          sqlite3_finalize(pragmaStmt)
+        }
+        
+        // For write operations, use immediate transaction
+        if operationType == .write {
+          var beginStmt: OpaquePointer?
+          result = sqlite3_prepare_v2(database, "BEGIN IMMEDIATE TRANSACTION", -1, &beginStmt, nil)
+          if result == SQLITE_OK {
+            result = sqlite3_step(beginStmt)
+            sqlite3_finalize(beginStmt)
+            
+            if result != SQLITE_DONE {
+              print("📱 [NotificationService] ⚠️ [\(operationName)] Failed to begin transaction: \(result)")
+            }
+          }
+        }
+        
+        // Execute the actual operation with retry logic
+        var retries = NotificationService.DB_MAX_RETRIES
+        var operationResult: DatabaseOperationResult = .failure("Max retries exceeded")
+        
+        while retries >= 0 && !operationCompleted {
+          // Check if we're approaching timeout
+          let elapsed = Date().timeIntervalSince(startTime)
+          if elapsed >= timeout * 0.9 {  // 90% of timeout
+            print("📱 [NotificationService] ⚠️ [\(operationName)] Approaching timeout (\(elapsed)s), aborting")
+            operationResult = .timeout
+            break
+          }
+          
+          operationResult = operation(database)
+          
+          switch operationResult {
+          case .success:
+            // Success, exit retry loop
+            retries = -1
+            
+          case .locked:
+            if retries > 0 {
+              let attempt = NotificationService.DB_MAX_RETRIES - retries
+              let delayMs = 100000 * (1 << attempt)  // Exponential backoff: 100ms, 200ms, 400ms
+              print("📱 [NotificationService] 🔄 [\(operationName)] Database locked, retrying in \(delayMs/1000)ms... (\(retries) left)")
+              retries -= 1
+              usleep(UInt32(delayMs))
+            } else {
+              print("📱 [NotificationService] ❌ [\(operationName)] Max retries exceeded")
+              retries = -1
+            }
+            
+          case .failure(let msg) where msg.contains("BUSY") || msg.contains("LOCKED"):
+            if retries > 0 {
+              let attempt = NotificationService.DB_MAX_RETRIES - retries
+              let delayMs = 100000 * (1 << attempt)  // Exponential backoff
+              print("📱 [NotificationService] 🔄 [\(operationName)] Database busy (\(msg)), retrying in \(delayMs/1000)ms... (\(retries) left)")
+              retries -= 1
+              usleep(UInt32(delayMs))
+            } else {
+              print("📱 [NotificationService] ❌ [\(operationName)] Max retries exceeded")
+              retries = -1
+            }
+            
+          case .timeout:
+            print("📱 [NotificationService] ⏱️ [\(operationName)] Operation timeout")
+            retries = -1
+            
+          case .failure(let error):
+            print("📱 [NotificationService] ❌ [\(operationName)] Operation failed: \(error)")
+            retries = -1
+          }
+        }
+        
+        // Commit or rollback transaction for write operations
+        if operationType == .write {
+          var endStmt: OpaquePointer?
+          let endSQL: String
+          if case .success = operationResult {
+            endSQL = "COMMIT"
+          } else {
+            endSQL = "ROLLBACK"
+          }
+          if sqlite3_prepare_v2(database, endSQL, -1, &endStmt, nil) == SQLITE_OK {
+            sqlite3_step(endStmt)
+            sqlite3_finalize(endStmt)
+          }
+        }
+        
+        finalResult = operationResult
+        operationCompleted = true
+      }
+      
+      // Execute the operation directly (we're already on dbQueue)
+      // DO NOT dispatch async again on the same serial queue - that causes deadlock!
+      timeoutWorkItem.perform()
+      
+      // Check if operation completed or timed out
+      let dispatchResult: DispatchTimeoutResult = operationCompleted ? .success : .timedOut
+      
+      if dispatchResult == .timedOut {
+        timeoutWorkItem.cancel()
+        print("📱 [NotificationService] ⏱️ [\(operationName)] Operation timed out after \(timeout)s")
+        self.logToDatabase(
+          level: "WARNING",
+          tag: "NSE-DB",
+          message: "[\(operationName)] Operation timed out",
+          metadata: ["timeout": String(timeout)]
+        )
+        finalResult = .timeout
+      }
+      
+      // Log final result
+      let elapsed = Date().timeIntervalSince(startTime)
+      switch finalResult {
+      case .success:
+        print("📱 [NotificationService] ✅ [\(operationName)] Completed in \(String(format: "%.3f", elapsed))s")
+      case .failure(let error):
+        print("📱 [NotificationService] ❌ [\(operationName)] Failed: \(error)")
+        self.logToDatabase(
+          level: "ERROR",
+          tag: "NSE-DB",
+          message: "[\(operationName)] Failed: \(error)",
+          metadata: ["elapsed": String(format: "%.3f", elapsed)]
+        )
+      case .timeout:
+        print("📱 [NotificationService] ⏱️ [\(operationName)] Timeout after \(String(format: "%.3f", elapsed))s")
+      case .locked:
+        print("📱 [NotificationService] 🔒 [\(operationName)] Database locked after \(String(format: "%.3f", elapsed))s")
+      }
+      
+      // Call completion handler on main thread if needed for UI updates
+      DispatchQueue.main.async {
+        completion(finalResult)
+      }
+    }
+  }
+  
   // MARK: - Batch JSON Logging
   
   private struct LogEntry: Codable {
+    let id: String // Unique identifier (UUID)
     let level: String
     let tag: String?
     let message: String
@@ -1853,6 +2093,7 @@ class NotificationService: UNNotificationServiceExtension {
     }
     
     let entry = LogEntry(
+      id: UUID().uuidString,
       level: level,
       tag: tag,
       message: message,
