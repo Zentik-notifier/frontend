@@ -1,15 +1,13 @@
-import React, { memo, useCallback, useMemo, useState, useEffect } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
-import { Icon, Text, useTheme } from "react-native-paper";
-import { useI18n } from "@/hooks";
-import { useOnboarding } from "./OnboardingContext";
+import Selector from "@/components/ui/Selector";
+import { AVAILABLE_TIMEZONES } from "@/constants/timezones";
+import { Locale, useI18n } from "@/hooks/useI18n";
+import { DATE_FORMAT_STYLES } from "@/services/date-format";
+import { i18nService } from "@/services/i18n";
 import { ThemePreset } from "@/services/theme-presets";
 import { DateFormatStyle, MarkAsReadMode, userSettings } from "@/services/user-settings";
-import { DATE_FORMAT_STYLES } from "@/services/date-format";
-import { Locale } from "@/hooks/useI18n";
-import Selector, { SelectorOption } from "@/components/ui/Selector";
-import { i18nService } from "@/services/i18n";
-import { AVAILABLE_TIMEZONES } from "@/constants/timezones";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { Icon, Text, useTheme } from "react-native-paper";
 
 const Step2 = memo(() => {
   const theme = useTheme();

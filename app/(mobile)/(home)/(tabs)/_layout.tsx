@@ -1,4 +1,4 @@
-import { useI18n } from "@/hooks";
+import { useI18n } from "@/hooks/useI18n";
 import { useNotificationStats, useBucketsStats } from "@/hooks/notifications";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { Tabs } from "expo-router";

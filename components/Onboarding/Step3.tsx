@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useMemo } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Card, Chip, Icon, Switch, Text, TextInput, useTheme } from "react-native-paper";
-import { useI18n } from "@/hooks";
+import { useI18n } from "@/hooks/useI18n";
 import { useOnboarding } from "./OnboardingContext";
 
 // Retention Presets

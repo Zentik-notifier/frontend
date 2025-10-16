@@ -2,7 +2,7 @@ import React, { memo, useEffect, useState } from "react";
 import { Platform, ScrollView, StyleSheet, View, TouchableOpacity, Alert, Linking } from "react-native";
 import { Button, Card, Icon, Text, useTheme } from "react-native-paper";
 import { useOnboarding } from "./OnboardingContext";
-import { useI18n } from "@/hooks";
+import { useI18n } from "@/hooks/useI18n";
 import { ApiConfigService } from "@/services/api-config";
 import * as Clipboard from "expo-clipboard";
 

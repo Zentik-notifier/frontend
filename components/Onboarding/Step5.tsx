@@ -9,7 +9,7 @@ import {
   useTheme,
 } from "react-native-paper";
 import { useOnboarding } from "./OnboardingContext";
-import { useI18n } from "@/hooks";
+import { useI18n } from "@/hooks/useI18n";
 import { ApiConfigService } from "@/services/api-config";
 
 const Step5 = memo(() => {

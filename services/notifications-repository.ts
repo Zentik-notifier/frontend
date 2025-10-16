@@ -46,11 +46,42 @@ async function executeQuery<T>(queryFn: (db: any) => Promise<T>): Promise<T> {
 // ====================
 
 /**
- * Save a single notification to cache
+ * Save a single notification to cache (or update existing one)
+ * If notification already exists, preserve the cached readAt value
  */
 export async function saveNotificationToCache(notificationData: NotificationFragment): Promise<void> {
   await executeQuery(async (db) => {
+    // Check if notification already exists in cache
+    let existingReadAt: string | null = null;
+    
+    if (Platform.OS === 'web') {
+      // IndexedDB
+      const existing = await db.get('notifications', notificationData.id);
+      if (existing) {
+        existingReadAt = existing.read_at;
+      }
+    } else {
+      // SQLite
+      const existing = await db.getFirstAsync(
+        'SELECT read_at FROM notifications WHERE id = ?',
+        [notificationData.id]
+      );
+      if (existing) {
+        existingReadAt = existing.read_at;
+      }
+    }
+
     const parsedData = parseNotificationForDB(notificationData);
+    
+    // Preserve cached readAt if exists (don't let backend overwrite local read status)
+    if (existingReadAt !== null) {
+      parsedData.read_at = existingReadAt;
+      
+      // Also update the fragment JSON to keep it consistent with the column
+      const fragmentObj = JSON.parse(parsedData.fragment);
+      fragmentObj.readAt = existingReadAt;
+      parsedData.fragment = JSON.stringify(fragmentObj);
+    }
 
     if (Platform.OS === 'web') {
       // IndexedDB
@@ -257,15 +288,43 @@ export async function upsertNotificationsBatch(notifications: NotificationFragme
         const tx = db.transaction('notifications', 'readwrite');
 
         for (const notification of notifications) {
+          // Check if notification already exists and preserve its readAt
+          const existing = await tx.store.get(notification.id);
           const parsedData = parseNotificationForDB(notification);
+          
+          // Preserve cached readAt if exists (don't let backend overwrite local read status)
+          if (existing && existing.read_at !== null) {
+            parsedData.read_at = existing.read_at;
+            // Also update the fragment JSON to keep it consistent
+            const fragmentObj = JSON.parse(parsedData.fragment);
+            fragmentObj.readAt = existing.read_at;
+            parsedData.fragment = JSON.stringify(fragmentObj);
+          }
+          
           await tx.store.put(parsedData, parsedData.id);
         }
 
         await tx.done;
       } else {
-        // SQLite - use batch insert
+        // SQLite - use batch insert with readAt preservation
         for (const notification of notifications) {
+          // Check if notification already exists
+          const existing = await db.getFirstAsync(
+            'SELECT read_at FROM notifications WHERE id = ?',
+            [notification.id]
+          );
+          
           const parsedData = parseNotificationForDB(notification);
+          
+          // Preserve cached readAt if exists (don't let backend overwrite local read status)
+          if (existing && existing.read_at !== null) {
+            parsedData.read_at = existing.read_at;
+            // Also update the fragment JSON to keep it consistent
+            const fragmentObj = JSON.parse(parsedData.fragment);
+            fragmentObj.readAt = existing.read_at;
+            parsedData.fragment = JSON.stringify(fragmentObj);
+          }
+          
           await db.runAsync(
             `INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, has_attachments, fragment)
              VALUES (?, ?, ?, ?, ?, ?)`,

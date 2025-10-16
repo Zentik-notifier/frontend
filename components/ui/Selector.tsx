@@ -1,11 +1,6 @@
-import { useI18n } from "@/hooks";
+import { useI18n } from "@/hooks/useI18n";
 import { Image } from "expo-image";
-import React, {
-  useCallback,
-  useMemo,
-  useRef,
-  useState
-} from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,

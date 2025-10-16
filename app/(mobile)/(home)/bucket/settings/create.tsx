@@ -1,5 +1,5 @@
 import CreateBucket from "@/components/CreateBucket";
-import { useI18n } from "@/hooks";
+import { useI18n } from "@/hooks/useI18n";
 import { Stack } from "expo-router";
 import React from "react";
 

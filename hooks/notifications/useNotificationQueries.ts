@@ -851,7 +851,7 @@ async function fetchNotificationsFromAPI(
 
 /**
  * Helper function to mark notifications as received on server
- * Uses the last notification ID to mark all up to that point as received
+ * Uses the most recent notification ID to mark all up to that point as received
  */
 async function updateReceivedNotificationsOnServer(
     updateReceivedNotifications: ReturnType<typeof useUpdateReceivedNotificationsMutation>[0],
@@ -862,11 +862,12 @@ async function updateReceivedNotificationsOnServer(
     }
 
     try {
-        // Use the last (most recent) notification ID to mark all as received up to that point
-        const lastNotificationId = notificationIds[notificationIds.length - 1];
+        // Use the first notification ID (most recent, since API returns DESC by createdAt)
+        // to mark all older notifications as received
+        const mostRecentNotificationId = notificationIds[0];
 
         const result = await updateReceivedNotifications({
-            variables: { id: lastNotificationId }
+            variables: { id: mostRecentNotificationId }
         });
 
         if (result.data?.updateReceivedNotifications.success) {

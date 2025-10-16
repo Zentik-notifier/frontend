@@ -1,5 +1,5 @@
 import { MediaType } from "@/generated/gql-operations-generated";
-import { useI18n } from "@/hooks";
+import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useAppContext } from "@/contexts/AppContext";
 import { CacheItem, mediaCache } from "@/services/media-cache-service";

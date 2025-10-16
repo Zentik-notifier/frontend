@@ -5,7 +5,7 @@ import {
   useCreateBucketMutation,
   useGetBucketsLazyQuery,
 } from "@/generated/gql-operations-generated";
-import { useI18n } from "@/hooks";
+import { useI18n } from "@/hooks/useI18n";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
 import { useOnboarding } from "./OnboardingContext";
 import React, { memo, useCallback, useEffect, useState } from "react";
