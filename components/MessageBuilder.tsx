@@ -58,6 +58,8 @@ export default function MessageBuilder({
     useState(false);
   const [snoozeTimes, setSnoozeTimes] = useState<number[]>([]);
   const [snoozeTimeInput, setSnoozeTimeInput] = useState<string>("");
+  const [postponeTimes, setPostponeTimes] = useState<number[]>([]);
+  const [postponeTimeInput, setPostponeTimeInput] = useState<string>("");
 
   const [createMessage, { loading: isCreating }] = useCreateMessageMutation();
 
@@ -72,6 +74,19 @@ export default function MessageBuilder({
 
   const removeSnoozeTime = useCallback((time: number) => {
     setSnoozeTimes((prev) => prev.filter((t) => t !== time));
+  }, []);
+
+  // Postpone time management
+  const addPostponeTime = useCallback(() => {
+    const newTime = parseInt(postponeTimeInput, 10);
+    if (!isNaN(newTime) && newTime > 0 && !postponeTimes.includes(newTime)) {
+      setPostponeTimes((prev) => [...prev, newTime].sort((a, b) => a - b));
+      setPostponeTimeInput("");
+    }
+  }, [postponeTimeInput, postponeTimes]);
+
+  const removePostponeTime = useCallback((time: number) => {
+    setPostponeTimes((prev) => prev.filter((t) => t !== time));
   }, []);
 
   const handleSaveMessage = useCallback(async () => {
@@ -90,6 +105,7 @@ export default function MessageBuilder({
         addDeleteAction,
         addOpenNotificationAction,
         snoozes: snoozeTimes,
+        postpones: postponeTimes,
       };
 
       await createMessage({
@@ -111,6 +127,7 @@ export default function MessageBuilder({
       setAddDeleteAction(false);
       setAddOpenNotificationAction(false);
       setSnoozeTimes([]);
+      setPostponeTimes([]);
 
       hideModal();
     } catch (error) {
@@ -132,6 +149,7 @@ export default function MessageBuilder({
     setAddDeleteAction(false);
     setAddOpenNotificationAction(false);
     setSnoozeTimes([]);
+    setPostponeTimes([]);
   }, []);
 
   const deliveryTypeOptions: SelectorOption[] = [
@@ -405,6 +423,62 @@ export default function MessageBuilder({
                         <TouchableRipple
                           key={m}
                           onPress={() => removeSnoozeTime(m)}
+                          borderless
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            borderRadius: 16,
+                            backgroundColor: theme.colors.secondaryContainer,
+                          }}
+                        >
+                          <Text
+                            style={{ color: theme.colors.onSecondaryContainer }}
+                          >
+                            {m}m ✕
+                          </Text>
+                        </TouchableRipple>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Postpones */}
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>
+                      {t("notifications.automaticActions.postponeTimes")}
+                    </Text>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        gap: 8,
+                        alignItems: "center",
+                      }}
+                    >
+                      <TextInput
+                        mode="outlined"
+                        value={postponeTimeInput}
+                        onChangeText={setPostponeTimeInput}
+                        placeholder={t(
+                          "notifications.automaticActions.postponeTimePlaceholder"
+                        )}
+                        keyboardType="numeric"
+                        style={[styles.textInput, { flex: 1 }]}
+                      />
+                      <Button mode="contained" onPress={addPostponeTime}>
+                        {t("common.add")}
+                      </Button>
+                    </View>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        flexWrap: "wrap",
+                        gap: 8,
+                        marginTop: 8,
+                      }}
+                    >
+                      {postponeTimes.map((m) => (
+                        <TouchableRipple
+                          key={m}
+                          onPress={() => removePostponeTime(m)}
                           borderless
                           style={{
                             paddingHorizontal: 12,
