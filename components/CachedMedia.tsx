@@ -154,6 +154,33 @@ export const CachedMedia = React.memo(function CachedMedia({
     }
   }, [videoSource, videoError]);
 
+  // Auto-generate thumbnail if using thumbnail mode but thumbnail doesn't exist
+  useEffect(() => {
+    if (useThumbnail && supportsThumbnail) {
+      mediaCache.tryGenerateThumbnail({ 
+        url, 
+        mediaType, 
+        notificationId: mediaSource?.notificationId 
+      }).then(queued => {
+        if (queued) {
+          console.log('[CachedMedia] Auto-generating missing thumbnail for:', url);
+        }
+      }).catch(e => {
+        console.warn('[CachedMedia] Failed to auto-generate thumbnail:', e);
+      });
+    }
+  }, [
+    useThumbnail,
+    supportsThumbnail,
+    mediaSource?.localPath,
+    mediaSource?.localThumbPath,
+    mediaSource?.generatingThumbnail,
+    mediaSource?.isPermanentFailure,
+    mediaSource?.notificationId,
+    url,
+    mediaType,
+  ]);
+
   const audioPlayer = useAudioPlayer(
     localSource && isAudioType ? localSource : ""
   );

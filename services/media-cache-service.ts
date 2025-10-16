@@ -324,7 +324,7 @@ class MediaCacheService {
                     notificationId: item.notificationId,
                 });
 
-                await this.generateThumbnail({ url, mediaType, force });
+                await this.generateThumbnail({ url, mediaType, force, notificationId: item.notificationId });
             } catch (error: any) {
                 console.error('[MediaCache] Download failed:', url, key, JSON.stringify(error));
 
@@ -359,7 +359,8 @@ class MediaCacheService {
         } catch (e) {
             console.warn('[MediaCache] Thumbnail generation failed for', url, e);
         } finally {
-            await this.upsertItem(cacheKey, { generatingThumbnail: false, timestamp: Date.now() });
+            // Don't update timestamp when thumbnail completes - preserve original media date
+            await this.upsertItem(cacheKey, { generatingThumbnail: false });
         }
     }
 
@@ -380,6 +381,28 @@ class MediaCacheService {
 
             await this.loadMetadata();
             console.log('[MediaCache] DB initialized successfull');
+
+            // Queue thumbnail generation for all media that are downloaded but missing thumbnails
+            if (!isWeb) {
+                let thumbnailsQueued = 0;
+                for (const key in this.metadata) {
+                    const item = this.metadata[key];
+                    // Use the centralized method to check and queue thumbnail generation
+                    this.tryGenerateThumbnail({
+                        url: item.url,
+                        mediaType: item.mediaType,
+                        notificationId: item.notificationId
+                    }).then(queued => {
+                        if (queued) thumbnailsQueued++;
+                    }).catch(e => console.warn('[MediaCache] Auto-queue thumbnail failed for', item.url, e));
+                }
+                // Log after a small delay to allow promises to resolve
+                setTimeout(() => {
+                    if (thumbnailsQueued > 0) {
+                        console.log(`[MediaCache] Queued ${thumbnailsQueued} thumbnail(s) for generation on initialization`);
+                    }
+                }, 100);
+            }
         } catch (error) {
             console.error('[MediaCache] Initialization failed:', error);
         }
@@ -462,27 +485,27 @@ class MediaCacheService {
             const activeThumbnailKeys = new Set<string>();
             
             // Check current queue for items being processed
-            this.currentQueueState.queue.forEach((queueItem: DownloadQueueItem) => {
-                const key = this.generateCacheKey(queueItem.url, queueItem.mediaType);
-                if (queueItem.op === 'download') {
-                    activeDownloadKeys.add(key);
-                } else if (queueItem.op === 'thumbnail') {
-                    activeThumbnailKeys.add(key);
-                }
-            });
+            // this.currentQueueState.queue.forEach((queueItem: DownloadQueueItem) => {
+            //     const key = this.generateCacheKey(queueItem.url, queueItem.mediaType);
+            //     if (queueItem.op === 'download') {
+            //         activeDownloadKeys.add(key);
+            //     } else if (queueItem.op === 'thumbnail') {
+            //         activeThumbnailKeys.add(key);
+            //     }
+            // });
             
-            // Also check if there's a current item being processed
-            if (this.currentQueueState.currentItem) {
-                const currentKey = this.generateCacheKey(
-                    this.currentQueueState.currentItem.url, 
-                    this.currentQueueState.currentItem.mediaType
-                );
-                if (this.currentQueueState.currentItem.op === 'download') {
-                    activeDownloadKeys.add(currentKey);
-                } else if (this.currentQueueState.currentItem.op === 'thumbnail') {
-                    activeThumbnailKeys.add(currentKey);
-                }
-            }
+            // // Also check if there's a current item being processed
+            // if (this.currentQueueState.currentItem) {
+            //     const currentKey = this.generateCacheKey(
+            //         this.currentQueueState.currentItem.url, 
+            //         this.currentQueueState.currentItem.mediaType
+            //     );
+            //     if (this.currentQueueState.currentItem.op === 'download') {
+            //         activeDownloadKeys.add(currentKey);
+            //     } else if (this.currentQueueState.currentItem.op === 'thumbnail') {
+            //         activeThumbnailKeys.add(currentKey);
+            //     }
+            // }
             
             // Save current metadata to preserve items added to queue but not yet in DB
             const currentMetadata = { ...this.metadata };
@@ -519,20 +542,20 @@ class MediaCacheService {
             }
             
             // Also preserve items that are in current metadata but not in DB (newly added to queue)
-            for (const key in currentMetadata) {
-                if (!this.metadata[key]) {
-                    const currentItem = currentMetadata[key];
-                    const isActivelyDownloading = activeDownloadKeys.has(key);
-                    const isActivelyGeneratingThumbnail = activeThumbnailKeys.has(key);
+            // for (const key in currentMetadata) {
+            //     if (!this.metadata[key]) {
+            //         const currentItem = currentMetadata[key];
+            //         const isActivelyDownloading = activeDownloadKeys.has(key);
+            //         const isActivelyGeneratingThumbnail = activeThumbnailKeys.has(key);
                     
-                    console.log('[MediaCache] Preserving queued item not yet in DB:', currentItem.url);
-                    this.metadata[key] = {
-                        ...currentItem,
-                        isDownloading: isActivelyDownloading,
-                        generatingThumbnail: isActivelyGeneratingThumbnail,
-                    };
-                }
-            }
+            //         console.log('[MediaCache] Preserving queued item not yet in DB:', currentItem.url);
+            //         this.metadata[key] = {
+            //             ...currentItem,
+            //             isDownloading: isActivelyDownloading,
+            //             generatingThumbnail: isActivelyGeneratingThumbnail,
+            //         };
+            //     }
+            // }
 
             // Only restart downloads/thumbnails that were marked in DB but are NOT already in the active queue
             for (const item of pendingDownloads) {
@@ -614,7 +637,8 @@ class MediaCacheService {
             const thumbFile = new File(thumbPath);
             if (thumbFile.exists) {
                 if (cachedItem.localThumbPath !== thumbPath) {
-                    await this.upsertItem(key, { localThumbPath: thumbPath, generatingThumbnail: false, timestamp: Date.now() });
+                    // Don't update timestamp when discovering existing thumbnail - preserve original media date
+                    await this.upsertItem(key, { localThumbPath: thumbPath, generatingThumbnail: false });
                 }
             }
         }
@@ -676,7 +700,7 @@ class MediaCacheService {
                 });
 
                 // Ensure thumbnail exists or generate it
-                await this.generateThumbnail({ url, mediaType, force });
+                await this.generateThumbnail({ url, mediaType, force, notificationId });
                 return;
             }
         } catch (e) {
@@ -958,12 +982,14 @@ class MediaCacheService {
             const src = new File(tempUri);
             const dest = new File(thumbPath);
             src.copy(dest as any);
-            await this.upsertItem(key, { localThumbPath: thumbPath, timestamp: Date.now() });
+            // Don't update timestamp when saving thumbnail - preserve original media date
+            await this.upsertItem(key, { localThumbPath: thumbPath });
             console.log('[MediaCache] Thumbnail saved at:', thumbPath, url);
             return thumbPath;
         } catch (error) {
             console.error('[MediaCache] Failed to create thumbnail:', url, error);
-            await this.upsertItem(key, { isPermanentFailure: true, timestamp: Date.now() });
+            // Don't update timestamp on thumbnail failure - preserve original media date
+            await this.upsertItem(key, { isPermanentFailure: true });
 
             return null;
         }
@@ -996,9 +1022,65 @@ class MediaCacheService {
         return isWeb ? false : [MediaType.Image, MediaType.Gif, MediaType.Video].includes(mediaType);
     }
 
-    public async generateThumbnail(props: { url: string, mediaType: MediaType, force?: boolean }): Promise<void> {
+    /**
+     * Checks if thumbnail generation should be attempted for a given media item.
+     * Returns true if all conditions are met, false otherwise.
+     */
+    public shouldGenerateThumbnail(url: string, mediaType: MediaType, force: boolean = false): boolean {
+        if (!this.isThumbnailSupported(mediaType)) {
+            return false;
+        }
+
+        const key = this.generateCacheKey(url, mediaType);
+        const cachedItem = this.metadata[key];
+
+        // If no cached item exists, can't generate thumbnail (need media file first)
+        if (!cachedItem) {
+            return false;
+        }
+
+        // Skip if thumbnail already exists (unless forcing)
+        if (cachedItem.localThumbPath && !force) {
+            return false;
+        }
+
+        // Skip if media is not ready or has issues (unless forcing)
+        if (!force) {
+            if (cachedItem.isUserDeleted || 
+                cachedItem.isPermanentFailure || 
+                !cachedItem.localPath || 
+                cachedItem.isDownloading) {
+                return false;
+            }
+        }
+
+        // Skip if already generating thumbnail
+        if (cachedItem.generatingThumbnail) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Attempts to generate a thumbnail if conditions are met.
+     * Returns true if generation was queued, false if skipped.
+     */
+    public async tryGenerateThumbnail(props: { url: string, mediaType: MediaType, force?: boolean, notificationId?: string }): Promise<boolean> {
         await this.initialize();
-        const { url, mediaType, force } = props;
+        const { url, mediaType, force = false, notificationId } = props;
+
+        if (!this.shouldGenerateThumbnail(url, mediaType, force)) {
+            return false;
+        }
+
+        await this.addToQueue({ url, mediaType, op: 'thumbnail', force, priority: 5, notificationId });
+        return true;
+    }
+
+    public async generateThumbnail(props: { url: string, mediaType: MediaType, force?: boolean, notificationId?: string }): Promise<void> {
+        await this.initialize();
+        const { url, mediaType, force, notificationId } = props;
 
         if (!this.isThumbnailSupported(mediaType)) {
             return;
@@ -1023,7 +1105,7 @@ class MediaCacheService {
             return;
         }
 
-        await this.addToQueue({ url, mediaType, op: 'thumbnail' });
+        await this.addToQueue({ url, mediaType, op: 'thumbnail', force, priority: 5, notificationId });
     }
 
     async getMediaUrl(key: string): Promise<string | null> {
