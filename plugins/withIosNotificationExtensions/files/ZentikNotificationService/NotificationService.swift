@@ -45,6 +45,35 @@ class NotificationService: UNNotificationServiceExtension {
     print("📱 [NotificationService] Title: \(request.content.title)")
     print("📱 [NotificationService] Body: \(request.content.body)")
     print("📱 [NotificationService] UserInfo: \(request.content.userInfo)")
+    
+    // Log full payload as JSON to database
+    if let jsonData = try? JSONSerialization.data(withJSONObject: request.content.userInfo, options: .prettyPrinted),
+       let jsonString = String(data: jsonData, encoding: .utf8) {
+      print("📱 [NotificationService] Full Payload JSON:\n\(jsonString)")
+      
+      // Save to database
+      logToDatabase(
+        level: "info",
+        tag: "NotificationServiceExtension",
+        message: "[Payload] Full notification payload received",
+        metadata: [
+          "requestIdentifier": request.identifier,
+          "title": request.content.title,
+          "body": request.content.body,
+          "payload": jsonString
+        ]
+      )
+    } else {
+      print("📱 [NotificationService] Failed to serialize payload to JSON")
+      logToDatabase(
+        level: "error",
+        tag: "NotificationServiceExtension",
+        message: "[Payload] Failed to serialize payload to JSON",
+        metadata: [
+          "requestIdentifier": request.identifier
+        ]
+      )
+    }
 
     self.contentHandler = contentHandler
     bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
@@ -131,7 +160,7 @@ class NotificationService: UNNotificationServiceExtension {
     var senderAvatarImageData: Data?
     
     // Prima verifica se abbiamo già l'icona nella cache
-    if let bucketId = senderId, let bucketName = chatRoomName ?? senderDisplayName {
+    if let bucketId = senderId, let bucketName = chatRoomName {
       senderAvatarImageData = getBucketIconFromSharedCache(bucketId: bucketId, bucketName: bucketName)
       if senderAvatarImageData != nil {
         print("📱 [NotificationService] 🎭 ✅ Using cached bucket icon")
@@ -147,7 +176,7 @@ class NotificationService: UNNotificationServiceExtension {
       print("📱 [NotificationService] 🎭 ✅ Successfully loaded sender image from URL")
       
       // Salva nella cache per uso futuro (NSE e NCE)
-      if let bucketId = senderId, let bucketName = chatRoomName ?? senderDisplayName {
+      if let bucketId = senderId, let bucketName = chatRoomName {
         let _ = saveBucketIconToSharedCache(senderThumbnailImageData, bucketId: bucketId, bucketName: bucketName)
       }
     }
@@ -162,7 +191,7 @@ class NotificationService: UNNotificationServiceExtension {
       // Generate placeholder ONLY if preference is disabled
       if showAppIcon == false {
         print("📱 [NotificationService] 🎭 Generating placeholder")
-        if let bucketId = senderId, let bucketName = chatRoomName ?? senderDisplayName {
+        if let bucketId = senderId, let bucketName = chatRoomName {
           senderAvatarImageData = generateAvatarPlaceholder(
             name: bucketName,
             hexColor: bucketColor,
@@ -180,8 +209,11 @@ class NotificationService: UNNotificationServiceExtension {
     // profile picture that will be displayed in the notification (left side)
     let senderAvatar: INImage? = senderAvatarImageData.map { INImage(imageData: $0) }
 
+    // Use bucketName (chatRoomName) as sender name if available, otherwise fallback to title
+    let senderName = chatRoomName ?? senderDisplayName
+
     var personNameComponents = PersonNameComponents()
-    personNameComponents.nickname = senderDisplayName
+    personNameComponents.nickname = senderName
 
     // the person that sent the message
     // we need that as it is used by the OS trying to identify/match the sender with a contact
@@ -193,7 +225,7 @@ class NotificationService: UNNotificationServiceExtension {
         type: .unknown
       ),
       nameComponents: personNameComponents,
-      displayName: senderDisplayName,
+      displayName: senderName,
       image: senderAvatar,
       contactIdentifier: nil,
       customIdentifier: nil,
@@ -270,7 +302,7 @@ class NotificationService: UNNotificationServiceExtension {
           message: "[Communication] Communication style applied successfully",
           metadata: [
             "notificationId": notificationId,
-            "sender": senderDisplayName ?? "unknown",
+            "sender": senderName ?? "unknown",
             "hasSubtitle": !content.subtitle.isEmpty,
             "hasAvatar": senderAvatar != nil
           ]
@@ -2496,12 +2528,35 @@ class NotificationService: UNNotificationServiceExtension {
     if let sharedContainerURL = FileManager.default.containerURL(
       forSecurityApplicationGroupIdentifier: appGroupIdentifier)
     {
-      return sharedContainerURL.appendingPathComponent("shared_media_cache")
+      let cacheDirectory = sharedContainerURL.appendingPathComponent("shared_media_cache")
+      
+      // Ensure the cache directory exists
+      if !FileManager.default.fileExists(atPath: cacheDirectory.path) {
+        do {
+          try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true, attributes: nil)
+          print("📱 [NotificationService] ✅ Created shared media cache directory: \(cacheDirectory.path)")
+        } catch {
+          print("📱 [NotificationService] ❌ Failed to create shared cache directory: \(error)")
+        }
+      }
+      
+      return cacheDirectory
     } else {
       // Fallback to Documents directory if App Groups not available
       let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
         .first!
-      return documentsPath.appendingPathComponent("shared_media_cache")
+      let cacheDirectory = documentsPath.appendingPathComponent("shared_media_cache")
+      
+      // Ensure the fallback cache directory exists
+      if !FileManager.default.fileExists(atPath: cacheDirectory.path) {
+        do {
+          try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true, attributes: nil)
+        } catch {
+          print("📱 [NotificationService] ❌ Failed to create fallback cache directory: \(error)")
+        }
+      }
+      
+      return cacheDirectory
     }
   }
 
