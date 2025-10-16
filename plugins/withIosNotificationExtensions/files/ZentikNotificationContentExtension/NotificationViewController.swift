@@ -3370,17 +3370,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 existingLogs = (try? JSONDecoder().decode([LogEntry].self, from: data)) ?? []
             }
             
-            // Append new logs
+            // Append new logs (cleanup will be handled by main app)
             existingLogs.append(contentsOf: logsToWrite)
-            
-            // Retention: keep only last 24 hours
-            let cutoff = Int64(Date().timeIntervalSince1970 * 1000) - (24 * 60 * 60 * 1000)
-            existingLogs = existingLogs.filter { $0.timestamp > cutoff }
-            
-            // Keep max 1000 logs to prevent file growth
-            if existingLogs.count > 1000 {
-                existingLogs = Array(existingLogs.suffix(1000))
-            }
             
             // Write back to file
             let encoder = JSONEncoder()

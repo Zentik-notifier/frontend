@@ -308,6 +308,11 @@ class NotificationService: UNNotificationServiceExtension {
           ]
         )
       }
+      
+      // Flush logs immediately before extension terminates
+      print("📱 [NotificationService] 🎯 Processing complete, flushing logs before exit")
+      flushLogs()
+      
     } catch let error {
       print("error \(error)")
       
@@ -323,6 +328,10 @@ class NotificationService: UNNotificationServiceExtension {
           ]
         )
       }
+      
+      // Flush logs immediately before extension terminates (error case)
+      print("📱 [NotificationService] 🎯 Error occurred, flushing logs before exit")
+      flushLogs()
     }
   }
 
@@ -2099,51 +2108,60 @@ class NotificationService: UNNotificationServiceExtension {
   private static var flushTimer: Timer?
   
   private func logToJSON(
-    level: String,
-    tag: String? = nil,
-    message: String,
-    metadata: [String: Any]? = nil
+      level: String,
+      tag: String? = nil,
+      message: String,
+      metadata: [String: Any]? = nil
   ) {
-    let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-    
-    // Convert metadata to string dictionary for JSON encoding
-    var metadataStrings: [String: String]?
-    if let metadata = metadata {
-      metadataStrings = metadata.reduce(into: [String: String]()) { result, item in
-        if let stringValue = item.value as? String {
-          result[item.key] = stringValue
-        } else if let numberValue = item.value as? NSNumber {
-          result[item.key] = numberValue.stringValue
-        } else {
-          // Convert complex objects to JSON string
-          if let jsonData = try? JSONSerialization.data(withJSONObject: item.value),
-             let jsonString = String(data: jsonData, encoding: .utf8) {
-            result[item.key] = jsonString
+      print("📱 [NotificationService] 📝 logToJSON called: level=\(level), tag=\(tag ?? "nil"), message=\(message)")
+      
+      let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+      
+      // Convert metadata to string dictionary for JSON encoding
+      var metadataStrings: [String: String]?
+      if let metadata = metadata {
+          metadataStrings = metadata.reduce(into: [String: String]()) { result, item in
+              if let stringValue = item.value as? String {
+                  result[item.key] = stringValue
+              } else if let numberValue = item.value as? NSNumber {
+                  result[item.key] = numberValue.stringValue
+              } else {
+                  // Convert complex objects to JSON string
+                  if let jsonData = try? JSONSerialization.data(withJSONObject: item.value),
+                      let jsonString = String(data: jsonData, encoding: .utf8) {
+                      result[item.key] = jsonString
+                  }
+              }
           }
-        }
       }
-    }
-    
-    let entry = LogEntry(
-      id: UUID().uuidString,
-      level: level,
-      tag: tag,
-      message: message,
-      metadata: metadataStrings,
-      timestamp: timestamp,
-      source: "NSE"
-    )
-    
-    NotificationService.logBufferLock.lock()
-    NotificationService.logBuffer.append(entry)
-    let shouldFlush = NotificationService.logBuffer.count >= NotificationService.BATCH_SIZE
-    NotificationService.logBufferLock.unlock()
-    
-    if shouldFlush {
-      flushLogs()
-    } else {
-      scheduleFlush()
-    }
+      
+      let entry = LogEntry(
+          id: UUID().uuidString,
+          level: level,
+          tag: tag,
+          message: message,
+          metadata: metadataStrings,
+          timestamp: timestamp,
+          source: "NSE"
+      )
+      
+      print("📱 [NotificationService] 📝 Adding log entry to buffer, current count: \(NotificationService.logBuffer.count)")
+      
+      NotificationService.logBufferLock.lock()
+      NotificationService.logBuffer.append(entry)
+      let shouldFlush = NotificationService.logBuffer.count >= NotificationService.BATCH_SIZE
+      let bufferCount = NotificationService.logBuffer.count
+      NotificationService.logBufferLock.unlock()
+      
+      print("📱 [NotificationService] 📝 Buffer count after add: \(bufferCount), shouldFlush: \(shouldFlush)")
+      
+      if shouldFlush {
+          print("📱 [NotificationService] 📝 Flushing logs immediately (buffer full)")
+          flushLogs()
+      } else {
+          print("📱 [NotificationService] 📝 Scheduling flush")
+          scheduleFlush()
+      }
   }
   
   private func scheduleFlush() {
@@ -2157,6 +2175,8 @@ class NotificationService: UNNotificationServiceExtension {
   }
   
   private func flushLogs() {
+    print("📱 [NotificationService] 💾 flushLogs called")
+    
     NotificationService.logBufferLock.lock()
     
     // Cancel timer
@@ -2164,6 +2184,7 @@ class NotificationService: UNNotificationServiceExtension {
     NotificationService.flushTimer = nil
     
     guard !NotificationService.logBuffer.isEmpty else {
+      print("📱 [NotificationService] 💾 Buffer is empty, nothing to flush")
       NotificationService.logBufferLock.unlock()
       return
     }
@@ -2173,8 +2194,11 @@ class NotificationService: UNNotificationServiceExtension {
     NotificationService.logBuffer = []
     NotificationService.logBufferLock.unlock()
     
+    print("📱 [NotificationService] 💾 Flushing \(logsToWrite.count) log entries")
+    
     // Write to JSON file
     let logFilePath = getSharedMediaCacheDirectory().appendingPathComponent("logs.json")
+    print("📱 [NotificationService] 💾 Log file path: \(logFilePath.path)")
     
     do {
       var existingLogs: [LogEntry] = []
@@ -2183,19 +2207,13 @@ class NotificationService: UNNotificationServiceExtension {
       if FileManager.default.fileExists(atPath: logFilePath.path) {
         let data = try Data(contentsOf: logFilePath)
         existingLogs = (try? JSONDecoder().decode([LogEntry].self, from: data)) ?? []
+        print("📱 [NotificationService] 💾 Found \(existingLogs.count) existing logs")
+      } else {
+        print("📱 [NotificationService] 💾 No existing log file found, creating new one")
       }
       
-      // Append new logs
+      // Append new logs (cleanup will be handled by main app)
       existingLogs.append(contentsOf: logsToWrite)
-      
-      // Retention: keep only last 24 hours
-      let cutoff = Int64(Date().timeIntervalSince1970 * 1000) - (24 * 60 * 60 * 1000)
-      existingLogs = existingLogs.filter { $0.timestamp > cutoff }
-      
-      // Keep max 1000 logs to prevent file growth
-      if existingLogs.count > 1000 {
-        existingLogs = Array(existingLogs.suffix(1000))
-      }
       
       // Write back to file
       let encoder = JSONEncoder()
@@ -2203,7 +2221,7 @@ class NotificationService: UNNotificationServiceExtension {
       let jsonData = try encoder.encode(existingLogs)
       try jsonData.write(to: logFilePath, options: [.atomic])
       
-      // print("📱 [NotificationService] ✅ Flushed \(logsToWrite.count) logs to JSON")
+      print("📱 [NotificationService] ✅ Successfully flushed \(logsToWrite.count) logs to JSON (total: \(existingLogs.count))")
     } catch {
       print("📱 [NotificationService] ❌ Failed to flush logs: \(error)")
     }

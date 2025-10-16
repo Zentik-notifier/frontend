@@ -14,8 +14,8 @@ export interface AppLog {
   source: string; // "React", "NSE", or "NCE"
 }
 
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-const MAX_LOGS = 1000; // Keep max 1000 logs
+const ONE_DAY_MS = 3 * 24 * 60 * 60 * 1000;
+const MAX_LOGS = 3000; // Keep max 1000 logs
 const BATCH_SIZE = 20; // Write to file after 20 logs
 const BATCH_TIMEOUT_MS = 5000; // Write to file after 5 seconds
 
@@ -68,7 +68,7 @@ class JsonFileLogger {
         const logFilePath = await this.getLogFilePath();
         const logFile = new File(logFilePath);
 
-                // Read existing logs
+        // Read existing logs
         let existingLogs: AppLog[] = [];
         if (logFile.exists) {
           try {
@@ -95,7 +95,7 @@ class JsonFileLogger {
 
         // Write back to file
         await logFile.write(JSON.stringify(existingLogs, null, 2));
-        
+
         // console.log(`[Logger] ✅ Flushed ${logsToWrite.length} logs to JSON`);
       } catch (e) {
         // Avoid throwing from logger
@@ -246,7 +246,7 @@ class WebJsonFileLogger {
 
         // Write back to localStorage
         localStorage.setItem(this.logKey, JSON.stringify(existingLogs));
-        
+
         // console.log(`[Logger] ✅ Flushed ${logsToWrite.length} logs to localStorage`);
       } catch (e) {
         // avoid throwing from logger
@@ -342,9 +342,9 @@ export async function readLogs(tsFrom: number = 0): Promise<AppLog[]> {
     try {
       const stored = localStorage.getItem('zentik-logs-json');
       if (!stored) return [];
-      
+
       const allLogs: AppLog[] = JSON.parse(stored);
-      
+
       // Filter by timestamp and sort by timestamp DESC
       return allLogs
         .filter(log => log.timestamp >= tsFrom)
@@ -360,14 +360,14 @@ export async function readLogs(tsFrom: number = 0): Promise<AppLog[]> {
         return `${cacheDir}/logs.json`;
       })();
       const logFile = new File(logFilePath);
-      
+
       if (!logFile.exists) return [];
-      
+
       const content = await logFile.read();
       if (!content) return [];
-      
+
       const allLogs: AppLog[] = JSON.parse(content);
-      
+
       // Filter by timestamp and sort by timestamp DESC
       return allLogs
         .filter(log => log.timestamp >= tsFrom)
@@ -395,7 +395,7 @@ export async function clearAllLogs(): Promise<void> {
         return `${cacheDir}/logs.json`;
       })();
       const logFile = new File(logFilePath);
-      
+
       if (logFile.exists) {
         logFile.delete();
       }
