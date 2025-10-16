@@ -51,7 +51,6 @@ export default function NotificationFilters({
     handleToggleMultiSelection,
     handleCloseSelectionMode,
     handleSelectAll,
-    handleDeselectAll,
     handleShowFiltersModal,
   } = useNotificationsContext();
   const [internalSearchQuery, setInternalSearchQuery] = useState(
@@ -137,11 +136,7 @@ export default function NotificationFilters({
               backgroundColor: theme.colors.primary,
             },
           ]}
-          onPress={
-            selectedItems.size === totalNotifications
-              ? handleDeselectAll
-              : handleSelectAll
-          }
+          onPress={handleSelectAll}
         >
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Text

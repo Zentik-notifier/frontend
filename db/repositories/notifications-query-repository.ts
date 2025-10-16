@@ -788,6 +788,41 @@ export async function getNotificationStats(
 }
 
 /**
+ * Get all notification IDs matching the given filters
+ * Useful for "select all" functionality
+ */
+export async function getAllNotificationIds(filters?: NotificationFilters): Promise<string[]> {
+  return await executeQuery(async (db) => {
+    try {
+      if (Platform.OS === 'web') {
+        // IndexedDB
+        const tx = db.transaction('notifications', 'readonly');
+        const store = tx.objectStore('notifications');
+        const allNotifications = await store.getAll();
+        
+        // Apply filters
+        const filtered = applyFilters(allNotifications, filters);
+        
+        return filtered.map(n => n.id);
+      } else {
+        // SQLite
+        const { where, params } = buildWhereClause(filters);
+        
+        const results = await db.getAllAsync(
+          `SELECT id FROM notifications ${where}`,
+          params
+        );
+        
+        return results.map((r: any) => r.id);
+      }
+    } catch (error) {
+      console.error('[getAllNotificationIds] Error:', error);
+      return [];
+    }
+  });
+}
+
+/**
  * Get unread count for all buckets
  * Optimized version that only returns unread counts
  */

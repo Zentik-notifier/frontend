@@ -1,11 +1,11 @@
 import { NotificationFragment } from "@/generated/gql-operations-generated";
 import { NotificationFilters } from "@/services/user-settings";
 import { useAppContext } from "@/contexts/AppContext";
-import React, { createContext, useContext, useReducer, ReactNode, useEffect } from "react";
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useCallback } from "react";
 
 // Types
 interface NotificationsState {
-  allNotifications: NotificationFragment[];
+  allNotificationIds: string[];
   selectionMode: boolean;
   selectedItems: Set<string>;
   markAsReadLoading: boolean;
@@ -17,7 +17,7 @@ interface NotificationsState {
 }
 
 type NotificationsAction =
-  | { type: "SET_ALL_NOTIFICATIONS"; payload: NotificationFragment[] }
+  | { type: "SET_ALL_NOTIFICATION_IDS"; payload: string[] }
   | { type: "SET_SELECTION_MODE"; payload: boolean }
   | { type: "SET_SELECTED_ITEMS"; payload: Set<string> }
   | { type: "TOGGLE_ITEM_SELECTION"; payload: string }
@@ -31,7 +31,7 @@ type NotificationsAction =
 
 // Initial state
 const initialState: NotificationsState = {
-  allNotifications: [],
+  allNotificationIds: [],
   selectionMode: false,
   selectedItems: new Set(),
   markAsReadLoading: false,
@@ -48,8 +48,8 @@ function notificationsReducer(
   action: NotificationsAction
 ): NotificationsState {
   switch (action.type) {
-    case "SET_ALL_NOTIFICATIONS":
-      return { ...state, allNotifications: action.payload };
+    case "SET_ALL_NOTIFICATION_IDS":
+      return { ...state, allNotificationIds: action.payload };
     case "SET_SELECTION_MODE":
       return {
         ...state,
@@ -90,7 +90,7 @@ interface NotificationsContextType {
   state: NotificationsState;
   dispatch: React.Dispatch<NotificationsAction>;
   // Helper functions
-  handleSetAllNotifications: (notifications: NotificationFragment[]) => void;
+  handleSetAllNotificationIds: (ids: string[]) => void;
   handleToggleMultiSelection: () => void;
   handleToggleItemSelection: (itemId: string) => void;
   handleSelectAll: () => void;
@@ -120,9 +120,9 @@ export function NotificationsProvider({
     userSettings: { settings },
   } = useAppContext();
 
-  const handleSetAllNotifications = (notifications: NotificationFragment[]) => {
-    dispatch({ type: "SET_ALL_NOTIFICATIONS", payload: notifications });
-  };
+  const handleSetAllNotificationIds = useCallback((ids: string[]) => {
+    dispatch({ type: "SET_ALL_NOTIFICATION_IDS", payload: ids });
+  }, []);
 
   const handleToggleMultiSelection = () => {
     dispatch({ type: "SET_SELECTION_MODE", payload: !state.selectionMode });
@@ -133,9 +133,19 @@ export function NotificationsProvider({
   };
 
   const handleSelectAll = () => {
-    console.log("handleSelectAll", state.allNotifications);
-    const allIds = new Set(state.allNotifications.map((n) => n.id));
-    dispatch({ type: "SET_SELECTED_ITEMS", payload: allIds });
+    // Se tutte le notifiche sono già selezionate, deseleziona tutto
+    const allSelected = state.allNotificationIds.length > 0 && 
+                        state.selectedItems.size === state.allNotificationIds.length &&
+                        state.allNotificationIds.every(id => state.selectedItems.has(id));
+    
+    if (allSelected) {
+      console.log("handleSelectAll - All already selected, deselecting all");
+      dispatch({ type: "CLEAR_SELECTION" });
+    } else {
+      console.log("handleSelectAll - Selecting all", state.allNotificationIds.length);
+      const allIds = new Set(state.allNotificationIds);
+      dispatch({ type: "SET_SELECTED_ITEMS", payload: allIds });
+    }
   };
 
   const handleDeselectAll = () => {
@@ -171,7 +181,7 @@ export function NotificationsProvider({
   const value: NotificationsContextType = {
     state,
     dispatch,
-    handleSetAllNotifications,
+    handleSetAllNotificationIds,
     handleToggleMultiSelection,
     handleToggleItemSelection,
     handleSelectAll,
@@ -179,7 +189,7 @@ export function NotificationsProvider({
     handleCloseSelectionMode,
     handleShowFiltersModal,
     handleHideFiltersModal,
-  };
+};
 
   return (
     <NotificationsContext.Provider value={value}>

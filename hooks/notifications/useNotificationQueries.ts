@@ -8,7 +8,8 @@ import {
     getNotificationById,
     getNotificationStats,
     getUnreadCountsByBucket,
-    queryNotifications
+    queryNotifications,
+    getAllNotificationIds
 } from '@/db/repositories/notifications-query-repository';
 import {
     getAllBuckets,
@@ -1073,6 +1074,42 @@ export async function refreshNotificationQueries(
         console.error('[refreshNotificationQueries] Failed to invalidate queries:', error);
         throw error;
     }
+}
+
+// ====================
+// NOTIFICATION IDS QUERY
+// ====================
+
+/**
+ * Hook for fetching all notification IDs matching current filters
+ * Useful for "select all" functionality with pagination
+ * 
+ * @example
+ * ```tsx
+ * const { data: allIds } = useAllNotificationIds({ 
+ *   filters: { bucketId: 'bucket-123', isRead: false } 
+ * });
+ * // allIds contains all notification IDs matching the filters
+ * ```
+ */
+export function useAllNotificationIds(
+    options?: { filters?: any }
+): UseQueryResult<string[]> {
+    return useQuery({
+        queryKey: [...notificationKeys.all, 'allIds', options?.filters] as const,
+        queryFn: async (): Promise<string[]> => {
+            try {
+                const ids = await getAllNotificationIds(options?.filters);
+                console.log(`[useAllNotificationIds] Loaded ${ids.length} notification IDs`);
+                return ids;
+            } catch (error) {
+                console.error('[useAllNotificationIds] Error:', error);
+                return [];
+            }
+        },
+        staleTime: 5000, // 5 seconds
+        gcTime: 30000, // 30 seconds
+    });
 }
 
 // ====================

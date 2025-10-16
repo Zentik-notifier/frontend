@@ -14,6 +14,7 @@ import {
   useBatchMarkAsRead,
   useInfiniteNotifications,
   useRefreshNotifications,
+  useAllNotificationIds,
 } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import type { NotificationFilters as RQFilters } from "@/types/notifications";
@@ -91,8 +92,9 @@ export default function NotificationsList({
   const [limit, setLimit] = useState(50); // Start with 50 items
 
   const {
-    state: { selectionMode, selectedItems },
+    state: { selectionMode, selectedItems, allNotificationIds: contextAllIds },
     handleCloseSelectionMode,
+    handleSetAllNotificationIds,
     dispatch,
   } = useNotificationsContext();
 
@@ -206,12 +208,25 @@ export default function NotificationsList({
     refetchInterval: 10000, // Refresh from local DB every 10 seconds
   });
 
+  // Load all notification IDs for select-all functionality
+  const { data: allNotificationIds } = useAllNotificationIds({
+    filters: queryFilters,
+  });
+
   // Flatten all pages into single array
   const notifications = useMemo(() => {
     return data?.pages.flatMap((page) => page.notifications) || [];
   }, [data?.pages]);
 
   const filteredNotifications = notifications;
+
+  // Sync all notification IDs to context when they change
+  useEffect(() => {
+    if (allNotificationIds) {
+      console.log(`[NotificationsList] Syncing ${allNotificationIds.length} notification IDs to context`);
+      handleSetAllNotificationIds(allNotificationIds);
+    }
+  }, [allNotificationIds, handleSetAllNotificationIds]);
 
   // Reset when filters change - invalidate query instead of changing limit
   useEffect(() => {
@@ -329,7 +344,11 @@ export default function NotificationsList({
   // Funzione per eliminare notifiche selezionate
   const handleDeleteSelected = useCallback(async () => {
     const count = selectedItems.size;
+    
     if (count === 0) return;
+
+    const notificationIds = Array.from(selectedItems);
+    console.log(`[NotificationsList] Deleting ${notificationIds.length} notifications`);
 
     Alert.alert(
       t("notifications.deleteSelected.title"),
@@ -340,7 +359,6 @@ export default function NotificationsList({
           text: t("common.delete"),
           style: "destructive",
           onPress: async () => {
-            const notificationIds = Array.from(selectedItems);
             handleCloseSelectionMode();
             batchDeleteMutation.mutate({ notificationIds });
           },
@@ -351,13 +369,17 @@ export default function NotificationsList({
 
   // Funzione per cambiare lo stato di lettura delle notifiche selezionate
   const handleToggleReadStatus = useCallback(async () => {
-    if (selectedItems.size === 0) return;
+    const count = selectedItems.size;
+    
+    if (count === 0) return;
+
+    const notificationIds = Array.from(selectedItems);
+    console.log(`[NotificationsList] Toggling read status for ${notificationIds.length} notifications`);
 
     const selectedNotifications = filteredNotifications.filter((n) =>
       selectedItems.has(n.id)
     );
     const hasUnreadNotifications = selectedNotifications.some((n) => !n.readAt);
-    const notificationIds = Array.from(selectedItems);
 
     try {
       batchMarkAsReadMutation.mutate({

@@ -24,6 +24,7 @@ export {
   useInitializeBucketsStats,
   useLoadBucketsFromCache,
   useRefreshBucketsStatsFromDB,
+  useAllNotificationIds,
   notificationKeys,
   refreshNotificationQueries,
 } from './useNotificationQueries';
