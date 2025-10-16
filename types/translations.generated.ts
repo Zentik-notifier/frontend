@@ -698,6 +698,9 @@ export interface Translation {
       snoozeTimes: string;
       snoozeTimesDescription: string;
       snoozeTimePlaceholder: string;
+      postponeTimes: string;
+      postponeTimesDescription: string;
+      postponeTimePlaceholder: string;
     };
     attachments: {
       title: string;

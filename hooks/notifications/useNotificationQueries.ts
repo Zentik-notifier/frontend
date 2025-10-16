@@ -22,7 +22,7 @@ import {
     useGetNotificationLazyQuery,
     useGetNotificationsLazyQuery,
     useUpdateReceivedNotificationsMutation,
-    useDeleteNotificationMutation
+    useMassDeleteNotificationsMutation
 } from '@/generated/gql-operations-generated';
 import {
     upsertNotificationsBatch,
@@ -377,11 +377,11 @@ export function useInitializeBucketsStats() {
     const initializeBucketsStats = async (): Promise<void> => {
         try {
             // STEP 1: Load buckets from LOCAL CACHE immediately for instant UI
-            console.log('[initializeBucketsStats] Loading buckets from local cache...');
+            // console.log('[initializeBucketsStats] Loading buckets from local cache...');
             const cachedBuckets = await getAllBuckets();
 
             if (cachedBuckets.length > 0) {
-                console.log(`[initializeBucketsStats] Found ${cachedBuckets.length} cached buckets`);
+                // console.log(`[initializeBucketsStats] Found ${cachedBuckets.length} cached buckets`);
 
                 // Get bucket IDs from cached buckets
                 const cachedBucketIds = cachedBuckets.map((b) => b.id);
@@ -430,18 +430,18 @@ export function useInitializeBucketsStats() {
 
                 // Set cached data in React Query IMMEDIATELY for instant UI
                 queryClient.setQueryData(notificationKeys.bucketsStats(), cachedBucketsWithStats);
-                console.log(`[initializeBucketsStats] ✅ Cached ${cachedBucketsWithStats.length} buckets loaded instantly`);
+                // console.log(`[initializeBucketsStats] ✅ Cached ${cachedBucketsWithStats.length} buckets loaded instantly`);
             } else {
                 console.log('[initializeBucketsStats] No cached buckets found');
             }
 
             // STEP 2: Fetch fresh buckets from GraphQL API in background
-            console.log('[initializeBucketsStats] Fetching fresh buckets from GraphQL...');
+            // console.log('[initializeBucketsStats] Fetching fresh buckets from GraphQL...');
 
             const { data } = await fetchBuckets();
             const buckets = (data?.buckets ?? []) as BucketWithUserData[];
 
-            console.log(`[initializeBucketsStats] Fetched ${buckets.length} buckets from API`);
+            // console.log(`[initializeBucketsStats] Fetched ${buckets.length} buckets from API`);
 
             // STEP 3: Save fresh buckets to local DB for next launch
             if (buckets.length > 0) {
@@ -460,7 +460,7 @@ export function useInitializeBucketsStats() {
                 }));
 
                 await saveBuckets(bucketsToSave);
-                console.log(`[initializeBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
+                // console.log(`[initializeBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
             }
 
             // STEP 4: Get all bucket IDs
@@ -546,8 +546,6 @@ export function useLoadBucketsFromCache() {
                 console.log('[loadBucketsFromCache] No cached buckets found in DB');
                 return;
             }
-
-            console.log(`[loadBucketsFromCache] Loaded ${cachedBuckets.length} buckets from local DB`);
 
             // 2. Get all bucket IDs
             const bucketIds = cachedBuckets.map((b) => b.id);
@@ -892,8 +890,9 @@ async function updateReceivedNotificationsOnServer(
 /**
  * Helper function to retry deleting notifications with tombstones from server
  * Called during sync to attempt server deletion of locally-deleted notifications
+ * Uses mass delete for efficiency - deletes all tombstones in a single API call
  */
-async function retryDeleteTombstones(deleteNotificationMutation: any) {
+async function retryDeleteTombstones(massDeleteNotificationsMutation: any) {
     try {
         // Get all tombstone IDs
         const deletedIds = await getAllDeletedNotificationIds();
@@ -902,43 +901,39 @@ async function retryDeleteTombstones(deleteNotificationMutation: any) {
             return;
         }
         
-        console.log(`[retryDeleteTombstones] Found ${deletedIds.size} tombstones, attempting server deletion...`);
+        const idsArray = Array.from(deletedIds);
+        console.log(`[retryDeleteTombstones] Found ${idsArray.length} tombstones, attempting mass deletion from server...`);
         
-        let successCount = 0;
-        let failCount = 0;
-        
-        // Attempt to delete each tombstone from server
-        for (const notificationId of deletedIds) {
-            try {
-                await deleteNotificationMutation({
-                    variables: { id: notificationId },
-                });
-                
-                // Success: remove tombstone
-                await removeDeletedNotificationTombstone(notificationId);
-                successCount++;
-                console.log(`[retryDeleteTombstones] Successfully deleted notification ${notificationId} from server, tombstone removed`);
-            } catch (error: any) {
-                // Check if error is "not found" - means already deleted on server
-                const isNotFound = error?.message?.includes('not found') || 
-                                   error?.graphQLErrors?.[0]?.message?.includes('not found');
-                
-                if (isNotFound) {
-                    // Already deleted on server (by another device or manually)
-                    // Remove tombstone locally since it's no longer needed
+        try {
+            // Attempt mass delete of all tombstones in one call
+            const result = await massDeleteNotificationsMutation({
+                variables: { ids: idsArray },
+            });
+            
+            const deletedCount = result.data?.massDeleteNotifications?.deletedCount ?? 0;
+            const success = result.data?.massDeleteNotifications?.success ?? false;
+            
+            if (success) {
+                // Mass delete succeeded - remove ALL tombstones
+                // Even if some notifications were already deleted (not found), we consider it success
+                for (const notificationId of idsArray) {
                     await removeDeletedNotificationTombstone(notificationId);
-                    successCount++;
-                    console.log(`[retryDeleteTombstones] Notification ${notificationId} already deleted on server, tombstone removed`);
-                } else {
-                    // Other error: increment retry counter
-                    await incrementDeleteTombstoneRetry(notificationId);
-                    failCount++;
-                    console.warn(`[retryDeleteTombstones] Failed to delete notification ${notificationId} from server:`, error);
                 }
+                console.log(`[retryDeleteTombstones] Mass delete succeeded: ${deletedCount} notifications deleted, ${idsArray.length} tombstones removed`);
+            } else {
+                // Mass delete reported failure - increment retry for all
+                for (const notificationId of idsArray) {
+                    await incrementDeleteTombstoneRetry(notificationId);
+                }
+                console.warn(`[retryDeleteTombstones] Mass delete failed, incrementing retry counter for ${idsArray.length} tombstones`);
             }
+        } catch (error: any) {
+            // Network or API error - increment retry counter for all tombstones
+            for (const notificationId of idsArray) {
+                await incrementDeleteTombstoneRetry(notificationId);
+            }
+            console.warn(`[retryDeleteTombstones] Failed to mass delete ${idsArray.length} notifications from server:`, error);
         }
-        
-        console.log(`[retryDeleteTombstones] Retry complete: ${successCount} succeeded, ${failCount} failed`);
     } catch (error) {
         console.error('[retryDeleteTombstones] Error during tombstone retry:', error);
     }
@@ -965,7 +960,7 @@ export function useSyncNotificationsFromAPI() {
         fetchPolicy: 'network-only',
     });
     const [updateReceivedNotifications] = useUpdateReceivedNotificationsMutation();
-    const [deleteNotificationMutation] = useDeleteNotificationMutation();
+    const [massDeleteNotificationsMutation] = useMassDeleteNotificationsMutation();
 
     const syncNotifications = async (): Promise<number> => {
         try {
@@ -984,7 +979,7 @@ export function useSyncNotificationsFromAPI() {
                 console.log(`[syncNotifications] Marked ${apiNotifications.length} notifications as received on server`);
 
                 // Retry deleting notifications with tombstones
-                await retryDeleteTombstones(deleteNotificationMutation);
+                await retryDeleteTombstones(massDeleteNotificationsMutation);
 
                 return apiNotifications.length;
             }
@@ -992,7 +987,7 @@ export function useSyncNotificationsFromAPI() {
             console.log('[syncNotifications] No new notifications');
             
             // Still retry deleting notifications with tombstones even if no new notifications
-            await retryDeleteTombstones(deleteNotificationMutation);
+            await retryDeleteTombstones(massDeleteNotificationsMutation);
             
             return 0;
         } catch (error) {

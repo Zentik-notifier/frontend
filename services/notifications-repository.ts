@@ -1,7 +1,6 @@
 import { NotificationFragment } from '@/generated/gql-operations-generated';
 import { Platform } from 'react-native';
-import { openWebStorageDb, openSharedCacheDb } from './db-setup';
-import { parseNotificationForDB, parseNotificationFromDB } from './db-setup';
+import { openSharedCacheDb, openWebStorageDb, parseNotificationForDB, parseNotificationFromDB } from './db-setup';
 import { userSettings } from './user-settings';
 
 /**

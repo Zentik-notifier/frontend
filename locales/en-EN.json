@@ -685,7 +685,10 @@
       "addOpenNotificationActionDescription": "Automatically adds an open action to view notification details",
       "snoozeTimes": "Snooze Times",
       "snoozeTimesDescription": "Select multiple snooze times (in minutes) for automatic snooze actions",
-      "snoozeTimePlaceholder": "Enter snooze time in minutes"
+      "snoozeTimePlaceholder": "Enter snooze time in minutes",
+      "postponeTimes": "Postpone Times",
+      "postponeTimesDescription": "Select multiple postpone times (in minutes) for automatic postpone actions",
+      "postponeTimePlaceholder": "Enter postpone time in minutes"
     },
     "attachments": {
       "title": "Media Attachments",

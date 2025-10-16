@@ -98,6 +98,12 @@ export default function NotificationsSettings() {
   const [snoozeTimeInput, setSnoozeTimeInput] = useState(
     notificationFormDefaults.snoozeTimeInput
   );
+  const [postponeTimes, setPostponeTimes] = useState<number[]>(
+    notificationFormDefaults.postponeTimes
+  );
+  const [postponeTimeInput, setPostponeTimeInput] = useState(
+    notificationFormDefaults.postponeTimeInput
+  );
   const [showJsonPreview, setShowJsonPreview] = useState(
     notificationFormDefaults.showJsonPreview
   );
@@ -111,7 +117,10 @@ export default function NotificationsSettings() {
   );
 
   // Get bucket data and shared users
-  const { allPermissions } = useBucket(bucketId, { autoFetch: !!bucketId, userId: userId ?? undefined });
+  const { allPermissions } = useBucket(bucketId, {
+    autoFetch: !!bucketId,
+    userId: userId ?? undefined,
+  });
 
   // Set first bucket as default when buckets are loaded
   useEffect(() => {
@@ -181,6 +190,19 @@ export default function NotificationsSettings() {
     setSnoozeTimes(snoozeTimes.filter((t) => t !== time));
   };
 
+  // Postpone time management functions
+  const addPostponeTime = () => {
+    const newTime = parseInt(postponeTimeInput);
+    if (newTime > 0 && !postponeTimes.includes(newTime)) {
+      setPostponeTimes([...postponeTimes, newTime].sort((a, b) => a - b));
+      setPostponeTimeInput("");
+    }
+  };
+
+  const removePostponeTime = (time: number) => {
+    setPostponeTimes(postponeTimes.filter((t) => t !== time));
+  };
+
   const loadTestData = () => {
     const testData = getNotificationTestData(t);
     setTitle(testData.title);
@@ -194,6 +216,7 @@ export default function NotificationsSettings() {
     setAddDeleteAction(testData.addDeleteAction);
     setAddOpenNotificationAction(testData.addOpenNotificationAction);
     setSnoozeTimes(testData.snoozeTimes);
+    setPostponeTimes(testData.postponeTimes);
     setTapAction(testData.tapAction);
   };
 
@@ -214,8 +237,10 @@ export default function NotificationsSettings() {
     setAddDeleteAction(defaults.addDeleteAction);
     setAddOpenNotificationAction(defaults.addOpenNotificationAction);
     setSnoozeTimes(defaults.snoozeTimes);
+    setPostponeTimes(defaults.postponeTimes);
     setLocale(defaults.locale);
     setSnoozeTimeInput(defaults.snoozeTimeInput);
+    setPostponeTimeInput(defaults.postponeTimeInput);
     setShowJsonPreview(defaults.showJsonPreview);
     setTapAction(defaults.tapAction);
   };
@@ -238,6 +263,7 @@ export default function NotificationsSettings() {
     if (addDeleteAction) message.addDeleteAction = true;
     if (addOpenNotificationAction) message.addOpenNotificationAction = true;
     if (snoozeTimes.length > 0) message.snoozes = snoozeTimes;
+    if (postponeTimes.length > 0) message.postpones = postponeTimes;
     if (locale) message.locale = locale;
 
     // Add new optional fields
@@ -657,6 +683,88 @@ export default function NotificationsSettings() {
                     compact
                     disabled={
                       !snoozeTimeInput.trim() || parseInt(snoozeTimeInput) <= 0
+                    }
+                  >
+                    {t("common.add")}
+                  </Button>
+                </View>
+              </View>
+
+              {/* Postpone Times Section */}
+              <View style={styles.field}>
+                <Text style={styles.label}>
+                  {t("notifications.automaticActions.postponeTimes")}
+                </Text>
+                <Text
+                  style={[
+                    styles.inputHint,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  {t("notifications.automaticActions.postponeTimesDescription")}
+                </Text>
+
+                {/* Current Postpone Times */}
+                {postponeTimes.length > 0 && (
+                  <View style={styles.snoozeTimesContainer}>
+                    {postponeTimes.map((time, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.snoozeTimeItem,
+                          {
+                            backgroundColor: theme.colors.surfaceVariant,
+                            borderColor: theme.colors.outline,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.snoozeTimeText,
+                            { color: theme.colors.onSurface },
+                          ]}
+                        >
+                          {time} min
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.removeSnoozeTimeButton}
+                          onPress={() => removePostponeTime(time)}
+                        >
+                          <Icon source="minus" size={16} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Add Postpone Time Input */}
+                <View style={styles.snoozeTimeInputContainer}>
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      styles.snoozeTimeInput,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderColor: theme.colors.outline,
+                        color: theme.colors.onSurface,
+                      },
+                    ]}
+                    value={postponeTimeInput}
+                    onChangeText={setPostponeTimeInput}
+                    placeholder={t(
+                      "notifications.automaticActions.postponeTimePlaceholder"
+                    )}
+                    placeholderTextColor={theme.colors.onSurfaceVariant}
+                    keyboardType="numeric"
+                    maxLength={4}
+                  />
+                  <Button
+                    mode="outlined"
+                    icon="plus"
+                    onPress={addPostponeTime}
+                    compact
+                    disabled={
+                      !postponeTimeInput.trim() || parseInt(postponeTimeInput) <= 0
                     }
                   >
                     {t("common.add")}
@@ -1093,7 +1201,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: 20,
-    maxHeight: 300,
+    height: 300,
     padding: 16,
   },
   jsonPreviewText: {

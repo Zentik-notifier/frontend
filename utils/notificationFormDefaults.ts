@@ -24,14 +24,18 @@ export const notificationFormDefaults = {
   addDeleteAction: false,
   addOpenNotificationAction: false,
 
-  // Snooze times - empty
-  snoozeTimes: [] as number[],
+  // Snooze times - default 15 minutes
+  snoozeTimes: [15] as number[],
+
+  // Postpone times - default 15 minutes
+  postponeTimes: [15] as number[],
 
   // Localization
   locale: 'en-EN' as const,
 
   // UI state
   snoozeTimeInput: '',
+  postponeTimeInput: '',
   showJsonPreview: false,
 
   // Tap action defaults - null (optional)
@@ -108,7 +112,10 @@ export const getNotificationTestData = (t: any) => ({
   addOpenNotificationAction: false,
 
   // Snooze times
-  snoozeTimes: [5, 15],
+  snoozeTimes: [15],
+
+  // Postpone times
+  postponeTimes: [15],
 
   // Enhanced tap action - now optional
   tapAction: {

@@ -685,7 +685,10 @@
       "addOpenNotificationActionDescription": "Aggiunge automaticamente un'azione per visualizzare i dettagli della notifica",
       "snoozeTimes": "Tempi di Posticipo",
       "snoozeTimesDescription": "Seleziona più tempi di posticipo (in minuti) per le azioni di posticipo automatiche",
-      "snoozeTimePlaceholder": "Inserisci il tempo di posticipo in minuti"
+      "snoozeTimePlaceholder": "Inserisci il tempo di posticipo in minuti",
+      "postponeTimes": "Tempi di Rinvio",
+      "postponeTimesDescription": "Seleziona più tempi di rinvio (in minuti) per le azioni di rinvio automatiche",
+      "postponeTimePlaceholder": "Inserisci il tempo di rinvio in minuti"
     },
     "attachments": {
       "title": "Allegati Multimediali",
