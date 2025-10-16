@@ -2,9 +2,11 @@ import { useNavigationUtils } from '@/utils/navigation';
 import { useCallback } from 'react';
 import { Linking } from 'react-native';
 import { clearPendingNavigationIntent, getPendingNavigationIntent } from '../services/auth-storage';
+import { useMarkNotificationAsReadMutation } from '@/generated/gql-operations-generated';
 
 export function usePendingNotificationIntents() {
   const { navigateToNotificationDetail } = useNavigationUtils();
+  const [markAsReadGQL] = useMarkNotificationAsReadMutation();
 
   const processPendingNavigationIntent = useCallback(async () => {
     try {
@@ -20,6 +22,15 @@ export function usePendingNotificationIntents() {
       if (typeof intent?.value === 'string' && intent.value.length > 0) {
         if (intent.type === 'OPEN_NOTIFICATION') {
           console.log('[PendingIntents] 📂 Opening notification detail for ID:', intent.value);
+          
+          // Mark notification as read when opening via intent
+          try {
+            await markAsReadGQL({ variables: { id: intent.value } });
+            console.log('[PendingIntents] ✅ Notification marked as read:', intent.value);
+          } catch (error) {
+            console.error('[PendingIntents] ⚠️ Failed to mark notification as read:', error);
+          }
+          
           try {
             navigateToNotificationDetail(intent.value);
           } catch (e) {
@@ -43,7 +54,7 @@ export function usePendingNotificationIntents() {
       console.error('[PendingIntents] ❌ Error processing pending navigation intent:', error);
       return false;
     }
-  }, []);
+  }, [markAsReadGQL]);
 
   return {
     processPendingNavigationIntent,
