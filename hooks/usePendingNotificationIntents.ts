@@ -2,11 +2,11 @@ import { useNavigationUtils } from '@/utils/navigation';
 import { useCallback } from 'react';
 import { Linking } from 'react-native';
 import { clearPendingNavigationIntent, getPendingNavigationIntent } from '../services/auth-storage';
-import { useMarkNotificationAsReadMutation } from '@/generated/gql-operations-generated';
+import { apolloClient } from '@/config/apollo-client';
+import { MarkNotificationAsReadDocument } from '@/generated/gql-operations-generated';
 
 export function usePendingNotificationIntents() {
   const { navigateToNotificationDetail } = useNavigationUtils();
-  const [markAsReadGQL] = useMarkNotificationAsReadMutation();
 
   const processPendingNavigationIntent = useCallback(async () => {
     try {
@@ -24,11 +24,18 @@ export function usePendingNotificationIntents() {
           console.log('[PendingIntents] 📂 Opening notification detail for ID:', intent.value);
           
           // Mark notification as read when opening via intent
-          try {
-            await markAsReadGQL({ variables: { id: intent.value } });
-            console.log('[PendingIntents] ✅ Notification marked as read:', intent.value);
-          } catch (error) {
-            console.error('[PendingIntents] ⚠️ Failed to mark notification as read:', error);
+          if (apolloClient) {
+            try {
+              await apolloClient.mutate({
+                mutation: MarkNotificationAsReadDocument,
+                variables: { id: intent.value },
+              });
+              console.log('[PendingIntents] ✅ Notification marked as read:', intent.value);
+            } catch (error) {
+              console.error('[PendingIntents] ⚠️ Failed to mark notification as read:', error);
+            }
+          } else {
+            console.warn('[PendingIntents] ⚠️ Apollo client not initialized, skipping mark as read');
           }
           
           try {
@@ -54,7 +61,7 @@ export function usePendingNotificationIntents() {
       console.error('[PendingIntents] ❌ Error processing pending navigation intent:', error);
       return false;
     }
-  }, [markAsReadGQL]);
+  }, [navigateToNotificationDetail]);
 
   return {
     processPendingNavigationIntent,
