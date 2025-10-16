@@ -336,7 +336,8 @@ class NativeFileWrapper {
 
   static async downloadAsync(url: string, fileOrPath: NativeFileWrapper | string): Promise<{ uri: string; size?: number }> {
     const filePath = typeof fileOrPath === 'string' ? fileOrPath : fileOrPath.path;
-    return await ExpoFileSystem.downloadAsync(url, filePath);
+    const file = new ExpoFileSystem.File(filePath);
+    return await ExpoFileSystem.File.downloadFileAsync(url, file);
   }
 }
 

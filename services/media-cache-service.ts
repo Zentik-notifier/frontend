@@ -308,7 +308,7 @@ class MediaCacheService {
                     file.delete();
                 }
                 const downloadResult = await File.downloadAsync(url, isWeb ? (file as any) : filePath);
-                console.log('[MediaCache] Download result:', url, downloadResult);
+                console.log('[MediaCache] Download result:', url, JSON.stringify(downloadResult));
 
                 console.log('[MediaCache] Media saved at:', downloadResult.uri, url);
                 await this.upsertItem(key, {
