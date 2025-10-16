@@ -207,15 +207,16 @@ async function runReleaseProcess() {
         console.log('');
         printInfo('Starting automated iOS release process...');
         
-        // Combined EAS Build and Submit in one command
-        printInfo('Starting EAS build and submit for iOS production...');
+        // Combined EAS Build and Submit in one command (detached mode)
+        printInfo('Starting EAS build and submit for iOS production in detached mode...');
         printInfo('This will build the app and automatically submit to App Store when ready');
         
         await runCommand('eas', [
             'build', 
             '--platform', 'ios', 
             '--profile', 'production',
-            '--auto-submit'
+            '--auto-submit',
+            '--non-interactive'
         ]);
         
         printSuccess('EAS build and App Store submission completed successfully!');
