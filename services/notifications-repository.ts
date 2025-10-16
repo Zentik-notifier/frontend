@@ -48,9 +48,32 @@ async function executeQuery<T>(queryFn: (db: any) => Promise<T>): Promise<T> {
 /**
  * Save a single notification to cache (or update existing one)
  * If notification already exists, preserve the cached readAt value
+ * If notification is marked as deleted (tombstone exists), skip saving
  */
 export async function saveNotificationToCache(notificationData: NotificationFragment): Promise<void> {
   await executeQuery(async (db) => {
+    // Check if notification is marked as deleted (tombstone check)
+    let isDeleted = false;
+    
+    if (Platform.OS === 'web') {
+      // IndexedDB
+      const tombstone = await db.get('deleted_notifications', notificationData.id);
+      isDeleted = !!tombstone;
+    } else {
+      // SQLite
+      const tombstone = await db.getFirstAsync(
+        'SELECT id FROM deleted_notifications WHERE id = ?',
+        [notificationData.id]
+      );
+      isDeleted = !!tombstone;
+    }
+    
+    // Skip saving if notification is marked as deleted
+    if (isDeleted) {
+      console.log(`[saveNotificationToCache] Skipping deleted notification ${notificationData.id}`);
+      return;
+    }
+    
     // Check if notification already exists in cache
     let existingReadAt: string | null = null;
     
@@ -283,11 +306,37 @@ export async function upsertNotificationsBatch(notifications: NotificationFragme
 
   await executeQuery(async (db) => {
     try {
+      // Get all deleted notification IDs (tombstones) to filter out
+      const deletedIds = new Set<string>();
+      
+      if (Platform.OS === 'web') {
+        // IndexedDB
+        const tombstones = await db.getAll('deleted_notifications');
+        tombstones.forEach((t: any) => deletedIds.add(t.id));
+      } else {
+        // SQLite
+        const tombstones = await db.getAllAsync('SELECT id FROM deleted_notifications');
+        tombstones.forEach((t: any) => deletedIds.add(t.id));
+      }
+      
+      // Filter out deleted notifications
+      const notificationsToSave = notifications.filter(n => !deletedIds.has(n.id));
+      const skippedCount = notifications.length - notificationsToSave.length;
+      
+      if (skippedCount > 0) {
+        console.log(`[upsertNotificationsBatch] Skipped ${skippedCount} deleted notifications`);
+      }
+      
+      if (notificationsToSave.length === 0) {
+        console.log('[upsertNotificationsBatch] No notifications to save after filtering deleted');
+        return;
+      }
+      
       if (Platform.OS === 'web') {
         // IndexedDB
         const tx = db.transaction('notifications', 'readwrite');
 
-        for (const notification of notifications) {
+        for (const notification of notificationsToSave) {
           // Check if notification already exists and preserve its readAt
           const existing = await tx.store.get(notification.id);
           const parsedData = parseNotificationForDB(notification);
@@ -307,7 +356,7 @@ export async function upsertNotificationsBatch(notifications: NotificationFragme
         await tx.done;
       } else {
         // SQLite - use batch insert with readAt preservation
-        for (const notification of notifications) {
+        for (const notification of notificationsToSave) {
           // Check if notification already exists
           const existing = await db.getFirstAsync(
             'SELECT read_at FROM notifications WHERE id = ?',
@@ -339,6 +388,8 @@ export async function upsertNotificationsBatch(notifications: NotificationFragme
           );
         }
       }
+      
+      console.log(`[upsertNotificationsBatch] Saved ${notificationsToSave.length} notifications to cache`);
     } catch (error) {
       console.error('[upsertNotificationsBatch] Failed to upsert notifications batch:', error);
     }
@@ -566,7 +617,7 @@ export async function updateNotificationsReadStatus(notificationIds: string[], r
 
 /**
  * Delete a notification from cache
- * Also removes it from any cached queries if needed
+ * Also creates a tombstone to prevent re-adding from backend sync
  *
  * @example
  * ```typescript
@@ -578,15 +629,32 @@ export async function updateNotificationsReadStatus(notificationIds: string[], r
 export async function deleteNotificationFromCache(notificationId: string): Promise<void> {
   await executeQuery(async (db) => {
     try {
+      // Create tombstone first (before deletion)
+      const now = Date.now();
+      
       if (Platform.OS === 'web') {
         // IndexedDB
+        await db.put('deleted_notifications', {
+          id: notificationId,
+          deleted_at: now,
+          retry_count: 0,
+        }, notificationId);
+        
+        // Then delete from cache
         await db.delete('notifications', notificationId);
       } else {
         // SQLite
+        await db.runAsync(
+          `INSERT OR REPLACE INTO deleted_notifications (id, deleted_at, retry_count)
+           VALUES (?, ?, 0)`,
+          [notificationId, now]
+        );
+        
+        // Then delete from cache
         await db.runAsync('DELETE FROM notifications WHERE id = ?', [notificationId]);
       }
 
-      console.log(`[deleteNotificationFromCache] Deleted notification ${notificationId} from cache`);
+      console.log(`[deleteNotificationFromCache] Deleted notification ${notificationId} from cache and created tombstone`);
     } catch (error) {
       console.error('[deleteNotificationFromCache] Failed to delete notification from cache:', error);
       throw error;
@@ -596,7 +664,7 @@ export async function deleteNotificationFromCache(notificationId: string): Promi
 
 /**
  * Delete multiple notifications from cache in batch
- * Uses the single notification delete method for consistency
+ * Also creates tombstones to prevent re-adding from backend sync
  *
  * @example
  * ```typescript
@@ -610,17 +678,37 @@ export async function deleteNotificationsFromCache(notificationIds: string[]): P
 
   await executeQuery(async (db) => {
     try {
+      const now = Date.now();
+      
       if (Platform.OS === 'web') {
-        // IndexedDB - use batch delete
-        const tx = db.transaction('notifications', 'readwrite');
-
+        // IndexedDB - create tombstones and delete in batch
+        const deleteTx = db.transaction('deleted_notifications', 'readwrite');
         for (const id of notificationIds) {
-          await tx.store.delete(id);
+          await deleteTx.store.put({
+            id,
+            deleted_at: now,
+            retry_count: 0,
+          }, id);
         }
-
-        await tx.done;
+        await deleteTx.done;
+        
+        // Then delete from cache
+        const cacheTx = db.transaction('notifications', 'readwrite');
+        for (const id of notificationIds) {
+          await cacheTx.store.delete(id);
+        }
+        await cacheTx.done;
       } else {
-        // SQLite - use batch delete with single query
+        // SQLite - create tombstones first
+        for (const id of notificationIds) {
+          await db.runAsync(
+            `INSERT OR REPLACE INTO deleted_notifications (id, deleted_at, retry_count)
+             VALUES (?, ?, 0)`,
+            [id, now]
+          );
+        }
+        
+        // Then delete from cache with single query
         if (notificationIds.length > 0) {
           const placeholders = notificationIds.map(() => '?').join(',');
           await db.runAsync(`DELETE FROM notifications WHERE id IN (${placeholders})`, notificationIds);
@@ -781,4 +869,198 @@ export async function cleanupNotificationsBySettings(): Promise<NotificationClea
     filteredByAge,
     filteredByCount
   };
+}
+
+// ====================
+// DELETED NOTIFICATIONS TOMBSTONE MANAGEMENT
+// ====================
+
+/**
+ * Mark a notification as deleted locally (tombstone)
+ * This prevents it from being re-added to cache even if it comes from backend sync
+ */
+export async function markNotificationAsDeleted(notificationId: string): Promise<void> {
+  await executeQuery(async (db) => {
+    const now = Date.now();
+    
+    if (Platform.OS === 'web') {
+      // IndexedDB
+      await db.put('deleted_notifications', {
+        id: notificationId,
+        deleted_at: now,
+        retry_count: 0,
+      }, notificationId);
+    } else {
+      // SQLite
+      await db.runAsync(
+        `INSERT OR REPLACE INTO deleted_notifications (id, deleted_at, retry_count)
+         VALUES (?, ?, 0)`,
+        [notificationId, now]
+      );
+    }
+    
+    console.log(`[markNotificationAsDeleted] Marked notification ${notificationId} as deleted`);
+  });
+}
+
+/**
+ * Mark multiple notifications as deleted locally (tombstone)
+ */
+export async function markNotificationsAsDeleted(notificationIds: string[]): Promise<void> {
+  if (notificationIds.length === 0) return;
+  
+  await executeQuery(async (db) => {
+    const now = Date.now();
+    
+    if (Platform.OS === 'web') {
+      // IndexedDB
+      const tx = db.transaction('deleted_notifications', 'readwrite');
+      for (const id of notificationIds) {
+        await tx.store.put({
+          id,
+          deleted_at: now,
+          retry_count: 0,
+        }, id);
+      }
+      await tx.done;
+    } else {
+      // SQLite
+      for (const id of notificationIds) {
+        await db.runAsync(
+          `INSERT OR REPLACE INTO deleted_notifications (id, deleted_at, retry_count)
+           VALUES (?, ?, 0)`,
+          [id, now]
+        );
+      }
+    }
+    
+    console.log(`[markNotificationsAsDeleted] Marked ${notificationIds.length} notifications as deleted`);
+  });
+}
+
+/**
+ * Check if a notification is marked as deleted (tombstone exists)
+ */
+export async function isNotificationDeleted(notificationId: string): Promise<boolean> {
+  return await executeQuery(async (db) => {
+    if (Platform.OS === 'web') {
+      // IndexedDB
+      const tombstone = await db.get('deleted_notifications', notificationId);
+      return !!tombstone;
+    } else {
+      // SQLite
+      const result = await db.getFirstAsync(
+        'SELECT id FROM deleted_notifications WHERE id = ?',
+        [notificationId]
+      );
+      return !!result;
+    }
+  });
+}
+
+/**
+ * Get all deleted notification IDs (for filtering during sync)
+ */
+export async function getAllDeletedNotificationIds(): Promise<Set<string>> {
+  return await executeQuery(async (db) => {
+    const deletedIds = new Set<string>();
+    
+    if (Platform.OS === 'web') {
+      // IndexedDB
+      const tombstones = await db.getAll('deleted_notifications');
+      tombstones.forEach((t: any) => deletedIds.add(t.id));
+    } else {
+      // SQLite
+      const results = await db.getAllAsync('SELECT id FROM deleted_notifications');
+      results.forEach((r: any) => deletedIds.add(r.id));
+    }
+    
+    return deletedIds;
+  });
+}
+
+/**
+ * Remove tombstone for a notification (after successful server deletion)
+ */
+export async function removeDeletedNotificationTombstone(notificationId: string): Promise<void> {
+  await executeQuery(async (db) => {
+    if (Platform.OS === 'web') {
+      // IndexedDB
+      await db.delete('deleted_notifications', notificationId);
+    } else {
+      // SQLite
+      await db.runAsync(
+        'DELETE FROM deleted_notifications WHERE id = ?',
+        [notificationId]
+      );
+    }
+    
+    console.log(`[removeDeletedNotificationTombstone] Removed tombstone for ${notificationId}`);
+  });
+}
+
+/**
+ * Increment retry count for a deleted notification tombstone
+ */
+export async function incrementDeleteTombstoneRetry(notificationId: string): Promise<void> {
+  await executeQuery(async (db) => {
+    const now = Date.now();
+    
+    if (Platform.OS === 'web') {
+      // IndexedDB
+      const tombstone = await db.get('deleted_notifications', notificationId);
+      if (tombstone) {
+        await db.put('deleted_notifications', {
+          ...tombstone,
+          retry_count: tombstone.retry_count + 1,
+          last_retry_at: now,
+        }, notificationId);
+      }
+    } else {
+      // SQLite
+      await db.runAsync(
+        `UPDATE deleted_notifications 
+         SET retry_count = retry_count + 1, last_retry_at = ?
+         WHERE id = ?`,
+        [now, notificationId]
+      );
+    }
+  });
+}
+
+/**
+ * Cleanup old tombstones (older than 30 days)
+ * This prevents the tombstone table from growing indefinitely
+ */
+export async function cleanupOldDeletedTombstones(): Promise<number> {
+  return await executeQuery(async (db) => {
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000; // 30 days ago
+    
+    if (Platform.OS === 'web') {
+      // IndexedDB
+      const tx = db.transaction('deleted_notifications', 'readwrite');
+      const index = tx.store.index('deleted_at');
+      let count = 0;
+      
+      for await (const cursor of index.iterate()) {
+        if (cursor.value.deleted_at < cutoff) {
+          await cursor.delete();
+          count++;
+        }
+      }
+      
+      await tx.done;
+      console.log(`[cleanupOldDeletedTombstones] Cleaned up ${count} old tombstones`);
+      return count;
+    } else {
+      // SQLite
+      const result = await db.runAsync(
+        'DELETE FROM deleted_notifications WHERE deleted_at < ?',
+        [cutoff]
+      );
+      const count = result.changes || 0;
+      console.log(`[cleanupOldDeletedTombstones] Cleaned up ${count} old tombstones`);
+      return count;
+    }
+  });
 }

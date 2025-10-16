@@ -35,6 +35,18 @@ export interface WebStorageDB extends DBSchema {
       synced_at: number;
     };
   };
+  deleted_notifications: {
+    key: string; // notificationId
+    value: {
+      id: string;
+      deleted_at: number; // Timestamp when deleted locally
+      retry_count: number; // Number of retry attempts to delete on server
+      last_retry_at?: number; // Timestamp of last retry attempt
+    };
+    indexes: {
+      deleted_at: number;
+    };
+  };
   app_log: {
     key: number; // timestamp
     value: {
@@ -228,6 +240,20 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
     await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_buckets_updated_at ON buckets(updated_at);`);
     await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_buckets_synced_at ON buckets(synced_at);`);
 
+    // Deleted notifications tombstone table - tracks notifications deleted locally
+    // These should not be re-added to cache even if they come from backend sync
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS deleted_notifications (
+        id TEXT PRIMARY KEY,
+        deleted_at INTEGER NOT NULL,
+        retry_count INTEGER NOT NULL DEFAULT 0,
+        last_retry_at INTEGER
+      );
+    `);
+
+    // Create index for cleanup queries
+    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_deleted_notifications_deleted_at ON deleted_notifications(deleted_at);`);
+
     // Store instance for reuse
     dbInstance = db;
     
@@ -264,7 +290,7 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
 
   try {
     // await waitForIndexedDB();
-    webDbPromise = openDB<WebStorageDB>('zentik-storage', 8, {
+    webDbPromise = openDB<WebStorageDB>('zentik-storage', 9, {
       upgrade(db, oldVersion, newVersion, transaction) {
         if (!db.objectStoreNames.contains('keyvalue')) {
           db.createObjectStore('keyvalue');
@@ -295,6 +321,12 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
           const bucketsStore = db.createObjectStore('buckets');
           bucketsStore.createIndex('updated_at', 'updated_at');
           bucketsStore.createIndex('synced_at', 'synced_at');
+        }
+        
+        // Deleted notifications tombstone store (v9)
+        if (!db.objectStoreNames.contains('deleted_notifications')) {
+          const deletedStore = db.createObjectStore('deleted_notifications');
+          deletedStore.createIndex('deleted_at', 'deleted_at');
         }
         
         if (!db.objectStoreNames.contains('app_log')) {

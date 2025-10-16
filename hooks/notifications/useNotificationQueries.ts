@@ -21,11 +21,17 @@ import {
     useGetBucketsLazyQuery,
     useGetNotificationLazyQuery,
     useGetNotificationsLazyQuery,
-    useUpdateReceivedNotificationsMutation
+    useUpdateReceivedNotificationsMutation,
+    useDeleteNotificationMutation
 } from '@/generated/gql-operations-generated';
 import {
+    upsertNotificationsBatch,
     saveNotificationToCache,
-    upsertNotificationsBatch
+    deleteNotificationFromCache,
+    deleteNotificationsFromCache,
+    getAllDeletedNotificationIds,
+    removeDeletedNotificationTombstone,
+    incrementDeleteTombstoneRetry,
 } from '@/services/notifications-repository';
 import {
     BucketStats,
@@ -884,6 +890,61 @@ async function updateReceivedNotificationsOnServer(
 // ====================
 
 /**
+ * Helper function to retry deleting notifications with tombstones from server
+ * Called during sync to attempt server deletion of locally-deleted notifications
+ */
+async function retryDeleteTombstones(deleteNotificationMutation: any) {
+    try {
+        // Get all tombstone IDs
+        const deletedIds = await getAllDeletedNotificationIds();
+        
+        if (deletedIds.size === 0) {
+            return;
+        }
+        
+        console.log(`[retryDeleteTombstones] Found ${deletedIds.size} tombstones, attempting server deletion...`);
+        
+        let successCount = 0;
+        let failCount = 0;
+        
+        // Attempt to delete each tombstone from server
+        for (const notificationId of deletedIds) {
+            try {
+                await deleteNotificationMutation({
+                    variables: { id: notificationId },
+                });
+                
+                // Success: remove tombstone
+                await removeDeletedNotificationTombstone(notificationId);
+                successCount++;
+                console.log(`[retryDeleteTombstones] Successfully deleted notification ${notificationId} from server, tombstone removed`);
+            } catch (error: any) {
+                // Check if error is "not found" - means already deleted on server
+                const isNotFound = error?.message?.includes('not found') || 
+                                   error?.graphQLErrors?.[0]?.message?.includes('not found');
+                
+                if (isNotFound) {
+                    // Already deleted on server (by another device or manually)
+                    // Remove tombstone locally since it's no longer needed
+                    await removeDeletedNotificationTombstone(notificationId);
+                    successCount++;
+                    console.log(`[retryDeleteTombstones] Notification ${notificationId} already deleted on server, tombstone removed`);
+                } else {
+                    // Other error: increment retry counter
+                    await incrementDeleteTombstoneRetry(notificationId);
+                    failCount++;
+                    console.warn(`[retryDeleteTombstones] Failed to delete notification ${notificationId} from server:`, error);
+                }
+            }
+        }
+        
+        console.log(`[retryDeleteTombstones] Retry complete: ${successCount} succeeded, ${failCount} failed`);
+    } catch (error) {
+        console.error('[retryDeleteTombstones] Error during tombstone retry:', error);
+    }
+}
+
+/**
  * Hook for syncing notifications from API on app startup
  * Should only be called once during app initialization
  * 
@@ -904,6 +965,7 @@ export function useSyncNotificationsFromAPI() {
         fetchPolicy: 'network-only',
     });
     const [updateReceivedNotifications] = useUpdateReceivedNotificationsMutation();
+    const [deleteNotificationMutation] = useDeleteNotificationMutation();
 
     const syncNotifications = async (): Promise<number> => {
         try {
@@ -921,10 +983,17 @@ export function useSyncNotificationsFromAPI() {
                 await updateReceivedNotificationsOnServer(updateReceivedNotifications, notificationIds);
                 console.log(`[syncNotifications] Marked ${apiNotifications.length} notifications as received on server`);
 
+                // Retry deleting notifications with tombstones
+                await retryDeleteTombstones(deleteNotificationMutation);
+
                 return apiNotifications.length;
             }
 
             console.log('[syncNotifications] No new notifications');
+            
+            // Still retry deleting notifications with tombstones even if no new notifications
+            await retryDeleteTombstones(deleteNotificationMutation);
+            
             return 0;
         } catch (error) {
             console.error('[syncNotifications] Sync failed:', error);
