@@ -3,7 +3,13 @@
  * Provides hooks for creating, updating, and deleting notifications with local DB sync
  */
 
-import { NotificationFragment, useMarkNotificationAsReadMutation, useMarkNotificationAsUnreadMutation } from '@/generated/gql-operations-generated';
+import { 
+    NotificationFragment, 
+    useMarkNotificationAsReadMutation, 
+    useMarkNotificationAsUnreadMutation,
+    useMassMarkNotificationsAsReadMutation,
+    useMassMarkNotificationsAsUnreadMutation
+} from '@/generated/gql-operations-generated';
 import {
     deleteNotificationFromCache,
     deleteNotificationsFromCache,
@@ -275,22 +281,23 @@ export function useBatchMarkAsRead(
     >
 ): UseMutationResult<string[], Error, MarkAsReadInput> {
     const queryClient = useQueryClient();
-    const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
-    const [markAsReadGQL] = useMarkNotificationAsReadMutation();
-    const [markAsUnreadGQL] = useMarkNotificationAsUnreadMutation();
+    const [massMarkAsReadGQL] = useMassMarkNotificationsAsReadMutation();
+    const [massMarkAsUnreadGQL] = useMassMarkNotificationsAsUnreadMutation();
 
     return useMutation({
         mutationFn: async (input: MarkAsReadInput) => {
             const isMarkingAsRead = input.readAt !== null;
             
-            // 1. Call backend GraphQL mutations for each notification (this cancels reminders)
-            await Promise.all(
-                input.notificationIds.map(id =>
-                    isMarkingAsRead
-                        ? markAsReadGQL({ variables: { id } })
-                        : markAsUnreadGQL({ variables: { id } })
-                )
-            );
+            // 1. Call backend GraphQL batch mutation (this cancels reminders)
+            if (isMarkingAsRead) {
+                await massMarkAsReadGQL({ 
+                    variables: { ids: input.notificationIds } 
+                });
+            } else {
+                await massMarkAsUnreadGQL({ 
+                    variables: { ids: input.notificationIds } 
+                });
+            }
 
             // 2. Update local DB
             await updateNotificationsReadStatus(input.notificationIds, input.readAt);
