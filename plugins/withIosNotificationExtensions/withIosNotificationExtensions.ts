@@ -237,12 +237,12 @@ async function createSharedFrameworkTarget(
         buildSettingsObj.GENERATE_INFOPLIST_FILE = 'YES';
         delete buildSettingsObj.INFOPLIST_FILE;
         
-        // Code signing: use "-" to inherit from host app (don't sign framework separately)
-        buildSettingsObj.CODE_SIGN_IDENTITY = '"-"';
-        buildSettingsObj.CODE_SIGN_STYLE = 'Automatic';
-        buildSettingsObj.DEVELOPMENT_TEAM = developmentTeam;
+        // Code signing: Don't sign the framework separately (it will be signed when embedded)
+        buildSettingsObj.CODE_SIGN_IDENTITY = '""';
+        buildSettingsObj.CODE_SIGN_STYLE = 'Manual';
         
-        // Don't require a provisioning profile for the framework
+        // Remove development team and provisioning for framework
+        delete buildSettingsObj.DEVELOPMENT_TEAM;
         delete buildSettingsObj.PROVISIONING_PROFILE_SPECIFIER;
         delete buildSettingsObj.CODE_SIGN_ENTITLEMENTS;
         
@@ -256,9 +256,10 @@ async function createSharedFrameworkTarget(
     }
   }
   
-  pbxProject.addTargetAttribute('DevelopmentTeam', developmentTeam, frameworkTargetName);
+  // Don't add development team for framework
+  // pbxProject.addTargetAttribute('DevelopmentTeam', developmentTeam, frameworkTargetName);
   
-  console.log(`[ZentikShared] ✅ Framework target created with bundle identifier ${frameworkBundleId} (code sign identity: -)`);
+  console.log(`[ZentikShared] ✅ Framework target created with bundle identifier ${frameworkBundleId} (unsigned - will be signed when embedded)`);
   
   return frameworkTargetName;
 }
