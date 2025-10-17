@@ -41,6 +41,7 @@ import { useUserSettings } from "../services/user-settings";
 import { closeSharedCacheDb, openSharedCacheDb } from "@/services/db-setup";
 import { logger } from "@/services/logger";
 import { mediaCache } from "@/services/media-cache-service";
+import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -107,6 +108,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isMainLoading, setIsLoading] = useState(false);
   const { mutateAsync: markAllAsRead } = useMarkAllAsRead();
   const { cleanup } = useCleanup();
+  const { processPendingNavigationIntent } = usePendingNotificationIntents();
 
   useEffect(() => {
     if (!userSettings.settings.locale) {
@@ -411,6 +413,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
         console.log("[AppContext] App is active, cleaning up");
+        await processPendingNavigationIntent();
         await openSharedCacheDb();
         await cleanup({ immediate: true });
         await connectionStatus.checkForUpdates();
@@ -434,7 +437,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
           await closeSharedCacheDb();
           console.log("[AppContext] Database closed successfully");
-          
+
           // Notify media cache service that database is closed
           // This allows automatic reopening on next operation
           mediaCache.notifyDatabaseClosed();

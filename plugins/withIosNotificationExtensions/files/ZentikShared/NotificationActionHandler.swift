@@ -332,7 +332,10 @@ public class NotificationActionHandler {
                 switch type.uppercased() {
                 case "MARK_AS_READ":
                     try await markNotificationAsRead(notificationId: notificationId, userInfo: userInfo)
-                    _ = DatabaseAccess.markNotificationAsRead(notificationId: notificationId)
+                    DatabaseAccess.markNotificationAsRead(notificationId: notificationId, source: source)
+                    
+                    // Decrement badge count for both NCE and AppDelegate
+                    KeychainAccess.decrementBadgeCount(source: source)
                     
                     LoggingSystem.shared.info(
                         tag: source,
@@ -343,7 +346,10 @@ public class NotificationActionHandler {
                     
                 case "DELETE":
                     try await deleteNotificationFromServer(notificationId: notificationId, userInfo: userInfo)
-                    _ = DatabaseAccess.deleteNotification(notificationId: notificationId)
+                    DatabaseAccess.deleteNotification(notificationId: notificationId, source: source)
+                    
+                    // Decrement badge count for both NCE and AppDelegate
+                    KeychainAccess.decrementBadgeCount(source: source)
                     
                     LoggingSystem.shared.info(
                         tag: source,
@@ -407,21 +413,65 @@ public class NotificationActionHandler {
                     
                 case "NAVIGATE", "OPEN_NOTIFICATION":
                     // These actions are handled by the app itself, not in extensions
-                    // Store intent in keychain for app to process
-                    let navigationData: [String: String] = [
+                    // Store intent in keychain for app to process (matching react-native-keychain format)
+                    let navigationData: [String: Any] = [
                         "type": type,
                         "value": value,
-                        "timestamp": ISO8601DateFormatter().string(from: Date())
+                        "timestamp": ISO8601DateFormatter().string(from: Date()),
+                        "notificationId": notificationId ?? "",
+                        "source": source
                     ]
                     
-                    // Note: Keychain storage would need to be implemented here
-                    // For now, just log the action
-                    LoggingSystem.shared.info(
-                        tag: source,
-                        message: "[Action] Navigation action recorded",
-                        metadata: ["type": type, "value": value],
-                        source: source
-                    )
+                    do {
+                        // Use react-native-keychain compatible format:
+                        // service: "zentik-pending-navigation"
+                        // username: "navigation"
+                        // password: JSON stringified data
+                        let jsonData = try JSONSerialization.data(withJSONObject: navigationData)
+                        guard let jsonString = String(data: jsonData, encoding: .utf8) else {
+                            throw NSError(domain: "ActionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to encode navigation data"])
+                        }
+                        
+                        let keychainAccessGroup = KeychainAccess.getKeychainAccessGroup()
+                        
+                        // Delete existing intent first
+                        let deleteQuery: [String: Any] = [
+                            kSecClass as String: kSecClassGenericPassword,
+                            kSecAttrService as String: "zentik-pending-navigation",
+                            kSecAttrAccessGroup as String: keychainAccessGroup
+                        ]
+                        SecItemDelete(deleteQuery as CFDictionary)
+                        
+                        // Store new intent (matching react-native-keychain format)
+                        let addQuery: [String: Any] = [
+                            kSecClass as String: kSecClassGenericPassword,
+                            kSecAttrService as String: "zentik-pending-navigation",
+                            kSecAttrAccount as String: "navigation",
+                            kSecValueData as String: jsonString.data(using: .utf8)!,
+                            kSecAttrAccessGroup as String: keychainAccessGroup,
+                            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+                        ]
+                        
+                        let status = SecItemAdd(addQuery as CFDictionary, nil)
+                        if status == errSecSuccess {
+                            LoggingSystem.shared.info(
+                                tag: source,
+                                message: "[Action] Navigation intent stored in keychain",
+                                metadata: ["type": type, "value": value, "notificationId": notificationId ?? ""],
+                                source: source
+                            )
+                        } else {
+                            throw NSError(domain: "KeychainError", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "Failed to save navigation intent (status: \(status))"])
+                        }
+                    } catch {
+                        LoggingSystem.shared.error(
+                            tag: source,
+                            message: "[Action] Failed to store navigation intent",
+                            metadata: ["type": type, "value": value, "error": error.localizedDescription],
+                            source: source
+                        )
+                        throw error
+                    }
                     
                 default:
                     throw NSError(domain: "ActionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unknown action type: \(type)"])

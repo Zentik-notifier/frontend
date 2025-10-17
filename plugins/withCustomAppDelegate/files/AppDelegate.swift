@@ -99,14 +99,14 @@ FirebaseApp.configure()
     )
     
     // Log keychain data availability
-    if let apiEndpoint = getApiEndpoint() {
-      print("📱 [AppDelegate] 🔑 API Endpoint from keychain: \(apiEndpoint)")
+    if let endpoint = KeychainAccess.getApiEndpoint() {
+      print("📱 [AppDelegate] 🔑 API Endpoint from keychain: \(endpoint)")
     } else {
       print("📱 [AppDelegate] ⚠️ API Endpoint NOT found in keychain")
     }
     
-    if let authToken = getStoredAuthToken() {
-      print("📱 [AppDelegate] 🔑 Auth Token from keychain: \(String(authToken.prefix(10)))...")
+    if let token = KeychainAccess.getStoredAuthToken() {
+      print("📱 [AppDelegate] 🔑 Auth Token from keychain: \(String(token.prefix(10)))...")
     } else {
       print("📱 [AppDelegate] ⚠️ Auth Token NOT found in keychain")
     }
@@ -141,29 +141,7 @@ FirebaseApp.configure()
       }
     }
   }
-
   
-  // MARK: - Keychain Access (using ZentikShared)
-  
-  private func getApiEndpoint() -> String? {
-    if let endpoint = KeychainAccess.getApiEndpoint() {
-      print("📱 [AppDelegate] ✅ API endpoint from keychain: \(endpoint)")
-      return endpoint
-    }
-    print("📱 [AppDelegate] ⚠️ Using fallback API endpoint")
-    return "https://notifier-api.zentik.app"
-  }
-  
-  private func getStoredAuthToken() -> String? {
-    print("📱 [AppDelegate] 🔍 Trying to get auth token from keychain")
-    if let token = KeychainAccess.getStoredAuthToken() {
-      print("📱 [AppDelegate] ✅ Auth token from keychain: \(token.prefix(20))...")
-      return token
-    }
-    print("📱 [AppDelegate] ❌ Auth token not found in keychain")
-    return nil
-  }
-
   // Linking API
   public override func application(
     _ app: UIApplication,

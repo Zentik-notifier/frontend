@@ -5,6 +5,7 @@ import Security
 import UIKit
 import UniformTypeIdentifiers
 import UserNotifications
+import ZentikShared
 
 // SQLite helper for Swift bindings
 private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -151,17 +152,17 @@ class NotificationService: UNNotificationServiceExtension {
     print("📱 [NotificationService] 🎭 UserInfo keys: \(userInfo.keys.sorted())")
 
     // Extract bucket/sender fields
-    let senderId = (userInfo["bucketId"] as? String)
-    let chatRoomName = (userInfo["bucketName"] as? String)
-    let senderDisplayName = (content.title as? String)
-    let senderThumbnail = (userInfo["bucketIconUrl"] as? String)
-    let bucketColor = (userInfo["bucketColor"] as? String)
+    let senderId = userInfo["bucketId"] as? String
+    let chatRoomName = userInfo["bucketName"] as? String
+    let senderDisplayName = content.title
+    let senderThumbnail = userInfo["bucketIconUrl"] as? String
+    let bucketColor = userInfo["bucketColor"] as? String
 
     var senderAvatarImageData: Data?
     
     // Prima verifica se abbiamo già l'icona nella cache
     if let bucketId = senderId, let bucketName = chatRoomName {
-      senderAvatarImageData = getBucketIconFromSharedCache(bucketId: bucketId, bucketName: bucketName)
+      senderAvatarImageData = MediaAccess.getBucketIconFromSharedCache(bucketId: bucketId, bucketName: bucketName)
       if senderAvatarImageData != nil {
         print("📱 [NotificationService] 🎭 ✅ Using cached bucket icon")
       }
@@ -177,7 +178,7 @@ class NotificationService: UNNotificationServiceExtension {
       
       // Salva nella cache per uso futuro (NSE e NCE)
       if let bucketId = senderId, let bucketName = chatRoomName {
-        let _ = saveBucketIconToSharedCache(senderThumbnailImageData, bucketId: bucketId, bucketName: bucketName)
+        let _ = MediaAccess.saveBucketIconToSharedCache(senderThumbnailImageData, bucketId: bucketId, bucketName: bucketName)
       }
     }
     
@@ -186,7 +187,7 @@ class NotificationService: UNNotificationServiceExtension {
       print("📱 [NotificationService] 🎭 ⚠️ Sender image not available")
 
       // Read UI preference: show app icon when bucket icon missing (skip custom avatar)
-      let showAppIcon = readBoolFromKeychain(service: "zentik-setting-show-app-icon-missing") ?? true
+      let showAppIcon = KeychainAccess.readBoolFromKeychain(service: "zentik-setting-show-app-icon-missing") ?? true
 
       // Generate placeholder ONLY if preference is disabled
       if showAppIcon == false {
@@ -200,7 +201,7 @@ class NotificationService: UNNotificationServiceExtension {
           
           // Salva il placeholder generato NELLO STESSO POSTO dell'icona bucket
           if let placeholderData = senderAvatarImageData {
-            let _ = saveBucketIconToSharedCache(placeholderData, bucketId: bucketId, bucketName: bucketName)
+            let _ = MediaAccess.saveBucketIconToSharedCache(placeholderData, bucketId: bucketId, bucketName: bucketName)
           }
         }
       }
@@ -321,7 +322,7 @@ class NotificationService: UNNotificationServiceExtension {
       
       // Flush logs immediately before extension terminates
       print("📱 [NotificationService] 🎯 Processing complete, flushing logs before exit")
-      flushLogs()
+      LoggingSystem.shared.flushLogs()
       
     } catch let error {
       print("error \(error)")
@@ -341,7 +342,7 @@ class NotificationService: UNNotificationServiceExtension {
       
       // Flush logs immediately before extension terminates (error case)
       print("📱 [NotificationService] 🎯 Error occurred, flushing logs before exit")
-      flushLogs()
+      LoggingSystem.shared.flushLogs()
     }
   }
 
@@ -390,7 +391,7 @@ class NotificationService: UNNotificationServiceExtension {
 
     // Save placeholder to shared cache for NCE to access
     if let bucketId = bucketId {
-      let _ = savePlaceholderToSharedCache(imageData, bucketId: bucketId, bucketName: name)
+      let _ = MediaAccess.savePlaceholderToSharedCache(imageData, bucketId: bucketId, bucketName: name)
       print("📱 [NotificationService] 🎭 Generated placeholder with initials: \(initials)")
     }
 
@@ -553,8 +554,8 @@ class NotificationService: UNNotificationServiceExtension {
   }
 
   private func getPrivateKey() -> SecKey? {
-    let accessGroup = getKeychainAccessGroup()
-    let bundleIdentifier = getMainBundleIdentifier()
+    let accessGroup = KeychainAccess.getKeychainAccessGroup()
+    let bundleIdentifier = KeychainAccess.getMainBundleIdentifier()
 
     print("📱 [NotificationService] 🔍 Looking for private key with bundle: \(bundleIdentifier)")
     print("📱 [NotificationService] 🔍 Access group: \(accessGroup)")
@@ -702,7 +703,7 @@ class NotificationService: UNNotificationServiceExtension {
     print("📱 [NotificationService] Service extension time will expire")
     
     // Flush any pending logs before extension terminates
-    flushLogs()
+    LoggingSystem.shared.flushLogs()
     
     if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {
       contentHandler(bestAttemptContent)
@@ -903,29 +904,6 @@ class NotificationService: UNNotificationServiceExtension {
   }
 
   // MARK: - Media Processing Helpers
-  
-  // private func downloadIconsToSharedCache(from userInfo: [String: Any]) {
-  //   guard let attachmentData = userInfo["attachmentData"] as? [[String: Any]] else {
-  //     return
-  //   }
-    
-  //   // Find all ICON attachments and download them to shared cache
-  //   for attachment in attachmentData {
-  //     if let mediaType = attachment["mediaType"] as? String,
-  //        mediaType.uppercased() == "ICON",
-  //        let url = attachment["url"] as? String,
-  //        let name = attachment["name"] as? String {
-        
-  //       let iconItem = MediaAttachment(mediaType: mediaType, url: url, name: name)
-  //       let cacheDir = self.getSharedMediaCacheDirectory()
-        
-  //       self.downloadMediaToSharedCache(iconItem, in: cacheDir) {
-  //         print("📱 [NotificationService] 💾 ICON cached for Content Extension: \(name)")
-  //       }
-  //     }
-  //   }
-  // }
-
   private struct MediaAttachment {
     let mediaType: String
     let url: String
@@ -1070,8 +1048,8 @@ class NotificationService: UNNotificationServiceExtension {
 
     // Check shared metadata and existing cached file before downloading
     do {
-      let cacheDirectory = self.getAppCacheDirectory()
-      let filename = self.generateSafeFileName(
+      let cacheDirectory = MediaAccess.getSharedMediaCacheDirectory()
+      let filename = MediaAccess.generateSafeFileName(
         url: mediaItem.url,
         mediaType: mediaItem.mediaType,
         originalFileName: mediaItem.name
@@ -1080,7 +1058,7 @@ class NotificationService: UNNotificationServiceExtension {
       let typeDirectory = cacheDirectory.appendingPathComponent(mediaItem.mediaType.uppercased())
       let typeCandidate = typeDirectory.appendingPathComponent(filename)
 
-      if let localPath = self.getLocalPathFromDb(url: mediaItem.url, mediaType: mediaItem.mediaType)
+      if let localPath = MediaAccess.getLocalPathFromDb(url: mediaItem.url, mediaType: mediaItem.mediaType)
       {
         // localPath may already include file://, so normalize
         let dbUrl: URL
@@ -1251,10 +1229,10 @@ class NotificationService: UNNotificationServiceExtension {
         print("📱 [NotificationService] Downloaded file size: \(downloadedFileSize) bytes")
 
         // Save the media in the app's cache folder to make it accessible
-        let cacheDirectory = self.getAppCacheDirectory()
+        let cacheDirectory = MediaAccess.getSharedMediaCacheDirectory()
 
         // Generate a safe filename using the same logic as the app's media-cache
-        let filename = self.generateSafeFileName(
+        let filename = MediaAccess.generateSafeFileName(
           url: mediaItem.url,
           mediaType: mediaItem.mediaType,
           originalFileName: mediaItem.name
@@ -1414,44 +1392,6 @@ class NotificationService: UNNotificationServiceExtension {
     task.resume()
   }
 
-  private func getAppCacheDirectory() -> URL {
-    return getSharedMediaCacheDirectory()
-  }
-
-  /**
-   * Generates a safe filename based on URL and media type
-   * Uses the same logic as the app's media-cache
-   */
-  private func generateSafeFileName(url: String, mediaType: String, originalFileName: String?)
-    -> String
-  {
-    // Extract the extension from the original filename or URL
-    let fileExtension = getFileExtension(
-      url: url, mediaType: mediaType, originalFileName: originalFileName)
-
-    // Generate a robust hash for the filename
-    let longHash = generateLongHash(url: url)
-
-    let safeFileName = "\(mediaType.lowercased())_\(longHash)"
-
-    return "\(safeFileName)\(fileExtension)"
-  }
-
-  /**
-   * Generate a robust hash for URL-based filename generation
-   * Uses the same algorithm as the mobile app (React Native media-cache)
-   */
-  private func generateLongHash(url: String) -> String {
-    // Replicate exact React Native algorithm: hash = (hash * 31 + char) >>> 0
-    var hash: UInt32 = 0
-    for char in url.utf8 {
-      // Use safe arithmetic operations to avoid overflow (matching JS >>> 0)
-      hash = (hash &* 31 &+ UInt32(char))  // Swift &* and &+ provide overflow protection
-    }
-    // Convert to hex string and pad to 8 characters (matching JS toString(16).padStart(8, '0'))
-    return String(format: "%08x", hash)
-  }
-
   // MARK: - Error Image Generation
 
   /**
@@ -1571,46 +1511,7 @@ class NotificationService: UNNotificationServiceExtension {
     }
   }
 
-  /**
-   * Gets the file extension based on media type or URL
-   * Uses the same logic as the app's media-cache
-   */
-  private func getFileExtension(url: String, mediaType: String, originalFileName: String?) -> String
-  {
-    // Try first from the original filename
-    if let originalFileName = originalFileName {
-      let parts = originalFileName.components(separatedBy: ".")
-      if parts.count > 1 {
-        let ext = parts.last!
-        if ext.count <= 5 && ext.range(of: "^[a-zA-Z0-9]+$", options: .regularExpression) != nil {
-          return ".\(ext.lowercased())"
-        }
-      }
-    }
 
-    // Try from the URL
-    let urlParts = url.components(separatedBy: "?")[0].components(separatedBy: ".")
-    if urlParts.count > 1 {
-      let ext = urlParts.last!
-      if ext.count <= 5 && ext.range(of: "^[a-zA-Z0-9]+$", options: .regularExpression) != nil {
-        return ".\(ext.lowercased())"
-      }
-    }
-
-    // Default based on media type
-    switch mediaType.uppercased() {
-    case "IMAGE":
-      return ".jpg"
-    case "GIF":
-      return ".gif"
-    case "VIDEO":
-      return ".mp4"
-    case "AUDIO":
-      return ".mp3"
-    default:
-      return ".dat"
-    }
-  }
 
   // MARK: - Badge Count Management
 
@@ -1618,7 +1519,7 @@ class NotificationService: UNNotificationServiceExtension {
     print("📱 [NotificationService] 🔢 Updating badge count...")
 
     // Get current badge count from keychain
-    let currentCount = getBadgeCountFromKeychain()
+    let currentCount = KeychainAccess.getBadgeCountFromKeychain()
     let newCount = currentCount + 1
 
     print("📱 [NotificationService] 🔢 Current badge count: \(currentCount), new count: \(newCount)")
@@ -1627,73 +1528,15 @@ class NotificationService: UNNotificationServiceExtension {
     content.badge = NSNumber(value: newCount)
 
     // Save new count to keychain for app synchronization
-    saveBadgeCountToKeychain(count: newCount)
+    KeychainAccess.saveBadgeCountToKeychain(count: newCount)
 
     print("📱 [NotificationService] ✅ Badge count updated to \(newCount)")
   }
 
-  private func getBadgeCountFromKeychain() -> Int {
-    let accessGroup = getKeychainAccessGroup()
 
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: "zentik-badge-count",
-      kSecAttrAccount as String: "badge",
-      kSecAttrAccessGroup as String: accessGroup,
-      kSecReturnData as String: true,
-      kSecMatchLimit as String: kSecMatchLimitOne,
-    ]
-
-    var result: AnyObject?
-    let status = SecItemCopyMatching(query as CFDictionary, &result)
-
-    if status == errSecSuccess,
-      let data = result as? Data,
-      let countString = String(data: data, encoding: .utf8),
-      let count = Int(countString)
-    {
-      print("📱 [NotificationService] 🔢 Retrieved badge count from keychain: \(count)")
-      return count
-    }
-
-    print("📱 [NotificationService] 🔢 No badge count found in keychain, defaulting to 0")
-    return 0
-  }
-
-  private func saveBadgeCountToKeychain(count: Int) {
-    let accessGroup = getKeychainAccessGroup()
-
-    let countData = String(count).data(using: .utf8)!
-
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: "zentik-badge-count",
-      kSecAttrAccount as String: "badge",
-      kSecAttrAccessGroup as String: accessGroup,
-      kSecValueData as String: countData,
-      kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-    ]
-
-    // Delete any existing item first
-    let deleteQuery: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: "zentik-badge-count",
-      kSecAttrAccount as String: "badge",
-      kSecAttrAccessGroup as String: accessGroup,
-    ]
-    SecItemDelete(deleteQuery as CFDictionary)
-
-    // Add the new item
-    let status = SecItemAdd(query as CFDictionary, nil)
-    if status == errSecSuccess {
-      print("📱 [NotificationService] ✅ Successfully saved badge count \(count) to keychain")
-    } else {
-      print("📱 [NotificationService] ❌ Failed to save badge count to keychain (status: \(status))")
-    }
-  }
 
   private func setDownloadErrorFlag(for mediaAttachment: MediaAttachment) {
-    upsertCacheItem(
+    MediaAccess.upsertCacheItem(
       url: mediaAttachment.url,
       mediaType: mediaAttachment.mediaType,
       fields: [
@@ -1705,168 +1548,12 @@ class NotificationService: UNNotificationServiceExtension {
   }
 
   // MARK: - Media Pre-Caching (Legacy - kept for compatibility)
-
-  private func downloadMediaToSharedCache(
-    _ mediaAttachment: MediaAttachment, in cacheDirectory: URL, completion: @escaping () -> Void
-  ) {
-    guard let url = URL(string: mediaAttachment.url) else {
-      print("📱 [NotificationService] ❌ Invalid URL for pre-cache: \(mediaAttachment.url)")
-      markMediaAsCompleted(mediaAttachment, success: false, isNewDownload: true, notificationId: currentNotificationId)
-      completion()
-      return
-    }
-
-    // Generate filename using the same logic as media-cache
-    let filename = generateSafeFileName(
-      url: mediaAttachment.url,
-      mediaType: mediaAttachment.mediaType,
-      originalFileName: mediaAttachment.name
-    )
-
-    // Save to media type subdirectory
-    let typeDirectory = cacheDirectory.appendingPathComponent(
-      mediaAttachment.mediaType.uppercased())
-    let cacheFile = typeDirectory.appendingPathComponent(filename)
-
-    // Check if already cached
-    if FileManager.default.fileExists(atPath: cacheFile.path) {
-      // For icons, also check if they have the correct resized dimensions
-      if mediaAttachment.mediaType.uppercased() == "ICON" {
-        print("📱 [NotificationService] ✅ Icon already cached with correct size: \(filename)")
-        markMediaAsCompleted(mediaAttachment, success: true, isNewDownload: false)
-        completion()
-        return
-      } else {
-        print(
-          "📱 [NotificationService] ✅ Media already cached: \(mediaAttachment.mediaType) - \(filename)"
-        )
-        markMediaAsCompleted(mediaAttachment, success: true, isNewDownload: false)
-        completion()
-        return
-      }
-    }
-
-    print(
-      "📱 [NotificationService] ⬇️ Downloading to shared cache: \(mediaAttachment.mediaType) - \(filename)"
-    )
-
-    // Download and cache with completion callback
-    URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-      defer { completion() }
-
-      if let error = error {
-        print("📱 [NotificationService] ❌ Failed to download media to shared cache: \(error)")
-        self?.markMediaAsCompleted(mediaAttachment, success: false, isNewDownload: true)
-        return
-      }
-
-      guard let data = data else {
-        print("📱 [NotificationService] ❌ No data received for shared cache")
-        self?.markMediaAsCompleted(mediaAttachment, success: false, isNewDownload: true)
-        return
-      }
-
-      // Process data based on media type before saving
-      var dataToSave = data
-      var finalCacheFile = cacheFile
-
-      if mediaAttachment.mediaType.uppercased() == "ICON" {
-        print("📱 [NotificationService] 🔧 ICON detected, starting resize process...")
-        print("📱 [NotificationService] 🔍 Original icon data size: \(data.count) bytes")
-
-        // Check data format before resize
-        if data.count >= 4 {
-          let header = data.prefix(4)
-          let headerBytes = header.map { $0 }
-          print(
-            "📱 [NotificationService] 🔍 Icon data header: \(headerBytes.map { String(format: "%02X", $0) }.joined(separator: " "))"
-          )
-
-          if headerBytes[0] == 0xFF && headerBytes[1] == 0xD8 {
-            print("📱 [NotificationService] 🔍 Icon appears to be JPEG format")
-          } else if headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4E
-            && headerBytes[3] == 0x47
-          {
-            print("📱 [NotificationService] 🔍 Icon appears to be PNG format")
-          } else {
-            print("📱 [NotificationService] ⚠️ Icon format not recognized")
-          }
-        }
-
-        // Try to create UIImage first to verify the data
-        if let testImage = UIImage(data: data) {
-          let size = testImage.size
-          print(
-            "📱 [NotificationService] ✅ Original icon successfully decoded: \(size.width)x\(size.height)"
-          )
-
-          // DISABLED: Icon resize logic - NSE no longer resizes icons, NCE handles them
-          print("📱 [NotificationService] 🚫 Icon resize disabled - using original data")
-          dataToSave = data  // Use original data without resizing
-        } else {
-          print("📱 [NotificationService] ❌ Failed to decode original icon data, using as-is")
-          // Let's also check what the original image looks like
-          if let originalImage = UIImage(data: data) {
-            let size = originalImage.size
-            print(
-              "📱 [NotificationService] 📊 Original icon dimensions: \(size.width)x\(size.height)")
-          } else {
-            print("📱 [NotificationService] ❌ Cannot create UIImage from original data")
-          }
-        }
-      }
-
-      // Save to shared cache
-      do {
-        try dataToSave.write(to: finalCacheFile)
-        // Ensure the file is readable by the main app (adjust protection and backup flags)
-        do {
-          try FileManager.default.setAttributes(
-            [.protectionKey: FileProtectionType.none], ofItemAtPath: finalCacheFile.path)
-        } catch {
-          print("📱 [NotificationService] ⚠️ Failed to set file protection to none: \(error)")
-        }
-        do {
-          var rv = URLResourceValues()
-          rv.isExcludedFromBackup = true
-          var mutableUrl = finalCacheFile
-          try mutableUrl.setResourceValues(rv)
-        } catch {
-          print("📱 [NotificationService] ⚠️ Failed to set isExcludedFromBackup: \(error)")
-        }
-        // Verify the file was saved in the shared container
-        let savedExists = FileManager.default.fileExists(atPath: finalCacheFile.path)
-        var savedSize: Int64 = -1
-        if savedExists {
-          do {
-            let attrs = try FileManager.default.attributesOfItem(atPath: finalCacheFile.path)
-            if let size = attrs[.size] as? NSNumber {
-              savedSize = size.int64Value
-            }
-          } catch {
-            print("📱 [NotificationService] ⚠️ Failed to read saved file attributes: \(error)")
-          }
-        }
-        print(
-          "📱 [NotificationService] 🔎 Saved file verification: exists=\(savedExists) path=\(finalCacheFile.path) size=\(savedSize)"
-        )
-        print(
-          "📱 [NotificationService] ✅ Downloaded to shared cache: \(mediaAttachment.mediaType) (\(dataToSave.count) bytes) - \(finalCacheFile.lastPathComponent)"
-        )
-        self?.markMediaAsCompleted(mediaAttachment, success: true, isNewDownload: true, notificationId: self?.currentNotificationId)
-      } catch {
-        print("📱 [NotificationService] ❌ Failed to save to shared cache: \(error)")
-        self?.markMediaAsCompleted(mediaAttachment, success: false, isNewDownload: true, notificationId: self?.currentNotificationId)
-      }
-    }.resume()
-  }
-
   private func markMediaAsCompleted(
     _ mediaAttachment: MediaAttachment, success: Bool, isNewDownload: Bool = true,
     errorCode: String? = nil, notificationId: String? = nil
   ) {
-    let sharedCacheDirectory = getSharedMediaCacheDirectory()
-    let filename = generateSafeFileName(
+    let sharedCacheDirectory = MediaAccess.getSharedMediaCacheDirectory()
+    let filename = MediaAccess.generateSafeFileName(
       url: mediaAttachment.url, mediaType: mediaAttachment.mediaType,
       originalFileName: mediaAttachment.name)
     let typeDirectory = sharedCacheDirectory.appendingPathComponent(
@@ -1904,249 +1591,15 @@ class NotificationService: UNNotificationServiceExtension {
     print(
       "📱 [NotificationService] 📊 Marking media as completed: success=\(success), errorCode=\(errorCode ?? "nil")"
     )
-    upsertCacheItem(url: mediaAttachment.url, mediaType: mediaAttachment.mediaType, fields: fields)
+    MediaAccess.upsertCacheItem(url: mediaAttachment.url, mediaType: mediaAttachment.mediaType, fields: fields)
   }
 
   // MARK: - SQLite helpers
   private func getDbPath() -> String {
-    let dir = getSharedMediaCacheDirectory()
-    return dir.appendingPathComponent("cache.db").path
+    return DatabaseAccess.getDbPath() ?? MediaAccess.getSharedMediaCacheDirectory().appendingPathComponent("cache.db").path
   }
   
-  // MARK: - Generic Database Operation Handler
-  
-  /// Generic database operation executor with timeout protection, retry logic and error handling
-  /// - Parameters:
-  ///   - operationType: Type of operation (read/write)
-  ///   - operationName: Name for logging purposes
-  ///   - timeout: Maximum time allowed for operation (default: 3 seconds)
-  ///   - operation: The actual database operation to perform
-  ///   - completion: Completion handler with result
-  private func performDatabaseOperation(
-    type operationType: DatabaseOperationType,
-    name operationName: String,
-    timeout: TimeInterval = DB_OPERATION_TIMEOUT,
-    operation: @escaping (OpaquePointer) -> DatabaseOperationResult,
-    completion: @escaping (DatabaseOperationResult) -> Void
-  ) {
-    // Execute on dedicated serial queue
-    NotificationService.dbQueue.async { [weak self] in
-      guard let self = self else {
-        completion(.failure("Extension deallocated"))
-        return
-      }
-      
-      let startTime = Date()
-      var operationCompleted = false
-      var finalResult: DatabaseOperationResult = .timeout
-      
-      // Timeout protection: dispatch operation with timeout
-      let timeoutWorkItem = DispatchWorkItem {
-        print("📱 [NotificationService] 🔓 [\(operationName)] Starting database operation...")
-        let dbPath = self.getDbPath()
-        print("📱 [NotificationService] 📂 [\(operationName)] DB path: \(dbPath)")
-        var db: OpaquePointer?
-        
-        // Open database with appropriate flags
-        let openFlags = operationType == .read ? 
-          SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX :
-          SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
-        
-        print("📱 [NotificationService] 🔐 [\(operationName)] Attempting to open database with flags: \(openFlags)...")
-        let openStartTime = Date()
-        var result = sqlite3_open_v2(dbPath, &db, openFlags, nil)
-        let openElapsed = Date().timeIntervalSince(openStartTime)
-        print("📱 [NotificationService] 🔓 [\(operationName)] Database open attempt completed in \(String(format: "%.3f", openElapsed))s with result: \(result)")
-        
-        if result != SQLITE_OK {
-          let errorMsg = "Failed to open database: \(result)"
-          print("📱 [NotificationService] ❌ [\(operationName)] \(errorMsg)")
-          self.logToDatabase(
-            level: "ERROR",
-            tag: "NSE-DB",
-            message: "[\(operationName)] \(errorMsg)",
-            metadata: ["sqliteError": String(result)]
-          )
-          finalResult = .failure(errorMsg)
-          operationCompleted = true
-          return
-        }
-        
-        guard let database = db else {
-          finalResult = .failure("Database pointer is nil")
-          operationCompleted = true
-          return
-        }
-        
-        defer {
-          sqlite3_close(database)
-        }
-        
-        // Configure SQLite for concurrent access with WAL mode
-        // WAL allows multiple concurrent readers (critical when app is foreground)
-        sqlite3_busy_timeout(database, NotificationService.DB_BUSY_TIMEOUT)
-        
-        // Set journal mode to WAL for concurrent access
-        var pragmaStmt: OpaquePointer?
-        if sqlite3_prepare_v2(database, "PRAGMA journal_mode=WAL", -1, &pragmaStmt, nil) == SQLITE_OK {
-          sqlite3_step(pragmaStmt)
-          sqlite3_finalize(pragmaStmt)
-        }
-        
-        // Optimize WAL checkpoint
-        if sqlite3_prepare_v2(database, "PRAGMA wal_autocheckpoint=1000", -1, &pragmaStmt, nil) == SQLITE_OK {
-          sqlite3_step(pragmaStmt)
-          sqlite3_finalize(pragmaStmt)
-        }
-        
-        // For write operations, use immediate transaction
-        if operationType == .write {
-          var beginStmt: OpaquePointer?
-          result = sqlite3_prepare_v2(database, "BEGIN IMMEDIATE TRANSACTION", -1, &beginStmt, nil)
-          if result == SQLITE_OK {
-            result = sqlite3_step(beginStmt)
-            sqlite3_finalize(beginStmt)
-            
-            if result != SQLITE_DONE {
-              print("📱 [NotificationService] ⚠️ [\(operationName)] Failed to begin transaction: \(result)")
-            }
-          }
-        }
-        
-        // Execute the actual operation with retry logic
-        var retries = NotificationService.DB_MAX_RETRIES
-        var operationResult: DatabaseOperationResult = .failure("Max retries exceeded")
-        
-        while retries >= 0 && !operationCompleted {
-          // Check if we're approaching timeout
-          let elapsed = Date().timeIntervalSince(startTime)
-          if elapsed >= timeout * 0.9 {  // 90% of timeout
-            print("📱 [NotificationService] ⚠️ [\(operationName)] Approaching timeout (\(elapsed)s), aborting")
-            operationResult = .timeout
-            break
-          }
-          
-          operationResult = operation(database)
-          
-          switch operationResult {
-          case .success:
-            // Success, exit retry loop
-            retries = -1
-            
-          case .locked:
-            if retries > 0 {
-              let attempt = NotificationService.DB_MAX_RETRIES - retries
-              let delayMs = 100000 * (1 << attempt)  // Exponential backoff: 100ms, 200ms, 400ms
-              print("📱 [NotificationService] 🔄 [\(operationName)] Database locked, retrying in \(delayMs/1000)ms... (\(retries) left)")
-              retries -= 1
-              usleep(UInt32(delayMs))
-            } else {
-              print("📱 [NotificationService] ❌ [\(operationName)] Max retries exceeded")
-              retries = -1
-            }
-            
-          case .failure(let msg) where msg.contains("BUSY") || msg.contains("LOCKED"):
-            if retries > 0 {
-              let attempt = NotificationService.DB_MAX_RETRIES - retries
-              let delayMs = 100000 * (1 << attempt)  // Exponential backoff
-              print("📱 [NotificationService] 🔄 [\(operationName)] Database busy (\(msg)), retrying in \(delayMs/1000)ms... (\(retries) left)")
-              retries -= 1
-              usleep(UInt32(delayMs))
-            } else {
-              print("📱 [NotificationService] ❌ [\(operationName)] Max retries exceeded")
-              retries = -1
-            }
-            
-          case .timeout:
-            print("📱 [NotificationService] ⏱️ [\(operationName)] Operation timeout")
-            retries = -1
-            
-          case .failure(let error):
-            print("📱 [NotificationService] ❌ [\(operationName)] Operation failed: \(error)")
-            retries = -1
-          }
-        }
-        
-        // Commit or rollback transaction for write operations
-        if operationType == .write {
-          var endStmt: OpaquePointer?
-          let endSQL: String
-          if case .success = operationResult {
-            endSQL = "COMMIT"
-          } else {
-            endSQL = "ROLLBACK"
-          }
-          if sqlite3_prepare_v2(database, endSQL, -1, &endStmt, nil) == SQLITE_OK {
-            sqlite3_step(endStmt)
-            sqlite3_finalize(endStmt)
-          }
-        }
-        
-        finalResult = operationResult
-        operationCompleted = true
-      }
-      
-      // Execute the operation directly (we're already on dbQueue)
-      // DO NOT dispatch async again on the same serial queue - that causes deadlock!
-      timeoutWorkItem.perform()
-      
-      // Check if operation completed or timed out
-      let dispatchResult: DispatchTimeoutResult = operationCompleted ? .success : .timedOut
-      
-      if dispatchResult == .timedOut {
-        timeoutWorkItem.cancel()
-        print("📱 [NotificationService] ⏱️ [\(operationName)] Operation timed out after \(timeout)s")
-        self.logToDatabase(
-          level: "WARNING",
-          tag: "NSE-DB",
-          message: "[\(operationName)] Operation timed out",
-          metadata: ["timeout": String(timeout)]
-        )
-        finalResult = .timeout
-      }
-      
-      // Log final result
-      let elapsed = Date().timeIntervalSince(startTime)
-      switch finalResult {
-      case .success:
-        print("📱 [NotificationService] ✅ [\(operationName)] Completed in \(String(format: "%.3f", elapsed))s")
-      case .failure(let error):
-        print("📱 [NotificationService] ❌ [\(operationName)] Failed: \(error)")
-        self.logToDatabase(
-          level: "ERROR",
-          tag: "NSE-DB",
-          message: "[\(operationName)] Failed: \(error)",
-          metadata: ["elapsed": String(format: "%.3f", elapsed)]
-        )
-      case .timeout:
-        print("📱 [NotificationService] ⏱️ [\(operationName)] Timeout after \(String(format: "%.3f", elapsed))s")
-      case .locked:
-        print("📱 [NotificationService] 🔒 [\(operationName)] Database locked after \(String(format: "%.3f", elapsed))s")
-      }
-      
-      // Call completion handler on main thread if needed for UI updates
-      DispatchQueue.main.async {
-        completion(finalResult)
-      }
-    }
-  }
-  
-  // MARK: - Batch JSON Logging
-  
-  private struct LogEntry: Codable {
-    let id: String // Unique identifier (UUID)
-    let level: String
-    let tag: String?
-    let message: String
-    let metadata: [String: String]? // Simplified for JSON encoding
-    let timestamp: Int64
-    let source: String // "NSE" or "NCE"
-  }
-  
-  private static var logBuffer: [LogEntry] = []
-  private static var logBufferLock = NSLock()
-  private static let BATCH_SIZE = 20
-  private static var flushTimer: Timer?
+  // MARK: - Logging (delegated to shared LoggingSystem)
   
   private func logToJSON(
       level: String,
@@ -2154,128 +1607,29 @@ class NotificationService: UNNotificationServiceExtension {
       message: String,
       metadata: [String: Any]? = nil
   ) {
-      print("📱 [NotificationService] 📝 logToJSON called: level=\(level), tag=\(tag ?? "nil"), message=\(message)")
-      
-      let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-      
-      // Convert metadata to string dictionary for JSON encoding
-      var metadataStrings: [String: String]?
-      if let metadata = metadata {
-          metadataStrings = metadata.reduce(into: [String: String]()) { result, item in
-              if let stringValue = item.value as? String {
-                  result[item.key] = stringValue
-              } else if let numberValue = item.value as? NSNumber {
-                  result[item.key] = numberValue.stringValue
-              } else {
-                  // Convert complex objects to JSON string
-                  if let jsonData = try? JSONSerialization.data(withJSONObject: item.value),
-                      let jsonString = String(data: jsonData, encoding: .utf8) {
-                      result[item.key] = jsonString
-                  }
-              }
-          }
-      }
-      
-      let entry = LogEntry(
-          id: UUID().uuidString,
+      LoggingSystem.shared.log(
           level: level,
-          tag: tag,
+          tag: tag ?? "NSE",
           message: message,
-          metadata: metadataStrings,
-          timestamp: timestamp,
+          metadata: metadata,
           source: "NSE"
       )
-      
-      print("📱 [NotificationService] 📝 Adding log entry to buffer, current count: \(NotificationService.logBuffer.count)")
-      
-      NotificationService.logBufferLock.lock()
-      NotificationService.logBuffer.append(entry)
-      let shouldFlush = NotificationService.logBuffer.count >= NotificationService.BATCH_SIZE
-      let bufferCount = NotificationService.logBuffer.count
-      NotificationService.logBufferLock.unlock()
-      
-      print("📱 [NotificationService] 📝 Buffer count after add: \(bufferCount), shouldFlush: \(shouldFlush)")
-      
-      if shouldFlush {
-          print("📱 [NotificationService] 📝 Flushing logs immediately (buffer full)")
-          flushLogs()
-      } else {
-          print("📱 [NotificationService] 📝 Scheduling flush")
-          scheduleFlush()
-      }
   }
   
-  private func scheduleFlush() {
-    NotificationService.logBufferLock.lock()
-    if NotificationService.flushTimer == nil {
-      NotificationService.flushTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
-        self?.flushLogs()
-      }
-    }
-    NotificationService.logBufferLock.unlock()
-  }
-  
-  private func flushLogs() {
-    print("📱 [NotificationService] 💾 flushLogs called")
-    
-    NotificationService.logBufferLock.lock()
-    
-    // Cancel timer
-    NotificationService.flushTimer?.invalidate()
-    NotificationService.flushTimer = nil
-    
-    guard !NotificationService.logBuffer.isEmpty else {
-      print("📱 [NotificationService] 💾 Buffer is empty, nothing to flush")
-      NotificationService.logBufferLock.unlock()
-      return
-    }
-    
-    // Copy buffer and clear
-    let logsToWrite = NotificationService.logBuffer
-    NotificationService.logBuffer = []
-    NotificationService.logBufferLock.unlock()
-    
-    print("📱 [NotificationService] 💾 Flushing \(logsToWrite.count) log entries")
-    
-    // Write to JSON file
-    let logFilePath = getSharedMediaCacheDirectory().appendingPathComponent("logs.json")
-    print("📱 [NotificationService] 💾 Log file path: \(logFilePath.path)")
-    
-    do {
-      var existingLogs: [LogEntry] = []
-      
-      // Read existing logs if file exists
-      if FileManager.default.fileExists(atPath: logFilePath.path) {
-        let data = try Data(contentsOf: logFilePath)
-        existingLogs = (try? JSONDecoder().decode([LogEntry].self, from: data)) ?? []
-        print("📱 [NotificationService] 💾 Found \(existingLogs.count) existing logs")
-      } else {
-        print("📱 [NotificationService] 💾 No existing log file found, creating new one")
-      }
-      
-      // Append new logs (cleanup will be handled by main app)
-      existingLogs.append(contentsOf: logsToWrite)
-      
-      // Write back to file
-      let encoder = JSONEncoder()
-      encoder.outputFormatting = .prettyPrinted
-      let jsonData = try encoder.encode(existingLogs)
-      try jsonData.write(to: logFilePath, options: [.atomic])
-      
-      print("📱 [NotificationService] ✅ Successfully flushed \(logsToWrite.count) logs to JSON (total: \(existingLogs.count))")
-    } catch {
-      print("📱 [NotificationService] ❌ Failed to flush logs: \(error)")
-    }
-  }
-  
-  // Legacy function that redirects to JSON logging
+  // Legacy function that redirects to LoggingSystem
   private func logToDatabase(
     level: String,
     tag: String? = nil,
     message: String,
     metadata: [String: Any]? = nil
   ) {
-    logToJSON(level: level, tag: tag, message: message, metadata: metadata)
+    LoggingSystem.shared.log(
+        level: level,
+        tag: tag ?? "NSE",
+        message: message,
+        metadata: metadata,
+        source: "NSE"
+    )
   }
   
   // MARK: - Save Notification to SQLite
@@ -2441,325 +1795,12 @@ class NotificationService: UNNotificationServiceExtension {
     }
   }
 
-  private func upsertCacheItem(url: String, mediaType: String, fields: [String: Any]) {
-    let dbPath = getDbPath()
-    guard FileManager.default.fileExists(atPath: dbPath) else {
-      print("📱 [NotificationService] ⚠️ DB not found, skipping upsert")
-      return
-    }
-    var db: OpaquePointer?
-    if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE, nil) != SQLITE_OK {
-      print("📱 [NotificationService] ❌ Failed to open existing DB (rw) at \(dbPath)")
-      return
-    }
-    defer { sqlite3_close(db) }
-    let key = "\(mediaType.uppercased())_\(url)"
-    // Build UPSERT using named columns
-    var allFields = fields
-    allFields["key"] = key
-    allFields["url"] = url
-    allFields["media_type"] = mediaType.uppercased()
-    // Apply defaults for NOT NULL columns to satisfy RN schema
-    let nowMs = Int(Date().timeIntervalSince1970 * 1000)
-    if allFields["generating_thumbnail"] == nil { allFields["generating_thumbnail"] = 0 }
-    if allFields["timestamp"] == nil { allFields["timestamp"] = nowMs }
-    if allFields["size"] == nil { allFields["size"] = 0 }
-    if allFields["downloaded_at"] == nil { allFields["downloaded_at"] = nowMs }
-    if allFields["is_downloading"] == nil { allFields["is_downloading"] = 0 }
-    if allFields["is_permanent_failure"] == nil { allFields["is_permanent_failure"] = 0 }
-    if allFields["is_user_deleted"] == nil { allFields["is_user_deleted"] = 0 }
 
-    // Log detailed attributes for debugging
-    print("📱 [NotificationService] 📊 UPSERT attributes for \(mediaType.uppercased()) - \(url):")
-    print("📱 [NotificationService] 📊   key: \(key)")
-    if let localPath = allFields["local_path"] {
-      print("📱 [NotificationService] 📊   local_path: \(localPath)")
-    }
-    if let size = allFields["size"] { print("📱 [NotificationService] 📊   size: \(size) bytes") }
-    if let timestamp = allFields["timestamp"] {
-      print("📱 [NotificationService] 📊   timestamp: \(timestamp)")
-    }
-    if let downloadedAt = allFields["downloaded_at"] {
-      print("📱 [NotificationService] 📊   downloaded_at: \(downloadedAt)")
-    }
-    if let isDownloading = allFields["is_downloading"] {
-      print("📱 [NotificationService] 📊   is_downloading: \(isDownloading)")
-    }
-    if let isPermanentFailure = allFields["is_permanent_failure"] {
-      print("📱 [NotificationService] 📊   is_permanent_failure: \(isPermanentFailure)")
-    }
-    if let hasError = allFields["has_error"] {
-      print("📱 [NotificationService] 📊   has_error: \(hasError)")
-    }
-    if let errorCode = allFields["error_code"] {
-      print("📱 [NotificationService] 📊   error_code: \(errorCode)")
-    }
-    if let isUserDeleted = allFields["is_user_deleted"] {
-      print("📱 [NotificationService] 📊   is_user_deleted: \(isUserDeleted)")
-    }
-    if let generatingThumbnail = allFields["generating_thumbnail"] {
-      print("📱 [NotificationService] 📊   generating_thumbnail: \(generatingThumbnail)")
-    }
-
-    let columns = [
-      "key", "url", "local_path", "local_thumb_path", "generating_thumbnail", "timestamp", "size",
-      "media_type", "original_file_name", "downloaded_at", "notification_date", "notification_id", "is_downloading",
-      "is_permanent_failure", "is_user_deleted", "error_code",
-    ]
-    let placeholders = Array(repeating: "?", count: columns.count).joined(separator: ",")
-    let sql =
-      "INSERT INTO cache_item (\(columns.joined(separator: ","))) VALUES (\(placeholders)) ON CONFLICT(key) DO UPDATE SET url=excluded.url, local_path=excluded.local_path, local_thumb_path=excluded.local_thumb_path, generating_thumbnail=excluded.generating_thumbnail, timestamp=excluded.timestamp, size=excluded.size, media_type=excluded.media_type, original_file_name=excluded.original_file_name, downloaded_at=excluded.downloaded_at, notification_date=excluded.notification_date, notification_id=excluded.notification_id, is_downloading=excluded.is_downloading, is_permanent_failure=excluded.is_permanent_failure, is_user_deleted=excluded.is_user_deleted, error_code=excluded.error_code;"
-    var stmt: OpaquePointer?
-    if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
-      print(
-        "📱 [NotificationService] ❌ Failed to prepare UPSERT: \(String(cString: sqlite3_errmsg(db)))"
-      )
-      return
-    }
-    defer { sqlite3_finalize(stmt) }
-    func bind(_ idx: Int32, _ value: Any?) {
-      if value == nil {
-        sqlite3_bind_null(stmt, idx)
-        return
-      }
-      switch value {
-      case let v as String:
-        sqlite3_bind_text(stmt, idx, (v as NSString).utf8String, -1, SQLITE_TRANSIENT)
-      case let v as Int: sqlite3_bind_int64(stmt, idx, Int64(v))
-      case let v as Int64: sqlite3_bind_int64(stmt, idx, v)
-      case let v as Bool: sqlite3_bind_int(stmt, idx, v ? 1 : 0)
-      default: sqlite3_bind_null(stmt, idx)
-      }
-    }
-    let values: [Any?] = [
-      allFields["key"],
-      allFields["url"],
-      allFields["local_path"],
-      allFields["local_thumb_path"],
-      allFields["generating_thumbnail"],
-      allFields["timestamp"],
-      allFields["size"],
-      allFields["media_type"],
-      allFields["original_file_name"],
-      allFields["downloaded_at"],
-      allFields["notification_date"],
-      allFields["notification_id"],
-      allFields["is_downloading"],
-      allFields["is_permanent_failure"],
-      allFields["is_user_deleted"],
-      allFields["error_code"],
-    ]
-    for (i, v) in values.enumerated() { bind(Int32(i + 1), v) }
-    if sqlite3_step(stmt) != SQLITE_DONE {
-      print("📱 [NotificationService] ❌ UPSERT failed: \(String(cString: sqlite3_errmsg(db)))")
-    } else {
-      print("📱 [NotificationService] ✅ UPSERT successful for key: \(key)")
-    }
-  }
-
-  private func getLocalPathFromDb(url: String, mediaType: String) -> String? {
-    let dbPath = getDbPath()
-    guard FileManager.default.fileExists(atPath: dbPath) else { return nil }
-    var db: OpaquePointer?
-    if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) != SQLITE_OK { return nil }
-    defer { sqlite3_close(db) }
-    let key = "\(mediaType.uppercased())_\(url)"
-    let sql = "SELECT local_path FROM cache_item WHERE key = ? LIMIT 1"
-    var stmt: OpaquePointer?
-    if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
-      return nil
-    }
-    defer { sqlite3_finalize(stmt) }
-    sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
-    if sqlite3_step(stmt) == SQLITE_ROW {
-      if let cString = sqlite3_column_text(stmt, 0) {
-        return String(cString: cString)
-      }
-    }
-    return nil
-  }
-
-  private func getSharedMediaCacheDirectory() -> URL {
-    // Use App Groups shared container for cross-process access
-    let bundleIdentifier = getMainBundleIdentifier()
-    let appGroupIdentifier = "group.\(bundleIdentifier)"
-
-    if let sharedContainerURL = FileManager.default.containerURL(
-      forSecurityApplicationGroupIdentifier: appGroupIdentifier)
-    {
-      let cacheDirectory = sharedContainerURL.appendingPathComponent("shared_media_cache")
-      
-      // Ensure the cache directory exists
-      if !FileManager.default.fileExists(atPath: cacheDirectory.path) {
-        do {
-          try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true, attributes: nil)
-          print("📱 [NotificationService] ✅ Created shared media cache directory: \(cacheDirectory.path)")
-        } catch {
-          print("📱 [NotificationService] ❌ Failed to create shared cache directory: \(error)")
-        }
-      }
-      
-      return cacheDirectory
-    } else {
-      // Fallback to Documents directory if App Groups not available
-      let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-        .first!
-      let cacheDirectory = documentsPath.appendingPathComponent("shared_media_cache")
-      
-      // Ensure the fallback cache directory exists
-      if !FileManager.default.fileExists(atPath: cacheDirectory.path) {
-        do {
-          try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true, attributes: nil)
-        } catch {
-          print("📱 [NotificationService] ❌ Failed to create fallback cache directory: \(error)")
-        }
-      }
-      
-      return cacheDirectory
-    }
-  }
 
   // MARK: - Pending Notifications Storage
   // NOTE: Removed savePendingNotification and storePendingNotification methods.
   // Notifications are now saved directly to SQLite via saveNotificationToDatabase().
 
-  // MARK: - Shared Storage Methods
-
-  private func getPlaceholderFromSharedCache(bucketId: String, bucketName: String) -> Data? {
-    let cacheDirectory = getSharedMediaCacheDirectory()
-    let placeholderDirectory = cacheDirectory.appendingPathComponent("PLACEHOLDER")
-    
-    // Generate filename based on bucket info
-    let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
-    let fileName = "placeholder_\(bucketId)_\(safeBucketName).png"
-    let fileURL = placeholderDirectory.appendingPathComponent(fileName)
-    
-    // Check if placeholder exists
-    guard FileManager.default.fileExists(atPath: fileURL.path) else {
-      print("📱 [NotificationService] 🎭 No cached placeholder found for \(bucketName)")
-      return nil
-    }
-    
-    // Load placeholder data
-    do {
-      let data = try Data(contentsOf: fileURL)
-      print("📱 [NotificationService] 🎭 ✅ Found cached placeholder for \(bucketName)")
-      return data
-    } catch {
-      print("📱 [NotificationService] 🎭 ❌ Failed to load cached placeholder: \(error)")
-      return nil
-    }
-  }
-
-  private func getBucketIconFromSharedCache(bucketId: String, bucketName: String) -> Data? {
-    let cacheDirectory = getSharedMediaCacheDirectory()
-    let bucketIconDirectory = cacheDirectory.appendingPathComponent("BUCKET_ICON")
-    
-    // Generate filename based on bucket info
-    let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
-    let fileName = "bucket_icon_\(bucketId)_\(safeBucketName).png"
-    let fileURL = bucketIconDirectory.appendingPathComponent(fileName)
-    
-    // Check if icon exists
-    guard FileManager.default.fileExists(atPath: fileURL.path) else {
-      return nil
-    }
-    
-    // Load icon data
-    do {
-      let data = try Data(contentsOf: fileURL)
-      return data
-    } catch {
-      print("📱 [NotificationService] ❌ Failed to load cached bucket icon: \(error)")
-      return nil
-    }
-  }
-  
-  private func savePlaceholderToSharedCache(_ imageData: Data, bucketId: String, bucketName: String) -> URL? {
-    let cacheDirectory = getSharedMediaCacheDirectory()
-    let placeholderDirectory = cacheDirectory.appendingPathComponent("PLACEHOLDER")
-    
-    // Create placeholder directory if it doesn't exist
-    do {
-      try FileManager.default.createDirectory(at: placeholderDirectory, withIntermediateDirectories: true, attributes: nil)
-    } catch {
-      print("📱 [NotificationService] ❌ Failed to create placeholder directory: \(error)")
-      return nil
-    }
-    
-    // Generate filename based on bucket info
-    let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
-    let fileName = "placeholder_\(bucketId)_\(safeBucketName).png"
-    let fileURL = placeholderDirectory.appendingPathComponent(fileName)
-    
-    do {
-      try imageData.write(to: fileURL)
-      print("📱 [NotificationService] ✅ Saved placeholder to shared cache: \(fileURL.lastPathComponent)")
-      return fileURL
-    } catch {
-      print("📱 [NotificationService] ❌ Failed to save placeholder to shared cache: \(error)")
-      return nil
-    }
-  }
-  
-  private func saveBucketIconToSharedCache(_ imageData: Data, bucketId: String, bucketName: String) -> URL? {
-    let cacheDirectory = getSharedMediaCacheDirectory()
-    let bucketIconDirectory = cacheDirectory.appendingPathComponent("BUCKET_ICON")
-    
-    // Create bucket icon directory if it doesn't exist
-    do {
-      try FileManager.default.createDirectory(at: bucketIconDirectory, withIntermediateDirectories: true, attributes: nil)
-    } catch {
-      print("📱 [NotificationService] ❌ Failed to create bucket icon directory: \(error)")
-      return nil
-    }
-    
-    // Generate filename based on bucket info
-    let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
-    let fileName = "bucket_icon_\(bucketId)_\(safeBucketName).png"
-    let fileURL = bucketIconDirectory.appendingPathComponent(fileName)
-    
-    do {
-      try imageData.write(to: fileURL)
-      print("📱 [NotificationService] ✅ Saved bucket icon to shared cache: \(fileURL.lastPathComponent)")
-      return fileURL
-    } catch {
-      print("📱 [NotificationService] ❌ Failed to save bucket icon to shared cache: \(error)")
-      return nil
-    }
-  }
-  
-  // MARK: - Keychain Helper Methods
-  
-  private func getMainBundleIdentifier() -> String {
-    return Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationService", with: "") ?? "{{MAIN_BUNDLE_ID}}"
-  }
-  
-  private func getKeychainAccessGroup() -> String {
-    let bundleIdentifier = getMainBundleIdentifier()
-    return "C3F24V5NS5.\(bundleIdentifier).keychain"
-  }
-  
-  private func readBoolFromKeychain(service: String) -> Bool? {
-    let accessGroup = getKeychainAccessGroup()
-    
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: service,
-      kSecAttrAccessGroup as String: accessGroup,
-      kSecReturnData as String: true,
-    ]
-    
-    var result: AnyObject?
-    let status = SecItemCopyMatching(query as CFDictionary, &result)
-    
-    if status == errSecSuccess, let data = result as? Data, let value = String(data: data, encoding: .utf8) {
-      return value == "true"
-    }
-    
-    return nil
-  }
-  
   // MARK: - Navigation Intent Storage
   
   // Store tap action with unique key per notification
@@ -2793,7 +1834,7 @@ class NotificationService: UNNotificationServiceExtension {
     // Store with unique key for this notification
     let service = "zentik-tap-\(notificationId)"
     do {
-      try storeIntentInKeychain(data: navigationData, service: service)
+      try KeychainAccess.storeIntentInKeychain(data: navigationData, service: service)
       print("📱 [NotificationService] 💾 Stored tap action for notification: \(notificationId)")
       
       logToDatabase(
@@ -2840,8 +1881,17 @@ class NotificationService: UNNotificationServiceExtension {
         options.insert(.foreground)
       }
       
-      print("📱 [NotificationService] 🔧 Creating action: \(actionId) - \(title)")
-      return UNNotificationAction(identifier: actionId, title: title, options: options)
+      // Add icon support (same as NCE)
+      var icon: UNNotificationActionIcon?
+      if let iconName = actionData["icon"] as? String, !iconName.isEmpty {
+        let actualIconName = iconName.hasPrefix("sfsymbols:")
+          ? String(iconName.dropFirst("sfsymbols:".count))
+          : iconName
+        icon = UNNotificationActionIcon(systemImageName: actualIconName)
+      }
+      
+      print("📱 [NotificationService] 🔧 Creating action: \(actionId) - \(title)\(icon != nil ? " [icon]" : "")")
+      return UNNotificationAction(identifier: actionId, title: title, options: options, icon: icon)
     }
     
     let category = UNNotificationCategory(
@@ -2853,156 +1903,5 @@ class NotificationService: UNNotificationServiceExtension {
     
     UNUserNotificationCenter.current().setNotificationCategories([category])
     print("📱 [NotificationService] ✅ Registered category 'DYNAMIC' with \(notificationActions.count) actions")
-  }
-  
-  // MARK: - Keychain Helpers
-  
-  private func getApiEndpoint() -> String? {
-    let accessGroup = getKeychainAccessGroup()
-    
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: "zentik-api-endpoint",
-      kSecAttrAccount as String: "endpoint",
-      kSecAttrAccessGroup as String: accessGroup,
-      kSecReturnData as String: true,
-      kSecMatchLimit as String: kSecMatchLimitOne
-    ]
-    
-    var result: AnyObject?
-    let status = SecItemCopyMatching(query as CFDictionary, &result)
-    
-    if status == errSecSuccess, let data = result as? Data, let endpoint = String(data: data, encoding: .utf8) {
-      print("📱 [NotificationService] ✅ Retrieved API endpoint from keychain: \(endpoint)")
-      return endpoint
-    }
-    
-    print("📱 [NotificationService] ℹ️ No API endpoint found in keychain, using default")
-    return "https://notifier-api.zentik.app"
-  }
-  
-  private func getStoredAuthToken() -> String? {
-    let accessGroup = getKeychainAccessGroup()
-    let bundleIdentifier = getMainBundleIdentifier()
-    
-    print("📱 [NotificationService] 🔍 Looking for auth token with bundle: \(bundleIdentifier)")
-    print("📱 [NotificationService] 🔍 Access group: \(accessGroup)")
-    print("📱 [NotificationService] 🔍 Current bundle ID: \(Bundle.main.bundleIdentifier ?? "nil")")
-    
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: "zentik-auth",
-      kSecAttrAccessGroup as String: accessGroup,
-      kSecReturnData as String: true,
-      kSecReturnAttributes as String: true,
-      kSecMatchLimit as String: kSecMatchLimitOne
-    ]
-    
-    print("📱 [NotificationService] 🔍 Keychain query: \(query)")
-    
-    var result: AnyObject?
-    let status = SecItemCopyMatching(query as CFDictionary, &result)
-    
-    print("📱 [NotificationService] 🔍 Keychain query status: \(status)")
-    if let resultDict = result as? [String: Any] {
-      print("📱 [NotificationService] 🔍 Keychain result keys: \(resultDict.keys)")
-    }
-    
-    if status == errSecSuccess, let item = result as? [String: Any] {
-      // react-native-keychain stores accessToken as kSecAttrAccount and refreshToken as kSecValueData
-      print("📱 [NotificationService] 🔍 Trying to extract accessToken from item...")
-      
-      // Try to get account as String directly first
-      if let accessToken = item[kSecAttrAccount as String] as? String {
-        print("📱 [NotificationService] ✅ Retrieved auth token from keychain (as String)")
-        return accessToken
-      }
-      // Try to get account as Data and convert to String
-      else if let accountData = item[kSecAttrAccount as String] as? Data,
-              let accessToken = String(data: accountData, encoding: .utf8) {
-        print("📱 [NotificationService] ✅ Retrieved auth token from keychain (as Data)")
-        return accessToken
-      } else {
-        print("📱 [NotificationService] ❌ Found keychain item but failed to extract accessToken")
-        print("📱 [NotificationService] 🔍 Item keys: \(item.keys)")
-        if let acctValue = item[kSecAttrAccount as String] {
-          print("📱 [NotificationService] 🔍 Account value type: \(type(of: acctValue))")
-          print("📱 [NotificationService] 🔍 Account value: \(acctValue)")
-        }
-      }
-    }
-    
-    print("📱 [NotificationService] ℹ️ No auth token found in keychain (status: \(status))")
-    print("📱 [NotificationService] 🔍 Bundle identifier: \(Bundle.main.bundleIdentifier ?? "nil")")
-    return nil
-  }
-  
-  // DEPRECATED: This method is no longer used
-  private func storeNavigationIntentFromNotification(content: UNMutableNotificationContent) {
-    print("📱 [NotificationService] 📂 Storing navigation intent from notification...")
-    
-    let userInfo = content.userInfo
-    
-    // Extract notification ID
-    guard let notificationId = userInfo["notificationId"] as? String else {
-      print("📱 [NotificationService] ❌ No notificationId found in userInfo")
-      return
-    }
-    
-    // Determine tap action
-    var tapAction: [String: Any]
-    if let existingTapAction = userInfo["tapAction"] as? [String: Any] {
-      tapAction = existingTapAction
-      print("📱 [NotificationService] 📂 Using existing tapAction: \(tapAction)")
-    } else {
-      // Default to OPEN_NOTIFICATION with notificationId
-      tapAction = [
-        "type": "OPEN_NOTIFICATION",
-        "value": notificationId
-      ]
-      print("📱 [NotificationService] 📂 Using default tapAction: \(tapAction)")
-    }
-    
-    // Create navigation data
-    let navigationData = [
-      "type": tapAction["type"] as? String ?? "OPEN_NOTIFICATION",
-      "value": tapAction["value"] as? String ?? notificationId,
-      "timestamp": ISO8601DateFormatter().string(from: Date())
-    ]
-    
-    // Store in keychain
-    do {
-      try storeIntentInKeychain(data: navigationData, service: "zentik-pending-navigation")
-      print("📱 [NotificationService] 💾 Stored navigation intent in keychain: \(navigationData)")
-    } catch {
-      print("📱 [NotificationService] ❌ Failed to store navigation intent in keychain: \(error)")
-    }
-  }
-  
-  private func storeIntentInKeychain(data: [String: Any], service: String) throws {
-    let accessGroup = getKeychainAccessGroup()
-    
-    let jsonData = try JSONSerialization.data(withJSONObject: data)
-    
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: service,
-      kSecAttrAccessGroup as String: accessGroup,
-      kSecValueData as String: jsonData,
-    ]
-    
-    // Delete existing entry first
-    let deleteQuery: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: service,
-      kSecAttrAccessGroup as String: accessGroup,
-    ]
-    SecItemDelete(deleteQuery as CFDictionary)
-    
-    // Add the new item
-    let status = SecItemAdd(query as CFDictionary, nil)
-    if status != errSecSuccess {
-      throw NSError(domain: "KeychainError", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "Failed to store intent in keychain"])
-    }
   }
 }

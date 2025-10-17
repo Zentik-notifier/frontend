@@ -183,6 +183,7 @@ async function createSharedFrameworkTarget(
     'LoggingSystem.swift',
     'SharedTypes.swift',
     'NotificationActionHandler.swift',
+    'MediaAccess.swift',
   ];
   
   for (const file of sharedFiles) {

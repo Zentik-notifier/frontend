@@ -116,6 +116,7 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
     const sharedDir = await getSharedMediaCacheDirectoryAsync();
     // expo-sqlite expects databaseName and an optional directory path (not URI)
     const directory = sharedDir.startsWith('file://') ? sharedDir.replace('file://', '') : sharedDir;
+    console.log('[DB] Opening shared cache database at directory:', directory);
     const db = await openDatabaseAsync('cache.db', undefined, directory);
 
     // Database configuration optimized for iOS stability and concurrent access

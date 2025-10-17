@@ -14,10 +14,16 @@ public class KeychainAccess {
     /// Get main app bundle identifier
     public static func getMainBundleIdentifier() -> String {
         if let bundleId = Bundle.main.bundleIdentifier {
-            // Remove extension suffixes (e.g., ".NotificationServiceExtension")
+            // Remove extension suffixes (e.g., ".ZentikNotificationService", ".ZentikNotificationContentExtension")
+            let extensionSuffixes = [
+                "NotificationServiceExtension",
+                "NotificationContentExtension",
+                "ZentikNotificationService",
+                "ZentikNotificationContentExtension"
+            ]
+            
             let components = bundleId.components(separatedBy: ".")
-            if components.count > 2 && (components.last == "NotificationServiceExtension" || 
-                                        components.last == "NotificationContentExtension") {
+            if components.count > 2, let last = components.last, extensionSuffixes.contains(last) {
                 return components.dropLast().joined(separator: ".")
             }
             return bundleId
@@ -208,5 +214,168 @@ public class KeychainAccess {
         
         let status = SecItemDelete(query as CFDictionary)
         return status == errSecSuccess || status == errSecItemNotFound
+    }
+    
+    // MARK: - Badge Count Operations
+    
+    /// Get badge count from keychain
+    public static func getBadgeCountFromKeychain() -> Int {
+        let accessGroup = getKeychainAccessGroup()
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "zentik-badge-count",
+            kSecAttrAccount as String: "badge",
+            kSecAttrAccessGroup as String: accessGroup,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        
+        if status == errSecSuccess,
+           let data = result as? Data,
+           let countString = String(data: data, encoding: .utf8),
+           let count = Int(countString) {
+            return count
+        }
+        
+        return 0
+    }
+    
+    /// Save badge count to keychain
+    public static func saveBadgeCountToKeychain(count: Int) {
+        let accessGroup = getKeychainAccessGroup()
+        
+        guard let countData = String(count).data(using: .utf8) else { return }
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "zentik-badge-count",
+            kSecAttrAccount as String: "badge",
+            kSecAttrAccessGroup as String: accessGroup,
+            kSecValueData as String: countData,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+        ]
+        
+        // Delete any existing item first
+        let deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "zentik-badge-count",
+            kSecAttrAccount as String: "badge",
+            kSecAttrAccessGroup as String: accessGroup
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+        
+        // Add the new item
+        SecItemAdd(query as CFDictionary, nil)
+    }
+    
+    /// Decrement badge count in keychain
+    public static func decrementBadgeCount(source: String) {
+        let currentCount = getBadgeCountFromKeychain()
+        let newCount = max(0, currentCount - 1)
+        saveBadgeCountToKeychain(count: newCount)
+        
+        print("🔑 [KeychainAccess] 🔢 Badge count decremented from \(currentCount) to \(newCount) (source: \(source))")
+    }
+    
+    // MARK: - Intent Storage Operations
+    
+    /// Store intent data in keychain
+    public static func storeIntentInKeychain(data: [String: Any], service: String) throws {
+        let accessGroup = getKeychainAccessGroup()
+        
+        let jsonData = try JSONSerialization.data(withJSONObject: data)
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: "intent",
+            kSecAttrAccessGroup as String: accessGroup,
+            kSecValueData as String: jsonData,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+        ]
+        
+        // Delete any existing item first
+        let deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: "intent",
+            kSecAttrAccessGroup as String: accessGroup
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+        
+        // Add the new item
+        let status = SecItemAdd(query as CFDictionary, nil)
+        if status != errSecSuccess {
+            throw NSError(domain: "KeychainError", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "Failed to store intent in keychain"])
+        }
+    }
+    
+    /// Get intent data from keychain
+    public static func getIntentFromKeychain(service: String) -> [String: Any]? {
+        let accessGroup = getKeychainAccessGroup()
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: "intent",
+            kSecAttrAccessGroup as String: accessGroup,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        
+        if status == errSecSuccess, let data = result as? Data {
+            do {
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                return json
+            } catch {
+                return nil
+            }
+        }
+        
+        return nil
+    }
+    
+    /// Clear intent data from keychain
+    public static func clearIntentFromKeychain(service: String) {
+        let accessGroup = getKeychainAccessGroup()
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: "intent",
+            kSecAttrAccessGroup as String: accessGroup
+        ]
+        
+        SecItemDelete(query as CFDictionary)
+    }
+    
+    // MARK: - Generic Keychain Operations
+    
+    /// Read boolean value from keychain
+    public static func readBoolFromKeychain(service: String) -> Bool? {
+        let accessGroup = getKeychainAccessGroup()
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccessGroup as String: accessGroup,
+            kSecReturnData as String: true
+        ]
+        
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        
+        if status == errSecSuccess, let data = result as? Data, let value = String(data: data, encoding: .utf8) {
+            return value == "true"
+        }
+        
+        return nil
     }
 }

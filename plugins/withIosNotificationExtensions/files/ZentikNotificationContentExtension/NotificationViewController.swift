@@ -15,6 +15,7 @@ import Security
 import SQLite3
 import MobileCoreServices
 import SafariServices
+import ZentikShared
 // SQLite helper for Swift bindings
 private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
@@ -705,7 +706,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
            let bucketName = userInfo["bucketName"] as? String {
             print("📱 [ContentExtension] 🎭 Checking shared cache for bucket icon...")
             
-            if let bucketIconData = getBucketIconFromSharedCache(bucketId: bucketId, bucketName: bucketName),
+            if let bucketIconData = MediaAccess.getBucketIconFromSharedCache(bucketId: bucketId, bucketName: bucketName),
                let bucketIcon = UIImage(data: bucketIconData) {
                 imageView.image = bucketIcon
                 imageView.isHidden = false
@@ -731,7 +732,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     // Salva nella cache per la prossima volta
                     if let bucketId = userInfo["bucketId"] as? String,
                        let bucketName = userInfo["bucketName"] as? String {
-                        let _ = self.saveBucketIconToSharedCache(imageData, bucketId: bucketId, bucketName: bucketName)
+                        let _ = MediaAccess.saveBucketIconToSharedCache(imageData, bucketId: bucketId, bucketName: bucketName)
                     }
                     
                     DispatchQueue.main.async {
@@ -1242,33 +1243,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         }
     }
     
-    private func displayMediaFromData(at index: Int) {
-        guard attachmentData.indices.contains(index) else {
-            print("📱 [ContentExtension] Invalid attachmentData index: \(index)")
-            return
-        }
-        
-        let attachmentDataItem = attachmentData[index]
-        print("📱 [ContentExtension] Displaying media from data at index \(index)")
-        
-        guard let urlString = attachmentDataItem["url"] as? String,
-              let url = URL(string: urlString) else {
-            print("📱 [ContentExtension] Invalid URL in attachmentData")
-            return
-        }
-        
-        let mediaTypeString = attachmentDataItem["mediaType"] as? String ?? "IMAGE"
-        let mediaType = getMediaTypeFromString(mediaTypeString)
-        
-        print("📱 [ContentExtension] Media type: \(mediaTypeString), URL: \(urlString)")
-        
-        // Clean up previous media
-        cleanupCurrentMedia()
-        
-        // Download and display media
-        downloadAndDisplayMedia(from: url, mediaType: mediaType)
-    }
-    
     private func downloadAndDisplayMedia(from url: URL, mediaType: MediaType) {
         print("📱 [ContentExtension] Downloading media: \(mediaType)")
         
@@ -1279,7 +1253,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         showMediaLoadingIndicator()
         
         // Prepare shared cache destination (always save in shared directory)
-        let sharedCacheDirectory = getSharedMediaCacheDirectory()
+        let sharedCacheDirectory = MediaAccess.getSharedMediaCacheDirectory()
         let mediaTypeString: String = {
             switch mediaType {
             case .image: return "IMAGE"
@@ -1288,7 +1262,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             case .audio: return "AUDIO"
             }
         }()
-        let safeFileName = generateSafeFileName(url: url.absoluteString, mediaType: mediaTypeString, originalFileName: nil as String?)
+        let safeFileName = MediaAccess.generateSafeFileName(url: url.absoluteString, mediaType: mediaTypeString, originalFileName: nil as String?)
         let typeDirectory = sharedCacheDirectory.appendingPathComponent(mediaTypeString)
         let sharedFileURL = typeDirectory.appendingPathComponent(safeFileName)
         do {
@@ -1461,7 +1435,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 // Update DB with upsert
                 let nowMs = Int(Date().timeIntervalSince1970 * 1000)
                 
-                self.upsertCacheItem(url: url.absoluteString, mediaType: mediaTypeString, fields: [
+                MediaAccess.upsertCacheItem(url: url.absoluteString, mediaType: mediaTypeString, fields: [
                     "local_path": sharedFileURL.path,
                     "timestamp": nowMs,
                     "size": data.count,
@@ -1699,7 +1673,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     }
     
     private func clearMediaErrorFlag(url: String, mediaType: String) {
-        upsertCacheItem(url: url, mediaType: mediaType, fields: [
+        MediaAccess.upsertCacheItem(url: url, mediaType: mediaType, fields: [
             "is_permanent_failure": 0,
             "is_downloading": 1,
             "generating_thumbnail": 0,
@@ -1887,7 +1861,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                let urlString = attachmentData[selectedMediaIndex]["url"] as? String,
                let mediaTypeString = attachmentData[selectedMediaIndex]["mediaType"] as? String {
                 
-                let errorCheck = hasMediaDownloadError(url: urlString, mediaType: mediaTypeString)
+                let errorCheck = MediaAccess.hasMediaDownloadError(url: urlString, mediaType: mediaTypeString)
                 let errorMessage = errorCheck.hasError && errorCheck.errorMessage != nil ? 
                     "Download failed: \(errorCheck.errorMessage!)" : "Download failed: Unable to load image"
                 
@@ -1952,7 +1926,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 if let urlString = attachmentData[selectedMediaIndex]["url"] as? String,
                    let mediaTypeString = attachmentData[selectedMediaIndex]["mediaType"] as? String {
                     
-                    let errorCheck = hasMediaDownloadError(url: urlString, mediaType: mediaTypeString)
+                    let errorCheck = MediaAccess.hasMediaDownloadError(url: urlString, mediaType: mediaTypeString)
                     
                     if errorCheck.hasError && errorCheck.errorMessage != nil {
                         print("📱 [ContentExtension] 🔍 Found specific error in database: \(errorCheck.errorMessage!)")
@@ -2887,7 +2861,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         print("📱 [ContentExtension] Deinitializing")
         
         // Flush any pending logs before deinitialization
-        flushLogs()
+        LoggingSystem.shared.flushLogs()
         
         // Safe cleanup with try-catch for observers and instance checking
         if let token = timeObserverToken, let observerPlayer = timeObserverPlayer {
@@ -3042,246 +3016,10 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     }
 
     private func getDbPath() -> String {
-        let dir = getSharedMediaCacheDirectory()
-        let dbPath = dir.appendingPathComponent("cache.db").path
-        print("📱 [ContentExtension] 📊 Database path: \(dbPath)")
-        return dbPath
+        return DatabaseAccess.getDbPath() ?? MediaAccess.getSharedMediaCacheDirectory().appendingPathComponent("cache.db").path
     }
     
-    // MARK: - Generic Database Operation Handler
-    
-    /// Generic database operation executor with timeout protection, retry logic and error handling
-    /// - Parameters:
-    ///   - operationType: Type of operation (read/write)
-    ///   - operationName: Name for logging purposes
-    ///   - timeout: Maximum time allowed for operation (default: 3 seconds)
-    ///   - operation: The actual database operation to perform
-    ///   - completion: Completion handler with result
-    private func performDatabaseOperation(
-        type operationType: DatabaseOperationType,
-        name operationName: String,
-        timeout: TimeInterval = DB_OPERATION_TIMEOUT,
-        operation: @escaping (OpaquePointer) -> DatabaseOperationResult,
-        completion: @escaping (DatabaseOperationResult) -> Void
-    ) {
-        // Execute on dedicated serial queue
-        NotificationViewController.dbQueue.async { [weak self] in
-            guard let self = self else {
-                completion(.failure("Extension deallocated"))
-                return
-            }
-            
-            let startTime = Date()
-            var operationCompleted = false
-            var finalResult: DatabaseOperationResult = .timeout
-            
-            // Timeout protection: dispatch operation with timeout
-            let timeoutWorkItem = DispatchWorkItem {
-                print("📱 [ContentExtension] 🔓 [\(operationName)] Starting database operation...")
-                let dbPath = self.getDbPath()
-                print("📱 [ContentExtension] 📂 [\(operationName)] DB path: \(dbPath)")
-                var db: OpaquePointer?
-                
-                // Open database with appropriate flags
-                let openFlags = operationType == .read ? 
-                    SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX :
-                    SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
-                
-                print("📱 [ContentExtension] 🔐 [\(operationName)] Attempting to open database with flags: \(openFlags)...")
-                let openStartTime = Date()
-                var result = sqlite3_open_v2(dbPath, &db, openFlags, nil)
-                let openElapsed = Date().timeIntervalSince(openStartTime)
-                print("📱 [ContentExtension] 🔓 [\(operationName)] Database open attempt completed in \(String(format: "%.3f", openElapsed))s with result: \(result)")
-                
-                if result != SQLITE_OK {
-                    let errorMsg = "Failed to open database: \(result)"
-                    print("📱 [ContentExtension] ❌ [\(operationName)] \(errorMsg)")
-                    self.logToDatabase(
-                        level: "ERROR",
-                        tag: "NCE-DB",
-                        message: "[\(operationName)] \(errorMsg)",
-                        metadata: ["sqliteError": String(result)]
-                    )
-                    finalResult = .failure(errorMsg)
-                    operationCompleted = true
-                    return
-                }
-                
-                guard let database = db else {
-                    finalResult = .failure("Database pointer is nil")
-                    operationCompleted = true
-                    return
-                }
-                
-                defer {
-                    sqlite3_close(database)
-                }
-                
-                // Configure SQLite for concurrent access with WAL mode
-                // WAL allows multiple concurrent readers (critical for NCE when app is foreground)
-                sqlite3_busy_timeout(database, NotificationViewController.DB_BUSY_TIMEOUT)
-                
-                // Set journal mode to WAL for concurrent access
-                var pragmaStmt: OpaquePointer?
-                if sqlite3_prepare_v2(database, "PRAGMA journal_mode=WAL", -1, &pragmaStmt, nil) == SQLITE_OK {
-                    sqlite3_step(pragmaStmt)
-                    sqlite3_finalize(pragmaStmt)
-                }
-                
-                // Optimize WAL checkpoint
-                if sqlite3_prepare_v2(database, "PRAGMA wal_autocheckpoint=1000", -1, &pragmaStmt, nil) == SQLITE_OK {
-                    sqlite3_step(pragmaStmt)
-                    sqlite3_finalize(pragmaStmt)
-                }
-                
-                // For write operations, use immediate transaction
-                if operationType == .write {
-                    var beginStmt: OpaquePointer?
-                    result = sqlite3_prepare_v2(database, "BEGIN IMMEDIATE TRANSACTION", -1, &beginStmt, nil)
-                    if result == SQLITE_OK {
-                        result = sqlite3_step(beginStmt)
-                        sqlite3_finalize(beginStmt)
-                        
-                        if result != SQLITE_DONE {
-                            print("📱 [ContentExtension] ⚠️ [\(operationName)] Failed to begin transaction: \(result)")
-                        }
-                    }
-                }
-                
-                // Execute the actual operation with retry logic
-                var retries = NotificationViewController.DB_MAX_RETRIES
-                var operationResult: DatabaseOperationResult = .failure("Max retries exceeded")
-                
-                while retries >= 0 && !operationCompleted {
-                    // Check if we're approaching timeout
-                    let elapsed = Date().timeIntervalSince(startTime)
-                    if elapsed >= timeout * 0.9 {  // 90% of timeout
-                        print("📱 [ContentExtension] ⚠️ [\(operationName)] Approaching timeout (\(elapsed)s), aborting")
-                        operationResult = .timeout
-                        break
-                    }
-                    
-                    operationResult = operation(database)
-                    
-                    switch operationResult {
-                    case .success:
-                        // Success, exit retry loop
-                        retries = -1
-                        
-                    case .locked:
-                        if retries > 0 {
-                            let attempt = NotificationViewController.DB_MAX_RETRIES - retries
-                            let delayMs = 200000 * (1 << attempt)  // Exponential backoff: 200ms, 400ms, 800ms, 1.6s, 3.2s
-                            print("📱 [ContentExtension] 🔄 [\(operationName)] Database locked, retrying in \(delayMs/1000)ms... (\(retries) left)")
-                            retries -= 1
-                            usleep(UInt32(delayMs))
-                        } else {
-                            print("📱 [ContentExtension] ❌ [\(operationName)] Max retries exceeded")
-                            retries = -1
-                        }
-                        
-                    case .failure(let msg) where msg.contains("BUSY") || msg.contains("LOCKED"):
-                        if retries > 0 {
-                            let attempt = NotificationViewController.DB_MAX_RETRIES - retries
-                            let delayMs = 200000 * (1 << attempt)  // Exponential backoff
-                            print("📱 [ContentExtension] 🔄 [\(operationName)] Database busy (\(msg)), retrying in \(delayMs/1000)ms... (\(retries) left)")
-                            retries -= 1
-                            usleep(UInt32(delayMs))
-                        } else {
-                            print("📱 [ContentExtension] ❌ [\(operationName)] Max retries exceeded")
-                            retries = -1
-                        }
-                        
-                    case .timeout:
-                        print("📱 [ContentExtension] ⏱️ [\(operationName)] Operation timeout")
-                        retries = -1
-                        
-                    case .failure(let error):
-                        print("📱 [ContentExtension] ❌ [\(operationName)] Operation failed: \(error)")
-                        retries = -1
-                    }
-                }
-                
-                // Commit or rollback transaction for write operations
-                if operationType == .write {
-                    var endStmt: OpaquePointer?
-                    let endSQL: String
-                    if case .success = operationResult {
-                        endSQL = "COMMIT"
-                    } else {
-                        endSQL = "ROLLBACK"
-                    }
-                    if sqlite3_prepare_v2(database, endSQL, -1, &endStmt, nil) == SQLITE_OK {
-                        sqlite3_step(endStmt)
-                        sqlite3_finalize(endStmt)
-                    }
-                }
-                
-                finalResult = operationResult
-                operationCompleted = true
-            }
-            
-            // Execute the operation directly (we're already on dbQueue)
-            // DO NOT dispatch async again on the same serial queue - that causes deadlock!
-            timeoutWorkItem.perform()
-            
-            // Check if operation completed or timed out
-            let waitResult: DispatchTimeoutResult = operationCompleted ? .success : .timedOut
-            
-            if waitResult == .timedOut {
-                timeoutWorkItem.cancel()
-                print("📱 [ContentExtension] ⏱️ [\(operationName)] Operation timed out after \(timeout)s")
-                self.logToDatabase(
-                    level: "WARNING",
-                    tag: "NCE-DB",
-                    message: "[\(operationName)] Operation timed out",
-                    metadata: ["timeout": String(timeout)]
-                )
-                finalResult = .timeout
-            }
-            
-            // Log final result
-            let elapsed = Date().timeIntervalSince(startTime)
-            switch finalResult {
-            case .success:
-                print("📱 [ContentExtension] ✅ [\(operationName)] Completed in \(String(format: "%.3f", elapsed))s")
-            case .failure(let error):
-                print("📱 [ContentExtension] ❌ [\(operationName)] Failed: \(error)")
-                self.logToDatabase(
-                    level: "ERROR",
-                    tag: "NCE-DB",
-                    message: "[\(operationName)] Failed: \(error)",
-                    metadata: ["elapsed": String(format: "%.3f", elapsed)]
-                )
-            case .timeout:
-                print("📱 [ContentExtension] ⏱️ [\(operationName)] Timeout after \(String(format: "%.3f", elapsed))s")
-            case .locked:
-                print("📱 [ContentExtension] 🔒 [\(operationName)] Database locked after \(String(format: "%.3f", elapsed))s")
-            }
-            
-            // Call completion handler on main thread if needed for UI updates
-            DispatchQueue.main.async {
-                completion(finalResult)
-            }
-        }
-    }
-    
-    // MARK: - Batch JSON Logging
-    
-    private struct LogEntry: Codable {
-        let id: String // Unique identifier (UUID)
-        let level: String
-        let tag: String?
-        let message: String
-        let metadata: [String: String]? // Simplified for JSON encoding
-        let timestamp: Int64
-        let source: String // "NSE" or "NCE"
-    }
-    
-    private static var logBuffer: [LogEntry] = []
-    private static var logBufferLock = NSLock()
-    private static let BATCH_SIZE = 20
-    private static var flushTimer: Timer?
+    // MARK: - Logging (delegated to shared LoggingSystem)
     
     private func logToJSON(
         level: String,
@@ -3289,457 +3027,30 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         message: String,
         metadata: [String: Any]? = nil
     ) {
-        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-        
-        // Convert metadata to string dictionary for JSON encoding
-        var metadataStrings: [String: String]?
-        if let metadata = metadata {
-            metadataStrings = metadata.reduce(into: [String: String]()) { result, item in
-                if let stringValue = item.value as? String {
-                    result[item.key] = stringValue
-                } else if let numberValue = item.value as? NSNumber {
-                    result[item.key] = numberValue.stringValue
-                } else {
-                    // Convert complex objects to JSON string
-                    if let jsonData = try? JSONSerialization.data(withJSONObject: item.value),
-                       let jsonString = String(data: jsonData, encoding: .utf8) {
-                        result[item.key] = jsonString
-                    }
-                }
-            }
-        }
-        
-        let entry = LogEntry(
-            id: UUID().uuidString,
+        LoggingSystem.shared.log(
             level: level,
-            tag: tag,
+            tag: tag ?? "NCE",
             message: message,
-            metadata: metadataStrings,
-            timestamp: timestamp,
+            metadata: metadata,
             source: "NCE"
         )
-        
-        NotificationViewController.logBufferLock.lock()
-        NotificationViewController.logBuffer.append(entry)
-        let shouldFlush = NotificationViewController.logBuffer.count >= NotificationViewController.BATCH_SIZE
-        NotificationViewController.logBufferLock.unlock()
-        
-        if shouldFlush {
-            flushLogs()
-        } else {
-            scheduleFlush()
-        }
     }
     
-    private func scheduleFlush() {
-        NotificationViewController.logBufferLock.lock()
-        if NotificationViewController.flushTimer == nil {
-            NotificationViewController.flushTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
-                self?.flushLogs()
-            }
-        }
-        NotificationViewController.logBufferLock.unlock()
-    }
-    
-    private func flushLogs() {
-        NotificationViewController.logBufferLock.lock()
-        
-        // Cancel timer
-        NotificationViewController.flushTimer?.invalidate()
-        NotificationViewController.flushTimer = nil
-        
-        guard !NotificationViewController.logBuffer.isEmpty else {
-            NotificationViewController.logBufferLock.unlock()
-            return
-        }
-        
-        // Copy buffer and clear
-        let logsToWrite = NotificationViewController.logBuffer
-        NotificationViewController.logBuffer = []
-        NotificationViewController.logBufferLock.unlock()
-        
-        // Write to JSON file
-        let logFilePath = getSharedMediaCacheDirectory().appendingPathComponent("logs.json")
-        
-        do {
-            var existingLogs: [LogEntry] = []
-            
-            // Read existing logs if file exists
-            if FileManager.default.fileExists(atPath: logFilePath.path) {
-                let data = try Data(contentsOf: logFilePath)
-                existingLogs = (try? JSONDecoder().decode([LogEntry].self, from: data)) ?? []
-            }
-            
-            // Append new logs (cleanup will be handled by main app)
-            existingLogs.append(contentsOf: logsToWrite)
-            
-            // Write back to file
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = .prettyPrinted
-            let jsonData = try encoder.encode(existingLogs)
-            try jsonData.write(to: logFilePath, options: [.atomic])
-            
-            // print("📱 [ContentExtension] ✅ Flushed \(logsToWrite.count) logs to JSON")
-        } catch {
-            print("📱 [ContentExtension] ❌ Failed to flush logs: \(error)")
-        }
-    }
-    
-    // Legacy function that redirects to JSON logging
+    // Legacy function that redirects to LoggingSystem
     private func logToDatabase(
         level: String,
         tag: String? = nil,
         message: String,
         metadata: [String: Any]? = nil
     ) {
-        logToJSON(level: level, tag: tag, message: message, metadata: metadata)
-    }
-    
-    private func markNotificationAsReadInDatabase(notificationId: String) {
-        performDatabaseOperation(
-            type: .write,
-            name: "MarkAsRead",
-            operation: { database in
-                let sql = "UPDATE notifications SET read_at = ? WHERE id = ?"
-                var stmt: OpaquePointer?
-                
-                guard sqlite3_prepare_v2(database, sql, -1, &stmt, nil) == SQLITE_OK else {
-                    return .failure("Failed to prepare UPDATE statement")
-                }
-                
-                defer { sqlite3_finalize(stmt) }
-                
-                // Bind parameters
-                let readAtTimestamp = Int64(Date().timeIntervalSince1970 * 1000)
-                sqlite3_bind_int64(stmt, 1, readAtTimestamp)
-                sqlite3_bind_text(stmt, 2, (notificationId as NSString).utf8String, -1, SQLITE_TRANSIENT)
-                
-                // Execute
-                let result = sqlite3_step(stmt)
-                
-                if result == SQLITE_DONE {
-                    return .success
-                } else if result == SQLITE_BUSY || result == SQLITE_LOCKED {
-                    return .locked
-                } else {
-                    return .failure("SQLite error: \(result)")
-                }
-            },
-            completion: { [weak self] result in
-                guard let self = self else { return }
-                
-                switch result {
-                case .success:
-                    self.logToDatabase(
-                        level: "INFO",
-                        tag: "NCE-DB",
-                        message: "Notification marked as read",
-                        metadata: ["notificationId": notificationId]
-                    )
-                case .failure(let error):
-                    self.logToDatabase(
-                        level: "ERROR",
-                        tag: "NCE-DB",
-                        message: "Failed to mark notification as read: \(error)",
-                        metadata: ["notificationId": notificationId]
-                    )
-                case .timeout:
-                    self.logToDatabase(
-                        level: "WARNING",
-                        tag: "NCE-DB",
-                        message: "Timeout marking notification as read",
-                        metadata: ["notificationId": notificationId]
-                    )
-                case .locked:
-                    self.logToDatabase(
-                        level: "WARNING",
-                        tag: "NCE-DB",
-                        message: "Database locked, could not mark notification as read",
-                        metadata: ["notificationId": notificationId]
-                    )
-                }
-            }
+        LoggingSystem.shared.log(
+            level: level,
+            tag: tag ?? "NCE",
+            message: message,
+            metadata: metadata,
+            source: "NCE"
         )
     }
-    
-    private func deleteNotificationFromDatabase(notificationId: String) {
-        performDatabaseOperation(
-            type: .write,
-            name: "DeleteNotification",
-            operation: { database in
-                let sql = "DELETE FROM notifications WHERE id = ?"
-                var stmt: OpaquePointer?
-                
-                guard sqlite3_prepare_v2(database, sql, -1, &stmt, nil) == SQLITE_OK else {
-                    return .failure("Failed to prepare DELETE statement")
-                }
-                
-                defer { sqlite3_finalize(stmt) }
-                
-                // Bind parameters
-                sqlite3_bind_text(stmt, 1, (notificationId as NSString).utf8String, -1, SQLITE_TRANSIENT)
-                
-                // Execute
-                let result = sqlite3_step(stmt)
-                
-                if result == SQLITE_DONE {
-                    return .success
-                } else if result == SQLITE_BUSY || result == SQLITE_LOCKED {
-                    return .locked
-                } else {
-                    return .failure("SQLite error: \(result)")
-                }
-            },
-            completion: { [weak self] result in
-                guard let self = self else { return }
-                
-                switch result {
-                case .success:
-                    self.logToDatabase(
-                        level: "INFO",
-                        tag: "NCE-DB",
-                        message: "Notification deleted",
-                        metadata: ["notificationId": notificationId]
-                    )
-                case .failure(let error):
-                    self.logToDatabase(
-                        level: "ERROR",
-                        tag: "NCE-DB",
-                        message: "Failed to delete notification: \(error)",
-                        metadata: ["notificationId": notificationId]
-                    )
-                case .timeout:
-                    self.logToDatabase(
-                        level: "WARNING",
-                        tag: "NCE-DB",
-                        message: "Timeout deleting notification",
-                        metadata: ["notificationId": notificationId]
-                    )
-                case .locked:
-                    self.logToDatabase(
-                        level: "WARNING",
-                        tag: "NCE-DB",
-                        message: "Database locked, could not delete notification",
-                        metadata: ["notificationId": notificationId]
-                    )
-                }
-            }
-        )
-    }
-
-    private func upsertCacheItem(url: String, mediaType: String, fields: [String: Any]) {
-        let dbPath = getDbPath()
-        guard FileManager.default.fileExists(atPath: dbPath) else { return }
-        var db: OpaquePointer?
-        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE, nil) != SQLITE_OK { return }
-        defer { sqlite3_close(db) }
-        let key = "\(mediaType.uppercased())_\(url)"
-        var allFields = fields
-        allFields["key"] = key
-        allFields["url"] = url
-        allFields["media_type"] = mediaType.uppercased()
-        
-        // Handle downloaded_at logic:
-        // - If not provided and entry doesn't exist → 0 (new entry, not downloaded yet)
-        // - If not provided and entry exists → keep existing value
-        // - If provided explicitly → use provided value
-        if allFields["downloaded_at"] == nil {
-            if !mediaExistsInCache(url: url, mediaType: mediaType) {
-                allFields["downloaded_at"] = 0  // New entry, not downloaded yet
-            }
-            // If entry exists and downloaded_at not provided, don't set it (keep existing)
-        }
-        
-        let columns = ["key","url","local_path","local_thumb_path","generating_thumbnail","timestamp","size","media_type","original_file_name","downloaded_at","notification_date","notification_id","is_downloading","is_permanent_failure","is_user_deleted","error_code"]
-        let placeholders = Array(repeating: "?", count: columns.count).joined(separator: ",")
-        
-        // Handle downloaded_at in SQL: only update if provided, otherwise keep existing
-        let downloadedAtClause = allFields["downloaded_at"] != nil ? 
-            "downloaded_at=excluded.downloaded_at" : 
-            "downloaded_at=COALESCE(cache_item.downloaded_at, 0)"
-        
-        let sql = """
-        INSERT INTO cache_item (\(columns.joined(separator: ","))) VALUES (\(placeholders)) 
-        ON CONFLICT(key) DO UPDATE SET 
-        url=excluded.url, 
-        local_path=excluded.local_path, 
-        local_thumb_path=excluded.local_thumb_path, 
-        generating_thumbnail=excluded.generating_thumbnail, 
-        timestamp=excluded.timestamp, 
-        size=excluded.size, 
-        media_type=excluded.media_type, 
-        original_file_name=excluded.original_file_name, 
-        \(downloadedAtClause), 
-        notification_date=excluded.notification_date, 
-        notification_id=excluded.notification_id, 
-        is_downloading=excluded.is_downloading, 
-        is_permanent_failure=excluded.is_permanent_failure, 
-        is_user_deleted=excluded.is_user_deleted, 
-        error_code=excluded.error_code;
-        """
-        
-        var stmt: OpaquePointer?
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
-            print("📱 [ContentExtension] ❌ Failed to prepare UPSERT: \(String(cString: sqlite3_errmsg(db)))")
-            return
-        }
-        defer { sqlite3_finalize(stmt) }
-        func bind(_ idx: Int32, _ value: Any?) {
-            if value == nil { sqlite3_bind_null(stmt, idx); return }
-            switch value {
-            case let v as String:
-                sqlite3_bind_text(stmt, idx, (v as NSString).utf8String, -1, SQLITE_TRANSIENT)
-            case let v as Int:
-                sqlite3_bind_int64(stmt, idx, Int64(v))
-            case let v as Int64:
-                sqlite3_bind_int64(stmt, idx, v)
-            case let v as Bool:
-                sqlite3_bind_int(stmt, idx, v ? 1 : 0)
-            default:
-                sqlite3_bind_null(stmt, idx)
-            }
-        }
-        let values: [Any?] = [
-            allFields["key"],
-            allFields["url"],
-            allFields["local_path"],
-            allFields["local_thumb_path"],
-            allFields["generating_thumbnail"],
-            allFields["timestamp"],
-            allFields["size"],
-            allFields["media_type"],
-            allFields["original_file_name"],
-            allFields["downloaded_at"],
-            allFields["notification_date"],
-            allFields["notification_id"],
-            allFields["is_downloading"],
-            allFields["is_permanent_failure"],
-            allFields["is_user_deleted"],
-            allFields["error_code"],
-        ]
-        for (i, v) in values.enumerated() { bind(Int32(i+1), v) }
-        if sqlite3_step(stmt) != SQLITE_DONE {
-            print("📱 [ContentExtension] ❌ UPSERT failed: \(String(cString: sqlite3_errmsg(db)))")
-        } else {
-            print("📱 [ContentExtension] ✅ UPSERT successful for key: \(key)")
-        }
-    }
-
-    private func mediaExistsInCache(url: String, mediaType: String) -> Bool {
-        let dbPath = getDbPath()
-        guard FileManager.default.fileExists(atPath: dbPath) else { return false }
-        var db: OpaquePointer?
-        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) != SQLITE_OK { return false }
-        defer { sqlite3_close(db) }
-        let key = "\(mediaType.uppercased())_\(url)"
-        let sql = "SELECT 1 FROM cache_item WHERE key = ? LIMIT 1"
-        var stmt: OpaquePointer?
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK { return false }
-        defer { sqlite3_finalize(stmt) }
-        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        return sqlite3_step(stmt) == SQLITE_ROW
-    }
-
-    private func isMediaDownloading(url: String, mediaType: String) -> Bool {
-        // Leggi stato da SQLite
-        let dbPath = getDbPath()
-        guard FileManager.default.fileExists(atPath: dbPath) else { 
-            print("📱 [ContentExtension] 🔍 Database file does not exist: \(dbPath)")
-            return false 
-        }
-        var db: OpaquePointer?
-        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) != SQLITE_OK { 
-            print("📱 [ContentExtension] 🔍 Failed to open database for reading")
-            return false 
-        }
-        defer { sqlite3_close(db) }
-        let key = "\(mediaType.uppercased())_\(url)"
-        let sql = "SELECT is_downloading, is_permanent_failure, error_code, local_path, timestamp FROM cache_item WHERE key = ? LIMIT 1"
-        var stmt: OpaquePointer?
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK { 
-            print("📱 [ContentExtension] 🔍 Failed to prepare SQL statement")
-            return false 
-        }
-        defer { sqlite3_finalize(stmt) }
-        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        if sqlite3_step(stmt) == SQLITE_ROW {
-            let isDownloading = sqlite3_column_int(stmt, 0)
-            let isPermanentFailure = sqlite3_column_int(stmt, 1)
-            let errorCode = sqlite3_column_text(stmt, 2) != nil ? String(cString: sqlite3_column_text(stmt, 2)) : "nil"
-            let localPath = sqlite3_column_text(stmt, 3) != nil ? String(cString: sqlite3_column_text(stmt, 3)) : "nil"
-            let timestamp = sqlite3_column_int64(stmt, 4)
-            
-            print("📱 [ContentExtension] 🔍 DB Row - Key: \(key)")
-            print("📱 [ContentExtension] 🔍 DB Row - is_downloading: \(isDownloading), is_permanent_failure: \(isPermanentFailure)")
-            print("📱 [ContentExtension] 🔍 DB Row - error_code: \(errorCode), local_path: \(localPath)")
-            print("📱 [ContentExtension] 🔍 DB Row - timestamp: \(timestamp)")
-            
-            // Check if download is stuck (older than 60 seconds)
-            if isDownloading == 1 {
-                let currentTimestamp = Int64(Date().timeIntervalSince1970 * 1000)
-                let downloadAge = currentTimestamp - timestamp
-                let maxDownloadTime: Int64 = 60 * 1000 // 60 seconds in milliseconds
-                
-                print("📱 [ContentExtension] 🔍 Timeout check - Current: \(currentTimestamp), DB: \(timestamp), Age: \(downloadAge/1000)s, Max: \(maxDownloadTime/1000)s")
-                
-                if downloadAge > maxDownloadTime {
-                    print("📱 [ContentExtension] ⚠️ Download stuck for \(downloadAge/1000)s, marking as failed")
-                    // Mark as failed in database and clear downloading flag
-                    clearStuckDownload(key: key, url: url, mediaType: mediaType)
-                    return false
-                }
-                return true
-            }
-            
-            return false
-        } else {
-            print("📱 [ContentExtension] 🔍 No database row found for key: \(key)")
-        }
-        return false
-    }
-
-    private func clearStuckDownload(key: String, url: String, mediaType: String) {
-        let dbPath = getDbPath()
-        guard FileManager.default.fileExists(atPath: dbPath) else { return }
-        var db: OpaquePointer?
-        if sqlite3_open(dbPath, &db) != SQLITE_OK { return }
-        defer { sqlite3_close(db) }
-        
-        // Mark as permanent failure with timeout error
-        let sql = "UPDATE cache_item SET is_downloading = 0, is_permanent_failure = 1, error_code = 'Download timeout (stuck)' WHERE key = ?"
-        var stmt: OpaquePointer?
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK { return }
-        defer { sqlite3_finalize(stmt) }
-        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        
-        if sqlite3_step(stmt) == SQLITE_DONE {
-            print("📱 [ContentExtension] ✅ Cleared stuck download for: \(key)")
-        } else {
-            print("📱 [ContentExtension] ❌ Failed to clear stuck download for: \(key)")
-        }
-    }
-
-    private func hasMediaDownloadError(url: String, mediaType: String) -> (hasError: Bool, errorMessage: String?) {
-        let dbPath = getDbPath()
-        guard FileManager.default.fileExists(atPath: dbPath) else { return (false, nil) }
-        var db: OpaquePointer?
-        if sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) != SQLITE_OK { return (false, nil) }
-        defer { sqlite3_close(db) }
-        let key = "\(mediaType.uppercased())_\(url)"
-        let sql = "SELECT is_permanent_failure, error_code FROM cache_item WHERE key = ? LIMIT 1"
-        var stmt: OpaquePointer?
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK { return (false, nil) }
-        defer { sqlite3_finalize(stmt) }
-        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        if sqlite3_step(stmt) == SQLITE_ROW {
-            let val = sqlite3_column_int(stmt, 0)
-            var code: String? = nil
-            if let cStr = sqlite3_column_text(stmt, 1) { code = String(cString: cStr) }
-            return (val == 1, code)
-        }
-        return (false, nil)
-    }
-
     
 }
 
@@ -3995,278 +3306,48 @@ extension NotificationViewController {
     }
     
     private func executeAction(action: [String: Any], notificationId: String, completion: @escaping (Bool) -> Void) {
+        // Extract action type and value from action dictionary
         guard let type = action["type"] as? String,
               let value = action["value"] as? String else {
-            print("📱 [ContentExtension] ❌ Invalid action data")
-            logToDatabase(
-                level: "ERROR",
-                tag: "NotificationContentExtension",
-                message: "[Action] Invalid action data",
-                metadata: ["notificationId": notificationId]
-            )
+            print("📱 [ContentExtension] ❌ Invalid action format")
             completion(false)
             return
         }
         
-        print("📱 [ContentExtension] 🎬 Executing action: \(type) with value: \(value)")
-        
-        logToDatabase(
-            level: "INFO",
-            tag: "NotificationContentExtension",
-            message: "[Action] Executing action",
-            metadata: [
-                "notificationId": notificationId,
-                "actionType": type,
-                "actionValue": value
-            ]
-        )
-        
-        switch type.uppercased() {
-        case "NAVIGATE":
-            handleNavigateAction(value: value, completion: completion)
-        case "WEBHOOK":
-            handleWebhookAction(webhookId: value, notificationId: notificationId, action: action, completion: completion)
-        case "BACKGROUND_CALL":
-            handleBackgroundCallAction(value: value, completion: completion)
-        case "MARK_AS_READ":
-            handleMarkAsReadAction(notificationId: notificationId, completion: completion)
-        case "DELETE":
-            handleDeleteAction(notificationId: notificationId, completion: completion)
-        case "SNOOZE":
-            handleSnoozeAction(value: value, completion: completion)
-        case "POSTPONE":
-            handlePostponeAction(notificationId: notificationId, value: value, completion: completion)
-        case "OPEN_NOTIFICATION":
-            handleOpenNotificationAction(value: value, completion: completion)
-        default:
-            print("📱 [ContentExtension] ❌ Unknown action type: \(type)")
+        guard let userInfo = currentNotificationUserInfo else {
+            print("📱 [ContentExtension] ❌ No notification userInfo available")
             completion(false)
+            return
         }
+        
+        // Use shared NotificationActionHandler for action execution
+        // NotificationActionHandler already handles DB updates for MARK_AS_READ and DELETE
+        NotificationActionHandler.executeAction(
+            type: type,
+            value: value,
+            notificationId: notificationId,
+            userInfo: userInfo,
+            source: "NCE",
+            onComplete: { result in
+                switch result {
+                case .success:
+                    completion(true)
+                case .failure(let error):
+                    print("📱 [ContentExtension] ❌ Action failed: \(error)")
+                    completion(false)
+                }
+            }
+        )
     }
 }
 
-// MARK: - Action Implementations
+// MARK: - Helper Methods
 
 extension NotificationViewController {
     
-    private func handleNavigateAction(value: String, completion: @escaping (Bool) -> Void) {
-        print("📱 [ContentExtension] 🧭 Navigate action: \(value)")
-        
-        let navigationData = [
-            "type": "NAVIGATE",
-            "value": value,
-            "timestamp": ISO8601DateFormatter().string(from: Date())
-        ]
-        
-        storeNavigationIntent(data: navigationData)
-        
-        // Open the main app to process the navigation intent
-        DispatchQueue.main.async {
-            self.extensionContext?.dismissNotificationContentExtension()
-            self.extensionContext?.performNotificationDefaultAction()
-        }
-        
-        completion(true)
-    }
-    
-    private func handleWebhookAction(webhookId: String, notificationId: String, action: [String: Any], completion: @escaping (Bool) -> Void) {
-        print("📱 [ContentExtension] 🪝 Webhook action: \(webhookId)")
-        
-        // Launch webhook execution in background without waiting
-        Task.detached {
-            do {
-                try await self.executeWebhookViaBackend(webhookId: webhookId)
-                print("📱 [ContentExtension] ✅ Webhook executed successfully via backend")
-            } catch {
-                print("📱 [ContentExtension] ❌ Webhook execution failed: \(error)")
-            }
-        }
-        
-        // Complete immediately without waiting for webhook execution
-        print("📱 [ContentExtension] 🚀 Webhook launched in background, completing action immediately")
-        completion(true)
-    }
-    
-    private func handleBackgroundCallAction(value: String, completion: @escaping (Bool) -> Void) {
-        print("📱 [ContentExtension] 📞 Background call action: \(value)")
-        
-        let components = value.components(separatedBy: "::")
-        guard components.count == 2 else {
-            print("📱 [ContentExtension] ❌ Invalid background call format. Expected METHOD::URL")
-            completion(false)
-            return
-        }
-        
-        let method = components[0]
-        let url = components[1]
-        
-        // Launch background call execution in background without waiting
-        Task.detached {
-            do {
-                try await self.executeBackgroundCall(method: method, url: url)
-                print("📱 [ContentExtension] ✅ Background call executed successfully")
-            } catch {
-                print("📱 [ContentExtension] ❌ Background call failed: \(error)")
-            }
-        }
-        
-        // Complete immediately without waiting for background call execution
-        print("📱 [ContentExtension] 🚀 Background call launched in background, completing action immediately")
-        completion(true)
-    }
-    
-    private func handleMarkAsReadAction(notificationId: String, completion: @escaping (Bool) -> Void) {
-        print("📱 [ContentExtension] ✅ Mark as read action: \(notificationId)")
-        
-        // Launch mark as read execution in background without waiting
-        Task.detached {
-            // Try to mark as read on server (but don't block local update on failure)
-            do {
-                try await self.markNotificationAsRead(notificationId: notificationId)
-                print("📱 [ContentExtension] ✅ Server mark as read successful")
-            } catch {
-                print("📱 [ContentExtension] ⚠️ Server mark as read failed (will update local DB anyway): \(error)")
-            }
-            
-            // ALWAYS update local DB and badge, regardless of server call result
-            self.markNotificationAsReadInDatabase(notificationId: notificationId)
-            self.decrementBadgeCount()
-            print("📱 [ContentExtension] ✅ Local DB and badge updated")
-        }
-        
-        // Complete immediately without waiting for mark as read execution
-        print("📱 [ContentExtension] 🚀 Mark as read launched in background, completing action immediately")
-        completion(true)
-    }
-    
-    private func handleDeleteAction(notificationId: String, completion: @escaping (Bool) -> Void) {
-        print("📱 [ContentExtension] 🗑️ Delete action: \(notificationId)")
-        
-        logToDatabase(
-            level: "INFO",
-            tag: "NotificationContentExtension",
-            message: "[Delete] Starting delete action",
-            metadata: ["notificationId": notificationId]
-        )
-        
-        // Launch delete execution in background without waiting
-        Task.detached {
-            // Try to delete from server (but don't block local update on failure)
-            do {
-                try await self.deleteNotification(notificationId: notificationId)
-                print("📱 [ContentExtension] ✅ Server delete successful")
-                
-                self.logToDatabase(
-                    level: "INFO",
-                    tag: "NotificationContentExtension",
-                    message: "[Delete] Server delete successful",
-                    metadata: ["notificationId": notificationId]
-                )
-            } catch {
-                print("📱 [ContentExtension] ⚠️ Server delete failed (will update local DB anyway): \(error)")
-                
-                self.logToDatabase(
-                    level: "WARNING",
-                    tag: "NotificationContentExtension",
-                    message: "[Delete] Server delete failed (updating local DB anyway)",
-                    metadata: [
-                        "notificationId": notificationId,
-                        "error": error.localizedDescription
-                    ]
-                )
-            }
-            
-            // ALWAYS update local DB and badge, regardless of server call result
-            self.deleteNotificationFromDatabase(notificationId: notificationId)
-            self.decrementBadgeCount()
-            print("📱 [ContentExtension] ✅ Local DB and badge updated")
-            
-            self.logToDatabase(
-                level: "INFO",
-                tag: "NotificationContentExtension",
-                message: "[Delete] Local DB and badge updated",
-                metadata: ["notificationId": notificationId]
-            )
-        }
-        
-        // Complete immediately without waiting for delete execution
-        print("📱 [ContentExtension] 🚀 Delete launched in background, completing action immediately")
-        completion(true)
-    }
-    
-    private func handleSnoozeAction(value: String, completion: @escaping (Bool) -> Void) {
-        print("📱 [ContentExtension] ⏰ Snooze action: \(value)")
-        
-        // Parse snooze duration (format: number as string, e.g., "5", "30")
-        if let minutes = Int(value) {
-            // Launch snooze execution in background without waiting
-            Task.detached {
-                do {
-                    try await self.snoozeViaBucketsEndpoint(minutes: minutes)
-                    print("📱 [ContentExtension] ✅ Snoozed bucket for \(minutes) minutes")
-                } catch {
-                    print("📱 [ContentExtension] ❌ Failed to snooze bucket: \(error)")
-                }
-            }
-            
-            // Complete immediately without waiting for snooze execution
-            print("📱 [ContentExtension] 🚀 Snooze launched in background, completing action immediately")
-            completion(true)
-        } else {
-            print("📱 [ContentExtension] ❌ Invalid snooze format (expected number): \(value)")
-            completion(false)
-        }
-    }
-    
-    private func handlePostponeAction(notificationId: String, value: String, completion: @escaping (Bool) -> Void) {
-        print("📱 [ContentExtension] ⏳ Postpone action: \(value) for notification: \(notificationId)")
-        
-        // Parse postpone duration (format: number as string, e.g., "5", "30")
-        if let minutes = Int(value) {
-            // Launch postpone execution in background without waiting
-            Task.detached {
-                do {
-                    try await self.postponeViaNotificationsEndpoint(notificationId: notificationId, minutes: minutes)
-                    print("📱 [ContentExtension] ✅ Postponed notification \(notificationId) for \(minutes) minutes")
-                } catch {
-                    print("📱 [ContentExtension] ❌ Failed to postpone notification: \(error)")
-                }
-            }
-            
-            // Complete immediately without waiting for postpone execution
-            print("📱 [ContentExtension] 🚀 Postpone launched in background, completing action immediately")
-            completion(true)
-        } else {
-            print("📱 [ContentExtension] ❌ Invalid postpone format (expected number): \(value)")
-            completion(false)
-        }
-    }
-    
-    private func handleOpenNotificationAction(value: String, completion: @escaping (Bool) -> Void) {
-        print("📱 [ContentExtension] 📂 Open notification action: \(value)")
-        
-        let navigationData = [
-            "type": "OPEN_NOTIFICATION",
-            "value": value,
-            "timestamp": ISO8601DateFormatter().string(from: Date())
-        ]
-        
-        storeNavigationIntent(data: navigationData)
-        
-        // Open the main app to process the navigation intent
-        DispatchQueue.main.async {
-            self.extensionContext?.dismissNotificationContentExtension()
-            self.extensionContext?.performNotificationDefaultAction()
-        }
-        
-        completion(true)
-    }
-    
-    // MARK: - Helper Methods
-    
     private func storeNavigationIntent(data: [String: Any]) {
         do {
-            try storeIntentInKeychain(data: data, service: "zentik-pending-navigation")
+            try KeychainAccess.storeIntentInKeychain(data: data, service: "zentik-pending-navigation")
             print("📱 [ContentExtension] 💾 Stored navigation intent in keychain: \(data)")
             
             logToDatabase(
@@ -4299,7 +3380,7 @@ extension NotificationViewController {
     private func executeWebhookViaBackend(webhookId: String) async throws {
         print("📱 [ContentExtension] 📡 Executing webhook via backend: \(webhookId)")
         
-        guard let apiEndpoint = getApiEndpoint() else {
+        guard let apiEndpoint = KeychainAccess.getApiEndpoint() else {
             throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not configured"])
         }
         
@@ -4314,7 +3395,7 @@ extension NotificationViewController {
         request.setValue("Zentik-iOS-Extension/1.0", forHTTPHeaderField: "User-Agent")
         
         // Add authentication token if available
-        if let authToken = getStoredAuthToken() {
+        if let authToken = KeychainAccess.getStoredAuthToken() {
             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -4337,7 +3418,7 @@ extension NotificationViewController {
     private func postponeViaNotificationsEndpoint(notificationId: String, minutes: Int) async throws {
         print("📱 [ContentExtension] ⏳ Postponing notification \(notificationId) for \(minutes) minutes via backend")
         
-        guard let apiEndpoint = getApiEndpoint() else {
+        guard let apiEndpoint = KeychainAccess.getApiEndpoint() else {
             throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not configured"])
         }
         
@@ -4352,7 +3433,7 @@ extension NotificationViewController {
         request.setValue("Zentik-iOS-Extension/1.0", forHTTPHeaderField: "User-Agent")
         
         // Add authentication token if available
-        if let authToken = getStoredAuthToken() {
+        if let authToken = KeychainAccess.getStoredAuthToken() {
             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -4389,7 +3470,7 @@ extension NotificationViewController {
             throw NSError(domain: "SnoozeError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Bucket ID not found in notification"])
         }
         
-        guard let apiEndpoint = getApiEndpoint() else {
+        guard let apiEndpoint = KeychainAccess.getApiEndpoint() else {
             throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not configured"])
         }
         
@@ -4404,7 +3485,7 @@ extension NotificationViewController {
         request.setValue("Zentik-iOS-Extension/1.0", forHTTPHeaderField: "User-Agent")
         
         // Add authentication token if available
-        if let authToken = getStoredAuthToken() {
+        if let authToken = KeychainAccess.getStoredAuthToken() {
             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -4486,7 +3567,7 @@ extension NotificationViewController {
     private func markNotificationAsRead(notificationId: String) async throws {
         print("📱 [ContentExtension] ✅ Marking notification as read: \(notificationId)")
         
-        guard let apiEndpoint = getApiEndpoint() else {
+        guard let apiEndpoint = KeychainAccess.getApiEndpoint() else {
             throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not configured"])
         }
         
@@ -4500,7 +3581,7 @@ extension NotificationViewController {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         // Add authentication token if available
-        if let authToken = getStoredAuthToken() {
+        if let authToken = KeychainAccess.getStoredAuthToken() {
             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -4518,7 +3599,7 @@ extension NotificationViewController {
     private func deleteNotification(notificationId: String) async throws {
         print("📱 [ContentExtension] 🗑️ Deleting notification: \(notificationId)")
         
-        guard let apiEndpoint = getApiEndpoint() else {
+        guard let apiEndpoint = KeychainAccess.getApiEndpoint() else {
             throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not configured"])
         }
         
@@ -4532,7 +3613,7 @@ extension NotificationViewController {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         // Add authentication token if available
-        if let authToken = getStoredAuthToken() {
+        if let authToken = KeychainAccess.getStoredAuthToken() {
             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -4546,268 +3627,14 @@ extension NotificationViewController {
             }
         }
     }
-    
-    private func getApiEndpoint() -> String? {
-        let accessGroup = getKeychainAccessGroup()
-        
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "zentik-api-endpoint",
-            kSecAttrAccount as String: "endpoint",
-            kSecAttrAccessGroup as String: accessGroup,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        
-        if status == errSecSuccess, let data = result as? Data, let endpoint = String(data: data, encoding: .utf8) {
-            print("📱 [ContentExtension] ✅ Retrieved API endpoint from keychain: \(endpoint)")
-            return endpoint
-        }
-        
-        print("📱 [ContentExtension] ℹ️ No API endpoint found in keychain, using default")
-        return "https://notifier-api.zentik.app"
-    }
-    
-    private func getStoredAuthToken() -> String? {
-        let accessGroup = getKeychainAccessGroup()
-        let bundleIdentifier = getMainBundleIdentifier()
-        
-        print("📱 [ContentExtension] 🔍 Looking for auth token with bundle: \(bundleIdentifier)")
-        print("📱 [ContentExtension] 🔍 Access group: \(accessGroup)")
-        print("📱 [ContentExtension] 🔍 Current bundle ID: \(Bundle.main.bundleIdentifier ?? "nil")")
-        
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "zentik-auth",
-            kSecAttrAccessGroup as String: accessGroup,
-            kSecReturnData as String: true,
-            kSecReturnAttributes as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        
-        print("📱 [ContentExtension] 🔍 Keychain query: \(query)")
-        
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        
-        print("📱 [ContentExtension] 🔍 Keychain query status: \(status)")
-        if let resultDict = result as? [String: Any] {
-            print("📱 [ContentExtension] 🔍 Keychain result keys: \(resultDict.keys)")
-        }
-        
-        if status == errSecSuccess, let item = result as? [String: Any] {
-            // react-native-keychain stores accessToken as kSecAttrAccount and refreshToken as kSecValueData
-            print("📱 [ContentExtension] 🔍 Trying to extract accessToken from item...")
-            
-            // Try to get account as String directly first
-            if let accessToken = item[kSecAttrAccount as String] as? String {
-                print("📱 [ContentExtension] ✅ Retrieved auth token from keychain (as String)")
-                return accessToken
-            }
-            // Try to get account as Data and convert to String
-            else if let accountData = item[kSecAttrAccount as String] as? Data,
-                    let accessToken = String(data: accountData, encoding: .utf8) {
-                print("📱 [ContentExtension] ✅ Retrieved auth token from keychain (as Data)")
-                return accessToken
-            } else {
-                print("📱 [ContentExtension] ❌ Found keychain item but failed to extract accessToken")
-                print("📱 [ContentExtension] 🔍 Item keys: \(item.keys)")
-                if let acctValue = item[kSecAttrAccount as String] {
-                    print("📱 [ContentExtension] 🔍 Account value type: \(type(of: acctValue))")
-                    print("📱 [ContentExtension] 🔍 Account value: \(acctValue)")
-                }
-            }
-        }
-        
-        print("📱 [ContentExtension] ℹ️ No auth token found in keychain (status: \(status))")
-        print("📱 [ContentExtension] 🔍 Bundle identifier: \(Bundle.main.bundleIdentifier ?? "nil")")
-        return nil
-    }
 }
 
 // MARK: - Keychain Operations
 
 extension NotificationViewController {
     
-    private func getMainBundleIdentifier() -> String {
-        return Bundle.main.bundleIdentifier?.replacingOccurrences(of: ".ZentikNotificationContentExtension", with: "") ?? "{{MAIN_BUNDLE_ID}}"
-    }
-    
-    private func getKeychainAccessGroup() -> String {
-        let bundleIdentifier = getMainBundleIdentifier()
-        return "C3F24V5NS5.\(bundleIdentifier).keychain"
-    }
-    
-    private func storeIntentInKeychain(data: [String: Any], service: String) throws {
-        let accessGroup = getKeychainAccessGroup()
-        
-        let jsonData = try JSONSerialization.data(withJSONObject: data)
-        
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: "intent",
-            kSecAttrAccessGroup as String: accessGroup,
-            kSecValueData as String: jsonData,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
-        ]
-        
-        // Delete any existing item first
-        let deleteQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: "intent",
-            kSecAttrAccessGroup as String: accessGroup
-        ]
-        SecItemDelete(deleteQuery as CFDictionary)
-        
-        // Add the new item
-        let status = SecItemAdd(query as CFDictionary, nil)
-        if status != errSecSuccess {
-            throw NSError(domain: "KeychainError", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "Failed to store intent in keychain"])
-        }
-        
-        print("📱 [ContentExtension] ✅ Successfully stored intent in keychain with service: \(service)")
-    }
-    
-    private func getIntentFromKeychain(service: String) -> [String: Any]? {
-        let accessGroup = getKeychainAccessGroup()
-        
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: "intent",
-            kSecAttrAccessGroup as String: accessGroup,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        
-        if status == errSecSuccess, let data = result as? Data {
-            do {
-                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-                print("📱 [ContentExtension] ✅ Retrieved intent from keychain with service: \(service)")
-                return json
-            } catch {
-                print("📱 [ContentExtension] ❌ Failed to parse intent data from keychain: \(error)")
-            }
-        } else {
-            print("📱 [ContentExtension] ℹ️ No intent found in keychain with service: \(service) (status: \(status))")
-        }
-        
-        return nil
-    }
-    
     private func clearNavigationIntent() {
-        clearIntentFromKeychain(service: "zentik-pending-navigation")
-    }
-    
-    private func clearIntentFromKeychain(service: String) {
-        let accessGroup = getKeychainAccessGroup()
-        
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: "intent",
-            kSecAttrAccessGroup as String: accessGroup
-        ]
-        
-        let status = SecItemDelete(query as CFDictionary)
-        if status == errSecSuccess {
-            print("📱 [ContentExtension] ✅ Cleared intent from keychain with service: \(service)")
-        } else {
-            print("📱 [ContentExtension] ℹ️ No intent to clear in keychain with service: \(service) (status: \(status))")
-        }
-    }
-    
-    // MARK: - Badge Count Management
-    
-    private func getBadgeCountFromKeychain() -> Int {
-        let accessGroup = getKeychainAccessGroup()
-        
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "zentik-badge-count",
-            kSecAttrAccount as String: "badge",
-            kSecAttrAccessGroup as String: accessGroup,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        
-        if status == errSecSuccess, 
-           let data = result as? Data, 
-           let countString = String(data: data, encoding: .utf8),
-           let count = Int(countString) {
-            print("📱 [ContentExtension] 🔢 Retrieved badge count from keychain: \(count)")
-            return count
-        }
-        
-        print("📱 [ContentExtension] 🔢 No badge count found in keychain, defaulting to 0")
-        return 0
-    }
-    
-    private func saveBadgeCountToKeychain(count: Int) {
-        let accessGroup = getKeychainAccessGroup()
-        
-        let countData = String(count).data(using: .utf8)!
-        
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "zentik-badge-count",
-            kSecAttrAccount as String: "badge",
-            kSecAttrAccessGroup as String: accessGroup,
-            kSecValueData as String: countData,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
-        ]
-        
-        // Delete any existing item first
-        let deleteQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "zentik-badge-count",
-            kSecAttrAccount as String: "badge",
-            kSecAttrAccessGroup as String: accessGroup
-        ]
-        SecItemDelete(deleteQuery as CFDictionary)
-        
-        // Add the new item
-        let status = SecItemAdd(query as CFDictionary, nil)
-        if status == errSecSuccess {
-            print("📱 [ContentExtension] ✅ Successfully saved badge count \(count) to keychain")
-        } else {
-            print("📱 [ContentExtension] ❌ Failed to save badge count to keychain (status: \(status))")
-        }
-    }
-    
-    private func decrementBadgeCount() {
-        print("📱 [ContentExtension] 🔢 Decrementing badge count...")
-        let currentCount = getBadgeCountFromKeychain()
-        let newCount = max(0, currentCount - 1) // Ensure it doesn't go below 0
-        saveBadgeCountToKeychain(count: newCount)
-        
-        // Also update the system badge count (iOS 16.0+)
-        if #available(iOS 16.0, *) {
-            UNUserNotificationCenter.current().setBadgeCount(newCount) { error in
-                if let error = error {
-                    print("📱 [ContentExtension] ❌ Failed to update system badge count: \(error)")
-                } else {
-                    print("📱 [ContentExtension] ✅ System badge count updated to \(newCount)")
-                }
-            }
-        } else {
-            // For iOS < 16.0, we can only update the keychain
-            // The main app will sync the badge count when it becomes active
-            print("📱 [ContentExtension] ℹ️ iOS < 16.0: Badge count saved to keychain, main app will sync")
-        }
-        
-        print("📱 [ContentExtension] 🔢 Badge count decremented from \(currentCount) to \(newCount)")
+        KeychainAccess.clearIntentFromKeychain(service: "zentik-pending-navigation")
     }
     
     // MARK: - Shared Cache Management
@@ -4933,59 +3760,18 @@ extension NotificationViewController {
         print("📱 [ContentExtension] 🔄 Manual download started for: \(typePart) - \(urlPart)")
     }
     
-    private func getSharedMediaCacheDirectory() -> URL {
-        // Use App Groups shared container for cross-process access
-        let bundleIdentifier = getMainBundleIdentifier()
-        let appGroupIdentifier = "group.\(bundleIdentifier)"
-        
-        print("📱 [ContentExtension] 🔍 App Group identifier: \(appGroupIdentifier)")
-        
-        if let sharedContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) {
-            let cacheDirectory = sharedContainerURL.appendingPathComponent("shared_media_cache")
-            
-            // Ensure the cache directory exists
-            if !FileManager.default.fileExists(atPath: cacheDirectory.path) {
-                do {
-                    try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true, attributes: nil)
-                    print("📱 [ContentExtension] ✅ Created shared media cache directory: \(cacheDirectory.path)")
-                } catch {
-                    print("📱 [ContentExtension] ❌ Failed to create shared cache directory: \(error)")
-                }
-            }
-            
-            print("📱 [ContentExtension] 📁 Using shared cache directory: \(cacheDirectory.path)")
-            return cacheDirectory
-        } else {
-            print("📱 [ContentExtension] ⚠️ App Groups not available, using fallback directory")
-            // Fallback to Documents directory if App Groups not available
-            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            let cacheDirectory = documentsPath.appendingPathComponent("shared_media_cache")
-            
-            // Ensure the fallback cache directory exists
-            if !FileManager.default.fileExists(atPath: cacheDirectory.path) {
-                do {
-                    try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true, attributes: nil)
-                    print("📱 [ContentExtension] ✅ Created fallback cache directory: \(cacheDirectory.path)")
-                } catch {
-                    print("📱 [ContentExtension] ❌ Failed to create fallback cache directory: \(error)")
-                }
-            }
-            
-            return cacheDirectory
-        }
-    }
     
     private func getCachedMediaPath(url: String, mediaType: String) -> String? {
         let cacheKey = "\(mediaType.uppercased())_\(url)"
-        let filename = generateSafeFileName(url: url, mediaType: mediaType, originalFileName: nil as String?)
-        let sharedCacheDirectory = getSharedMediaCacheDirectory()
+        let filename = MediaAccess.generateSafeFileName(url: url, mediaType: mediaType, originalFileName: nil as String?)
+        let sharedCacheDirectory = MediaAccess.getSharedMediaCacheDirectory()
         let typeDirectory = sharedCacheDirectory.appendingPathComponent(mediaType.uppercased())
         let filePath = typeDirectory.appendingPathComponent(filename).path
         
         print("📱 [ContentExtension] 🔍 Checking cached file: \(filePath)")
         print("📱 [ContentExtension] 📁 Cache directory: \(sharedCacheDirectory.path)")
         print("📱 [ContentExtension] 📄 Generated filename: \(filename)")
-        print("📱 [ContentExtension] 🔗 URL hash: \(generateLongHash(url: url))")
+        print("📱 [ContentExtension] 🔗 URL hash: \(MediaAccess.generateLongHash(url: url))")
         
         // Check if directory exists
         if !FileManager.default.fileExists(atPath: typeDirectory.path) {
@@ -5117,8 +3903,8 @@ extension NotificationViewController {
                 }
             } else {
                 // Check current states
-                let isDownloading = self.isMediaDownloading(url: url, mediaType: mediaType)
-                let errorCheck = self.hasMediaDownloadError(url: url, mediaType: mediaType)
+                let isDownloading = MediaAccess.isMediaDownloading(url: url, mediaType: mediaType)
+                let errorCheck = MediaAccess.hasMediaDownloadError(url: url, mediaType: mediaType)
                 
                 print("📱 [ContentExtension] Polling states - Downloading: \(isDownloading), HasError: \(errorCheck.hasError)")
                 
@@ -5150,69 +3936,6 @@ extension NotificationViewController {
         }
     }
     
-    private func generateSafeFileName(url: String, mediaType: String, originalFileName: String?) -> String {
-        // Extract the extension from the original filename or URL
-        let fileExtension = getFileExtension(url: url, mediaType: mediaType, originalFileName: originalFileName)
-        
-        // Generate a robust hash for the filename
-        let longHash = generateLongHash(url: url)
-        
-        let safeFileName = "\(mediaType.lowercased())_\(longHash)"
-        
-        return "\(safeFileName)\(fileExtension)"
-    }
-    
-    /**
-     * Generate a robust hash for URL-based filename generation
-     * Uses the same algorithm as the mobile app (React Native media-cache)
-     */
-    private func generateLongHash(url: String) -> String {
-        // Replicate exact React Native algorithm: hash = (hash * 31 + char) >>> 0
-        var hash: UInt32 = 0
-        for char in url.utf8 {
-            // Use safe arithmetic operations to avoid overflow (matching JS >>> 0)
-            hash = (hash &* 31 &+ UInt32(char)) // Swift &* and &+ provide overflow protection
-        }
-        // Convert to hex string and pad to 8 characters (matching JS toString(16).padStart(8, '0'))
-        return String(format: "%08x", hash)
-    }
-    
-    private func getFileExtension(url: String, mediaType: String, originalFileName: String?) -> String {
-        // Try first from the original filename
-        if let originalFileName = originalFileName {
-            let parts = originalFileName.components(separatedBy: ".")
-            if parts.count > 1 {
-                let ext = parts.last!
-                if ext.count <= 5 && ext.range(of: "^[a-zA-Z0-9]+$", options: .regularExpression) != nil {
-                    return ".\(ext.lowercased())"
-                }
-            }
-        }
-        
-        // Try from the URL
-        let urlParts = url.components(separatedBy: "?")[0].components(separatedBy: ".")
-        if urlParts.count > 1 {
-            let ext = urlParts.last!
-            if ext.count <= 5 && ext.range(of: "^[a-zA-Z0-9]+$", options: .regularExpression) != nil {
-                return ".\(ext.lowercased())"
-            }
-        }
-        
-        // Default based on media type
-        switch mediaType.uppercased() {
-        case "IMAGE":
-            return ".jpg"
-        case "GIF":
-            return ".gif"
-        case "VIDEO":
-            return ".mp4"
-        case "AUDIO":
-            return ".mp3"
-        default:
-            return ".dat"
-        }
-    }
-    
     // MARK: - Icon Loading from Shared Cache
     
     private func loadIconFromSharedCache(iconUrl: String, iconImageView: UIImageView) {
@@ -5222,9 +3945,9 @@ extension NotificationViewController {
         iconImageView.isHidden = false
         
         // First, try to get the icon from shared cache
-        let sharedCacheDir = getSharedMediaCacheDirectory()
+        let sharedCacheDir = MediaAccess.getSharedMediaCacheDirectory()
         
-        let filename = generateSafeFileName(url: iconUrl, mediaType: "ICON", originalFileName: nil as String?)
+        let filename = MediaAccess.generateSafeFileName(url: iconUrl, mediaType: "ICON", originalFileName: nil as String?)
         let cachedIconPath = sharedCacheDir.appendingPathComponent("ICON").appendingPathComponent(filename)
         
         // Check if icon exists in shared cache
@@ -5300,83 +4023,4 @@ extension NotificationViewController {
     }
     
     // MARK: - Shared Storage Methods
-    
-    private func getBucketIconFromSharedCache(bucketId: String, bucketName: String) -> Data? {
-        let cacheDirectory = getSharedMediaCacheDirectory()
-        let bucketIconDirectory = cacheDirectory.appendingPathComponent("BUCKET_ICON")
-        
-        // Generate filename based on bucket info
-        let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
-        let fileName = "bucket_icon_\(bucketId)_\(safeBucketName).png"
-        let fileURL = bucketIconDirectory.appendingPathComponent(fileName)
-        
-        // Check if bucket icon exists
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            print("📱 [ContentExtension] 🎭 No cached bucket icon found for \(bucketName)")
-            return nil
-        }
-        
-        // Load bucket icon data
-        do {
-            let data = try Data(contentsOf: fileURL)
-            print("📱 [ContentExtension] 🎭 ✅ Found cached bucket icon for \(bucketName)")
-            return data
-        } catch {
-            print("📱 [ContentExtension] 🎭 ❌ Failed to load cached bucket icon: \(error)")
-            return nil
-        }
-    }
-    
-    private func saveBucketIconToSharedCache(_ imageData: Data, bucketId: String, bucketName: String) -> URL? {
-        let cacheDirectory = getSharedMediaCacheDirectory()
-        let bucketIconDirectory = cacheDirectory.appendingPathComponent("BUCKET_ICON")
-        
-        // Create bucket icon directory if it doesn't exist
-        do {
-            try FileManager.default.createDirectory(at: bucketIconDirectory, withIntermediateDirectories: true, attributes: nil)
-        } catch {
-            print("📱 [ContentExtension] ❌ Failed to create bucket icon directory: \(error)")
-            return nil
-        }
-        
-        // Generate filename based on bucket info
-        let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
-        let fileName = "bucket_icon_\(bucketId)_\(safeBucketName).png"
-        let fileURL = bucketIconDirectory.appendingPathComponent(fileName)
-        
-        do {
-            try imageData.write(to: fileURL)
-            print("📱 [ContentExtension] ✅ Saved bucket icon to shared cache: \(fileURL.lastPathComponent)")
-            return fileURL
-        } catch {
-            print("📱 [ContentExtension] ❌ Failed to save bucket icon to shared cache: \(error)")
-            return nil
-        }
-    }
-    
-    private func getPlaceholderFromSharedCache(bucketId: String, bucketName: String) -> Data? {
-        let cacheDirectory = getSharedMediaCacheDirectory()
-        let placeholderDirectory = cacheDirectory.appendingPathComponent("PLACEHOLDER")
-        
-        // Generate filename based on bucket info
-        let safeBucketName = bucketName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
-        let fileName = "placeholder_\(bucketId)_\(safeBucketName).png"
-        let fileURL = placeholderDirectory.appendingPathComponent(fileName)
-        
-        // Check if placeholder exists
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            print("📱 [ContentExtension] 🎭 No cached placeholder found for \(bucketName)")
-            return nil
-        }
-        
-        // Load placeholder data
-        do {
-            let data = try Data(contentsOf: fileURL)
-            print("📱 [ContentExtension] 🎭 ✅ Found cached placeholder for \(bucketName)")
-            return data
-        } catch {
-            print("📱 [ContentExtension] 🎭 ❌ Failed to load cached placeholder: \(error)")
-            return nil
-        }
-    }
 }
