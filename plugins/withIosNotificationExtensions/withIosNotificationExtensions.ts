@@ -363,11 +363,14 @@ function addToEmbedFrameworksPhase(
     });
   }
   
-  // Create a build file for embedding (without ATTRIBUTES to avoid pbxproj parsing issues)
+  // Create a build file for embedding with CodeSignOnCopy attribute
   const embedBuildFileUuid = pbxProject.generateUuid();
   pbxProject.hash.project.objects.PBXBuildFile[embedBuildFileUuid] = {
     isa: 'PBXBuildFile',
-    fileRef: frameworkFileRef
+    fileRef: frameworkFileRef,
+    settings: {
+      ATTRIBUTES: ['CodeSignOnCopy', 'RemoveHeadersOnCopy']
+    }
   };
   
   // Check if already in embed phase
@@ -384,7 +387,7 @@ function addToEmbedFrameworksPhase(
       value: embedBuildFileUuid,
       comment: frameworkName
     });
-    console.log(`[${targetName}] ✓ Added ${frameworkName} to Embed Frameworks`);
+    console.log(`[${targetName}] ✓ Added ${frameworkName} to Embed Frameworks (with CodeSignOnCopy)`);
   }
 }
 
