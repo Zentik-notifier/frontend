@@ -28,6 +28,40 @@ function copyDirSync(src: string, dest: string, mainBundleId?: string) {
   }
 }
 
+function copySharedFilesToTarget(
+  pluginDir: string,
+  targetDir: string,
+  targetName: string
+) {
+  const sharedFilesSource = path.join(pluginDir, 'files', 'ZentikShared');
+  
+  if (!fs.existsSync(sharedFilesSource)) {
+    console.log(`[${targetName}] ⚠️  Shared files directory not found: ${sharedFilesSource}`);
+    return;
+  }
+
+  const sharedFiles = [
+    'KeychainAccess.swift',
+    'DatabaseAccess.swift',
+    'LoggingSystem.swift',
+    'SharedTypes.swift',
+    'NotificationActionHandler.swift',
+    'MediaAccess.swift',
+  ];
+  
+  for (const file of sharedFiles) {
+    const sourcePath = path.join(sharedFilesSource, file);
+    const destPath = path.join(targetDir, file);
+    
+    if (fs.existsSync(sourcePath)) {
+      fs.copyFileSync(sourcePath, destPath);
+      console.log(`[${targetName}] ✓ Copied shared file: ${file}`);
+    } else {
+      console.log(`[${targetName}] ⚠️  Shared file not found: ${file}`);
+    }
+  }
+}
+
 async function addAppExtensionTarget(
   newConfig: ExportedConfigWithProps,
   projectRoot: string,
@@ -35,7 +69,7 @@ async function addAppExtensionTarget(
   bundleId: string,
   sourceDir: string,
   mainBundleId: string,
-  frameworkTargetName?: string  // Optional framework to link
+  pluginDir: string
 ): Promise<string> {  // Return target UUID
   const pbxProject = newConfig.modResults;
 
@@ -48,7 +82,11 @@ async function addAppExtensionTarget(
   const iosDir = path.join(projectRoot, 'ios');
   const destDir = path.join(iosDir, targetName);
 
+  // Copy target-specific files
   copyDirSync(sourceDir, destDir, mainBundleId);
+  
+  // Copy shared files into the target directory
+  copySharedFilesToTarget(pluginDir, destDir, targetName);
 
   const target = pbxProject.addTarget(targetName, 'app_extension', targetName);
   pbxProject.addBuildPhase([], 'PBXSourcesBuildPhase', 'Sources', target.uuid);
@@ -130,380 +168,9 @@ async function addAppExtensionTarget(
     );
   }
 
-  // Link shared framework if provided - using manual approach for custom frameworks
-  if (frameworkTargetName) {
-    const frameworkTargetKey = pbxProject.findTargetKey(frameworkTargetName);
-    
-    // Add framework as a dependency first
-    if (frameworkTargetKey) {
-      pbxProject.addTargetDependency(target.uuid, [frameworkTargetKey]);
-    }
-    
-    // Manually link the framework to this target
-    linkCustomFrameworkToTarget(pbxProject, frameworkTargetName, target.uuid, targetName);
-    
-    console.log(`[${targetName}] ✓ Linked shared framework ${frameworkTargetName}`);
-  }
-
   console.log(`Target ${targetName} creato con bundle identifier ${bundleId}`);
   
   return target.uuid;  // Return the target UUID
-}
-
-async function createSharedFrameworkTarget(
-  pbxProject: XcodeProject,
-  projectRoot: string,
-  baseBundleId: string
-) {
-  const frameworkTargetName = 'ZentikShared';
-  const frameworkBundleId = `${baseBundleId}.ZentikShared`;
-  
-  // Check if framework target already exists
-  if (pbxProject.findTargetKey(frameworkTargetName)) {
-    console.log(`Framework target ${frameworkTargetName} già presente, salto creazione.`);
-    return frameworkTargetName;
-  }
-
-  console.log(`[ZentikShared] 📦 Creating shared framework target...`);
-  
-  // Copy shared Swift files to framework directory
-  const iosDir = path.join(projectRoot, 'ios');
-  const frameworkSourcePath = path.join(iosDir, frameworkTargetName);
-  const pluginDir = path.dirname(__filename);
-  const sharedFilesSource = path.join(pluginDir, 'files', 'ZentikShared');
-  
-  if (!fs.existsSync(frameworkSourcePath)) {
-    fs.mkdirSync(frameworkSourcePath, { recursive: true });
-  }
-  
-  // Copy shared Swift files
-  const sharedFiles = [
-    'KeychainAccess.swift',
-    'DatabaseAccess.swift',
-    'LoggingSystem.swift',
-    'SharedTypes.swift',
-    'NotificationActionHandler.swift',
-    'MediaAccess.swift',
-  ];
-  
-  for (const file of sharedFiles) {
-    const sourcePath = path.join(sharedFilesSource, file);
-    const destPath = path.join(frameworkSourcePath, file);
-    
-    if (fs.existsSync(sourcePath)) {
-      fs.copyFileSync(sourcePath, destPath);
-      console.log(`[ZentikShared] ✓ Copied ${file}`);
-    }
-  }
-  
-  // Add framework target
-  const target = pbxProject.addTarget(frameworkTargetName, 'framework', frameworkTargetName);
-  
-  // Create the necessary build phases
-  pbxProject.addBuildPhase([], 'PBXSourcesBuildPhase', 'Sources', target.uuid);
-  pbxProject.addBuildPhase([], 'PBXFrameworksBuildPhase', 'Frameworks', target.uuid);
-  pbxProject.addBuildPhase([], 'PBXResourcesBuildPhase', 'Resources', target.uuid);
-  
-  // Add Swift source files to framework target
-  const pbxGroupKey = pbxProject.pbxCreateGroup(frameworkTargetName, frameworkTargetName);
-  
-  for (const file of sharedFiles) {
-    const absPath = path.join(frameworkSourcePath, file);
-    pbxProject.addSourceFile(absPath, { target: target.uuid }, pbxGroupKey);
-  }
-  
-  // Configure framework build settings
-  const configurations = pbxProject.pbxXCBuildConfigurationSection();
-  for (const key in configurations) {
-    if (typeof configurations[key].buildSettings !== 'undefined') {
-      const buildSettingsObj = configurations[key].buildSettings;
-      if (
-        typeof buildSettingsObj.PRODUCT_NAME !== 'undefined' &&
-        buildSettingsObj.PRODUCT_NAME === `"${frameworkTargetName}"`
-      ) {
-        // Framework needs a bundle identifier for Info.plist (even if not signed separately)
-        buildSettingsObj.PRODUCT_BUNDLE_IDENTIFIER = `"${frameworkBundleId}"`;
-        
-        buildSettingsObj.SWIFT_VERSION = '5.0';
-        buildSettingsObj.TARGETED_DEVICE_FAMILY = '"1,2,4"'; // iPhone, iPad, Apple Watch
-        buildSettingsObj.IPHONEOS_DEPLOYMENT_TARGET = '13.4';
-        buildSettingsObj.DEFINES_MODULE = 'YES';
-        buildSettingsObj.SKIP_INSTALL = 'NO';
-        buildSettingsObj.INSTALL_PATH = '"$(LOCAL_LIBRARY_DIR)/Frameworks"';
-        buildSettingsObj.DYLIB_INSTALL_NAME_BASE = '"@rpath"';
-        buildSettingsObj.LD_RUNPATH_SEARCH_PATHS = '"$(inherited) @executable_path/Frameworks @loader_path/Frameworks"';
-        buildSettingsObj.ENABLE_BITCODE = 'NO';
-        buildSettingsObj.CLANG_ENABLE_MODULES = 'YES';
-        buildSettingsObj.GENERATE_INFOPLIST_FILE = 'YES';
-        delete buildSettingsObj.INFOPLIST_FILE;
-        
-        // Code signing: Frameworks don't use provisioning profiles
-        // Sign on copy when embedded in app/extensions
-        buildSettingsObj.CODE_SIGN_IDENTITY = '""';
-        buildSettingsObj.CODE_SIGN_STYLE = 'Manual';
-        
-        // Explicitly prevent provisioning profile usage
-        delete buildSettingsObj.DEVELOPMENT_TEAM;
-        delete buildSettingsObj.PROVISIONING_PROFILE_SPECIFIER;
-        delete buildSettingsObj.CODE_SIGN_ENTITLEMENTS;
-        
-        // Different optimization levels for Debug/Release
-        if (key.includes('Debug')) {
-          buildSettingsObj.SWIFT_OPTIMIZATION_LEVEL = '"-Onone"';
-        } else if (key.includes('Release')) {
-          buildSettingsObj.SWIFT_OPTIMIZATION_LEVEL = '"-O"';
-        }
-      }
-    }
-  }
-  
-  // Don't add development team for framework
-  // Frameworks are signed on copy, not separately
-  
-  console.log(`[ZentikShared] ✅ Framework target created with bundle identifier ${frameworkBundleId} (signed on copy)`);
-  
-  return frameworkTargetName;
-}
-
-function addFrameworkToNavigatorGroup(
-  pbxProject: XcodeProject,
-  frameworkFileRef: string,
-  frameworkName: string
-) {
-  // Find or create the Frameworks group
-  let frameworksGroupKey = null;
-  
-  for (const key in pbxProject.hash.project.objects.PBXGroup) {
-    const group = pbxProject.hash.project.objects.PBXGroup[key];
-    if (group && group.name === 'Frameworks') {
-      frameworksGroupKey = key;
-      break;
-    }
-  }
-  
-  if (!frameworksGroupKey) {
-    // Create Frameworks group if it doesn't exist
-    const uuid = pbxProject.generateUuid();
-    pbxProject.hash.project.objects.PBXGroup[uuid] = {
-      isa: 'PBXGroup',
-      children: [],
-      name: 'Frameworks',
-      sourceTree: '<group>'
-    };
-    frameworksGroupKey = uuid;
-    
-    // Add to main group
-    const mainGroupKey = pbxProject.hash.project.objects.PBXProject[Object.keys(pbxProject.hash.project.objects.PBXProject)[0]].mainGroup;
-    const mainGroup = pbxProject.hash.project.objects.PBXGroup[mainGroupKey];
-    if (mainGroup && mainGroup.children) {
-      mainGroup.children.push({
-        value: uuid,
-        comment: 'Frameworks'
-      });
-    }
-  }
-  
-  const frameworksGroup = pbxProject.hash.project.objects.PBXGroup[frameworksGroupKey];
-  
-  // Check if framework is already in the group
-  const alreadyInGroup = frameworksGroup.children?.some((child: any) => child.value === frameworkFileRef);
-  
-  if (!alreadyInGroup) {
-    if (!frameworksGroup.children) {
-      frameworksGroup.children = [];
-    }
-    frameworksGroup.children.push({
-      value: frameworkFileRef,
-      comment: frameworkName
-    });
-    console.log(`[Frameworks] ✓ Added ${frameworkName} to Project Navigator`);
-  }
-}
-
-function addToEmbedFrameworksPhase(
-  pbxProject: XcodeProject,
-  targetUuid: string,
-  frameworkFileRef: string,
-  frameworkName: string,
-  targetName: string
-) {
-  const target = pbxProject.hash.project.objects.PBXNativeTarget[targetUuid];
-  if (!target) return;
-  
-  // Find or create the "Embed Frameworks" copy files build phase
-  let embedPhase = null;
-  let embedPhaseKey = null;
-  
-  for (const buildPhaseId of target.buildPhases) {
-    const phase = pbxProject.hash.project.objects.PBXCopyFilesBuildPhase?.[buildPhaseId.value];
-    if (phase && phase.name === '"Embed Frameworks"' && phase.dstSubfolderSpec === '10') {
-      embedPhase = phase;
-      embedPhaseKey = buildPhaseId.value;
-      break;
-    }
-  }
-  
-  if (!embedPhase) {
-    // Create new Embed Frameworks phase
-    const uuid = pbxProject.generateUuid();
-    embedPhaseKey = uuid;
-    embedPhase = {
-      isa: 'PBXCopyFilesBuildPhase',
-      buildActionMask: '2147483647',
-      dstPath: '""',
-      dstSubfolderSpec: '10', // Frameworks folder
-      name: '"Embed Frameworks"',
-      runOnlyForDeploymentPostprocessing: '0'
-    };
-    pbxProject.hash.project.objects.PBXCopyFilesBuildPhase[uuid] = embedPhase;
-    
-    // Add to target's build phases
-    target.buildPhases.push({
-      value: uuid,
-      comment: 'Embed Frameworks'
-    });
-  }
-  
-  // Create a build file for embedding with CodeSignOnCopy attribute
-  const embedBuildFileUuid = pbxProject.generateUuid();
-  pbxProject.hash.project.objects.PBXBuildFile[embedBuildFileUuid] = {
-    isa: 'PBXBuildFile',
-    fileRef: frameworkFileRef,
-    settings: {
-      ATTRIBUTES: ['CodeSignOnCopy', 'RemoveHeadersOnCopy']
-    }
-  };
-  
-  // Check if already in embed phase
-  const alreadyEmbedded = embedPhase.files?.some((file: any) => {
-    const buildFile = pbxProject.hash.project.objects.PBXBuildFile[file.value];
-    return buildFile && buildFile.fileRef === frameworkFileRef;
-  });
-  
-  if (!alreadyEmbedded) {
-    if (!embedPhase.files) {
-      embedPhase.files = [];
-    }
-    embedPhase.files.push({
-      value: embedBuildFileUuid,
-      comment: frameworkName
-    });
-    console.log(`[${targetName}] ✓ Added ${frameworkName} to Embed Frameworks (with CodeSignOnCopy)`);
-  }
-}
-
-function linkCustomFrameworkToTarget(
-  pbxProject: XcodeProject,
-  frameworkName: string,
-  targetUuid: string,
-  targetName: string
-) {
-  const frameworkPath = `${frameworkName}.framework`;
-  const frameworkRef = `${frameworkName}.framework`;
-  
-  // Find the frameworks build phase for this target
-  const target = pbxProject.hash.project.objects.PBXNativeTarget[targetUuid];
-  if (!target) {
-    console.log(`[${targetName}] ⚠️  Target not found: ${targetUuid}`);
-    return;
-  }
-  
-  let frameworksBuildPhase = null;
-  for (const buildPhaseId of target.buildPhases) {
-    const buildPhase = pbxProject.hash.project.objects.PBXFrameworksBuildPhase[buildPhaseId.value];
-    if (buildPhase) {
-      frameworksBuildPhase = buildPhase;
-      break;
-    }
-  }
-  
-  if (!frameworksBuildPhase) {
-    console.log(`[${targetName}] ⚠️  Frameworks build phase not found`);
-    return;
-  }
-  
-  // Add the framework file reference if it doesn't exist
-  let frameworkFileRef = null;
-  for (const key in pbxProject.hash.project.objects.PBXFileReference) {
-    const fileRef = pbxProject.hash.project.objects.PBXFileReference[key];
-    if (fileRef && fileRef.path === frameworkPath && fileRef.sourceTree === 'BUILT_PRODUCTS_DIR') {
-      frameworkFileRef = key;
-      break;
-    }
-  }
-  
-  if (!frameworkFileRef) {
-    // Create new file reference
-    const uuid = pbxProject.generateUuid();
-    pbxProject.hash.project.objects.PBXFileReference[uuid] = {
-      isa: 'PBXFileReference',
-      lastKnownFileType: 'wrapper.framework',
-      name: frameworkRef,
-      path: frameworkPath,
-      sourceTree: 'BUILT_PRODUCTS_DIR'
-    };
-    frameworkFileRef = uuid;
-  }
-  
-  // Always try to add to Frameworks group (will check if already added)
-  addFrameworkToNavigatorGroup(pbxProject, frameworkFileRef, frameworkRef);
-  
-  // Create build file for the framework
-  const buildFileUuid = pbxProject.generateUuid();
-  pbxProject.hash.project.objects.PBXBuildFile[buildFileUuid] = {
-    isa: 'PBXBuildFile',
-    fileRef: frameworkFileRef
-  };
-  
-  // Add to frameworks build phase if not already there
-  if (!frameworksBuildPhase.files) {
-    frameworksBuildPhase.files = [];
-  }
-  
-  const alreadyLinked = frameworksBuildPhase.files.some((file: any) => {
-    const buildFile = pbxProject.hash.project.objects.PBXBuildFile[file.value];
-    return buildFile && buildFile.fileRef === frameworkFileRef;
-  });
-  
-  if (!alreadyLinked) {
-    frameworksBuildPhase.files.push({
-      value: buildFileUuid,
-      comment: frameworkRef
-    });
-  }
-  
-  console.log(`[${targetName}] ✓ Added ${frameworkName} to Link Binary With Libraries`);
-  
-  // Add framework to "Embed Frameworks" build phase
-  addToEmbedFrameworksPhase(pbxProject, targetUuid, frameworkFileRef, frameworkRef, targetName);
-}
-
-async function linkFrameworkToTargets(
-  pbxProject: XcodeProject,
-  frameworkTargetName: string,
-  targets: Array<{ name: string; uuid: string }>
-) {
-  console.log(`[ZentikShared] 🔗 Linking framework to targets...`);
-  
-  const frameworkTargetKey = pbxProject.findTargetKey(frameworkTargetName);
-  
-  for (const target of targets) {
-    try {
-      console.log(`[ZentikShared] ✓ Linking to target: ${target.name}`);
-      
-      // Add framework as a dependency
-      if (frameworkTargetKey) {
-        pbxProject.addTargetDependency(target.uuid, [frameworkTargetKey]);
-      }
-      
-      // Use our custom linking function
-      linkCustomFrameworkToTarget(pbxProject, frameworkTargetName, target.uuid, target.name);
-      
-      console.log(`[ZentikShared] ✅ Framework linked to ${target.name}`);
-    } catch (error) {
-      console.log(`[ZentikShared] ⚠️  Error linking to ${target.name}:`, error);
-    }
-  }
 }
 
 async function addCommunicationNotificationsCapability(
@@ -585,13 +252,7 @@ const withZentikNotificationExtensions: ConfigPlugin = (config) => {
 
     const baseBundleId = config.ios?.bundleIdentifier ?? 'com.apocaliss92.zentik';
 
-    // Create shared framework FIRST, before creating the extension targets
-    const frameworkTargetName = await createSharedFrameworkTarget(
-      pbxProject,
-      projectRoot,
-      baseBundleId
-    );
-
+    // Create extension targets with shared files copied directly into them
     const nseTargetUuid = await addAppExtensionTarget(
       newConfig,
       projectRoot,
@@ -599,7 +260,7 @@ const withZentikNotificationExtensions: ConfigPlugin = (config) => {
       `${baseBundleId}.notification-service`,
       path.resolve(pluginDir, './files/ZentikNotificationService'),
       baseBundleId,
-      frameworkTargetName  // Pass framework name to link it
+      pluginDir
     );
 
     const nceTargetUuid = await addAppExtensionTarget(
@@ -609,10 +270,10 @@ const withZentikNotificationExtensions: ConfigPlugin = (config) => {
       `${baseBundleId}.notification-content`,
       path.resolve(pluginDir, './files/ZentikNotificationContentExtension'),
       baseBundleId,
-      frameworkTargetName  // Pass framework name to link it
+      pluginDir
     );
 
-    // Get main app target name and UUID
+    // Get main app target name
     const iosDir = path.join(projectRoot, 'ios');
     const entries = fs.readdirSync(iosDir);
     let appTargetName = 'Runner'; // Default fallback
@@ -626,20 +287,6 @@ const withZentikNotificationExtensions: ConfigPlugin = (config) => {
         appTargetName = entry;
         break;
       }
-    }
-    
-    const appTargetUuid = pbxProject.findTargetKey(appTargetName);
-    console.log(`[ZentikShared] 🔍 App target name: ${appTargetName}, UUID: ${appTargetUuid}`);
-    
-    if (!appTargetUuid) {
-      console.log(`[ZentikShared] ⚠️  Could not find main app target ${appTargetName}`);
-    } else {
-      // Link framework to main app target only (extensions already linked during creation)
-      await linkFrameworkToTargets(
-        pbxProject,
-        frameworkTargetName,
-        [{ name: appTargetName, uuid: appTargetUuid }]
-      );
     }
 
     // Add Communication Notifications capability to main app target

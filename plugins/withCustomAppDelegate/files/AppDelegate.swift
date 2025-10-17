@@ -3,7 +3,6 @@ import FirebaseCore
 import React
 import ReactAppDependencyProvider
 import UserNotifications
-import ZentikShared
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {

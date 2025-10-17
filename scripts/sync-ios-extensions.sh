@@ -179,37 +179,66 @@ else
     print_warning "AppDelegate non trovato: $APPDELEGATE_SOURCE"
 fi
 
-# 4. Shared Framework (ZentikShared)
-print_status "Sincronizzazione ZentikShared framework..."
+# 4. Shared Files (copiati in ogni target: AppDelegate, NSE, NCE)
+print_status "Sincronizzazione file condivisi in tutti i target..."
 
 SHARED_SOURCE="$PLUGINS_DIR/ZentikShared"
-SHARED_DEST="$IOS_DIR/ZentikShared"
+
+# Lista dei file condivisi
+SHARED_FILES=(
+    "KeychainAccess.swift"
+    "DatabaseAccess.swift"
+    "LoggingSystem.swift"
+    "SharedTypes.swift"
+    "NotificationActionHandler.swift"
+    "MediaAccess.swift"
+)
+
+# Funzione per copiare i file condivisi in una destinazione
+copy_shared_files() {
+    local dest_dir="$1"
+    local target_name="$2"
+    
+    if [ ! -d "$dest_dir" ]; then
+        print_warning "Cartella destinazione non trovata: $dest_dir"
+        return
+    fi
+    
+    print_status "  Copiando file condivisi in $target_name..."
+    
+    local copied_count=0
+    for file in "${SHARED_FILES[@]}"; do
+        local source_file="$SHARED_SOURCE/$file"
+        local dest_file="$dest_dir/$file"
+        
+        if [ -f "$source_file" ]; then
+            cp -f "$source_file" "$dest_file"
+            replace_placeholders "$dest_file" "$BUNDLE_ID"
+            print_status "    ✅ $file copiato"
+            ((copied_count++))
+        else
+            print_warning "    ⚠️  $file non trovato in $SHARED_SOURCE"
+        fi
+    done
+    
+    print_success "  $target_name: $copied_count/$((${#SHARED_FILES[@]})) file copiati"
+}
 
 if [ -d "$SHARED_SOURCE" ]; then
-    # Crea la cartella di destinazione se non esiste
-    mkdir -p "$SHARED_DEST"
+    # Copia file condivisi in AppDelegate (cartella app principale)
+    copy_shared_files "$IOS_DIR/ZentikDev" "AppDelegate"
     
-    # Copia tutti i file Swift del framework
-    cp -f "$SHARED_SOURCE"/*.swift "$SHARED_DEST/" 2>/dev/null || true
-    cp -f "$SHARED_SOURCE"/*.entitlements "$SHARED_DEST/" 2>/dev/null || true
+    # Copia file condivisi in Notification Service Extension
+    copy_shared_files "$SERVICE_DEST" "NSE"
     
-    # Sostituisci placeholder nei file copiati
-    for file in "$SHARED_DEST"/*.swift "$SHARED_DEST"/*.entitlements; do
-        if [ -f "$file" ]; then
-            replace_placeholders "$file" "$BUNDLE_ID"
-        fi
-    done
+    # Copia file condivisi in Content Extension
+    copy_shared_files "$CONTENT_DEST" "NCE"
     
-    print_success "ZentikShared framework sincronizzato"
-    
-    # Mostra i file copiati
-    for file in "$SHARED_SOURCE"/*.swift; do
-        if [ -f "$file" ]; then
-            print_status "  ✅ $(basename "$file") copiato"
-        fi
-    done
+    print_success "File condivisi sincronizzati in tutti i target"
 else
-    print_warning "Cartella ZentikShared non trovata: $SHARED_SOURCE"
+    print_error "Cartella file condivisi non trovata: $SHARED_SOURCE"
+    print_error "Assicurati che la cartella $SHARED_SOURCE esista"
+    exit 1
 fi
 
 # 5. Verifica finale
@@ -218,25 +247,27 @@ print_status "Verifica finale sincronizzazione..."
 # Conta i file nelle cartelle di destinazione
 SERVICE_FILES=$(find "$SERVICE_DEST" -name "*.swift" -o -name "*.plist" 2>/dev/null | wc -l)
 CONTENT_FILES=$(find "$CONTENT_DEST" -name "*.swift" -o -name "*.plist" -o -name "*.storyboard" 2>/dev/null | wc -l)
-SHARED_FILES=$(find "$SHARED_DEST" -name "*.swift" 2>/dev/null | wc -l)
+APPDELEGATE_FILES=$(find "$IOS_DIR/ZentikDev" -name "*.swift" 2>/dev/null | wc -l)
 
 print_success "Sincronizzazione completata!"
 print_status "File copiati:"
-print_status "  📱 Notification Service Extension: $SERVICE_FILES file"
-print_status "  🎨 Content Extension: $CONTENT_FILES file"
+print_status "  📱 Notification Service Extension: $SERVICE_FILES file (inclusi ${#SHARED_FILES[@]} file condivisi)"
+print_status "  🎨 Content Extension: $CONTENT_FILES file (inclusi ${#SHARED_FILES[@]} file condivisi)"
 if [ -f "$APPDELEGATE_DEST" ]; then
-    print_status "  🎯 AppDelegate: copiato"
+    print_status "  🎯 AppDelegate: copiato + ${#SHARED_FILES[@]} file condivisi"
 fi
-print_status "  📦 ZentikShared framework: $SHARED_FILES file"
+print_status "  📦 File condivisi: ${#SHARED_FILES[@]} file copiati in 3 target"
 
-# 5. Suggerimenti per il prossimo step
+# 6. Suggerimenti per il prossimo step
 echo ""
 print_status "🎯 Prossimi passi:"
-print_status "1. Ricompila l'app: npx expo prebuild --clean"
-print_status "2. Apri Xcode e verifica che ZentikShared.framework sia linkato"
-print_status "3. Aggiungi 'import ZentikShared' nelle estensioni"
-print_status "4. Testa le notifiche per verificare il framework condiviso"
-print_status "5. Controlla i log per confermare l'uso del framework"
+print_status "1. Verifica le modifiche: git diff"
+print_status "2. Se necessario, ricompila: npx expo prebuild --clean"
+print_status "3. Testa le notifiche per verificare che tutto funzioni"
+print_status "4. Controlla i log per confermare l'uso dei file condivisi"
+print_status ""
+print_status "📝 Nota: I file condivisi sono ora copiati direttamente in ogni target"
+print_status "    invece di usare un framework separato ZentikShared"
 
 echo ""
 print_success "✨ Sincronizzazione completata con successo!"

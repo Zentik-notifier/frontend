@@ -15,22 +15,9 @@ import Security
 import SQLite3
 import MobileCoreServices
 import SafariServices
-import ZentikShared
+
 // SQLite helper for Swift bindings
 private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-
-// Database operation result types
-private enum DatabaseOperationResult {
-    case success
-    case failure(String)
-    case timeout
-    case locked
-}
-
-private enum DatabaseOperationType {
-    case read
-    case write
-}
 
 class NotificationViewController: UIViewController, UNNotificationContentExtension {
     
