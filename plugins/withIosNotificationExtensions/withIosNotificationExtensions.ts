@@ -156,6 +156,7 @@ async function createSharedFrameworkTarget(
   baseBundleId: string
 ) {
   const frameworkTargetName = 'ZentikShared';
+  const frameworkBundleId = `${baseBundleId}.ZentikShared`;
   
   // Check if framework target already exists
   if (pbxProject.findTargetKey(frameworkTargetName)) {
@@ -220,9 +221,8 @@ async function createSharedFrameworkTarget(
         typeof buildSettingsObj.PRODUCT_NAME !== 'undefined' &&
         buildSettingsObj.PRODUCT_NAME === `"${frameworkTargetName}"`
       ) {
-        // Framework should NOT have a bundle identifier - it's not an app/extension
-        // Remove PRODUCT_BUNDLE_IDENTIFIER to avoid signing issues
-        delete buildSettingsObj.PRODUCT_BUNDLE_IDENTIFIER;
+        // Framework needs a bundle identifier for Info.plist (even if not signed separately)
+        buildSettingsObj.PRODUCT_BUNDLE_IDENTIFIER = `"${frameworkBundleId}"`;
         
         buildSettingsObj.SWIFT_VERSION = '5.0';
         buildSettingsObj.TARGETED_DEVICE_FAMILY = '"1,2,4"'; // iPhone, iPad, Apple Watch
@@ -237,28 +237,29 @@ async function createSharedFrameworkTarget(
         buildSettingsObj.GENERATE_INFOPLIST_FILE = 'YES';
         delete buildSettingsObj.INFOPLIST_FILE;
         
-        // Code signing: frameworks should not be signed separately
-        buildSettingsObj.CODE_SIGN_IDENTITY = '""';
-        buildSettingsObj.CODE_SIGN_STYLE = 'Manual';
+        // Code signing: use automatic signing but without provisioning profile
+        // This allows the framework to be signed with the app's certificate when embedded
+        buildSettingsObj.CODE_SIGN_STYLE = 'Automatic';
+        buildSettingsObj.CODE_SIGN_IDENTITY = '"Apple Development"';
+        buildSettingsObj.DEVELOPMENT_TEAM = developmentTeam;
         
-        // Remove development team for framework (will be signed with app)
-        delete buildSettingsObj.DEVELOPMENT_TEAM;
-        delete buildSettingsObj.CODE_SIGN_ENTITLEMENTS;
+        // Don't require a provisioning profile for the framework
+        delete buildSettingsObj.PROVISIONING_PROFILE_SPECIFIER;
         
         // Different optimization levels for Debug/Release
         if (key.includes('Debug')) {
           buildSettingsObj.SWIFT_OPTIMIZATION_LEVEL = '"-Onone"';
         } else if (key.includes('Release')) {
           buildSettingsObj.SWIFT_OPTIMIZATION_LEVEL = '"-O"';
+          buildSettingsObj.CODE_SIGN_IDENTITY = '"Apple Distribution"';
         }
       }
     }
   }
   
-  // Don't add development team attribute for framework
-  // pbxProject.addTargetAttribute('DevelopmentTeam', developmentTeam, frameworkTargetName);
+  pbxProject.addTargetAttribute('DevelopmentTeam', developmentTeam, frameworkTargetName);
   
-  console.log(`[ZentikShared] ✅ Framework target created (no bundle ID, no separate signing)`);
+  console.log(`[ZentikShared] ✅ Framework target created with bundle identifier ${frameworkBundleId}`);
   
   return frameworkTargetName;
 }
