@@ -47,9 +47,18 @@
       "use24Hour": "Formato 24 Ore",
       "use24HourDescription": "Usa il formato 24 ore invece del formato 12 ore con AM/PM",
       "styles": {
-        "short": { "name": "Breve", "description": "Formato data breve" },
-        "medium": { "name": "Medio", "description": "Formato data medio" },
-        "long": { "name": "Lungo", "description": "Formato data lungo" }
+        "short": {
+          "name": "Breve",
+          "description": "Formato data breve"
+        },
+        "medium": {
+          "name": "Medio",
+          "description": "Formato data medio"
+        },
+        "long": {
+          "name": "Lungo",
+          "description": "Formato data lungo"
+        }
       }
     },
     "autoDownload": {
@@ -122,6 +131,8 @@
       "autoAddOpenNotificationActionDescription": "Aggiunge automaticamente l'azione di apertura notifica quando non è esplicitamente impostata nel payload",
       "unencryptOnBigPayload": "Non cifrare payload grandi",
       "unencryptOnBigPayloadDescription": "Invia payload non cifrati quando superano una certa dimensione",
+      "markAsReadOnView": "Segna come letto alla visualizzazione",
+      "markAsReadOnViewDescription": "Le notifiche verranno segnate come lette non appena sono visibili sullo schermo",
       "markAsReadModeTitle": "Modalità Segna Come Letta",
       "markAsReadModeDescription": "Scegli quando le notifiche devono essere segnate come lette",
       "markAsReadModeLabel": "Modalità",
@@ -516,7 +527,9 @@
       "inactive": "Inattivo",
       "lastUsed": "Ultimo utilizzo",
       "never": "Mai",
-      "unknown": "Sconosciuto"
+      "unknown": "Sconosciuto",
+      "unauthorizedErrorMessage": "Unauthorized: You may not have permission to unregister this device or your session may have expired. Try logging out and logging back in.",
+      "deviceNotFoundErrorMessage": "Current device not found in the list of registered devices"
     },
     "editName": {
       "title": "Modifica Nome Dispositivo",
@@ -773,7 +786,10 @@
     "webhookAction": {
       "methodRequired": "Il metodo HTTP è richiesto",
       "urlRequired": "L'URL del webhook è richiesto"
-    }
+    },
+    "selectOptions": "Select options",
+    "refresh": "Refresh",
+    "download": "Download"
   },
   "home": {
     "emptyState": {
@@ -820,6 +836,11 @@
     "thisWeek": "Ultimi 7 Giorni",
     "thisMonth": "Ultimi 30 Giorni",
     "customRange": "Intervallo Personalizzato",
+    "hideOlderThan": "Nascondi più vecchie di",
+    "showAll": "Mostra Tutto",
+    "oneDay": "1 Giorno",
+    "oneWeek": "1 Settimana",
+    "oneMonth": "1 Mese",
     "selectDateRange": "Seleziona Intervallo Date",
     "from": "Da",
     "to": "A",
@@ -1724,7 +1745,80 @@
       "LokiEnabled": "Abilita Logging Remoto Loki",
       "LokiUrl": "URL Server Loki",
       "PrometheusEnabled": "Abilita Metriche Prometheus"
-    }
+    },
+    "authentication": "Authentication & JWT",
+    "apnPush": "Apple Push Notifications (APN)",
+    "firebasePush": "Firebase Cloud Messaging (FCM)",
+    "webPush": "Web Push Notifications",
+    "pushPassthrough": "Push Passthrough",
+    "email": "Email Configuration",
+    "attachments": "Attachments",
+    "backup": "Database Backup",
+    "messages": "Message Retention",
+    "rateLimit": "Rate Limiting",
+    "cors": "CORS & Security",
+    "logging": "Logging",
+    "logStorage": "Log Storage",
+    "loki": "Remote Logging Loki",
+    "prometheus": "Prometheus Metrics",
+    "JwtAccessTokenExpiration": "JWT Access Token Expiration (minutes)",
+    "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration (minutes)",
+    "JwtSecret": "JWT Secret",
+    "JwtRefreshSecret": "JWT Refresh Secret",
+    "ApnPush": "APN Push Mode",
+    "ApnKeyId": "APN Key ID",
+    "ApnTeamId": "APN Team ID",
+    "ApnPrivateKeyPath": "APN Private Key Path",
+    "ApnBundleId": "APN Bundle ID",
+    "ApnProduction": "APN Production Mode",
+    "FirebasePush": "Firebase Push Mode",
+    "FirebaseProjectId": "Firebase Project ID",
+    "FirebasePrivateKey": "Firebase Private Key",
+    "FirebaseClientEmail": "Firebase Client Email",
+    "WebPush": "Web Push Mode",
+    "VapidSubject": "VAPID Subject",
+    "PushNotificationsPassthroughServer": "Push Passthrough Server URL",
+    "PushPassthroughToken": "Push Passthrough Token",
+    "EmailEnabled": "Email Enabled",
+    "EmailType": "Email Service Type",
+    "EmailHost": "SMTP Host",
+    "EmailPort": "SMTP Port",
+    "EmailSecure": "Use SSL/TLS",
+    "EmailUser": "SMTP Username",
+    "EmailPass": "SMTP Password",
+    "EmailFrom": "Sender Email Address",
+    "EmailFromName": "Sender Name",
+    "ResendApiKey": "Resend API Key",
+    "AttachmentsEnabled": "Attachments Enabled",
+    "AttachmentsStoragePath": "Attachments Storage Path",
+    "AttachmentsMaxFileSize": "Max File Size (bytes)",
+    "AttachmentsAllowedMimeTypes": "Allowed MIME Types",
+    "AttachmentsDeleteJobEnabled": "Auto Deletion Enabled",
+    "AttachmentsDeleteCronJob": "Deletion Cron Expression",
+    "AttachmentsMaxAge": "Max Attachment Age",
+    "BackupEnabled": "Backup Enabled",
+    "BackupExecuteOnStart": "Execute Backup on Start",
+    "BackupStoragePath": "Backup Storage Path",
+    "BackupMaxToKeep": "Max Backups to Keep",
+    "BackupCronJob": "Backup Cron Expression",
+    "MessagesMaxAge": "Max Message Age",
+    "MessagesDeleteJobEnabled": "Message Cleanup Enabled",
+    "MessagesDeleteCronJob": "Cleanup Cron Expression",
+    "RateLimitTrustProxyEnabled": "Enable Trust Proxy Headers",
+    "RateLimitForwardHeader": "Forward Header Name",
+    "RateLimitTtlMs": "Rate Limit TTL (ms)",
+    "RateLimitLimit": "Rate Limit (requests)",
+    "RateLimitBlockMs": "Block Duration (ms)",
+    "RateLimitMessagesRps": "Message Rate Limit (RPS)",
+    "RateLimitMessagesTtlMs": "Message Rate Limit TTL (ms)",
+    "CorsOrigin": "CORS Origin",
+    "CorsCredentials": "CORS Credentials",
+    "LogLevel": "Log Level",
+    "LogStorageEnabled": "Enable Database Log Storage",
+    "LogRetentionDays": "Log Retention (days)",
+    "LokiEnabled": "Enable Remote Loki Logging",
+    "LokiUrl": "Loki Server URL",
+    "PrometheusEnabled": "Enable Prometheus Metrics"
   },
   "eventsReview": {
     "title": "Revisione Eventi",
@@ -1754,7 +1848,9 @@
       "tag": "tag",
       "message": "messaggio",
       "meta": "meta"
-    }
+    },
+    "level": "level",
+    "timestamp": "timestamp"
   },
   "serverLogs": {
     "title": "Log del Server",
@@ -1778,7 +1874,13 @@
       "message": "Messaggio",
       "trace": "Traccia",
       "meta": "Metadati"
-    }
+    },
+    "level": "Level",
+    "timestamp": "Timestamp",
+    "context": "Context",
+    "message": "Message",
+    "trace": "Trace",
+    "meta": "Metadata"
   },
   "notFound": {
     "title": "Pagina Non Trovata",

@@ -126,14 +126,10 @@ export interface Translation {
       maxStoredDescription: string;
       showAppIconOnBucketIconMissing: string;
       showAppIconOnBucketIconMissingDescription: string;
-      autoAddDeleteAction: string;
-      autoAddDeleteActionDescription: string;
-      autoAddMarkAsReadAction: string;
-      autoAddMarkAsReadActionDescription: string;
-      autoAddOpenNotificationAction: string;
-      autoAddOpenNotificationActionDescription: string;
       unencryptOnBigPayload: string;
       unencryptOnBigPayloadDescription: string;
+      markAsReadOnView: string;
+      markAsReadOnViewDescription: string;
       markAsReadModeTitle: string;
       markAsReadModeDescription: string;
       markAsReadModeLabel: string;
@@ -143,12 +139,25 @@ export interface Translation {
         onView: string;
         onAppClose: string;
       };
+      autoAddDeleteAction: string;
+      autoAddDeleteActionDescription: string;
+      autoAddMarkAsReadAction: string;
+      autoAddMarkAsReadActionDescription: string;
+      autoAddOpenNotificationAction: string;
+      autoAddOpenNotificationActionDescription: string;
     };
     theme: {
       title: string;
       subtitle: string;
       selectPreset: string;
       selectPresetPlaceholder: string;
+      dynamicColors: string;
+      primaryColor: string;
+      secondaryColor: string;
+      tertiaryColor: string;
+      resetToDefault: string;
+      generateTheme: string;
+      dynamicThemeGenerated: string;
       layoutMode: string;
       layoutModePlaceholder: string;
       currentWidth: string;
@@ -158,13 +167,6 @@ export interface Translation {
         tablet: string;
         mobile: string;
       };
-      dynamicColors: string;
-      primaryColor: string;
-      secondaryColor: string;
-      tertiaryColor: string;
-      resetToDefault: string;
-      generateTheme: string;
-      dynamicThemeGenerated: string;
       presets: {
         material3: string;
         blue: string;
@@ -210,14 +212,14 @@ export interface Translation {
       description: string;
       backend: string;
       backendDescription: string;
+      docker: string;
+      dockerDescription: string;
       expo: string;
       expoDescription: string;
       platform: string;
       platformDescription: string;
       app: string;
       appDescription: string;
-      docker: string;
-      dockerDescription: string;
       unknown: string;
       refresh: string;
       otaUpdate: string;
@@ -337,23 +339,10 @@ export interface Translation {
     notificationStats: string;
     today: string;
     thisWeek: string;
-    last7Days: string;
     thisMonth: string;
+    last7Days: string;
     last30Days: string;
     total: string;
-  };
-  userAttachments: {
-    title: string;
-    description: string;
-    attachments: string;
-    totalSize: string;
-    noAttachmentsFound: string;
-    unableToDownload: string;
-    downloadStarted: string;
-    downloadFailed: string;
-    confirmDelete: string;
-    deleteFailed: string;
-    deleteSuccess: string;
   };
   buckets: {
     title: string;
@@ -480,28 +469,6 @@ export interface Translation {
       error: string;
     };
   };
-  backupManagement: {
-    title: string;
-    description: string;
-    createBackupTitle: string;
-    createBackupDescription: string;
-    triggerBackup: string;
-    success: string;
-    triggerError: string;
-    deleteConfirmTitle: string;
-    deleteConfirmMessage: string;
-    deleteSuccess: string;
-    deleteError: string;
-    downloadSuccess: string;
-    downloadError: string;
-    totalBackups: string;
-    totalSize: string;
-    availableBackups: string;
-    noBackups: string;
-    filename: string;
-    size: string;
-    created: string;
-  };
   devices: {
     title: string;
     description: string;
@@ -514,8 +481,6 @@ export interface Translation {
     registerErrorMessage: string;
     unregisterErrorMessage: string;
     removeErrorMessage: string;
-    unauthorizedErrorMessage: string;
-    deviceNotFoundErrorMessage: string;
     item: {
       delete: string;
       removeDeviceTitle: string;
@@ -529,6 +494,8 @@ export interface Translation {
       lastUsed: string;
       never: string;
       unknown: string;
+      unauthorizedErrorMessage: string;
+      deviceNotFoundErrorMessage: string;
     };
     editName: {
       title: string;
@@ -541,6 +508,8 @@ export interface Translation {
       successMessage: string;
       errorMessage: string;
     };
+    unauthorizedErrorMessage: string;
+    deviceNotFoundErrorMessage: string;
   };
   systemAccessTokens: {
     title: string;
@@ -668,15 +637,35 @@ export interface Translation {
     errors: {
       markAllAsReadFailed: string;
     };
+    unreadAbove: string;
+    unreadBelow: string;
     deleteSelected: {
       title: string;
       message: string;
     };
     selectAll: string;
     deselectAll: string;
+    selectOptions: string;
+    refresh: string;
+    download: string;
+    actions: {
+      title: string;
+      addAction: string;
+      actionType: string;
+      selectActionType: string;
+      actionValue: string;
+      actionValuePlaceholder: string;
+      actionTitle: string;
+      actionTitlePlaceholder: string;
+      iconName: string;
+      iconNamePlaceholder: string;
+      iconHint: string;
+      destructiveAction: string;
+      selectWebhook: string;
+      searchWebhooks: string;
+      actionValueRequired: string;
+    };
     endOfList: string;
-    unreadAbove: string;
-    unreadBelow: string;
     titleRequired: string;
     content: {
       title: string;
@@ -736,23 +725,6 @@ export interface Translation {
       userIdsDescription: string;
       userIdsDefault: string;
       clearSelection: string;
-    };
-    actions: {
-      title: string;
-      addAction: string;
-      actionType: string;
-      selectActionType: string;
-      actionValue: string;
-      actionValuePlaceholder: string;
-      actionTitle: string;
-      actionTitlePlaceholder: string;
-      iconName: string;
-      iconNamePlaceholder: string;
-      iconHint: string;
-      destructiveAction: string;
-      selectWebhook: string;
-      searchWebhooks: string;
-      actionValueRequired: string;
     };
     tapAction: {
       title: string;
@@ -825,6 +797,16 @@ export interface Translation {
     newestFirst: string;
     oldestFirst: string;
     priority: string;
+    hideOlderThan: string;
+    showAll: string;
+    oneDay: string;
+    oneWeek: string;
+    oneMonth: string;
+    activeFilters: string;
+    activeFiltersPlural: string;
+    loadOnlyVisible: string;
+    loadOnlyVisibleDescription: string;
+    performance: string;
     timeRange: string;
     timeRangeDescription: string;
     all: string;
@@ -835,11 +817,19 @@ export interface Translation {
     selectDateRange: string;
     from: string;
     to: string;
-    activeFilters: string;
-    activeFiltersPlural: string;
-    loadOnlyVisible: string;
-    loadOnlyVisibleDescription: string;
-    performance: string;
+  };
+  userAttachments: {
+    title: string;
+    description: string;
+    attachments: string;
+    totalSize: string;
+    noAttachmentsFound: string;
+    unableToDownload: string;
+    downloadStarted: string;
+    downloadFailed: string;
+    confirmDelete: string;
+    deleteFailed: string;
+    deleteSuccess: string;
   };
   swipeActions: {
     delete: {
@@ -865,41 +855,14 @@ export interface Translation {
     ICON: string;
     undefined: string;
   };
-  eventTypes: {
-    LOGIN: string;
-    LOGIN_OAUTH: string;
-    LOGOUT: string;
-    REGISTER: string;
-    PUSH_PASSTHROUGH: string;
-    MESSAGE: string;
-    NOTIFICATION: string;
-    BUCKET_SHARING: string;
-    BUCKET_UNSHARING: string;
-    DEVICE_REGISTER: string;
-    DEVICE_UNREGISTER: string;
-    ACCOUNT_DELETE: string;
-  };
-  adminSubscriptions: {
-    title: string;
-    description: string;
-    selectPlaceholder: string;
-    selectedInfo: string;
-    successMessage: string;
-    errorMessage: string;
-    loading: string;
-  };
   common: {
     retry: string;
-    selectOptions: string;
     add: string;
-    refresh: string;
     home: string;
     cancel: string;
     save: string;
     importing: string;
     delete: string;
-    download: string;
-    actions: string;
     noConnection: string;
     updateAvailable: string;
     reset: string;
@@ -929,8 +892,6 @@ export interface Translation {
     snoozeMessage: string;
     search: string;
     selectOption: string;
-    selectAll: string;
-    deselectAll: string;
     noResults: string;
     noOptions: string;
     snoozeGeneric: string;
@@ -959,6 +920,12 @@ export interface Translation {
     installApp: string;
     pushNeedsPwaHint: string;
     pushNeedsPwaDetails: string;
+    selectOptions: string;
+    refresh: string;
+    download: string;
+    actions: string;
+    selectAll: string;
+    deselectAll: string;
   };
   notificationDetail: {
     loading: string;
@@ -975,8 +942,6 @@ export interface Translation {
       remaining: string;
       quickOptions: string;
       customDateTime: string;
-      selectDate: string;
-      selectTime: string;
       confirm: string;
       errorSetting: string;
       errorRemoving: string;
@@ -990,6 +955,8 @@ export interface Translation {
         "1week": string;
         "2weeks": string;
       };
+      selectDate: string;
+      selectTime: string;
     };
     deliveryTypes: {
       SILENT: string;
@@ -1386,10 +1353,6 @@ export interface Translation {
     lastUpdated: string;
     userBuckets: string;
     noBucketsFound: string;
-    userDevices: string;
-    noDevicesFound: string;
-    localOnly: string;
-    lastUsed: string;
     userNotificationStats: string;
     loadingStats: string;
     noStatsAvailable: string;
@@ -1405,10 +1368,6 @@ export interface Translation {
     systemTokensDescription: string;
     oauthProviders: string;
     oauthProvidersDescription: string;
-    serverSettings: string;
-    serverSettingsDescription: string;
-    backupManagement: string;
-    backupManagementDescription: string;
     errorLoadingOAuthProviders: string;
     errorLoadingOAuthProvidersDescription: string;
     noOAuthProviders: string;
@@ -1485,6 +1444,14 @@ export interface Translation {
       moderator: string;
       admin: string;
     };
+    serverSettings: string;
+    serverSettingsDescription: string;
+    backupManagement: string;
+    backupManagementDescription: string;
+    userDevices: string;
+    noDevicesFound: string;
+    localOnly: string;
+    lastUsed: string;
     accessDenied: {
       title: string;
       message: string;
@@ -1640,6 +1607,83 @@ export interface Translation {
       useInHeader: string;
     };
   };
+  eventsReview: {
+    title: string;
+    description: string;
+    filters: {
+      title: string;
+      type: string;
+      userId: string;
+      objectId: string;
+      targetId: string;
+    };
+    empty: {
+      title: string;
+      description: string;
+    };
+  };
+  appLogs: {
+    title: string;
+    description: string;
+    refresh: string;
+    loading: string;
+    filterPlaceholder: string;
+    logDetailsTitle: string;
+    level: string;
+    timestamp: string;
+    fields: {
+      tag: string;
+      message: string;
+      meta: string;
+      level: string;
+      timestamp: string;
+    };
+  };
+  backupManagement: {
+    title: string;
+    description: string;
+    createBackupTitle: string;
+    createBackupDescription: string;
+    triggerBackup: string;
+    success: string;
+    triggerError: string;
+    deleteConfirmTitle: string;
+    deleteConfirmMessage: string;
+    deleteSuccess: string;
+    deleteError: string;
+    downloadSuccess: string;
+    downloadError: string;
+    totalBackups: string;
+    totalSize: string;
+    availableBackups: string;
+    noBackups: string;
+    filename: string;
+    size: string;
+    created: string;
+  };
+  eventTypes: {
+    LOGIN: string;
+    LOGIN_OAUTH: string;
+    LOGOUT: string;
+    REGISTER: string;
+    PUSH_PASSTHROUGH: string;
+    MESSAGE: string;
+    NOTIFICATION: string;
+    BUCKET_SHARING: string;
+    BUCKET_UNSHARING: string;
+    DEVICE_REGISTER: string;
+    DEVICE_UNREGISTER: string;
+    ACCOUNT_DELETE: string;
+  };
+  adminSubscriptions: {
+    title: string;
+    description: string;
+    selectPlaceholder: string;
+    selectedInfo: string;
+    successMessage: string;
+    errorMessage: string;
+    loading: string;
+  };
   serverSettings: {
     title: string;
     description: string;
@@ -1677,6 +1721,21 @@ export interface Translation {
       loki: string;
       prometheus: string;
     };
+    authentication: string;
+    apnPush: string;
+    firebasePush: string;
+    webPush: string;
+    pushPassthrough: string;
+    email: string;
+    attachments: string;
+    backup: string;
+    messages: string;
+    rateLimit: string;
+    cors: string;
+    logging: string;
+    logStorage: string;
+    loki: string;
+    prometheus: string;
     fields: {
       JwtAccessTokenExpiration: string;
       JwtRefreshTokenExpiration: string;
@@ -1734,38 +1793,67 @@ export interface Translation {
       LogStorageEnabled: string;
       LogRetentionDays: string;
       LokiEnabled: string;
+      LokiUrl: string;
       PrometheusEnabled: string;
     };
-  };
-  eventsReview: {
-    title: string;
-    description: string;
-    filters: {
-      title: string;
-      type: string;
-      userId: string;
-      objectId: string;
-      targetId: string;
-    };
-    empty: {
-      title: string;
-      description: string;
-    };
-  };
-  appLogs: {
-    title: string;
-    description: string;
-    refresh: string;
-    loading: string;
-    filterPlaceholder: string;
-    logDetailsTitle: string;
-    fields: {
-      level: string;
-      timestamp: string;
-      tag: string;
-      message: string;
-      meta: string;
-    };
+    JwtAccessTokenExpiration: string;
+    JwtRefreshTokenExpiration: string;
+    JwtSecret: string;
+    JwtRefreshSecret: string;
+    ApnPush: string;
+    ApnKeyId: string;
+    ApnTeamId: string;
+    ApnPrivateKeyPath: string;
+    ApnBundleId: string;
+    ApnProduction: string;
+    FirebasePush: string;
+    FirebaseProjectId: string;
+    FirebasePrivateKey: string;
+    FirebaseClientEmail: string;
+    WebPush: string;
+    VapidSubject: string;
+    PushNotificationsPassthroughServer: string;
+    PushPassthroughToken: string;
+    EmailEnabled: string;
+    EmailType: string;
+    EmailHost: string;
+    EmailPort: string;
+    EmailSecure: string;
+    EmailUser: string;
+    EmailPass: string;
+    EmailFrom: string;
+    EmailFromName: string;
+    ResendApiKey: string;
+    AttachmentsEnabled: string;
+    AttachmentsStoragePath: string;
+    AttachmentsMaxFileSize: string;
+    AttachmentsAllowedMimeTypes: string;
+    AttachmentsDeleteJobEnabled: string;
+    AttachmentsDeleteCronJob: string;
+    AttachmentsMaxAge: string;
+    BackupEnabled: string;
+    BackupExecuteOnStart: string;
+    BackupStoragePath: string;
+    BackupMaxToKeep: string;
+    BackupCronJob: string;
+    MessagesMaxAge: string;
+    MessagesDeleteJobEnabled: string;
+    MessagesDeleteCronJob: string;
+    RateLimitTrustProxyEnabled: string;
+    RateLimitForwardHeader: string;
+    RateLimitTtlMs: string;
+    RateLimitLimit: string;
+    RateLimitBlockMs: string;
+    RateLimitMessagesRps: string;
+    RateLimitMessagesTtlMs: string;
+    CorsOrigin: string;
+    CorsCredentials: string;
+    LogLevel: string;
+    LogStorageEnabled: string;
+    LogRetentionDays: string;
+    LokiEnabled: string;
+    LokiUrl: string;
+    PrometheusEnabled: string;
   };
   serverLogs: {
     title: string;
@@ -1782,6 +1870,12 @@ export interface Translation {
     cleanupSuccessMessage: string;
     cleanupError: string;
     cleanupErrorMessage: string;
+    level: string;
+    timestamp: string;
+    context: string;
+    message: string;
+    trace: string;
+    meta: string;
     fields: {
       level: string;
       timestamp: string;
@@ -1790,11 +1884,6 @@ export interface Translation {
       trace: string;
       meta: string;
     };
-  };
-  notFound: {
-    title: string;
-    description: string;
-    goHome: string;
   };
   dateTime: {
     save: string;
@@ -1946,6 +2035,11 @@ export interface Translation {
       openDocumentation: string;
       openDocError: string;
     };
+  };
+  notFound: {
+    title: string;
+    description: string;
+    goHome: string;
   };
 }
 
