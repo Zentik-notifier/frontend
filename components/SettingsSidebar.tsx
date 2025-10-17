@@ -117,8 +117,8 @@ export default function SettingsSidebar() {
     },
     {
       id: "app-logs",
-      title: "Application Logs",
-      description: "View and refresh local application logs stored on device.",
+      title: t("appLogs.title"),
+      description: t("appLogs.description"),
       icon: "file-document",
       iconColor: "#0EA5E9", // Sky
       onPress: nav.navigateToLogs,
