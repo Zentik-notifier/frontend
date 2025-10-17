@@ -156,7 +156,6 @@ async function createSharedFrameworkTarget(
   baseBundleId: string
 ) {
   const frameworkTargetName = 'ZentikShared';
-  const frameworkBundleId = `${baseBundleId}.ZentikShared`;
   
   // Check if framework target already exists
   if (pbxProject.findTargetKey(frameworkTargetName)) {
@@ -221,7 +220,10 @@ async function createSharedFrameworkTarget(
         typeof buildSettingsObj.PRODUCT_NAME !== 'undefined' &&
         buildSettingsObj.PRODUCT_NAME === `"${frameworkTargetName}"`
       ) {
-        buildSettingsObj.PRODUCT_BUNDLE_IDENTIFIER = `"${frameworkBundleId}"`;
+        // Framework should NOT have a bundle identifier - it's not an app/extension
+        // Remove PRODUCT_BUNDLE_IDENTIFIER to avoid signing issues
+        delete buildSettingsObj.PRODUCT_BUNDLE_IDENTIFIER;
+        
         buildSettingsObj.SWIFT_VERSION = '5.0';
         buildSettingsObj.TARGETED_DEVICE_FAMILY = '"1,2,4"'; // iPhone, iPad, Apple Watch
         buildSettingsObj.IPHONEOS_DEPLOYMENT_TARGET = '13.4';
@@ -232,9 +234,16 @@ async function createSharedFrameworkTarget(
         buildSettingsObj.LD_RUNPATH_SEARCH_PATHS = '"$(inherited) @executable_path/Frameworks @loader_path/Frameworks"';
         buildSettingsObj.ENABLE_BITCODE = 'NO';
         buildSettingsObj.CLANG_ENABLE_MODULES = 'YES';
-        buildSettingsObj.DEVELOPMENT_TEAM = developmentTeam;
         buildSettingsObj.GENERATE_INFOPLIST_FILE = 'YES';
         delete buildSettingsObj.INFOPLIST_FILE;
+        
+        // Code signing: frameworks should not be signed separately
+        buildSettingsObj.CODE_SIGN_IDENTITY = '""';
+        buildSettingsObj.CODE_SIGN_STYLE = 'Manual';
+        
+        // Remove development team for framework (will be signed with app)
+        delete buildSettingsObj.DEVELOPMENT_TEAM;
+        delete buildSettingsObj.CODE_SIGN_ENTITLEMENTS;
         
         // Different optimization levels for Debug/Release
         if (key.includes('Debug')) {
@@ -246,43 +255,10 @@ async function createSharedFrameworkTarget(
     }
   }
   
-  pbxProject.addTargetAttribute('DevelopmentTeam', developmentTeam, frameworkTargetName);
+  // Don't add development team attribute for framework
+  // pbxProject.addTargetAttribute('DevelopmentTeam', developmentTeam, frameworkTargetName);
   
-  // Create entitlements file for framework
-  const entitlementsPath = path.join(iosDir, frameworkTargetName, `${frameworkTargetName}.entitlements`);
-  const entitlementsContent = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>com.apple.security.application-groups</key>
-	<array>
-		<string>group.${baseBundleId}</string>
-	</array>
-	<key>keychain-access-groups</key>
-	<array>
-		<string>$(AppIdentifierPrefix)${baseBundleId}.keychain</string>
-		<string>$(AppIdentifierPrefix)*</string>
-	</array>
-</dict>
-</plist>`;
-  
-  fs.writeFileSync(entitlementsPath, entitlementsContent);
-  console.log(`[ZentikShared] ✓ Created entitlements file`);
-  
-  // Add entitlements to build settings
-  for (const key in configurations) {
-    if (typeof configurations[key].buildSettings !== 'undefined') {
-      const buildSettingsObj = configurations[key].buildSettings;
-      if (
-        typeof buildSettingsObj.PRODUCT_NAME !== 'undefined' &&
-        buildSettingsObj.PRODUCT_NAME === `"${frameworkTargetName}"`
-      ) {
-        buildSettingsObj.CODE_SIGN_ENTITLEMENTS = `"${frameworkTargetName}/${frameworkTargetName}.entitlements"`;
-      }
-    }
-  }
-  
-  console.log(`[ZentikShared] ✅ Framework target created with bundle identifier ${frameworkBundleId}`);
+  console.log(`[ZentikShared] ✅ Framework target created (no bundle ID, no separate signing)`);
   
   return frameworkTargetName;
 }
