@@ -520,6 +520,12 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             container.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             heightConstraint
         ])
+        
+        // Add tap gesture recognizer to media container (for images/GIFs)
+        // Note: Video controls will be handled separately by AVPlayerViewController
+        let mediaTapGesture = UITapGestureRecognizer(target: self, action: #selector(mediaContainerTapped))
+        container.addGestureRecognizer(mediaTapGesture)
+        container.isUserInteractionEnabled = true
 
         // Footer selector will be created lazily only when needed
         footerContainerView = nil
@@ -3212,6 +3218,28 @@ extension NotificationViewController {
         }
     }
     
+    @objc private func mediaContainerTapped() {
+        print("📱 [ContentExtension] 👆 Media container tapped - triggering default tap action")
+        
+        // Don't trigger tap action if video player is active (let video controls work)
+        if player != nil {
+            print("📱 [ContentExtension] 🎬 Video player active, ignoring media container tap")
+            return
+        }
+        
+        // Get current notification data
+        guard let userInfo = currentNotificationUserInfo,
+              let notificationId = extractNotificationId(from: userInfo) else {
+            print("📱 [ContentExtension] ❌ No notification data available for media container tap")
+            return
+        }
+        
+        // Call handleDefaultTapAction with a dummy completion
+        handleDefaultTapAction(userInfo: userInfo, notificationId: notificationId) { success in
+            print("📱 [ContentExtension] ✅ Media container tap action completed with success: \(success)")
+        }
+    }
+    
     private func extractTapAction(from userInfo: [AnyHashable: Any]) -> [String: Any]? {
         if let tapAction = userInfo["tapAction"] as? [String: Any] {
             return tapAction
@@ -3320,6 +3348,9 @@ extension NotificationViewController {
             return
         }
         
+        // Check if this is a navigation action that requires opening the app
+        let isNavigationAction = (type == "NAVIGATE" || type == "OPEN_NOTIFICATION")
+        
         // Use shared NotificationActionHandler for action execution
         // NotificationActionHandler already handles DB updates for MARK_AS_READ and DELETE
         NotificationActionHandler.executeAction(
@@ -3328,9 +3359,17 @@ extension NotificationViewController {
             notificationId: notificationId,
             userInfo: userInfo,
             source: "NCE",
-            onComplete: { result in
+            onComplete: { [weak self] result in
                 switch result {
                 case .success:
+                    // For navigation actions, open the app after storing the intent
+                    if isNavigationAction {
+                        print("📱 [ContentExtension] 🚀 Opening app for navigation action: \(type)")
+                        DispatchQueue.main.async {
+                            self?.extensionContext?.dismissNotificationContentExtension()
+                            self?.extensionContext?.performNotificationDefaultAction()
+                        }
+                    }
                     completion(true)
                 case .failure(let error):
                     print("📱 [ContentExtension] ❌ Action failed: \(error)")
