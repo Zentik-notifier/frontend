@@ -3400,7 +3400,7 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             type: .write,
             name: "MarkAsRead",
             operation: { database in
-                let sql = "UPDATE notifications SET read = 1, read_at = ? WHERE id = ?"
+                let sql = "UPDATE notifications SET read_at = ? WHERE id = ?"
                 var stmt: OpaquePointer?
                 
                 guard sqlite3_prepare_v2(database, sql, -1, &stmt, nil) == SQLITE_OK else {

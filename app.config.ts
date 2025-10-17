@@ -171,6 +171,8 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             "expo-media-library",
             ["./plugins/withIosNotificationExtensions/withIosNotificationExtensions.ts"],
             ["./plugins/withAndroidManifestFix/withAndroidManifestFix.ts"],
+            ["@bacons/apple-targets"],
+            ["./plugins/withCustomAppDelegate/withCustomAppDelegate.ts"]
         ],
 
         experiments: {

@@ -160,7 +160,26 @@ else
     print_warning "Cartella Content Extension non trovata: $CONTENT_SOURCE"
 fi
 
-# 3. Verifica finale
+# 3. AppDelegate
+print_status "Sincronizzazione AppDelegate..."
+
+APPDELEGATE_SOURCE="plugins/withCustomAppDelegate/files/AppDelegate.swift"
+APPDELEGATE_DEST="$IOS_DIR/ZentikDev/AppDelegate.swift"
+
+if [ -f "$APPDELEGATE_SOURCE" ]; then
+    # Copia AppDelegate
+    cp -f "$APPDELEGATE_SOURCE" "$APPDELEGATE_DEST"
+    
+    # Sostituisci placeholder
+    replace_placeholders "$APPDELEGATE_DEST" "$BUNDLE_ID"
+    
+    print_success "AppDelegate sincronizzato"
+    print_status "  ✅ AppDelegate.swift copiato"
+else
+    print_warning "AppDelegate non trovato: $APPDELEGATE_SOURCE"
+fi
+
+# 4. Verifica finale
 print_status "Verifica finale sincronizzazione..."
 
 # Conta i file nelle cartelle di destinazione
@@ -171,13 +190,17 @@ print_success "Sincronizzazione completata!"
 print_status "File copiati:"
 print_status "  📱 Notification Service Extension: $SERVICE_FILES file"
 print_status "  🎨 Content Extension: $CONTENT_FILES file"
+if [ -f "$APPDELEGATE_DEST" ]; then
+    print_status "  🎯 AppDelegate: copiato"
+fi
 
 # 4. Suggerimenti per il prossimo step
 echo ""
 print_status "🎯 Prossimi passi:"
 print_status "1. Ricompila l'app: npx expo run:ios --clear"
-print_status "2. Testa le notifiche per verificare che entrambe le estensioni funzionino"
-print_status "3. Controlla i log per confermare l'attivazione della Content Extension"
+print_status "2. Testa le notifiche per verificare che le estensioni e AppDelegate funzionino"
+print_status "3. Controlla i log per confermare l'attivazione delle estensioni"
+print_status "4. Testa le azioni delle notifiche (mark as read, delete, snooze, etc.)"
 
 echo ""
 print_success "✨ Sincronizzazione completata con successo!"

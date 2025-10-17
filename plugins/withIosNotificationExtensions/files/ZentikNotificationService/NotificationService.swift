@@ -288,20 +288,33 @@ class NotificationService: UNNotificationServiceExtension {
       bestAttemptContent =
         try content.updating(from: incomingMessagingIntent) as? UNMutableNotificationContent
 
+      // IMPORTANT: Ensure notification is delivered to paired Apple Watch
+      // By default, iOS notifications with communication style are shown on watch
+      // We just need to make sure the payload is preserved
+      if let bestContent = bestAttemptContent {
+        print("📱 [NotificationService] ⌚️ Notification ready for delivery to iOS and watchOS")
+        print("📱 [NotificationService] ⌚️ Category: \(bestContent.categoryIdentifier)")
+        print("📱 [NotificationService] ⌚️ UserInfo keys: \(bestContent.userInfo.keys.map { String(describing: $0) }.joined(separator: ", "))")
+      }
+
       // everything went alright, we are ready to display our notification.
       contentHandler(bestAttemptContent!)
       
       // Log successful communication style application
       if let notificationId = content.userInfo["notificationId"] as? String {
+        let hasActions = (content.userInfo["actions"] as? [[String: Any]])?.isEmpty == false
         logToDatabase(
           level: "info",
           tag: "NotificationServiceExtension",
-          message: "[Communication] Communication style applied successfully",
+          message: "[Communication] Communication style applied successfully - Ready for iOS and watchOS",
           metadata: [
             "notificationId": notificationId,
             "sender": senderDisplayName ?? "unknown",
             "hasSubtitle": !content.subtitle.isEmpty,
-            "hasAvatar": senderAvatar != nil
+            "hasAvatar": senderAvatar != nil,
+            "hasActions": hasActions,
+            "category": content.categoryIdentifier,
+            "watchOSReady": true
           ]
         )
       }
@@ -717,20 +730,51 @@ class NotificationService: UNNotificationServiceExtension {
     if !actions.isEmpty {
       let notificationId = userInfo["notificationId"] as? String ?? UUID().uuidString
       
-      // Use DYNAMIC category (Home Assistant approach)
-      // NCE will inject actions from userInfo at runtime
+      // Filter actions to only include allowed types
+      let allowedActionTypes = [
+        "MARK_AS_READ",
+        "BACKGROUND_CALL",
+        "POSTPONE",
+        "WEBHOOK",
+        "SNOOZE",
+        "DELETE"
+      ]
+      
+      let filteredActions = actions.filter { action in
+        guard let type = action["type"] as? String else { return false }
+        return allowedActionTypes.contains(type)
+      }
+      
+      print("📱 [NotificationService] 🔍 Original actions: \(actions.count), filtered: \(filteredActions.count)")
+      
+      // Register notification category with filtered actions for watchOS compatibility
+      registerDynamicCategory(with: filteredActions)
+      
+      // Use DYNAMIC category
       content.categoryIdentifier = "DYNAMIC"
       
-      print("📱 [NotificationService] 🎭 Using DYNAMIC category for notification: \(notificationId)")
-      print("📱 [NotificationService] 🎭 NCE will inject \(actions.count) actions from userInfo")
+      print("📱 [NotificationService] 🎭 Registered DYNAMIC category with \(filteredActions.count) actions")
+      print("📱 [NotificationService] 🎭 Category identifier: DYNAMIC")
+      
+      // Add only filtered actions to userInfo for NCE and watch compatibility
+      var mutableUserInfo = content.userInfo as? [String: Any] ?? [:]
+      mutableUserInfo["actions"] = filteredActions
+      mutableUserInfo["hasActions"] = !filteredActions.isEmpty
+      
+      content.userInfo = mutableUserInfo
+      print("📱 [NotificationService] ⌚️ Filtered actions added to userInfo for watchOS and NCE (no credentials)")
       
       logToDatabase(
         level: "info",
         tag: "NotificationServiceExtension",
-        message: "[Actions] Using DYNAMIC category",
+        message: "[Actions] Registered DYNAMIC category with filtered actions for watchOS",
         metadata: [
           "notificationId": notificationId,
-          "actionsCount": actions.count
+          "originalActionsCount": actions.count,
+          "filteredActionsCount": filteredActions.count,
+          "categoryId": "DYNAMIC",
+          "watchOSCompatible": true,
+          "credentialsInUserInfo": false
         ]
       )
     } else {
@@ -2771,6 +2815,126 @@ class NotificationService: UNNotificationServiceExtension {
         metadata: ["notificationId": notificationId, "error": error.localizedDescription]
       )
     }
+  }
+  
+  // MARK: - Dynamic Category Registration
+  
+  /// Registers a UNNotificationCategory with actions for both iOS and watchOS
+  private func registerDynamicCategory(with actions: [[String: Any]]) {
+    let notificationActions = actions.compactMap { actionData -> UNNotificationAction? in
+      guard let type = actionData["type"] as? String,
+            let value = actionData["value"] as? String,
+            let title = actionData["title"] as? String else {
+        return nil
+      }
+      
+      let actionId = "action_\(type)_\(value)"
+      var options: UNNotificationActionOptions = []
+      
+      if let destructive = actionData["destructive"] as? Bool, destructive {
+        options.insert(.destructive)
+      }
+      
+      // Always foreground for actions that need app interaction
+      if type == "NAVIGATE" || type == "DEEP_LINK" {
+        options.insert(.foreground)
+      }
+      
+      print("📱 [NotificationService] 🔧 Creating action: \(actionId) - \(title)")
+      return UNNotificationAction(identifier: actionId, title: title, options: options)
+    }
+    
+    let category = UNNotificationCategory(
+      identifier: "DYNAMIC",
+      actions: notificationActions,
+      intentIdentifiers: [],
+      options: []
+    )
+    
+    UNUserNotificationCenter.current().setNotificationCategories([category])
+    print("📱 [NotificationService] ✅ Registered category 'DYNAMIC' with \(notificationActions.count) actions")
+  }
+  
+  // MARK: - Keychain Helpers
+  
+  private func getApiEndpoint() -> String? {
+    let accessGroup = getKeychainAccessGroup()
+    
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: "zentik-api-endpoint",
+      kSecAttrAccount as String: "endpoint",
+      kSecAttrAccessGroup as String: accessGroup,
+      kSecReturnData as String: true,
+      kSecMatchLimit as String: kSecMatchLimitOne
+    ]
+    
+    var result: AnyObject?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    
+    if status == errSecSuccess, let data = result as? Data, let endpoint = String(data: data, encoding: .utf8) {
+      print("📱 [NotificationService] ✅ Retrieved API endpoint from keychain: \(endpoint)")
+      return endpoint
+    }
+    
+    print("📱 [NotificationService] ℹ️ No API endpoint found in keychain, using default")
+    return "https://notifier-api.zentik.app"
+  }
+  
+  private func getStoredAuthToken() -> String? {
+    let accessGroup = getKeychainAccessGroup()
+    let bundleIdentifier = getMainBundleIdentifier()
+    
+    print("📱 [NotificationService] 🔍 Looking for auth token with bundle: \(bundleIdentifier)")
+    print("📱 [NotificationService] 🔍 Access group: \(accessGroup)")
+    print("📱 [NotificationService] 🔍 Current bundle ID: \(Bundle.main.bundleIdentifier ?? "nil")")
+    
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: "zentik-auth",
+      kSecAttrAccessGroup as String: accessGroup,
+      kSecReturnData as String: true,
+      kSecReturnAttributes as String: true,
+      kSecMatchLimit as String: kSecMatchLimitOne
+    ]
+    
+    print("📱 [NotificationService] 🔍 Keychain query: \(query)")
+    
+    var result: AnyObject?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    
+    print("📱 [NotificationService] 🔍 Keychain query status: \(status)")
+    if let resultDict = result as? [String: Any] {
+      print("📱 [NotificationService] 🔍 Keychain result keys: \(resultDict.keys)")
+    }
+    
+    if status == errSecSuccess, let item = result as? [String: Any] {
+      // react-native-keychain stores accessToken as kSecAttrAccount and refreshToken as kSecValueData
+      print("📱 [NotificationService] 🔍 Trying to extract accessToken from item...")
+      
+      // Try to get account as String directly first
+      if let accessToken = item[kSecAttrAccount as String] as? String {
+        print("📱 [NotificationService] ✅ Retrieved auth token from keychain (as String)")
+        return accessToken
+      }
+      // Try to get account as Data and convert to String
+      else if let accountData = item[kSecAttrAccount as String] as? Data,
+              let accessToken = String(data: accountData, encoding: .utf8) {
+        print("📱 [NotificationService] ✅ Retrieved auth token from keychain (as Data)")
+        return accessToken
+      } else {
+        print("📱 [NotificationService] ❌ Found keychain item but failed to extract accessToken")
+        print("📱 [NotificationService] 🔍 Item keys: \(item.keys)")
+        if let acctValue = item[kSecAttrAccount as String] {
+          print("📱 [NotificationService] 🔍 Account value type: \(type(of: acctValue))")
+          print("📱 [NotificationService] 🔍 Account value: \(acctValue)")
+        }
+      }
+    }
+    
+    print("📱 [NotificationService] ℹ️ No auth token found in keychain (status: \(status))")
+    print("📱 [NotificationService] 🔍 Bundle identifier: \(Bundle.main.bundleIdentifier ?? "nil")")
+    return nil
   }
   
   // DEPRECATED: This method is no longer used
