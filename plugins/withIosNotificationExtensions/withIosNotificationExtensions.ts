@@ -237,14 +237,15 @@ async function createSharedFrameworkTarget(
         buildSettingsObj.GENERATE_INFOPLIST_FILE = 'YES';
         delete buildSettingsObj.INFOPLIST_FILE;
         
-        // Code signing: Don't sign the framework separately (it will be signed when embedded)
-        buildSettingsObj.CODE_SIGN_IDENTITY = '""';
-        buildSettingsObj.CODE_SIGN_STYLE = 'Manual';
+        // Code signing: Use automatic signing like extensions (now that we have App ID registered)
+        buildSettingsObj.CODE_SIGN_STYLE = 'Automatic';
+        buildSettingsObj.DEVELOPMENT_TEAM = developmentTeam;
         
-        // Remove development team and provisioning for framework
-        delete buildSettingsObj.DEVELOPMENT_TEAM;
+        // Don't require a provisioning profile specifier (EAS will provide it)
         delete buildSettingsObj.PROVISIONING_PROFILE_SPECIFIER;
-        delete buildSettingsObj.CODE_SIGN_ENTITLEMENTS;
+        
+        // Entitlements for framework
+        buildSettingsObj.CODE_SIGN_ENTITLEMENTS = `"${frameworkTargetName}/${frameworkTargetName}.entitlements"`;
         
         // Different optimization levels for Debug/Release
         if (key.includes('Debug')) {
@@ -256,10 +257,29 @@ async function createSharedFrameworkTarget(
     }
   }
   
-  // Don't add development team for framework
-  // pbxProject.addTargetAttribute('DevelopmentTeam', developmentTeam, frameworkTargetName);
+  pbxProject.addTargetAttribute('DevelopmentTeam', developmentTeam, frameworkTargetName);
   
-  console.log(`[ZentikShared] ✅ Framework target created with bundle identifier ${frameworkBundleId} (unsigned - will be signed when embedded)`);
+  // Create entitlements file for framework
+  const entitlementsPath = path.join(iosDir, frameworkTargetName, `${frameworkTargetName}.entitlements`);
+  const entitlementsContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.${baseBundleId}</string>
+	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)${baseBundleId}.keychain</string>
+	</array>
+</dict>
+</plist>`;
+  
+  fs.writeFileSync(entitlementsPath, entitlementsContent);
+  console.log(`[ZentikShared] ✓ Created entitlements file`);
+  
+  console.log(`[ZentikShared] ✅ Framework target created with bundle identifier ${frameworkBundleId} (automatic signing with App ID)`);
   
   return frameworkTargetName;
 }
