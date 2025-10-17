@@ -87,6 +87,16 @@ FirebaseApp.configure()
     
     print("📱 [AppDelegate] 🎯 Processing action: \(actionIdentifier)")
     
+    logToJSON(
+      level: "info",
+      tag: "AppDelegate",
+      message: "[Action] Notification action received",
+      metadata: [
+        "actionIdentifier": actionIdentifier,
+        "notificationId": userInfo["notificationId"] as? String ?? "unknown"
+      ]
+    )
+    
     // Log keychain data availability
     if let apiEndpoint = getApiEndpoint() {
       print("📱 [AppDelegate] 🔑 API Endpoint from keychain: \(apiEndpoint)")
@@ -197,15 +207,39 @@ FirebaseApp.configure()
   private func handleMarkAsRead(notificationId: String, userInfo: [AnyHashable: Any]) {
     print("📱 [AppDelegate] ✅ Mark as read: \(notificationId)")
     
+    logToJSON(
+      level: "info",
+      tag: "AppDelegate",
+      message: "[Action] Mark as read started",
+      metadata: ["notificationId": notificationId]
+    )
+    
     Task {
       do {
         try await markNotificationAsRead(notificationId: notificationId, userInfo: userInfo)
         print("📱 [AppDelegate] ✅ Notification marked as read on server")
         
+        logToJSON(
+          level: "info",
+          tag: "AppDelegate",
+          message: "[Action] Mark as read - Server updated successfully",
+          metadata: ["notificationId": notificationId]
+        )
+        
         // Update local database
         markNotificationAsReadInDatabase(notificationId: notificationId)
       } catch {
         print("📱 [AppDelegate] ❌ Failed to mark as read: \(error)")
+        
+        logToJSON(
+          level: "error",
+          tag: "AppDelegate",
+          message: "[Action] Mark as read failed",
+          metadata: [
+            "notificationId": notificationId,
+            "error": error.localizedDescription
+          ]
+        )
       }
     }
   }
@@ -213,16 +247,40 @@ FirebaseApp.configure()
   private func handleDelete(notificationId: String, userInfo: [AnyHashable: Any]) {
     print("📱 [AppDelegate] 🗑️ Delete: \(notificationId)")
     
+    logToJSON(
+      level: "info",
+      tag: "AppDelegate",
+      message: "[Action] Delete notification started",
+      metadata: ["notificationId": notificationId]
+    )
+    
     Task {
       do {
         try await deleteNotificationFromServer(notificationId: notificationId, userInfo: userInfo)
         print("📱 [AppDelegate] ✅ Notification deleted from server")
+        
+        logToJSON(
+          level: "info",
+          tag: "AppDelegate",
+          message: "[Action] Delete - Server updated successfully",
+          metadata: ["notificationId": notificationId]
+        )
         
         // Update local database and badge
         deleteNotificationFromDatabase(notificationId: notificationId)
         decrementBadgeCount()
       } catch {
         print("📱 [AppDelegate] ❌ Failed to delete: \(error)")
+        
+        logToJSON(
+          level: "error",
+          tag: "AppDelegate",
+          message: "[Action] Delete failed",
+          metadata: [
+            "notificationId": notificationId,
+            "error": error.localizedDescription
+          ]
+        )
       }
     }
   }
@@ -289,12 +347,36 @@ FirebaseApp.configure()
   private func handleWebhook(webhookId: String, userInfo: [AnyHashable: Any]) {
     print("📱 [AppDelegate] 🪝 Webhook: \(webhookId)")
     
+    logToJSON(
+      level: "info",
+      tag: "AppDelegate",
+      message: "[Action] Webhook execution started",
+      metadata: ["webhookId": webhookId]
+    )
+    
     Task {
       do {
         try await executeWebhook(webhookId: webhookId, userInfo: userInfo)
         print("📱 [AppDelegate] ✅ Webhook executed")
+        
+        logToJSON(
+          level: "info",
+          tag: "AppDelegate",
+          message: "[Action] Webhook executed successfully",
+          metadata: ["webhookId": webhookId]
+        )
       } catch {
         print("📱 [AppDelegate] ❌ Failed to execute webhook: \(error)")
+        
+        logToJSON(
+          level: "error",
+          tag: "AppDelegate",
+          message: "[Action] Webhook execution failed",
+          metadata: [
+            "webhookId": webhookId,
+            "error": error.localizedDescription
+          ]
+        )
       }
     }
   }
@@ -642,8 +724,22 @@ FirebaseApp.configure()
     
     if sqlite3_step(stmt) == SQLITE_DONE {
       print("📱 [AppDelegate] ✅ Notification marked as read in local DB")
+      
+      logToJSON(
+        level: "info",
+        tag: "AppDelegate-DB",
+        message: "[Database] Notification marked as read in local cache",
+        metadata: ["notificationId": notificationId]
+      )
     } else {
       print("📱 [AppDelegate] ❌ Failed to mark as read in local DB")
+      
+      logToJSON(
+        level: "error",
+        tag: "AppDelegate-DB",
+        message: "[Database] Failed to mark notification as read",
+        metadata: ["notificationId": notificationId]
+      )
     }
   }
   
@@ -690,6 +786,179 @@ FirebaseApp.configure()
       UIApplication.shared.applicationIconBadgeNumber = newCount
       print("📱 [AppDelegate] ✅ Badge count updated from \(currentCount) to \(newCount)")
     }
+  }
+  
+  // MARK: - Structured Logging
+  
+  private struct LogEntry: Codable {
+    let id: String
+    let level: String
+    let tag: String?
+    let message: String
+    let metadata: [String: String]?
+    let timestamp: Int64
+    let source: String
+  }
+  
+  private static var logBuffer: [LogEntry] = []
+  private static var logBufferLock = NSLock()
+  private static let BATCH_SIZE = 20
+  private static var flushTimer: Timer?
+  
+  private func logToJSON(
+    level: String,
+    tag: String? = nil,
+    message: String,
+    metadata: [String: Any]? = nil
+  ) {
+    let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+    
+    // Convert metadata to string dictionary for JSON encoding
+    var metadataStrings: [String: String]?
+    if let metadata = metadata {
+      metadataStrings = metadata.reduce(into: [String: String]()) { result, item in
+        if let stringValue = item.value as? String {
+          result[item.key] = stringValue
+        } else if let numberValue = item.value as? NSNumber {
+          result[item.key] = numberValue.stringValue
+        } else if let boolValue = item.value as? Bool {
+          result[item.key] = boolValue ? "true" : "false"
+        } else {
+          // Convert complex objects to JSON string
+          if let jsonData = try? JSONSerialization.data(withJSONObject: item.value),
+             let jsonString = String(data: jsonData, encoding: .utf8) {
+            result[item.key] = jsonString
+          }
+        }
+      }
+    }
+    
+    let entry = LogEntry(
+      id: UUID().uuidString,
+      level: level,
+      tag: tag,
+      message: message,
+      metadata: metadataStrings,
+      timestamp: timestamp,
+      source: "AppDelegate"
+    )
+    
+    AppDelegate.logBufferLock.lock()
+    AppDelegate.logBuffer.append(entry)
+    let shouldFlush = AppDelegate.logBuffer.count >= AppDelegate.BATCH_SIZE
+    AppDelegate.logBufferLock.unlock()
+    
+    if shouldFlush {
+      flushLogs()
+    } else {
+      scheduleFlush()
+    }
+  }
+  
+  private func scheduleFlush() {
+    AppDelegate.logBufferLock.lock()
+    if AppDelegate.flushTimer == nil {
+      AppDelegate.flushTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
+        self?.flushLogs()
+      }
+    }
+    AppDelegate.logBufferLock.unlock()
+  }
+  
+  private func flushLogs() {
+    AppDelegate.logBufferLock.lock()
+    
+    guard !AppDelegate.logBuffer.isEmpty else {
+      AppDelegate.logBufferLock.unlock()
+      return
+    }
+    
+    let logsToFlush = AppDelegate.logBuffer
+    AppDelegate.logBuffer.removeAll()
+    AppDelegate.flushTimer?.invalidate()
+    AppDelegate.flushTimer = nil
+    
+    AppDelegate.logBufferLock.unlock()
+    
+    // Write logs to database
+    writeLogsToDatabase(logsToFlush)
+  }
+  
+  private func writeLogsToDatabase(_ logs: [LogEntry]) {
+    let dbPath = getDbPath()
+    guard FileManager.default.fileExists(atPath: dbPath) else {
+      print("📱 [AppDelegate] ⚠️ Database not found for logging: \(dbPath)")
+      return
+    }
+    
+    var db: OpaquePointer?
+    guard sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK else {
+      print("📱 [AppDelegate] ❌ Failed to open database for logging")
+      return
+    }
+    
+    defer { sqlite3_close(db) }
+    
+    // Create logs table if not exists
+    let createTableSQL = """
+    CREATE TABLE IF NOT EXISTS logs (
+      id TEXT PRIMARY KEY,
+      level TEXT NOT NULL,
+      tag TEXT,
+      message TEXT NOT NULL,
+      metadata TEXT,
+      timestamp INTEGER NOT NULL,
+      source TEXT NOT NULL
+    )
+    """
+    
+    if sqlite3_exec(db, createTableSQL, nil, nil, nil) != SQLITE_OK {
+      print("📱 [AppDelegate] ❌ Failed to create logs table")
+      return
+    }
+    
+    // Insert logs
+    let insertSQL = "INSERT OR REPLACE INTO logs (id, level, tag, message, metadata, timestamp, source) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    var stmt: OpaquePointer?
+    
+    guard sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK else {
+      print("📱 [AppDelegate] ❌ Failed to prepare log insert statement")
+      return
+    }
+    
+    defer { sqlite3_finalize(stmt) }
+    
+    for log in logs {
+      sqlite3_bind_text(stmt, 1, (log.id as NSString).utf8String, -1, nil)
+      sqlite3_bind_text(stmt, 2, (log.level as NSString).utf8String, -1, nil)
+      
+      if let tag = log.tag {
+        sqlite3_bind_text(stmt, 3, (tag as NSString).utf8String, -1, nil)
+      } else {
+        sqlite3_bind_null(stmt, 3)
+      }
+      
+      sqlite3_bind_text(stmt, 4, (log.message as NSString).utf8String, -1, nil)
+      
+      if let metadata = log.metadata,
+         let jsonData = try? JSONSerialization.data(withJSONObject: metadata),
+         let jsonString = String(data: jsonData, encoding: .utf8) {
+        sqlite3_bind_text(stmt, 5, (jsonString as NSString).utf8String, -1, nil)
+      } else {
+        sqlite3_bind_null(stmt, 5)
+      }
+      
+      sqlite3_bind_int64(stmt, 6, log.timestamp)
+      sqlite3_bind_text(stmt, 7, (log.source as NSString).utf8String, -1, nil)
+      
+      if sqlite3_step(stmt) != SQLITE_DONE {
+        print("📱 [AppDelegate] ❌ Failed to insert log entry")
+      }
+      
+      sqlite3_reset(stmt)
+    }
+    
+    print("📱 [AppDelegate] ✅ Flushed \(logs.count) log entries to database")
   }
 
   // Linking API
