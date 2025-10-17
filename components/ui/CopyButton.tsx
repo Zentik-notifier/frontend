@@ -1,6 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import React, { useState } from "react";
-import { IconButton, useTheme } from "react-native-paper";
+import { IconButton, useTheme, Button } from "react-native-paper";
+import { View } from "react-native";
 
 interface CopyButtonProps {
   text: string;
@@ -8,6 +9,10 @@ interface CopyButtonProps {
   size?: number;
   style?: any;
   disabled?: boolean;
+  /** Optional label to display next to the icon. When provided, renders as an outlined button instead of icon-only */
+  label?: string;
+  /** Optional custom success label when text is copied. Defaults to "Copied!" */
+  successLabel?: string;
 }
 
 export default function CopyButton({
@@ -16,6 +21,8 @@ export default function CopyButton({
   size = 20,
   style,
   disabled = false,
+  label,
+  successLabel,
 }: CopyButtonProps) {
   const theme = useTheme();
   const [showSuccess, setShowSuccess] = useState(false);
@@ -34,6 +41,20 @@ export default function CopyButton({
       }
     }
   };
+
+  if (label) {
+    return (
+      <Button
+        mode="outlined"
+        icon={showSuccess ? "check" : "content-copy"}
+        onPress={handleCopy}
+        style={style}
+        disabled={disabled}
+      >
+        {showSuccess ? (successLabel || "Copied!") : label}
+      </Button>
+    );
+  }
 
   return (
     <IconButton

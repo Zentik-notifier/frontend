@@ -748,8 +748,14 @@ export interface Translation {
     preview: {
       title: string;
       description: string;
-      copy: string;
-      copied: string;
+      formatJson: string;
+      formatCurl: string;
+      jsonDescription: string;
+      curlDescription: string;
+      copyJson: string;
+      copyCurl: string;
+      copiedJson: string;
+      copiedCurl: string;
     };
     noWebhooks: {
       message: string;

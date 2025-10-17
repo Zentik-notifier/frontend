@@ -775,10 +775,16 @@
       "cancel": "Annulla"
     },
     "preview": {
-      "title": "Anteprima JSON",
-      "description": "Questo è il payload JSON che sarà inviato al server per creare la notifica",
-      "copy": "Copia JSON",
-      "copied": "JSON copiato negli appunti!"
+      "title": "Anteprima API",
+      "description": "Scegli il formato per visualizzare la chiamata API della notifica",
+      "formatJson": "JSON",
+      "formatCurl": "cURL",
+      "jsonDescription": "Payload JSON grezzo per la notifica",
+      "curlDescription": "Comando cURL pronto all'uso per inviare questa notifica via API",
+      "copyJson": "Copia JSON",
+      "copyCurl": "Copia cURL",
+      "copiedJson": "JSON copiato negli appunti!",
+      "copiedCurl": "cURL copiato negli appunti!"
     },
     "noWebhooks": {
       "message": "Nessun webhook disponibile. Crea prima un webhook per usare il tipo {{type}}."

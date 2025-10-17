@@ -9,6 +9,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
+import * as Clipboard from 'expo-clipboard';
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import CopyButton from "@/components/ui/CopyButton";
 import {
@@ -33,6 +34,17 @@ export default function CreateAccessTokenForm() {
   const [expirationDays, setExpirationDays] = useState("");
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const handleCopyToken = async () => {
+    if (newToken && newToken !== "N/A") {
+      await Clipboard.setStringAsync(newToken);
+      setCopySuccess(true);
+      setTimeout(() => {
+        setCopySuccess(false);
+      }, 1000);
+    }
+  };
 
   const [createAccessToken] = useCreateAccessTokenMutation({
     update: (cache, { data }) => {
@@ -200,16 +212,13 @@ export default function CreateAccessTokenForm() {
               >
                 {newToken}
               </Text>
-              <View style={styles.copyButtonContainer}>
-                <CopyButton
-                  text={newToken}
-                  size={20}
-                  style={styles.copyButton}
-                />
-                <Text variant="bodyMedium" style={styles.copyButtonText}>
-                  {t("accessTokens.form.copy")}
-                </Text>
-              </View>
+              <CopyButton
+                text={newToken}
+                size={20}
+                style={styles.copyButtonContainer}
+                label={t("accessTokens.form.copy")}
+                successLabel={t("common.copied")}
+              />
             </View>
           </Dialog.Content>
           <Dialog.Actions>

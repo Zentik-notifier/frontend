@@ -12,6 +12,7 @@ import {
 import { useLanguageSync, useNotificationUtils } from "@/hooks";
 import { useBucket, useBucketsStats } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
+import { ApiConfigService } from "@/services/api-config";
 import {
   getNotificationTestData,
   notificationFormDefaults,
@@ -32,6 +33,7 @@ import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
 import NotificationActionsSelector from "./NotificationActionsSelector";
 import NotificationTapActionSelector from "./NotificationTapActionSelector";
 import Selector, { SelectorOption } from "./ui/Selector";
+import CopyButton from "./ui/CopyButton";
 
 export default function NotificationsSettings() {
   const {
@@ -107,6 +109,7 @@ export default function NotificationsSettings() {
   const [showJsonPreview, setShowJsonPreview] = useState(
     notificationFormDefaults.showJsonPreview
   );
+  const [previewFormat, setPreviewFormat] = useState<"json" | "curl">("curl");
   const [groupId, setGroupId] = useState<string>("");
   const [collapseId, setCollapseId] = useState<string>("");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
@@ -283,14 +286,26 @@ export default function NotificationsSettings() {
     return message;
   };
 
-  // Copy JSON to clipboard function
+  // Generate cURL command
+  const generateCurlCommand = () => {
+    const apiUrl = ApiConfigService.getApiBaseWithPrefix();
+    const payload = buildMessagePayload();
+    const jsonPayload = JSON.stringify(payload, null, 2);
+
+    return `curl -X POST "${apiUrl}/messages" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \\
+  -d '${jsonPayload}'`;
+  };
+
+  // Copy cURL to clipboard function
   const copyJsonToClipboard = async () => {
     try {
-      const jsonString = JSON.stringify(buildMessagePayload(), null, 2);
-      await Clipboard.setStringAsync(jsonString);
-      Alert.alert(t("common.success"), t("notifications.preview.copied"));
+      const curlCommand = generateCurlCommand();
+      await Clipboard.setStringAsync(curlCommand);
+      Alert.alert(t("common.success"), t("common.copied"));
     } catch (error) {
-      Alert.alert(t("common.error"), "Failed to copy JSON to clipboard");
+      Alert.alert(t("common.error"), "Failed to copy cURL to clipboard");
     }
   };
 
@@ -329,14 +344,18 @@ export default function NotificationsSettings() {
   };
 
   return (
-    <PaperScrollView onRefresh={handleRefresh} loading={loading}>
+    <PaperScrollView
+      onRefresh={handleRefresh}
+      loading={loading}
+      customActions={[
+        {
+          label: t("notifications.loadTestData"),
+          icon: "refresh",
+          onPress: loadTestData,
+        },
+      ]}
+    >
       <View style={styles.section}>
-        <View style={styles.loadDataBtnRow}>
-          <Button mode="outlined" icon="plus" onPress={loadTestData} compact>
-            {t("notifications.loadTestData")}
-          </Button>
-        </View>
-
         {/* Content Section */}
         <Card style={styles.card} elevation={0}>
           <Card.Content>
@@ -764,7 +783,8 @@ export default function NotificationsSettings() {
                     onPress={addPostponeTime}
                     compact
                     disabled={
-                      !postponeTimeInput.trim() || parseInt(postponeTimeInput) <= 0
+                      !postponeTimeInput.trim() ||
+                      parseInt(postponeTimeInput) <= 0
                     }
                   >
                     {t("common.add")}
@@ -1020,6 +1040,37 @@ export default function NotificationsSettings() {
                   {t("notifications.preview.description")}
                 </Text>
 
+                {/* Format Selector */}
+                <View style={styles.formatSelector}>
+                  <Button
+                    mode={previewFormat === "json" ? "contained" : "outlined"}
+                    onPress={() => setPreviewFormat("json")}
+                    compact
+                    style={styles.formatButton}
+                  >
+                    {t("notifications.preview.formatJson")}
+                  </Button>
+                  <Button
+                    mode={previewFormat === "curl" ? "contained" : "outlined"}
+                    onPress={() => setPreviewFormat("curl")}
+                    compact
+                    style={styles.formatButton}
+                  >
+                    {t("notifications.preview.formatCurl")}
+                  </Button>
+                </View>
+
+                <Text
+                  style={[
+                    styles.previewDescription,
+                    { color: theme.colors.onSurfaceVariant, marginTop: 8 },
+                  ]}
+                >
+                  {previewFormat === "json"
+                    ? t("notifications.preview.jsonDescription")
+                    : t("notifications.preview.curlDescription")}
+                </Text>
+
                 <PaperScrollView
                   style={{
                     ...styles.jsonPreviewContainer,
@@ -1030,21 +1081,37 @@ export default function NotificationsSettings() {
                   <Text
                     style={[
                       styles.jsonPreviewText,
-                      { color: theme.colors.onSurface },
+                      {
+                        color: theme.colors.onSurface,
+                        fontFamily:
+                          previewFormat === "curl" ? "monospace" : undefined,
+                      },
                     ]}
                   >
-                    {JSON.stringify(buildMessagePayload(), null, 2)}
+                    {previewFormat === "json"
+                      ? JSON.stringify(buildMessagePayload(), null, 2)
+                      : generateCurlCommand()}
                   </Text>
                 </PaperScrollView>
 
-                <Button
-                  mode="outlined"
-                  icon="content-copy"
-                  onPress={copyJsonToClipboard}
-                  compact
-                >
-                  {t("notifications.preview.copy")}
-                </Button>
+                <CopyButton
+                  text={
+                    previewFormat === "json"
+                      ? JSON.stringify(buildMessagePayload(), null, 2)
+                      : generateCurlCommand()
+                  }
+                  label={
+                    previewFormat === "json"
+                      ? t("notifications.preview.copyJson")
+                      : t("notifications.preview.copyCurl")
+                  }
+                  successLabel={
+                    previewFormat === "json"
+                      ? t("notifications.preview.copiedJson")
+                      : t("notifications.preview.copiedCurl")
+                  }
+                  style={styles.copyButton}
+                />
               </>
             )}
           </Card.Content>
@@ -1326,5 +1393,16 @@ const styles = StyleSheet.create({
   },
   resetButton: {
     borderRadius: 12,
+  },
+  copyButton: {
+    marginTop: 16,
+  },
+  formatSelector: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+  },
+  formatButton: {
+    flex: 1,
   },
 });

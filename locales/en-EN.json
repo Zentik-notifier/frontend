@@ -743,10 +743,16 @@
       "cancel": "Cancel"
     },
     "preview": {
-      "title": "JSON Preview",
-      "description": "This is the JSON payload that will be sent to the server to create the notification",
-      "copy": "Copy JSON",
-      "copied": "JSON copied to clipboard!"
+      "title": "API Preview",
+      "description": "Choose format to preview your notification API call",
+      "formatJson": "JSON",
+      "formatCurl": "cURL",
+      "jsonDescription": "Raw JSON payload for the notification",
+      "curlDescription": "Ready-to-use cURL command to send this notification via API",
+      "copyJson": "Copy JSON",
+      "copyCurl": "Copy cURL",
+      "copiedJson": "JSON copied to clipboard!",
+      "copiedCurl": "cURL copied to clipboard!"
     },
     "noWebhooks": {
       "message": "No webhooks available. Create a webhook first to use {{type}} type."
