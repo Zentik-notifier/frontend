@@ -198,13 +198,13 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                                         ...commonEntitlements
                                     },
                                 },
-                                {
-                                    targetName: "ZentikShared",
-                                    bundleIdentifier: `${bundleIdentifier}.ZentikShared`,
-                                    entitlements: {
-                                        ...commonEntitlements
-                                    },
-                                }
+                                // {
+                                //     targetName: "ZentikShared",
+                                //     bundleIdentifier: `${bundleIdentifier}.ZentikShared`,
+                                //     entitlements: {
+                                //         ...commonEntitlements
+                                //     },
+                                // }
                             ]
                         }
                     }
