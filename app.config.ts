@@ -172,7 +172,8 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             ["./plugins/withIosNotificationExtensions/withIosNotificationExtensions.ts"],
             ["./plugins/withAndroidManifestFix/withAndroidManifestFix.ts"],
             ["@bacons/apple-targets"],
-            ["./plugins/withCustomAppDelegate/withCustomAppDelegate.ts"]
+            ["./plugins/withCustomAppDelegate/withCustomAppDelegate.ts"],
+            ["./plugins/withZentikShared"]
         ],
 
         experiments: {

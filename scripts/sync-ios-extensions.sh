@@ -179,12 +179,38 @@ else
     print_warning "AppDelegate non trovato: $APPDELEGATE_SOURCE"
 fi
 
-# 4. Verifica finale
+# 4. Shared Framework (ZentikShared)
+print_status "Sincronizzazione ZentikShared framework..."
+
+SHARED_SOURCE="plugins/withZentikShared/files"
+SHARED_DEST="$IOS_DIR/ZentikShared"
+
+if [ -d "$SHARED_SOURCE" ]; then
+    # Crea la cartella di destinazione se non esiste
+    mkdir -p "$SHARED_DEST"
+    
+    # Copia tutti i file Swift del framework
+    cp -f "$SHARED_SOURCE"/*.swift "$SHARED_DEST/" 2>/dev/null || true
+    
+    print_success "ZentikShared framework sincronizzato"
+    
+    # Mostra i file copiati
+    for file in "$SHARED_SOURCE"/*.swift; do
+        if [ -f "$file" ]; then
+            print_status "  ✅ $(basename "$file") copiato"
+        fi
+    done
+else
+    print_warning "Cartella ZentikShared non trovata: $SHARED_SOURCE"
+fi
+
+# 5. Verifica finale
 print_status "Verifica finale sincronizzazione..."
 
 # Conta i file nelle cartelle di destinazione
 SERVICE_FILES=$(find "$SERVICE_DEST" -name "*.swift" -o -name "*.plist" 2>/dev/null | wc -l)
 CONTENT_FILES=$(find "$CONTENT_DEST" -name "*.swift" -o -name "*.plist" -o -name "*.storyboard" 2>/dev/null | wc -l)
+SHARED_FILES=$(find "$SHARED_DEST" -name "*.swift" 2>/dev/null | wc -l)
 
 print_success "Sincronizzazione completata!"
 print_status "File copiati:"
@@ -193,14 +219,16 @@ print_status "  🎨 Content Extension: $CONTENT_FILES file"
 if [ -f "$APPDELEGATE_DEST" ]; then
     print_status "  🎯 AppDelegate: copiato"
 fi
+print_status "  📦 ZentikShared framework: $SHARED_FILES file"
 
-# 4. Suggerimenti per il prossimo step
+# 5. Suggerimenti per il prossimo step
 echo ""
 print_status "🎯 Prossimi passi:"
-print_status "1. Ricompila l'app: npx expo run:ios --clear"
-print_status "2. Testa le notifiche per verificare che le estensioni e AppDelegate funzionino"
-print_status "3. Controlla i log per confermare l'attivazione delle estensioni"
-print_status "4. Testa le azioni delle notifiche (mark as read, delete, snooze, etc.)"
+print_status "1. Ricompila l'app: npx expo prebuild --clean"
+print_status "2. Apri Xcode e verifica che ZentikShared.framework sia linkato"
+print_status "3. Aggiungi 'import ZentikShared' nelle estensioni"
+print_status "4. Testa le notifiche per verificare il framework condiviso"
+print_status "5. Controlla i log per confermare l'uso del framework"
 
 echo ""
 print_success "✨ Sincronizzazione completata con successo!"
