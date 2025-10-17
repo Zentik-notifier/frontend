@@ -237,21 +237,20 @@ async function createSharedFrameworkTarget(
         buildSettingsObj.GENERATE_INFOPLIST_FILE = 'YES';
         delete buildSettingsObj.INFOPLIST_FILE;
         
-        // Code signing: use automatic signing but without provisioning profile
-        // This allows the framework to be signed with the app's certificate when embedded
+        // Code signing: use "-" to inherit from host app (don't sign framework separately)
+        buildSettingsObj.CODE_SIGN_IDENTITY = '"-"';
         buildSettingsObj.CODE_SIGN_STYLE = 'Automatic';
-        buildSettingsObj.CODE_SIGN_IDENTITY = '"Apple Development"';
         buildSettingsObj.DEVELOPMENT_TEAM = developmentTeam;
         
         // Don't require a provisioning profile for the framework
         delete buildSettingsObj.PROVISIONING_PROFILE_SPECIFIER;
+        delete buildSettingsObj.CODE_SIGN_ENTITLEMENTS;
         
         // Different optimization levels for Debug/Release
         if (key.includes('Debug')) {
           buildSettingsObj.SWIFT_OPTIMIZATION_LEVEL = '"-Onone"';
         } else if (key.includes('Release')) {
           buildSettingsObj.SWIFT_OPTIMIZATION_LEVEL = '"-O"';
-          buildSettingsObj.CODE_SIGN_IDENTITY = '"Apple Distribution"';
         }
       }
     }
@@ -259,7 +258,7 @@ async function createSharedFrameworkTarget(
   
   pbxProject.addTargetAttribute('DevelopmentTeam', developmentTeam, frameworkTargetName);
   
-  console.log(`[ZentikShared] ✅ Framework target created with bundle identifier ${frameworkBundleId}`);
+  console.log(`[ZentikShared] ✅ Framework target created with bundle identifier ${frameworkBundleId} (code sign identity: -)`);
   
   return frameworkTargetName;
 }
