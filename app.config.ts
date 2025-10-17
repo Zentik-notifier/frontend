@@ -23,7 +23,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
         ...config,
         name,
         slug: "zentik",
-        version: "1.4.2",
+        version: "1.4.3",
         orientation: "default",
         icon: "./assets/icons/generators/glas_default.png",
         scheme: "zentik",
@@ -43,7 +43,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             supportsTablet: true,
             bundleIdentifier,
             appleTeamId: "C3F24V5NS5",
-            buildNumber: "35",
+            buildNumber: "36",
             icon: "./assets/icons/generators/glas_default.png",
             // icon: {
             //     light: "./assets/icons/generators/glas_default.png",
@@ -73,7 +73,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                 backgroundColor: "#ffffff",
             },
             package: bundleIdentifier,
-            versionCode: 35,
+            versionCode: 36,
             googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './keys/google-services.json',
             permissions: [
                 "android.permission.RECEIVE_BOOT_COMPLETED",
