@@ -182,7 +182,7 @@ fi
 # 4. Shared Framework (ZentikShared)
 print_status "Sincronizzazione ZentikShared framework..."
 
-SHARED_SOURCE="plugins/withZentikShared/files"
+SHARED_SOURCE="$PLUGINS_DIR/ZentikShared"
 SHARED_DEST="$IOS_DIR/ZentikShared"
 
 if [ -d "$SHARED_SOURCE" ]; then
@@ -191,6 +191,14 @@ if [ -d "$SHARED_SOURCE" ]; then
     
     # Copia tutti i file Swift del framework
     cp -f "$SHARED_SOURCE"/*.swift "$SHARED_DEST/" 2>/dev/null || true
+    cp -f "$SHARED_SOURCE"/*.entitlements "$SHARED_DEST/" 2>/dev/null || true
+    
+    # Sostituisci placeholder nei file copiati
+    for file in "$SHARED_DEST"/*.swift "$SHARED_DEST"/*.entitlements; do
+        if [ -f "$file" ]; then
+            replace_placeholders "$file" "$BUNDLE_ID"
+        fi
+    done
     
     print_success "ZentikShared framework sincronizzato"
     
