@@ -36,6 +36,8 @@ export interface NotificationFilters {
   showOnlyWithAttachments: boolean;
   /** Load media only for items visible on screen (virtualized) */
   loadOnlyVisible: boolean;
+  /** Enable HTML rendering in notification text content */
+  enableHtmlRendering: boolean;
 }
 
 export type DateFormatStyle = 'short' | 'medium' | 'long';
@@ -99,7 +101,7 @@ export interface UserSettings {
   notificationsPreferences?: {
     unencryptOnBigPayload?: boolean;
     markAsReadMode?: MarkAsReadMode;
-    showAppIconOnBucketIconMissing?: boolean;
+    generateBucketIconWithInitials?: boolean;
     // Auto-add notification actions when not explicitly set in payload
     autoAddDeleteAction?: boolean;
     autoAddMarkAsReadAction?: boolean;
@@ -171,11 +173,12 @@ const DEFAULT_SETTINGS: UserSettings = {
     sortBy: 'newest',
     showOnlyWithAttachments: false,
     loadOnlyVisible: false,
+    enableHtmlRendering: true,
   },
   notificationsPreferences: {
     unencryptOnBigPayload: false,
     markAsReadMode: 'on-view',
-    showAppIconOnBucketIconMissing: false,
+    generateBucketIconWithInitials: true,
     autoAddDeleteAction: true,
     autoAddMarkAsReadAction: true,
     autoAddOpenNotificationAction: false,
@@ -653,8 +656,14 @@ class UserSettingsService {
           stored.notificationsPreferences?.unencryptOnBigPayload ?? DEFAULT_SETTINGS.notificationsPreferences!.unencryptOnBigPayload,
         markAsReadMode:
           stored.notificationsPreferences?.markAsReadMode ?? DEFAULT_SETTINGS.notificationsPreferences!.markAsReadMode,
-        showAppIconOnBucketIconMissing:
-          stored.notificationsPreferences?.showAppIconOnBucketIconMissing ?? DEFAULT_SETTINGS.notificationsPreferences!.showAppIconOnBucketIconMissing,
+        generateBucketIconWithInitials:
+          stored.notificationsPreferences?.generateBucketIconWithInitials ?? DEFAULT_SETTINGS.notificationsPreferences!.generateBucketIconWithInitials,
+        autoAddDeleteAction:
+          stored.notificationsPreferences?.autoAddDeleteAction ?? DEFAULT_SETTINGS.notificationsPreferences!.autoAddDeleteAction,
+        autoAddMarkAsReadAction:
+          stored.notificationsPreferences?.autoAddMarkAsReadAction ?? DEFAULT_SETTINGS.notificationsPreferences!.autoAddMarkAsReadAction,
+        autoAddOpenNotificationAction:
+          stored.notificationsPreferences?.autoAddOpenNotificationAction ?? DEFAULT_SETTINGS.notificationsPreferences!.autoAddOpenNotificationAction,
       },
       gallery: {
         ...DEFAULT_SETTINGS.gallery,
@@ -996,9 +1005,8 @@ export function useUserSettings() {
         await upsertUserSetting({ variables: { input: { configType: UserSettingType.UnencryptOnBigPayload, valueBool: v, deviceId } } }); 
       } catch { }
     },
-    setShowAppIconOnBucketIconMissing: async (v: boolean) => {
-      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), showAppIconOnBucketIconMissing: v } });
-      try { const { saveNseShowAppIconOnBucketIconMissing } = await import('./auth-storage'); await saveNseShowAppIconOnBucketIconMissing(v); } catch { }
+    setGenerateBucketIconWithInitials: async (v: boolean) => {
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), generateBucketIconWithInitials: v } });
     },
     setAutoAddDeleteAction: async (v: boolean) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), autoAddDeleteAction: v } });

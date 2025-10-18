@@ -104,6 +104,7 @@ interface NotificationItemProps {
   isItemVisible: boolean;
   noBucketRouting?: boolean;
   onToggleSelection?: () => void;
+  enableHtmlRendering?: boolean;
 }
 
 const NotificationItem: React.FC<NotificationItemProps> = ({
@@ -114,6 +115,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   noBucketRouting,
   isItemVisible,
   onToggleSelection,
+  enableHtmlRendering = true,
 }) => {
   const theme = useTheme();
   const mediaPressRef = useRef(false);
@@ -341,8 +343,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             >
               <BucketIcon
                 key={notification.message?.bucket?.id}
+                bucketId={notification.message?.bucket?.id}
                 size={"lg"}
-                bucket={notification.message?.bucket}
                 noRouting={noBucketRouting}
               />
             </View>
@@ -366,6 +368,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 content={notification.message?.title}
                 maxLines={1}
                 style={[styles.title, !isRead && styles.titleUnread]}
+                enableHtml={enableHtmlRendering}
               />
             </View>
             <View style={styles.rightMeta}>
@@ -385,6 +388,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               content={notification.message.subtitle}
               maxLines={1}
               style={styles.subtitle}
+              enableHtml={enableHtmlRendering}
             />
           )}
 
@@ -393,6 +397,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               content={notification.message.body}
               maxLines={bodyMaxLines}
               style={styles.body}
+              enableHtml={enableHtmlRendering}
             />
           )}
         </Surface>

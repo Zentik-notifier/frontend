@@ -82,6 +82,10 @@ export default function NotificationFiltersModal() {
     setLocalFilters((prev) => ({ ...prev, loadOnlyVisible }));
   };
 
+  const handleHtmlRenderingChange = (enableHtmlRendering: boolean) => {
+    setLocalFilters((prev) => ({ ...prev, enableHtmlRendering }));
+  };
+
   const clearAllFilters = () => {
     setLocalFilters({
       hideRead: false,
@@ -92,6 +96,7 @@ export default function NotificationFiltersModal() {
       sortBy: "newest",
       showOnlyWithAttachments: false,
       loadOnlyVisible: false,
+      enableHtmlRendering: true,
     });
   };
 
@@ -511,6 +516,63 @@ export default function NotificationFiltersModal() {
                       ]}
                     >
                       {t("filters.loadOnlyVisibleDescription")}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableRipple>
+            </View>
+
+            {/* HTML Rendering Section */}
+            <View style={styles.section}>
+              <Text
+                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
+              >
+                {t("filters.display")}
+              </Text>
+              <TouchableRipple
+                style={[
+                  styles.quickFilter,
+                  {
+                    borderColor: theme.colors.outline,
+                    backgroundColor: localFilters.enableHtmlRendering
+                      ? theme.colors.secondaryContainer
+                      : theme.colors.elevation?.level1 || theme.colors.surface,
+                  },
+                ]}
+                onPress={() =>
+                  handleHtmlRenderingChange(!localFilters.enableHtmlRendering)
+                }
+              >
+                <View style={styles.quickFilterContent}>
+                  <Icon
+                    source={localFilters.enableHtmlRendering ? "code-tags" : "code-tags-off"}
+                    size={20}
+                    color={
+                      localFilters.enableHtmlRendering
+                        ? theme.colors.primary
+                        : theme.colors.onSurfaceVariant
+                    }
+                  />
+                  <View style={styles.quickFilterTextContainer}>
+                    <Text
+                      style={[
+                        styles.quickFilterText,
+                        {
+                          color: localFilters.enableHtmlRendering
+                            ? theme.colors.primary
+                            : theme.colors.onSurface,
+                        },
+                      ]}
+                    >
+                      {t("filters.enableHtmlRendering")}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.quickFilterDescription,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {t("filters.enableHtmlRenderingDescription")}
                     </Text>
                   </View>
                 </View>

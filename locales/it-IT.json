@@ -121,8 +121,8 @@
       "description": "Preferenze per le notifiche",
       "maxStoredTitle": "Notifiche massime da conservare",
       "maxStoredDescription": "Mantieni al massimo questo numero di notifiche in locale",
-      "showAppIconOnBucketIconMissing": "Mostra icona app se il bucket non ha icona (Solo iOS)",
-      "showAppIconOnBucketIconMissingDescription": "Se abilitato, verrà usata l'icona di Zentik quando il bucket non ha un'icona. Se disabilitato, verrà generato un avatar basato sulle iniziali del bucket.",
+      "generateBucketIconWithInitials": "Genera icone bucket con iniziali",
+      "generateBucketIconWithInitialsDescription": "Se abilitato, le icone bucket includeranno le iniziali del bucket. Se disabilitato, verrà usato solo il colore del bucket.",
       "autoAddDeleteAction": "Aggiungi automaticamente azione elimina",
       "autoAddDeleteActionDescription": "Aggiunge automaticamente l'azione di eliminazione alle notifiche quando non è esplicitamente impostata nel payload",
       "autoAddMarkAsReadAction": "Aggiungi automaticamente azione segna come letto",
@@ -418,6 +418,7 @@
       "iconPlaceholder": "URL icona (opzionale)",
       "preview": "Anteprima:",
       "iconPreview": "Anteprima icona",
+      "initialsPreview": "Anteprima iniziali",
       "colorPreview": "Anteprima colore",
       "chooseColor": "Scegli Colore:",
       "creating": "Creazione...",
@@ -816,6 +817,7 @@
     "chooseFile": "Scegli File",
     "cropImage": "Ritaglia Immagine",
     "cropAndUpload": "Ritaglia e Carica",
+    "finalPreview": "Anteprima Finale",
     "urlRequired": "Inserisci un URL valido",
     "invalidUrl": "Formato URL non valido",
     "filePickError": "Errore nella selezione del file",
@@ -854,7 +856,10 @@
     "activeFiltersPlural": "{{count}} filtri attivi",
     "loadOnlyVisible": "Carica solo elementi visibili",
     "loadOnlyVisibleDescription": "Carica i media solo per le notifiche visibili per migliorare le performance",
-    "performance": "Performance"
+    "performance": "Performance",
+    "display": "Visualizzazione",
+    "enableHtmlRendering": "Abilita Rendering HTML",
+    "enableHtmlRenderingDescription": "Renderizza i tag HTML nel contenuto testuale delle notifiche"
   },
   "swipeActions": {
     "delete": {
@@ -983,6 +988,8 @@
     "title": "Dettaglio Notifica",
     "sent": "Inviata:",
     "read": "Letta:",
+    "htmlEnabled": "HTML Abilitato",
+    "htmlDisabled": "HTML Disabilitato",
     "snooze": {
       "title": "Posticipa Bucket",
       "setSnooze": "Imposta Posticipo",

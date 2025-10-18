@@ -32,7 +32,7 @@ export default function UnifiedCacheSettings() {
     settings,
     setUnencryptOnBigPayload,
     setMarkAsReadMode,
-    setShowAppIconOnBucketIconMissing,
+    setGenerateBucketIconWithInitials,
     setAutoAddDeleteAction,
     setAutoAddMarkAsReadAction,
     setAutoAddOpenNotificationAction,
@@ -748,7 +748,7 @@ export default function UnifiedCacheSettings() {
           </Card.Content>
         </Card>
 
-        {/* Show app icon when bucket icon missing */}
+        {/* Generate bucket icons with initials */}
         <Card style={styles.settingCard} elevation={0}>
           <Card.Content>
             <View style={styles.settingRow}>
@@ -756,7 +756,7 @@ export default function UnifiedCacheSettings() {
                 <View style={styles.settingTextContainer}>
                   <Text variant="titleMedium" style={styles.settingTitle}>
                     {t(
-                      "appSettings.notifications.showAppIconOnBucketIconMissing"
+                      "appSettings.notifications.generateBucketIconWithInitials"
                     )}
                   </Text>
                   <Text
@@ -767,16 +767,16 @@ export default function UnifiedCacheSettings() {
                     ]}
                   >
                     {t(
-                      "appSettings.notifications.showAppIconOnBucketIconMissingDescription"
+                      "appSettings.notifications.generateBucketIconWithInitialsDescription"
                     )}
                   </Text>
                 </View>
               </View>
               <Switch
                 value={
-                  !!notificationsPreferences?.showAppIconOnBucketIconMissing
+                  !!notificationsPreferences?.generateBucketIconWithInitials
                 }
-                onValueChange={setShowAppIconOnBucketIconMissing}
+                onValueChange={setGenerateBucketIconWithInitials}
               />
             </View>
           </Card.Content>

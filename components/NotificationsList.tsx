@@ -421,10 +421,11 @@ export default function NotificationsList({
           isSelected={isSelected}
           noBucketRouting={!!bucketId}
           onToggleSelection={() => toggleItemSelection(item.id)}
+          enableHtmlRendering={notificationFilters.enableHtmlRendering}
         />
       );
     },
-    [selectedItems, selectionMode, hideBucketInfo, visibleItems]
+    [selectedItems, selectionMode, hideBucketInfo, visibleItems, notificationFilters.enableHtmlRendering]
   );
 
   // Memoized key extractor

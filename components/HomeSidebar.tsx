@@ -180,7 +180,6 @@ export default function HomeSidebar() {
                       bucketId={bucket.id}
                       size="lg"
                       noRouting
-                      showBorder={false}
                     />
                     <Text
                       style={[

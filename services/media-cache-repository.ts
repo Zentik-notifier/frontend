@@ -1,9 +1,11 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { IDBPDatabase } from 'idb';
 import { Platform } from 'react-native';
+import { File } from 'expo-file-system';
 import { openWebStorageDb, openSharedCacheDb } from './db-setup';
 import type { WebStorageDB } from './db-setup';
 import type { CacheItem } from './media-cache-service';
+import { getSharedMediaCacheDirectoryAsync } from '@/utils/shared-cache';
 
 export type MediaItem = {
   data: ArrayBuffer;
@@ -521,6 +523,55 @@ export class MediaCacheRepository {
       URL.revokeObjectURL(objectUrl);
     }
     this.objectUrlCache.clear();
+  }
+
+  /**
+   * Get bucket icon from shared cache
+   * For mobile: checks filesystem (saved by React Native app)
+   * For web: checks IndexedDB
+   * Simple naming: just bucketId.png
+   * Returns the file URI/data URL if found, null otherwise
+   */
+  async getBucketIconFromSharedCache(
+    bucketId: string,
+    bucketName: string,
+    bucketColor?: string,
+    timestamp?: number
+  ): Promise<string | null> {
+    await this.ensureInitialized();
+
+    try {
+      const ts = timestamp || Date.now();
+      if (Platform.OS === 'web') {
+        // For web, check IndexedDB
+        const cacheKey = `BUCKET_ICON/${bucketId}.png`;
+        const cachedUrl = await this.getMediaUrl(cacheKey);
+        if (cachedUrl) {
+          // For web data URLs, add fragment to force cache invalidation
+          return `${cachedUrl}#t=${ts}`;
+        }
+        return null;
+      } else {
+        // For mobile, check filesystem
+        const sharedCacheDir = await getSharedMediaCacheDirectoryAsync();
+        const bucketIconDir = `${sharedCacheDir}BUCKET_ICON/`;
+        const fileName = `${bucketId}.png`;
+        const fileUri = `${bucketIconDir}${fileName}`;
+        
+        // Check if file exists
+        const file = new File(fileUri);
+        if (file.exists) {
+          // Add timestamp to force expo-image cache invalidation
+          // Timestamp changes only when bucket params change (managed by MediaCacheService)
+          return `${fileUri}?t=${ts}`;
+        }
+        
+        return null;
+      }
+    } catch (error) {
+      console.error('[MediaCacheRepository] ❌ Error checking cache for bucket icon:', error);
+      return null;
+    }
   }
 }
 

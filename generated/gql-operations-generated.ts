@@ -112,6 +112,7 @@ export type CreateAccessTokenDto = {
 export type CreateBucketDto = {
   color?: InputMaybe<Scalars['String']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
+  generateIconWithInitials?: InputMaybe<Scalars['Boolean']['input']>;
   icon?: InputMaybe<Scalars['String']['input']>;
   isProtected?: InputMaybe<Scalars['Boolean']['input']>;
   isPublic?: InputMaybe<Scalars['Boolean']['input']>;
@@ -167,6 +168,7 @@ export type CreateOAuthProviderDto = {
 export type CreatePayloadMapperDto = {
   jsEvalFn: Scalars['String']['input'];
   name: Scalars['String']['input'];
+  requiredUserSettings?: InputMaybe<Array<UserSettingType>>;
   userId?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -1471,6 +1473,7 @@ export enum SystemAccessTokenRequestStatus {
 export type UpdateBucketDto = {
   color?: InputMaybe<Scalars['String']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
+  generateIconWithInitials?: InputMaybe<Scalars['Boolean']['input']>;
   icon?: InputMaybe<Scalars['String']['input']>;
   isProtected?: InputMaybe<Scalars['Boolean']['input']>;
   isPublic?: InputMaybe<Scalars['Boolean']['input']>;
@@ -1504,6 +1507,7 @@ export type UpdateOAuthProviderDto = {
 export type UpdatePayloadMapperDto = {
   jsEvalFn?: InputMaybe<Scalars['String']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
+  requiredUserSettings?: InputMaybe<Array<UserSettingType>>;
 };
 
 export type UpdateProfileInput = {

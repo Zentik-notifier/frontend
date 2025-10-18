@@ -132,52 +132,21 @@ class NotificationService: UNNotificationServiceExtension {
 
     var senderAvatarImageData: Data?
     
-    // Prima verifica se abbiamo già l'icona nella cache
+    // Get bucket icon from cache or generate temporary placeholder
     if let bucketId = senderId, let bucketName = chatRoomName {
-      senderAvatarImageData = MediaAccess.getBucketIconFromSharedCache(bucketId: bucketId, bucketName: bucketName, bucketColor: bucketColor)
-      if senderAvatarImageData != nil {
-        print("📱 [NotificationService] 🎭 ✅ Using cached bucket icon")
-      }
-    }
-    
-    // Se non in cache, prova a scaricare l'icona bucket
-    if senderAvatarImageData == nil,
-       let senderThumbnailUrl = senderThumbnail,
-       let bucketId = senderId,
-       let bucketName = chatRoomName {
-      senderAvatarImageData = MediaAccess.downloadAndCacheBucketIcon(
-        bucketIconUrl: senderThumbnailUrl,
-        bucketId: bucketId,
-        bucketName: bucketName,
-        bucketColor: bucketColor
-      )
-      
-      if senderAvatarImageData != nil {
-        print("📱 [NotificationService] 🎭 ✅ Successfully downloaded and cached bucket icon")
-      }
-    }
-    
-    // Se ancora niente, genera placeholder solo se preferenza disabilitata
-    if senderAvatarImageData == nil {
-      print("📱 [NotificationService] 🎭 ⚠️ Sender image not available")
-
       // Read UI preference: show app icon when bucket icon missing (skip custom avatar)
       let showAppIcon = KeychainAccess.readBoolFromKeychain(service: "zentik-setting-show-app-icon-missing") ?? true
 
-      // Generate placeholder ONLY if preference is disabled
+      // Get icon ONLY if preference is disabled
       if showAppIcon == false {
-        print("📱 [NotificationService] 🎭 Generating placeholder")
-        if let bucketId = senderId, let bucketName = chatRoomName {
-          senderAvatarImageData = generateAvatarPlaceholder(
-            name: bucketName,
-            hexColor: bucketColor,
-            bucketId: bucketId
-          )
-          
-          // Salva il placeholder generato NELLO STESSO POSTO dell'icona bucket
-          if let placeholderData = senderAvatarImageData {
-            let _ = MediaAccess.saveBucketIconToSharedCache(placeholderData, bucketId: bucketId, bucketName: bucketName, bucketColor: bucketColor)
-          }
+        senderAvatarImageData = MediaAccess.getBucketIconFromSharedCache(
+          bucketId: bucketId,
+          bucketName: bucketName,
+          bucketColor: bucketColor
+        )
+        
+        if senderAvatarImageData != nil {
+          print("📱 [NotificationService] 🎭 ✅ Using bucket icon (cached or generated placeholder)")
         }
       }
     }
@@ -319,73 +288,6 @@ class NotificationService: UNNotificationServiceExtension {
       print("📱 [NotificationService] 🎯 Error occurred, flushing logs before exit")
       LoggingSystem.shared.flushLogs()
     }
-  }
-
-  private func generateAvatarPlaceholder(name: String, hexColor: String?, bucketId: String? = nil) -> Data? {
-    let initials: String = {
-      let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-      if cleanName.count >= 2 {
-        return String(cleanName.prefix(2)).uppercased()
-      } else if cleanName.count == 1 {
-        return cleanName.uppercased()
-      } else {
-        return "Z" // Fallback for empty name
-      }
-    }()
-
-    let size = CGSize(width: 128, height: 128)
-    UIGraphicsBeginImageContextWithOptions(size, false, 0)
-    defer { UIGraphicsEndImageContext() }
-
-    let context = UIGraphicsGetCurrentContext()
-    let color = colorFromHex(hexColor) ?? UIColor.systemGray
-
-    // Circle background
-    context?.setFillColor(color.cgColor)
-    context?.fillEllipse(in: CGRect(origin: .zero, size: size))
-
-    // Initial letter
-    let attributes: [NSAttributedString.Key: Any] = [
-      .font: UIFont.systemFont(ofSize: 60, weight: .semibold),
-      .foregroundColor: UIColor.white,
-    ]
-    let text = initials as NSString
-    let textSize = text.size(withAttributes: attributes)
-    let textRect = CGRect(
-      x: (size.width - textSize.width) / 2,
-      y: (size.height - textSize.height) / 2,
-      width: textSize.width,
-      height: textSize.height
-    )
-    text.draw(in: textRect, withAttributes: attributes)
-
-    guard let imageData = UIGraphicsGetImageFromCurrentImageContext()?.pngData() else {
-      print("📱 [NotificationService] ❌ Failed to generate placeholder image data")
-      return nil
-    }
-
-    // Save placeholder to shared cache for NCE to access
-    if let bucketId = bucketId {
-      let _ = MediaAccess.savePlaceholderToSharedCache(imageData, bucketId: bucketId, bucketName: name)
-      print("📱 [NotificationService] 🎭 Generated placeholder with initials: \(initials)")
-    }
-
-    return imageData
-  }
-
-  private func colorFromHex(_ hex: String?) -> UIColor? {
-    guard var hex = hex else { return nil }
-    hex = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-    hex = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
-    guard hex.count == 6 else { return nil }
-    let rStr = String(hex.prefix(2))
-    let gStr = String(hex.dropFirst(2).prefix(2))
-    let bStr = String(hex.dropFirst(4).prefix(2))
-    let r = UInt8(rStr, radix: 16) ?? 120
-    let g = UInt8(gStr, radix: 16) ?? 120
-    let b = UInt8(bStr, radix: 16) ?? 120
-    return UIColor(
-      red: CGFloat(r) / 255.0, green: CGFloat(g) / 255.0, blue: CGFloat(b) / 255.0, alpha: 1.0)
   }
 
   // MARK: - Decryption

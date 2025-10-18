@@ -704,75 +704,25 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     private func refreshHeaderIcon() {
         guard let imageView = headerIconImageView else { return }
         
-        // Mostra app icon come placeholder immediato
-        // var fallbackImage: UIImage?
-        // let appIconNames = ["AppIcon", "AppIcon-60", "AppIcon-76", "AppIcon-83.5", "AppIcon-1024"]
-        // for iconName in appIconNames {
-        //     if let appIcon = UIImage(named: iconName) {
-        //         fallbackImage = appIcon
-        //         print("📱 [ContentExtension] ✅ Found app icon as placeholder: \(iconName)")
-        //         break
-        //     }
-        // }
-        
-        // if let appIcon = fallbackImage {
-        //     imageView.image = appIcon
-        //     imageView.isHidden = false
-        // } else {
-        //     // Manteniamo lo spazio dell'icona per layout coerente
-        //     imageView.image = UIImage()
-        //     imageView.isHidden = false
-        //     print("📱 [ContentExtension] ⚠️ No app icon available, keeping placeholder to preserve layout width")
-        // }
-        
-        // Cerca bucket icon nella cache condivisa (UNICO POSTO per icona reale o placeholder)
+        // Get bucket icon from cache or generate temporary placeholder
         if let userInfo = currentNotificationUserInfo,
            let bucketId = userInfo["bucketId"] as? String,
            let bucketName = userInfo["bucketName"] as? String {
-            print("📱 [ContentExtension] 🎭 Checking shared cache for bucket icon...")
+            print("📱 [ContentExtension] 🎭 Getting bucket icon...")
             
             let bucketColor = userInfo["bucketColor"] as? String
-            if let bucketIconData = MediaAccess.getBucketIconFromSharedCache(bucketId: bucketId, bucketName: bucketName, bucketColor: bucketColor),
+            
+            if let bucketIconData = MediaAccess.getBucketIconFromSharedCache(
+                bucketId: bucketId,
+                bucketName: bucketName,
+                bucketColor: bucketColor
+            ),
                let bucketIcon = UIImage(data: bucketIconData) {
                 imageView.image = bucketIcon
                 imageView.isHidden = false
-                print("📱 [ContentExtension] 🎭 ✅ Loaded bucket icon from shared cache for \(bucketName)")
-                return // Icon trovata nella cache, non serve altro
+                print("📱 [ContentExtension] 🎭 ✅ Using bucket icon (cached or generated placeholder)")
             } else {
-                print("📱 [ContentExtension] 🎭 ⚠️ No bucket icon in shared cache, will try download in background")
-            }
-        }
-        
-        // Se non in cache, scarica l'icona del bucket in background (non blocca UI)
-        if let userInfo = currentNotificationUserInfo,
-           let bucketIconUrl = userInfo["bucketIconUrl"] as? String,
-           let url = URL(string: bucketIconUrl) {
-            print("📱 [ContentExtension] 🎭 Loading bucket icon from URL in background: \(bucketIconUrl)")
-            
-            DispatchQueue.global(qos: .userInitiated).async { [weak self, weak imageView] in
-                guard let self = self, let imageView = imageView else { return }
-                
-                let bucketId = userInfo["bucketId"] as? String
-                let bucketName = userInfo["bucketName"] as? String
-                let bucketColor = userInfo["bucketColor"] as? String
-                
-                if let bucketId = bucketId,
-                   let bucketName = bucketName,
-                   let processedImageData = MediaAccess.downloadAndCacheBucketIcon(
-                       bucketIconUrl: bucketIconUrl,
-                       bucketId: bucketId,
-                       bucketName: bucketName,
-                       bucketColor: bucketColor
-                   ),
-                   let image = UIImage(data: processedImageData) {
-                    DispatchQueue.main.async {
-                        imageView.image = image
-                        imageView.isHidden = false
-                        print("📱 [ContentExtension] 🎭 ✅ Successfully downloaded and set bucket icon")
-                    }
-                } else {
-                    print("📱 [ContentExtension] 🎭 ❌ Failed to download and process bucket icon")
-                }
+                print("📱 [ContentExtension] 🎭 ⚠️ Failed to get bucket icon")
             }
         }
     }

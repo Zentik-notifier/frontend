@@ -124,8 +124,8 @@ export interface Translation {
       description: string;
       maxStoredTitle: string;
       maxStoredDescription: string;
-      showAppIconOnBucketIconMissing: string;
-      showAppIconOnBucketIconMissingDescription: string;
+      generateBucketIconWithInitials: string;
+      generateBucketIconWithInitialsDescription: string;
       unencryptOnBigPayload: string;
       unencryptOnBigPayloadDescription: string;
       markAsReadOnView: string;
@@ -408,6 +408,7 @@ export interface Translation {
       iconPlaceholder: string;
       preview: string;
       iconPreview: string;
+      initialsPreview: string;
       colorPreview: string;
       chooseColor: string;
       creating: string;
@@ -784,6 +785,7 @@ export interface Translation {
     chooseFile: string;
     cropImage: string;
     cropAndUpload: string;
+    finalPreview: string;
     urlRequired: string;
     invalidUrl: string;
     filePickError: string;
@@ -813,6 +815,9 @@ export interface Translation {
     loadOnlyVisible: string;
     loadOnlyVisibleDescription: string;
     performance: string;
+    display: string;
+    enableHtmlRendering: string;
+    enableHtmlRenderingDescription: string;
     timeRange: string;
     timeRangeDescription: string;
     all: string;
@@ -941,6 +946,8 @@ export interface Translation {
     title: string;
     sent: string;
     read: string;
+    htmlEnabled: string;
+    htmlDisabled: string;
     snooze: {
       title: string;
       setSnooze: string;

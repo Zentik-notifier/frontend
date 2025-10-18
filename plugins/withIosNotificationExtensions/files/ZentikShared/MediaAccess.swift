@@ -342,182 +342,6 @@ public class MediaAccess {
         sqlite3_step(stmt)
     }
     
-    // MARK: - Avatar Generation
-    
-    /// Process bucket icon to improve visibility for transparent backgrounds
-    public static func processBucketIcon(_ imageData: Data, hexColor: String? = nil, size: CGSize = CGSize(width: 200, height: 200)) -> Data? {
-        guard let image = UIImage(data: imageData) else {
-            return nil
-        }
-        
-        // Check if image has transparency
-        let hasTransparency = image.cgImage?.alphaInfo != .none && 
-                             image.cgImage?.alphaInfo != .noneSkipLast &&
-                             image.cgImage?.alphaInfo != .noneSkipFirst
-        
-        // If no transparency, return original
-        if !hasTransparency {
-            return imageData
-        }
-        
-        print("📱 [MediaAccess] 🎨 Bucket icon has transparency, adding background for better visibility")
-        
-        // Parse bucket color or use default
-        var backgroundColor = UIColor.systemBlue
-        if let hexColor = hexColor, hexColor.hasPrefix("#") {
-            let hex = String(hexColor.dropFirst())
-            if hex.count == 6, let rgb = Int(hex, radix: 16) {
-                let r = CGFloat((rgb >> 16) & 0xFF) / 255.0
-                let g = CGFloat((rgb >> 8) & 0xFF) / 255.0
-                let b = CGFloat(rgb & 0xFF) / 255.0
-                backgroundColor = UIColor(red: r, green: g, blue: b, alpha: 1.0)
-            }
-        }
-        
-        // Create renderer
-        let renderer = UIGraphicsImageRenderer(size: size)
-        let processedImage = renderer.image { context in
-            // Draw circular background with bucket color
-            let rect = CGRect(origin: .zero, size: size)
-            let circlePath = UIBezierPath(ovalIn: rect)
-            backgroundColor.setFill()
-            circlePath.fill()
-            
-            // Add subtle shadow/border for depth
-            context.cgContext.saveGState()
-            context.cgContext.setShadow(
-                offset: CGSize(width: 0, height: 2),
-                blur: 4,
-                color: UIColor.black.withAlphaComponent(0.2).cgColor
-            )
-            
-            // Draw the icon centered with some padding
-            let padding: CGFloat = size.width * 0.15
-            let iconRect = rect.insetBy(dx: padding, dy: padding)
-            
-            // Clip to circle to ensure icon fits nicely
-            circlePath.addClip()
-            
-            // Draw icon
-            image.draw(in: iconRect)
-            
-            context.cgContext.restoreGState()
-        }
-        
-        return processedImage.pngData()
-    }
-    
-    /// Generate avatar image from initials
-    public static func generateAvatarImage(initials: String, size: CGSize = CGSize(width: 200, height: 200)) -> UIImage? {
-        let renderer = UIGraphicsImageRenderer(size: size)
-        
-        return renderer.image { context in
-            // Background with gradient
-            let colors = [
-                UIColor.systemBlue.cgColor,
-                UIColor.systemPurple.cgColor
-            ]
-            
-            if let gradient = CGGradient(
-                colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                colors: colors as CFArray,
-                locations: [0.0, 1.0]
-            ) {
-                context.cgContext.drawLinearGradient(
-                    gradient,
-                    start: CGPoint(x: 0, y: 0),
-                    end: CGPoint(x: size.width, y: size.height),
-                    options: []
-                )
-            }
-            
-            // Draw initials
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: size.width * 0.4, weight: .medium),
-                .foregroundColor: UIColor.white
-            ]
-            
-            let text = initials.uppercased()
-            let textSize = text.size(withAttributes: attributes)
-            let textRect = CGRect(
-                x: (size.width - textSize.width) / 2,
-                y: (size.height - textSize.height) / 2,
-                width: textSize.width,
-                height: textSize.height
-            )
-            
-            text.draw(in: textRect, withAttributes: attributes)
-        }
-    }
-    
-    /// Generate initials from bucket name
-    public static func generateInitials(from bucketName: String) -> String {
-        let words = bucketName.split(separator: " ")
-        if words.count >= 2 {
-            let first = String(words[0].prefix(1))
-            let second = String(words[1].prefix(1))
-            return first + second
-        } else if let first = words.first, first.count >= 2 {
-            return String(first.prefix(2))
-        } else if let first = words.first {
-            return String(first.prefix(1))
-        }
-        return "?"
-    }
-    
-    /// Get or generate placeholder image for bucket
-    public static func getPlaceholderFromSharedCache(bucketId: String, bucketName: String) -> Data? {
-        let cacheDirectory = getSharedMediaCacheDirectory()
-        let placeholderDirectory = cacheDirectory.appendingPathComponent("PLACEHOLDER")
-        
-        // Generate filename based on bucket info
-        let safeBucketName = bucketName
-            .replacingOccurrences(of: " ", with: "_")
-            .replacingOccurrences(of: "/", with: "_")
-        let fileName = "placeholder_\(bucketId)_\(safeBucketName).png"
-        let fileURL = placeholderDirectory.appendingPathComponent(fileName)
-        
-        // Check if placeholder exists
-        if FileManager.default.fileExists(atPath: fileURL.path) {
-            do {
-                return try Data(contentsOf: fileURL)
-            } catch {
-                print("📱 [MediaAccess] ❌ Failed to load cached placeholder: \(error)")
-            }
-        }
-        
-        // Generate new placeholder
-        print("📱 [MediaAccess] 🎭 Generating new placeholder for \(bucketName)")
-        let initials = generateInitials(from: bucketName)
-        
-        guard let avatarImage = generateAvatarImage(initials: initials) else {
-            print("📱 [MediaAccess] ❌ Failed to generate avatar image")
-            return nil
-        }
-        
-        guard let imageData = avatarImage.pngData() else {
-            print("📱 [MediaAccess] ❌ Failed to convert avatar to PNG")
-            return nil
-        }
-        
-        // Save to cache
-        do {
-            if !FileManager.default.fileExists(atPath: placeholderDirectory.path) {
-                try FileManager.default.createDirectory(
-                    at: placeholderDirectory,
-                    withIntermediateDirectories: true,
-                    attributes: nil
-                )
-            }
-            try imageData.write(to: fileURL)
-            print("📱 [MediaAccess] ✅ Cached placeholder for \(bucketName)")
-        } catch {
-            print("📱 [MediaAccess] ⚠️ Failed to cache placeholder: \(error)")
-        }
-        
-        return imageData
-    }
-    
     // MARK: - Filename Generation Utilities
     
     /**
@@ -593,145 +417,88 @@ public class MediaAccess {
     
     // MARK: - Bucket Icon Cache Operations
     
-    /// Get bucket icon from shared cache
-    public static func getBucketIconFromSharedCache(bucketId: String, bucketName: String, bucketColor: String?) -> Data? {
-        let cacheDirectory = getSharedMediaCacheDirectory()
-        let bucketIconDirectory = cacheDirectory.appendingPathComponent("BUCKET_ICON")
-        
-        // Generate filename based on bucket info with version identifier and color
-        // Version v2: includes transparent background processing
-        // Include color in filename so icons regenerate when color changes
-        let safeBucketName = bucketName
-            .replacingOccurrences(of: " ", with: "_")
-            .replacingOccurrences(of: "/", with: "_")
-        let safeColor = (bucketColor ?? "default")
-            .replacingOccurrences(of: "#", with: "")
-            .replacingOccurrences(of: " ", with: "_")
-        let fileName = "bucket_icon_v2_\(bucketId)_\(safeBucketName)_\(safeColor).png"
-        let fileURL = bucketIconDirectory.appendingPathComponent(fileName)
-        
-        // Check if icon exists
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            return nil
-        }
-        
-        // Load icon data
-        do {
-            let data = try Data(contentsOf: fileURL)
-            return data
-        } catch {
-            print("📱 [MediaAccess] ❌ Failed to load cached bucket icon: \(error)")
-            return nil
-        }
-    }
-    
-    /// Download, process and cache bucket icon
+    /// Get bucket icon from shared cache (generated by React Native app)
+    /// If not found, generates a temporary placeholder with initials and bucket color
     /// - Parameters:
-    ///   - bucketIconUrl: URL of the bucket icon to download
-    ///   - bucketId: Bucket ID for cache
-    ///   - bucketName: Bucket name for cache
-    ///   - bucketColor: Optional hex color for background processing
-    /// - Returns: Processed image data, or nil if download/processing fails
-    public static func downloadAndCacheBucketIcon(bucketIconUrl: String, bucketId: String, bucketName: String, bucketColor: String?) -> Data? {
-        guard let url = URL(string: bucketIconUrl) else {
-            print("📱 [MediaAccess] ❌ Invalid bucket icon URL: \(bucketIconUrl)")
-            return nil
-        }
-        
-        // Download the icon
-        guard let imageData = try? Data(contentsOf: url) else {
-            print("📱 [MediaAccess] ❌ Failed to download bucket icon from URL")
-            return nil
-        }
-        
-        print("📱 [MediaAccess] ✅ Successfully downloaded bucket icon from URL")
-        
-        // Process the icon to improve visibility for transparent backgrounds
-        let processedImageData: Data
-        if let processed = processBucketIcon(imageData, hexColor: bucketColor) {
-            processedImageData = processed
-            print("📱 [MediaAccess] ✅ Processed bucket icon for better visibility")
-        } else {
-            processedImageData = imageData
-            print("📱 [MediaAccess] ⚠️ Failed to process icon, using original")
-        }
-        
-        // Save to cache for future use
-        let _ = saveBucketIconToSharedCache(processedImageData, bucketId: bucketId, bucketName: bucketName, bucketColor: bucketColor)
-        
-        return processedImageData
-    }
-    
-    /// Save bucket icon to shared cache
-    public static func saveBucketIconToSharedCache(_ imageData: Data, bucketId: String, bucketName: String, bucketColor: String?) -> URL? {
+    ///   - bucketId: Bucket ID for cache lookup
+    ///   - bucketName: Bucket name for generating initials (optional, required for placeholder)
+    ///   - bucketColor: Bucket color for placeholder background (optional)
+    /// - Returns: Icon data if found in cache, or generated placeholder, or nil
+    public static func getBucketIconFromSharedCache(bucketId: String, bucketName: String? = nil, bucketColor: String? = nil) -> Data? {
         let cacheDirectory = getSharedMediaCacheDirectory()
         let bucketIconDirectory = cacheDirectory.appendingPathComponent("BUCKET_ICON")
         
-        // Create bucket icon directory if it doesn't exist
-        do {
-            try FileManager.default.createDirectory(
-                at: bucketIconDirectory,
-                withIntermediateDirectories: true,
-                attributes: nil
-            )
-        } catch {
-            print("📱 [MediaAccess] ❌ Failed to create bucket icon directory: \(error)")
-            return nil
-        }
-        
-        // Generate filename based on bucket info with version identifier and color
-        // Version v2: includes transparent background processing
-        // Include color in filename so icons regenerate when color changes
-        let safeBucketName = bucketName
-            .replacingOccurrences(of: " ", with: "_")
-            .replacingOccurrences(of: "/", with: "_")
-        let safeColor = (bucketColor ?? "default")
-            .replacingOccurrences(of: "#", with: "")
-            .replacingOccurrences(of: " ", with: "_")
-        let fileName = "bucket_icon_v2_\(bucketId)_\(safeBucketName)_\(safeColor).png"
+        // Simple filename: just bucketId.png
+        let fileName = "\(bucketId).png"
         let fileURL = bucketIconDirectory.appendingPathComponent(fileName)
         
-        do {
-            try imageData.write(to: fileURL)
-            print("📱 [MediaAccess] ✅ Saved bucket icon to shared cache: \(fileURL.lastPathComponent)")
-            return fileURL
-        } catch {
-            print("📱 [MediaAccess] ❌ Failed to save bucket icon to shared cache: \(error)")
+        // Check if icon exists in cache
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            do {
+                let data = try Data(contentsOf: fileURL)
+                return data
+            } catch {
+                print("📱 [MediaAccess] ❌ Failed to load cached bucket icon: \(error)")
+            }
+        }
+        
+        // Icon not in cache, generate temporary placeholder if bucketName provided
+        guard let bucketName = bucketName else {
+            print("📱 [MediaAccess] ⚠️ No bucket icon in cache and no bucketName for placeholder")
             return nil
         }
+        
+        print("📱 [MediaAccess] 🎭 Generating temporary placeholder for \(bucketName)")
+        return generateColorOnlyPlaceholder(hexColor: bucketColor)
     }
     
-    /// Save placeholder to shared cache
-    public static func savePlaceholderToSharedCache(_ imageData: Data, bucketId: String, bucketName: String) -> URL? {
-        let cacheDirectory = getSharedMediaCacheDirectory()
-        let placeholderDirectory = cacheDirectory.appendingPathComponent("PLACEHOLDER")
+    // MARK: - Placeholder Generation
+    
+    /// Generate temporary placeholder with bucket color only (no initials)
+    /// This is NOT cached, just generated on-the-fly for NSE/NCE
+    private static func generateColorOnlyPlaceholder(hexColor: String?) -> Data? {
+        let size = CGSize(width: 200, height: 200)
+        UIGraphicsBeginImageContextWithOptions(size, false, 0)
+        defer { UIGraphicsEndImageContext() }
         
-        // Create placeholder directory if it doesn't exist
-        do {
-            try FileManager.default.createDirectory(
-                at: placeholderDirectory,
-                withIntermediateDirectories: true,
-                attributes: nil
-            )
-        } catch {
-            print("📱 [MediaAccess] ❌ Failed to create placeholder directory: \(error)")
+        let context = UIGraphicsGetCurrentContext()
+        let color = parseHexColor(hexColor) ?? UIColor.systemBlue
+        
+        // Draw circular background with bucket color (no initials)
+        context?.setFillColor(color.cgColor)
+        context?.fillEllipse(in: CGRect(origin: .zero, size: size))
+        
+        guard let imageData = UIGraphicsGetImageFromCurrentImageContext()?.pngData() else {
+            print("📱 [MediaAccess] ❌ Failed to generate placeholder image data")
             return nil
         }
         
-        // Generate filename based on bucket info
-        let safeBucketName = bucketName
-            .replacingOccurrences(of: " ", with: "_")
-            .replacingOccurrences(of: "/", with: "_")
-        let fileName = "placeholder_\(bucketId)_\(safeBucketName).png"
-        let fileURL = placeholderDirectory.appendingPathComponent(fileName)
+        print("📱 [MediaAccess] ✅ Generated temporary placeholder with bucket color")
+        return imageData
+    }
+    
+    /// Parse hex color string to UIColor
+    private static func parseHexColor(_ hex: String?) -> UIColor? {
+        guard var hex = hex else { return nil }
+        hex = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        hex = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+        guard hex.count == 6 else { return nil }
         
-        do {
-            try imageData.write(to: fileURL)
-            print("📱 [MediaAccess] ✅ Saved placeholder to shared cache: \(fileURL.lastPathComponent)")
-            return fileURL
-        } catch {
-            print("📱 [MediaAccess] ❌ Failed to save placeholder to shared cache: \(error)")
+        let rStr = String(hex.prefix(2))
+        let gStr = String(hex.dropFirst(2).prefix(2))
+        let bStr = String(hex.dropFirst(4).prefix(2))
+        
+        guard let r = UInt8(rStr, radix: 16),
+              let g = UInt8(gStr, radix: 16),
+              let b = UInt8(bStr, radix: 16) else {
             return nil
         }
+        
+        return UIColor(
+            red: CGFloat(r) / 255.0,
+            green: CGFloat(g) / 255.0,
+            blue: CGFloat(b) / 255.0,
+            alpha: 1.0
+        )
     }
 }

@@ -55,6 +55,7 @@ export default function NotificationDetail({
     error,
   } = useNotificationDetail(notificationId);
   const [isCopying, setIsCopying] = useState(false);
+  const [enableHtmlRendering, setEnableHtmlRendering] = useState(true);
 
   const handleMediaPress = (imageUri: string) => {
     const attachments = notification?.message?.attachments || [];
@@ -350,20 +351,69 @@ export default function NotificationDetail({
             </View>
           </View>
 
+          {/* HTML Rendering Toggle */}
+          <View style={styles.htmlToggleContainer}>
+            <TouchableOpacity
+              style={[
+                styles.htmlToggleButton,
+                {
+                  backgroundColor: enableHtmlRendering
+                    ? theme.colors.primaryContainer
+                    : theme.colors.surfaceVariant,
+                  borderColor: theme.colors.outline,
+                },
+              ]}
+              onPress={() => setEnableHtmlRendering(!enableHtmlRendering)}
+            >
+              <Icon
+                source={enableHtmlRendering ? "code-tags" : "code-tags-off"}
+                size={16}
+                color={
+                  enableHtmlRendering
+                    ? theme.colors.onPrimaryContainer
+                    : theme.colors.onSurfaceVariant
+                }
+              />
+              <Text
+                style={[
+                  styles.htmlToggleText,
+                  {
+                    color: enableHtmlRendering
+                      ? theme.colors.onPrimaryContainer
+                      : theme.colors.onSurfaceVariant,
+                  },
+                ]}
+              >
+                {enableHtmlRendering
+                  ? t("notificationDetail.htmlEnabled")
+                  : t("notificationDetail.htmlDisabled")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Title */}
-          <SmartTextRenderer content={message?.title!} style={styles.title} />
+          <SmartTextRenderer
+            content={message?.title!}
+            style={styles.title}
+            enableHtml={enableHtmlRendering}
+          />
 
           {/* Subtitle */}
           {message?.subtitle && (
             <SmartTextRenderer
               content={message.subtitle}
               style={styles.subtitle}
+              enableHtml={enableHtmlRendering}
             />
           )}
 
           {/* Body */}
           {message?.body && (
-            <SmartTextRenderer content={message.body} style={styles.body} />
+            <SmartTextRenderer
+              content={message.body}
+              style={styles.body}
+              enableHtml={enableHtmlRendering}
+            />
           )}
 
           {/* Links */}
@@ -629,5 +679,22 @@ const styles = StyleSheet.create({
   },
   attachmentsContainer: {
     marginBottom: 16,
+  },
+  htmlToggleContainer: {
+    marginBottom: 16,
+  },
+  htmlToggleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignSelf: "flex-start",
+  },
+  htmlToggleText: {
+    fontSize: 13,
+    fontWeight: "500",
   },
 });

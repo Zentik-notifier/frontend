@@ -1,4 +1,3 @@
-import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { uploadBucketIcon } from "@/services/buckets";
 import * as DocumentPicker from "expo-document-picker";
@@ -27,6 +26,8 @@ import {
 
 interface IconEditorProps {
   currentIcon?: string;
+  bucketColor?: string;
+  bucketName?: string;
   onIconChange: (iconUrl: string) => void;
   onClose: () => void;
 }
@@ -36,12 +37,16 @@ const PREVIEW_SIZE = 300;
 
 export default function IconEditor({
   currentIcon,
+  bucketColor,
+  bucketName,
   onIconChange,
   onClose,
 }: IconEditorProps) {
   const { t } = useI18n();
   const theme = useTheme();
-  const { data: appConfig } = usePublicAppConfigQuery();
+  
+  // Default color if not provided
+  const finalBucketColor = bucketColor || theme.colors.primary;
 
   const [mode, setMode] = useState<"url" | "file" | "crop">("url");
   const [url, setUrl] = useState(currentIcon || "");
@@ -74,7 +79,8 @@ export default function IconEditor({
   }, [previewLayout]);
 
   const initSelection = (w: number, h: number) => {
-    const size = Math.min(w, h) * 0.6;
+    // Use 100% of shortest side as default crop size
+    const size = Math.min(w, h);
     const selection = {
       size,
       x: (w - size) / 2,
@@ -546,24 +552,103 @@ export default function IconEditor({
         {t("iconEditor.cropImage")}
       </Text>
       <View style={styles.imagePreviewContainer} onLayout={onPreviewLayout}>
+        {/* Container with relative positioning for layering */}
         <View
           style={{
             width: PREVIEW_SIZE,
             height: PREVIEW_SIZE,
             position: "relative",
           }}
-          {...panResponder.panHandlers}
         >
-          <Image
-            source={{ uri: previewImage || undefined }}
-            style={[
-              styles.previewImage,
-              { width: PREVIEW_SIZE, height: PREVIEW_SIZE },
-            ]}
+          {/* Layer 1: Circular colored background (simulates final icon) */}
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: PREVIEW_SIZE,
+              height: PREVIEW_SIZE,
+              borderRadius: PREVIEW_SIZE / 2,
+              backgroundColor: finalBucketColor,
+              zIndex: 0,
+            }}
           />
-          {renderCropOverlay()}
+          
+          {/* Layer 2: Image with crop area (clipped to circle) */}
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: PREVIEW_SIZE,
+              height: PREVIEW_SIZE,
+              borderRadius: PREVIEW_SIZE / 2,
+              overflow: 'hidden',
+              zIndex: 1,
+            }}
+          >
+            <Image
+              source={{ uri: previewImage || undefined }}
+              style={[
+                styles.previewImage,
+                { width: PREVIEW_SIZE, height: PREVIEW_SIZE },
+              ]}
+            />
+          </View>
+          
+          {/* Layer 3: Crop overlay and handles (on top, no clipping) */}
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: PREVIEW_SIZE,
+              height: PREVIEW_SIZE,
+              zIndex: 2,
+            }}
+            {...panResponder.panHandlers}
+          >
+            {renderCropOverlay()}
+          </View>
         </View>
       </View>
+      
+      {/* Final icon preview (small, shows how it will look with crop applied) */}
+      {selection && (
+        <View style={styles.finalPreviewContainer}>
+          <Text variant="labelSmall" style={styles.finalPreviewLabel}>
+            {t("iconEditor.finalPreview")}
+          </Text>
+          <View
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 32,
+              backgroundColor: finalBucketColor,
+              overflow: 'hidden',
+              justifyContent: 'center',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: theme.colors.outline,
+            }}
+          >
+            {/* Show only the cropped area */}
+            <Image
+              source={{ uri: previewImage || undefined }}
+              style={{
+                width: (PREVIEW_SIZE / selection.size) * 64,
+                height: (PREVIEW_SIZE / selection.size) * 64,
+                transform: [
+                  { translateX: -(selection.x / selection.size) * 64 },
+                  { translateY: -(selection.y / selection.size) * 64 },
+                ],
+              }}
+              resizeMode="cover"
+            />
+          </View>
+        </View>
+      )}
+      
       <TouchableRipple
         style={[styles.cropButton, { backgroundColor: theme.colors.primary }]}
         onPress={handleConfirmCrop}
@@ -790,5 +875,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     backgroundColor: "rgba(255,255,255,0.3)",
     height: 1,
+  },
+  finalPreviewContainer: {
+    alignItems: 'center',
+    marginVertical: 16,
+    gap: 8,
+  },
+  finalPreviewLabel: {
+    fontSize: 12,
+    opacity: 0.7,
   },
 });

@@ -40,6 +40,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const queryClient = useQueryClient();
   const {
     userId,
+    userSettings,
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const offline = isOfflineAuth || isBackendUnreachable;
@@ -158,10 +159,15 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       return;
 
     try {
+      const uploadEnabled = appConfig?.publicAppConfig?.uploadEnabled ?? true;
       const bucketData: CreateBucketDto | UpdateBucketDto = {
         name: bucketName.trim(),
         color: bucketColor,
         icon: bucketIcon.trim() || undefined,
+        // Only send generateIconWithInitials if attachments are enabled
+        ...(uploadEnabled && {
+          generateIconWithInitials: userSettings.settings.notificationsPreferences?.generateBucketIconWithInitials ?? true,
+        }),
       };
 
       if (isEditing && bucket) {
@@ -224,6 +230,21 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
     if (bucketId) {
       await refreshBucket(bucketId).catch(console.error);
     }
+  };
+
+  // Helper to generate initials from bucket name
+  const getInitials = (name: string): string => {
+    const words = name.split(' ').filter(w => w.length > 0);
+    
+    if (words.length >= 2) {
+      return words[0][0] + words[1][0];
+    } else if (words.length === 1 && words[0].length >= 2) {
+      return words[0].substring(0, 2);
+    } else if (words.length === 1) {
+      return words[0][0];
+    }
+    
+    return '?';
   };
 
   return (
@@ -307,39 +328,50 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       {/* Icon Preview */}
       <View style={styles.previewSection}>
         <Text style={styles.previewLabel}>{t("buckets.form.preview")}</Text>
-        <Surface style={styles.previewContainer}>
+        <Surface style={styles.previewContainer} elevation={0}>
           {bucketIcon ? (
-            <Surface
-              style={[
-                styles.previewIconContainer,
-                {
-                  backgroundColor: theme.colors.surfaceVariant,
-                  borderWidth: 2,
-                  borderColor: bucketColor,
-                },
-              ]}
-            >
+            <View style={styles.previewIconContainer}>
+              {/* Background circle with bucket color */}
+              <View
+                style={[
+                  styles.previewIconBackground,
+                  { backgroundColor: bucketColor },
+                ]}
+              />
+              {/* Image clipped to circle */}
               <View style={styles.previewIconContent}>
                 <Image
                   source={{ uri: bucketIcon }}
                   style={styles.previewIcon}
-                  contentFit="fill"
+                  contentFit="cover"
                 />
               </View>
-            </Surface>
+            </View>
           ) : (
-            <Surface
+            <View
               style={[
                 styles.previewColorIndicator,
                 { backgroundColor: bucketColor },
               ]}
             >
-              <></>
-            </Surface>
+              {/* Show initials if enabled in settings and bucket name exists */}
+              {userSettings.settings.notificationsPreferences?.generateBucketIconWithInitials && bucketName ? (
+                <Text
+                  style={[
+                    styles.previewInitials,
+                    { color: theme.colors.onPrimary },
+                  ]}
+                >
+                  {getInitials(bucketName).toUpperCase()}
+                </Text>
+              ) : null}
+            </View>
           )}
           <Text style={styles.previewText}>
             {bucketIcon
               ? t("buckets.form.iconPreview")
+              : userSettings.settings.notificationsPreferences?.generateBucketIconWithInitials && bucketName
+              ? t("buckets.form.initialsPreview")
               : t("buckets.form.colorPreview")}
           </Text>
         </Surface>
@@ -395,6 +427,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       {isIconEditorVisible && (
         <IconEditor
           currentIcon={bucketIcon || undefined}
+          bucketColor={bucketColor}
+          bucketName={bucketName}
           onIconChange={handleIconChange}
           onClose={handleCloseIconEditor}
         />
@@ -460,17 +494,28 @@ const styles = StyleSheet.create({
   previewIconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 24,
     marginRight: 12,
-    justifyContent: "center",
-    alignItems: "center",
+    position: "relative",
   },
-  previewIconContent: {
-    borderRadius: 24,
+  previewIconBackground: {
+    position: "absolute",
+    top: 0,
+    left: 0,
     width: 48,
     height: 48,
-    alignItems: "center",
-    justifyContent: "center",
+    borderRadius: 24,
+    zIndex: 0,
+  },
+  previewIconContent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: "hidden",
+    backgroundColor: "transparent",
+    zIndex: 1,
   },
   previewIcon: {
     width: "100%",
@@ -481,6 +526,12 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     marginRight: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  previewInitials: {
+    fontSize: 18,
+    fontWeight: "600",
   },
   previewText: {
     fontSize: 14,

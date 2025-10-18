@@ -1,16 +1,16 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Platform } from 'react-native';
-import { BehaviorSubject, Subject, merge, Observable } from "rxjs";
+import { BehaviorSubject, Observable, Subject } from "rxjs";
 import {
-    concatMap,
-    tap,
     catchError,
+    concatMap,
+    distinctUntilChanged,
     filter,
     map,
     scan,
     shareReplay,
-    distinctUntilChanged
+    tap
 } from "rxjs/operators";
 import { MediaType, NotificationFragment } from '../generated/gql-operations-generated';
 import { Directory, File } from '../utils/filesystem-wrapper';
@@ -57,7 +57,7 @@ export interface CacheMetadata {
     [key: string]: CacheItem;
 }
 
-type QueueOperation = 'download' | 'thumbnail';
+type QueueOperation = 'download' | 'thumbnail' | 'bucket-icon';
 
 export interface DownloadQueueItem {
     key: string;
@@ -69,6 +69,10 @@ export interface DownloadQueueItem {
     timestamp: number;
     op: QueueOperation;
     priority?: number;
+    // For bucket-icon operations
+    bucketId?: string;
+    bucketName?: string;
+    bucketColor?: string;
 }
 
 export interface DownloadQueueState {
@@ -91,10 +95,23 @@ class MediaCacheService {
     private repo?: MediaCacheRepository;
     private initializing = false;
     public metadata$ = new BehaviorSubject<CacheMetadata>(this.metadata);
+    // Track current bucket parameters in memory to detect changes
+    private bucketParamsCache = new Map<string, {
+        bucketName: string;
+        bucketColor?: string;
+        iconUrl?: string;
+        timestamp: number;
+    }>();
 
     // Modern reactive queue management with RxJS
     private queueAction$ = new Subject<QueueAction>();
     private queueItem$ = new Subject<DownloadQueueItem>();
+    
+    // Bucket icon completion notifications
+    private bucketIconReady$ = new Subject<{ bucketId: string; uri: string }>();
+    
+    // Initialization ready notification
+    private initReady$ = new Subject<void>();
     
     // Track current queue state for synchronous access
     private currentQueueState: DownloadQueueState = {
@@ -105,6 +122,12 @@ class MediaCacheService {
     };
 
     public downloadQueue$: Observable<DownloadQueueState>;
+    
+    // Public observable for bucket icon completion
+    public bucketIconReady = this.bucketIconReady$.asObservable();
+    
+    // Public observable for initialization completion
+    public initReady = this.initReady$.asObservable();
 
     constructor() {
         this.downloadQueue$ = this.setupQueueObservable();
@@ -241,6 +264,8 @@ class MediaCacheService {
                         await this.performDownload(item);
                     } else if (item.op === 'thumbnail') {
                         await this.performThumbnail(item);
+                    } else if (item.op === 'bucket-icon') {
+                        await this.performBucketIcon(item);
                     }
                     observer.next();
                     observer.complete();
@@ -253,7 +278,10 @@ class MediaCacheService {
         });
     }
 
-    private buildQueueKey(url: string, mediaType: MediaType, op: QueueOperation): string {
+    private buildQueueKey(url: string, mediaType: MediaType, op: QueueOperation, bucketId?: string): string {
+        if (op === 'bucket-icon' && bucketId) {
+            return `BUCKET_ICON::${bucketId}::${op}`;
+        }
         return `${this.generateCacheKey(url, mediaType)}::${op}`;
     }
 
@@ -261,7 +289,7 @@ class MediaCacheService {
      * Add item to queue using reactive approach
      */
     private async addToQueue(item: Omit<DownloadQueueItem, 'timestamp' | 'key'> & { priority?: number }) {
-        const key = this.buildQueueKey(item.url, item.mediaType, item.op);
+        const key = this.buildQueueKey(item.url, item.mediaType, item.op, item.bucketId);
 
         console.log('[MediaCache] Adding item to queue:', item.op, item.url, item.priority ? `priority: ${item.priority}` : '');
 
@@ -279,6 +307,7 @@ class MediaCacheService {
         } else if (item.op === 'thumbnail') {
             await this.upsertItem(cacheKey, { generatingThumbnail: true, timestamp: Date.now() });
         }
+        // bucket-icon operations don't need cache item tracking
 
         this.queueAction$.next({ type: 'ADD', item: queueItem });
     }
@@ -364,6 +393,31 @@ class MediaCacheService {
         }
     }
 
+    private async performBucketIcon(item: DownloadQueueItem) {
+        const { bucketId, bucketName, bucketColor, url } = item;
+        
+        if (!bucketId || !bucketName || !url) {
+            console.error('[MediaCache] ❌ Bucket icon item missing required fields');
+            return;
+        }
+
+        try {
+            console.log(`[MediaCache] 🎭 Downloading bucket icon for ${bucketName}`, { bucketId, url });
+            
+            const uri = await this.downloadAndCacheBucketIcon(bucketId, bucketName, bucketColor, url);
+            if (uri) {
+                console.log(`[MediaCache] ✅ Download complete, notifying ${this.bucketIconReady$.observers.length} observers`);
+                console.log(`[MediaCache] 📢 Emitting bucketIconReady for ${bucketName}`, { bucketId, uri });
+                this.bucketIconReady$.next({ bucketId, uri });
+                console.log(`[MediaCache] 📢 Event emitted successfully`);
+            } else {
+                console.error(`[MediaCache] ❌ Download failed for ${bucketName}`);
+            }
+        } catch (e) {
+            console.error('[MediaCache] ❌ Bucket icon download error for', bucketName, e);
+        }
+    }
+
     private async initialize(): Promise<void> {
         if (this.initializing) return;
 
@@ -380,7 +434,7 @@ class MediaCacheService {
             }
 
             await this.loadMetadata();
-            console.log('[MediaCache] DB initialized successfull');
+            console.log('[MediaCache] ✅ DB initialized successfully');
 
             // Queue thumbnail generation for all media that are downloaded but missing thumbnails
             if (!isWeb) {
@@ -403,6 +457,10 @@ class MediaCacheService {
                     }
                 }, 100);
             }
+            
+            // Notify components that initialization is complete
+            console.log('[MediaCache] 📢 Emitting initialization complete event');
+            this.initReady$.next();
         } catch (error) {
             console.error('[MediaCache] Initialization failed:', error);
         }
@@ -921,8 +979,8 @@ class MediaCacheService {
     /**
      * Check if item is currently in queue
      */
-    async isInQueue(url: string, mediaType: MediaType, op: QueueOperation = 'download'): Promise<boolean> {
-        const key = this.buildQueueKey(url, mediaType, op);
+    async isInQueue(url: string, mediaType: MediaType, op: QueueOperation = 'download', bucketId?: string): Promise<boolean> {
+        const key = this.buildQueueKey(url, mediaType, op, bucketId);
         const state = await this.getDownloadQueueState();
         return state.queue.some((item: DownloadQueueItem) => item.key === key);
     }
@@ -1117,6 +1175,359 @@ class MediaCacheService {
         } catch (error) {
             console.error('[MediaCache] Failed to get media url:', key, error);
             return null;
+        }
+    }
+
+    /**
+     * Get bucket icon from cache, or download/process/cache if not found
+     * If no icon URL provided, generates a placeholder with initials
+     * Compatible with both web (IndexedDB) and mobile (filesystem)
+     * Checks parameters only once per session for performance
+     * Returns the file URI (mobile) or data URL (web) if successful, null otherwise
+     */
+    async getBucketIcon(
+        bucketId: string,
+        bucketName: string,
+        bucketColor?: string,
+        iconUrl?: string
+    ): Promise<string | null> {
+        await this.initialize();
+        if (!this.repo) return null;
+
+        try {
+            // Check if bucket parameters have changed since last call
+            const cachedParams = this.bucketParamsCache.get(bucketId);
+            const currentTimestamp = Date.now();
+            
+            // Compare current params with cached params
+            const paramsChanged = cachedParams && (
+                cachedParams.bucketName !== bucketName ||
+                cachedParams.bucketColor !== bucketColor ||
+                cachedParams.iconUrl !== iconUrl
+            );
+            
+            if (paramsChanged) {
+                console.log(`[MediaCache] 🔄 Bucket params changed for ${bucketName}`, {
+                    old: cachedParams,
+                    new: { bucketName, bucketColor, iconUrl }
+                });
+                console.log(`[MediaCache] 🗑️ Invalidating cache for ${bucketName}`);
+                await this.invalidateBucketIcon(bucketId, bucketName, bucketColor);
+                // Update timestamp for invalidated icon
+                this.bucketParamsCache.set(bucketId, { bucketName, bucketColor, iconUrl, timestamp: currentTimestamp });
+            } else if (!cachedParams) {
+                // First time seeing this bucket
+                this.bucketParamsCache.set(bucketId, { bucketName, bucketColor, iconUrl, timestamp: currentTimestamp });
+            }
+
+            // Generate cache key
+            const cacheKey = this.generateBucketIconCacheKey(bucketId, bucketName, bucketColor);
+            
+            // console.log(`[MediaCache] 🔍 Checking cache for ${bucketName}`, { cacheKey, iconUrl });
+            
+            // Check if already cached
+            const timestamp = this.bucketParamsCache.get(bucketId)?.timestamp || Date.now();
+            if (isWeb) {
+                // For web, check IndexedDB
+                const cachedUrl = await this.repo.getMediaUrl(cacheKey);
+                if (cachedUrl) {
+                    console.log(`[MediaCache] ✅ Found in IndexedDB: ${bucketName}`);
+                    // Add timestamp to force cache invalidation when params change
+                    return `${cachedUrl}#t=${timestamp}`;
+                }
+            } else {
+                // For mobile, check filesystem
+                const cachedUri = await this.repo.getBucketIconFromSharedCache(bucketId, bucketName, bucketColor, timestamp);
+                if (cachedUri) {
+                    // console.log(`[MediaCache] ✅ Found in shared cache: ${bucketName} → ${cachedUri}`);
+                    return cachedUri;
+                }
+            }
+
+            console.log(`[MediaCache] ❌ Not in cache: ${bucketName}`);
+
+            // Not in cache - add to queue for download if iconUrl exists
+            // Backend automatically generates icons, so iconUrl should always exist
+            if (iconUrl) {
+                console.log(`[MediaCache] ➕ Adding to download queue: ${bucketName}`);
+                await this.addBucketIconToQueue(bucketId, bucketName, bucketColor, iconUrl);
+                // Return null - component will be notified via observable when ready
+                return null;
+            }
+            
+            // No icon URL (legacy buckets?) - show placeholder in component
+            console.log(`[MediaCache] ⚠️ No icon URL for ${bucketName}, will show placeholder`);
+            return null;
+        } catch (error) {
+            console.error('[MediaCache] Failed to get bucket icon:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Add bucket icon to processing queue (for download from backend-generated URL)
+     */
+    private async addBucketIconToQueue(
+        bucketId: string,
+        bucketName: string,
+        bucketColor: string | undefined,
+        iconUrl: string
+    ): Promise<void> {
+        const key = `BUCKET_ICON::${bucketId}::bucket-icon`;
+        
+        // Check if already in queue (use currentQueueState for synchronous check)
+        const alreadyInQueue = this.currentQueueState.queue.some(item => item.key === key);
+        
+        if (alreadyInQueue) {
+            console.log(`[MediaCache] ⏭️ Bucket icon already in queue for ${bucketId}, skipping`);
+            return;
+        }
+        
+        // Also check if currently processing this bucket icon
+        if (this.currentQueueState.isProcessing && 
+            this.currentQueueState.currentItem?.key === key) {
+            return;
+        }
+        
+        const queueItem: DownloadQueueItem = {
+            key,
+            url: iconUrl,
+            bucketId,
+            bucketName,
+            bucketColor,
+            mediaType: MediaType.Icon,
+            op: 'bucket-icon',
+            timestamp: Date.now(),
+            priority: 10, // High priority for bucket icons
+        };
+
+        console.log(`[MediaCache] ➕ Queue item created for ${bucketName}`, { key, url: iconUrl, bucketId });
+        this.queueAction$.next({ type: 'ADD', item: queueItem });
+        console.log(`[MediaCache] 📤 Queue action dispatched for ${bucketName}`);
+    }
+
+    /**
+     * Download and cache bucket icon from URL
+     * Works for both web and mobile
+     */
+    private async downloadAndCacheBucketIcon(
+        bucketId: string,
+        bucketName: string,
+        bucketColor: string | undefined,
+        iconUrl: string
+    ): Promise<string | null> {
+        let tempPath: string | null = null;
+
+        try {
+            const cacheKey = this.generateBucketIconCacheKey(bucketId, bucketName, bucketColor);
+
+            // Ensure directories exist
+            await this.ensureDirectories();
+
+            // Generate temp file path
+            const tempDir = isWeb ? `${this.cacheDir}/temp/` : `${this.cacheDir}temp/`;
+            const dir = new Directory(tempDir);
+            if (!dir.exists) {
+                dir.create();
+            }
+            
+            const timestamp = Date.now();
+            const tempFileName = `bucket_icon_temp_${timestamp}.png`;
+            tempPath = `${tempDir}${tempFileName}`;
+
+            // Download from provided URL
+            console.log(`[MediaCache] 🔄 Downloading bucket icon from URL to temp: ${tempPath}`);
+            const tempFile = new File(tempPath);
+            const downloadResult = await File.downloadAsync(iconUrl, isWeb ? (tempFile as any) : tempPath);
+            
+            if (!downloadResult.uri) {
+                console.error('[MediaCache] ❌ Bucket icon download failed, no URI returned');
+                return null;
+            }
+
+            console.log(`[MediaCache] ✅ Downloaded bucket icon: ${downloadResult.size || 0} bytes`);
+
+            // Resize image to standard size (matching Swift implementation)
+            const standardSize = 200;
+            const result = await ImageManipulator.manipulateAsync(
+                downloadResult.uri,
+                [{ resize: { width: standardSize, height: standardSize } }],
+                { compress: 1, format: ImageManipulator.SaveFormat.PNG }
+            );
+
+            console.log(`[MediaCache] ✅ Resized bucket icon to ${standardSize}x${standardSize}`);
+
+            // Save to appropriate storage
+            if (isWeb) {
+                // For web, convert to ArrayBuffer and save to IndexedDB
+                if (!this.repo) {
+                    throw new Error('Repository not initialized');
+                }
+                
+                const response = await fetch(result.uri);
+                const blob = await response.blob();
+                const buffer = await blob.arrayBuffer();
+                
+                await this.repo.saveMediaItem({
+                    key: cacheKey,
+                    data: buffer,
+                });
+                
+                const dataUrl = await this.repo.getMediaUrl(cacheKey);
+                console.log(`[MediaCache] ✅ Saved bucket icon to IndexedDB: ${cacheKey}`);
+                
+                // Clean up temp files
+                await this.cleanupBucketIconTempFiles(downloadResult.uri, result.uri);
+                
+                // Update timestamp in cache for this bucket
+                const downloadTimestamp = Date.now();
+                const cachedParams = this.bucketParamsCache.get(bucketId);
+                if (cachedParams) {
+                    this.bucketParamsCache.set(bucketId, { ...cachedParams, timestamp: downloadTimestamp });
+                }
+                
+                // Add fragment to force expo-image cache invalidation
+                return dataUrl ? `${dataUrl}#t=${downloadTimestamp}` : dataUrl;
+            } else {
+                // For mobile, save to filesystem
+                const finalUri = await this.getBucketIconFilePath(bucketId, bucketName, bucketColor);
+                const resultFile = new File(result.uri);
+                const finalFile = new File(finalUri);
+                
+                // Delete final file if exists
+                if (finalFile.exists) {
+                    await finalFile.delete();
+                }
+                
+                await resultFile.copy(finalFile as any);
+                console.log(`[MediaCache] ✅ Saved bucket icon to filesystem: ${finalUri}`);
+                
+                // Clean up temp files
+                await this.cleanupBucketIconTempFiles(downloadResult.uri, result.uri);
+                
+                // Update timestamp in cache for this bucket
+                const downloadTimestamp = Date.now();
+                const cachedParams = this.bucketParamsCache.get(bucketId);
+                if (cachedParams) {
+                    this.bucketParamsCache.set(bucketId, { ...cachedParams, timestamp: downloadTimestamp });
+                }
+                
+                // Add timestamp to force expo-image cache invalidation
+                return `${finalUri}?t=${downloadTimestamp}`;
+            }
+        } catch (error) {
+            console.error('[MediaCache] ❌ Error downloading/caching bucket icon:', error);
+            
+            // Clean up temp file on error
+            if (tempPath) {
+                try {
+                    const file = new File(tempPath);
+                    if (file.exists) {
+                        await file.delete();
+                    }
+                } catch (e) {
+                    // Ignore cleanup errors
+                }
+            }
+            
+            return null;
+        }
+    }
+
+    /**
+     * Generate cache key for bucket icon (used for web IndexedDB)
+     * Simple naming: just bucketId.png
+     */
+    private generateBucketIconCacheKey(bucketId: string, bucketName: string, bucketColor?: string): string {
+        return `BUCKET_ICON/${bucketId}.png`;
+    }
+
+    /**
+     * Get bucket icon file path (for mobile filesystem)
+     * Simple naming: just bucketId.png
+     */
+    private async getBucketIconFilePath(bucketId: string, bucketName: string, bucketColor?: string): Promise<string> {
+        const bucketIconDir = `${this.cacheDir}BUCKET_ICON/`;
+        const fileName = `${bucketId}.png`;
+        return `${bucketIconDir}${fileName}`;
+    }
+
+    /**
+     * Clean up temporary files created during bucket icon processing
+     */
+    private async cleanupBucketIconTempFiles(downloadUri: string, manipulatedUri: string): Promise<void> {
+        // Clean up original download temp file if manipulator created a new one
+        if (manipulatedUri !== downloadUri) {
+            try {
+                const origFile = new File(downloadUri);
+                if (origFile.exists) {
+                    await origFile.delete();
+                }
+            } catch (e) {
+                // Ignore cleanup errors
+            }
+        }
+        
+        // Clean up manipulated file if it's different from final location
+        try {
+            const manipFile = new File(manipulatedUri);
+            if (manipFile.exists) {
+                await manipFile.delete();
+            }
+        } catch (e) {
+            // Ignore cleanup errors
+        }
+    }
+
+    /**
+     * Invalidate cached bucket icon using saved parameters
+     */
+    private async invalidateBucketIcon(bucketId: string, newBucketName: string, newBucketColor?: string): Promise<void> {
+        try {
+            // Get old params from in-memory cache
+            const oldParams = this.bucketParamsCache.get(bucketId);
+
+            if (!oldParams) {
+                // No old params cached, try to delete file anyway (file path is based on bucketId only)
+                if (!isWeb) {
+                    const fileUri = await this.getBucketIconFilePath(bucketId, newBucketName, newBucketColor);
+                    const file = new File(fileUri);
+                    if (file.exists) {
+                        await file.delete();
+                        console.log(`[MediaCache] ✅ Deleted bucket icon: ${fileUri}`);
+                    }
+                }
+                return;
+            }
+
+            // Generate cache key with OLD parameters
+            const oldCacheKey = this.generateBucketIconCacheKey(
+                bucketId,
+                oldParams.bucketName,
+                oldParams.bucketColor
+            );
+
+            if (isWeb) {
+                // Delete from IndexedDB
+                if (this.repo) {
+                    await this.repo.deleteMediaItem(oldCacheKey);
+                    console.log(`[MediaCache] ✅ Deleted bucket icon from IndexedDB: ${oldCacheKey}`);
+                }
+            } else {
+                // Delete from filesystem using old parameters
+                const oldFileUri = await this.getBucketIconFilePath(
+                    bucketId,
+                    oldParams.bucketName,
+                    oldParams.bucketColor
+                );
+                const file = new File(oldFileUri);
+                if (file.exists) {
+                    await file.delete();
+                    console.log(`[MediaCache] ✅ Deleted bucket icon: ${oldFileUri}`);
+                }
+            }
+        } catch (error) {
+            console.error('[MediaCache] Error invalidating bucket icon:', error);
         }
     }
 
