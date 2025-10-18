@@ -1,16 +1,15 @@
 import Foundation
-import SQLite3
 
 /**
  * LoggingSystem - Shared structured logging utilities
- * 
+ *
  * Provides JSON-based logging with buffering and batch persistence
- * to SQLite database shared across app and extensions.
+ * to JSON file shared across app and extensions.
  */
 public class LoggingSystem {
-    
+
     // MARK: - Log Entry Structure
-    
+
     public struct LogEntry: Codable {
         let id: String
         let level: String
@@ -19,7 +18,7 @@ public class LoggingSystem {
         let metadata: [String: String]?
         let timestamp: Int64
         let source: String
-        
+
         public init(level: String, tag: String?, message: String, metadata: [String: String]?, source: String) {
             self.id = UUID().uuidString
             self.level = level
@@ -30,16 +29,17 @@ public class LoggingSystem {
             self.source = source
         }
     }
-    
+
     // MARK: - Shared Logger Instance
-    
+
     public static let shared = LoggingSystem()
-    
+
     private var logBuffer: [LogEntry] = []
     private let bufferLimit = 20
     private var flushTimer: Timer?
     private let flushInterval: TimeInterval = 5.0
-    
+    private var logFilePath: String?
+
     private init() {}
     
     // MARK: - Logging Methods
@@ -112,100 +112,92 @@ public class LoggingSystem {
         }
     }
     
-    /// Flush logs to database
+    /// Get log file path
+    private func getLogFilePath() -> String {
+        if let path = logFilePath {
+            return path
+        }
+
+        let cacheDirectory = MediaAccess.getSharedMediaCacheDirectory()
+        let filePath = cacheDirectory.appendingPathComponent("logs.json").path
+        logFilePath = filePath
+        return filePath
+    }
+
+    /// Read existing logs from JSON file
+    private func readExistingLogs() -> [LogEntry] {
+        let filePath = getLogFilePath()
+        let fileManager = FileManager.default
+
+        guard fileManager.fileExists(atPath: filePath) else {
+            return []
+        }
+
+        do {
+            let data = try Data(contentsOf: URL(fileURLWithPath: filePath))
+            let logs = try JSONDecoder().decode([LogEntry].self, from: data)
+            return logs
+        } catch {
+            print("[LoggingSystem] ⚠️ Failed to read existing logs: \(error)")
+            return []
+        }
+    }
+
+    /// Write logs to JSON file
+    private func writeLogsToFile(logs: [LogEntry]) {
+        let filePath = getLogFilePath()
+
+        do {
+            // Read existing logs
+            var existingLogs = readExistingLogs()
+
+            // Append new logs
+            existingLogs.append(contentsOf: logs)
+
+            // Write back to file (no cleanup)
+            let data = try JSONEncoder().encode(existingLogs)
+            try data.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
+
+            print("[LoggingSystem] ✅ Wrote \(logs.count) logs to JSON file")
+        } catch {
+            print("[LoggingSystem] ⚠️ Failed to write logs to file: \(error)")
+        }
+    }
+
+    /// Flush logs to JSON file
     public func flushLogs() {
         guard !logBuffer.isEmpty else { return }
-        
+
         let logsToWrite = logBuffer
         logBuffer.removeAll()
-        
-        writeLogsToDatabase(logs: logsToWrite)
+
+        writeLogsToFile(logs: logsToWrite)
     }
-    
-    /// Write logs to SQLite database
-    private func writeLogsToDatabase(logs: [LogEntry]) {
-        guard let dbPath = DatabaseAccess.getDbPath() else {
-            print("[LoggingSystem] ⚠️ Failed to get database path")
-            return
-        }
-        
-        var db: OpaquePointer?
-        
-        guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
-            print("[LoggingSystem] ⚠️ Failed to open database")
-            sqlite3_close(db)
-            return
-        }
-        
-        // Create logs table if not exists
-        let createTableSQL = """
-        CREATE TABLE IF NOT EXISTS logs (
-            id TEXT PRIMARY KEY,
-            level TEXT NOT NULL,
-            tag TEXT,
-            message TEXT NOT NULL,
-            metadata TEXT,
-            timestamp INTEGER NOT NULL,
-            source TEXT NOT NULL
-        )
-        """
-        
-        if sqlite3_exec(db, createTableSQL, nil, nil, nil) != SQLITE_OK {
-            print("[LoggingSystem] ⚠️ Failed to create logs table")
-            sqlite3_close(db)
-            return
-        }
-        
-        // Insert logs
-        let insertSQL = """
-        INSERT OR REPLACE INTO logs (id, level, tag, message, metadata, timestamp, source)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """
-        
-        var stmt: OpaquePointer?
-        
-        guard sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK else {
-            print("[LoggingSystem] ⚠️ Failed to prepare insert statement")
-            sqlite3_close(db)
-            return
-        }
-        
-        var successCount = 0
-        
-        for log in logs {
-            sqlite3_bind_text(stmt, 1, log.id, -1, nil)
-            sqlite3_bind_text(stmt, 2, log.level, -1, nil)
-            if let tag = log.tag {
-                sqlite3_bind_text(stmt, 3, tag, -1, nil)
-            } else {
-                sqlite3_bind_null(stmt, 3)
-            }
-            sqlite3_bind_text(stmt, 4, log.message, -1, nil)
-            
-            if let metadata = log.metadata,
-               let jsonData = try? JSONEncoder().encode(metadata),
-               let jsonString = String(data: jsonData, encoding: .utf8) {
-                sqlite3_bind_text(stmt, 5, jsonString, -1, nil)
-            } else {
-                sqlite3_bind_null(stmt, 5)
-            }
-            
-            sqlite3_bind_int64(stmt, 6, log.timestamp)
-            sqlite3_bind_text(stmt, 7, log.source, -1, nil)
-            
-            if sqlite3_step(stmt) == SQLITE_DONE {
-                successCount += 1
-            }
-            
-            sqlite3_reset(stmt)
-        }
-        
-        sqlite3_finalize(stmt)
-        sqlite3_close(db)
-        
-        print("[LoggingSystem] ✅ Wrote \(successCount)/\(logs.count) logs to database")
+
+    /// Read logs from file, optionally filtered by timestamp
+    public func readLogs(fromTimestamp: Int64 = 0) -> [LogEntry] {
+        let existingLogs = readExistingLogs()
+
+        // Filter by timestamp and sort by timestamp DESC
+        return existingLogs
+            .filter { $0.timestamp >= fromTimestamp }
+            .sorted { $0.timestamp > $1.timestamp }
     }
-    
+
+    /// Clear all logs from file
+    public func clearAllLogs() {
+        let filePath = getLogFilePath()
+        let fileManager = FileManager.default
+
+        do {
+            if fileManager.fileExists(atPath: filePath) {
+                try fileManager.removeItem(atPath: filePath)
+            }
+        } catch {
+            print("[LoggingSystem] ⚠️ Failed to clear logs: \(error)")
+        }
+    }
+
     /// Force flush on deinit
     deinit {
         flushTimer?.invalidate()

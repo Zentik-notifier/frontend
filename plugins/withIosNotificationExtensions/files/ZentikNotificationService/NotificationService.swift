@@ -1863,7 +1863,7 @@ class NotificationService: UNNotificationServiceExtension {
       }
       
       // Always foreground for actions that need app interaction
-      if type == "NAVIGATE" || type == "DEEP_LINK" {
+      if type == "NAVIGATE" {
         options.insert(.foreground)
       }
       

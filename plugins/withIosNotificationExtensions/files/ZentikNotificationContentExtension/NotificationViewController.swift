@@ -178,111 +178,107 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             )
         }
         
-        if categoryId == "dynamic" {
-            if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
-                print("📱 [ContentExtension] 🎭 Processing \(actionsData.count) actions for dynamic category")
-                
-                let notificationActions = actionsData.compactMap { actionData -> UNNotificationAction? in
-                    guard let type = actionData["type"] as? String,
-                          let value = actionData["value"] as? String else {
-                        print("📱 [ContentExtension] ⚠️ Invalid action data (missing type/value): \(actionData)")
-                        
-                        logToDatabase(
-                            level: "WARN",
-                            tag: "NotificationContentExtension",
-                            message: "[Actions] Invalid action data",
-                            metadata: [
-                                "notificationId": notificationId,
-                                "actionData": String(describing: actionData)
-                            ]
-                        )
-                        return nil
-                    }
-                    
-                    let title = actionData["title"] as? String ?? value
-                    let destructive = actionData["destructive"] as? Bool ?? false
-                    let authRequired = actionData["authRequired"] as? Bool ?? true
-                    let actionId = "action_\(type)_\(value)"
-                    
-                    var options: UNNotificationActionOptions = []
-                    if destructive { options.insert(.destructive) }
-                    if authRequired { options.insert(.authenticationRequired) }
-                    
-                    var icon: UNNotificationActionIcon?
-                    if let iconName = actionData["icon"] as? String, !iconName.isEmpty {
-                        let actualIconName = iconName.hasPrefix("sfsymbols:")
-                            ? String(iconName.dropFirst("sfsymbols:".count))
-                            : iconName
-                        icon = UNNotificationActionIcon(systemImageName: actualIconName)
-                    }
-                    
-                    print("📱 [ContentExtension] 🎭 Created dynamic action: \(actionId) - \(title) [type:\(type), value:\(value), destructive:\(destructive), auth:\(authRequired)]")
-                    
-                    logToDatabase(
-                        level: "INFO",
-                        tag: "NotificationContentExtension",
-                        message: "[Actions] Dynamic action created",
-                        metadata: [
-                            "notificationId": notificationId,
-                            "actionId": actionId,
-                            "title": title,
-                            "type": type,
-                            "value": value,
-                            "destructive": destructive,
-                            "authRequired": authRequired,
-                            "hasIcon": icon != nil
-                        ]
-                    )
-                    
-                    return UNNotificationAction(
-                        identifier: actionId,
-                        title: title,
-                        options: options,
-                        icon: icon
-                    )
-                }
-                
-                print("📱 [ContentExtension] 🎭 Successfully created \(notificationActions.count) actions from \(actionsData.count) action data items")
-                
-                // Inject actions into extension context
-                if !notificationActions.isEmpty {
-                    extensionContext?.notificationActions = notificationActions
-                    print("📱 [ContentExtension] 🎭 Injected \(notificationActions.count) dynamic actions into NCE")
-                    
-                    // Log all action identifiers for debugging
-                    let actionIdentifiers = notificationActions.map { $0.identifier }.joined(separator: ", ")
-                    print("📱 [ContentExtension] 🎭 Action identifiers: [\(actionIdentifiers)]")
-                    
-                    logToDatabase(
-                        level: "INFO",
-                        tag: "NotificationContentExtension",
-                        message: "[Actions] Dynamic actions injected successfully",
-                        metadata: [
-                            "notificationId": notificationId,
-                            "actionsCount": notificationActions.count,
-                            "categoryId": categoryId,
-                            "actionIdentifiers": actionIdentifiers
-                        ]
-                    )
-                } else {
-                    print("📱 [ContentExtension] ⚠️ No valid actions to inject (all actions filtered out)")
+        if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
+            print("📱 [ContentExtension] 🎭 Processing \(actionsData.count) actions for dynamic category")
+            
+            let notificationActions = actionsData.compactMap { actionData -> UNNotificationAction? in
+                guard let type = actionData["type"] as? String,
+                        let value = actionData["value"] as? String else {
+                    print("📱 [ContentExtension] ⚠️ Invalid action data (missing type/value): \(actionData)")
                     
                     logToDatabase(
                         level: "WARN",
                         tag: "NotificationContentExtension",
-                        message: "[Actions] No valid actions to inject",
+                        message: "[Actions] Invalid action data",
                         metadata: [
                             "notificationId": notificationId,
-                            "categoryId": categoryId,
-                            "originalActionsCount": actionsData.count
+                            "actionData": String(describing: actionData)
                         ]
                     )
+                    return nil
                 }
+                
+                let title = actionData["title"] as? String ?? value
+                let destructive = actionData["destructive"] as? Bool ?? false
+                let authRequired = actionData["authRequired"] as? Bool ?? true
+                let actionId = "action_\(type)_\(value)"
+                
+                var options: UNNotificationActionOptions = []
+                if destructive { options.insert(.destructive) }
+                if authRequired { options.insert(.authenticationRequired) }
+                
+                var icon: UNNotificationActionIcon?
+                if let iconName = actionData["icon"] as? String, !iconName.isEmpty {
+                    let actualIconName = iconName.hasPrefix("sfsymbols:")
+                        ? String(iconName.dropFirst("sfsymbols:".count))
+                        : iconName
+                    icon = UNNotificationActionIcon(systemImageName: actualIconName)
+                }
+                
+                print("📱 [ContentExtension] 🎭 Created dynamic action: \(actionId) - \(title) [type:\(type), value:\(value), destructive:\(destructive), auth:\(authRequired)]")
+                
+                logToDatabase(
+                    level: "INFO",
+                    tag: "NotificationContentExtension",
+                    message: "[Actions] Dynamic action created",
+                    metadata: [
+                        "notificationId": notificationId,
+                        "actionId": actionId,
+                        "title": title,
+                        "type": type,
+                        "value": value,
+                        "destructive": destructive,
+                        "authRequired": authRequired,
+                        "hasIcon": icon != nil
+                    ]
+                )
+                
+                return UNNotificationAction(
+                    identifier: actionId,
+                    title: title,
+                    options: options,
+                    icon: icon
+                )
+            }
+            
+            print("📱 [ContentExtension] 🎭 Successfully created \(notificationActions.count) actions from \(actionsData.count) action data items")
+            
+            // Inject actions into extension context
+            if !notificationActions.isEmpty {
+                extensionContext?.notificationActions = notificationActions
+                print("📱 [ContentExtension] 🎭 Injected \(notificationActions.count) dynamic actions into NCE")
+                
+                // Log all action identifiers for debugging
+                let actionIdentifiers = notificationActions.map { $0.identifier }.joined(separator: ", ")
+                print("📱 [ContentExtension] 🎭 Action identifiers: [\(actionIdentifiers)]")
+                
+                logToDatabase(
+                    level: "INFO",
+                    tag: "NotificationContentExtension",
+                    message: "[Actions] Dynamic actions injected successfully",
+                    metadata: [
+                        "notificationId": notificationId,
+                        "actionsCount": notificationActions.count,
+                        "categoryId": categoryId,
+                        "actionIdentifiers": actionIdentifiers
+                    ]
+                )
             } else {
-                print("📱 [ContentExtension] ℹ️ No actions data in userInfo for category: \(categoryId)")
+                print("📱 [ContentExtension] ⚠️ No valid actions to inject (all actions filtered out)")
+                
+                logToDatabase(
+                    level: "WARN",
+                    tag: "NotificationContentExtension",
+                    message: "[Actions] No valid actions to inject",
+                    metadata: [
+                        "notificationId": notificationId,
+                        "categoryId": categoryId,
+                        "originalActionsCount": actionsData.count
+                    ]
+                )
             }
         } else {
-            print("📱 [ContentExtension] ℹ️ Category '\(categoryId)' not eligible for dynamic actions")
+            print("📱 [ContentExtension] ℹ️ No actions data in userInfo for category: \(categoryId)")
         }
         
         // Store notification texts
@@ -369,15 +365,13 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             ]
         )
         
-        // Handle the action when app is terminated
-        handleNotificationAction(response: response) { [weak self] success in
-            if success {
-                print("📱 [ContentExtension] ✅ Action handled successfully")
-                completion(.dismiss)
-            } else {
-                print("📱 [ContentExtension] ❌ Action handling failed")
-                completion(.doNotDismiss)
-            }
+        // Close UI immediately to prevent blocking
+        print("📱 [ContentExtension] 🚀 Dismissing extension UI immediately")
+        completion(.dismiss)
+
+        // Execute action in background without blocking UI
+        DispatchQueue.global(qos: .background).async { [weak self] in
+            self?.handleNotificationActionInBackground(response: response)
         }
     }
     
@@ -410,29 +404,30 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             // Ensure icon is visible since we have an ICON attachment
             iconView.isHidden = false
             loadIconFromSharedCache(iconUrl: iconUrl, iconImageView: iconView)
-        } else {
+        } 
+        // else {
             // Try to find app icon
-            var fallbackImage: UIImage?
+            // var fallbackImage: UIImage?
             
-            // Try different app icon names
-            let appIconNames = ["AppIcon", "AppIcon-60", "AppIcon-76", "AppIcon-83.5", "AppIcon-1024"]
-            for iconName in appIconNames {
-                if let appIcon = UIImage(named: iconName) {
-                    fallbackImage = appIcon
-                    print("📱 [ContentExtension] ✅ Found app icon: \(iconName)")
-                    break
-                }
-            }
+            // // Try different app icon names
+            // let appIconNames = ["AppIcon", "AppIcon-60", "AppIcon-76", "AppIcon-83.5", "AppIcon-1024"]
+            // for iconName in appIconNames {
+            //     if let appIcon = UIImage(named: iconName) {
+            //         fallbackImage = appIcon
+            //         print("📱 [ContentExtension] ✅ Found app icon: \(iconName)")
+            //         break
+            //     }
+            // }
             
-            if let appIcon = fallbackImage {
-                iconView.image = appIcon
-                iconView.isHidden = false
-            } else {
-                // Hide icon completely if no app icon is available
-                iconView.isHidden = true
-                print("📱 [ContentExtension] ⚠️ No icon available, hiding icon view")
-            }
-        }
+            // if let appIcon = fallbackImage {
+            //     iconView.image = appIcon
+            //     iconView.isHidden = false
+            // } else {
+            //     // Hide icon completely if no app icon is available
+            //     iconView.isHidden = true
+            //     print("📱 [ContentExtension] ⚠️ No icon available, hiding icon view")
+            // }
+        // }
 
         let labelsStack = UIStackView()
         labelsStack.axis = .vertical
@@ -673,25 +668,25 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         guard let imageView = headerIconImageView else { return }
         
         // Mostra app icon come placeholder immediato
-        var fallbackImage: UIImage?
-        let appIconNames = ["AppIcon", "AppIcon-60", "AppIcon-76", "AppIcon-83.5", "AppIcon-1024"]
-        for iconName in appIconNames {
-            if let appIcon = UIImage(named: iconName) {
-                fallbackImage = appIcon
-                print("📱 [ContentExtension] ✅ Found app icon as placeholder: \(iconName)")
-                break
-            }
-        }
+        // var fallbackImage: UIImage?
+        // let appIconNames = ["AppIcon", "AppIcon-60", "AppIcon-76", "AppIcon-83.5", "AppIcon-1024"]
+        // for iconName in appIconNames {
+        //     if let appIcon = UIImage(named: iconName) {
+        //         fallbackImage = appIcon
+        //         print("📱 [ContentExtension] ✅ Found app icon as placeholder: \(iconName)")
+        //         break
+        //     }
+        // }
         
-        if let appIcon = fallbackImage {
-            imageView.image = appIcon
-            imageView.isHidden = false
-        } else {
-            // Manteniamo lo spazio dell'icona per layout coerente
-            imageView.image = UIImage()
-            imageView.isHidden = false
-            print("📱 [ContentExtension] ⚠️ No app icon available, keeping placeholder to preserve layout width")
-        }
+        // if let appIcon = fallbackImage {
+        //     imageView.image = appIcon
+        //     imageView.isHidden = false
+        // } else {
+        //     // Manteniamo lo spazio dell'icona per layout coerente
+        //     imageView.image = UIImage()
+        //     imageView.isHidden = false
+        //     print("📱 [ContentExtension] ⚠️ No app icon available, keeping placeholder to preserve layout width")
+        // }
         
         // Cerca bucket icon nella cache condivisa (UNICO POSTO per icona reale o placeholder)
         if let userInfo = currentNotificationUserInfo,
@@ -3044,7 +3039,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             source: "NCE"
         )
     }
-    
 }
 
 // MARK: - Media Type Enum
@@ -3103,7 +3097,29 @@ extension NotificationViewController {
 // MARK: - Notification Action Handling
 
 extension NotificationViewController {
-    
+
+    private func handleNotificationActionInBackground(response: UNNotificationResponse) {
+        print("📱 [ContentExtension] 🎬 Handling notification action in background...")
+
+        let actionIdentifier = response.actionIdentifier
+        let userInfo = response.notification.request.content.userInfo
+
+        // Extract notification ID and payload
+        guard let notificationId = extractNotificationId(from: userInfo) else {
+            print("📱 [ContentExtension] ❌ No notification ID found")
+            return
+        }
+
+        // Handle default tap action
+        if actionIdentifier == UNNotificationDefaultActionIdentifier {
+            handleDefaultTapActionInBackground(userInfo: userInfo, notificationId: notificationId)
+            return
+        }
+
+        // Handle custom action buttons
+        handleCustomActionInBackground(actionIdentifier: actionIdentifier, userInfo: userInfo, notificationId: notificationId)
+    }
+
     private func handleNotificationAction(response: UNNotificationResponse, completion: @escaping (Bool) -> Void) {
         print("📱 [ContentExtension] 🎬 Handling notification action...")
         
@@ -3126,7 +3142,53 @@ extension NotificationViewController {
         // Handle custom action buttons
         handleCustomAction(actionIdentifier: actionIdentifier, userInfo: userInfo, notificationId: notificationId, completion: completion)
     }
-    
+
+    private func handleDefaultTapActionInBackground(userInfo: [AnyHashable: Any], notificationId: String) {
+        print("📱 [ContentExtension] 🔔 Handling default tap action in background for notification: \(notificationId)")
+
+        logToDatabase(
+            level: "INFO",
+            tag: "NotificationContentExtension",
+            message: "[DefaultTap] Processing default tap action in background",
+            metadata: ["notificationId": notificationId]
+        )
+
+        // Check if there's a custom tapAction defined
+        if let tapAction = extractTapAction(from: userInfo) {
+            print("📱 [ContentExtension] 🎯 Found custom tapAction: \(tapAction)")
+
+            logToDatabase(
+                level: "INFO",
+                tag: "NotificationContentExtension",
+                message: "[CustomTap] Found custom tap action in background",
+                metadata: [
+                    "notificationId": notificationId,
+                    "actionType": tapAction["type"] as? String ?? "unknown"
+                ]
+            )
+
+            executeActionInBackground(action: tapAction, notificationId: notificationId)
+        } else {
+            // Default behavior: store navigation intent for app launch
+            let navigationData = [
+                "type": "OPEN_NOTIFICATION",
+                "value": notificationId,
+                "timestamp": ISO8601DateFormatter().string(from: Date())
+            ]
+            storeNavigationIntent(data: navigationData)
+            print("📱 [ContentExtension] 📂 Stored default open notification intent in background")
+
+            logToDatabase(
+                level: "INFO",
+                tag: "NotificationContentExtension",
+                message: "[Navigation] Stored default navigation intent in background",
+                metadata: ["notificationId": notificationId]
+            )
+
+            // Note: UI is already dismissed, no need to call extensionContext methods
+        }
+    }
+
     private func extractNotificationId(from userInfo: [AnyHashable: Any]) -> String? {
         if let notificationId = userInfo["notificationId"] as? String {
             return notificationId
@@ -3237,16 +3299,28 @@ extension NotificationViewController {
         return nil
     }
     
+    private func handleCustomActionInBackground(actionIdentifier: String, userInfo: [AnyHashable: Any], notificationId: String) {
+        print("📱 [ContentExtension] 🎯 Handling custom action in background: \(actionIdentifier)")
+
+        // Find the matching action in the payload
+        guard let action = findMatchingAction(actionIdentifier: actionIdentifier, userInfo: userInfo) else {
+            print("📱 [ContentExtension] ❌ No matching action found for identifier: \(actionIdentifier)")
+            return
+        }
+
+        executeActionInBackground(action: action, notificationId: notificationId)
+    }
+
     private func handleCustomAction(actionIdentifier: String, userInfo: [AnyHashable: Any], notificationId: String, completion: @escaping (Bool) -> Void) {
         print("📱 [ContentExtension] 🎯 Handling custom action: \(actionIdentifier)")
-        
+
         // Find the matching action in the payload
         guard let action = findMatchingAction(actionIdentifier: actionIdentifier, userInfo: userInfo) else {
             print("📱 [ContentExtension] ❌ No matching action found for identifier: \(actionIdentifier)")
             completion(false)
             return
         }
-        
+
         executeAction(action: action, notificationId: notificationId, completion: completion)
     }
     
@@ -3361,6 +3435,40 @@ extension NotificationViewController {
                 case .failure(let error):
                     print("📱 [ContentExtension] ❌ Action failed: \(error)")
                     completion(false)
+                }
+            }
+        )
+    }
+
+    private func executeActionInBackground(action: [String: Any], notificationId: String) {
+        // Extract action type and value from action dictionary
+        guard let type = action["type"] as? String,
+              let value = action["value"] as? String else {
+            print("📱 [ContentExtension] ❌ Invalid action format in background")
+            return
+        }
+
+        guard let userInfo = currentNotificationUserInfo else {
+            print("📱 [ContentExtension] ❌ No notification userInfo available in background")
+            return
+        }
+
+        print("📱 [ContentExtension] 🚀 Executing action in background: \(type) with value: \(value)")
+
+        // Use shared NotificationActionHandler for action execution
+        // NotificationActionHandler already handles DB updates for MARK_AS_READ and DELETE
+        NotificationActionHandler.executeAction(
+            type: type,
+            value: value,
+            notificationId: notificationId,
+            userInfo: userInfo,
+            source: "NCE",
+            onComplete: { result in
+                switch result {
+                case .success:
+                    print("📱 [ContentExtension] ✅ Action completed successfully in background: \(type)")
+                case .failure(let error):
+                    print("📱 [ContentExtension] ❌ Action failed in background: \(error)")
                 }
             }
         )
