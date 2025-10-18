@@ -386,9 +386,24 @@ public class NotificationActionHandler {
                     )
                     
                 case "BACKGROUND_CALL":
-                    let parts = value.split(separator: ":", maxSplits: 1).map(String.init)
+                    // Parse format: METHOD::URL
+                    let parts = value.components(separatedBy: "::")
                     guard parts.count >= 2 else {
-                        throw NSError(domain: "ActionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid API call format"])
+                        let errorMsg = "Invalid API call format. Expected METHOD::URL, got '\(value)' which split into \(parts.count) parts: \(parts.joined(separator: " | "))"
+                        
+                        LoggingSystem.shared.error(
+                            tag: source,
+                            message: "[Action] BACKGROUND_CALL parsing failed",
+                            metadata: [
+                                "value": value,
+                                "partsCount": String(parts.count),
+                                "parts": parts.joined(separator: " | "),
+                                "error": errorMsg
+                            ],
+                            source: source
+                        )
+                        
+                        throw NSError(domain: "ActionError", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg])
                     }
                     let method = parts[0]
                     let url = parts[1]
