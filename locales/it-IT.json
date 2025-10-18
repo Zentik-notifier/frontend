@@ -1879,6 +1879,10 @@
     "loading": "Caricamento log...",
     "filterPlaceholder": "Filtra log per testo, tag, livello",
     "logDetailsTitle": "Dettagli Log",
+    "filters": {
+      "allLevels": "Tutti i Livelli",
+      "allSources": "Tutte le Sorgenti"
+    },
     "fields": {
       "level": "livello",
       "timestamp": "timestamp",

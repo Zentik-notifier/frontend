@@ -1668,6 +1668,10 @@ export interface Translation {
     logDetailsTitle: string;
     level: string;
     timestamp: string;
+    filters: {
+      allLevels: string;
+      allSources: string;
+    };
     fields: {
       tag: string;
       message: string;

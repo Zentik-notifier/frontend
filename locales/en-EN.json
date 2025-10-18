@@ -1665,6 +1665,10 @@
     "logDetailsTitle": "Log Details",
     "level": "level",
     "timestamp": "timestamp",
+    "filters": {
+      "allLevels": "All Levels",
+      "allSources": "All Sources"
+    },
     "fields": {
       "tag": "tag",
       "message": "message",

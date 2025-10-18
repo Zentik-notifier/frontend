@@ -17,6 +17,7 @@ import {
 import { Icon, Surface, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PaperScrollView from "./ui/PaperScrollView";
+import Selector, { SelectorOption } from "./ui/Selector";
 
 export default function AppLogs() {
   const { t } = useI18n();
@@ -26,6 +27,8 @@ export default function AppLogs() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [query, setQuery] = useState<string>("");
+  const [levelFilter, setLevelFilter] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isClearing, setIsClearing] = useState<boolean>(false);
   const [selectedLog, setSelectedLog] = useState<AppLog | null>(null);
@@ -80,6 +83,30 @@ export default function AppLogs() {
       } as const),
     [theme.colors]
   );
+
+  // Extract unique levels and sources from logs in a single pass
+  const { levelOptions, sourceOptions } = useMemo(() => {
+    const uniqueLevels = new Set<string>();
+    const uniqueSources = new Set<string>();
+
+    logs.forEach((log) => {
+      uniqueLevels.add(log.level);
+      if (log.source && log.source.trim() !== "") {
+        uniqueSources.add(log.source);
+      }
+    });
+
+    return {
+      levelOptions: Array.from(uniqueLevels).map((level) => ({
+        id: level,
+        name: level.toUpperCase(),
+      })),
+      sourceOptions: Array.from(uniqueSources).map((source) => ({
+        id: source,
+        name: source,
+      })),
+    };
+  }, [logs]);
 
   const renderItem = useCallback(
     ({ item }: { item: AppLog }) => {
@@ -157,8 +184,19 @@ export default function AppLogs() {
 
   const filteredLogs = useMemo(() => {
     // Filter out logs with empty messages first
-    const validLogs = logs.filter((l) => l.message && l.message.trim() !== "");
+    let validLogs = logs.filter((l) => l.message && l.message.trim() !== "");
 
+    // Apply level filter
+    if (levelFilter) {
+      validLogs = validLogs.filter((l) => l.level === levelFilter);
+    }
+
+    // Apply source filter
+    if (sourceFilter) {
+      validLogs = validLogs.filter((l) => l.source === sourceFilter);
+    }
+
+    // Apply search query
     if (!query) return validLogs;
 
     const q = query.toLowerCase();
@@ -172,7 +210,7 @@ export default function AppLogs() {
       ];
       return parts.some((p) => (p ?? "").toString().toLowerCase().includes(q));
     });
-  }, [logs, query]);
+  }, [logs, query, levelFilter, sourceFilter]);
 
   const handleExportLogs = useCallback(async () => {
     try {
@@ -298,6 +336,28 @@ export default function AppLogs() {
           </TouchableOpacity>
         )}
       </Surface>
+
+      {/* Filters row */}
+      <View style={styles.filtersContainer}>
+        <View style={styles.filterItem}>
+          <Selector
+            placeholder={t("appLogs.filters.allLevels")}
+            options={levelOptions}
+            selectedValue={levelFilter}
+            onValueChange={setLevelFilter}
+            mode="inline"
+          />
+        </View>
+        <View style={styles.filterItem}>
+          <Selector
+            placeholder={t("appLogs.filters.allSources")}
+            options={sourceOptions}
+            selectedValue={sourceFilter}
+            onValueChange={setSourceFilter}
+            mode="inline"
+          />
+        </View>
+      </View>
 
       <FlatList
         data={filteredLogs}
@@ -449,6 +509,14 @@ const styles = StyleSheet.create({
   },
   clearBtn: {
     padding: 4,
+  },
+  filtersContainer: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
+  filterItem: {
+    flex: 1,
   },
   listContent: {
     paddingVertical: 8,
