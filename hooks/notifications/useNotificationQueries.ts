@@ -224,6 +224,7 @@ export function useBucketsStats(
     const {
         realtime = false,
         refetchInterval = 0,
+        forceFullDetails = false,
     } = options || {};
 
     // Use lazy query for manual control
@@ -238,13 +239,15 @@ export function useBucketsStats(
         queryKey: notificationKeys.bucketsStats(),
         queryFn: async (): Promise<BucketWithStats[]> => {
             try {
-                console.log('[useBucketsStats] Fetching buckets from GraphQL...');
+                // If forceFullDetails is true, always fetch from API
+                if (forceFullDetails) {
+                    console.log('[useBucketsStats] Force fetching buckets from GraphQL API...');
+                    
+                    // 1. Fetch buckets from GraphQL API
+                    const { data } = await fetchBuckets();
+                    const buckets = (data?.buckets ?? []) as BucketWithUserData[];
 
-                // 1. Fetch buckets from GraphQL API
-                const { data } = await fetchBuckets();
-                const buckets = (data?.buckets ?? []) as BucketWithUserData[];
-
-                console.log(`[useBucketsStats] Fetched ${buckets.length} buckets from API`);
+                    console.log(`[useBucketsStats] Fetched ${buckets.length} buckets from API with full details`);
 
                 // 2. Save buckets to local DB for offline access
                 if (buckets.length > 0) {
@@ -260,6 +263,8 @@ export function useBucketsStats(
                         isProtected: bucket.isProtected,
                         isPublic: bucket.isPublic,
                         userBucket: bucket.userBucket,
+                        user: bucket.user,
+                        permissions: bucket.permissions,
                     }));
 
                     await saveBuckets(bucketsToSave);
@@ -298,6 +303,9 @@ export function useBucketsStats(
                         lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
                         isSnoozed,
                         snoozeUntil: snoozeUntil ?? null,
+                        user: bucket.user,
+                        permissions: bucket.permissions,
+                        userBucket: bucket.userBucket,
                     };
                 });
 
@@ -314,16 +322,150 @@ export function useBucketsStats(
                     return a.name.localeCompare(b.name);
                 });
 
-                console.log(`[useBucketsStats] Processed ${bucketsWithStats.length} buckets with stats`);
-                return bucketsWithStats;
+                    console.log(`[useBucketsStats] Processed ${bucketsWithStats.length} buckets with stats`);
+                    return bucketsWithStats;
+                } else {
+                    // Normal behavior: try cache first, then API if needed
+                    console.log('[useBucketsStats] Loading buckets from local cache...');
+                    
+                    // 1. Load buckets from local DB
+                    const cachedBuckets = await getAllBuckets();
+
+                    if (cachedBuckets.length === 0) {
+                        console.log('[useBucketsStats] No cached buckets found, fetching from API...');
+                        
+                        // Fetch from API if no cache
+                        const { data } = await fetchBuckets();
+                        const buckets = (data?.buckets ?? []) as BucketWithUserData[];
+
+                        console.log(`[useBucketsStats] Fetched ${buckets.length} buckets from API`);
+
+                        // Save to cache
+                        if (buckets.length > 0) {
+                            const bucketsToSave: BucketData[] = buckets.map(bucket => ({
+                                id: bucket.id,
+                                name: bucket.name,
+                                icon: bucket.icon,
+                                description: bucket.description,
+                                updatedAt: bucket.updatedAt,
+                                color: bucket.color,
+                                createdAt: bucket.createdAt,
+                                isProtected: bucket.isProtected,
+                                isPublic: bucket.isPublic,
+                                userBucket: bucket.userBucket,
+                                user: bucket.user,
+                                permissions: bucket.permissions,
+                            }));
+
+                            await saveBuckets(bucketsToSave);
+                            console.log(`[useBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
+                        }
+
+                        // Use API buckets for stats calculation
+                        const bucketIds = buckets.map((b) => b.id);
+                        const notificationStats = await getNotificationStats(bucketIds);
+
+                        const bucketsWithStats: BucketWithStats[] = buckets.map((bucket) => {
+                            const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
+                            const snoozeUntil = bucket.userBucket?.snoozeUntil;
+                            const isSnoozed = snoozeUntil
+                                ? new Date().getTime() < new Date(snoozeUntil).getTime()
+                                : false;
+
+                            return {
+                                id: bucket.id,
+                                name: bucket.name,
+                                description: bucket.description,
+                                icon: bucket.icon,
+                                color: bucket.color,
+                                createdAt: bucket.createdAt,
+                                updatedAt: bucket.updatedAt,
+                                isProtected: bucket.isProtected,
+                                isPublic: bucket.isPublic,
+                                totalMessages: bucketStat?.totalCount ?? 0,
+                                unreadCount: bucketStat?.unreadCount ?? 0,
+                                lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                                isSnoozed,
+                                snoozeUntil: snoozeUntil ?? null,
+                                user: bucket.user,
+                                permissions: bucket.permissions,
+                                userBucket: bucket.userBucket,
+                            };
+                        });
+
+                        bucketsWithStats.sort((a, b) => {
+                            if (a.unreadCount !== b.unreadCount) {
+                                return b.unreadCount - a.unreadCount;
+                            }
+                            const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
+                            const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
+                            if (aTime !== bTime) {
+                                return bTime - aTime;
+                            }
+                            return a.name.localeCompare(b.name);
+                        });
+
+                        console.log(`[useBucketsStats] Processed ${bucketsWithStats.length} buckets with stats from API`);
+                        return bucketsWithStats;
+                    }
+
+                    // Use cached buckets
+                    console.log(`[useBucketsStats] Using ${cachedBuckets.length} cached buckets`);
+                    
+                    const bucketIds = cachedBuckets.map((b) => b.id);
+                    const notificationStats = await getNotificationStats(bucketIds);
+
+                    const bucketsWithStats: BucketWithStats[] = cachedBuckets.map((bucket) => {
+                        const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
+                        const snoozeUntil = bucket.userBucket?.snoozeUntil;
+                        const isSnoozed = snoozeUntil
+                            ? new Date().getTime() < new Date(snoozeUntil).getTime()
+                            : false;
+
+                        return {
+                            id: bucket.id,
+                            name: bucket.name,
+                            description: bucket.description,
+                            icon: bucket.icon,
+                            color: bucket.color,
+                            createdAt: bucket.createdAt,
+                            updatedAt: bucket.updatedAt,
+                            isProtected: bucket.isProtected,
+                            isPublic: bucket.isPublic,
+                            totalMessages: bucketStat?.totalCount ?? 0,
+                            unreadCount: bucketStat?.unreadCount ?? 0,
+                            lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                            isSnoozed,
+                            snoozeUntil: snoozeUntil ?? null,
+                            user: bucket.user,
+                            permissions: bucket.permissions,
+                            userBucket: bucket.userBucket,
+                        };
+                    });
+
+                    bucketsWithStats.sort((a, b) => {
+                        if (a.unreadCount !== b.unreadCount) {
+                            return b.unreadCount - a.unreadCount;
+                        }
+                        const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
+                        const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
+                        if (aTime !== bTime) {
+                            return bTime - aTime;
+                        }
+                        return a.name.localeCompare(b.name);
+                    });
+
+                    console.log(`[useBucketsStats] Processed ${bucketsWithStats.length} buckets with stats from cache`);
+                    return bucketsWithStats;
+                }
             } catch (error) {
                 console.error('[useBucketsStats] Error:', error);
                 throw error;
             }
         },
-        enabled: false, // ✅ MANUAL FETCH ONLY - initialized by useCleanup
+        enabled: forceFullDetails, // ✅ Auto-fetch if forceFullDetails, otherwise manual only
         refetchInterval: realtime ? (refetchInterval || 5000) : refetchInterval,
-        staleTime: Infinity, // ✅ Never auto-refetch, always manual
+        staleTime: forceFullDetails ? 0 : Infinity, // ✅ Always fresh if forceFullDetails
         gcTime: Infinity, // ✅ Keep in cache forever (until app restart)
     });
 
@@ -577,6 +719,9 @@ export function useLoadBucketsFromCache() {
                     lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
                     isSnoozed,
                     snoozeUntil: snoozeUntil ?? null,
+                    user: bucket.user,
+                    permissions: bucket.permissions,
+                    userBucket: bucket.userBucket,
                 };
             });
 

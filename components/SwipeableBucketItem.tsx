@@ -4,26 +4,22 @@ import {
   ResourceType,
   useUnshareBucketMutation,
 } from "@/generated/gql-operations-generated";
-import { useBucket, useDeleteBucketWithNotifications } from "@/hooks/notifications";
+import {
+  BucketWithStats,
+  useBucket,
+  useDeleteBucketWithNotifications,
+} from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import React, { useMemo } from "react";
-import {
-  Alert,
-  StyleSheet,
-  Pressable,
-  View,
-} from "react-native";
+import { Alert, StyleSheet, Pressable, View } from "react-native";
 import BucketIcon from "./BucketIcon";
 import SwipeableItem, { MenuItem } from "./SwipeableItem";
 import { useNavigationUtils } from "@/utils/navigation";
-import {
-  Text,
-  useTheme,
-} from "react-native-paper";
+import { Text, useTheme } from "react-native-paper";
 
 interface SwipeableBucketItemProps {
-  bucket: BucketWithDevicesFragment;
+  bucket: BucketWithStats;
   bucketDeleted: () => void;
   onSharingRevoked: () => void;
 }
@@ -35,13 +31,18 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
 }) => {
   const { t } = useI18n();
   const theme = useTheme();
-  const { userId, connectionStatus: { isOfflineAuth, isBackendUnreachable } } = useAppContext();
+  const {
+    userId,
+    connectionStatus: { isOfflineAuth, isBackendUnreachable },
+  } = useAppContext();
   const { navigateToEditBucket } = useNavigationUtils();
 
   // Use the bucket permissions hook to check permissions
-  const { canDelete, isSharedWithMe, sharedCount } = useBucket(bucket.id, { userId: userId ?? undefined });
+  const { canDelete, isSharedWithMe, sharedCount } = useBucket(bucket.id, {
+    userId: userId ?? undefined,
+  });
 
-  const { deleteBucket, isLoading: loading } = useDeleteBucketWithNotifications({
+  const { deleteBucket } = useDeleteBucketWithNotifications({
     onSuccess: () => {
       bucketDeleted();
     },
@@ -93,7 +94,16 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
     });
 
     return items;
-  }, [t, bucket.id, bucket.name, editBucket, canDelete, isSharedWithMe, handleDeletePress, theme]);
+  }, [
+    t,
+    bucket.id,
+    bucket.name,
+    editBucket,
+    canDelete,
+    isSharedWithMe,
+    handleDeletePress,
+    theme,
+  ]);
 
   // Device info removed
 
@@ -114,7 +124,8 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
       menuItems={menuItems}
       showMenu={true}
       rightAction={
-        !(isOfflineAuth || isBackendUnreachable) && (canDelete || isSharedWithMe)
+        !(isOfflineAuth || isBackendUnreachable) &&
+        (canDelete || isSharedWithMe)
           ? {
               icon: "delete",
               label: t("buckets.item.delete"),
@@ -122,7 +133,9 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
               onPress: handleDeletePress,
               showAlert: {
                 title: t("buckets.delete.modalTitle"),
-                message: t("buckets.delete.modalDescription", { bucketName: bucket.name }),
+                message: t("buckets.delete.modalDescription", {
+                  bucketName: bucket.name,
+                }),
                 confirmText: canDelete
                   ? t("buckets.delete.deleteBucket")
                   : t("buckets.delete.revokeSharing"),

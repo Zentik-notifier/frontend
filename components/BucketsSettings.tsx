@@ -1,8 +1,9 @@
 import PaperScrollView from "@/components/ui/PaperScrollView";
-import { useAppContext } from "@/contexts/AppContext";
+import { NotificationFragment } from "@/generated/gql-operations-generated";
 import { useBucketsStats } from "@/hooks/notifications";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
+import { getAllNotificationsFromCache } from "@/services/notifications-repository";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
@@ -14,22 +15,24 @@ import {
   useTheme,
 } from "react-native-paper";
 import SwipeableBucketItem from "./SwipeableBucketItem";
-import { getAllNotificationsFromCache } from "@/services/notifications-repository";
-import { NotificationFragment } from "@/generated/gql-operations-generated";
 
 export default function BucketsSettings() {
   const theme = useTheme();
   const { t } = useI18n();
-  const {
-    connectionStatus: { isOfflineAuth, isBackendUnreachable },
-  } = useAppContext();
   const { navigateToCreateBucket, navigateToDanglingBucket } =
     useNavigationUtils();
 
   const [showDanglingBuckets, setShowDanglingBuckets] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationFragment[]>([]);
+  const [notifications, setNotifications] = useState<NotificationFragment[]>(
+    []
+  );
 
-  const { data: bucketsWithStats = [], isLoading: loading, error, refreshBucketsStats } = useBucketsStats();
+  const {
+    data: bucketsWithStats = [],
+    isLoading: loading,
+    error,
+    refreshBucketsStats,
+  } = useBucketsStats({ forceFullDetails: true });
 
   // Load notifications from local DB
   useEffect(() => {
@@ -38,7 +41,7 @@ export default function BucketsSettings() {
         const allNotifications = await getAllNotificationsFromCache();
         setNotifications(allNotifications);
       } catch (error) {
-        console.error('[BucketsSettings] Error loading notifications:', error);
+        console.error("[BucketsSettings] Error loading notifications:", error);
       }
     };
 
@@ -47,13 +50,13 @@ export default function BucketsSettings() {
 
   const handleRefresh = async () => {
     await refreshBucketsStats();
-    
+
     // Reload notifications from DB
     try {
       const allNotifications = await getAllNotificationsFromCache();
       setNotifications(allNotifications);
     } catch (error) {
-      console.error('[BucketsSettings] Error reloading notifications:', error);
+      console.error("[BucketsSettings] Error reloading notifications:", error);
     }
   };
 
@@ -226,7 +229,7 @@ export default function BucketsSettings() {
                 bucketDeleted={() => refreshBucketsStats()}
                 onSharingRevoked={() => refreshBucketsStats()}
                 key={item.id}
-                bucket={item as any}
+                bucket={item}
               />
             ))}
           </View>

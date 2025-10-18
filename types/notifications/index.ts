@@ -150,6 +150,15 @@ export interface BucketWithStats {
   
   /** Snooze expiration date if snoozed */
   snoozeUntil: string | null;
+  
+  /** Bucket owner */
+  user?: any;
+  
+  /** Bucket permissions */
+  permissions?: any[];
+  
+  /** User-specific bucket settings */
+  userBucket?: any;
 }
 
 /**
@@ -318,6 +327,9 @@ export interface UseBucketsStatsOptions {
   
   /** Refetch interval in ms */
   refetchInterval?: number;
+  
+  /** Force fetch full details (user, permissions) from API instead of using cache */
+  forceFullDetails?: boolean;
 }
 
 // ====================
