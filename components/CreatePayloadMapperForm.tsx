@@ -247,9 +247,10 @@ export default function CreatePayloadMapperForm({
     useDeletePayloadMapperMutation({
       update: (cache, { data }) => {
         if (data?.deletePayloadMapper) {
-          const existingPayloadMappers = cache.readQuery<GetPayloadMappersQuery>({
-            query: GetPayloadMappersDocument,
-          });
+          const existingPayloadMappers =
+            cache.readQuery<GetPayloadMappersQuery>({
+              query: GetPayloadMappersDocument,
+            });
           if (existingPayloadMappers?.payloadMappers) {
             cache.writeQuery({
               query: GetPayloadMappersDocument,
@@ -268,7 +269,9 @@ export default function CreatePayloadMapperForm({
       },
       onError: (error) => {
         console.error("Error deleting payload mapper:", error);
-        setErrorMessage(error.message || t("payloadMappers.deleteErrorMessage"));
+        setErrorMessage(
+          error.message || t("payloadMappers.deleteErrorMessage")
+        );
         setShowErrorDialog(true);
       },
     });
@@ -402,7 +405,9 @@ export default function CreatePayloadMapperForm({
           style: "destructive",
           onPress: async () => {
             try {
-              await deletePayloadMapperMutation({ variables: { id: payloadMapper.id } });
+              await deletePayloadMapperMutation({
+                variables: { id: payloadMapper.id },
+              });
             } catch {}
           },
         },
@@ -418,8 +423,8 @@ export default function CreatePayloadMapperForm({
         variables: {
           input: {
             configType,
-            valueText: isBoolean ? null : (value?.valueText || null),
-            valueBool: isBoolean ? (value?.valueBool ?? null) : null,
+            valueText: isBoolean ? null : value?.valueText || null,
+            valueBool: isBoolean ? value?.valueBool ?? null : null,
             deviceId: null,
           },
         },
@@ -525,7 +530,8 @@ export default function CreatePayloadMapperForm({
                     <Card.Content>
                       <View style={styles.settingCardHeader}>
                         <Text variant="titleSmall" style={styles.settingName}>
-                          {t(`userSettings.${settingType}` as any) || settingType}
+                          {t(`userSettings.${settingType}` as any) ||
+                            settingType}
                         </Text>
                         {isModified && (
                           <View style={styles.actionButtons}>
@@ -541,7 +547,9 @@ export default function CreatePayloadMapperForm({
                             <IconButton
                               icon="close"
                               mode="outlined"
-                              onPress={() => handleDiscardUserSetting(settingType)}
+                              onPress={() =>
+                                handleDiscardUserSetting(settingType)
+                              }
                               disabled={updatingUserSetting}
                               size={24}
                             />
@@ -553,11 +561,17 @@ export default function CreatePayloadMapperForm({
                           <View style={styles.checkboxContainer}>
                             <Checkbox
                               status={
-                                currentValue?.valueBool ? "checked" : "unchecked"
+                                currentValue?.valueBool
+                                  ? "checked"
+                                  : "unchecked"
                               }
                               onPress={() => {
                                 const newValue = !currentValue?.valueBool;
-                                handleSettingChange(settingType, newValue, true);
+                                handleSettingChange(
+                                  settingType,
+                                  newValue,
+                                  true
+                                );
                               }}
                               disabled={updatingUserSetting}
                             />
@@ -721,31 +735,35 @@ export default function CreatePayloadMapperForm({
           </View>
 
           {/* Delete Button - Full Width */}
-          <View style={styles.deleteSection}>
-            <Button
-              mode="contained"
-              buttonColor={theme.colors.error}
-              textColor={theme.colors.onError}
-              icon="delete"
-              onPress={handleDelete}
-              loading={deletingPayloadMapper}
-              disabled={deletingPayloadMapper}
-              style={styles.deleteButton}
-            >
-              {deletingPayloadMapper ? "Deleting..." : t("payloadMappers.delete")}
-            </Button>
-          </View>
+          {isEditing && (
+            <View style={styles.deleteSection}>
+              <Button
+                mode="contained"
+                buttonColor={theme.colors.error}
+                textColor={theme.colors.onError}
+                icon="delete"
+                onPress={handleDelete}
+                loading={deletingPayloadMapper}
+                disabled={deletingPayloadMapper}
+                style={styles.deleteButton}
+              >
+                {deletingPayloadMapper
+                  ? "Deleting..."
+                  : t("payloadMappers.delete")}
+              </Button>
+            </View>
+          )}
         </>
       )}
 
       {/* Entity Executions Section */}
       {payloadMapperId && (
         <View style={{ marginBottom: 100 }}>
-        <EntityExecutionsSection
-          entityId={payloadMapperId}
-          entityType={ExecutionType.PayloadMapper}
-          entityName={payloadMapper?.builtInName!}
-        />
+          <EntityExecutionsSection
+            entityId={payloadMapperId}
+            entityType={ExecutionType.PayloadMapper}
+            entityName={payloadMapper?.builtInName!}
+          />
         </View>
       )}
 

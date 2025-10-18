@@ -48,6 +48,13 @@ const SwipeablePayloadMapperItem: React.FC<SwipeablePayloadMapperItemProps> = ({
         }
       }
     },
+    onError: (error) => {
+      console.error("Error deleting payload mapper:", error);
+      Alert.alert(
+        t("common.error"),
+        error.message || t("payloadMappers.deleteErrorMessage")
+      );
+    },
   });
 
   const handleEditPress = () => {
@@ -56,64 +63,29 @@ const SwipeablePayloadMapperItem: React.FC<SwipeablePayloadMapperItemProps> = ({
 
   const handleDeletePress = async () => {
     if (isBuiltIn) {
-      Alert.alert(
-        t("payloadMappers.deleteConfirmTitle"),
-        t("payloadMappers.deleteConfirmMessage"),
-        [
-          {
-            text: t("common.cancel"),
-            style: "cancel",
-          },
-          {
-            text: t("payloadMappers.delete"),
-            style: "destructive",
-            onPress: async () => {
-              try {
-                await deletePayloadMapperMutation({
-                  variables: { id: payloadMapper.id },
-                });
-              } catch {
-                Alert.alert(
-                  t("common.error"),
-                  t("payloadMappers.deleteErrorMessage")
-                );
-              }
-            },
-          },
-        ]
-      );
+      return;
     }
-  };
 
-  const menuItems = useMemo((): MenuItem[] => {
-    const items: MenuItem[] = [];
-
-    // Show edit option for all payload mappers (both built-in and custom)
-    items.push({
-      id: "edit",
-      label: t("payloadMappers.edit"),
-      icon: "pencil",
-      onPress: handleEditPress,
-    });
-
-    if (!isDisabled) {
-      items.push({
-        id: "delete",
-        label: t("payloadMappers.delete"),
-        icon: "delete",
-        type: "destructive",
-        onPress: handleDeletePress,
-        showAlert: {
-          title: t("payloadMappers.deleteConfirmTitle"),
-          message: t("payloadMappers.deleteConfirmMessage"),
-          confirmText: t("common.delete"),
-          cancelText: t("common.cancel"),
+    Alert.alert(
+      t("payloadMappers.deleteConfirmTitle"),
+      t("payloadMappers.deleteConfirmMessage"),
+      [
+        {
+          text: t("common.cancel"),
+          style: "cancel",
         },
-      });
-    }
-
-    return items;
-  }, [t, isDisabled, handleEditPress, handleDeletePress]);
+        {
+          text: t("payloadMappers.delete"),
+          style: "destructive",
+          onPress: async () => {
+            await deletePayloadMapperMutation({
+              variables: { id: payloadMapper.id },
+            });
+          },
+        },
+      ]
+    );
+  };
 
   // Define left and right swipe actions
   const leftAction: SwipeAction | undefined = {
@@ -129,18 +101,11 @@ const SwipeablePayloadMapperItem: React.FC<SwipeablePayloadMapperItemProps> = ({
         label: t("payloadMappers.delete"),
         backgroundColor: theme.colors.error,
         onPress: handleDeletePress,
-        showAlert: {
-          title: t("payloadMappers.deleteConfirmTitle"),
-          message: t("payloadMappers.deleteConfirmMessage"),
-          confirmText: t("common.delete"),
-          cancelText: t("common.cancel"),
-        },
       }
     : undefined;
 
   return (
     <SwipeableItem
-      menuItems={menuItems}
       showMenu={!isDisabled}
       leftAction={leftAction}
       rightAction={rightAction}
