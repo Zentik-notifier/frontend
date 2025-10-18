@@ -176,8 +176,8 @@ const DEFAULT_SETTINGS: UserSettings = {
     unencryptOnBigPayload: false,
     markAsReadMode: 'on-view',
     showAppIconOnBucketIconMissing: false,
-    autoAddDeleteAction: false,
-    autoAddMarkAsReadAction: false,
+    autoAddDeleteAction: true,
+    autoAddMarkAsReadAction: true,
     autoAddOpenNotificationAction: false,
   },
   gallery: {

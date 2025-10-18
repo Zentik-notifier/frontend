@@ -277,10 +277,6 @@ export default function AppLogs() {
               setIsClearing(true);
               await clearAllLogs();
               await loadLogs();
-              Alert.alert(
-                t("appSettings.logs.clearSuccess"),
-                t("appSettings.logs.clearSuccessMessage")
-              );
             } catch (error) {
               console.error("Error clearing logs:", error);
               Alert.alert(

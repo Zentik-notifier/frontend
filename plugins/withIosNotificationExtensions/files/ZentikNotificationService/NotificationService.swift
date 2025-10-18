@@ -33,15 +33,30 @@ class NotificationService: UNNotificationServiceExtension {
     print("📱 [NotificationService] Body: \(request.content.body)")
     print("📱 [NotificationService] UserInfo: \(request.content.userInfo)")
     
-    // Log request.content description to database
+    // Log encrypted notification payload
+    let notificationId = request.content.userInfo["notificationId"] as? String ?? request.identifier
+    var encryptedPayloadMeta: [String: Any] = [
+      "notificationId": notificationId,
+      "title": request.content.title,
+      "body": request.content.body,
+      "categoryIdentifier": request.content.categoryIdentifier,
+      "badge": request.content.badge ?? 0,
+    ]
+    
+    // Add all userInfo fields (including encrypted payload)
+    if let userInfo = request.content.userInfo as? [String: Any] {
+      for (key, value) in userInfo {
+        if key != "notificationId" { // Already added
+          encryptedPayloadMeta[key] = value
+        }
+      }
+    }
+    
     logToDatabase(
       level: "info",
       tag: "Payload",
-      message: "Notification content received",
-      metadata: [
-        "requestIdentifier": request.identifier,
-        "content": String(describing: request.content)
-      ]
+      message: "Encrypted notification received",
+      metadata: encryptedPayloadMeta
     )
 
     self.contentHandler = contentHandler
@@ -54,17 +69,6 @@ class NotificationService: UNNotificationServiceExtension {
       // Store notificationId for media tracking
       if let notificationId = bestAttemptContent.userInfo["notificationId"] as? String {
         self.currentNotificationId = notificationId
-        
-        logToDatabase(
-          level: "info",
-          tag: "Lifecycle",
-          message: "Notification received and decrypted",
-          metadata: [
-            "notificationId": notificationId,
-            "title": bestAttemptContent.title,
-            "hasSubtitle": !bestAttemptContent.subtitle.isEmpty
-          ]
-        )
       }
       
       // Update badge count before setting up actions
@@ -397,53 +401,6 @@ class NotificationService: UNNotificationServiceExtension {
       {
         print("📱 [NotificationService] 🔍 Parsed decrypted object keys: \(obj.keys.sorted())")
         
-        // Log payload originale e decriptato
-        if let originalJson = try? JSONSerialization.data(withJSONObject: userInfo, options: .prettyPrinted),
-           let originalString = String(data: originalJson, encoding: .utf8),
-           let decryptedJson = try? JSONSerialization.data(withJSONObject: obj, options: .prettyPrinted),
-           let decryptedString = String(data: decryptedJson, encoding: .utf8) {
-          logToDatabase(
-            level: "info",
-            tag: "Decryption",
-            message: "Payload decrypted successfully",
-            metadata: [
-              "originalPayload": originalString,
-              "decryptedPayload": decryptedString
-            ]
-          )
-        }
-        
-        // Log azioni e attachments in dettaglio
-        if let actions = obj["actions"] as? [[String: Any]], !actions.isEmpty {
-          if let actionsJson = try? JSONSerialization.data(withJSONObject: actions, options: .prettyPrinted),
-             let actionsString = String(data: actionsJson, encoding: .utf8) {
-            logToDatabase(
-              level: "info",
-              tag: "Actions",
-              message: "Actions details from decrypted payload",
-              metadata: [
-                "actionsCount": actions.count,
-                "actionsData": actionsString
-              ]
-            )
-          }
-        }
-        
-        if let attachmentData = obj["attachmentData"] as? [[String: Any]], !attachmentData.isEmpty {
-          if let attachmentsJson = try? JSONSerialization.data(withJSONObject: attachmentData, options: .prettyPrinted),
-             let attachmentsString = String(data: attachmentsJson, encoding: .utf8) {
-            logToDatabase(
-              level: "info",
-              tag: "Media",
-              message: "Attachments details from decrypted payload",
-              metadata: [
-                "attachmentsCount": attachmentData.count,
-                "attachmentsData": attachmentsString
-              ]
-            )
-          }
-        }
-        
         if let title = obj["title"] as? String { content.title = title }
         if let body = obj["body"] as? String { content.body = body }
         if let subtitle = obj["subtitle"] as? String { content.subtitle = subtitle }
@@ -462,6 +419,58 @@ class NotificationService: UNNotificationServiceExtension {
           updated["tapAction"] = tapAction
         }
         content.userInfo = updated
+        
+        // Log complete decrypted payload with all fields
+        let notificationId = obj["notificationId"] as? String ?? "unknown"
+        var decryptedMeta: [String: Any] = [
+          "notificationId": notificationId,
+          "title": content.title,
+          "body": content.body,
+          "subtitle": content.subtitle
+        ]
+        
+        // Add bucket info
+        if let bucketId = obj["bucketId"] {
+          decryptedMeta["bucketId"] = bucketId
+        }
+        if let bucketName = obj["bucketName"] {
+          decryptedMeta["bucketName"] = bucketName
+        }
+        if let bucketIconUrl = obj["bucketIconUrl"] {
+          decryptedMeta["bucketIconUrl"] = bucketIconUrl
+        }
+        if let bucketColor = obj["bucketColor"] {
+          decryptedMeta["bucketColor"] = bucketColor
+        }
+        
+        // Add actions (as structured array, not stringified)
+        if let actions = obj["actions"] as? [[String: Any]] {
+          decryptedMeta["actions"] = actions
+          decryptedMeta["actionsCount"] = actions.count
+        }
+        
+        // Add attachments (as structured array, not stringified)
+        if let attachmentData = obj["attachmentData"] as? [[String: Any]] {
+          decryptedMeta["attachmentData"] = attachmentData
+          decryptedMeta["attachmentsCount"] = attachmentData.count
+        }
+        
+        // Add tapAction (as structured object, not stringified)
+        if let tapAction = obj["tapAction"] as? [String: Any] {
+          decryptedMeta["tapAction"] = tapAction
+        }
+        
+        // Add APN fields
+        decryptedMeta["badge"] = content.badge ?? 0
+        decryptedMeta["categoryIdentifier"] = content.categoryIdentifier
+        
+        logToDatabase(
+          level: "info",
+          tag: "Decryption",
+          message: "Payload decrypted successfully",
+          metadata: decryptedMeta
+        )
+        
         return
       }
     }
@@ -782,20 +791,6 @@ class NotificationService: UNNotificationServiceExtension {
       content.userInfo = mutableUserInfo
       print("📱 [NotificationService] ⌚️ Filtered actions added to userInfo for watchOS and NCE (no credentials)")
       
-      // Log esplicito per NSE con tutte le azioni del payload
-      if let actionsJson = try? JSONSerialization.data(withJSONObject: actions, options: .prettyPrinted),
-         let actionsString = String(data: actionsJson, encoding: .utf8) {
-        logToDatabase(
-          level: "info",
-          tag: "Actions",
-          message: "Available actions in notification",
-          metadata: [
-            "notificationId": notificationId,
-            "actionsCount": actions.count,
-            "actions": actionsString
-          ]
-        )
-      }
     } else {
       // Use DYNAMIC category even without actions for NCE custom content
       content.categoryIdentifier = "DYNAMIC"
@@ -1796,18 +1791,6 @@ class NotificationService: UNNotificationServiceExtension {
     
     if sqlite3_step(stmt) == SQLITE_DONE {
       print("📱 [NotificationService] ✅ Notification saved to database: \(notificationId)")
-      
-      // Log to database
-      logToDatabase(
-        level: "info",
-        tag: "Database",
-        message: "Notification saved",
-        metadata: [
-          "notificationId": notificationId,
-          "bucketId": bucketId,
-          "hasAttachments": hasAttachments
-        ]
-      )
     } else {
       print("📱 [NotificationService] ❌ Failed to save notification to database")
     }
@@ -1854,25 +1837,8 @@ class NotificationService: UNNotificationServiceExtension {
     do {
       try KeychainAccess.storeIntentInKeychain(data: navigationData, service: service)
       print("📱 [NotificationService] 💾 Stored tap action for notification: \(notificationId)")
-      
-      logToDatabase(
-        level: "info",
-        tag: "TapAction",
-        message: "Tap action stored with unique key",
-        metadata: [
-          "notificationId": notificationId,
-          "service": service,
-          "type": navigationData["type"] ?? "unknown"
-        ]
-      )
     } catch {
       print("📱 [NotificationService] ❌ Failed to store tap action: \(error)")
-      logToDatabase(
-        level: "error",
-        tag: "TapAction",
-        message: "Failed to store tap action",
-        metadata: ["notificationId": notificationId, "error": error.localizedDescription]
-      )
     }
   }
   
