@@ -4,8 +4,8 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
-import { Card, Chip, Modal, Portal, Text, useTheme } from "react-native-paper";
+import { ScrollView, StyleSheet, View, TextInput } from "react-native";
+import { Card, Chip, Modal, Portal, Text, useTheme, IconButton } from "react-native-paper";
 
 interface ExecutionDetailModalProps {
   visible: boolean;
@@ -70,10 +70,22 @@ export default function ExecutionDetailModal({
           ]}
         >
           <Card.Content>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.modalHeader}>
               <Text variant="titleLarge" style={styles.modalTitle}>
                 {t("entityExecutions.details")}
               </Text>
+              <IconButton
+                icon="close"
+                size={24}
+                onPress={onClose}
+                style={styles.closeButton}
+              />
+            </View>
+            
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              style={styles.modalScrollView}
+            >
 
               <View style={styles.detailsGrid}>
                 <View style={styles.detailRow}>
@@ -200,26 +212,20 @@ export default function ExecutionDetailModal({
                   <Text variant="labelMedium" style={styles.codeLabel}>
                     {t("entityExecutions.input")}:
                   </Text>
-                  <ScrollView
+                  <TextInput
+                    value={formatJsonString(execution.input)}
+                    multiline
+                    editable={false}
+                    scrollEnabled
                     style={[
-                      styles.jsonContainer,
+                      styles.jsonInput,
                       {
                         backgroundColor: theme.colors.surfaceVariant,
                         borderColor: theme.colors.outline,
+                        color: theme.colors.onSurface,
                       },
                     ]}
-                    nestedScrollEnabled
-                  >
-                    <Text
-                      variant="bodySmall"
-                      style={[
-                        styles.jsonText,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      {formatJsonString(execution.input)}
-                    </Text>
-                  </ScrollView>
+                  />
                 </View>
               )}
 
@@ -228,26 +234,20 @@ export default function ExecutionDetailModal({
                   <Text variant="labelMedium" style={styles.codeLabel}>
                     {t("entityExecutions.output")}:
                   </Text>
-                  <ScrollView
+                  <TextInput
+                    value={formatJsonString(execution.output)}
+                    multiline
+                    editable={false}
+                    scrollEnabled
                     style={[
-                      styles.jsonContainer,
+                      styles.jsonInput,
                       {
                         backgroundColor: theme.colors.surfaceVariant,
                         borderColor: theme.colors.outline,
+                        color: theme.colors.onSurface,
                       },
                     ]}
-                    nestedScrollEnabled
-                  >
-                    <Text
-                      variant="bodySmall"
-                      style={[
-                        styles.jsonText,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      {formatJsonString(execution.output)}
-                    </Text>
-                  </ScrollView>
+                  />
                 </View>
               )}
             </ScrollView>
@@ -262,14 +262,26 @@ const styles = StyleSheet.create({
   modalContainer: {
     margin: 20,
     borderRadius: 8,
+    maxHeight: "85%",
   },
   modalCard: {
-    // Background color will be applied inline
+    maxHeight: "100%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
   },
   modalTitle: {
     fontWeight: "600",
-    marginBottom: 16,
-    textAlign: "center",
+    flex: 1,
+  },
+  closeButton: {
+    margin: 0,
+  },
+  modalScrollView: {
+    maxHeight: "100%",
   },
   detailsGrid: {
     gap: 8,
@@ -307,16 +319,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: "600",
   },
-  jsonContainer: {
+  jsonInput: {
     borderRadius: 8,
     borderWidth: 1,
     marginBottom: 8,
-    maxHeight: 200,
-  },
-  jsonText: {
+    maxHeight: 300,
+    minHeight: 100,
     fontFamily: "monospace",
     fontSize: 12,
     lineHeight: 18,
     padding: 12,
+    textAlignVertical: "top",
   },
 });

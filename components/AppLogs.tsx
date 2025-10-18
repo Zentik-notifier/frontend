@@ -2,6 +2,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { AppLog, clearAllLogs, readLogs } from "@/services/logger";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import * as Clipboard from "expo-clipboard";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -14,7 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Icon, Surface, Text, useTheme } from "react-native-paper";
+import { Icon, Surface, Text, useTheme, IconButton } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PaperScrollView from "./ui/PaperScrollView";
 import Selector, { SelectorOption } from "./ui/Selector";
@@ -68,6 +69,13 @@ export default function AppLogs() {
     setShowLogDialog(false);
     setSelectedLog(null);
   }, []);
+
+  const handleCopyMetadata = useCallback(async () => {
+    if (selectedLog?.metadata) {
+      const metadataString = JSON.stringify(selectedLog.metadata, null, 2);
+      await Clipboard.setStringAsync(metadataString);
+    }
+  }, [selectedLog, t]);
 
   useEffect(() => {
     loadLogs();
@@ -454,13 +462,32 @@ export default function AppLogs() {
                   )}
 
                   {selectedLog.metadata && (
-                    <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>
-                        {t("appLogs.fields.meta")}:
-                      </Text>
-                      <Text style={styles.dialogMetaValue}>
-                        {JSON.stringify(selectedLog.metadata, null, 2)}
-                      </Text>
+                    <View style={styles.metadataSection}>
+                      <View style={styles.metadataHeader}>
+                        <Text style={styles.dialogMetaLabel}>
+                          {t("appLogs.fields.meta")}:
+                        </Text>
+                        <IconButton
+                          icon="content-copy"
+                          size={20}
+                          onPress={handleCopyMetadata}
+                          style={styles.copyButton}
+                        />
+                      </View>
+                      <TextInput
+                        value={JSON.stringify(selectedLog.metadata, null, 2)}
+                        multiline
+                        editable={false}
+                        scrollEnabled
+                        style={[
+                          styles.metadataInput,
+                          {
+                            backgroundColor: theme.colors.surfaceVariant,
+                            borderColor: theme.colors.outline,
+                            color: theme.colors.onSurface,
+                          },
+                        ]}
+                      />
                     </View>
                   )}
                 </>
@@ -629,6 +656,29 @@ const styles = StyleSheet.create({
   dialogMetaValue: {
     fontSize: 13,
     opacity: 0.9,
+  },
+  metadataSection: {
+    marginTop: 8,
+  },
+  metadataHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  copyButton: {
+    margin: 0,
+  },
+  metadataInput: {
+    borderRadius: 8,
+    borderWidth: 1,
+    maxHeight: 300,
+    minHeight: 100,
+    fontFamily: "monospace",
+    fontSize: 12,
+    lineHeight: 18,
+    padding: 12,
+    textAlignVertical: "top",
   },
   loadingFab: {
     position: "absolute",

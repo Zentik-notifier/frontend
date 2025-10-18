@@ -5,16 +5,24 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useState } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  Alert,
+  TextInput,
+} from "react-native";
 import {
   ActivityIndicator,
   Card,
   Chip,
   Text,
   useTheme,
+  IconButton,
 } from "react-native-paper";
 import { FlashList } from "@shopify/flash-list";
 import ExecutionDetailModal from "./ExecutionDetailModal";
+import * as Clipboard from "expo-clipboard";
 
 interface EntityExecutionsSectionProps {
   entityId: string;
@@ -55,6 +63,18 @@ function ExecutionItem({ execution, onPress }: ExecutionItemProps) {
     onPress(execution);
   };
 
+  const handleCopyInput = async () => {
+    if (execution.input) {
+      await Clipboard.setStringAsync(execution.input);
+    }
+  };
+
+  const handleCopyOutput = async () => {
+    if (execution.output) {
+      await Clipboard.setStringAsync(execution.output);
+    }
+  };
+
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
       <Card>
@@ -92,39 +112,59 @@ function ExecutionItem({ execution, onPress }: ExecutionItemProps) {
               </View>
             )}
 
-            {execution.input && execution.input.length > 100 && (
+            {execution.input && (
               <View style={styles.codeSection}>
-                <Text variant="labelSmall" style={styles.codeLabel}>
-                  {t("entityExecutions.input")}:
-                </Text>
-                <Text
-                  variant="bodySmall"
+                <View style={styles.codeSectionHeader}>
+                  <Text variant="labelSmall" style={styles.codeLabel}>
+                    {t("entityExecutions.input")}:
+                  </Text>
+                  <IconButton
+                    icon="content-copy"
+                    size={16}
+                    onPress={handleCopyInput}
+                  />
+                </View>
+                <TextInput
+                  value={execution.input}
+                  multiline
+                  editable={false}
+                  scrollEnabled={false}
                   style={[
-                    styles.codeText,
-                    { backgroundColor: theme.colors.surfaceVariant },
+                    styles.codeInput,
+                    {
+                      backgroundColor: theme.colors.surfaceVariant,
+                      color: theme.colors.onSurface,
+                    },
                   ]}
-                  numberOfLines={3}
-                >
-                  {execution.input.substring(0, 100)}...
-                </Text>
+                />
               </View>
             )}
 
-            {execution.output && execution.output.length > 100 && (
+            {execution.output && (
               <View style={styles.codeSection}>
-                <Text variant="labelSmall" style={styles.codeLabel}>
-                  {t("entityExecutions.output")}:
-                </Text>
-                <Text
-                  variant="bodySmall"
+                <View style={styles.codeSectionHeader}>
+                  <Text variant="labelSmall" style={styles.codeLabel}>
+                    {t("entityExecutions.output")}:
+                  </Text>
+                  <IconButton
+                    icon="content-copy"
+                    size={16}
+                    onPress={handleCopyOutput}
+                  />
+                </View>
+                <TextInput
+                  value={execution.output}
+                  multiline
+                  editable={false}
+                  scrollEnabled={false}
                   style={[
-                    styles.codeText,
-                    { backgroundColor: theme.colors.surfaceVariant },
+                    styles.codeInput,
+                    {
+                      backgroundColor: theme.colors.surfaceVariant,
+                      color: theme.colors.onSurface,
+                    },
                   ]}
-                  numberOfLines={3}
-                >
-                  {execution.output.substring(0, 100)}...
-                </Text>
+                />
               </View>
             )}
           </View>
@@ -336,14 +376,22 @@ const styles = StyleSheet.create({
   codeSection: {
     marginTop: 8,
   },
-  codeLabel: {
+  codeSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 4,
+  },
+  codeLabel: {
     opacity: 0.8,
   },
-  codeText: {
+  codeInput: {
     padding: 8,
     borderRadius: 4,
     fontFamily: "monospace",
     fontSize: 12,
+    maxHeight: 80,
+    minHeight: 60,
+    textAlignVertical: "top",
   },
 });
