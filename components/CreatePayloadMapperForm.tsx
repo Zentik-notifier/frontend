@@ -20,8 +20,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import {
   Button,
+  Card,
   Checkbox,
-  DataTable,
   Dialog,
   IconButton,
   Portal,
@@ -507,80 +507,85 @@ export default function CreatePayloadMapperForm({
               {t("payloadMappers.form.requiredUserSettingsHelp")}
             </Text>
 
-            <DataTable style={styles.dataTable}>
-              <DataTable.Header>
-                <DataTable.Title style={styles.nameColumn}>
-                  {t("payloadMappers.form.settingName")}
-                </DataTable.Title>
-                <DataTable.Title style={styles.valueColumn}>
-                  {t("payloadMappers.form.settingValue")}
-                </DataTable.Title>
-                <DataTable.Title style={styles.actionsColumn}>
-                  {t("common.actions")}
-                </DataTable.Title>
-              </DataTable.Header>
-
+            <View style={styles.settingsContainer}>
               {payloadMapper.requiredUserSettings.map((settingType) => {
                 const currentValue = editingSettings[settingType];
                 const isBoolean = isBooleanSetting(settingType);
                 const isModified = modifiedSettings.has(settingType);
 
                 return (
-                  <DataTable.Row key={settingType}>
-                    <DataTable.Cell style={styles.nameColumn}>
-                      <Text style={styles.settingName}>
-                        {t(`userSettings.${settingType}` as any) || settingType}
-                      </Text>
-                    </DataTable.Cell>
-                    <DataTable.Cell style={styles.valueColumn}>
-                      {isBoolean ? (
-                        <Checkbox
-                          status={
-                            currentValue?.valueBool ? "checked" : "unchecked"
-                          }
-                          onPress={() => {
-                            const newValue = !currentValue?.valueBool;
-                            handleSettingChange(settingType, newValue, true);
-                          }}
-                          disabled={updatingUserSetting}
-                        />
-                      ) : (
-                        <TextInput
-                          value={currentValue?.valueText || ""}
-                          onChangeText={(text) => {
-                            handleSettingChange(settingType, text, false);
-                          }}
-                          style={styles.settingInput}
-                          mode="outlined"
-                          dense
-                          disabled={updatingUserSetting}
-                        />
-                      )}
-                    </DataTable.Cell>
-                    <DataTable.Cell style={styles.actionsColumn}>
-                      {isModified && (
-                        <View style={styles.actionButtons}>
-                          <IconButton
-                            icon="check"
-                            mode="contained"
-                            onPress={() => handleSaveUserSetting(settingType)}
-                            disabled={updatingUserSetting}
-                            size={20}
-                          />
-                          <IconButton
-                            icon="close"
+                  <Card
+                    key={settingType}
+                    style={[
+                      styles.settingCard,
+                      isModified && styles.settingCardModified,
+                    ]}
+                    mode="outlined"
+                  >
+                    <Card.Content>
+                      <View style={styles.settingCardHeader}>
+                        <Text variant="titleSmall" style={styles.settingName}>
+                          {t(`userSettings.${settingType}` as any) || settingType}
+                        </Text>
+                        {isModified && (
+                          <View style={styles.actionButtons}>
+                            <IconButton
+                              icon="check"
+                              mode="contained"
+                              onPress={() => handleSaveUserSetting(settingType)}
+                              disabled={updatingUserSetting}
+                              size={24}
+                              iconColor={theme.colors.onPrimary}
+                              containerColor={theme.colors.primary}
+                            />
+                            <IconButton
+                              icon="close"
+                              mode="outlined"
+                              onPress={() => handleDiscardUserSetting(settingType)}
+                              disabled={updatingUserSetting}
+                              size={24}
+                            />
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.settingValueContainer}>
+                        {isBoolean ? (
+                          <View style={styles.checkboxContainer}>
+                            <Checkbox
+                              status={
+                                currentValue?.valueBool ? "checked" : "unchecked"
+                              }
+                              onPress={() => {
+                                const newValue = !currentValue?.valueBool;
+                                handleSettingChange(settingType, newValue, true);
+                              }}
+                              disabled={updatingUserSetting}
+                            />
+                            <Text>
+                              {currentValue?.valueBool
+                                ? t("common.enabled")
+                                : t("common.disabled")}
+                            </Text>
+                          </View>
+                        ) : (
+                          <TextInput
+                            value={currentValue?.valueText || ""}
+                            onChangeText={(text) => {
+                              handleSettingChange(settingType, text, false);
+                            }}
+                            style={styles.settingInput}
                             mode="outlined"
-                            onPress={() => handleDiscardUserSetting(settingType)}
+                            dense
                             disabled={updatingUserSetting}
-                            size={20}
+                            placeholder={t("payloadMappers.form.settingValue")}
                           />
-                        </View>
-                      )}
-                    </DataTable.Cell>
-                  </DataTable.Row>
+                        )}
+                      </View>
+                    </Card.Content>
+                  </Card>
                 );
               })}
-            </DataTable>
+            </View>
           </View>
         )}
 
@@ -780,34 +785,43 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 16,
   },
-  dataTable: {
+  settingsContainer: {
     marginTop: 8,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 8,
-    overflow: "hidden",
+    gap: 12,
   },
-  nameColumn: {
-    flex: 3,
+  settingCard: {
+    marginBottom: 8,
   },
-  valueColumn: {
-    flex: 3,
+  settingCardModified: {
+    borderColor: "#3b82f6",
+    borderWidth: 2,
   },
-  actionsColumn: {
-    flex: 1,
+  settingCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
   },
   settingName: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 16,
+    fontWeight: "600",
+    flex: 1,
+  },
+  settingValueContainer: {
+    marginTop: 8,
   },
   settingInput: {
-    flex: 1,
-    minHeight: 40,
+    width: "100%",
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   actionButtons: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-start",
+    gap: 4,
   },
   codeSection: {
     marginTop: 16,

@@ -909,6 +909,8 @@
     "apply": "Apply",
     "saving": "Saving...",
     "all": "All",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
     "clear": "Clear",
     "showing": "Showing",
     "of": "of",

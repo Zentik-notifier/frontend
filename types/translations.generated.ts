@@ -912,6 +912,8 @@ export interface Translation {
     apply: string;
     saving: string;
     all: string;
+    enabled: string;
+    disabled: string;
     clear: string;
     showing: string;
     of: string;
