@@ -474,6 +474,16 @@ export class MediaCacheRepository {
         }
       case 'GIF':
         return 'image/gif';
+      case 'BUCKET_ICON':
+        switch (extension) {
+          case 'png': return 'image/png';
+          case 'jpg':
+          case 'jpeg': return 'image/jpeg';
+          case 'gif': return 'image/gif';
+          case 'webp': return 'image/webp';
+          case 'svg': return 'image/svg+xml';
+          default: return 'image/png'; // Default to PNG for bucket icons
+        }
       default:
         return 'application/octet-stream';
     }

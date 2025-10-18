@@ -16,6 +16,8 @@ import { MediaType, NotificationFragment } from '../generated/gql-operations-gen
 import { Directory, File } from '../utils/filesystem-wrapper';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
 import { MediaCacheRepository } from './media-cache-repository';
+import { ApiConfigService } from './api-config';
+import { getAccessToken } from './auth-storage';
 
 const isWeb = Platform.OS === 'web';
 
@@ -1302,21 +1304,12 @@ class MediaCacheService {
             
             // Check if already cached
             const timestamp = this.bucketParamsCache.get(bucketId)?.timestamp || Date.now();
-            if (isWeb) {
-                // For web, check IndexedDB
-                const cachedUrl = await this.repo.getMediaUrl(cacheKey);
-                if (cachedUrl) {
-                    console.log(`[MediaCache] ✅ Found in IndexedDB: ${bucketName}`);
-                    // Add timestamp to force cache invalidation when params change
-                    return `${cachedUrl}#t=${timestamp}`;
-                }
-            } else {
-                // For mobile, check filesystem
-                const cachedUri = await this.repo.getBucketIconFromSharedCache(bucketId, bucketName, bucketColor, timestamp);
-                if (cachedUri) {
-                    // console.log(`[MediaCache] ✅ Found in shared cache: ${bucketName} → ${cachedUri}`);
-                    return cachedUri;
-                }
+            
+            // Use the same method for both web and mobile
+            const cachedUri = await this.repo.getBucketIconFromSharedCache(bucketId, bucketName, bucketColor, timestamp);
+            if (cachedUri) {
+                console.log(`[MediaCache] ✅ Found in cache: ${bucketName}`);
+                return cachedUri;
             }
 
             console.log(`[MediaCache] ❌ Not in cache: ${bucketName}`);
@@ -1391,120 +1384,149 @@ class MediaCacheService {
         bucketColor: string | undefined,
         iconUrl: string
     ): Promise<string | null> {
-        let tempPath: string | null = null;
-
         try {
             const cacheKey = this.generateBucketIconCacheKey(bucketId, bucketName, bucketColor);
-
-            // Ensure directories exist
-            await this.ensureDirectories();
-
-            // Generate temp file path
-            const tempDir = isWeb ? `${this.cacheDir}/temp/` : `${this.cacheDir}temp/`;
-            const dir = new Directory(tempDir);
-            if (!dir.exists) {
-                dir.create();
-            }
-            
-            const timestamp = Date.now();
-            const tempFileName = `bucket_icon_temp_${timestamp}.png`;
-            tempPath = `${tempDir}${tempFileName}`;
-
-            // Download from provided URL
-            console.log(`[MediaCache] 🔄 Downloading bucket icon from URL to temp: ${tempPath}`);
-            const tempFile = new File(tempPath);
-            const downloadResult = await File.downloadAsync(iconUrl, isWeb ? (tempFile as any) : tempPath);
-            
-            if (!downloadResult.uri) {
-                console.error('[MediaCache] ❌ Bucket icon download failed, no URI returned');
-                return null;
-            }
-
-            console.log(`[MediaCache] ✅ Downloaded bucket icon: ${downloadResult.size || 0} bytes`);
-
-            // Resize image to standard size (matching Swift implementation)
+            const downloadTimestamp = Date.now();
             const standardSize = 200;
-            const result = await ImageManipulator.manipulateAsync(
-                downloadResult.uri,
-                [{ resize: { width: standardSize, height: standardSize } }],
-                { compress: 1, format: ImageManipulator.SaveFormat.PNG }
-            );
 
-            console.log(`[MediaCache] ✅ Resized bucket icon to ${standardSize}x${standardSize}`);
+            console.log(`[MediaCache] 🔄 Downloading bucket icon from URL`);
 
-            // Save to appropriate storage
             if (isWeb) {
-                // For web, convert to ArrayBuffer and save to IndexedDB
+                // ===== WEB: Download via proxy to avoid CORS, resize, save to IndexedDB =====
                 if (!this.repo) {
                     throw new Error('Repository not initialized');
                 }
+
+                // Get API credentials for proxy request
+                const authToken = await getAccessToken();
+                const apiEndpoint = ApiConfigService.getApiBaseWithPrefix();
+
+                if (!authToken) {
+                    throw new Error('No auth token available for proxy request');
+                }
+
+                // Use backend proxy to download image (avoids CORS)
+                const proxyUrl = `${apiEndpoint}/attachments/proxy-media?url=${encodeURIComponent(iconUrl)}`;
+                console.log(`[MediaCache] Using backend proxy for bucket icon download`);
+
+                const response = await fetch(proxyUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Accept': 'image/*',
+                        'User-Agent': 'Zentik-Notifier-Web/1.0',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Backend proxy failed: ${response.status} ${response.statusText}`);
+                }
                 
-                const response = await fetch(result.uri);
                 const blob = await response.blob();
-                const buffer = await blob.arrayBuffer();
-                
+                console.log(`[MediaCache] ✅ Downloaded bucket icon: ${blob.size} bytes`);
+
+                // Convert to data URL for ImageManipulator
+                const reader = new FileReader();
+                const dataUrlPromise = new Promise<string>((resolve, reject) => {
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                });
+                reader.readAsDataURL(blob);
+                const dataUrl = await dataUrlPromise;
+
+                // Resize using ImageManipulator
+                const result = await ImageManipulator.manipulateAsync(
+                    dataUrl,
+                    [{ resize: { width: standardSize, height: standardSize } }],
+                    { compress: 1, format: ImageManipulator.SaveFormat.PNG }
+                );
+
+                console.log(`[MediaCache] ✅ Resized bucket icon to ${standardSize}x${standardSize}`);
+
+                // Convert result to ArrayBuffer
+                const resizedResponse = await fetch(result.uri);
+                const resizedBlob = await resizedResponse.blob();
+                const buffer = await resizedBlob.arrayBuffer();
+
+                // Save to IndexedDB
                 await this.repo.saveMediaItem({
                     key: cacheKey,
                     data: buffer,
                 });
-                
-                const dataUrl = await this.repo.getMediaUrl(cacheKey);
+
+                const savedDataUrl = await this.repo.getMediaUrl(cacheKey);
                 console.log(`[MediaCache] ✅ Saved bucket icon to IndexedDB: ${cacheKey}`);
-                
-                // Clean up temp files
-                await this.cleanupBucketIconTempFiles(downloadResult.uri, result.uri);
-                
-                // Update timestamp in cache for this bucket
-                const downloadTimestamp = Date.now();
+
+                // Update timestamp in cache
                 const cachedParams = this.bucketParamsCache.get(bucketId);
                 if (cachedParams) {
                     this.bucketParamsCache.set(bucketId, { ...cachedParams, timestamp: downloadTimestamp });
                 }
-                
+
                 // Add fragment to force expo-image cache invalidation
-                return dataUrl ? `${dataUrl}#t=${downloadTimestamp}` : dataUrl;
+                return savedDataUrl ? `${savedDataUrl}#t=${downloadTimestamp}` : savedDataUrl;
+
             } else {
-                // For mobile, save to filesystem
+                // ===== MOBILE: Use filesystem with File.downloadAsync =====
+                await this.ensureDirectories();
+
+                // Generate temp file path
+                const tempDir = `${this.cacheDir}temp/`;
+                const dir = new Directory(tempDir);
+                if (!dir.exists) {
+                    dir.create();
+                }
+
+                const tempFileName = `bucket_icon_temp_${downloadTimestamp}.png`;
+                const tempPath = `${tempDir}${tempFileName}`;
+
+                // Download to temp file
+                console.log(`[MediaCache] 🔄 Downloading bucket icon to temp file`);
+                const downloadResult = await File.downloadAsync(iconUrl, tempPath);
+
+                if (!downloadResult.uri) {
+                    console.error('[MediaCache] ❌ Bucket icon download failed, no URI returned');
+                    return null;
+                }
+
+                console.log(`[MediaCache] ✅ Downloaded bucket icon: ${downloadResult.size || 0} bytes`);
+
+                // Resize image
+                const result = await ImageManipulator.manipulateAsync(
+                    downloadResult.uri,
+                    [{ resize: { width: standardSize, height: standardSize } }],
+                    { compress: 1, format: ImageManipulator.SaveFormat.PNG }
+                );
+
+                console.log(`[MediaCache] ✅ Resized bucket icon to ${standardSize}x${standardSize}`);
+
+                // Save to final location
                 const finalUri = await this.getBucketIconFilePath(bucketId, bucketName, bucketColor);
                 const resultFile = new File(result.uri);
                 const finalFile = new File(finalUri);
-                
+
                 // Delete final file if exists
                 if (finalFile.exists) {
                     await finalFile.delete();
                 }
-                
+
                 await resultFile.copy(finalFile as any);
                 console.log(`[MediaCache] ✅ Saved bucket icon to filesystem: ${finalUri}`);
-                
+
                 // Clean up temp files
                 await this.cleanupBucketIconTempFiles(downloadResult.uri, result.uri);
-                
-                // Update timestamp in cache for this bucket
-                const downloadTimestamp = Date.now();
+
+                // Update timestamp in cache
                 const cachedParams = this.bucketParamsCache.get(bucketId);
                 if (cachedParams) {
                     this.bucketParamsCache.set(bucketId, { ...cachedParams, timestamp: downloadTimestamp });
                 }
-                
+
                 // Add timestamp to force expo-image cache invalidation
                 return `${finalUri}?t=${downloadTimestamp}`;
             }
         } catch (error) {
             console.error('[MediaCache] ❌ Error downloading/caching bucket icon:', error);
-            
-            // Clean up temp file on error
-            if (tempPath) {
-                try {
-                    const file = new File(tempPath);
-                    if (file.exists) {
-                        await file.delete();
-                    }
-                } catch (e) {
-                    // Ignore cleanup errors
-                }
-            }
-            
             return null;
         }
     }
