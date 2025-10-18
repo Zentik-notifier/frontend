@@ -1313,8 +1313,33 @@
       "testHeadersPlaceholder": "Enter JSON test headers",
       "testHeadersHelp": "Enter HTTP headers as JSON to test your function",
       "resetToDefault": "Reset to Default",
-      "resetToSaved": "Reset to Saved"
+      "resetToSaved": "Reset to Saved",
+      "requiredUserSettings": "Required User Settings",
+      "requiredUserSettingsPlaceholder": "Select required user settings",
+      "requiredUserSettingsHelp": "Configure the required user settings for this payload mapper to function correctly",
+      "settingName": "Setting",
+      "settingValue": "Value"
     }
+  },
+  "userSettings": {
+    "Timezone": "Timezone",
+    "Timezone_description": "User timezone setting",
+    "Language": "Language",
+    "Language_description": "User preferred language",
+    "UnencryptOnBigPayload": "Unencrypt on Big Payload",
+    "UnencryptOnBigPayload_description": "Disable encryption for large payloads",
+    "ExpoKey": "Expo Key",
+    "ExpoKey_description": "Expo project key for push notifications",
+    "HomeassistantUrl": "Home Assistant URL",
+    "HomeassistantUrl_description": "URL for Home Assistant integration",
+    "HomeassistantToken": "Home Assistant Token",
+    "HomeassistantToken_description": "Authentication token for Home Assistant",
+    "AutoAddDeleteAction": "Auto Add Delete Action",
+    "AutoAddDeleteAction_description": "Automatically add delete action to notifications",
+    "AutoAddMarkAsReadAction": "Auto Add Mark as Read Action",
+    "AutoAddMarkAsReadAction_description": "Automatically add mark as read action to notifications",
+    "AutoAddOpenNotificationAction": "Auto Add Open Notification Action",
+    "AutoAddOpenNotificationAction_description": "Automatically add open action to notifications"
   },
   "userDropdown": {
     "unknownUser": "Unknown User",

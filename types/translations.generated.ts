@@ -1317,7 +1317,32 @@ export interface Translation {
       testHeadersHelp: string;
       resetToDefault: string;
       resetToSaved: string;
+      requiredUserSettings: string;
+      requiredUserSettingsPlaceholder: string;
+      requiredUserSettingsHelp: string;
+      settingName: string;
+      settingValue: string;
     };
+  };
+  userSettings: {
+    Timezone: string;
+    Timezone_description: string;
+    Language: string;
+    Language_description: string;
+    UnencryptOnBigPayload: string;
+    UnencryptOnBigPayload_description: string;
+    ExpoKey: string;
+    ExpoKey_description: string;
+    HomeassistantUrl: string;
+    HomeassistantUrl_description: string;
+    HomeassistantToken: string;
+    HomeassistantToken_description: string;
+    AutoAddDeleteAction: string;
+    AutoAddDeleteAction_description: string;
+    AutoAddMarkAsReadAction: string;
+    AutoAddMarkAsReadAction_description: string;
+    AutoAddOpenNotificationAction: string;
+    AutoAddOpenNotificationAction_description: string;
   };
   userDropdown: {
     unknownUser: string;

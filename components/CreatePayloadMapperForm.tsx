@@ -6,18 +6,24 @@ import {
   GetPayloadMappersQuery,
   PayloadMapperFragment,
   UpdatePayloadMapperDto,
+  UserSettingType,
   useCreatePayloadMapperMutation,
   useDeletePayloadMapperMutation,
   useGetPayloadMapperQuery,
+  useGetUserSettingsQuery,
   useUpdatePayloadMapperMutation,
+  useUpsertUserSettingMutation,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import {
   Button,
+  Checkbox,
+  DataTable,
   Dialog,
+  IconButton,
   Portal,
   Text,
   TextInput,
@@ -73,6 +79,60 @@ export default function CreatePayloadMapperForm({
 
   const [name, setName] = useState("");
   const [jsEvalFn, setJsEvalFn] = useState("");
+
+  // Load user settings
+  const {
+    data: userSettingsData,
+    loading: loadingUserSettings,
+    refetch: refetchUserSettings,
+  } = useGetUserSettingsQuery();
+
+  const [upsertUserSettingMutation, { loading: updatingUserSetting }] =
+    useUpsertUserSettingMutation();
+
+  // Local state for editing user settings
+  const [editingSettings, setEditingSettings] = useState<
+    Record<UserSettingType, { valueText?: string; valueBool?: boolean }>
+  >({} as any);
+
+  // Track which settings have been modified and their original values
+  const [modifiedSettings, setModifiedSettings] = useState<
+    Set<UserSettingType>
+  >(new Set());
+  const [originalSettings, setOriginalSettings] = useState<
+    Record<UserSettingType, { valueText?: string; valueBool?: boolean }>
+  >({} as any);
+
+  // Helper function to determine if a setting type is boolean
+  const isBooleanSetting = (settingType: UserSettingType): boolean => {
+    return [
+      UserSettingType.UnencryptOnBigPayload,
+      UserSettingType.AutoAddDeleteAction,
+      UserSettingType.AutoAddMarkAsReadAction,
+      UserSettingType.AutoAddOpenNotificationAction,
+    ].includes(settingType);
+  };
+
+  // Initialize editing settings from loaded user settings
+  useEffect(() => {
+    if (userSettingsData?.userSettings) {
+      const settings: Record<
+        UserSettingType,
+        { valueText?: string; valueBool?: boolean }
+      > = {} as any;
+
+      userSettingsData.userSettings.forEach((setting) => {
+        settings[setting.configType] = {
+          valueText: setting.valueText || undefined,
+          valueBool: setting.valueBool ?? undefined,
+        };
+      });
+
+      setEditingSettings(settings);
+      setOriginalSettings(settings);
+      setModifiedSettings(new Set());
+    }
+  }, [userSettingsData]);
 
   // Default function template for new payload mappers
   const defaultJsEvalFn = `(payload, headers) => {
@@ -350,6 +410,66 @@ export default function CreatePayloadMapperForm({
     );
   };
 
+  const handleSaveUserSetting = async (configType: UserSettingType) => {
+    try {
+      const isBoolean = isBooleanSetting(configType);
+      const value = editingSettings[configType];
+      await upsertUserSettingMutation({
+        variables: {
+          input: {
+            configType,
+            valueText: isBoolean ? null : (value?.valueText || null),
+            valueBool: isBoolean ? (value?.valueBool ?? null) : null,
+            deviceId: null,
+          },
+        },
+      });
+      await refetchUserSettings();
+      // Remove from modified settings after successful save
+      setModifiedSettings((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(configType);
+        return newSet;
+      });
+    } catch (error: any) {
+      console.error("Error saving user setting:", error);
+      setErrorMessage(error.message || t("common.errorOccurred"));
+      setShowErrorDialog(true);
+    }
+  };
+
+  const handleDiscardUserSetting = (configType: UserSettingType) => {
+    // Restore original value
+    setEditingSettings((prev) => ({
+      ...prev,
+      [configType]: originalSettings[configType] || {},
+    }));
+    // Remove from modified settings
+    setModifiedSettings((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(configType);
+      return newSet;
+    });
+  };
+
+  const handleSettingChange = (
+    configType: UserSettingType,
+    value: string | boolean,
+    isBoolean: boolean
+  ) => {
+    setEditingSettings((prev) => ({
+      ...prev,
+      [configType]: {
+        ...prev[configType],
+        ...(isBoolean
+          ? { valueBool: value as boolean }
+          : { valueText: value as string }),
+      },
+    }));
+    // Mark as modified
+    setModifiedSettings((prev) => new Set(prev).add(configType));
+  };
+
   return (
     <PaperScrollView
       loading={loadingPayloadMapper}
@@ -375,6 +495,94 @@ export default function CreatePayloadMapperForm({
       {fieldErrors.name && (
         <Text style={styles.errorText}>{fieldErrors.name}</Text>
       )}
+
+      {/* Required User Settings Section */}
+      {payloadMapper?.requiredUserSettings &&
+        payloadMapper.requiredUserSettings.length > 0 && (
+          <View style={styles.userSettingsSection}>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              {t("payloadMappers.form.requiredUserSettings")}
+            </Text>
+            <Text style={styles.helpText}>
+              {t("payloadMappers.form.requiredUserSettingsHelp")}
+            </Text>
+
+            <DataTable style={styles.dataTable}>
+              <DataTable.Header>
+                <DataTable.Title style={styles.nameColumn}>
+                  {t("payloadMappers.form.settingName")}
+                </DataTable.Title>
+                <DataTable.Title style={styles.valueColumn}>
+                  {t("payloadMappers.form.settingValue")}
+                </DataTable.Title>
+                <DataTable.Title style={styles.actionsColumn}>
+                  {t("common.actions")}
+                </DataTable.Title>
+              </DataTable.Header>
+
+              {payloadMapper.requiredUserSettings.map((settingType) => {
+                const currentValue = editingSettings[settingType];
+                const isBoolean = isBooleanSetting(settingType);
+                const isModified = modifiedSettings.has(settingType);
+
+                return (
+                  <DataTable.Row key={settingType}>
+                    <DataTable.Cell style={styles.nameColumn}>
+                      <Text style={styles.settingName}>
+                        {t(`userSettings.${settingType}` as any) || settingType}
+                      </Text>
+                    </DataTable.Cell>
+                    <DataTable.Cell style={styles.valueColumn}>
+                      {isBoolean ? (
+                        <Checkbox
+                          status={
+                            currentValue?.valueBool ? "checked" : "unchecked"
+                          }
+                          onPress={() => {
+                            const newValue = !currentValue?.valueBool;
+                            handleSettingChange(settingType, newValue, true);
+                          }}
+                          disabled={updatingUserSetting}
+                        />
+                      ) : (
+                        <TextInput
+                          value={currentValue?.valueText || ""}
+                          onChangeText={(text) => {
+                            handleSettingChange(settingType, text, false);
+                          }}
+                          style={styles.settingInput}
+                          mode="outlined"
+                          dense
+                          disabled={updatingUserSetting}
+                        />
+                      )}
+                    </DataTable.Cell>
+                    <DataTable.Cell style={styles.actionsColumn}>
+                      {isModified && (
+                        <View style={styles.actionButtons}>
+                          <IconButton
+                            icon="check"
+                            mode="contained"
+                            onPress={() => handleSaveUserSetting(settingType)}
+                            disabled={updatingUserSetting}
+                            size={20}
+                          />
+                          <IconButton
+                            icon="close"
+                            mode="outlined"
+                            onPress={() => handleDiscardUserSetting(settingType)}
+                            disabled={updatingUserSetting}
+                            size={20}
+                          />
+                        </View>
+                      )}
+                    </DataTable.Cell>
+                  </DataTable.Row>
+                );
+              })}
+            </DataTable>
+          </View>
+        )}
 
       {!isBuiltIn && (
         <View style={styles.codeSection}>
@@ -567,6 +775,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 8,
     marginTop: -4,
+  },
+  userSettingsSection: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  dataTable: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  nameColumn: {
+    flex: 3,
+  },
+  valueColumn: {
+    flex: 3,
+  },
+  actionsColumn: {
+    flex: 1,
+  },
+  settingName: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  settingInput: {
+    flex: 1,
+    minHeight: 40,
+  },
+  actionButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
   },
   codeSection: {
     marginTop: 16,

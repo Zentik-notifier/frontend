@@ -1358,8 +1358,33 @@
       "testHeadersPlaceholder": "Inserisci headers JSON di test",
       "testHeadersHelp": "Inserisci headers HTTP come JSON per testare la tua funzione",
       "resetToDefault": "Ripristina Predefinito",
-      "resetToSaved": "Ripristina Salvato"
+      "resetToSaved": "Ripristina Salvato",
+      "requiredUserSettings": "Impostazioni Utente Richieste",
+      "requiredUserSettingsPlaceholder": "Seleziona impostazioni utente richieste",
+      "requiredUserSettingsHelp": "Configura le impostazioni utente richieste affinché questo mappatore payload funzioni correttamente",
+      "settingName": "Impostazione",
+      "settingValue": "Valore"
     }
+  },
+  "userSettings": {
+    "Timezone": "Fuso Orario",
+    "Timezone_description": "Impostazione fuso orario utente",
+    "Language": "Lingua",
+    "Language_description": "Lingua preferita dall'utente",
+    "UnencryptOnBigPayload": "Disabilita Crittografia per Payload Grandi",
+    "UnencryptOnBigPayload_description": "Disabilita la crittografia per payload di grandi dimensioni",
+    "ExpoKey": "Chiave Expo",
+    "ExpoKey_description": "Chiave progetto Expo per notifiche push",
+    "HomeassistantUrl": "URL Home Assistant",
+    "HomeassistantUrl_description": "URL per integrazione Home Assistant",
+    "HomeassistantToken": "Token Home Assistant",
+    "HomeassistantToken_description": "Token di autenticazione per Home Assistant",
+    "AutoAddDeleteAction": "Aggiungi Automaticamente Azione Elimina",
+    "AutoAddDeleteAction_description": "Aggiungi automaticamente l'azione elimina alle notifiche",
+    "AutoAddMarkAsReadAction": "Aggiungi Automaticamente Azione Segna Come Letta",
+    "AutoAddMarkAsReadAction_description": "Aggiungi automaticamente l'azione segna come letta alle notifiche",
+    "AutoAddOpenNotificationAction": "Aggiungi Automaticamente Azione Apri Notifica",
+    "AutoAddOpenNotificationAction_description": "Aggiungi automaticamente l'azione apri alle notifiche"
   },
   "userDropdown": {
     "unknownUser": "Utente Sconosciuto",

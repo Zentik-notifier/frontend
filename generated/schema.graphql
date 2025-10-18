@@ -111,7 +111,9 @@ input CreateMessageDto {
   groupId: String
   imageUrl: String
   locale: String
+  maxReminders: Float
   postpones: [Float!]
+  remindEveryMinutes: Float
   snoozes: [Float!]
   sound: String
   subtitle: String
@@ -397,7 +399,9 @@ type Message {
   groupId: String
   id: ID!
   locale: String
+  maxReminders: Float
   postpones: [Float!]
+  remindEveryMinutes: Float
   snoozes: [Float!]
   sound: String
   subtitle: String
@@ -637,6 +641,7 @@ type PayloadMapper {
   id: ID!
   jsEvalFn: String!
   name: String!
+  requiredUserSettings: [UserSettingType!]
   updatedAt: DateTime!
   user: User
   userId: ID
@@ -645,6 +650,7 @@ type PayloadMapper {
 """Built-in payload mapper types"""
 enum PayloadMapperBuiltInType {
   ZENTIK_AUTHENTIK
+  ZENTIK_EXPO
   ZENTIK_GITHUB
   ZENTIK_RAILWAY
   ZENTIK_SERVARR

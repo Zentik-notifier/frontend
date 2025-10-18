@@ -10,17 +10,31 @@ input CreatePayloadMapperDto {
   name: String!
   jsEvalFn: String!
   userId: String
+  requiredUserSettings: [UserSettingType!]
 }
 
 input UpdatePayloadMapperDto {
   name: String
   jsEvalFn: String
+  requiredUserSettings: [UserSettingType!]
 }
 
 enum PayloadMapperBuiltInType {
   ZENTIK_AUTHENTIK
   ZENTIK_RAILWAY
   ZENTIK_SERVARR
+}
+
+enum UserSettingType {
+  Timezone
+  Language
+  UnencryptOnBigPayload
+  ExpoKey
+  HomeassistantUrl
+  HomeassistantToken
+  AutoAddDeleteAction
+  AutoAddMarkAsReadAction
+  AutoAddOpenNotificationAction
 }
 
 # Password Reset Mutations
@@ -1025,6 +1039,7 @@ fragment PayloadMapperFragment on PayloadMapper {
   jsEvalFn
   userId
   builtInName
+  requiredUserSettings
   user {
     ...UserFragment
   }
