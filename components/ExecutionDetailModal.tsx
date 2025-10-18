@@ -6,6 +6,7 @@ import { useI18n } from "@/hooks/useI18n";
 import React from "react";
 import { ScrollView, StyleSheet, View, TextInput } from "react-native";
 import { Card, Chip, Modal, Portal, Text, useTheme, IconButton } from "react-native-paper";
+import * as Clipboard from "expo-clipboard";
 
 interface ExecutionDetailModalProps {
   visible: boolean;
@@ -50,6 +51,12 @@ export default function ExecutionDetailModal({
       return JSON.stringify(parsed, null, 2);
     } catch {
       return jsonString;
+    }
+  };
+
+  const handleCopyErrors = async () => {
+    if (execution.errors) {
+      await Clipboard.setStringAsync(execution.errors);
     }
   };
 
@@ -187,31 +194,43 @@ export default function ExecutionDetailModal({
               </View>
 
               {execution.errors && (
-                <View style={styles.errorSection}>
-                  <Text variant="bodySmall" style={styles.errorLabel}>
-                    {t("entityExecutions.errors")}:
-                  </Text>
-                  <Text
-                    variant="bodySmall"
+                <View style={styles.codeSection}>
+                  <View style={styles.codeSectionHeader}>
+                    <Text variant="labelMedium" style={styles.codeLabel}>
+                      {t("entityExecutions.errors")}:
+                    </Text>
+                    <IconButton
+                      icon="content-copy"
+                      size={20}
+                      onPress={handleCopyErrors}
+                    />
+                  </View>
+                  <TextInput
+                    value={execution.errors}
+                    multiline
+                    editable={false}
+                    scrollEnabled
                     style={[
-                      styles.errorText,
+                      styles.jsonInput,
                       {
-                        color: theme.colors.error,
                         backgroundColor: theme.colors.errorContainer,
+                        borderColor: theme.colors.error,
+                        color: theme.colors.error,
+                        borderLeftWidth: 4,
                         borderLeftColor: theme.colors.error,
                       },
                     ]}
-                  >
-                    {execution.errors}
-                  </Text>
+                  />
                 </View>
               )}
 
               {execution.input && (
                 <View style={styles.codeSection}>
-                  <Text variant="labelMedium" style={styles.codeLabel}>
-                    {t("entityExecutions.input")}:
-                  </Text>
+                  <View style={styles.codeSectionHeader}>
+                    <Text variant="labelMedium" style={styles.codeLabel}>
+                      {t("entityExecutions.input")}:
+                    </Text>
+                  </View>
                   <TextInput
                     value={formatJsonString(execution.input)}
                     multiline
@@ -231,9 +250,11 @@ export default function ExecutionDetailModal({
 
               {execution.output && (
                 <View style={styles.codeSection}>
-                  <Text variant="labelMedium" style={styles.codeLabel}>
-                    {t("entityExecutions.output")}:
-                  </Text>
+                  <View style={styles.codeSectionHeader}>
+                    <Text variant="labelMedium" style={styles.codeLabel}>
+                      {t("entityExecutions.output")}:
+                    </Text>
+                  </View>
                   <TextInput
                     value={formatJsonString(execution.output)}
                     multiline
@@ -300,23 +321,16 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "right",
   },
-  errorSection: {
-    marginTop: 8,
-  },
-  errorLabel: {
-    marginBottom: 4,
-    fontWeight: "600",
-  },
-  errorText: {
-    padding: 8,
-    borderRadius: 4,
-    borderLeftWidth: 4,
-  },
   codeSection: {
     marginTop: 8,
   },
-  codeLabel: {
+  codeSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 8,
+  },
+  codeLabel: {
     fontWeight: "600",
   },
   jsonInput: {

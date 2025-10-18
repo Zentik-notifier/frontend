@@ -75,6 +75,12 @@ function ExecutionItem({ execution, onPress }: ExecutionItemProps) {
     }
   };
 
+  const handleCopyErrors = async () => {
+    if (execution.errors) {
+      await Clipboard.setStringAsync(execution.errors);
+    }
+  };
+
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
       <Card>
@@ -102,13 +108,32 @@ function ExecutionItem({ execution, onPress }: ExecutionItemProps) {
             )}
 
             {execution.errors && (
-              <View style={styles.errorSection}>
-                <Text
-                  variant="bodySmall"
-                  style={[styles.errorText, { color: theme.colors.error }]}
-                >
-                  {t("entityExecutions.errors")}: {execution.errors}
-                </Text>
+              <View style={styles.codeSection}>
+                <View style={styles.codeSectionHeader}>
+                  <Text variant="labelSmall" style={styles.codeLabel}>
+                    {t("entityExecutions.errors")}:
+                  </Text>
+                  <IconButton
+                    icon="content-copy"
+                    size={16}
+                    onPress={handleCopyErrors}
+                  />
+                </View>
+                <TextInput
+                  value={execution.errors}
+                  multiline
+                  editable={false}
+                  scrollEnabled={false}
+                  style={[
+                    styles.codeInput,
+                    {
+                      backgroundColor: theme.colors.errorContainer,
+                      color: theme.colors.error,
+                      borderLeftWidth: 4,
+                      borderLeftColor: theme.colors.error,
+                    },
+                  ]}
+                />
               </View>
             )}
 
@@ -369,9 +394,6 @@ const styles = StyleSheet.create({
   },
   durationText: {
     opacity: 0.8,
-  },
-  errorSection: {
-    marginTop: 4,
   },
   codeSection: {
     marginTop: 8,
