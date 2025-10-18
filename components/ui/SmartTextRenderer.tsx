@@ -1,5 +1,6 @@
 import React from "react";
-import { Text } from "react-native-paper";
+import { TextInput as RNTextInput } from "react-native";
+import { Text, useTheme } from "react-native-paper";
 import { HtmlTextRenderer } from "./HtmlTextRenderer";
 import type { TextRendererProps } from "./TextRenderer";
 import { TextRenderer } from "./TextRenderer";
@@ -20,6 +21,8 @@ export const SmartTextRenderer: React.FC<SmartTextRendererProps> = ({
   testID,
   ...props
 }) => {
+  const theme = useTheme();
+
   // Function to detect if content contains HTML tags
   const containsHtml = (text: string): boolean => {
     if (!detectHtml) return false;
@@ -29,17 +32,25 @@ export const SmartTextRenderer: React.FC<SmartTextRendererProps> = ({
     return htmlRegex.test(text);
   };
 
-  // If HTML is disabled, render simple Text component
+  // If HTML is disabled, render TextInput for selectable text
   if (!enableHtml) {
     return (
-      <Text 
-        style={style}
+      <RNTextInput
+        value={content}
+        editable={false}
+        multiline
         numberOfLines={maxLines}
-        ellipsizeMode={maxLines ? "tail" : undefined}
+        style={[
+          {
+            color: theme.colors.onSurface,
+            backgroundColor: 'transparent',
+            padding: 0,
+            margin: 0,
+          },
+          style,
+        ]}
         testID={testID}
-      >
-        {content}
-      </Text>
+      />
     );
   }
 

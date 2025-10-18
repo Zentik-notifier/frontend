@@ -446,18 +446,27 @@ export default function NotificationFiltersModal() {
                         >
                           {label}
                         </Text>
-                        {value === "custom" && localFilters.timeRange === "custom" && localFilters.customTimeRange?.from && localFilters.customTimeRange?.to && (
-                          <Text
-                            style={[
-                              styles.sortButtonSubtext,
-                              {
-                                color: theme.colors.onPrimary,
-                              },
-                            ]}
-                          >
-                            {new Date(localFilters.customTimeRange.from).toLocaleDateString()} - {new Date(localFilters.customTimeRange.to).toLocaleDateString()}
-                          </Text>
-                        )}
+                        {value === "custom" &&
+                          localFilters.timeRange === "custom" &&
+                          localFilters.customTimeRange?.from &&
+                          localFilters.customTimeRange?.to && (
+                            <Text
+                              style={[
+                                styles.sortButtonSubtext,
+                                {
+                                  color: theme.colors.onPrimary,
+                                },
+                              ]}
+                            >
+                              {new Date(
+                                localFilters.customTimeRange.from
+                              ).toLocaleDateString()}{" "}
+                              -{" "}
+                              {new Date(
+                                localFilters.customTimeRange.to
+                              ).toLocaleDateString()}
+                            </Text>
+                          )}
                       </View>
                     </View>
                   </TouchableRipple>
@@ -465,118 +474,114 @@ export default function NotificationFiltersModal() {
               </View>
             </View>
 
-            {/* Performance */}
+            {/* Performance & Display */}
             <View style={styles.section}>
               <Text
                 style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
               >
                 {t("filters.performance")}
               </Text>
-              <TouchableRipple
-                style={[
-                  styles.quickFilter,
-                  {
-                    borderColor: theme.colors.outline,
-                    backgroundColor: localFilters.loadOnlyVisible
-                      ? theme.colors.secondaryContainer
-                      : theme.colors.elevation?.level1 || theme.colors.surface,
-                  },
-                ]}
-                onPress={() =>
-                  handleLoadOnlyVisibleChange(!localFilters.loadOnlyVisible)
-                }
-              >
-                <View style={styles.quickFilterContent}>
-                  <Icon
-                    source="speedometer"
-                    size={20}
-                    color={
-                      localFilters.loadOnlyVisible
-                        ? theme.colors.primary
-                        : theme.colors.onSurfaceVariant
-                    }
-                  />
-                  <View style={styles.quickFilterTextContainer}>
-                    <Text
-                      style={[
-                        styles.quickFilterText,
-                        {
-                          color: localFilters.loadOnlyVisible
-                            ? theme.colors.primary
-                            : theme.colors.onSurface,
-                        },
-                      ]}
-                    >
-                      {t("filters.loadOnlyVisible")}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.quickFilterDescription,
-                        { color: theme.colors.onSurfaceVariant },
-                      ]}
-                    >
-                      {t("filters.loadOnlyVisibleDescription")}
-                    </Text>
+              <View style={styles.quickFiltersGrid}>
+                {/* Load Only Visible */}
+                <TouchableRipple
+                  style={[
+                    styles.quickFilter,
+                    {
+                      borderColor: theme.colors.outline,
+                      backgroundColor: localFilters.loadOnlyVisible
+                        ? theme.colors.secondaryContainer
+                        : theme.colors.elevation?.level1 || theme.colors.surface,
+                    },
+                  ]}
+                  onPress={() =>
+                    handleLoadOnlyVisibleChange(!localFilters.loadOnlyVisible)
+                  }
+                >
+                  <View style={styles.quickFilterContent}>
+                    <Icon
+                      source="speedometer"
+                      size={20}
+                      color={
+                        localFilters.loadOnlyVisible
+                          ? theme.colors.primary
+                          : theme.colors.onSurfaceVariant
+                      }
+                    />
+                    <View style={styles.quickFilterTextContainer}>
+                      <Text
+                        style={[
+                          styles.quickFilterText,
+                          {
+                            color: localFilters.loadOnlyVisible
+                              ? theme.colors.primary
+                              : theme.colors.onSurface,
+                          },
+                        ]}
+                      >
+                        {t("filters.loadOnlyVisible")}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.quickFilterDescription,
+                          { color: theme.colors.onSurfaceVariant },
+                        ]}
+                      >
+                        {t("filters.loadOnlyVisibleDescription")}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              </TouchableRipple>
-            </View>
+                </TouchableRipple>
 
-            {/* HTML Rendering Section */}
-            <View style={styles.section}>
-              <Text
-                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
-              >
-                {t("filters.display")}
-              </Text>
-              <TouchableRipple
-                style={[
-                  styles.quickFilter,
-                  {
-                    borderColor: theme.colors.outline,
-                    backgroundColor: localFilters.enableHtmlRendering
-                      ? theme.colors.secondaryContainer
-                      : theme.colors.elevation?.level1 || theme.colors.surface,
-                  },
-                ]}
-                onPress={() =>
-                  handleHtmlRenderingChange(!localFilters.enableHtmlRendering)
-                }
-              >
-                <View style={styles.quickFilterContent}>
-                  <Icon
-                    source={localFilters.enableHtmlRendering ? "code-tags" : "code-tags-off"}
-                    size={20}
-                    color={
-                      localFilters.enableHtmlRendering
-                        ? theme.colors.primary
-                        : theme.colors.onSurfaceVariant
-                    }
-                  />
-                  <View style={styles.quickFilterTextContainer}>
-                    <Text
-                      style={[
-                        styles.quickFilterText,
-                        {
-                          color: localFilters.enableHtmlRendering
-                            ? theme.colors.primary
-                            : theme.colors.onSurface,
-                        },
-                      ]}
-                    >
-                      {t("filters.enableHtmlRendering")}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.quickFilterDescription,
-                        { color: theme.colors.onSurfaceVariant },
-                      ]}
-                    >
-                      {t("filters.enableHtmlRenderingDescription")}
-                    </Text>
+                {/* HTML Rendering */}
+                <TouchableRipple
+                  style={[
+                    styles.quickFilter,
+                    {
+                      borderColor: theme.colors.outline,
+                      backgroundColor: localFilters.enableHtmlRendering
+                        ? theme.colors.secondaryContainer
+                        : theme.colors.elevation?.level1 || theme.colors.surface,
+                    },
+                  ]}
+                  onPress={() =>
+                    handleHtmlRenderingChange(!localFilters.enableHtmlRendering)
+                  }
+                >
+                  <View style={styles.quickFilterContent}>
+                    <Icon
+                      source={"code-tags"}
+                      size={20}
+                      color={
+                        localFilters.enableHtmlRendering
+                          ? theme.colors.primary
+                          : theme.colors.onSurfaceVariant
+                      }
+                    />
+                    <View style={styles.quickFilterTextContainer}>
+                      <Text
+                        style={[
+                          styles.quickFilterText,
+                          {
+                            color: localFilters.enableHtmlRendering
+                              ? theme.colors.primary
+                              : theme.colors.onSurface,
+                          },
+                        ]}
+                      >
+                        {t("filters.enableHtmlRendering")}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.quickFilterDescription,
+                          { color: theme.colors.onSurfaceVariant },
+                        ]}
+                      >
+                        {t("filters.enableHtmlRenderingDescription")}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              </TouchableRipple>
+                </TouchableRipple>
+              </View>
             </View>
 
             {hasActiveFilters && (

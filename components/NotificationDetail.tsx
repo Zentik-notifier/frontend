@@ -348,47 +348,45 @@ export default function NotificationDetail({
                   </Text>
                 )}
               </View>
-            </View>
-          </View>
 
-          {/* HTML Rendering Toggle */}
-          <View style={styles.htmlToggleContainer}>
-            <TouchableOpacity
-              style={[
-                styles.htmlToggleButton,
-                {
-                  backgroundColor: enableHtmlRendering
-                    ? theme.colors.primaryContainer
-                    : theme.colors.surfaceVariant,
-                  borderColor: theme.colors.outline,
-                },
-              ]}
-              onPress={() => setEnableHtmlRendering(!enableHtmlRendering)}
-            >
-              <Icon
-                source={enableHtmlRendering ? "code-tags" : "code-tags-off"}
-                size={16}
-                color={
-                  enableHtmlRendering
-                    ? theme.colors.onPrimaryContainer
-                    : theme.colors.onSurfaceVariant
-                }
-              />
-              <Text
+              {/* HTML Rendering Toggle */}
+              <TouchableOpacity
                 style={[
-                  styles.htmlToggleText,
+                  styles.htmlToggleButtonSmall,
                   {
-                    color: enableHtmlRendering
-                      ? theme.colors.onPrimaryContainer
-                      : theme.colors.onSurfaceVariant,
+                    backgroundColor: enableHtmlRendering
+                      ? theme.colors.primaryContainer
+                      : theme.colors.surfaceVariant,
+                    borderColor: theme.colors.outline,
                   },
                 ]}
+                onPress={() => setEnableHtmlRendering(!enableHtmlRendering)}
               >
-                {enableHtmlRendering
-                  ? t("notificationDetail.htmlEnabled")
-                  : t("notificationDetail.htmlDisabled")}
-              </Text>
-            </TouchableOpacity>
+                <Icon
+                  source={"code-tags"}
+                  size={12}
+                  color={
+                    enableHtmlRendering
+                      ? theme.colors.onPrimaryContainer
+                      : theme.colors.onSurfaceVariant
+                  }
+                />
+                <Text
+                  style={[
+                    styles.htmlToggleTextSmall,
+                    {
+                      color: enableHtmlRendering
+                        ? theme.colors.onPrimaryContainer
+                        : theme.colors.onSurfaceVariant,
+                    },
+                  ]}
+                >
+                  {enableHtmlRendering
+                    ? t("notificationDetail.htmlEnabled")
+                    : t("notificationDetail.htmlDisabled")}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Title */}
@@ -680,21 +678,18 @@ const styles = StyleSheet.create({
   attachmentsContainer: {
     marginBottom: 16,
   },
-  htmlToggleContainer: {
-    marginBottom: 16,
-  },
-  htmlToggleButton: {
+  htmlToggleButtonSmall: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 6,
     borderWidth: 1,
-    alignSelf: "flex-start",
+    marginTop: 4,
   },
-  htmlToggleText: {
-    fontSize: 13,
+  htmlToggleTextSmall: {
+    fontSize: 9,
     fontWeight: "500",
   },
 });
