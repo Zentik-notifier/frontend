@@ -134,20 +134,14 @@ class NotificationService: UNNotificationServiceExtension {
     
     // Get bucket icon from cache or generate temporary placeholder
     if let bucketId = senderId, let bucketName = chatRoomName {
-      // Always show app icon as default (no custom avatar)
-      let showAppIcon = true
-
-      // Get icon ONLY if preference is disabled
-      if showAppIcon == false {
-        senderAvatarImageData = MediaAccess.getBucketIconFromSharedCache(
-          bucketId: bucketId,
-          bucketName: bucketName,
-          bucketColor: bucketColor
-        )
+      senderAvatarImageData = MediaAccess.getBucketIconFromSharedCache(
+        bucketId: bucketId,
+        bucketName: bucketName,
+        bucketColor: bucketColor
+      )
         
-        if senderAvatarImageData != nil {
-          print("📱 [NotificationService] 🎭 ✅ Using bucket icon (cached or generated placeholder)")
-        }
+      if senderAvatarImageData != nil {
+        print("📱 [NotificationService] 🎭 ✅ Using bucket icon (cached or generated placeholder)")
       }
       
       // Log avatar configuration
@@ -161,7 +155,6 @@ class NotificationService: UNNotificationServiceExtension {
             "bucketId": bucketId,
             "bucketName": bucketName,
             "bucketColor": bucketColor ?? "nil",
-            "showAppIcon": showAppIcon,
             "hasAvatarData": senderAvatarImageData != nil,
             "senderDisplayName": senderDisplayName ?? "nil"
           ]
