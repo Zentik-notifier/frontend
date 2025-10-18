@@ -95,6 +95,8 @@ class MediaCacheService {
     private repo?: MediaCacheRepository;
     private initializing = false;
     public metadata$ = new BehaviorSubject<CacheMetadata>(this.metadata);
+    private hasFilesystemPermission: boolean = true;
+    
     // Track current bucket parameters in memory to detect changes
     private bucketParamsCache = new Map<string, {
         bucketName: string;
@@ -385,8 +387,15 @@ class MediaCacheService {
         const cacheKey = this.generateCacheKey(url, mediaType);
         try {
             await this.getOrCreateThumbnail(url, mediaType);
-        } catch (e) {
-            console.warn('[MediaCache] Thumbnail generation failed for', url, e);
+        } catch (e: any) {
+            const isPermissionError = e?.message?.includes('ERR_FILE_SYSTEM') || 
+                                     e?.code === 'ERR_FILE_SYSTEM_READ_PERMISSION';
+            
+            if (isPermissionError) {
+                console.warn('[MediaCache] Thumbnail generation skipped - permission denied:', url);
+            } else {
+                console.warn('[MediaCache] Thumbnail generation failed for', url, e);
+            }
         } finally {
             // Don't update timestamp when thumbnail completes - preserve original media date
             await this.upsertItem(cacheKey, { generatingThumbnail: false });
@@ -416,6 +425,21 @@ class MediaCacheService {
         } catch (e) {
             console.error('[MediaCache] ❌ Bucket icon download error for', bucketName, e);
         }
+    }
+
+    /**
+     * Set filesystem permission status (called by useConnectionStatus)
+     */
+    public setFilesystemPermission(hasPermission: boolean): void {
+        this.hasFilesystemPermission = hasPermission;
+        console.log('[MediaCache] Filesystem permission status:', hasPermission);
+    }
+
+    /**
+     * Check if filesystem is accessible
+     */
+    public getFilesystemPermission(): boolean {
+        return this.hasFilesystemPermission;
     }
 
     private async initialize(): Promise<void> {
@@ -1013,26 +1037,64 @@ class MediaCacheService {
                 return thumbPath;
             }
 
+            // Verify source file exists and is accessible before attempting thumbnail generation
+            const sourceFile = new File(cached.localPath);
+            if (!sourceFile.exists) {
+                console.warn('[MediaCache] Source file not found for thumbnail generation:', cached.localPath);
+                return null;
+            }
+
+            // Check filesystem permissions before attempting thumbnail generation
+            if (!isWeb && !this.hasFilesystemPermission) {
+                console.warn('[MediaCache] Thumbnail generation skipped - no filesystem permission:', cached.localPath);
+                return null;
+            }
+
+            // Test file readability before attempting thumbnail generation (mobile only)
+            if (!isWeb) {
+                try {
+                    // Verify the source file is accessible
+                    if (!sourceFile.exists) {
+                        console.warn('[MediaCache] Source file not accessible for thumbnail generation:', cached.localPath);
+                        return null;
+                    }
+                } catch (accessError: any) {
+                    console.warn('[MediaCache] Cannot access file for thumbnail generation:', cached.localPath, accessError.message);
+                    return null; // Exit early if file is not accessible
+                }
+            }
+
             // Ensure directories exist
             await this.ensureDirectories();
 
             let tempUri: string | null = null;
 
-            if (mediaType === MediaType.Image || mediaType === MediaType.Gif) {
-                const result = await ImageManipulator.manipulateAsync(
-                    cached.localPath,
-                    [{ resize: { width: maxSize } }],
-                    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-                );
-                tempUri = result.uri;
-            } else if (mediaType === MediaType.Video) {
-                const { uri } = await VideoThumbnails.getThumbnailAsync(cached.localPath, {
-                    time: 1000,
-                    quality: 0.6,
-                });
-                tempUri = uri;
-            } else {
-                return null;
+            try {
+                if (mediaType === MediaType.Image || mediaType === MediaType.Gif) {
+                    const result = await ImageManipulator.manipulateAsync(
+                        cached.localPath,
+                        [{ resize: { width: maxSize } }],
+                        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+                    );
+                    tempUri = result.uri;
+                } else if (mediaType === MediaType.Video) {
+                    const { uri } = await VideoThumbnails.getThumbnailAsync(cached.localPath, {
+                        time: 1000,
+                        quality: 0.6,
+                    });
+                    tempUri = uri;
+                } else {
+                    return null;
+                }
+            } catch (manipulateError: any) {
+                const isPermissionError = manipulateError?.message?.includes('ERR_FILE_SYSTEM') || 
+                                         manipulateError?.code === 'ERR_FILE_SYSTEM_READ_PERMISSION';
+                
+                if (isPermissionError) {
+                    console.warn('[MediaCache] File system permission denied during thumbnail manipulation:', cached.localPath);
+                    return null; // Exit early without marking as permanent failure
+                }
+                throw manipulateError; // Re-throw other errors
             }
 
             if (!tempUri) return null;
@@ -1044,10 +1106,18 @@ class MediaCacheService {
             await this.upsertItem(key, { localThumbPath: thumbPath });
             console.log('[MediaCache] Thumbnail saved at:', thumbPath, url);
             return thumbPath;
-        } catch (error) {
-            console.error('[MediaCache] Failed to create thumbnail:', url, error);
-            // Don't update timestamp on thumbnail failure - preserve original media date
-            await this.upsertItem(key, { isPermanentFailure: true });
+        } catch (error: any) {
+            const isPermissionError = error?.message?.includes('ERR_FILE_SYSTEM') || 
+                                     error?.code === 'ERR_FILE_SYSTEM_READ_PERMISSION';
+            
+            if (isPermissionError) {
+                console.warn('[MediaCache] Thumbnail generation skipped due to permission error:', url);
+                // Don't mark as permanent failure - might work later if permissions granted
+            } else {
+                console.error('[MediaCache] Failed to create thumbnail:', url, error);
+                // Mark as permanent failure only for non-permission errors
+                await this.upsertItem(key, { isPermanentFailure: true });
+            }
 
             return null;
         }
@@ -1086,6 +1156,11 @@ class MediaCacheService {
      */
     public shouldGenerateThumbnail(url: string, mediaType: MediaType, force: boolean = false): boolean {
         if (!this.isThumbnailSupported(mediaType)) {
+            return false;
+        }
+
+        // Check filesystem permissions (mobile only)
+        if (!isWeb && !this.hasFilesystemPermission) {
             return false;
         }
 

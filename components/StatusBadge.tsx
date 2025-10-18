@@ -29,6 +29,8 @@ export default function StatusBadge() {
       Alert.alert(t("common.notice"), t("common.pushPermissionsDetails"));
     } else if (status.type === "push-needs-pwa") {
       Alert.alert(t("common.notice"), t("common.pushNeedsPwaDetails"));
+    } else if (status.type === "filesystem-permission") {
+      Alert.alert(t("common.notice"), t("common.filesystemPermissionDetails"));
     } else if (status.type === "offline") {
       openLoginModal();
     } else if (status.type === "update" && status.action) {
@@ -48,6 +50,8 @@ export default function StatusBadge() {
         return t("common.notificationsDisabled");
       case "push-needs-pwa":
         return t("common.installApp");
+      case "filesystem-permission":
+        return t("common.filesystemPermissionDenied");
       case "offline":
         return t("common.offline");
       case "backend":
@@ -74,7 +78,8 @@ export default function StatusBadge() {
     (status.type === "update" && status.action) ||
     (status.type === "push-notifications" && !isRegistering) ||
     status.type === "push-permissions" ||
-    status.type === "push-needs-pwa";
+    status.type === "push-needs-pwa" ||
+    status.type === "filesystem-permission";
 
   return (
     <Button

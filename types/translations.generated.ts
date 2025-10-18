@@ -933,6 +933,8 @@ export interface Translation {
     installApp: string;
     pushNeedsPwaHint: string;
     pushNeedsPwaDetails: string;
+    filesystemPermissionDenied: string;
+    filesystemPermissionDetails: string;
     selectOptions: string;
     refresh: string;
     download: string;

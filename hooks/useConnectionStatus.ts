@@ -1,14 +1,16 @@
 import { useGetMeQuery, useHealthcheckLazyQuery } from '@/generated/gql-operations-generated';
 import NetInfo from '@react-native-community/netinfo';
 import * as Updates from 'expo-updates';
+import { File, Paths } from 'expo-file-system/next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UsePushNotifications } from './usePushNotifications';
 import { Platform } from 'react-native';
 import { userSettings } from '@/services/user-settings';
+import { mediaCache } from '@/services/media-cache-service';
 
 
 interface ConnectionStatus {
-  type: 'update' | 'offline' | 'backend' | 'network' | 'push-notifications' | 'push-permissions' | 'push-needs-pwa';
+  type: 'update' | 'offline' | 'backend' | 'network' | 'push-notifications' | 'push-permissions' | 'push-needs-pwa' | 'filesystem-permission';
   icon: string;
   action: (() => void) | null;
   color: string;
@@ -22,6 +24,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
   const [status, setStatus] = useState<ConnectionStatus | undefined>();
   const [isWifi, setIsWifi] = useState(true);
   const [canAutoDownload, setCanAutoDownload] = useState(true);
+  const [hasFilesystemPermission, setHasFilesystemPermission] = useState(true);
 
   // Manage auth state internally
   const [isOfflineAuth, setIsOfflineAuth] = useState(false);
@@ -33,6 +36,53 @@ export function useConnectionStatus(push: UsePushNotifications) {
   const isPollingRef = useRef(false);
   const { data: userData, loading } = useGetMeQuery();
 
+  // Check filesystem permissions (mobile only)
+  useEffect(() => {
+    const checkFilesystemPermissions = async () => {
+      if (Platform.OS === 'web') {
+        setHasFilesystemPermission(true);
+        return;
+      }
+
+      try {
+        // Test if we can access and write to storage using expo-file-system/next API
+        const testFile = new File(Paths.cache, 'test-permission-check.txt');
+        
+        // Delete if exists from previous test
+        if (testFile.exists) {
+          testFile.delete();
+        }
+        
+        // Test write access
+        testFile.create();
+        testFile.write('test', {});
+        
+        // Test read access
+        const content = await testFile.text();
+        if (content !== 'test') {
+          throw new Error('Read verification failed');
+        }
+        
+        // Clean up
+        if (testFile.exists) {
+          testFile.delete();
+        }
+        
+        setHasFilesystemPermission(true);
+      } catch (error: any) {
+        console.warn('[useConnectionStatus] Filesystem permission check failed:', error.message);
+        setHasFilesystemPermission(false);
+      }
+    };
+
+    checkFilesystemPermissions();
+  }, []);
+
+  // Sync filesystem permission with MediaCache
+  useEffect(() => {
+    mediaCache.setFilesystemPermission(hasFilesystemPermission);
+  }, [hasFilesystemPermission]);
+
   useEffect(() => {
     let newStatus: ConnectionStatus | undefined;
 
@@ -42,6 +92,13 @@ export function useConnectionStatus(push: UsePushNotifications) {
         icon: 'cloud-off',
         action: null, // Si aprirà il modal di login
         color: '#FF3B30'
+      };
+    } else if (!hasFilesystemPermission) {
+      newStatus = {
+        type: 'filesystem-permission',
+        icon: 'folder-lock',
+        action: null,
+        color: '#FF9500'
       };
     } else if (push.needsPwa) {
       newStatus = {
@@ -88,7 +145,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
     }
 
     setStatus(newStatus);
-  }, [isOnline, isOfflineAuth, isBackendUnreachable, hasUpdateAvailable, push.needsPwa, push.pushPermissionError, push.deviceRegistered, push.registeringDevice])
+  }, [isOnline, isOfflineAuth, isBackendUnreachable, hasUpdateAvailable, hasFilesystemPermission, push.needsPwa, push.pushPermissionError, push.deviceRegistered, push.registeringDevice])
 
   const setBackendUnreachable = useCallback((value: boolean) => {
     setIsBackendUnreachable(value);
@@ -325,6 +382,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
     status,
     isWifi,
     canAutoDownload,
+    hasFilesystemPermission,
     applyUpdate,
     setBackendUnreachable,
     checkForUpdates,

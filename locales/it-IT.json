@@ -980,7 +980,9 @@
     "notice": "Attenzione",
     "installApp": "Installa app",
     "pushNeedsPwaHint": "Per abilitare le notifiche push sul web, aggiungi Zentik come app dal tuo browser (Installa App / Aggiungi alla schermata Home), poi riaprila.",
-    "pushNeedsPwaDetails": "Per ricevere le notifiche push sul web, installa Zentik come app (PWA) e poi riaprila.\n\nCome installare:\n- Chrome/Edge (Windows/Linux): Menu > Installa Zentik (o 'Installa app').\n- Chrome (Android): Menu ••• > Aggiungi a schermata Home.\n- Safari (iOS/iPadOS): Condividi > Aggiungi a Home.\n- Safari (macOS): File > Aggiungi al Dock.\n\nDopo l'installazione, apri Zentik dalla nuova icona ed effettua l'accesso se richiesto."
+    "pushNeedsPwaDetails": "Per ricevere le notifiche push sul web, installa Zentik come app (PWA) e poi riaprila.\n\nCome installare:\n- Chrome/Edge (Windows/Linux): Menu > Installa Zentik (o 'Installa app').\n- Chrome (Android): Menu ••• > Aggiungi a schermata Home.\n- Safari (iOS/iPadOS): Condividi > Aggiungi a Home.\n- Safari (macOS): File > Aggiungi al Dock.\n\nDopo l'installazione, apri Zentik dalla nuova icona ed effettua l'accesso se richiesto.",
+    "filesystemPermissionDenied": "Accesso memoria limitato",
+    "filesystemPermissionDetails": "L'app non può accedere alla memoria del dispositivo. Le anteprime dei media e le icone dei bucket non verranno generate. Controlla i permessi dell'app nelle impostazioni del dispositivo e riavvia l'app."
   },
   "notificationDetail": {
     "loading": "Caricamento notifica...",
