@@ -33,34 +33,16 @@ class NotificationService: UNNotificationServiceExtension {
     print("📱 [NotificationService] Body: \(request.content.body)")
     print("📱 [NotificationService] UserInfo: \(request.content.userInfo)")
     
-    // Log full payload as JSON to database
-    if let jsonData = try? JSONSerialization.data(withJSONObject: request.content.userInfo, options: .prettyPrinted),
-       let jsonString = String(data: jsonData, encoding: .utf8) {
-      print("📱 [NotificationService] Full Payload JSON:\n\(jsonString)")
-      
-      // Save to database
-      logToDatabase(
-        level: "info",
-        tag: "NotificationServiceExtension",
-        message: "[Payload] Full notification payload received",
-        metadata: [
-          "requestIdentifier": request.identifier,
-          "title": request.content.title,
-          "body": request.content.body,
-          "payload": jsonString
-        ]
-      )
-    } else {
-      print("📱 [NotificationService] Failed to serialize payload to JSON")
-      logToDatabase(
-        level: "error",
-        tag: "NotificationServiceExtension",
-        message: "[Payload] Failed to serialize payload to JSON",
-        metadata: [
-          "requestIdentifier": request.identifier
-        ]
-      )
-    }
+    // Log request.content description to database
+    logToDatabase(
+      level: "info",
+      tag: "Payload",
+      message: "Notification content received",
+      metadata: [
+        "requestIdentifier": request.identifier,
+        "content": String(describing: request.content)
+      ]
+    )
 
     self.contentHandler = contentHandler
     bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
@@ -75,8 +57,8 @@ class NotificationService: UNNotificationServiceExtension {
         
         logToDatabase(
           level: "info",
-          tag: "NotificationServiceExtension",
-          message: "[Lifecycle] Notification received and decrypted",
+          tag: "Lifecycle",
+          message: "Notification received and decrypted",
           metadata: [
             "notificationId": notificationId,
             "title": bestAttemptContent.title,
@@ -292,8 +274,8 @@ class NotificationService: UNNotificationServiceExtension {
         let hasActions = (content.userInfo["actions"] as? [[String: Any]])?.isEmpty == false
         logToDatabase(
           level: "info",
-          tag: "NotificationServiceExtension",
-          message: "[Communication] Communication style applied successfully - Ready for iOS and watchOS",
+          tag: "Communication",
+          message: "Communication style applied successfully - Ready for iOS and watchOS",
           metadata: [
             "notificationId": notificationId,
             "sender": senderDisplayName ?? "unknown",
@@ -317,8 +299,8 @@ class NotificationService: UNNotificationServiceExtension {
       if let notificationId = content.userInfo["notificationId"] as? String {
         logToDatabase(
           level: "error",
-          tag: "NotificationServiceExtension",
-          message: "[Communication] Failed to apply communication style",
+          tag: "Communication",
+          message: "Failed to apply communication style",
           metadata: [
             "notificationId": notificationId,
             "error": error.localizedDescription
@@ -409,10 +391,59 @@ class NotificationService: UNNotificationServiceExtension {
     // Fast path: single encrypted blob to minimize overhead
     if let enc = userInfo["enc"] as? String, let jsonString = decryptValue(enc) {
       print("📱 [NotificationService] 🔓 Decrypted blob content: \(jsonString)")
+      
       if let data = jsonString.data(using: .utf8),
         let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
       {
         print("📱 [NotificationService] 🔍 Parsed decrypted object keys: \(obj.keys.sorted())")
+        
+        // Log payload originale e decriptato
+        if let originalJson = try? JSONSerialization.data(withJSONObject: userInfo, options: .prettyPrinted),
+           let originalString = String(data: originalJson, encoding: .utf8),
+           let decryptedJson = try? JSONSerialization.data(withJSONObject: obj, options: .prettyPrinted),
+           let decryptedString = String(data: decryptedJson, encoding: .utf8) {
+          logToDatabase(
+            level: "info",
+            tag: "Decryption",
+            message: "Payload decrypted successfully",
+            metadata: [
+              "originalPayload": originalString,
+              "decryptedPayload": decryptedString
+            ]
+          )
+        }
+        
+        // Log azioni e attachments in dettaglio
+        if let actions = obj["actions"] as? [[String: Any]], !actions.isEmpty {
+          if let actionsJson = try? JSONSerialization.data(withJSONObject: actions, options: .prettyPrinted),
+             let actionsString = String(data: actionsJson, encoding: .utf8) {
+            logToDatabase(
+              level: "info",
+              tag: "Actions",
+              message: "Actions details from decrypted payload",
+              metadata: [
+                "actionsCount": actions.count,
+                "actionsData": actionsString
+              ]
+            )
+          }
+        }
+        
+        if let attachmentData = obj["attachmentData"] as? [[String: Any]], !attachmentData.isEmpty {
+          if let attachmentsJson = try? JSONSerialization.data(withJSONObject: attachmentData, options: .prettyPrinted),
+             let attachmentsString = String(data: attachmentsJson, encoding: .utf8) {
+            logToDatabase(
+              level: "info",
+              tag: "Media",
+              message: "Attachments details from decrypted payload",
+              metadata: [
+                "attachmentsCount": attachmentData.count,
+                "attachmentsData": attachmentsString
+              ]
+            )
+          }
+        }
+        
         if let title = obj["title"] as? String { content.title = title }
         if let body = obj["body"] as? String { content.body = body }
         if let subtitle = obj["subtitle"] as? String { content.subtitle = subtitle }
@@ -441,8 +472,8 @@ class NotificationService: UNNotificationServiceExtension {
       print("📱 [NotificationService] ❌ Private key not found")
       logToDatabase(
         level: "error",
-        tag: "NotificationServiceExtension",
-        message: "[Decryption] Private key not found in keychain",
+        tag: "Decryption",
+        message: "Private key not found in keychain",
         metadata: nil
       )
       return nil
@@ -459,8 +490,8 @@ class NotificationService: UNNotificationServiceExtension {
         print("📱 [NotificationService] ❌ Invalid base64 payload")
         logToDatabase(
           level: "error",
-          tag: "NotificationServiceExtension",
-          message: "[Decryption] Invalid base64 payload",
+          tag: "Decryption",
+          message: "Invalid base64 payload",
           metadata: nil
         )
         return nil
@@ -503,8 +534,8 @@ class NotificationService: UNNotificationServiceExtension {
       print("📱 [NotificationService] ❌ Decryption failed: \(error)")
       logToDatabase(
         level: "error",
-        tag: "NotificationServiceExtension",
-        message: "[Decryption] Decryption failed",
+        tag: "Decryption",
+        message: "Decryption failed",
         metadata: ["error": error.localizedDescription]
       )
       return nil
@@ -751,19 +782,20 @@ class NotificationService: UNNotificationServiceExtension {
       content.userInfo = mutableUserInfo
       print("📱 [NotificationService] ⌚️ Filtered actions added to userInfo for watchOS and NCE (no credentials)")
       
-      logToDatabase(
-        level: "info",
-        tag: "NotificationServiceExtension",
-        message: "[Actions] Registered DYNAMIC category with filtered actions for watchOS",
-        metadata: [
-          "notificationId": notificationId,
-          "originalActionsCount": actions.count,
-          "filteredActionsCount": filteredActions.count,
-          "categoryId": "DYNAMIC",
-          "watchOSCompatible": true,
-          "credentialsInUserInfo": false
-        ]
-      )
+      // Log esplicito per NSE con tutte le azioni del payload
+      if let actionsJson = try? JSONSerialization.data(withJSONObject: actions, options: .prettyPrinted),
+         let actionsString = String(data: actionsJson, encoding: .utf8) {
+        logToDatabase(
+          level: "info",
+          tag: "Actions",
+          message: "Available actions in notification",
+          metadata: [
+            "notificationId": notificationId,
+            "actionsCount": actions.count,
+            "actions": actionsString
+          ]
+        )
+      }
     } else {
       // Use DYNAMIC category even without actions for NCE custom content
       content.categoryIdentifier = "DYNAMIC"
@@ -854,8 +886,8 @@ class NotificationService: UNNotificationServiceExtension {
         if let notificationId = userInfo["notificationId"] as? String {
           self.logToDatabase(
             level: "info",
-            tag: "NotificationServiceExtension",
-            message: "[Media] Media downloaded successfully",
+            tag: "Media",
+            message: "Media downloaded successfully",
             metadata: [
               "notificationId": notificationId,
               "mediaType": selectedItem.mediaType,
@@ -872,8 +904,8 @@ class NotificationService: UNNotificationServiceExtension {
         if let notificationId = userInfo["notificationId"] as? String {
           self.logToDatabase(
             level: "error",
-            tag: "NotificationServiceExtension",
-            message: "[Media] Failed to download media",
+            tag: "Media",
+            message: "Failed to download media",
             metadata: [
               "notificationId": notificationId,
               "mediaType": selectedItem.mediaType,
@@ -1768,8 +1800,8 @@ class NotificationService: UNNotificationServiceExtension {
       // Log to database
       logToDatabase(
         level: "info",
-        tag: "NotificationServiceExtension",
-        message: "[Database] Notification saved",
+        tag: "Database",
+        message: "Notification saved",
         metadata: [
           "notificationId": notificationId,
           "bucketId": bucketId,
@@ -1825,8 +1857,8 @@ class NotificationService: UNNotificationServiceExtension {
       
       logToDatabase(
         level: "info",
-        tag: "NotificationServiceExtension",
-        message: "[TapAction] Tap action stored with unique key",
+        tag: "TapAction",
+        message: "Tap action stored with unique key",
         metadata: [
           "notificationId": notificationId,
           "service": service,
@@ -1837,8 +1869,8 @@ class NotificationService: UNNotificationServiceExtension {
       print("📱 [NotificationService] ❌ Failed to store tap action: \(error)")
       logToDatabase(
         level: "error",
-        tag: "NotificationServiceExtension",
-        message: "[TapAction] Failed to store tap action",
+        tag: "TapAction",
+        message: "Failed to store tap action",
         metadata: ["notificationId": notificationId, "error": error.localizedDescription]
       )
     }

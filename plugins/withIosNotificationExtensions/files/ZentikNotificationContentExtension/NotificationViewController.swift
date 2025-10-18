@@ -141,8 +141,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         let notificationId = notification.request.identifier
         logToDatabase(
             level: "INFO",
-            tag: "NotificationContentExtension",
-            message: "[Init] NCE initialized for notification",
+            tag: "Lifecycle",
+            message: "NCE initialized for notification",
             metadata: ["notificationId": notificationId]
         )
         
@@ -153,29 +153,22 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
             print("📱 [ContentExtension] 🎭 Raw actions data received: \(actionsData)")
             
-            logToDatabase(
-                level: "INFO",
-                tag: "NotificationContentExtension",
-                message: "[Actions] Raw actions data received",
+            // Log esplicito per NCE con tutte le azioni del payload
+            if let actionsJson = try? JSONSerialization.data(withJSONObject: actionsData, options: .prettyPrinted),
+               let actionsString = String(data: actionsJson, encoding: .utf8) {
+              logToDatabase(
+                level: "info",
+                tag: "Actions",
+                message: "Available actions in notification",
                 metadata: [
-                    "notificationId": notificationId,
-                    "categoryId": categoryId,
-                    "rawActionsData": String(describing: actionsData)
+                  "notificationId": notificationId,
+                  "actionsCount": actionsData.count,
+                  "actions": actionsString
                 ]
-            )
+              )
+            }
         } else {
             print("📱 [ContentExtension] 🎭 No actions data in userInfo")
-            
-            logToDatabase(
-                level: "WARN",
-                tag: "NotificationContentExtension",
-                message: "[Actions] No actions data in userInfo",
-                metadata: [
-                    "notificationId": notificationId,
-                    "categoryId": categoryId,
-                    "userInfoKeys": notification.request.content.userInfo.keys.map { String(describing: $0) }.joined(separator: ", ")
-                ]
-            )
         }
         
         if let actionsData = notification.request.content.userInfo["actions"] as? [[String: Any]] {
@@ -188,8 +181,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     
                     logToDatabase(
                         level: "WARN",
-                        tag: "NotificationContentExtension",
-                        message: "[Actions] Invalid action data",
+                        tag: "Actions",
+                        message: "Invalid action data",
                         metadata: [
                             "notificationId": notificationId,
                             "actionData": String(describing: actionData)
@@ -219,8 +212,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 
                 logToDatabase(
                     level: "INFO",
-                    tag: "NotificationContentExtension",
-                    message: "[Actions] Dynamic action created",
+                    tag: "Actions",
+                    message: "Dynamic action created",
                     metadata: [
                         "notificationId": notificationId,
                         "actionId": actionId,
@@ -254,8 +247,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 
                 logToDatabase(
                     level: "INFO",
-                    tag: "NotificationContentExtension",
-                    message: "[Actions] Dynamic actions injected successfully",
+                    tag: "Actions",
+                    message: "Dynamic actions injected successfully",
                     metadata: [
                         "notificationId": notificationId,
                         "actionsCount": notificationActions.count,
@@ -268,8 +261,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                 
                 logToDatabase(
                     level: "WARN",
-                    tag: "NotificationContentExtension",
-                    message: "[Actions] No valid actions to inject",
+                    tag: "Actions",
+                    message: "No valid actions to inject",
                     metadata: [
                         "notificationId": notificationId,
                         "categoryId": categoryId,
@@ -354,8 +347,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         // Log tap action with detailed information
         logToDatabase(
             level: "INFO",
-            tag: "NotificationContentExtension",
-            message: "[Tap] User action received in NCE",
+            tag: "UserAction",
+            message: "User action received in NCE",
             metadata: [
                 "notificationId": response.notification.request.identifier,
                 "actionIdentifier": response.actionIdentifier,
@@ -2551,8 +2544,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     
                     logToDatabase(
                         level: "ERROR",
-                        tag: "NotificationContentExtension",
-                        message: "[Player] AVPlayer failed to load media",
+                        tag: "Media",
+                        message: "AVPlayer failed to load media",
                         metadata: errorMetadata
                     )
                     
@@ -2608,8 +2601,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
                     
                     logToDatabase(
                         level: "ERROR",
-                        tag: "NotificationContentExtension",
-                        message: "[PlayerItem] AVPlayerItem failed to load media",
+                        tag: "Media",
+                        message: "AVPlayerItem failed to load media",
                         metadata: errorMetadata
                     )
                     
@@ -3148,8 +3141,8 @@ extension NotificationViewController {
 
         logToDatabase(
             level: "INFO",
-            tag: "NotificationContentExtension",
-            message: "[DefaultTap] Processing default tap action in background",
+            tag: "Navigation",
+            message: "Processing default tap action in background",
             metadata: ["notificationId": notificationId]
         )
 
@@ -3159,8 +3152,8 @@ extension NotificationViewController {
 
             logToDatabase(
                 level: "INFO",
-                tag: "NotificationContentExtension",
-                message: "[CustomTap] Found custom tap action in background",
+                tag: "Navigation",
+                message: "Found custom tap action in background",
                 metadata: [
                     "notificationId": notificationId,
                     "actionType": tapAction["type"] as? String ?? "unknown"
@@ -3180,8 +3173,8 @@ extension NotificationViewController {
 
             logToDatabase(
                 level: "INFO",
-                tag: "NotificationContentExtension",
-                message: "[Navigation] Stored default navigation intent in background",
+                tag: "Navigation",
+                message: "Stored default navigation intent in background",
                 metadata: ["notificationId": notificationId]
             )
 
@@ -3204,8 +3197,8 @@ extension NotificationViewController {
         
         logToDatabase(
             level: "INFO",
-            tag: "NotificationContentExtension",
-            message: "[DefaultTap] Processing default tap action",
+            tag: "Navigation",
+            message: "Processing default tap action",
             metadata: ["notificationId": notificationId]
         )
         
@@ -3215,8 +3208,8 @@ extension NotificationViewController {
             
             logToDatabase(
                 level: "INFO",
-                tag: "NotificationContentExtension",
-                message: "[CustomTap] Found custom tap action",
+                tag: "Navigation",
+                message: "Found custom tap action",
                 metadata: [
                     "notificationId": notificationId,
                     "actionType": tapAction["type"] as? String ?? "unknown"
@@ -3236,8 +3229,8 @@ extension NotificationViewController {
             
             logToDatabase(
                 level: "INFO",
-                tag: "NotificationContentExtension",
-                message: "[Navigation] Stored default navigation intent",
+                tag: "Navigation",
+                message: "Stored default navigation intent",
                 metadata: ["notificationId": notificationId]
             )
             
@@ -3486,8 +3479,8 @@ extension NotificationViewController {
             
             logToDatabase(
                 level: "INFO",
-                tag: "NotificationContentExtension",
-                message: "[Keychain] Stored navigation intent in keychain",
+                tag: "Navigation",
+                message: "Stored navigation intent in keychain",
                 metadata: [
                     "intentType": data["type"] as? String ?? "unknown",
                     "intentValue": data["value"] as? String ?? ""
@@ -3498,8 +3491,8 @@ extension NotificationViewController {
             
             logToDatabase(
                 level: "ERROR",
-                tag: "NotificationContentExtension",
-                message: "[Keychain] Failed to store navigation intent",
+                tag: "Navigation",
+                message: "Failed to store navigation intent",
                 metadata: ["error": error.localizedDescription]
             )
         }
