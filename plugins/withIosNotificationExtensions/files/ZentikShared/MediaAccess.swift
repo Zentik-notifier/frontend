@@ -344,6 +344,69 @@ public class MediaAccess {
     
     // MARK: - Avatar Generation
     
+    /// Process bucket icon to improve visibility for transparent backgrounds
+    public static func processBucketIcon(_ imageData: Data, hexColor: String? = nil, size: CGSize = CGSize(width: 200, height: 200)) -> Data? {
+        guard let image = UIImage(data: imageData) else {
+            return nil
+        }
+        
+        // Check if image has transparency
+        let hasTransparency = image.cgImage?.alphaInfo != .none && 
+                             image.cgImage?.alphaInfo != .noneSkipLast &&
+                             image.cgImage?.alphaInfo != .noneSkipFirst
+        
+        // If no transparency, return original
+        if !hasTransparency {
+            return imageData
+        }
+        
+        print("📱 [MediaAccess] 🎨 Bucket icon has transparency, adding background for better visibility")
+        
+        // Parse bucket color or use default
+        var backgroundColor = UIColor.systemBlue
+        if let hexColor = hexColor, hexColor.hasPrefix("#") {
+            let hex = String(hexColor.dropFirst())
+            if hex.count == 6, let rgb = Int(hex, radix: 16) {
+                let r = CGFloat((rgb >> 16) & 0xFF) / 255.0
+                let g = CGFloat((rgb >> 8) & 0xFF) / 255.0
+                let b = CGFloat(rgb & 0xFF) / 255.0
+                backgroundColor = UIColor(red: r, green: g, blue: b, alpha: 1.0)
+            }
+        }
+        
+        // Create renderer
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let processedImage = renderer.image { context in
+            // Draw circular background with bucket color
+            let rect = CGRect(origin: .zero, size: size)
+            let circlePath = UIBezierPath(ovalIn: rect)
+            backgroundColor.setFill()
+            circlePath.fill()
+            
+            // Add subtle shadow/border for depth
+            context.cgContext.saveGState()
+            context.cgContext.setShadow(
+                offset: CGSize(width: 0, height: 2),
+                blur: 4,
+                color: UIColor.black.withAlphaComponent(0.2).cgColor
+            )
+            
+            // Draw the icon centered with some padding
+            let padding: CGFloat = size.width * 0.15
+            let iconRect = rect.insetBy(dx: padding, dy: padding)
+            
+            // Clip to circle to ensure icon fits nicely
+            circlePath.addClip()
+            
+            // Draw icon
+            image.draw(in: iconRect)
+            
+            context.cgContext.restoreGState()
+        }
+        
+        return processedImage.pngData()
+    }
+    
     /// Generate avatar image from initials
     public static func generateAvatarImage(initials: String, size: CGSize = CGSize(width: 200, height: 200)) -> UIImage? {
         let renderer = UIGraphicsImageRenderer(size: size)
@@ -531,15 +594,20 @@ public class MediaAccess {
     // MARK: - Bucket Icon Cache Operations
     
     /// Get bucket icon from shared cache
-    public static func getBucketIconFromSharedCache(bucketId: String, bucketName: String) -> Data? {
+    public static func getBucketIconFromSharedCache(bucketId: String, bucketName: String, bucketColor: String?) -> Data? {
         let cacheDirectory = getSharedMediaCacheDirectory()
         let bucketIconDirectory = cacheDirectory.appendingPathComponent("BUCKET_ICON")
         
-        // Generate filename based on bucket info
+        // Generate filename based on bucket info with version identifier and color
+        // Version v2: includes transparent background processing
+        // Include color in filename so icons regenerate when color changes
         let safeBucketName = bucketName
             .replacingOccurrences(of: " ", with: "_")
             .replacingOccurrences(of: "/", with: "_")
-        let fileName = "bucket_icon_\(bucketId)_\(safeBucketName).png"
+        let safeColor = (bucketColor ?? "default")
+            .replacingOccurrences(of: "#", with: "")
+            .replacingOccurrences(of: " ", with: "_")
+        let fileName = "bucket_icon_v2_\(bucketId)_\(safeBucketName)_\(safeColor).png"
         let fileURL = bucketIconDirectory.appendingPathComponent(fileName)
         
         // Check if icon exists
@@ -557,8 +625,45 @@ public class MediaAccess {
         }
     }
     
+    /// Download, process and cache bucket icon
+    /// - Parameters:
+    ///   - bucketIconUrl: URL of the bucket icon to download
+    ///   - bucketId: Bucket ID for cache
+    ///   - bucketName: Bucket name for cache
+    ///   - bucketColor: Optional hex color for background processing
+    /// - Returns: Processed image data, or nil if download/processing fails
+    public static func downloadAndCacheBucketIcon(bucketIconUrl: String, bucketId: String, bucketName: String, bucketColor: String?) -> Data? {
+        guard let url = URL(string: bucketIconUrl) else {
+            print("📱 [MediaAccess] ❌ Invalid bucket icon URL: \(bucketIconUrl)")
+            return nil
+        }
+        
+        // Download the icon
+        guard let imageData = try? Data(contentsOf: url) else {
+            print("📱 [MediaAccess] ❌ Failed to download bucket icon from URL")
+            return nil
+        }
+        
+        print("📱 [MediaAccess] ✅ Successfully downloaded bucket icon from URL")
+        
+        // Process the icon to improve visibility for transparent backgrounds
+        let processedImageData: Data
+        if let processed = processBucketIcon(imageData, hexColor: bucketColor) {
+            processedImageData = processed
+            print("📱 [MediaAccess] ✅ Processed bucket icon for better visibility")
+        } else {
+            processedImageData = imageData
+            print("📱 [MediaAccess] ⚠️ Failed to process icon, using original")
+        }
+        
+        // Save to cache for future use
+        let _ = saveBucketIconToSharedCache(processedImageData, bucketId: bucketId, bucketName: bucketName, bucketColor: bucketColor)
+        
+        return processedImageData
+    }
+    
     /// Save bucket icon to shared cache
-    public static func saveBucketIconToSharedCache(_ imageData: Data, bucketId: String, bucketName: String) -> URL? {
+    public static func saveBucketIconToSharedCache(_ imageData: Data, bucketId: String, bucketName: String, bucketColor: String?) -> URL? {
         let cacheDirectory = getSharedMediaCacheDirectory()
         let bucketIconDirectory = cacheDirectory.appendingPathComponent("BUCKET_ICON")
         
@@ -574,11 +679,16 @@ public class MediaAccess {
             return nil
         }
         
-        // Generate filename based on bucket info
+        // Generate filename based on bucket info with version identifier and color
+        // Version v2: includes transparent background processing
+        // Include color in filename so icons regenerate when color changes
         let safeBucketName = bucketName
             .replacingOccurrences(of: " ", with: "_")
             .replacingOccurrences(of: "/", with: "_")
-        let fileName = "bucket_icon_\(bucketId)_\(safeBucketName).png"
+        let safeColor = (bucketColor ?? "default")
+            .replacingOccurrences(of: "#", with: "")
+            .replacingOccurrences(of: " ", with: "_")
+        let fileName = "bucket_icon_v2_\(bucketId)_\(safeBucketName)_\(safeColor).png"
         let fileURL = bucketIconDirectory.appendingPathComponent(fileName)
         
         do {

@@ -731,7 +731,8 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
            let bucketName = userInfo["bucketName"] as? String {
             print("📱 [ContentExtension] 🎭 Checking shared cache for bucket icon...")
             
-            if let bucketIconData = MediaAccess.getBucketIconFromSharedCache(bucketId: bucketId, bucketName: bucketName),
+            let bucketColor = userInfo["bucketColor"] as? String
+            if let bucketIconData = MediaAccess.getBucketIconFromSharedCache(bucketId: bucketId, bucketName: bucketName, bucketColor: bucketColor),
                let bucketIcon = UIImage(data: bucketIconData) {
                 imageView.image = bucketIcon
                 imageView.isHidden = false
@@ -751,22 +752,26 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             DispatchQueue.global(qos: .userInitiated).async { [weak self, weak imageView] in
                 guard let self = self, let imageView = imageView else { return }
                 
-                if let imageData = try? Data(contentsOf: url),
-                   let image = UIImage(data: imageData) {
-                    
-                    // Salva nella cache per la prossima volta
-                    if let bucketId = userInfo["bucketId"] as? String,
-                       let bucketName = userInfo["bucketName"] as? String {
-                        let _ = MediaAccess.saveBucketIconToSharedCache(imageData, bucketId: bucketId, bucketName: bucketName)
-                    }
-                    
+                let bucketId = userInfo["bucketId"] as? String
+                let bucketName = userInfo["bucketName"] as? String
+                let bucketColor = userInfo["bucketColor"] as? String
+                
+                if let bucketId = bucketId,
+                   let bucketName = bucketName,
+                   let processedImageData = MediaAccess.downloadAndCacheBucketIcon(
+                       bucketIconUrl: bucketIconUrl,
+                       bucketId: bucketId,
+                       bucketName: bucketName,
+                       bucketColor: bucketColor
+                   ),
+                   let image = UIImage(data: processedImageData) {
                     DispatchQueue.main.async {
                         imageView.image = image
                         imageView.isHidden = false
-                        print("📱 [ContentExtension] 🎭 ✅ Successfully loaded bucket icon from URL")
+                        print("📱 [ContentExtension] 🎭 ✅ Successfully downloaded and set bucket icon")
                     }
                 } else {
-                    print("📱 [ContentExtension] 🎭 ❌ Failed to load bucket icon from URL")
+                    print("📱 [ContentExtension] 🎭 ❌ Failed to download and process bucket icon")
                 }
             }
         }

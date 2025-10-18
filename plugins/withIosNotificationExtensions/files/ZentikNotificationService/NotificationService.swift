@@ -134,7 +134,7 @@ class NotificationService: UNNotificationServiceExtension {
     
     // Prima verifica se abbiamo già l'icona nella cache
     if let bucketId = senderId, let bucketName = chatRoomName {
-      senderAvatarImageData = MediaAccess.getBucketIconFromSharedCache(bucketId: bucketId, bucketName: bucketName)
+      senderAvatarImageData = MediaAccess.getBucketIconFromSharedCache(bucketId: bucketId, bucketName: bucketName, bucketColor: bucketColor)
       if senderAvatarImageData != nil {
         print("📱 [NotificationService] 🎭 ✅ Using cached bucket icon")
       }
@@ -142,15 +142,18 @@ class NotificationService: UNNotificationServiceExtension {
     
     // Se non in cache, prova a scaricare l'icona bucket
     if senderAvatarImageData == nil,
-       let senderThumbnailUrl = URL(string: senderThumbnail ?? ""),
-       let senderThumbnailImageData = try? Data(contentsOf: senderThumbnailUrl) {
-      // Successfully downloaded the image - use it directly
-      senderAvatarImageData = senderThumbnailImageData
-      print("📱 [NotificationService] 🎭 ✅ Successfully loaded sender image from URL")
+       let senderThumbnailUrl = senderThumbnail,
+       let bucketId = senderId,
+       let bucketName = chatRoomName {
+      senderAvatarImageData = MediaAccess.downloadAndCacheBucketIcon(
+        bucketIconUrl: senderThumbnailUrl,
+        bucketId: bucketId,
+        bucketName: bucketName,
+        bucketColor: bucketColor
+      )
       
-      // Salva nella cache per uso futuro (NSE e NCE)
-      if let bucketId = senderId, let bucketName = chatRoomName {
-        let _ = MediaAccess.saveBucketIconToSharedCache(senderThumbnailImageData, bucketId: bucketId, bucketName: bucketName)
+      if senderAvatarImageData != nil {
+        print("📱 [NotificationService] 🎭 ✅ Successfully downloaded and cached bucket icon")
       }
     }
     
@@ -173,7 +176,7 @@ class NotificationService: UNNotificationServiceExtension {
           
           // Salva il placeholder generato NELLO STESSO POSTO dell'icona bucket
           if let placeholderData = senderAvatarImageData {
-            let _ = MediaAccess.saveBucketIconToSharedCache(placeholderData, bucketId: bucketId, bucketName: bucketName)
+            let _ = MediaAccess.saveBucketIconToSharedCache(placeholderData, bucketId: bucketId, bucketName: bucketName, bucketColor: bucketColor)
           }
         }
       }
