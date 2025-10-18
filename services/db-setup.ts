@@ -90,6 +90,7 @@ export interface WebStorageDB extends DBSchema {
 let dbPromise: Promise<SQLiteDatabase> | null = null;
 let webDbPromise: Promise<IDBPDatabase<WebStorageDB>> | null = null;
 let dbInstance: SQLiteDatabase | null = null;
+let isClosing = false; // Flag to prevent operations during database close
 
 // Prevent concurrent database operations
 let dbOperationQueue: Promise<any> = Promise.resolve();
@@ -99,18 +100,100 @@ let dbOperationQueue: Promise<any> = Promise.resolve();
  * This prevents the mutex contention issues seen in crash logs
  */
 export function queueDbOperation<T>(operation: () => Promise<T>): Promise<T> {
-  const queued = dbOperationQueue.then(() => operation());
+  // Reject operations if database is being closed
+  if (isClosing) {
+    return Promise.reject(new Error('Database is closing, operation rejected'));
+  }
+
+  const queued = dbOperationQueue
+    .then(() => {
+      // Double-check if database is still open
+      if (isClosing) {
+        throw new Error('Database closed during operation');
+      }
+      return operation();
+    })
+    .catch((error) => {
+      // Log error but don't crash
+      console.warn('[queueDbOperation] Operation failed:', error?.message);
+      throw error;
+    });
+  
   dbOperationQueue = queued.catch(() => {}); // Don't propagate errors to next operations
   return queued;
 }
 
+/**
+ * Execute a database query with automatic error handling and retry logic
+ * This wrapper prevents crashes from SQLite errors (mutex locks, database closed, etc.)
+ * 
+ * @param operation - The database operation to execute
+ * @param operationName - Name for logging purposes
+ * @param retryCount - Number of retries on failure (default: 1)
+ * @returns Promise with the operation result or throws a safe error
+ */
+export async function executeQuery<T>(
+  operation: (db: any) => Promise<T>,
+  operationName: string = 'query',
+  retryCount: number = 1
+): Promise<T> {
+  let lastError: any = null;
+
+  for (let attempt = 0; attempt <= retryCount; attempt++) {
+    try {
+      if (Platform.OS === 'web') {
+        const db = await openWebStorageDb();
+        return await operation(db);
+      } else {
+        const db = await openSharedCacheDb();
+        return await queueDbOperation(() => operation(db));
+      }
+    } catch (error: any) {
+      lastError = error;
+      const errorMessage = error?.message || String(error);
+      
+      // Log error with context
+      console.warn(
+        `[executeQuery] ${operationName} failed (attempt ${attempt + 1}/${retryCount + 1}):`,
+        errorMessage
+      );
+
+      // Don't retry on certain errors
+      if (
+        errorMessage.includes('closing') ||
+        errorMessage.includes('closed') ||
+        isClosing
+      ) {
+        console.warn(`[executeQuery] ${operationName} aborted: database is closing`);
+        break;
+      }
+
+      // Wait before retry
+      if (attempt < retryCount) {
+        await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
+      }
+    }
+  }
+
+  // All retries failed - return safe default or throw
+  console.error(
+    `[executeQuery] ${operationName} failed after ${retryCount + 1} attempts:`,
+    lastError?.message || lastError
+  );
+  
+  throw new Error(`Database operation failed: ${operationName}`);
+}
+
 export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
-  if (dbInstance) return dbInstance;
-  if (dbPromise) return dbPromise;
+  if (dbInstance && !isClosing) return dbInstance;
+  if (dbPromise && !isClosing) return dbPromise;
 
   if (Platform.OS === 'web') {
     return {} as SQLiteDatabase;
   }
+
+  // Reset closing flag when opening database
+  isClosing = false;
 
   dbPromise = (async () => {
     const sharedDir = await getSharedMediaCacheDirectoryAsync();
@@ -267,17 +350,45 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
 /**
  * Close database connection when app goes to background
  * Helps prevent memory pressure and improves iOS stability
+ * 
+ * CRITICAL: This function prevents race conditions by:
+ * 1. Setting isClosing flag to reject new operations
+ * 2. Waiting for all pending operations to complete
+ * 3. Then safely closing the database connection
  */
 export async function closeSharedCacheDb(): Promise<void> {
-  if (dbInstance && Platform.OS !== 'web') {
-    try {
+  if (!dbInstance || Platform.OS === 'web' || isClosing) {
+    return;
+  }
+
+  try {
+    // Set flag to prevent new operations
+    isClosing = true;
+    console.log('[DB] Closing database: waiting for pending operations...');
+
+    // Wait for all pending operations in the queue to complete
+    // This prevents the crash when closeAsync is called while queries are running
+    await dbOperationQueue.catch(() => {
+      // Ignore errors from pending operations
+      console.warn('[DB] Some pending operations failed during close');
+    });
+
+    // Small delay to ensure all operations have truly completed
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Now safe to close the database
+    if (dbInstance) {
       await dbInstance.closeAsync();
-      dbInstance = null;
-      dbPromise = null;
       console.log('[DB] Database closed successfully');
-    } catch (error) {
-      console.error('[DB] Error closing database:', error);
     }
+  } catch (error: any) {
+    // Graceful error handling - don't crash the app
+    console.error('[DB] Error closing database (non-fatal):', error?.message || error);
+  } finally {
+    // Always reset state
+    dbInstance = null;
+    dbPromise = null;
+    isClosing = false;
   }
 }
 

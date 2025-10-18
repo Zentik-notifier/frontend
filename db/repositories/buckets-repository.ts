@@ -4,7 +4,7 @@
  */
 
 import { Platform } from 'react-native';
-import { openWebStorageDb, openSharedCacheDb } from '../../services/db-setup';
+import { executeQuery as executeQuerySafe } from '../../services/db-setup';
 
 /**
  * Bucket interface matching GraphQL BucketFragment
@@ -33,22 +33,11 @@ interface BucketRecord {
 }
 
 /**
- * Get the appropriate database instance based on platform
+ * Execute a query on the appropriate database with error handling
+ * Uses the safe executeQuery from db-setup that handles race conditions
  */
-async function getDatabase() {
-  if (Platform.OS === 'web') {
-    return await openWebStorageDb();
-  } else {
-    return await openSharedCacheDb();
-  }
-}
-
-/**
- * Execute a query on the appropriate database
- */
-async function executeQuery<T>(queryFn: (db: any) => Promise<T>): Promise<T> {
-  const db = await getDatabase();
-  return await queryFn(db);
+async function executeQuery<T>(queryFn: (db: any) => Promise<T>, operationName: string = 'bucket-operation'): Promise<T> {
+  return await executeQuerySafe(queryFn, operationName);
 }
 
 /**
