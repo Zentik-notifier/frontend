@@ -1351,8 +1351,12 @@
       "testInputHelp": "Inserisci un oggetto JSON per testare la tua funzione",
       "testInputRequired": "Fornisci sia l'input di test che il codice della funzione",
       "testInputInvalidJson": "JSON non valido nell'input di test",
+      "testHeadersInvalidJson": "JSON non valido negli headers di test",
       "testExecutionError": "Esecuzione funzione fallita",
       "jsEvalFnInvalidSyntax": "Sintassi JavaScript/TypeScript non valida",
+      "testHeaders": "Headers di Test",
+      "testHeadersPlaceholder": "Inserisci headers JSON di test",
+      "testHeadersHelp": "Inserisci headers HTTP come JSON per testare la tua funzione",
       "resetToDefault": "Ripristina Predefinito",
       "resetToSaved": "Ripristina Salvato"
     }

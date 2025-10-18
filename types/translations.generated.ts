@@ -1309,8 +1309,12 @@ export interface Translation {
       testInputHelp: string;
       testInputRequired: string;
       testInputInvalidJson: string;
+      testHeadersInvalidJson: string;
       testExecutionError: string;
       jsEvalFnInvalidSyntax: string;
+      testHeaders: string;
+      testHeadersPlaceholder: string;
+      testHeadersHelp: string;
       resetToDefault: string;
       resetToSaved: string;
     };

@@ -90,13 +90,19 @@ declare global {
 /**
  * Helper function type for payload transformation
  */
-declare type PayloadTransformer = (payload: any) => CreateMessageDto;
+declare type PayloadTransformer = (payload: any, headers?: Record<string, string>) => CreateMessageDto;
 
 /**
  * Global any type is allowed for webhook payload flexibility
  * This represents any incoming webhook payload structure
  */
 declare const payload: any;
+
+/**
+ * Global headers object for webhook headers
+ * This represents the HTTP headers from the incoming webhook request
+ */
+declare const headers: Record<string, string>;
 `;
 
 // Code Editor Component that uses Monaco Editor on web and TextInput on mobile

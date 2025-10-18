@@ -1306,8 +1306,12 @@
       "testInputHelp": "Enter a JSON object to test your function",
       "testInputRequired": "Please provide both test input and function code",
       "testInputInvalidJson": "Invalid JSON in test input",
+      "testHeadersInvalidJson": "Invalid JSON in test headers",
       "testExecutionError": "Function execution failed",
       "jsEvalFnInvalidSyntax": "Invalid JavaScript syntax",
+      "testHeaders": "Test Headers",
+      "testHeadersPlaceholder": "Enter JSON test headers",
+      "testHeadersHelp": "Enter HTTP headers as JSON to test your function",
       "resetToDefault": "Reset to Default",
       "resetToSaved": "Reset to Saved"
     }

@@ -75,11 +75,15 @@ export default function CreatePayloadMapperForm({
   const [jsEvalFn, setJsEvalFn] = useState("");
 
   // Default function template for new payload mappers
-  const defaultJsEvalFn = `(payload) => {
+  const defaultJsEvalFn = `(payload, headers) => {
   // This function transforms incoming webhook payloads into notification messages
   // Return null to skip the notification
   // https://notifier-docs.zentik.app/docs/notifications
-  
+
+  // Access to HTTP headers (optional second parameter)
+  // Example: const userAgent = headers['user-agent'];
+  // Example: const contentType = headers['content-type'];
+
   return {
     // Required fields
     title: payload.title || 'Notification Title',
@@ -102,6 +106,13 @@ export default function CreatePayloadMapperForm({
   "subtitle": "Version 2.1.0",
   "body": "We've released a new version with exciting features!",
   "url": "https://example.com/release-notes"
+}`);
+
+  const [testHeaders, setTestHeaders] = useState(`{
+  "user-agent": "GitHub-Hookshot/1234567",
+  "content-type": "application/json",
+  "x-github-event": "push",
+  "x-github-delivery": "example-delivery-id"
 }`);
   const [testOutput, setTestOutput] = useState("");
   const [isTesting, setIsTesting] = useState(false);
@@ -137,6 +148,13 @@ export default function CreatePayloadMapperForm({
     setFieldErrors({});
     // Clear test output
     setTestOutput("");
+    // Reset test headers to default
+    setTestHeaders(`{
+  "user-agent": "GitHub-Hookshot/1234567",
+  "content-type": "application/json",
+  "x-github-event": "push",
+  "x-github-delivery": "example-delivery-id"
+}`);
   };
 
   const [createPayloadMapperMutation, { loading: creatingPayloadMapper }] =
@@ -223,7 +241,7 @@ export default function CreatePayloadMapperForm({
   };
 
   const testFunction = async () => {
-    if (!testInput.trim() || !jsEvalFn.trim()) {
+    if (!testInput.trim() || !testHeaders.trim() || !jsEvalFn.trim()) {
       return;
     }
 
@@ -234,8 +252,10 @@ export default function CreatePayloadMapperForm({
     try {
       // Parse test input as JSON
       let parsedInput;
+      let parsedHeaders;
       try {
         parsedInput = JSON.parse(testInput);
+        parsedHeaders = JSON.parse(testHeaders);
       } catch (e) {
         setFieldErrors({
           ...fieldErrors,
@@ -244,9 +264,21 @@ export default function CreatePayloadMapperForm({
         setIsTesting(false);
         return;
       }
+
+      // Parse test headers as JSON
+      try {
+        parsedHeaders = JSON.parse(testHeaders);
+      } catch (e) {
+        setFieldErrors({
+          ...fieldErrors,
+          testInput: t("payloadMappers.form.testHeadersInvalidJson"),
+        });
+        setIsTesting(false);
+        return;
+      }
       const testFn = eval(jsEvalFn);
 
-      const result = testFn(parsedInput);
+      const result = testFn(parsedInput, parsedHeaders);
       setTestOutput(JSON.stringify(result ?? {}, null, 2));
     } catch (error: any) {
       setTestOutput(
@@ -396,6 +428,20 @@ export default function CreatePayloadMapperForm({
             {t("payloadMappers.form.testInputHelp")}
           </Text>
 
+          <CodeEditor
+            value={testHeaders}
+            onChange={(text: string) => {
+              setTestHeaders(text);
+            }}
+            placeholder={t("payloadMappers.form.testHeadersPlaceholder")}
+            label={t("payloadMappers.form.testHeaders")}
+            language="json"
+          />
+
+          <Text style={styles.helpText}>
+            {t("payloadMappers.form.testHeadersHelp")}
+          </Text>
+
           <Button
             mode="outlined"
             onPress={testFunction}
@@ -403,6 +449,7 @@ export default function CreatePayloadMapperForm({
             disabled={
               isTesting ||
               !testInput.trim() ||
+              !testHeaders.trim() ||
               !jsEvalFn.trim() ||
               !!fieldErrors.name ||
               !!fieldErrors.jsEvalFn
