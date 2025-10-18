@@ -71,7 +71,6 @@ export let saveApiEndpoint: (endpoint: string) => Promise<void>;
 export let getStoredApiEndpoint: () => Promise<string | null>;
 export let clearApiEndpoint: () => Promise<void>;
 export let clearPendingNotifications: () => Promise<void>;
-export let saveNseShowAppIconOnBucketIconMissing: (value: boolean) => Promise<void>;
 
 const SERVICE = 'zentik-auth';
 const PUBLIC_KEY_SERVICE = 'zentik-public-key';
@@ -79,7 +78,6 @@ const PRIVATE_KEY_SERVICE = 'zentik-private-key';
 const PENDING_NAVIGATION_SERVICE = 'zentik-pending-navigation';
 const BADGE_COUNT_SERVICE = 'zentik-badge-count';
 const API_ENDPOINT_SERVICE = 'zentik-api-endpoint';
-const NSE_SHOW_APP_ICON_MISSING_SERVICE = 'zentik-setting-show-app-icon-missing';
 
 const bundleIdentifier = process.env.EXPO_PUBLIC_APP_VARIANT === 'development' ?
   'com.apocaliss92.zentik.dev' :
@@ -421,19 +419,6 @@ if (Platform.OS === 'ios' || Platform.OS === 'macos') {
       await AsyncStorage.removeItem(API_ENDPOINT_KEY);
     } catch { }
   };
-
-  // NSE setting: show app icon when bucket icon missing
-  saveNseShowAppIconOnBucketIconMissing = async (value: boolean) => {
-    try {
-      const options: Keychain.SetOptions = Device.isDevice
-        ? { service: NSE_SHOW_APP_ICON_MISSING_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
-        : { service: NSE_SHOW_APP_ICON_MISSING_SERVICE, accessible: ACCESSIBLE };
-      await Keychain.setGenericPassword('flag', value ? 'true' : 'false', options);
-    } catch (error) {
-      // Fallback to AsyncStorage on non-iOS
-      try { await AsyncStorage.setItem(NSE_SHOW_APP_ICON_MISSING_SERVICE, value ? 'true' : 'false'); } catch {}
-    }
-  };
 } else {
   // Auth tokens - use AsyncStorage for Android/Web
   saveTokens = async (accessToken, refreshToken) => {
@@ -552,13 +537,6 @@ if (Platform.OS === 'ios' || Platform.OS === 'macos') {
   clearApiEndpoint = async () => {
     try {
       await AsyncStorage.removeItem(API_ENDPOINT_KEY);
-    } catch { }
-  };
-
-  // NSE setting: show app icon when bucket icon missing (Android/Web fallback)
-  saveNseShowAppIconOnBucketIconMissing = async (value: boolean) => {
-    try {
-      await AsyncStorage.setItem('nse_setting_show_app_icon_missing', value ? 'true' : 'false');
     } catch { }
   };
 }

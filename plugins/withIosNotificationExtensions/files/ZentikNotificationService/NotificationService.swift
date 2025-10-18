@@ -134,8 +134,8 @@ class NotificationService: UNNotificationServiceExtension {
     
     // Get bucket icon from cache or generate temporary placeholder
     if let bucketId = senderId, let bucketName = chatRoomName {
-      // Read UI preference: show app icon when bucket icon missing (skip custom avatar)
-      let showAppIcon = KeychainAccess.readBoolFromKeychain(service: "zentik-setting-show-app-icon-missing") ?? true
+      // Always show app icon as default (no custom avatar)
+      let showAppIcon = true
 
       // Get icon ONLY if preference is disabled
       if showAppIcon == false {
@@ -148,6 +148,24 @@ class NotificationService: UNNotificationServiceExtension {
         if senderAvatarImageData != nil {
           print("📱 [NotificationService] 🎭 ✅ Using bucket icon (cached or generated placeholder)")
         }
+      }
+      
+      // Log avatar configuration
+      if let notificationId = content.userInfo["notificationId"] as? String {
+        logToDatabase(
+          level: "info",
+          tag: "Avatar",
+          message: "Avatar configuration for communication style",
+          metadata: [
+            "notificationId": notificationId,
+            "bucketId": bucketId,
+            "bucketName": bucketName,
+            "bucketColor": bucketColor ?? "nil",
+            "showAppIcon": showAppIcon,
+            "hasAvatarData": senderAvatarImageData != nil,
+            "senderDisplayName": senderDisplayName ?? "nil"
+          ]
+        )
       }
     }
     
