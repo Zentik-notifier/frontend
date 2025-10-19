@@ -98,7 +98,7 @@ class MediaCacheService {
     private initializing = false;
     public metadata$ = new BehaviorSubject<CacheMetadata>(this.metadata);
     private hasFilesystemPermission: boolean = true;
-    
+
     // Track current bucket parameters in memory to detect changes
     private bucketParamsCache = new Map<string, {
         bucketName: string;
@@ -110,13 +110,13 @@ class MediaCacheService {
     // Modern reactive queue management with RxJS
     private queueAction$ = new Subject<QueueAction>();
     private queueItem$ = new Subject<DownloadQueueItem>();
-    
+
     // Bucket icon completion notifications
     private bucketIconReady$ = new Subject<{ bucketId: string; uri: string }>();
-    
+
     // Initialization ready notification
     private initReady$ = new Subject<void>();
-    
+
     // Track current queue state for synchronous access
     private currentQueueState: DownloadQueueState = {
         queue: [],
@@ -126,10 +126,10 @@ class MediaCacheService {
     };
 
     public downloadQueue$: Observable<DownloadQueueState>;
-    
+
     // Public observable for bucket icon completion
     public bucketIconReady = this.bucketIconReady$.asObservable();
-    
+
     // Public observable for initialization completion
     public initReady = this.initReady$.asObservable();
 
@@ -146,7 +146,7 @@ class MediaCacheService {
         const queueStateReducer$ = this.queueAction$.pipe(
             scan((state: DownloadQueueState, action: QueueAction): DownloadQueueState => {
                 let newState: DownloadQueueState;
-                
+
                 switch (action.type) {
                     case 'ADD':
                         if (!action.item) return state;
@@ -210,7 +210,7 @@ class MediaCacheService {
                     default:
                         newState = state;
                 }
-                
+
                 // Update internal state for synchronous access
                 this.currentQueueState = newState;
                 return newState;
@@ -390,9 +390,9 @@ class MediaCacheService {
         try {
             await this.getOrCreateThumbnail(url, mediaType);
         } catch (e: any) {
-            const isPermissionError = e?.message?.includes('ERR_FILE_SYSTEM') || 
-                                     e?.code === 'ERR_FILE_SYSTEM_READ_PERMISSION';
-            
+            const isPermissionError = e?.message?.includes('ERR_FILE_SYSTEM') ||
+                e?.code === 'ERR_FILE_SYSTEM_READ_PERMISSION';
+
             if (isPermissionError) {
                 console.warn('[MediaCache] Thumbnail generation skipped - permission denied:', url);
             } else {
@@ -406,7 +406,7 @@ class MediaCacheService {
 
     private async performBucketIcon(item: DownloadQueueItem) {
         const { bucketId, bucketName, bucketColor, url } = item;
-        
+
         if (!bucketId || !bucketName || !url) {
             console.error('[MediaCache] ❌ Bucket icon item missing required fields');
             return;
@@ -414,13 +414,11 @@ class MediaCacheService {
 
         try {
             console.log(`[MediaCache] 🎭 Downloading bucket icon for ${bucketName}`, { bucketId, url });
-            
+
             const uri = await this.downloadAndCacheBucketIcon(bucketId, bucketName, bucketColor, url);
             if (uri) {
                 console.log(`[MediaCache] ✅ Download complete, notifying ${this.bucketIconReady$.observers.length} observers`);
-                console.log(`[MediaCache] 📢 Emitting bucketIconReady for ${bucketName}`, { bucketId, uri });
                 this.bucketIconReady$.next({ bucketId, uri });
-                console.log(`[MediaCache] 📢 Event emitted successfully`);
             } else {
                 console.error(`[MediaCache] ❌ Download failed for ${bucketName}`);
             }
@@ -483,9 +481,8 @@ class MediaCacheService {
                     }
                 }, 100);
             }
-            
+
             // Notify components that initialization is complete
-            console.log('[MediaCache] 📢 Emitting initialization complete event');
             this.initReady$.next();
         } catch (error) {
             console.error('[MediaCache] Initialization failed:', error);
@@ -563,11 +560,11 @@ class MediaCacheService {
                 // Ensure repository is initialized before using it
                 items = await this.repo.listCacheItems();
             }
-            
+
             // Get current queue state to preserve active operations
             const activeDownloadKeys = new Set<string>();
             const activeThumbnailKeys = new Set<string>();
-            
+
             // Check current queue for items being processed
             // this.currentQueueState.queue.forEach((queueItem: DownloadQueueItem) => {
             //     const key = this.generateCacheKey(queueItem.url, queueItem.mediaType);
@@ -577,7 +574,7 @@ class MediaCacheService {
             //         activeThumbnailKeys.add(key);
             //     }
             // });
-            
+
             // // Also check if there's a current item being processed
             // if (this.currentQueueState.currentItem) {
             //     const currentKey = this.generateCacheKey(
@@ -590,16 +587,16 @@ class MediaCacheService {
             //         activeThumbnailKeys.add(currentKey);
             //     }
             // }
-            
+
             // Save current metadata to preserve items added to queue but not yet in DB
             const currentMetadata = { ...this.metadata };
-            
+
             this.metadata = {};
             const pendingDownloads: CacheItem[] = [];
             const pendingThumbnails: CacheItem[] = [];
             for (const item of items) {
                 const key = this.generateCacheKey(item.url, item.mediaType);
-                
+
                 // Check if this item was marked as downloading/generating in DB
                 if (item.isDownloading) {
                     pendingDownloads.push(item);
@@ -608,14 +605,14 @@ class MediaCacheService {
                 if (item.generatingThumbnail) {
                     pendingThumbnails.push(item);
                 }
-                
+
                 // Preserve active operation states from current queue
                 const isActivelyDownloading = activeDownloadKeys.has(key);
                 const isActivelyGeneratingThumbnail = activeThumbnailKeys.has(key);
-                
+
                 // Merge with current metadata if it exists (for items in queue but not yet in DB)
                 const currentItem = currentMetadata[key];
-                
+
                 this.metadata[key] = {
                     ...item,
                     ...currentItem, // Preserve current metadata (e.g., from items added to queue)
@@ -624,14 +621,14 @@ class MediaCacheService {
                     isPermanentFailure: item.isPermanentFailure ?? false,
                 };
             }
-            
+
             // Also preserve items that are in current metadata but not in DB (newly added to queue)
             // for (const key in currentMetadata) {
             //     if (!this.metadata[key]) {
             //         const currentItem = currentMetadata[key];
             //         const isActivelyDownloading = activeDownloadKeys.has(key);
             //         const isActivelyGeneratingThumbnail = activeThumbnailKeys.has(key);
-                    
+
             //         console.log('[MediaCache] Preserving queued item not yet in DB:', currentItem.url);
             //         this.metadata[key] = {
             //             ...currentItem,
@@ -1089,9 +1086,9 @@ class MediaCacheService {
                     return null;
                 }
             } catch (manipulateError: any) {
-                const isPermissionError = manipulateError?.message?.includes('ERR_FILE_SYSTEM') || 
-                                         manipulateError?.code === 'ERR_FILE_SYSTEM_READ_PERMISSION';
-                
+                const isPermissionError = manipulateError?.message?.includes('ERR_FILE_SYSTEM') ||
+                    manipulateError?.code === 'ERR_FILE_SYSTEM_READ_PERMISSION';
+
                 if (isPermissionError) {
                     console.warn('[MediaCache] File system permission denied during thumbnail manipulation:', cached.localPath);
                     return null; // Exit early without marking as permanent failure
@@ -1109,9 +1106,9 @@ class MediaCacheService {
             console.log('[MediaCache] Thumbnail saved at:', thumbPath, url);
             return thumbPath;
         } catch (error: any) {
-            const isPermissionError = error?.message?.includes('ERR_FILE_SYSTEM') || 
-                                     error?.code === 'ERR_FILE_SYSTEM_READ_PERMISSION';
-            
+            const isPermissionError = error?.message?.includes('ERR_FILE_SYSTEM') ||
+                error?.code === 'ERR_FILE_SYSTEM_READ_PERMISSION';
+
             if (isPermissionError) {
                 console.warn('[MediaCache] Thumbnail generation skipped due to permission error:', url);
                 // Don't mark as permanent failure - might work later if permissions granted
@@ -1181,9 +1178,9 @@ class MediaCacheService {
 
         // Skip if media is not ready or has issues (unless forcing)
         if (!force) {
-            if (cachedItem.isUserDeleted || 
-                cachedItem.isPermanentFailure || 
-                !cachedItem.localPath || 
+            if (cachedItem.isUserDeleted ||
+                cachedItem.isPermanentFailure ||
+                !cachedItem.localPath ||
                 cachedItem.isDownloading) {
                 return false;
             }
@@ -1275,14 +1272,14 @@ class MediaCacheService {
             // Check if bucket parameters have changed since last call
             const cachedParams = this.bucketParamsCache.get(bucketId);
             const currentTimestamp = Date.now();
-            
+
             // Compare current params with cached params
             const paramsChanged = cachedParams && (
                 cachedParams.bucketName !== bucketName ||
                 cachedParams.bucketColor !== bucketColor ||
                 cachedParams.iconUrl !== iconUrl
             );
-            
+
             if (paramsChanged) {
                 console.log(`[MediaCache] 🔄 Bucket params changed for ${bucketName}`, {
                     old: cachedParams,
@@ -1299,30 +1296,25 @@ class MediaCacheService {
 
             // Generate cache key
             const cacheKey = this.generateBucketIconCacheKey(bucketId, bucketName, bucketColor);
-            
+
             // console.log(`[MediaCache] 🔍 Checking cache for ${bucketName}`, { cacheKey, iconUrl });
-            
+
             // Check if already cached
             const timestamp = this.bucketParamsCache.get(bucketId)?.timestamp || Date.now();
-            
+
             // Use the same method for both web and mobile
             const cachedUri = await this.repo.getBucketIconFromSharedCache(bucketId, bucketName, bucketColor, timestamp);
             if (cachedUri) {
-                console.log(`[MediaCache] ✅ Found in cache: ${bucketName}`);
                 return cachedUri;
             }
-
-            console.log(`[MediaCache] ❌ Not in cache: ${bucketName}`);
 
             // Not in cache - add to queue for download if iconUrl exists
             // Backend automatically generates icons, so iconUrl should always exist
             if (iconUrl) {
-                console.log(`[MediaCache] ➕ Adding to download queue: ${bucketName}`);
                 await this.addBucketIconToQueue(bucketId, bucketName, bucketColor, iconUrl);
-                // Return null - component will be notified via observable when ready
                 return null;
             }
-            
+
             // No icon URL (legacy buckets?) - show placeholder in component
             console.log(`[MediaCache] ⚠️ No icon URL for ${bucketName}, will show placeholder`);
             return null;
@@ -1342,21 +1334,21 @@ class MediaCacheService {
         iconUrl: string
     ): Promise<void> {
         const key = `BUCKET_ICON::${bucketId}::bucket-icon`;
-        
+
         // Check if already in queue (use currentQueueState for synchronous check)
         const alreadyInQueue = this.currentQueueState.queue.some(item => item.key === key);
-        
+
         if (alreadyInQueue) {
             console.log(`[MediaCache] ⏭️ Bucket icon already in queue for ${bucketId}, skipping`);
             return;
         }
-        
+
         // Also check if currently processing this bucket icon
-        if (this.currentQueueState.isProcessing && 
+        if (this.currentQueueState.isProcessing &&
             this.currentQueueState.currentItem?.key === key) {
             return;
         }
-        
+
         const queueItem: DownloadQueueItem = {
             key,
             url: iconUrl,
@@ -1421,7 +1413,7 @@ class MediaCacheService {
                 if (!response.ok) {
                     throw new Error(`Backend proxy failed: ${response.status} ${response.statusText}`);
                 }
-                
+
                 const blob = await response.blob();
                 console.log(`[MediaCache] ✅ Downloaded bucket icon: ${blob.size} bytes`);
 
@@ -1564,7 +1556,7 @@ class MediaCacheService {
                 // Ignore cleanup errors
             }
         }
-        
+
         // Clean up manipulated file if it's different from final location
         try {
             const manipFile = new File(manipulatedUri);

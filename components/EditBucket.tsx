@@ -1,3 +1,4 @@
+import BucketAccessTokensSection from "@/components/BucketAccessTokensSection";
 import BucketSharingSection from "@/components/BucketSharingSection";
 import CreateBucketForm from "@/components/CreateBucketForm";
 import { useAppContext } from "@/contexts/AppContext";
@@ -152,6 +153,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
 
       {canAdmin && (
         <>
+          <BucketAccessTokensSection bucketId={bucketId} />
           <BucketSharingSection bucketId={bucketId} />
           <Button
             mode="contained"

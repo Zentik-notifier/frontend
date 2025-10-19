@@ -4,17 +4,20 @@ import {
   GetUserAccessTokensDocument,
   GetUserAccessTokensQuery,
   useCreateAccessTokenMutation,
+  useGetBucketsQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, Switch, View } from "react-native";
 import * as Clipboard from 'expo-clipboard';
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import CopyButton from "@/components/ui/CopyButton";
+import BucketSelector from "@/components/BucketSelector";
 import {
   Button,
   Card,
+  Chip,
   Dialog,
   Icon,
   Portal,
@@ -23,7 +26,15 @@ import {
   useTheme,
 } from "react-native-paper";
 
-export default function CreateAccessTokenForm() {
+interface CreateAccessTokenFormProps {
+  editMode?: boolean;
+  tokenData?: AccessTokenListDto;
+}
+
+export default function CreateAccessTokenForm({
+  editMode = false,
+  tokenData,
+}: CreateAccessTokenFormProps) {
   const router = useRouter();
   const theme = useTheme();
   const { t } = useI18n();
@@ -35,16 +46,21 @@ export default function CreateAccessTokenForm() {
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
+  const [storeToken, setStoreToken] = useState(true);
+  const [useScopes, setUseScopes] = useState(false);
+  const [selectedBucketId, setSelectedBucketId] = useState<string>("");
 
-  const handleCopyToken = async () => {
-    if (newToken && newToken !== "N/A") {
-      await Clipboard.setStringAsync(newToken);
-      setCopySuccess(true);
-      setTimeout(() => {
-        setCopySuccess(false);
-      }, 1000);
+  const { data: bucketsData } = useGetBucketsQuery();
+
+  // Initialize form in edit mode
+  React.useEffect(() => {
+    if (editMode && tokenData) {
+      setNewTokenName(tokenData.name);
+      if (tokenData.token) {
+        setNewToken(tokenData.token);
+      }
     }
-  };
+  }, [editMode, tokenData]);
 
   const [createAccessToken] = useCreateAccessTokenMutation({
     update: (cache, { data }) => {
@@ -66,6 +82,7 @@ export default function CreateAccessTokenForm() {
                   createdAt: data.createAccessToken.createdAt,
                   lastUsed: null,
                   isExpired: false,
+                  token: data.createAccessToken.tokenStored ? data.createAccessToken.token : null,
                   __typename: "AccessTokenListDto",
                 } satisfies AccessTokenListDto
               ],
@@ -83,10 +100,17 @@ export default function CreateAccessTokenForm() {
       return;
     }
 
+    if (useScopes && !selectedBucketId) {
+      setErrorMessage(t("accessTokens.form.bucketRequired"));
+      setShowErrorDialog(true);
+      return;
+    }
+
     try {
       setCreating(true);
       const createData: CreateAccessTokenDto = {
         name: newTokenName.trim(),
+        storeToken,
       };
 
       // Add expiration if specified
@@ -99,6 +123,11 @@ export default function CreateAccessTokenForm() {
         }
       }
 
+      // Add scopes if enabled
+      if (useScopes && selectedBucketId) {
+        createData.scopes = [`message-bucket-creation:${selectedBucketId}`];
+      }
+
       const response = await createAccessToken({
         variables: { input: createData },
       });
@@ -108,6 +137,8 @@ export default function CreateAccessTokenForm() {
         setShowTokenModal(true);
         setNewTokenName("");
         setExpirationDays("");
+        setSelectedBucketId("");
+        setUseScopes(false);
       }
     } catch (error) {
       console.error("Error creating token:", error);
@@ -121,14 +152,40 @@ export default function CreateAccessTokenForm() {
   const resetForm = () => {
     setNewTokenName("");
     setExpirationDays("");
+    setSelectedBucketId("");
+    setUseScopes(false);
+    setStoreToken(true);
   };
 
-  const isFormValid = newTokenName.trim();
+  const isFormValid = newTokenName.trim() && (!useScopes || selectedBucketId);
 
   return (
     <PaperScrollView>
       <Card style={styles.formContainer} elevation={0}>
         <Card.Content>
+          {editMode && newToken && (
+            <View style={styles.inputGroup}>
+              <Text variant="titleMedium" style={styles.inputLabel}>
+                Token
+              </Text>
+              <View style={styles.tokenDisplayContainer}>
+                <TextInput
+                  mode="outlined"
+                  value={newToken}
+                  editable={false}
+                  style={styles.tokenReadonly}
+                  multiline
+                />
+                <CopyButton
+                  text={newToken}
+                  size={20}
+                  label={t("accessTokens.form.copy")}
+                  successLabel={t("common.copied")}
+                />
+              </View>
+            </View>
+          )}
+
           <View style={styles.inputGroup}>
             <Text variant="titleMedium" style={styles.inputLabel}>
               {t("accessTokens.form.tokenName")}
@@ -138,46 +195,133 @@ export default function CreateAccessTokenForm() {
               value={newTokenName}
               onChangeText={setNewTokenName}
               placeholder={t("accessTokens.form.tokenNamePlaceholder")}
+              editable={!editMode}
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text variant="titleMedium" style={styles.inputLabel}>
-              {t("accessTokens.form.expiration")}
-            </Text>
-            <TextInput
-              mode="outlined"
-              value={expirationDays}
-              onChangeText={setExpirationDays}
-              placeholder={t("accessTokens.form.expirationPlaceholder")}
-              keyboardType="numeric"
-            />
-            <Text variant="bodySmall" style={styles.inputHint}>
-              {t("accessTokens.form.expirationHint")}
-            </Text>
-          </View>
+          {!editMode && (
+            <>
+              <View style={styles.inputGroup}>
+                <Text variant="titleMedium" style={styles.inputLabel}>
+                  {t("accessTokens.form.expiration")}
+                </Text>
+                <TextInput
+                  mode="outlined"
+                  value={expirationDays}
+                  onChangeText={setExpirationDays}
+                  placeholder={t("accessTokens.form.expirationPlaceholder")}
+                  keyboardType="numeric"
+                />
+                <Text variant="bodySmall" style={styles.inputHint}>
+                  {t("accessTokens.form.expirationHint")}
+                </Text>
+              </View>
 
-          <View style={styles.buttonRow}>
-            <Button
-              mode="contained"
-              onPress={createToken}
-              disabled={!isFormValid || creating}
-              style={styles.createButton}
-            >
-              {creating
-                ? t("accessTokens.form.creating")
-                : t("accessTokens.form.createButton")}
-            </Button>
+              <View
+                style={[
+                  styles.switchRow,
+                  { backgroundColor: theme.colors.surfaceVariant },
+                ]}
+              >
+                <View style={styles.switchLabelContainer}>
+                  <Text style={[styles.switchLabel, { color: theme.colors.onSurface }]}>
+                    {t("accessTokens.form.storeToken")}
+                  </Text>
+                  <Text
+                    style={[styles.switchDescription, { color: theme.colors.onSurfaceVariant }]}
+                  >
+                    {t("accessTokens.form.storeTokenHint")}
+                  </Text>
+                </View>
+                <Switch
+                  value={storeToken}
+                  onValueChange={setStoreToken}
+                  trackColor={{
+                    false: theme.colors.outline,
+                    true: theme.colors.primary,
+                  }}
+                />
+              </View>
 
-            <Button
-              mode="outlined"
-              onPress={resetForm}
-              disabled={creating}
-              style={styles.resetButton}
-            >
-              {t("common.reset")}
-            </Button>
-          </View>
+              <View
+                style={[
+                  styles.switchRow,
+                  { backgroundColor: theme.colors.surfaceVariant },
+                ]}
+              >
+                <View style={styles.switchLabelContainer}>
+                  <Text style={[styles.switchLabel, { color: theme.colors.onSurface }]}>
+                    {t("accessTokens.form.limitToBucket")}
+                  </Text>
+                  <Text
+                    style={[styles.switchDescription, { color: theme.colors.onSurfaceVariant }]}
+                  >
+                    {t("accessTokens.form.limitToBucketHint")}
+                  </Text>
+                </View>
+                <Switch
+                  value={useScopes}
+                  onValueChange={(value) => {
+                    setUseScopes(value);
+                    if (!value) {
+                      setSelectedBucketId("");
+                    }
+                  }}
+                  trackColor={{
+                    false: theme.colors.outline,
+                    true: theme.colors.primary,
+                  }}
+                />
+              </View>
+
+              {useScopes && (
+                <View style={styles.inputGroup}>
+                  <Text variant="titleMedium" style={styles.inputLabel}>
+                    {t("accessTokens.form.selectBucket")}
+                  </Text>
+                  <BucketSelector
+                    selectedBucketId={selectedBucketId}
+                    onBucketChange={setSelectedBucketId}
+                    buckets={bucketsData?.buckets || []}
+                  />
+                </View>
+              )}
+            </>
+          )}
+
+          {!editMode ? (
+            <View style={styles.buttonRow}>
+              <Button
+                mode="contained"
+                onPress={createToken}
+                disabled={!isFormValid || creating}
+                style={styles.createButton}
+              >
+                {creating
+                  ? t("accessTokens.form.creating")
+                  : t("accessTokens.form.createButton")}
+              </Button>
+
+              <Button
+                mode="outlined"
+                onPress={resetForm}
+                disabled={creating}
+                style={styles.resetButton}
+              >
+                {t("common.reset")}
+              </Button>
+            </View>
+          ) : (
+            <View style={styles.buttonRow}>
+              <Button
+                mode="contained"
+                onPress={() => router.back()}
+                style={styles.createButton}
+              >
+                {t("common.close")}
+              </Button>
+            </View>
+          )}
         </Card.Content>
       </Card>
 
@@ -261,7 +405,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   scrollView: {
-    paddingHorizontal: 0, // Rimuove il padding orizzontale di PaperScrollView
+    paddingHorizontal: 0,
   },
   formContainer: {
     marginBottom: 16,
@@ -274,6 +418,26 @@ const styles = StyleSheet.create({
   },
   inputHint: {
     marginTop: 4,
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  switchLabelContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  switchLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  switchDescription: {
+    fontSize: 14,
   },
   buttonRow: {
     flexDirection: "row",
@@ -301,6 +465,16 @@ const styles = StyleSheet.create({
   },
   tokenText: {
     flex: 1,
+    fontSize: 12,
+  },
+  tokenDisplayContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  tokenReadonly: {
+    flex: 1,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
     fontSize: 12,
   },
   copyButton: {

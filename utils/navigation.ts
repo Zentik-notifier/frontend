@@ -72,6 +72,14 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToEditAccessToken: (tokenId: string) => {
+            if (isMobile) {
+                router.push(`/(mobile)/(settings)/access-token/${tokenId}`);
+            } else {
+                router.push(`/(tablet)/(settings)/access-token/${tokenId}`);
+            }
+        },
+
         navigateToCreateWebhook: () => {
             if (isMobile) {
                 router.push(`/(mobile)/(settings)/webhook/create`);

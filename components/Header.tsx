@@ -91,6 +91,8 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(mobile)/(settings)/access-token/list": "accessTokens.title",
   "/(mobile)/(settings)/access-token/create": "accessTokens.form.title",
   "/(tablet)/(settings)/access-token/create": "accessTokens.form.title",
+  "/(mobile)/(settings)/access-token/[id]": "accessTokens.form.editTitle",
+  "/(tablet)/(settings)/access-token/[id]": "accessTokens.form.editTitle",
   "/(mobile)/(settings)/devices": "devices.title",
   "/(mobile)/(settings)/notifications": "notifications.title",
   "/(mobile)/(settings)/user-sessions": "userSessions.title",

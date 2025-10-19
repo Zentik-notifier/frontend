@@ -1,10 +1,6 @@
-import CreateAccessTokenForm from "@/components/CreateAccessTokenForm";
+import CreateAccessToken from "@/components/CreateAccessToken";
 import React from "react";
 
-export default function CreateAccessTokenScreen() {
-  return (
-    <>
-      <CreateAccessTokenForm />
-    </>
-  );
+export default function CreateAccessTokenPage() {
+  return <CreateAccessToken />;
 }

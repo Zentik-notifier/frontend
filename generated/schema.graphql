@@ -11,6 +11,8 @@ type AccessTokenListDto {
   isExpired: Boolean!
   lastUsed: DateTime
   name: String!
+  scopes: [String!]
+  token: String
 }
 
 type AccessTokenResponseDto {
@@ -19,6 +21,7 @@ type AccessTokenResponseDto {
   id: String!
   name: String!
   token: String!
+  tokenStored: Boolean!
 }
 
 input ApproveSystemAccessTokenRequestDto {
@@ -59,6 +62,7 @@ type Bucket {
   createdAt: DateTime!
   description: String
   icon: String
+  iconAttachmentUuid: String
   id: ID!
   isAdmin: Boolean
   isProtected: Boolean
@@ -86,6 +90,7 @@ input CreateAccessTokenDto {
   expiresAt: DateTime
   name: String!
   scopes: [String!]
+  storeToken: Boolean
 }
 
 input CreateBucketDto {
@@ -429,6 +434,7 @@ type Mutation {
   cleanupExpiredPermissions: Float!
   confirmEmail(input: ConfirmEmailDto!): EmailConfirmationResponseDto!
   createAccessToken(input: CreateAccessTokenDto!): AccessTokenResponseDto!
+  createAccessTokenForBucket(bucketId: String!, name: String!): AccessTokenResponseDto!
   createBucket(input: CreateBucketDto!): Bucket!
   """
   Create a new message and send notifications to bucket users (returns the created message).
@@ -487,6 +493,7 @@ type Mutation {
   """Manually trigger log cleanup based on retention policy"""
   triggerLogCleanup: Boolean!
   unshareBucket(input: RevokeEntityPermissionInput!): Boolean!
+  updateAccessToken(input: UpdateAccessTokenDto!, tokenId: String!): AccessTokenListDto!
   updateBucket(id: String!, input: UpdateBucketDto!): Bucket!
   updateBucketSnoozes(bucketId: String!, snoozes: [SnoozeScheduleInput!]!): UserBucket! @deprecated(reason: "Usa future Bucket mutation (updateBucketSnoozes)")
   updateDeviceToken(input: UpdateDeviceTokenDto!): UserDevice!
@@ -694,6 +701,8 @@ type Query {
   enabledOAuthProviders: [OAuthProviderPublicDto!]!
   entityExecution(id: String!): EntityExecution
   events(query: EventsQueryDto!): EventsResponseDto!
+  getAccessToken(tokenId: String!): AccessTokenListDto!
+  getAccessTokensForBucket(bucketId: String!): [AccessTokenListDto!]!
   getBackendVersion: String!
   """Get the download URL for a specific backup file"""
   getBackupDownloadUrl(filename: String!): String!
@@ -969,6 +978,10 @@ enum SystemAccessTokenRequestStatus {
   PENDING
 }
 
+input UpdateAccessTokenDto {
+  name: String!
+}
+
 input UpdateBucketDto {
   color: String
   description: String
@@ -1088,6 +1101,7 @@ type UserAccessToken {
   lastUsed: DateTime
   name: String!
   scopes: [String!]
+  token: String
   updatedAt: DateTime!
   user: User!
   userId: String!

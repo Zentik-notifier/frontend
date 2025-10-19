@@ -419,7 +419,28 @@
       "createErrorMessage": "Failed to create bucket",
       "updateErrorMessage": "Failed to update bucket",
       "readOnlyMode": "Read Only",
-      "readOnlyWarning": "You have read-only access to this bucket. You cannot modify its settings."
+      "readOnlyWarning": "You have read-only access to this bucket. You cannot modify its settings.",
+      "createAccessToken": "Create access token for this bucket",
+      "createAccessTokenHint": "Automatically create an access token with permission to send messages to this bucket"
+    },
+    "apiExamples": {
+      "title": "API Examples",
+      "description": "Use these examples to send messages to this bucket",
+      "noToken": "Select an access token to see API examples",
+      "getRequest": "GET Request",
+      "postJson": "POST JSON",
+      "postForm": "POST Form Data",
+      "withHeaders": "POST with Headers"
+    },
+    "accessTokens": {
+      "title": "Access Tokens",
+      "description": "Manage access tokens for this bucket",
+      "create": "New Token",
+      "noTokens": "No access tokens for this bucket yet",
+      "selectToken": "Select token to see examples",
+      "chooseToken": "Choose token",
+      "tokenCreated": "Access token created successfully",
+      "createError": "Failed to create access token"
     },
     "sharing": {
       "title": "Sharing",
@@ -568,7 +589,9 @@
     "noTokensTitle": "No access tokens created yet",
     "noTokensSubtext": "Create your first token to get started",
     "deleteError": "Failed to delete access token",
+    "deleteSuccessMessage": "Access token revoked successfully",
     "item": {
+      "edit": "Edit",
       "delete": "Delete",
       "deleteTokenTitle": "Delete Token",
       "deleteTokenMessage": "Are you sure you want to delete this access token? This action cannot be undone.",
@@ -577,16 +600,24 @@
       "created": "Created",
       "lastUsed": "Last used",
       "neverUsed": "Never used",
-      "expires": "Expires"
+      "expires": "Expires",
+      "neverExpires": "Never expires"
     },
     "form": {
       "title": "Create Access Token",
+      "editTitle": "Edit Access Token",
       "description": "Create a new access token to allow external applications to access your account securely.",
       "tokenName": "Token Name",
       "tokenNamePlaceholder": "e.g., Mobile App Token",
       "expiration": "Expiration (days)",
       "expirationPlaceholder": "Leave empty for no expiration",
       "expirationHint": "Leave empty for tokens that never expire",
+      "storeToken": "Store token for future reference",
+      "storeTokenHint": "If enabled, you can view this token later in the token list",
+      "limitToBucket": "Limit to specific bucket",
+      "limitToBucketHint": "If enabled, this token can only create messages in the selected bucket",
+      "selectBucket": "Select Bucket",
+      "bucketRequired": "Please select a bucket",
       "creating": "Creating...",
       "createButton": "Create Token",
       "nameRequired": "Please enter a token name",

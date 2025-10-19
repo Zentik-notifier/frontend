@@ -1,15 +1,15 @@
 import CloseHeader from "@/components/CloseHeader";
-import CreateAccessTokenForm from "@/components/CreateAccessTokenForm";
+import CreateAccessToken from "@/components/CreateAccessToken";
 import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
 
-export default function CreateAccessTokenScreen() {
+export default function CreateAccessTokenPage() {
   const { navigateBack } = useNavigationUtils();
 
   return (
     <>
       <CloseHeader onClose={navigateBack} />
-      <CreateAccessTokenForm />
+      <CreateAccessToken />
     </>
   );
 }

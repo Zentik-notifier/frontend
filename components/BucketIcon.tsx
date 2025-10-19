@@ -1,16 +1,16 @@
+import { useAppContext } from "@/contexts/AppContext";
 import {
   BucketFragment,
-  MediaType,
-  usePublicAppConfigQuery,
+  usePublicAppConfigQuery
 } from "@/generated/gql-operations-generated";
 import { useBucket } from "@/hooks/notifications";
-import { useAppContext } from "@/contexts/AppContext";
+import { ApiConfigService } from "@/services/api-config";
+import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
+import { Image } from "expo-image";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, TouchableWithoutFeedback, View } from "react-native";
-import { Image } from "expo-image";
-import { Icon, Text, useTheme } from "react-native-paper";
-import { mediaCache } from "@/services/media-cache-service";
+import { Icon, useTheme } from "react-native-paper";
 
 const sizeMap = {
   sm: { container: 32, icon: 28, text: 14 },
@@ -45,7 +45,7 @@ export default function BucketIcon({
     { userId: userId ?? undefined }
   );
   const bucket = bucketParent || bucketData;
-  const { color, icon: iconBucket, name: bucketName } = bucket || {};
+  const { color, icon: iconBucket, iconAttachmentUuid, name: bucketName } = bucket || {};
   const { navigateToDanglingBucket, navigateToBucketDetail } =
     useNavigationUtils();
   const bucketId = bucket?.id || bucketIdParent;
@@ -72,7 +72,6 @@ export default function BucketIcon({
     const iconReadySubscription = mediaCache.bucketIconReady.subscribe(
       ({ bucketId: readyBucketId, uri }) => {
         if (readyBucketId === bucketId) {
-          console.log(`[BucketIcon] Received icon for ${bucketName}: ${uri}`);
           setSharedCacheIconUri(uri);
           setIsGenerating(false);
         }
@@ -82,11 +81,18 @@ export default function BucketIcon({
     // Helper function to load icon
     const loadOrGenerateIcon = async () => {
       try {
-        // Determine icon URL if available
-        const iconUrlToUse =
-          icon && typeof icon === "string" && icon.startsWith("http")
-            ? icon
-            : undefined;
+        // Determine icon URL: use attachment API if UUID exists, otherwise fallback to custom icon URL
+        let iconUrlToUse: string | undefined = undefined;
+        
+        if (iconAttachmentUuid) {
+          // Use attachment API
+          const apiUrl = await ApiConfigService.getApiUrl();
+          iconUrlToUse = `${apiUrl}/api/v1/attachments/public/${iconAttachmentUuid}`;
+          console.log(`[BucketIcon] Using attachment API for ${bucketName}: ${iconUrlToUse}`);
+        } else if (icon && typeof icon === "string" && icon.startsWith("http")) {
+          // Use custom icon URL
+          iconUrlToUse = icon;
+        }
 
         // console.log(`[BucketIcon] Loading icon for ${bucketName}`, { iconUrlToUse });
 
@@ -105,9 +111,6 @@ export default function BucketIcon({
           setIsGenerating(false);
         } else {
           // Not in cache, added to queue - show loading state
-          console.log(
-            `[BucketIcon] Not in cache for ${bucketName}, waiting for queue...`
-          );
           setIsGenerating(true);
         }
       } catch (error) {
@@ -130,7 +133,7 @@ export default function BucketIcon({
       iconReadySubscription.unsubscribe();
       initReadySubscription.unsubscribe();
     };
-  }, [bucketId, bucketName, color, icon, uploadEnabled]);
+  }, [bucketId, bucketName, color, icon, iconAttachmentUuid, uploadEnabled]);
 
   if (!bucketId && !iconUrl) {
     return null;
@@ -213,6 +216,24 @@ export default function BucketIcon({
                 cachePolicy="memory-disk"
                 recyclingKey={sharedCacheIconUri}
               />
+            ) : uploadEnabled && (isGenerating || !sharedCacheIconUri) ? (
+              // Loading state: show colored placeholder
+              <View
+                style={{
+                  width: currentSize.icon,
+                  height: currentSize.icon,
+                  borderRadius: currentSize.icon / 2,
+                  backgroundColor: bucketColor,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Icon
+                  source="image"
+                  size={currentSize.text}
+                  color={theme.colors.surface}
+                />
+              </View>
             ) : !uploadEnabled &&
               icon &&
               typeof icon === "string" &&

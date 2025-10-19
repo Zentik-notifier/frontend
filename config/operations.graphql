@@ -127,6 +127,7 @@ fragment BucketFragment on Bucket {
   description
   color
   icon
+  iconAttachmentUuid
   createdAt
   updatedAt
   isProtected
@@ -577,6 +578,7 @@ fragment AccessTokenFragment on AccessTokenListDto {
   createdAt
   lastUsed
   isExpired
+  token
 }
 
 fragment AccessTokenResponseFragment on AccessTokenResponseDto {
@@ -585,6 +587,7 @@ fragment AccessTokenResponseFragment on AccessTokenResponseDto {
   token
   expiresAt
   createdAt
+  tokenStored
 }
 
 # User Session Fragments
@@ -630,6 +633,30 @@ mutation RevokeAccessToken($tokenId: String!) {
 
 mutation RevokeAllAccessTokens {
   revokeAllAccessTokens
+}
+
+mutation UpdateAccessToken($tokenId: String!, $input: UpdateAccessTokenDto!) {
+  updateAccessToken(tokenId: $tokenId, input: $input) {
+    ...AccessTokenFragment
+  }
+}
+
+query GetAccessToken($tokenId: String!) {
+  getAccessToken(tokenId: $tokenId) {
+    ...AccessTokenFragment
+  }
+}
+
+query GetAccessTokensForBucket($bucketId: String!) {
+  getAccessTokensForBucket(bucketId: $bucketId) {
+    ...AccessTokenFragment
+  }
+}
+
+mutation CreateAccessTokenForBucket($bucketId: String!, $name: String!) {
+  createAccessTokenForBucket(bucketId: $bucketId, name: $name) {
+    ...AccessTokenResponseFragment
+  }
 }
 
 # User Session Mutations

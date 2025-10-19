@@ -13,7 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, Switch, View } from "react-native";
 import {
   Button,
   Icon,
@@ -48,6 +48,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const [bucketColor, setBucketColor] = useState(defaultColor);
   const [bucketIcon, setBucketIcon] = useState("");
   const [isIconEditorVisible, setIsIconEditorVisible] = useState(false);
+  const [createAccessToken, setCreateAccessToken] = useState(false);
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const isEditing = !!bucketId;
 
@@ -163,7 +164,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       const bucketData: CreateBucketDto | UpdateBucketDto = {
         name: bucketName.trim(),
         color: bucketColor,
-        icon: bucketIcon.trim() || undefined,
+        // Only include icon if it's being created or if it changed during edit
+        ...(!isEditing || bucketIcon !== originalIcon ? { icon: bucketIcon.trim() || undefined } : {}),
         // Only send generateIconWithInitials if attachments are enabled
         ...(uploadEnabled && {
           generateIconWithInitials: userSettings.settings.notificationsPreferences?.generateBucketIconWithInitials ?? true,
@@ -384,6 +386,42 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
         onColorChange={setBucketColor}
         disabled={(isEditing && !canWrite) || offline}
       />
+
+      {/* Access Token Creation - Only show in create mode */}
+      {!isEditing && (
+        <View
+          style={[
+            styles.accessTokenSection,
+            { backgroundColor: theme.colors.surfaceVariant },
+          ]}
+        >
+          <View style={styles.switchLabelContainer}>
+            <Text
+              style={[styles.switchLabel, { color: theme.colors.onSurface }]}
+            >
+              {t("buckets.form.createAccessToken" as any)}
+            </Text>
+            <Text
+              style={[
+                styles.switchDescription,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              {t("buckets.form.createAccessTokenHint" as any)}
+            </Text>
+          </View>
+          <Switch
+            value={createAccessToken}
+            onValueChange={setCreateAccessToken}
+            disabled={offline}
+            trackColor={{
+              false: theme.colors.outline,
+              true: theme.colors.primary,
+            }}
+          />
+        </View>
+      )}
+
       {/* Action Buttons */}
       <View style={styles.buttonRow}>
         <Button
@@ -550,6 +588,26 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontStyle: "italic",
+  },
+  accessTokenSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  switchLabelContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  switchLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  switchDescription: {
+    fontSize: 14,
   },
   buttonRow: {
     flexDirection: "row",

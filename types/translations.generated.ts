@@ -423,6 +423,27 @@ export interface Translation {
       updateErrorMessage: string;
       readOnlyMode: string;
       readOnlyWarning: string;
+      createAccessToken: string;
+      createAccessTokenHint: string;
+    };
+    apiExamples: {
+      title: string;
+      description: string;
+      noToken: string;
+      getRequest: string;
+      postJson: string;
+      postForm: string;
+      withHeaders: string;
+    };
+    accessTokens: {
+      title: string;
+      description: string;
+      create: string;
+      noTokens: string;
+      selectToken: string;
+      chooseToken: string;
+      tokenCreated: string;
+      createError: string;
     };
     sharing: {
       title: string;
@@ -571,7 +592,9 @@ export interface Translation {
     noTokensTitle: string;
     noTokensSubtext: string;
     deleteError: string;
+    deleteSuccessMessage: string;
     item: {
+      edit: string;
       delete: string;
       deleteTokenTitle: string;
       deleteTokenMessage: string;
@@ -581,15 +604,23 @@ export interface Translation {
       lastUsed: string;
       neverUsed: string;
       expires: string;
+      neverExpires: string;
     };
     form: {
       title: string;
+      editTitle: string;
       description: string;
       tokenName: string;
       tokenNamePlaceholder: string;
       expiration: string;
       expirationPlaceholder: string;
       expirationHint: string;
+      storeToken: string;
+      storeTokenHint: string;
+      limitToBucket: string;
+      limitToBucketHint: string;
+      selectBucket: string;
+      bucketRequired: string;
       creating: string;
       createButton: string;
       nameRequired: string;

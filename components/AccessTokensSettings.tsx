@@ -1,153 +1,35 @@
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useAppContext } from "@/contexts/AppContext";
 import {
-  AccessTokenListDto,
   useGetUserAccessTokensQuery,
-  useRevokeAccessTokenMutation,
 } from "@/generated/gql-operations-generated";
-import { useDateFormat } from "@/hooks/useDateFormat";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import {
-  Badge,
   Button,
-  Card,
   Dialog,
   Icon,
   Portal,
   Text,
   useTheme,
 } from "react-native-paper";
-import SwipeableItem from "./SwipeableItem";
+import SwipeableAccessTokenItem from "./SwipeableAccessTokenItem";
 
 export function AccessTokensSettings() {
   const theme = useTheme();
   const { navigateToCreateAccessToken } = useNavigationUtils();
   const { t } = useI18n();
-  const { formatDate: formatDateService } = useDateFormat();
-  const {
-    connectionStatus: { isOfflineAuth, isBackendUnreachable },
-  } = useAppContext();
-  const disabledAdd = isOfflineAuth || isBackendUnreachable;
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // GraphQL queries and mutations
+  // GraphQL queries
   const { data, loading, refetch, error } = useGetUserAccessTokensQuery();
-  const [revokeAccessToken] = useRevokeAccessTokenMutation();
 
   const tokens = data?.getUserAccessTokens || [];
   const sortedTokens = useEntitySorting(tokens, "desc");
-
-  const deleteToken = async (tokenId: string) => {
-    try {
-      await revokeAccessToken({
-        variables: { tokenId },
-      });
-      refetch(); // Refresh the list
-    } catch (error) {
-      console.error("Error deleting token:", error);
-      setErrorMessage(t("accessTokens.deleteError"));
-      setShowErrorDialog(true);
-    }
-  };
-
-  const formatTokenDate = (dateString: string) => {
-    return formatDateService(dateString);
-  };
-
-  const renderTokenItem = (item: AccessTokenListDto) => {
-    const isExpired =
-      item.isExpired ||
-      (item.expiresAt && new Date(item.expiresAt) < new Date());
-
-    return (
-      <SwipeableItem
-        key={item.id}
-        rightAction={
-          !disabledAdd
-            ? {
-                icon: "delete",
-                label: t("accessTokens.item.delete"),
-                backgroundColor: theme.colors.error,
-                onPress: () => deleteToken(item.id),
-                showAlert: {
-                  title: t("accessTokens.item.deleteTokenTitle"),
-                  message: t("accessTokens.item.deleteTokenMessage"),
-                  confirmText: t("accessTokens.item.deleteTokenConfirm"),
-                  cancelText: t("common.cancel"),
-                },
-              }
-            : undefined
-        }
-      >
-        <Card
-          style={[
-            styles.tokenItem,
-            isExpired && { borderColor: theme.colors.error, borderWidth: 1 },
-          ]}
-          elevation={0}
-        >
-          <Card.Content>
-            <View style={styles.tokenHeader}>
-              <Text variant="titleMedium" style={styles.tokenName}>
-                {item.name}
-              </Text>
-              {isExpired && (
-                <Badge
-                  style={[
-                    styles.expiredBadge,
-                    { backgroundColor: theme.colors.error },
-                  ]}
-                >
-                  {t("accessTokens.item.expired")}
-                </Badge>
-              )}
-            </View>
-
-            <View style={styles.tokenDetails}>
-              <Text variant="bodySmall" style={styles.tokenDetail}>
-                {t("accessTokens.item.created")}:{" "}
-                {formatTokenDate(item.createdAt)}
-              </Text>
-
-              {item.lastUsed && (
-                <Text variant="bodySmall" style={styles.tokenDetail}>
-                  {t("accessTokens.item.lastUsed")}:{" "}
-                  {formatTokenDate(item.lastUsed)}
-                </Text>
-              )}
-
-              {!item.lastUsed && (
-                <Text
-                  variant="bodySmall"
-                  style={[styles.tokenDetail, { fontStyle: "italic" }]}
-                >
-                  {t("accessTokens.item.neverUsed")}
-                </Text>
-              )}
-
-              {item.expiresAt && (
-                <Text
-                  variant="bodySmall"
-                  style={[
-                    styles.tokenDetail,
-                    isExpired && { color: theme.colors.error },
-                  ]}
-                >
-                  {t("accessTokens.item.expires")}:{" "}
-                  {formatTokenDate(item.expiresAt)}
-                </Text>
-              )}
-            </View>
-          </Card.Content>
-        </Card>
-      </SwipeableItem>
-    );
-  };
 
   const handleRefresh = async () => {
     await refetch();
@@ -177,7 +59,9 @@ export function AccessTokensSettings() {
           </View>
         ) : (
           <View style={styles.tokensContainer}>
-            {sortedTokens.map((item) => renderTokenItem(item))}
+            {sortedTokens.map((item) => (
+              <SwipeableAccessTokenItem key={item.id} token={item} />
+            ))}
           </View>
         )}
       </PaperScrollView>
@@ -224,27 +108,5 @@ const styles = StyleSheet.create({
   },
   tokensContainer: {
     flex: 1,
-  },
-  tokenItem: {
-    marginBottom: 8, // Rimosso marginHorizontal perché ora gestito da scrollContent
-  },
-  tokenHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  tokenName: {
-    flex: 1,
-    marginRight: 8,
-  },
-  expiredBadge: {
-    // backgroundColor handled by theme
-  },
-  tokenDetails: {
-    gap: 4,
-  },
-  tokenDetail: {
-    // opacity handled by color
   },
 });

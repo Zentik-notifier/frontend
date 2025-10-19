@@ -432,7 +432,28 @@
       "createErrorMessage": "Impossibile creare il bucket",
       "updateErrorMessage": "Impossibile aggiornare il bucket",
       "readOnlyMode": "Sola Lettura",
-      "readOnlyWarning": "Hai accesso in sola lettura a questo bucket. Non puoi modificare le sue impostazioni."
+      "readOnlyWarning": "Hai accesso in sola lettura a questo bucket. Non puoi modificare le sue impostazioni.",
+      "createAccessToken": "Crea access token per questo bucket",
+      "createAccessTokenHint": "Crea automaticamente un access token con permesso di inviare messaggi a questo bucket"
+    },
+    "apiExamples": {
+      "title": "Esempi API",
+      "description": "Usa questi esempi per inviare messaggi a questo bucket",
+      "noToken": "Seleziona un access token per vedere gli esempi API",
+      "getRequest": "Richiesta GET",
+      "postJson": "POST JSON",
+      "postForm": "POST Form Data",
+      "withHeaders": "POST con Headers"
+    },
+    "accessTokens": {
+      "title": "Access Token",
+      "description": "Gestisci gli access token per questo bucket",
+      "create": "Nuovo Token",
+      "noTokens": "Nessun access token per questo bucket",
+      "selectToken": "Seleziona token per vedere esempi",
+      "chooseToken": "Scegli token",
+      "tokenCreated": "Access token creato con successo",
+      "createError": "Impossibile creare l'access token"
     },
     "sharing": {
       "title": "Condivisione",
@@ -603,7 +624,9 @@
     "noTokensTitle": "Nessun token di accesso creato ancora",
     "noTokensSubtext": "Crea il tuo primo token per iniziare",
     "deleteError": "Impossibile eliminare il token di accesso",
+    "deleteSuccessMessage": "Token di accesso revocato con successo",
     "item": {
+      "edit": "Modifica",
       "delete": "Elimina",
       "deleteTokenTitle": "Elimina Token",
       "deleteTokenMessage": "Sei sicuro di voler eliminare questo token di accesso? Questa azione non può essere annullata.",
@@ -612,16 +635,24 @@
       "created": "Creato",
       "lastUsed": "Ultimo utilizzo",
       "neverUsed": "Mai utilizzato",
-      "expires": "Scade"
+      "expires": "Scade",
+      "neverExpires": "Non scade mai"
     },
     "form": {
       "title": "Crea Token di Accesso",
+      "editTitle": "Modifica Token di Accesso",
       "description": "Crea un nuovo token di accesso per consentire alle applicazioni esterne di accedere al tuo account in modo sicuro.",
       "tokenName": "Nome Token",
       "tokenNamePlaceholder": "es., Token App Mobile",
       "expiration": "Scadenza (giorni)",
       "expirationPlaceholder": "Lascia vuoto per nessuna scadenza",
       "expirationHint": "Lascia vuoto per token che non scadono mai",
+      "storeToken": "Salva token per riferimento futuro",
+      "storeTokenHint": "Se abilitato, potrai visualizzare questo token successivamente nella lista token",
+      "limitToBucket": "Limita a bucket specifico",
+      "limitToBucketHint": "Se abilitato, questo token potrà creare messaggi solo nel bucket selezionato",
+      "selectBucket": "Seleziona Bucket",
+      "bucketRequired": "Seleziona un bucket",
       "creating": "Creazione...",
       "createButton": "Crea Token",
       "nameRequired": "Inserisci un nome per il token",
