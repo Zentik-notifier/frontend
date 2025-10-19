@@ -919,6 +919,7 @@
     "close": "Close",
     "loading": "Loading...",
     "exporting": "Exporting...",
+    "copy": "Copy",
     "copied": "Copied!",
     "copiedToClipboard": "Copied to clipboard",
     "copyToClipboard": "Copy ID to clipboard",

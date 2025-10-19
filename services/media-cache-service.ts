@@ -104,6 +104,7 @@ class MediaCacheService {
         bucketName: string;
         bucketColor?: string;
         iconUrl?: string;
+        iconAttachmentUuid?: string;
         timestamp: number;
     }>();
 
@@ -1263,7 +1264,8 @@ class MediaCacheService {
         bucketId: string,
         bucketName: string,
         bucketColor?: string,
-        iconUrl?: string
+        iconUrl?: string,
+        iconAttachmentUuid?: string
     ): Promise<string | null> {
         await this.initialize();
         if (!this.repo) return null;
@@ -1274,24 +1276,27 @@ class MediaCacheService {
             const currentTimestamp = Date.now();
 
             // Compare current params with cached params
+            // Use iconAttachmentUuid for comparison if available (more stable than URL)
             const paramsChanged = cachedParams && (
                 cachedParams.bucketName !== bucketName ||
                 cachedParams.bucketColor !== bucketColor ||
-                cachedParams.iconUrl !== iconUrl
+                (iconAttachmentUuid 
+                    ? cachedParams.iconAttachmentUuid !== iconAttachmentUuid 
+                    : cachedParams.iconUrl !== iconUrl)
             );
 
             if (paramsChanged) {
                 console.log(`[MediaCache] 🔄 Bucket params changed for ${bucketName}`, {
                     old: cachedParams,
-                    new: { bucketName, bucketColor, iconUrl }
+                    new: { bucketName, bucketColor, iconUrl, iconAttachmentUuid }
                 });
                 console.log(`[MediaCache] 🗑️ Invalidating cache for ${bucketName}`);
                 await this.invalidateBucketIcon(bucketId, bucketName, bucketColor);
                 // Update timestamp for invalidated icon
-                this.bucketParamsCache.set(bucketId, { bucketName, bucketColor, iconUrl, timestamp: currentTimestamp });
+                this.bucketParamsCache.set(bucketId, { bucketName, bucketColor, iconUrl, iconAttachmentUuid, timestamp: currentTimestamp });
             } else if (!cachedParams) {
                 // First time seeing this bucket
-                this.bucketParamsCache.set(bucketId, { bucketName, bucketColor, iconUrl, timestamp: currentTimestamp });
+                this.bucketParamsCache.set(bucketId, { bucketName, bucketColor, iconUrl, iconAttachmentUuid, timestamp: currentTimestamp });
             }
 
             // Generate cache key

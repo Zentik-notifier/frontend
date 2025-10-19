@@ -21,8 +21,15 @@ export default function BucketApiExamples({
 
   if (!accessToken) {
     return (
-      <Surface style={[styles.container, { backgroundColor: theme.colors.surfaceVariant }]}>
-        <Text style={[styles.noTokenText, { color: theme.colors.onSurfaceVariant }]}>
+      <Surface
+        style={[
+          styles.container,
+          { backgroundColor: theme.colors.surfaceVariant },
+        ]}
+      >
+        <Text
+          style={[styles.noTokenText, { color: theme.colors.onSurfaceVariant }]}
+        >
           {t("buckets.apiExamples.noToken" as any)}
         </Text>
       </Surface>
@@ -79,7 +86,9 @@ export default function BucketApiExamples({
       <Text style={[styles.title, { color: theme.colors.onSurface }]}>
         {t("buckets.apiExamples.title" as any)}
       </Text>
-      <Text style={[styles.description, { color: theme.colors.onSurfaceVariant }]}>
+      <Text
+        style={[styles.description, { color: theme.colors.onSurfaceVariant }]}
+      >
         {t("buckets.apiExamples.description" as any)}
       </Text>
 
@@ -87,11 +96,16 @@ export default function BucketApiExamples({
         {examples.map((example, index) => (
           <Surface
             key={index}
-            style={[styles.exampleCard, { backgroundColor: theme.colors.elevation.level2 }]}
+            style={[
+              styles.exampleCard,
+              { backgroundColor: theme.colors.elevation.level2 },
+            ]}
             elevation={0}
           >
             <View style={styles.exampleHeader}>
-              <Text style={[styles.exampleTitle, { color: theme.colors.onSurface }]}>
+              <Text
+                style={[styles.exampleTitle, { color: theme.colors.onSurface }]}
+              >
                 {example.title}
               </Text>
               <Button
@@ -100,16 +114,24 @@ export default function BucketApiExamples({
                 onPress={() => handleCopy(example.code, index)}
                 icon={copiedIndex === index ? "check" : "content-copy"}
               >
-                {copiedIndex === index ? t("common.copied") : t("common.copy")}
+                {copiedIndex === index
+                  ? t("common.copiedToClipboard")
+                  : t("common.copyToClipboard")}
               </Button>
             </View>
             <Surface
-              style={[styles.codeBlock, { backgroundColor: theme.colors.surfaceVariant }]}
+              style={[
+                styles.codeBlock,
+                { backgroundColor: theme.colors.surfaceVariant },
+              ]}
               elevation={0}
             >
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <Text
-                  style={[styles.codeText, { color: theme.colors.onSurfaceVariant }]}
+                  style={[
+                    styles.codeText,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
                   selectable
                 >
                   {example.code}
@@ -169,4 +191,3 @@ const styles = StyleSheet.create({
     padding: 16,
   },
 });
-

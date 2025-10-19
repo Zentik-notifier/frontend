@@ -605,6 +605,7 @@ export interface Translation {
       neverUsed: string;
       expires: string;
       neverExpires: string;
+      limitedToBuckets: string;
     };
     form: {
       title: string;
@@ -615,13 +616,12 @@ export interface Translation {
       expiration: string;
       expirationPlaceholder: string;
       expirationHint: string;
-      expirationEditHint: string;
       storeToken: string;
       storeTokenHint: string;
-      limitToBucket: string;
-      limitToBucketHint: string;
-      limitToBucketEditHint: string;
-      selectBucket: string;
+      limitToBuckets: string;
+      limitToBucketsHint: string;
+      selectBuckets: string;
+      selectBucketsPlaceholder: string;
       bucketRequired: string;
       creating: string;
       createButton: string;
@@ -922,6 +922,7 @@ export interface Translation {
     close: string;
     loading: string;
     exporting: string;
+    copy: string;
     copied: string;
     copiedToClipboard: string;
     copyToClipboard: string;

@@ -50,6 +50,9 @@ export default function BucketIcon({
     useNavigationUtils();
   const bucketId = bucket?.id || bucketIdParent;
   const icon = bucketData?.icon ?? iconBucket ?? iconUrl;
+  
+  // Use iconAttachmentUuid as stable key for dependency, fallback to icon URL only if no UUID
+  const iconDependency = iconAttachmentUuid || (icon && typeof icon === "string" && icon.startsWith("http") ? icon : undefined);
   const [sharedCacheIconUri, setSharedCacheIconUri] = useState<string | null>(
     null
   );
@@ -94,11 +97,13 @@ export default function BucketIcon({
         }
 
         // Get from cache or add to queue if not found
+        // Pass iconAttachmentUuid for stable caching (instead of full URL that may change)
         const iconUri = await mediaCache.getBucketIcon(
           bucketId,
           bucketName,
           color ?? undefined,
-          iconUrlToUse
+          iconUrlToUse,
+          iconAttachmentUuid ?? undefined
         );
 
         if (iconUri) {
@@ -118,19 +123,16 @@ export default function BucketIcon({
 
     // Subscribe to init ready event to retry if DB wasn't ready initially
     const initReadySubscription = mediaCache.initReady.subscribe(() => {
-      // console.log(`[BucketIcon] MediaCache initialized, retrying for ${bucketName}`);
       loadOrGenerateIcon();
     });
 
-    // Initial load attempt
     loadOrGenerateIcon();
 
     return () => {
-      // console.log(`[BucketIcon] Cleaning up subscriptions for ${bucketName}`);
       iconReadySubscription.unsubscribe();
       initReadySubscription.unsubscribe();
     };
-  }, [bucketId, bucketName, color, icon, iconAttachmentUuid, uploadEnabled]);
+  }, [bucketId, bucketName, color, iconDependency, uploadEnabled]);
 
   if (!bucketId && !iconUrl) {
     return null;
