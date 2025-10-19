@@ -8,13 +8,14 @@ import {
   useUpdateAccessTokenMutation
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Alert, Keyboard, Platform, StyleSheet, Switch, View } from "react-native";
 import {
   Button,
   Card,
+  Dialog,
+  Portal,
   Text,
   TextInput,
   useTheme,
@@ -36,6 +37,9 @@ export default function CreateAccessTokenForm({
   const [storeToken, setStoreToken] = useState(true);
   const [useScopes, setUseScopes] = useState(false);
   const [selectedBucketIds, setSelectedBucketIds] = useState<string[]>([]);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [createdToken, setCreatedToken] = useState("");
+  const [wasTokenStored, setWasTokenStored] = useState(false);
   const editMode = !!tokenData;
 
   const { data: bucketsData } = useGetBucketsQuery();
@@ -177,21 +181,12 @@ export default function CreateAccessTokenForm({
       if (response.data?.createAccessToken) {
         const token = response.data.createAccessToken.token;
         
-        // Copy token to clipboard
-        await Clipboard.setStringAsync(token);
+        // Store token info for dialog
+        setCreatedToken(token);
+        setWasTokenStored(storeToken);
+        setShowSuccessDialog(true);
         
-        // Show success alert with token
-        Alert.alert(
-          t("accessTokens.form.tokenCreatedTitle"),
-          t("accessTokens.form.tokenCreatedSubtitle") + "\n\n" + token,
-          [
-            {
-              text: t("common.ok"),
-              onPress: () => router.back(),
-            },
-          ]
-        );
-        
+        // Reset form
         setNewTokenName("");
         setExpirationDays("");
         setSelectedBucketIds([]);
@@ -395,6 +390,61 @@ export default function CreateAccessTokenForm({
           </View>
         </Card.Content>
       </Card>
+
+      {/* Success Dialog */}
+      <Portal>
+        <Dialog
+          visible={showSuccessDialog}
+          onDismiss={() => {
+            setShowSuccessDialog(false);
+            router.back();
+          }}
+        >
+          <Dialog.Title>{t("accessTokens.form.tokenCreatedTitle")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={styles.dialogMessage}>
+              {wasTokenStored
+                ? t("accessTokens.form.tokenCreatedStoredMessage" as any)
+                : t("accessTokens.form.tokenCreatedNotStoredMessage" as any)}
+            </Text>
+            
+            {/* Token display with copy button */}
+            <View style={styles.tokenContainer}>
+              <Text variant="labelMedium" style={styles.tokenLabel}>
+                {t("accessTokens.form.yourToken" as any)}
+              </Text>
+              <View style={styles.tokenDisplayBox}>
+                <Text 
+                  variant="bodySmall" 
+                  style={[
+                    styles.tokenText,
+                    { color: theme.colors.onSurfaceVariant }
+                  ]}
+                  selectable
+                >
+                  {createdToken}
+                </Text>
+              </View>
+              <CopyButton
+                text={createdToken}
+                label={t("accessTokens.form.copy")}
+                successLabel={t("accessTokens.form.copied")}
+                style={styles.copyButton}
+              />
+            </View>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              onPress={() => {
+                setShowSuccessDialog(false);
+                router.back();
+              }}
+            >
+              {t("common.ok")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -454,5 +504,29 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
     fontSize: 12,
+  },
+  dialogMessage: {
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  tokenContainer: {
+    marginTop: 8,
+  },
+  tokenLabel: {
+    marginBottom: 8,
+  },
+  tokenDisplayBox: {
+    padding: 12,
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  tokenText: {
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  copyButton: {
+    marginTop: 4,
   },
 });

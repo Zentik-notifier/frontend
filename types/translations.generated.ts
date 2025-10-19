@@ -443,6 +443,7 @@ export interface Translation {
       chooseToken: string;
       tokenCreated: string;
       createError: string;
+      deleteError: string;
     };
     sharing: {
       title: string;
@@ -595,6 +596,7 @@ export interface Translation {
     item: {
       edit: string;
       delete: string;
+      copyToken: string;
       deleteTokenTitle: string;
       deleteTokenMessage: string;
       deleteTokenConfirm: string;
@@ -633,6 +635,9 @@ export interface Translation {
       tokenIdCopied: string;
       tokenCreatedTitle: string;
       tokenCreatedSubtitle: string;
+      tokenCreatedStoredMessage: string;
+      tokenCreatedNotStoredMessage: string;
+      yourToken: string;
       copy: string;
       copied: string;
       tokenCopied: string;

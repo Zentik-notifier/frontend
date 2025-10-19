@@ -628,6 +628,7 @@
     "item": {
       "edit": "Modifica",
       "delete": "Elimina",
+      "copyToken": "Copia Token",
       "deleteTokenTitle": "Elimina Token",
       "deleteTokenMessage": "Sei sicuro di voler eliminare questo token di accesso? Questa azione non può essere annullata.",
       "deleteTokenConfirm": "Elimina",
@@ -666,6 +667,9 @@
       "tokenIdCopied": "ID token copiato negli appunti",
       "tokenCreatedTitle": "Token Creato!",
       "tokenCreatedSubtitle": "Copia questo token ora. Non potrai vederlo di nuovo.",
+      "tokenCreatedStoredMessage": "Il tuo token di accesso è stato creato e salvato in modo sicuro. Puoi visualizzarlo in qualsiasi momento dai dettagli del token.",
+      "tokenCreatedNotStoredMessage": "Il tuo token di accesso è stato creato. Assicurati di copiarlo ora perché non potrai vederlo di nuovo!",
+      "yourToken": "Il Tuo Token",
       "copy": "Copia",
       "copied": "Copiato",
       "tokenCopied": "Token copiato negli appunti",

@@ -593,6 +593,7 @@
     "item": {
       "edit": "Edit",
       "delete": "Delete",
+      "copyToken": "Copy Token",
       "deleteTokenTitle": "Delete Token",
       "deleteTokenMessage": "Are you sure you want to delete this access token? This action cannot be undone.",
       "deleteTokenConfirm": "Delete",
@@ -631,6 +632,9 @@
       "tokenIdCopied": "Token ID copied to clipboard",
       "tokenCreatedTitle": "Token Created!",
       "tokenCreatedSubtitle": "Copy this token now. You won't be able to see it again.",
+      "tokenCreatedStoredMessage": "Your access token has been created and stored securely. You can view it anytime from the token details.",
+      "tokenCreatedNotStoredMessage": "Your access token has been created. Make sure to copy it now as you won't be able to see it again!",
+      "yourToken": "Your Token",
       "copy": "Copy",
       "copied": "Copied",
       "tokenCopied": "Token copied to clipboard",

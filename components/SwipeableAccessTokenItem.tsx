@@ -10,6 +10,7 @@ import { useNavigationUtils } from "@/utils/navigation";
 import React, { useMemo } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Chip, Icon, Text, useTheme } from "react-native-paper";
+import * as Clipboard from "expo-clipboard";
 import SwipeableItem, { MenuItem } from "./SwipeableItem";
 
 interface SwipeableAccessTokenItemProps {
@@ -67,6 +68,13 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
     }
   };
 
+  const copyToken = async () => {
+    if (token.token) {
+      await Clipboard.setStringAsync(token.token);
+      Alert.alert(t("common.success"), t("accessTokens.form.tokenCopied"));
+    }
+  };
+
   const deleteAction = !isOffline
     ? {
         icon: "delete" as const,
@@ -85,6 +93,15 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
   const menuItems = useMemo((): MenuItem[] => {
     const items: MenuItem[] = [];
 
+    if (hasToken) {
+      items.push({
+        id: "copy-token",
+        label: t("accessTokens.item.copyToken" as any),
+        icon: "content-copy",
+        onPress: copyToken,
+      });
+    }
+
     if (!isOffline) {
       items.push({
         id: "edit",
@@ -95,11 +112,10 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
     }
 
     return items;
-  }, [isOffline, t, token.id, handleEditToken]);
+  }, [isOffline, hasToken, t, token.id, handleEditToken, copyToken]);
 
   return (
     <SwipeableItem
-      copyId={token.id}
       rightAction={deleteAction}
       menuItems={menuItems}
       showMenu={!isOffline}
