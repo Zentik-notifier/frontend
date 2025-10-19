@@ -35,29 +35,27 @@ export default function BucketsSettings() {
   } = useBucketsStats({ forceFullDetails: true });
 
   // Load notifications from local DB
-  useEffect(() => {
-    const loadNotifications = async () => {
-      try {
-        const allNotifications = await getAllNotificationsFromCache();
-        setNotifications(allNotifications);
-      } catch (error) {
-        console.error("[BucketsSettings] Error loading notifications:", error);
-      }
-    };
+  const loadNotifications = async () => {
+    try {
+      const allNotifications = await getAllNotificationsFromCache();
+      setNotifications(allNotifications);
+    } catch (error) {
+      console.error("[BucketsSettings] Error loading notifications:", error);
+    }
+  };
 
+  useEffect(() => {
     loadNotifications();
   }, []);
 
   const handleRefresh = async () => {
     await refreshBucketsStats();
+    await loadNotifications();
+  };
 
-    // Reload notifications from DB
-    try {
-      const allNotifications = await getAllNotificationsFromCache();
-      setNotifications(allNotifications);
-    } catch (error) {
-      console.error("[BucketsSettings] Error reloading notifications:", error);
-    }
+  const handleBucketDeleted = async () => {
+    await refreshBucketsStats();
+    await loadNotifications();
   };
 
   const buckets = bucketsWithStats;
@@ -226,8 +224,8 @@ export default function BucketsSettings() {
           <View style={styles.bucketsContainer}>
             {sortedBuckets.map((item) => (
               <SwipeableBucketItem
-                bucketDeleted={() => refreshBucketsStats()}
-                onSharingRevoked={() => refreshBucketsStats()}
+                bucketDeleted={handleBucketDeleted}
+                onSharingRevoked={handleRefresh}
                 key={item.id}
                 bucket={item}
               />

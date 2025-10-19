@@ -100,9 +100,9 @@ export default function BucketIcon({
         );
 
         // await mediaCache.invalidateBucketIcon(bucketId, bucketName, bucketColor);
-        if (bucket?.id === "a1f61182-afd4-4cd2-9077-ac0b42b64bce") {
-          console.log("BUCKET", iconUrlToUse, iconUri);
-        }
+        // if (bucket?.id === "a1f61182-afd4-4cd2-9077-ac0b42b64bce") {
+        //   console.log("BUCKET", iconUrlToUse, iconUri);
+        // }
 
         if (iconUri) {
           // Found in cache, use immediately

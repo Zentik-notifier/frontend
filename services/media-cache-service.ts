@@ -858,6 +858,7 @@ class MediaCacheService {
                 await this.repo.upsertMany(Object.values(this.metadata));
             }
             this.metadata = {};
+            this.bucketParamsCache.clear();
             this.emitMetadata();
         } catch (error) {
             console.error('[MediaCache] Failed to clear cache:', error);
@@ -1137,6 +1138,7 @@ class MediaCacheService {
                 await this.repo.clearAll();
             }
             this.metadata = {};
+            this.bucketParamsCache.clear();
             this.emitMetadata();
 
             console.log('[MediaCache] Cache cleared completely');

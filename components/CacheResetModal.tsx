@@ -8,6 +8,8 @@ import { localNotifications } from "@/services/local-notifications";
 import { mediaCache } from "@/services/media-cache-service";
 import { userSettings } from "@/services/user-settings";
 import { getAllNotificationsFromCache, clearAllNotificationsFromCache } from "@/services/notifications-repository";
+import { deleteAllBuckets } from "@/db/repositories/buckets-repository";
+import { clearAllLogs } from "@/services/logger";
 import React, { useState, useEffect } from "react";
 import {
   ScrollView,
@@ -93,7 +95,9 @@ export function CacheResetModal({
         Promise.resolve().then(() => localNotifications.cleanup()),
         resetApolloCache(),
         clearAllNotificationsFromCache(),
+        deleteAllBuckets(),
         mediaCache.clearCacheComplete(),
+        clearAllLogs(),
         userSettings.resetSettings(),
         clearAllAuthData(),
       ]);
@@ -173,7 +177,10 @@ export function CacheResetModal({
 
       // Reset selected entities
       if (selectedEntities.has("notifications")) {
-        await clearAllNotificationsFromCache();
+        await Promise.all([
+          clearAllNotificationsFromCache(),
+          deleteAllBuckets(),
+        ]);
       }
 
       if (selectedEntities.has("media")) {
