@@ -3,6 +3,7 @@ import {
   CreateBucketDto,
   UpdateBucketDto,
   useCreateBucketMutation,
+  useCreateAccessTokenForBucketMutation,
   usePublicAppConfigQuery,
   useUpdateBucketMutation,
 } from "@/generated/gql-operations-generated";
@@ -48,7 +49,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const [bucketColor, setBucketColor] = useState(defaultColor);
   const [bucketIcon, setBucketIcon] = useState("");
   const [isIconEditorVisible, setIsIconEditorVisible] = useState(false);
-  const [createAccessToken, setCreateAccessToken] = useState(false);
+  const [createAccessToken, setCreateAccessToken] = useState(true);
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const isEditing = !!bucketId;
 
@@ -56,6 +57,10 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const refreshBucket = useRefreshBucket();
   const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
   const { data: appConfig } = usePublicAppConfigQuery();
+
+  const [createAccessTokenForBucketMutation] = useCreateAccessTokenForBucketMutation({
+    refetchQueries: ["GetUserAccessTokens", "GetAccessTokensForBucket"],
+  });
 
   const [createBucketMutation, { loading: creatingBucket }] =
     useCreateBucketMutation({
@@ -95,6 +100,23 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
 
           console.log('[CreateBucketForm] Bucket added to cache successfully');
 
+          // Create access token if checkbox was checked
+          if (createAccessToken) {
+            try {
+              console.log('[CreateBucketForm] Creating access token for bucket...');
+              await createAccessTokenForBucketMutation({
+                variables: {
+                  bucketId: newBucket.id,
+                  name: `${newBucket.name} Token`,
+                },
+              });
+              console.log('[CreateBucketForm] Access token created successfully');
+            } catch (tokenError) {
+              console.error('[CreateBucketForm] Error creating access token:', tokenError);
+              // Don't block bucket creation if token fails
+            }
+          }
+
           // Refresh bucket stats from DB to get real statistics (in case there are notifications)
           console.log('[CreateBucketForm] Refreshing bucket stats from DB...');
           await refreshBucketsStatsFromDB();
@@ -104,6 +126,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
         setBucketName("");
         setBucketColor(defaultColor);
         setBucketIcon("");
+        setCreateAccessToken(true); // Reset to default true
 
         router.back();
       },

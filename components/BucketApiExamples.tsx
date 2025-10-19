@@ -83,15 +83,6 @@ export default function BucketApiExamples({
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-        {t("buckets.apiExamples.title" as any)}
-      </Text>
-      <Text
-        style={[styles.description, { color: theme.colors.onSurfaceVariant }]}
-      >
-        {t("buckets.apiExamples.description" as any)}
-      </Text>
-
       <ScrollView style={styles.examplesContainer} nestedScrollEnabled>
         {examples.map((example, index) => (
           <Surface
@@ -116,28 +107,20 @@ export default function BucketApiExamples({
               >
                 {copiedIndex === index
                   ? t("common.copiedToClipboard")
-                  : t("common.copyToClipboard")}
+                  : t("common.copy")}
               </Button>
             </View>
-            <Surface
-              style={[
-                styles.codeBlock,
-                { backgroundColor: theme.colors.surfaceVariant },
-              ]}
-              elevation={0}
-            >
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <Text
-                  style={[
-                    styles.codeText,
-                    { color: theme.colors.onSurfaceVariant },
-                  ]}
-                  selectable
-                >
-                  {example.code}
-                </Text>
-              </ScrollView>
-            </Surface>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <Text
+                style={[
+                  styles.codeText,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+                selectable
+              >
+                {example.code}
+              </Text>
+            </ScrollView>
           </Surface>
         ))}
       </ScrollView>

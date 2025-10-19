@@ -121,7 +121,7 @@ export const SwipeableBackupItem: React.FC<SwipeableBackupItemProps> = ({
 
   const rightAction: SwipeAction = {
     icon: "delete",
-    backgroundColor: theme.colors.error,
+    destructive: true,
     label: t("common.delete") as string,
     onPress: handleDeletePress,
   };

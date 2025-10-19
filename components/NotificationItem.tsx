@@ -29,7 +29,7 @@ import BucketIcon from "./BucketIcon";
 import { CachedMedia } from "./CachedMedia";
 import FullScreenMediaViewer from "./FullScreenMediaViewer";
 import { MediaTypeIcon } from "./MediaTypeIcon";
-import SwipeableItem, { MenuItem } from "./SwipeableItem";
+import SwipeableItem, { MenuItem, SwipeAction } from "./SwipeableItem";
 import { SmartTextRenderer } from "./ui";
 
 // Dynamic height calculator to keep FlashList and item in sync
@@ -226,10 +226,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     } catch {}
   };
 
-  const deleteAction = {
+  const deleteAction: SwipeAction = {
     icon: "delete",
     label: t("swipeActions.delete.label"),
-    backgroundColor: "#ff4444",
+    destructive: true,
     onPress: handleDelete,
     showAlert: {
       title: t("swipeActions.delete.title"),

@@ -99,7 +99,7 @@ const SwipeablePayloadMapperItem: React.FC<SwipeablePayloadMapperItemProps> = ({
     ? {
         icon: "delete",
         label: t("payloadMappers.delete"),
-        backgroundColor: theme.colors.error,
+        destructive: true,
         onPress: handleDeletePress,
       }
     : undefined;

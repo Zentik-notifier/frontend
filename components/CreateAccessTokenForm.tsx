@@ -68,11 +68,11 @@ export default function CreateAccessTokenForm({
   }, [editMode, tokenData]);
 
   const [createAccessToken] = useCreateAccessTokenMutation({
-    refetchQueries: ["GetUserAccessTokens"],
+    refetchQueries: ["GetUserAccessTokens", "GetAccessTokensForBucket"],
   });
 
   const [updateAccessToken] = useUpdateAccessTokenMutation({
-    refetchQueries: ["GetUserAccessTokens", "GetAccessToken"],
+    refetchQueries: ["GetUserAccessTokens", "GetAccessToken", "GetAccessTokensForBucket"],
   });
 
   const updateToken = async () => {

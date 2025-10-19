@@ -129,7 +129,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
           ? {
               icon: "delete",
               label: t("buckets.item.delete"),
-              backgroundColor: theme.colors.error,
+              destructive: true,
               onPress: handleDeletePress,
               showAlert: {
                 title: t("buckets.delete.modalTitle"),

@@ -453,7 +453,8 @@
       "selectToken": "Seleziona token per vedere esempi",
       "chooseToken": "Scegli token",
       "tokenCreated": "Access token creato con successo",
-      "createError": "Impossibile creare l'access token"
+      "createError": "Impossibile creare l'access token",
+      "deleteError": "Impossibile eliminare l'access token"
     },
     "sharing": {
       "title": "Condivisione",

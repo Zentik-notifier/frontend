@@ -386,7 +386,7 @@ export default function FullScreenMediaViewer({
               <IconButton
                 icon="delete"
                 size={20}
-                iconColor="#ff4444"
+                iconColor={theme.colors.error}
                 style={styles.iconButton}
                 onPress={handleDelete}
                 accessibilityLabel="delete"

@@ -4,16 +4,18 @@ import { ApiConfigService } from "@/services/api-config";
 import {
   useGetAccessTokensForBucketQuery,
   useCreateAccessTokenForBucketMutation,
+  useRevokeAccessTokenMutation,
   GetAccessTokensForBucketDocument,
 } from "@/generated/gql-operations-generated";
 import React, { useEffect, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
-import * as Clipboard from "expo-clipboard";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import {
   Button,
   Card,
+  Dialog,
   Icon,
-  Menu,
+  IconButton,
+  Portal,
   Surface,
   Text,
   useTheme,
@@ -31,19 +33,31 @@ export default function BucketAccessTokensSection({
 }: BucketAccessTokensSectionProps) {
   const theme = useTheme();
   const { t } = useI18n();
-  const [selectedToken, setSelectedToken] = useState<any>(null);
-  const [menuVisible, setMenuVisible] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [apiUrl, setApiUrl] = useState("https://your-server.com");
+  const [showExamplesDialog, setShowExamplesDialog] = useState(false);
+  const [selectedTokenForExamples, setSelectedTokenForExamples] =
+    useState<any>(null);
 
   // GraphQL query and mutation
   const { data, loading, refetch } = useGetAccessTokensForBucketQuery({
     variables: { bucketId },
     skip: !bucketId,
   });
-  
+
   const [createAccessTokenForBucket] = useCreateAccessTokenForBucketMutation({
     refetchQueries: [
+      "GetUserAccessTokens",
+      {
+        query: GetAccessTokensForBucketDocument,
+        variables: { bucketId },
+      },
+    ],
+  });
+
+  const [revokeAccessToken] = useRevokeAccessTokenMutation({
+    refetchQueries: [
+      "GetUserAccessTokens",
       {
         query: GetAccessTokensForBucketDocument,
         variables: { bucketId },
@@ -68,35 +82,58 @@ export default function BucketAccessTokensSection({
 
   const handleCreateToken = async () => {
     const tokenName = `${bucketName} Token`;
-    
+
     setIsCreating(true);
     try {
-      const result = await createAccessTokenForBucket({
+      await createAccessTokenForBucket({
         variables: {
           bucketId,
           name: tokenName,
         },
       });
-
-      if (result.data?.createAccessTokenForBucket) {
-        const token = result.data.createAccessTokenForBucket.token;
-        
-        // Copy token to clipboard
-        await Clipboard.setStringAsync(token);
-        
-        Alert.alert(
-          t("common.success"),
-          t("buckets.accessTokens.tokenCreated" as any) + "\n\n" + t("accessTokens.form.tokenCreatedSubtitle") + "\n\n" + token
-        );
-        
-        await refetch();
-      }
+      await refetch();
     } catch (error) {
       console.error("Error creating access token:", error);
-      Alert.alert(t("common.error"), t("buckets.accessTokens.createError" as any));
+      Alert.alert(
+        t("common.error"),
+        t("buckets.accessTokens.createError" as any)
+      );
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleDeleteToken = (tokenId: string, tokenName: string) => {
+    Alert.alert(
+      t("accessTokens.item.deleteTokenTitle"),
+      t("accessTokens.item.deleteTokenMessage"),
+      [
+        {
+          text: t("common.cancel"),
+          style: "cancel",
+        },
+        {
+          text: t("accessTokens.item.deleteTokenConfirm"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await revokeAccessToken({ variables: { tokenId } });
+            } catch (error) {
+              console.error("Error deleting token:", error);
+              Alert.alert(
+                t("common.error"),
+                t("buckets.accessTokens.deleteError" as any)
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleShowExamples = (token: any) => {
+    setSelectedTokenForExamples(token);
+    setShowExamplesDialog(true);
   };
 
   return (
@@ -108,7 +145,10 @@ export default function BucketAccessTokensSection({
               {t("buckets.accessTokens.title" as any)}
             </Text>
             <Text
-              style={[styles.description, { color: theme.colors.onSurfaceVariant }]}
+              style={[
+                styles.description,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
             >
               {t("buckets.accessTokens.description" as any)}
             </Text>
@@ -126,7 +166,12 @@ export default function BucketAccessTokensSection({
         </View>
 
         {loading ? (
-          <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>
+          <Text
+            style={[
+              styles.loadingText,
+              { color: theme.colors.onSurfaceVariant },
+            ]}
+          >
             {t("common.loading")}
           </Text>
         ) : accessTokens.length === 0 ? (
@@ -142,59 +187,98 @@ export default function BucketAccessTokensSection({
               color={theme.colors.onSurfaceVariant}
             />
             <Text
-              style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}
+              style={[
+                styles.emptyText,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
             >
               {t("buckets.accessTokens.noTokens" as any)}
             </Text>
           </Surface>
         ) : (
-          <>
-            <View style={styles.selectorContainer}>
-              <Text
-                style={[styles.selectorLabel, { color: theme.colors.onSurface }]}
+          <View style={styles.tokensList}>
+            {accessTokens.map((token: any) => (
+              <Surface
+                key={token.id}
+                style={[
+                  styles.tokenItem,
+                  { backgroundColor: theme.colors.elevation.level1 },
+                ]}
+                elevation={1}
               >
-                {t("buckets.accessTokens.selectToken" as any)}:
-              </Text>
-              <Menu
-                visible={menuVisible}
-                onDismiss={() => setMenuVisible(false)}
-                anchor={
-                  <Button
-                    mode="outlined"
-                    onPress={() => setMenuVisible(true)}
-                    icon="key"
-                  >
-                    {selectedToken
-                      ? selectedToken.name
-                      : t("buckets.accessTokens.chooseToken" as any)}
-                  </Button>
-                }
-              >
-                {accessTokens.map((token: any) => (
-                  <Menu.Item
-                    key={token.id}
-                    onPress={() => {
-                      setSelectedToken(token);
-                      setMenuVisible(false);
-                    }}
-                    title={token.name}
-                    disabled={token.isExpired || !token.token}
-                    leadingIcon={token.isExpired ? "clock-alert" : "key"}
+                <View style={styles.tokenInfo}>
+                  <View style={styles.tokenHeader}>
+                    <Icon
+                      source={token.token ? "key" : "key-outline"}
+                      size={20}
+                      color={theme.colors.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.tokenName,
+                        { color: theme.colors.onSurface },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {token.name}
+                    </Text>
+                  </View>
+                  {token.isExpired && (
+                    <Text
+                      style={[
+                        styles.expiredText,
+                        { color: theme.colors.error },
+                      ]}
+                    >
+                      {t("accessTokens.item.expired")}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.tokenActions}>
+                  <IconButton
+                    icon="code-tags"
+                    size={20}
+                    onPress={() => handleShowExamples(token)}
+                    disabled={!token.token}
                   />
-                ))}
-              </Menu>
-            </View>
-
-            {selectedToken && (
-              <BucketApiExamples
-                bucketId={bucketId}
-                accessToken={selectedToken.token}
-                apiUrl={apiUrl}
-              />
-            )}
-          </>
+                  <IconButton
+                    icon="delete"
+                    size={20}
+                    iconColor={theme.colors.error}
+                    onPress={() => handleDeleteToken(token.id, token.name)}
+                  />
+                </View>
+              </Surface>
+            ))}
+          </View>
         )}
       </Card.Content>
+
+      {/* API Examples Dialog */}
+      <Portal>
+        <Dialog
+          visible={showExamplesDialog}
+          onDismiss={() => setShowExamplesDialog(false)}
+        >
+          <Dialog.Title>{t("buckets.apiExamples.title" as any)}</Dialog.Title>
+          <Dialog.ScrollArea style={styles.dialogScroll}>
+            <ScrollView>
+              {selectedTokenForExamples && (
+                <BucketApiExamples
+                  bucketId={bucketId}
+                  accessToken={selectedTokenForExamples.token}
+                  apiUrl={apiUrl}
+                />
+              )}
+            </ScrollView>
+          </Dialog.ScrollArea>
+          <Dialog.Actions>
+            <Button onPress={() => setShowExamplesDialog(false)}>
+              {t("common.close")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </Card>
   );
 }
@@ -236,13 +320,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
   },
-  selectorContainer: {
-    marginBottom: 16,
+  tokensList: {
+    gap: 8,
   },
-  selectorLabel: {
+  tokenItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 8,
+  },
+  tokenInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  tokenHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  tokenName: {
     fontSize: 14,
     fontWeight: "600",
-    marginBottom: 8,
+    flex: 1,
+  },
+  expiredText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  tokenActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  dialog: {
+    maxHeight: "80%",
+  },
+  dialogScroll: {
+    maxHeight: 500,
+    paddingHorizontal: 0,
   },
 });
-

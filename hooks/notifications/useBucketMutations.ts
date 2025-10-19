@@ -107,8 +107,21 @@ export function useDeleteBucketWithNotifications(options?: {
       await queryClient.invalidateQueries({
         queryKey: bucketKeys.detail(data.bucketId),
       });
+      
+      // Invalidate access tokens for this bucket
+      await queryClient.invalidateQueries({
+        queryKey: ['GetAccessTokensForBucket', { bucketId: data.bucketId }],
+      });
+      
+      // Remove all queries related to this bucket
+      queryClient.removeQueries({
+        queryKey: bucketKeys.detail(data.bucketId),
+      });
+      queryClient.removeQueries({
+        queryKey: ['GetAccessTokensForBucket', { bucketId: data.bucketId }],
+      });
 
-      console.log('[useDeleteBucketWithNotifications] Queries invalidated');
+      console.log('[useDeleteBucketWithNotifications] Queries invalidated and removed');
 
       if (options?.onSuccess) {
         options.onSuccess();

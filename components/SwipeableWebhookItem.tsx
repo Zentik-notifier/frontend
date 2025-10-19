@@ -55,7 +55,7 @@ const SwipeableWebhookItem: React.FC<SwipeableWebhookItemProps> = ({
     ? {
         icon: "delete" as const,
         label: t("webhooks.delete"),
-        backgroundColor: "#ff4444",
+        destructive: true,
         onPress: () => deleteWebhook(webhook.id),
         showAlert: {
           title: t("webhooks.deleteConfirmTitle"),

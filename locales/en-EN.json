@@ -440,7 +440,8 @@
       "selectToken": "Select token to see examples",
       "chooseToken": "Choose token",
       "tokenCreated": "Access token created successfully",
-      "createError": "Failed to create access token"
+      "createError": "Failed to create access token",
+      "deleteError": "Failed to delete access token"
     },
     "sharing": {
       "title": "Sharing",

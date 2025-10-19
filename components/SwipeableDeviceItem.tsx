@@ -150,7 +150,7 @@ const SwipeableDeviceItem: React.FC<SwipeableDeviceItemProps> = ({
     ? {
         icon: "delete",
         label: t("devices.item.delete"),
-        backgroundColor: "#ff4444",
+        destructive: true,
         onPress: handleDelete,
         showAlert: {
           title: t("devices.item.removeDeviceTitle"),

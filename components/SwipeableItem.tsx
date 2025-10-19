@@ -21,7 +21,8 @@ import { useI18n } from "@/utils/i18n";
 export interface SwipeAction {
   icon: string;
   label: string;
-  backgroundColor: string;
+  backgroundColor?: string;
+  destructive?: boolean;
   onPress: () => Promise<void> | void;
   showAlert?: {
     title: string;
@@ -221,13 +222,16 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   function LeftAction() {
     if (!leftAction || !withActions) return null;
 
+    const backgroundColor = leftAction.backgroundColor || 
+      (leftAction.destructive ? theme.colors.error : theme.colors.primary);
+
     return (
       <TouchableOpacity
         onPress={() => handleActionPress(leftAction)}
         style={[
           styles.actionContainer,
           {
-            backgroundColor: leftAction.backgroundColor,
+            backgroundColor,
             borderTopLeftRadius: borderRadius,
             borderBottomLeftRadius: borderRadius,
           },
@@ -242,13 +246,16 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   function RightAction() {
     if (!rightAction || !withActions) return null;
 
+    const backgroundColor = rightAction.backgroundColor || 
+      (rightAction.destructive ? theme.colors.error : theme.colors.primary);
+
     return (
       <TouchableOpacity
         onPress={() => handleActionPress(rightAction)}
         style={[
           styles.actionContainer,
           {
-            backgroundColor: rightAction.backgroundColor,
+            backgroundColor,
             borderTopRightRadius: borderRadius,
             borderBottomRightRadius: borderRadius,
           },

@@ -125,7 +125,7 @@ export const SwipeableAttachmentItem: React.FC<
 
   const rightAction: SwipeAction = {
     icon: "delete",
-    backgroundColor: theme.colors.error,
+    destructive: true,
     label: t("common.delete") as string,
     onPress: handleDeletePress,
   };

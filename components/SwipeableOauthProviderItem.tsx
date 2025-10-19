@@ -102,7 +102,7 @@ const SwipeableOauthProviderItem: React.FC<SwipeableOauthProviderItemProps> = ({
   const rightAction = {
     icon: "delete",
     label: t("administration.oauthProviderForm.deleteProvider"),
-    backgroundColor: theme.colors.error,
+    destructive: true,
     onPress: handleDeletePress,
     showAlert: {
       title: t("administration.oauthProviderForm.confirmDeleteProviderTitle"),

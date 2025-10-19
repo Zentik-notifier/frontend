@@ -27,7 +27,9 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
   } = useAppContext();
   const isOffline = isOfflineAuth || isBackendUnreachable;
-  const [revokeAccessTokenMutation] = useRevokeAccessTokenMutation();
+  const [revokeAccessTokenMutation] = useRevokeAccessTokenMutation({
+    refetchQueries: ["GetUserAccessTokens", "GetAccessTokensForBucket"],
+  });
   const { data: bucketsData } = useGetBucketsQuery();
 
   const isExpired = useMemo(
@@ -69,7 +71,7 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
     ? {
         icon: "delete" as const,
         label: t("accessTokens.item.delete"),
-        backgroundColor: "#ff4444",
+        destructive: true,
         onPress: () => revokeToken(token.id),
         showAlert: {
           title: t("accessTokens.item.deleteTokenTitle"),
