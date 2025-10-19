@@ -420,7 +420,7 @@ class MediaCacheService {
                 console.log(`[MediaCache] ✅ Download complete, notifying ${this.bucketIconReady$.observers.length} observers`);
                 this.bucketIconReady$.next({ bucketId, uri });
             } else {
-                console.error(`[MediaCache] ❌ Download failed for ${bucketName}`);
+                console.error(`[MediaCache] ❌ Download failed for ${bucketName}, ${url}`);
             }
         } catch (e) {
             console.error('[MediaCache] ❌ Bucket icon download error for', bucketName, e);

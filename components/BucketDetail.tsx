@@ -77,7 +77,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const renderBucketHeader = () => (
     <Surface style={styles.bucketHeader} elevation={0}>
       <View style={styles.bucketInfo}>
-        <BucketIcon bucketId={bucketId} size="xl" noRouting />
+        <BucketIcon bucketId={bucketId} size="xl" noRouting userId={userId} />
 
         <View style={styles.bucketDetails}>
           <Text style={[styles.bucketName, { color: theme.colors.onSurface }]}>

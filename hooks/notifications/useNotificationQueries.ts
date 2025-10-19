@@ -545,6 +545,7 @@ export function useInitializeBucketsStats() {
                         name: bucket.name,
                         description: bucket.description,
                         icon: bucket.icon,
+                        iconAttachmentUuid: bucket.iconAttachmentUuid,
                         color: bucket.color,
                         createdAt: bucket.createdAt,
                         updatedAt: bucket.updatedAt,
@@ -592,6 +593,7 @@ export function useInitializeBucketsStats() {
                     id: bucket.id,
                     name: bucket.name,
                     icon: bucket.icon,
+                    iconAttachmentUuid: bucket.iconAttachmentUuid,
                     description: bucket.description,
                     updatedAt: bucket.updatedAt,
                     // Include all bucket fields for complete caching
@@ -625,6 +627,7 @@ export function useInitializeBucketsStats() {
                     name: bucket.name,
                     description: bucket.description,
                     icon: bucket.icon,
+                    iconAttachmentUuid: bucket.iconAttachmentUuid,
                     color: bucket.color,
                     createdAt: bucket.createdAt,
                     updatedAt: bucket.updatedAt,

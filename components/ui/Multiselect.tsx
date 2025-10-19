@@ -72,6 +72,7 @@ export default function Multiselect({
     top: 0,
     left: 0,
     width: 0,
+    maxHeight: 300,
   });
   const containerRef = useRef<View>(null);
   const sheetRef = useRef<ThemedBottomSheetRef>(null);
@@ -94,10 +95,24 @@ export default function Multiselect({
     if (!isInlineDropdownOpen) {
       // Calculate the position of the dropdown
       containerRef.current?.measure((x, y, width, height, pageX, pageY) => {
+        const screenHeight = Dimensions.get('window').height;
+        const spaceBelow = screenHeight - (pageY + height);
+        const spaceAbove = pageY;
+        const maxDropdownHeight = 350;
+        
+        // Open upward if there's not enough space below and more space above
+        const shouldOpenUpward = spaceBelow < 200 && spaceAbove > spaceBelow;
+        
+        // Calculate available height
+        const availableHeight = shouldOpenUpward 
+          ? Math.min(maxDropdownHeight, spaceAbove - 20) 
+          : Math.min(maxDropdownHeight, spaceBelow - 20);
+        
         setDropdownPosition({
-          top: pageY + height,
+          top: shouldOpenUpward ? pageY - availableHeight : pageY + height,
           left: pageX,
           width: width,
+          maxHeight: availableHeight,
         });
       });
     }
@@ -202,6 +217,7 @@ export default function Multiselect({
       top: dropdownPosition.top,
       left: dropdownPosition.left,
       width: dropdownPosition.width,
+      maxHeight: dropdownPosition.maxHeight,
       backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.outline,
@@ -215,6 +231,7 @@ export default function Multiselect({
       },
       shadowOpacity: 0.3,
       shadowRadius: 4.65,
+      overflow: "hidden", // ← Previene che il contenuto vada oltre
     },
     inlineSearchContainer: {
       paddingHorizontal: 16,
@@ -233,7 +250,7 @@ export default function Multiselect({
       color: theme.colors.onSurface,
     },
     inlineOptionsList: {
-      maxHeight: 300,
+      maxHeight: Math.max(150, dropdownPosition.maxHeight - 120), // Dynamic max height minus space for actions/search
     },
     inlineOptionItem: {
       flexDirection: "row",
@@ -512,77 +529,77 @@ export default function Multiselect({
           />
 
           <View style={styles.inlineDropdown}>
-            <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-              {/* Actions */}
-              {showSelectAll && (
-                <View style={styles.inlineActionsContainer}>
+            {/* Actions */}
+            {showSelectAll && (
+              <View style={styles.inlineActionsContainer}>
+                <TouchableOpacity
+                  style={styles.inlineActionButton}
+                  onPress={handleSelectAll}
+                >
+                  <Text style={styles.inlineActionButtonText}>
+                    {allSelected ? t("common.deselectAll") : t("common.selectAll")}
+                  </Text>
+                </TouchableOpacity>
+                {someSelected && (
                   <TouchableOpacity
                     style={styles.inlineActionButton}
-                    onPress={handleSelectAll}
+                    onPress={handleClearSelection}
                   >
                     <Text style={styles.inlineActionButtonText}>
-                      {allSelected ? t("common.deselectAll") : t("common.selectAll")}
+                      {t("common.clear")}
                     </Text>
                   </TouchableOpacity>
-                  {someSelected && (
-                    <TouchableOpacity
-                      style={styles.inlineActionButton}
-                      onPress={handleClearSelection}
-                    >
-                      <Text style={styles.inlineActionButtonText}>
-                        {t("common.clear")}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
+                )}
+              </View>
+            )}
 
-              {isSearchable && (
-                <View style={styles.inlineSearchContainer}>
-                  <TextInput
-                    style={styles.inlineSearchInput}
-                    placeholder={searchPlaceholder || t("common.search")}
-                    placeholderTextColor={theme.colors.onSurfaceVariant}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                  />
-                </View>
-              )}
+            {isSearchable && (
+              <View style={styles.inlineSearchContainer}>
+                <TextInput
+                  style={styles.inlineSearchInput}
+                  placeholder={searchPlaceholder || t("common.search")}
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+              </View>
+            )}
 
-              <FlatList
-                style={styles.inlineOptionsList}
-                data={filteredOptions}
-                keyExtractor={(item) => String(item.id)}
-                renderItem={({ item }) => {
-                  const isSelected = selectedValues.includes(item.id);
-                  return (
-                    <TouchableOpacity
-                      style={[
-                        styles.inlineOptionItem,
-                        isSelected && styles.inlineSelectedOption,
-                      ]}
-                      onPress={() => handleToggleOption(item)}
-                    >
-                      {renderOptionItem(item)}
-                      <Icon
-                        source={isSelected ? "checkbox-marked" : "checkbox-blank-outline"}
-                        size={24}
-                        color={isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
-                      />
-                    </TouchableOpacity>
-                  );
-                }}
-                ListEmptyComponent={
-                  <View style={styles.inlineEmptyState}>
-                    <Text style={styles.inlineEmptyStateText}>
-                      {searchQuery.trim()
-                        ? t("common.noResults")
-                        : t("common.noOptions")}
-                    </Text>
-                  </View>
-                }
-              />
-            </TouchableOpacity>
+            <FlatList
+              style={styles.inlineOptionsList}
+              data={filteredOptions}
+              keyExtractor={(item) => String(item.id)}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+              renderItem={({ item }) => {
+                const isSelected = selectedValues.includes(item.id);
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.inlineOptionItem,
+                      isSelected && styles.inlineSelectedOption,
+                    ]}
+                    onPress={() => handleToggleOption(item)}
+                  >
+                    {renderOptionItem(item)}
+                    <Icon
+                      source={isSelected ? "checkbox-marked" : "checkbox-blank-outline"}
+                      size={24}
+                      color={isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                    />
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={styles.inlineEmptyState}>
+                  <Text style={styles.inlineEmptyStateText}>
+                    {searchQuery.trim()
+                      ? t("common.noResults")
+                      : t("common.noOptions")}
+                  </Text>
+                </View>
+              }
+            />
           </View>
         </Portal>
       )}

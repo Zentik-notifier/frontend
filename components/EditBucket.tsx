@@ -153,7 +153,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
 
       {canAdmin && (
         <>
-          <BucketAccessTokensSection bucketId={bucketId} />
+          <BucketAccessTokensSection bucketId={bucketId} bucketName={bucket?.name || ""} />
           <BucketSharingSection bucketId={bucketId} />
           <Button
             mode="contained"

@@ -8,26 +8,26 @@ import {
 } from "@/generated/gql-operations-generated";
 import React, { useEffect, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import {
   Button,
   Card,
-  Dialog,
   Icon,
   Menu,
-  Portal,
   Surface,
   Text,
-  TextInput,
   useTheme,
 } from "react-native-paper";
 import BucketApiExamples from "./BucketApiExamples";
 
 interface BucketAccessTokensSectionProps {
   bucketId: string;
+  bucketName: string;
 }
 
 export default function BucketAccessTokensSection({
   bucketId,
+  bucketName,
 }: BucketAccessTokensSectionProps) {
   const theme = useTheme();
   const { t } = useI18n();
@@ -35,8 +35,6 @@ export default function BucketAccessTokensSection({
   const [menuVisible, setMenuVisible] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [apiUrl, setApiUrl] = useState("https://your-server.com");
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newTokenName, setNewTokenName] = useState("");
 
   // GraphQL query and mutation
   const { data, loading, refetch } = useGetAccessTokensForBucketQuery({
@@ -68,33 +66,29 @@ export default function BucketAccessTokensSection({
     }
   };
 
-  const handleCreateToken = () => {
-    setNewTokenName("");
-    setShowCreateDialog(true);
-  };
-
-  const confirmCreateToken = async () => {
-    if (!newTokenName.trim()) {
-      Alert.alert(t("common.error"), t("accessTokens.form.nameRequired"));
-      return;
-    }
-
+  const handleCreateToken = async () => {
+    const tokenName = `${bucketName} Token`;
+    
     setIsCreating(true);
     try {
       const result = await createAccessTokenForBucket({
         variables: {
           bucketId,
-          name: newTokenName.trim(),
+          name: tokenName,
         },
       });
 
       if (result.data?.createAccessTokenForBucket) {
-        setShowCreateDialog(false);
-        setNewTokenName("");
+        const token = result.data.createAccessTokenForBucket.token;
+        
+        // Copy token to clipboard
+        await Clipboard.setStringAsync(token);
+        
         Alert.alert(
           t("common.success"),
-          t("buckets.accessTokens.tokenCreated" as any)
+          t("buckets.accessTokens.tokenCreated" as any) + "\n\n" + t("accessTokens.form.tokenCreatedSubtitle") + "\n\n" + token
         );
+        
         await refetch();
       }
     } catch (error) {
@@ -201,42 +195,6 @@ export default function BucketAccessTokensSection({
           </>
         )}
       </Card.Content>
-
-      {/* Create Token Dialog */}
-      <Portal>
-        <Dialog
-          visible={showCreateDialog}
-          onDismiss={() => !isCreating && setShowCreateDialog(false)}
-        >
-          <Dialog.Title>{t("buckets.accessTokens.create" as any)}</Dialog.Title>
-          <Dialog.Content>
-            <TextInput
-              mode="outlined"
-              label={t("accessTokens.form.tokenName")}
-              value={newTokenName}
-              onChangeText={setNewTokenName}
-              placeholder={t("accessTokens.form.tokenNamePlaceholder")}
-              disabled={isCreating}
-              autoFocus
-            />
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button
-              onPress={() => setShowCreateDialog(false)}
-              disabled={isCreating}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button
-              onPress={confirmCreateToken}
-              disabled={isCreating || !newTokenName.trim()}
-              loading={isCreating}
-            >
-              {t("common.create" as any)}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
     </Card>
   );
 }

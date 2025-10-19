@@ -2,6 +2,7 @@ import { BucketFragment } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
 import Multiselect, { MultiselectOption } from "./ui/Multiselect";
+import BucketIcon from "./BucketIcon";
 
 interface MultiBucketSelectorProps {
   selectedBucketIds?: string[];
@@ -23,14 +24,19 @@ export default function MultiBucketSelector({
   const bucketOptions = useMemo(() => {
     const options: MultiselectOption[] = [];
 
-    // Add regular buckets
+    // Add regular buckets with BucketIcon
     buckets.forEach((bucket) => {
       options.push({
         id: bucket.id,
         name: bucket.name,
-        iconUrl: bucket.icon ?? undefined,
-        iconColor: bucket.color ?? undefined,
-        iconName: "circle",
+        description: bucket.description ?? undefined,
+        iconElement: (
+          <BucketIcon
+            size="sm"
+            bucket={bucket}
+            noRouting
+          />
+        ),
       });
     });
 

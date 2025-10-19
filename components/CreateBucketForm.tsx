@@ -290,12 +290,21 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
         <Surface
           style={[
             styles.customColorInput,
-            { borderColor: bucketColor },
+            { borderColor: theme.colors.outline },
             ((isEditing && !canWrite) || offline) && styles.disabledInput,
           ]}
           onTouchEnd={() => colorPickerRef.current?.openModal()}
         >
-          <Text style={[styles.customColorInputText, { color: bucketColor }]}>
+          <View
+            style={[
+              styles.colorPreview,
+              { backgroundColor: bucketColor }
+            ]}
+          />
+          <Text style={[
+            styles.customColorInputText,
+            { color: theme.colors.onSurface }
+          ]}>
             {bucketColor}
           </Text>
         </Surface>
@@ -492,15 +501,24 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   customColorInput: {
-    width: 100,
-    borderWidth: 2,
+    width: 120,
+    borderWidth: 1,
     borderRadius: 8,
-    padding: 12,
+    padding: 8,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
+  },
+  colorPreview: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.1)",
   },
   customColorInputText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
   },
   iconInputContainer: {

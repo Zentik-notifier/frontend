@@ -1,18 +1,14 @@
 import PaperScrollView from "@/components/ui/PaperScrollView";
-import { useAppContext } from "@/contexts/AppContext";
 import {
   useGetUserAccessTokensQuery,
 } from "@/generated/gql-operations-generated";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useState } from "react";
+import React from "react";
 import { StyleSheet, View } from "react-native";
 import {
-  Button,
-  Dialog,
   Icon,
-  Portal,
   Text,
   useTheme,
 } from "react-native-paper";
@@ -22,8 +18,6 @@ export function AccessTokensSettings() {
   const theme = useTheme();
   const { navigateToCreateAccessToken } = useNavigationUtils();
   const { t } = useI18n();
-  const [showErrorDialog, setShowErrorDialog] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
 
   // GraphQL queries
   const { data, loading, refetch, error } = useGetUserAccessTokensQuery();
@@ -65,24 +59,6 @@ export function AccessTokensSettings() {
           </View>
         )}
       </PaperScrollView>
-
-      {/* Error Dialog */}
-      <Portal>
-        <Dialog
-          visible={showErrorDialog}
-          onDismiss={() => setShowErrorDialog(false)}
-        >
-          <Dialog.Title>{t("common.error")}</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{errorMessage}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowErrorDialog(false)}>
-              {t("common.ok")}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
     </View>
   );
 }

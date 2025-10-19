@@ -149,7 +149,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
         <View style={styles.itemCard}>
           <View style={styles.itemHeader}>
             <View style={styles.itemInfo}>
-              <BucketIcon noRouting size="lg" bucketId={bucket.id} />
+              <BucketIcon noRouting size="lg" bucketId={bucket.id} userId={userId} />
               <Text variant="titleMedium" style={styles.itemName}>
                 {bucket.name}
               </Text>

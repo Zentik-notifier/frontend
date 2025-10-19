@@ -2,13 +2,14 @@ import { useAppContext } from "@/contexts/AppContext";
 import {
   AccessTokenListDto,
   useRevokeAccessTokenMutation,
+  useGetBucketsQuery,
 } from "@/generated/gql-operations-generated";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
-import { Dialog, Icon, Portal, Text, useTheme } from "react-native-paper";
+import React, { useMemo } from "react";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { Chip, Icon, Text, useTheme } from "react-native-paper";
 import SwipeableItem, { MenuItem } from "./SwipeableItem";
 
 interface SwipeableAccessTokenItemProps {
@@ -27,8 +28,7 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
   } = useAppContext();
   const isOffline = isOfflineAuth || isBackendUnreachable;
   const [revokeAccessTokenMutation] = useRevokeAccessTokenMutation();
-  const [showErrorDialog, setShowErrorDialog] = useState(false);
-  const [dialogMessage, setDialogMessage] = useState("");
+  const { data: bucketsData } = useGetBucketsQuery();
 
   const isExpired = useMemo(
     () =>
@@ -38,6 +38,16 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
   );
 
   const hasToken = !!token.token;
+
+  const scopedBuckets = useMemo(() => {
+    if (!token.scopes || token.scopes.length === 0) return [];
+
+    const bucketIds = token.scopes
+      .filter((s) => s.startsWith("message-bucket-creation:"))
+      .map((s) => s.split(":")[1]);
+
+    return bucketsData?.buckets.filter((b) => bucketIds.includes(b.id)) || [];
+  }, [token.scopes, bucketsData]);
 
   const handleEditToken = (tokenId: string) => {
     navigateToEditAccessToken(tokenId);
@@ -49,11 +59,9 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
         variables: { tokenId },
         refetchQueries: ["GetUserAccessTokens"],
       });
-      setDialogMessage(t("accessTokens.deleteSuccessMessage"));
     } catch (error) {
       console.error("Error revoking access token:", error);
-      setDialogMessage(t("accessTokens.deleteError"));
-      setShowErrorDialog(true);
+      Alert.alert(t("common.error"), t("accessTokens.deleteError"));
     }
   };
 
@@ -153,17 +161,27 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
             </View>
           </View>
 
-          {token.scopes && token.scopes.length > 0 && (
-            <View style={styles.scopesInfo}>
-              <Icon
-                source="lock"
-                size={12}
-                color={theme.colors.onSurfaceVariant}
-              />
-              <Text variant="bodySmall" style={styles.scopesText}>
-                {token.scopes.length} scope
-                {token.scopes.length !== 1 ? "s" : ""}
+          {scopedBuckets.length > 0 && (
+            <View style={styles.bucketsInfo}>
+              <Text variant="bodySmall" style={styles.bucketsLabel}>
+                {t("accessTokens.item.limitedToBuckets" as any)}:
               </Text>
+              <View style={styles.bucketsChips}>
+                {scopedBuckets.slice(0, 2).map((bucket) => (
+                  <Chip
+                    key={bucket.id}
+                    textStyle={styles.bucketChipText}
+                    icon="folder"
+                  >
+                    {bucket.name}
+                  </Chip>
+                ))}
+                {scopedBuckets.length > 2 && (
+                  <Chip textStyle={styles.bucketChipText}>
+                    +{scopedBuckets.length - 2}
+                  </Chip>
+                )}
+              </View>
             </View>
           )}
 
@@ -187,24 +205,6 @@ const SwipeableAccessTokenItem: React.FC<SwipeableAccessTokenItemProps> = ({
           )}
         </View>
       </Pressable>
-
-      {/* Error Dialog */}
-      <Portal>
-        <Dialog
-          visible={showErrorDialog}
-          onDismiss={() => setShowErrorDialog(false)}
-        >
-          <Dialog.Title>{t("common.error")}</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{dialogMessage}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Text onPress={() => setShowErrorDialog(false)}>
-              {t("common.ok")}
-            </Text>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
     </SwipeableItem>
   );
 };
@@ -247,14 +247,20 @@ const styles = StyleSheet.create({
   statusText: {
     opacity: 0.7,
   },
-  scopesInfo: {
-    flexDirection: "row",
-    alignItems: "center",
+  bucketsInfo: {
     marginBottom: 8,
   },
-  scopesText: {
-    opacity: 0.6,
-    marginLeft: 4,
+  bucketsLabel: {
+    opacity: 0.7,
+    marginBottom: 4,
+  },
+  bucketsChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  bucketChipText: {
+    fontSize: 11,
   },
   itemDetail: {
     opacity: 0.7,

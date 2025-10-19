@@ -1,4 +1,3 @@
-import { useAppContext } from "@/contexts/AppContext";
 import {
   BucketFragment,
   usePublicAppConfigQuery
@@ -21,11 +20,12 @@ const sizeMap = {
 };
 
 interface BucketIconProps {
-  size?: "lg" | "xl" | "xxl";
+  size?: "sm" | "md" | "lg" | "xl" | "xxl";
   bucketId?: string;
   iconUrl?: string;
   noRouting?: boolean;
   bucket?: BucketFragment;
+  userId?: string | null;
 }
 
 export default function BucketIcon({
@@ -34,9 +34,9 @@ export default function BucketIcon({
   iconUrl,
   noRouting = false,
   bucket: bucketParent,
+  userId = null,
 }: BucketIconProps) {
   const theme = useTheme();
-  const { userId } = useAppContext();
   const { data: appConfig } = usePublicAppConfigQuery();
   const uploadEnabled = appConfig?.publicAppConfig?.uploadEnabled ?? true;
 
@@ -85,16 +85,13 @@ export default function BucketIcon({
         let iconUrlToUse: string | undefined = undefined;
         
         if (iconAttachmentUuid) {
-          // Use attachment API
+          // Use attachment API (public endpoint)
           const apiUrl = await ApiConfigService.getApiUrl();
-          iconUrlToUse = `${apiUrl}/api/v1/attachments/public/${iconAttachmentUuid}`;
-          console.log(`[BucketIcon] Using attachment API for ${bucketName}: ${iconUrlToUse}`);
+          iconUrlToUse = `${apiUrl}/api/v1/attachments/${iconAttachmentUuid}/download/public`;
         } else if (icon && typeof icon === "string" && icon.startsWith("http")) {
           // Use custom icon URL
           iconUrlToUse = icon;
         }
-
-        // console.log(`[BucketIcon] Loading icon for ${bucketName}`, { iconUrlToUse });
 
         // Get from cache or add to queue if not found
         const iconUri = await mediaCache.getBucketIcon(
