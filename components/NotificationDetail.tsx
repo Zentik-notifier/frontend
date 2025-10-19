@@ -263,11 +263,7 @@ export default function NotificationDetail({
             {/* Left side: Bucket info */}
             <View style={styles.headerLeft}>
               <View style={styles.bucketContainer}>
-                <BucketIcon
-                  iconUrl={message?.bucket?.icon!}
-                  bucketId={message?.bucket?.id || ""}
-                  size="xxl"
-                />
+                <BucketIcon bucketId={message?.bucket?.id || ""} size="xxl" />
                 <View style={styles.bucketInfo}>
                   <Text
                     style={[

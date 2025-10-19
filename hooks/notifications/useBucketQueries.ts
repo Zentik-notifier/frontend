@@ -10,6 +10,8 @@ import {
 } from '@/generated/gql-operations-generated';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { notificationKeys } from './useNotificationQueries';
+import { saveBucket } from '@/db/repositories/buckets-repository';
 
 // ====================
 // TYPES
@@ -283,10 +285,50 @@ export function useRefreshBucket() {
                 return;
             }
 
-            // 2. Set data directly in React Query cache for this bucket
+            // 2. Set data directly in React Query cache for this bucket detail
             queryClient.setQueryData(bucketKeys.detail(bucketId), freshBucket);
 
-            console.log(`[refreshBucket] Bucket ${bucketId} refreshed successfully and cached`);
+            // 3. Update the bucket in global bucketsStats cache
+            queryClient.setQueryData<any[]>(notificationKeys.bucketsStats(), (old) => {
+                if (!old) return old;
+                
+                return old.map(bucket => {
+                    if (bucket.id === bucketId) {
+                        console.log(`[refreshBucket] Updating bucket ${bucketId} in bucketsStats cache`);
+                        return {
+                            ...bucket,
+                            name: freshBucket.name,
+                            description: freshBucket.description,
+                            icon: freshBucket.icon,
+                            iconAttachmentUuid: freshBucket.iconAttachmentUuid,
+                            color: freshBucket.color,
+                            updatedAt: freshBucket.updatedAt,
+                            isProtected: freshBucket.isProtected,
+                            isPublic: freshBucket.isPublic,
+                        };
+                    }
+                    return bucket;
+                });
+            });
+
+            // 4. Save to local DB
+            await saveBucket({
+                id: freshBucket.id,
+                name: freshBucket.name,
+                icon: freshBucket.icon,
+                iconAttachmentUuid: freshBucket.iconAttachmentUuid,
+                description: freshBucket.description,
+                updatedAt: freshBucket.updatedAt,
+                color: freshBucket.color,
+                createdAt: freshBucket.createdAt,
+                isProtected: freshBucket.isProtected,
+                isPublic: freshBucket.isPublic,
+                userBucket: freshBucket.userBucket,
+                user: freshBucket.user,
+                permissions: freshBucket.permissions,
+            });
+
+            console.log(`[refreshBucket] Bucket ${bucketId} refreshed successfully in all caches and DB`);
         } catch (error) {
             console.error('[refreshBucket] Error refreshing bucket:', error);
             throw error;

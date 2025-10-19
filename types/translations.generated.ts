@@ -429,7 +429,6 @@ export interface Translation {
     apiExamples: {
       title: string;
       description: string;
-      noToken: string;
       getRequest: string;
       postJson: string;
       postForm: string;

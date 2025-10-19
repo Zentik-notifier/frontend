@@ -1,6 +1,5 @@
 import { useI18n } from "@/hooks/useI18n";
 import { ApiConfigService } from "@/services/api-config";
-// @ts-ignore - Will be available after running codegen
 import {
   useGetAccessTokensForBucketQuery,
   useCreateAccessTokenForBucketMutation,
@@ -239,7 +238,6 @@ export default function BucketAccessTokensSection({
                     icon="code-tags"
                     size={20}
                     onPress={() => handleShowExamples(token)}
-                    disabled={!token.token}
                   />
                   <IconButton
                     icon="delete"

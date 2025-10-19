@@ -426,7 +426,6 @@
     "apiExamples": {
       "title": "API Examples",
       "description": "Use these examples to send messages to this bucket",
-      "noToken": "Select an access token to see API examples",
       "getRequest": "GET Request",
       "postJson": "POST JSON",
       "postForm": "POST Form Data",

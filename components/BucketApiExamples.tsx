@@ -12,30 +12,13 @@ interface BucketApiExamplesProps {
 
 export default function BucketApiExamples({
   bucketId,
-  accessToken,
+  accessToken: accessTokenParent,
   apiUrl = "https://your-server.com",
 }: BucketApiExamplesProps) {
   const theme = useTheme();
   const { t } = useI18n();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-
-  if (!accessToken) {
-    return (
-      <Surface
-        style={[
-          styles.container,
-          { backgroundColor: theme.colors.surfaceVariant },
-        ]}
-      >
-        <Text
-          style={[styles.noTokenText, { color: theme.colors.onSurfaceVariant }]}
-        >
-          {t("buckets.apiExamples.noToken" as any)}
-        </Text>
-      </Surface>
-    );
-  }
-
+  const accessToken = accessTokenParent ?? "zat_<TOKEN>";
   const examples = [
     {
       title: t("buckets.apiExamples.getRequest" as any),

@@ -1,6 +1,6 @@
 import {
   BucketFragment,
-  usePublicAppConfigQuery
+  usePublicAppConfigQuery,
 } from "@/generated/gql-operations-generated";
 import { useBucket } from "@/hooks/notifications";
 import { ApiConfigService } from "@/services/api-config";
@@ -22,37 +22,27 @@ const sizeMap = {
 interface BucketIconProps {
   size?: "sm" | "md" | "lg" | "xl" | "xxl";
   bucketId?: string;
-  iconUrl?: string;
   noRouting?: boolean;
-  bucket?: BucketFragment;
   userId?: string | null;
 }
 
 export default function BucketIcon({
   size = "lg",
-  bucketId: bucketIdParent,
-  iconUrl,
+  bucketId,
   noRouting = false,
-  bucket: bucketParent,
   userId = null,
 }: BucketIconProps) {
   const theme = useTheme();
   const { data: appConfig } = usePublicAppConfigQuery();
   const uploadEnabled = appConfig?.publicAppConfig?.uploadEnabled ?? true;
 
-  const { bucket: bucketData, error } = useBucket(
-    bucketIdParent ?? bucketParent?.id,
-    { userId: userId ?? undefined }
-  );
-  const bucket = bucketParent || bucketData;
-  const { color, icon: iconBucket, iconAttachmentUuid, name: bucketName } = bucket || {};
+  const { bucket, error } = useBucket(bucketId, {
+    userId: userId ?? undefined,
+  });
+  const { color, icon, iconAttachmentUuid, name: bucketName } = bucket || {};
   const { navigateToDanglingBucket, navigateToBucketDetail } =
     useNavigationUtils();
-  const bucketId = bucket?.id || bucketIdParent;
-  const icon = bucketData?.icon ?? iconBucket ?? iconUrl;
-  
-  // Use iconAttachmentUuid as stable key for dependency, fallback to icon URL only if no UUID
-  const iconDependency = iconAttachmentUuid || (icon && typeof icon === "string" && icon.startsWith("http") ? icon : undefined);
+
   const [sharedCacheIconUri, setSharedCacheIconUri] = useState<string | null>(
     null
   );
@@ -86,12 +76,16 @@ export default function BucketIcon({
       try {
         // Determine icon URL: use attachment API if UUID exists, otherwise fallback to custom icon URL
         let iconUrlToUse: string | undefined = undefined;
-        
+
         if (iconAttachmentUuid) {
           // Use attachment API (public endpoint)
           const apiUrl = await ApiConfigService.getApiUrl();
           iconUrlToUse = `${apiUrl}/api/v1/attachments/${iconAttachmentUuid}/download/public`;
-        } else if (icon && typeof icon === "string" && icon.startsWith("http")) {
+        } else if (
+          icon &&
+          typeof icon === "string" &&
+          icon.startsWith("http")
+        ) {
           // Use custom icon URL
           iconUrlToUse = icon;
         }
@@ -102,9 +96,13 @@ export default function BucketIcon({
           bucketId,
           bucketName,
           color ?? undefined,
-          iconUrlToUse,
-          iconAttachmentUuid ?? undefined
+          iconUrlToUse
         );
+
+        // await mediaCache.invalidateBucketIcon(bucketId, bucketName, bucketColor);
+        if (bucket?.id === "a1f61182-afd4-4cd2-9077-ac0b42b64bce") {
+          console.log("BUCKET", iconUrlToUse, iconUri);
+        }
 
         if (iconUri) {
           // Found in cache, use immediately
@@ -132,9 +130,9 @@ export default function BucketIcon({
       iconReadySubscription.unsubscribe();
       initReadySubscription.unsubscribe();
     };
-  }, [bucketId, bucketName, color, iconDependency, uploadEnabled]);
+  }, [bucketId, bucketName, color, iconAttachmentUuid, uploadEnabled]);
 
-  if (!bucketId && !iconUrl) {
+  if (!bucketId) {
     return null;
   }
 

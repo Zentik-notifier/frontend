@@ -33,7 +33,7 @@ export default function MultiBucketSelector({
         iconElement: (
           <BucketIcon
             size="sm"
-            bucket={bucket}
+            bucketId={bucket.id}
             noRouting
           />
         ),

@@ -12,6 +12,8 @@ import {
   useUpdateBucketSnoozesMutation
 } from '@/generated/gql-operations-generated';
 import { deleteNotificationsByBucketId } from '@/services/notifications-repository';
+import { deleteBucket } from '@/db/repositories/buckets-repository';
+import { mediaCache } from '@/services/media-cache-service';
 import { BucketWithStats } from '@/types/notifications';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BucketDetailData, bucketKeys } from './useBucketQueries';
@@ -45,19 +47,38 @@ export function useDeleteBucketWithNotifications(options?: {
     mutationFn: async (bucketId: string) => {
       console.log('[useDeleteBucketWithNotifications] Deleting bucket:', bucketId);
       
-      // First, delete all notifications for this bucket from local database
+      // Step 1: Delete all notifications for this bucket from local database
       const deletedCount = await deleteNotificationsByBucketId(bucketId);
       console.log(
         `[useDeleteBucketWithNotifications] Deleted ${deletedCount} notifications from local database for bucket ${bucketId}`
       );
 
-      // Then delete the bucket from the server
-      const result = await deleteBucketMutation({
-        variables: { id: bucketId },
-      });
+      // Step 2: Delete the bucket from local database
+      await deleteBucket(bucketId);
+      console.log(`[useDeleteBucketWithNotifications] Deleted bucket ${bucketId} from local database`);
 
-      if (!result.data?.deleteBucket) {
-        throw new Error('Failed to delete bucket');
+      // Step 3: Delete bucket icon from cache
+      await mediaCache.invalidateBucketIcon(bucketId);
+      console.log(`[useDeleteBucketWithNotifications] Deleted bucket ${bucketId} icon from cache`);
+
+      // Step 4: Delete the bucket from the server
+      try {
+        const result = await deleteBucketMutation({
+          variables: { id: bucketId },
+        });
+
+        if (!result.data?.deleteBucket) {
+          console.warn('[useDeleteBucketWithNotifications] Server returned false, but continuing with local cleanup');
+        }
+      } catch (serverError: any) {
+        // If bucket not found on server, that's OK - it was already deleted
+        if (serverError.message?.includes('Bucket not found') || 
+            serverError.graphQLErrors?.[0]?.message?.includes('Bucket not found')) {
+          console.log('[useDeleteBucketWithNotifications] Bucket already deleted on server, continuing with local cleanup');
+        } else {
+          // For other errors, log but still continue with local cleanup
+          console.error('[useDeleteBucketWithNotifications] Server deletion failed, but local cleanup completed:', serverError.message);
+        }
       }
 
       return { bucketId };
@@ -65,10 +86,9 @@ export function useDeleteBucketWithNotifications(options?: {
     onMutate: async (bucketId) => {
       console.log('[useDeleteBucketWithNotifications] Optimistic update:', { bucketId });
 
-      // Cancel outgoing queries to prevent overwriting optimistic update
-      await queryClient.cancelQueries({ queryKey: bucketKeys.detail(bucketId) });
-      await queryClient.cancelQueries({ queryKey: notificationKeys.bucketsStats() });
-      await queryClient.cancelQueries({ queryKey: notificationKeys.stats() });
+      // Cancel ALL queries to prevent any refetch during deletion
+      await queryClient.cancelQueries();
+      console.log('[useDeleteBucketWithNotifications] Cancelled all queries');
 
       // Snapshot previous values for rollback
       const previousBucketDetail = queryClient.getQueryData(bucketKeys.detail(bucketId));
@@ -86,8 +106,14 @@ export function useDeleteBucketWithNotifications(options?: {
         return old.filter((bucket) => bucket.id !== bucketId);
       });
 
-      // Optimistically remove bucket detail
-      queryClient.removeQueries({ queryKey: bucketKeys.detail(bucketId) });
+      // Remove ALL queries that reference this bucket
+      queryClient.removeQueries({
+        predicate: (query) => {
+          const queryKey = query.queryKey;
+          return JSON.stringify(queryKey).includes(bucketId);
+        },
+      });
+      console.log(`[useDeleteBucketWithNotifications] Removed all queries containing bucketId ${bucketId}`);
 
       console.log('[useDeleteBucketWithNotifications] Optimistic updates applied');
 
@@ -95,42 +121,69 @@ export function useDeleteBucketWithNotifications(options?: {
       return { previousBucketDetail, previousBucketsStats, previousStats, bucketId };
     },
     onSuccess: async (data, variables, context) => {
-      console.log('[useDeleteBucketWithNotifications] Mutation successful, invalidating queries...');
+      console.log('[useDeleteBucketWithNotifications] Mutation successful, cleaning up...');
 
-      // Invalidate all related queries
+      const bucketId = data.bucketId;
+
+      // Step 1: Remove ALL queries related to this specific bucket (prevent refetch)
+      queryClient.removeQueries({
+        predicate: (query) => {
+          const queryKey = query.queryKey;
+          // Remove any query that references this bucketId
+          return JSON.stringify(queryKey).includes(bucketId);
+        },
+      });
+      console.log(`[useDeleteBucketWithNotifications] Removed all queries containing bucketId ${bucketId}`);
+
+      // Step 2: Remove all notifications queries that might reference this bucket
+      queryClient.removeQueries({
+        queryKey: notificationKeys.all,
+      });
+      console.log('[useDeleteBucketWithNotifications] Removed all notification queries');
+
+      // Step 3: Invalidate global queries (bucketsStats, stats)
       await queryClient.invalidateQueries({
         queryKey: notificationKeys.bucketsStats(),
+        refetchType: 'none', // Don't refetch immediately
       });
       await queryClient.invalidateQueries({
         queryKey: notificationKeys.stats(),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: bucketKeys.detail(data.bucketId),
-      });
-      
-      // Invalidate access tokens for this bucket
-      await queryClient.invalidateQueries({
-        queryKey: ['GetAccessTokensForBucket', { bucketId: data.bucketId }],
-      });
-      
-      // Remove all queries related to this bucket
-      queryClient.removeQueries({
-        queryKey: bucketKeys.detail(data.bucketId),
-      });
-      queryClient.removeQueries({
-        queryKey: ['GetAccessTokensForBucket', { bucketId: data.bucketId }],
+        refetchType: 'none',
       });
 
-      console.log('[useDeleteBucketWithNotifications] Queries invalidated and removed');
+      console.log('[useDeleteBucketWithNotifications] Global queries invalidated (no immediate refetch)');
+
+      // Step 4: Force remove bucket from bucketsStats cache to prevent any race conditions
+      queryClient.setQueryData<BucketWithStats[]>(notificationKeys.bucketsStats(), (old) => {
+        if (!old) return old;
+        const filtered = old.filter((bucket) => bucket.id !== bucketId);
+        console.log(`[useDeleteBucketWithNotifications] BucketsStats: ${old.length} → ${filtered.length} buckets`);
+        return filtered;
+      });
+      console.log(`[useDeleteBucketWithNotifications] Bucket ${bucketId} force-removed from bucketsStats cache`);
 
       if (options?.onSuccess) {
         options.onSuccess();
       }
     },
     onError: (error, variables, context) => {
+      // Check if error is "Bucket not found" - in this case, don't rollback
+      const isBucketNotFound = error.message?.includes('Bucket not found') || 
+        (error as any).graphQLErrors?.[0]?.message?.includes('Bucket not found');
+
+      if (isBucketNotFound) {
+        console.log('[useDeleteBucketWithNotifications] Bucket not found on server, treating as success');
+        // Don't rollback - bucket was already deleted
+        // Call onSuccess callback
+        if (options?.onSuccess) {
+          options.onSuccess();
+        }
+        return;
+      }
+
       console.error('[useDeleteBucketWithNotifications] Mutation failed, rolling back optimistic updates:', error);
 
-      // Rollback optimistic updates
+      // Rollback optimistic updates only for real errors
       if (context?.previousBucketDetail) {
         queryClient.setQueryData(bucketKeys.detail(context.bucketId), context.previousBucketDetail);
       }

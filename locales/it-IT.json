@@ -439,7 +439,6 @@
     "apiExamples": {
       "title": "Esempi API",
       "description": "Usa questi esempi per inviare messaggi a questo bucket",
-      "noToken": "Seleziona un access token per vedere gli esempi API",
       "getRequest": "Richiesta GET",
       "postJson": "POST JSON",
       "postForm": "POST Form Data",

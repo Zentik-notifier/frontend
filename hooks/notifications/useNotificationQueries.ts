@@ -14,6 +14,7 @@ import {
 import {
     getAllBuckets,
     saveBuckets,
+    deleteBucket,
     BucketData
 } from '@/db/repositories/buckets-repository';
 import {
@@ -30,10 +31,12 @@ import {
     saveNotificationToCache,
     deleteNotificationFromCache,
     deleteNotificationsFromCache,
+    deleteNotificationsByBucketId,
     getAllDeletedNotificationIds,
     removeDeletedNotificationTombstone,
     incrementDeleteTombstoneRetry,
 } from '@/services/notifications-repository';
+import { mediaCache } from '@/services/media-cache-service';
 import {
     BucketStats,
     BucketWithStats,
@@ -249,12 +252,28 @@ export function useBucketsStats(
 
                     console.log(`[useBucketsStats] Fetched ${buckets.length} buckets from API with full details`);
 
-                // 2. Save buckets to local DB for offline access
+                // 2. Clean up orphaned buckets
+                const localBucketsForce = await getAllBuckets();
+                const serverBucketIdsForce = new Set(buckets.map(b => b.id));
+                const orphanedBucketsForce = localBucketsForce.filter(cb => !serverBucketIdsForce.has(cb.id));
+                
+                if (orphanedBucketsForce.length > 0) {
+                    console.log(`[useBucketsStats] Found ${orphanedBucketsForce.length} orphaned buckets, deleting...`);
+                    for (const orphan of orphanedBucketsForce) {
+                        await deleteBucket(orphan.id);
+                        await deleteNotificationsByBucketId(orphan.id);
+                        await mediaCache.invalidateBucketIcon(orphan.id);
+                        console.log(`[useBucketsStats] Deleted orphaned bucket: ${orphan.name}`);
+                    }
+                }
+
+                // 3. Save buckets to local DB for offline access
                 if (buckets.length > 0) {
                     const bucketsToSave: BucketData[] = buckets.map(bucket => ({
                         id: bucket.id,
                         name: bucket.name,
                         icon: bucket.icon,
+                        iconAttachmentUuid: bucket.iconAttachmentUuid,
                         description: bucket.description,
                         updatedAt: bucket.updatedAt,
                         // Include all bucket fields for complete caching
@@ -271,13 +290,13 @@ export function useBucketsStats(
                     console.log(`[useBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
                 }
 
-                // 3. Get all bucket IDs
+                // 4. Get all bucket IDs
                 const bucketIds = buckets.map((b) => b.id);
 
-                // 4. Get notification stats from local DB
+                // 5. Get notification stats from local DB
                 const notificationStats = await getNotificationStats(bucketIds);
 
-                // 5. Combine bucket metadata with stats
+                // 6. Combine bucket metadata with stats
                 const bucketsWithStats: BucketWithStats[] = buckets.map((bucket) => {
                     // Find stats for this bucket
                     const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
@@ -293,6 +312,7 @@ export function useBucketsStats(
                         name: bucket.name,
                         description: bucket.description,
                         icon: bucket.icon,
+                        iconAttachmentUuid: bucket.iconAttachmentUuid,
                         color: bucket.color,
                         createdAt: bucket.createdAt,
                         updatedAt: bucket.updatedAt,
@@ -309,7 +329,7 @@ export function useBucketsStats(
                     };
                 });
 
-                // 6. Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
+                // 7. Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
                 bucketsWithStats.sort((a, b) => {
                     if (a.unreadCount !== b.unreadCount) {
                         return b.unreadCount - a.unreadCount;
@@ -346,6 +366,7 @@ export function useBucketsStats(
                                 id: bucket.id,
                                 name: bucket.name,
                                 icon: bucket.icon,
+                                iconAttachmentUuid: bucket.iconAttachmentUuid,
                                 description: bucket.description,
                                 updatedAt: bucket.updatedAt,
                                 color: bucket.color,
@@ -377,6 +398,7 @@ export function useBucketsStats(
                                 name: bucket.name,
                                 description: bucket.description,
                                 icon: bucket.icon,
+                                iconAttachmentUuid: bucket.iconAttachmentUuid,
                                 color: bucket.color,
                                 createdAt: bucket.createdAt,
                                 updatedAt: bucket.updatedAt,
@@ -427,6 +449,7 @@ export function useBucketsStats(
                             name: bucket.name,
                             description: bucket.description,
                             icon: bucket.icon,
+                            iconAttachmentUuid: bucket.iconAttachmentUuid,
                             color: bucket.color,
                             createdAt: bucket.createdAt,
                             updatedAt: bucket.updatedAt,
@@ -521,19 +544,19 @@ export function useInitializeBucketsStats() {
         try {
             // STEP 1: Load buckets from LOCAL CACHE immediately for instant UI
             // console.log('[initializeBucketsStats] Loading buckets from local cache...');
-            const cachedBuckets = await getAllBuckets();
+            const initialCachedBuckets = await getAllBuckets();
 
-            if (cachedBuckets.length > 0) {
-                // console.log(`[initializeBucketsStats] Found ${cachedBuckets.length} cached buckets`);
+            if (initialCachedBuckets.length > 0) {
+                // console.log(`[initializeBucketsStats] Found ${initialCachedBuckets.length} cached buckets`);
 
                 // Get bucket IDs from cached buckets
-                const cachedBucketIds = cachedBuckets.map((b) => b.id);
+                const cachedBucketIds = initialCachedBuckets.map((b) => b.id);
 
                 // Get notification stats from local DB
                 const cachedStats = await getNotificationStats(cachedBucketIds);
 
                 // Combine cached bucket metadata with stats
-                const cachedBucketsWithStats: BucketWithStats[] = cachedBuckets.map((bucket) => {
+                const cachedBucketsWithStats: BucketWithStats[] = initialCachedBuckets.map((bucket) => {
                     const bucketStat = cachedStats.byBucket?.find(s => s.bucketId === bucket.id);
                     const snoozeUntil = bucket.userBucket?.snoozeUntil;
                     const isSnoozed = snoozeUntil
@@ -587,7 +610,22 @@ export function useInitializeBucketsStats() {
 
             // console.log(`[initializeBucketsStats] Fetched ${buckets.length} buckets from API`);
 
-            // STEP 3: Save fresh buckets to local DB for next launch
+            // STEP 3: Clean up orphaned buckets from local DB
+            const localBuckets = await getAllBuckets();
+            const serverBucketIds = new Set(buckets.map(b => b.id));
+            const orphanedBuckets = localBuckets.filter(cb => !serverBucketIds.has(cb.id));
+            
+            if (orphanedBuckets.length > 0) {
+                console.log(`[initializeBucketsStats] Found ${orphanedBuckets.length} orphaned buckets in local DB, deleting...`);
+                for (const orphan of orphanedBuckets) {
+                    await deleteBucket(orphan.id);
+                    await deleteNotificationsByBucketId(orphan.id);
+                    await mediaCache.invalidateBucketIcon(orphan.id);
+                    console.log(`[initializeBucketsStats] Deleted orphaned bucket: ${orphan.name} (${orphan.id})`);
+                }
+            }
+
+            // STEP 4: Save fresh buckets to local DB for next launch
             if (buckets.length > 0) {
                 const bucketsToSave: BucketData[] = buckets.map(bucket => ({
                     id: bucket.id,
@@ -608,13 +646,13 @@ export function useInitializeBucketsStats() {
                 // console.log(`[initializeBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
             }
 
-            // STEP 4: Get all bucket IDs
+            // STEP 5: Get all bucket IDs
             const bucketIds = buckets.map((b) => b.id);
 
-            // STEP 5: Get notification stats from local DB
+            // STEP 6: Get notification stats from local DB
             const notificationStats = await getNotificationStats(bucketIds);
 
-            // STEP 6: Combine bucket metadata with stats
+            // STEP 7: Combine bucket metadata with stats
             const bucketsWithStats: BucketWithStats[] = buckets.map((bucket) => {
                 const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
                 const snoozeUntil = bucket.userBucket?.snoozeUntil;
@@ -641,7 +679,7 @@ export function useInitializeBucketsStats() {
                 };
             });
 
-            // STEP 7: Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
+            // STEP 8: Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
             bucketsWithStats.sort((a, b) => {
                 if (a.unreadCount !== b.unreadCount) {
                     return b.unreadCount - a.unreadCount;
@@ -654,7 +692,7 @@ export function useInitializeBucketsStats() {
                 return a.name.localeCompare(b.name);
             });
 
-            // STEP 8: Update React Query cache with fresh data from backend
+            // STEP 9: Update React Query cache with fresh data from backend
             queryClient.setQueryData(notificationKeys.bucketsStats(), bucketsWithStats);
 
             console.log(`[initializeBucketsStats] ✅ Updated cache with ${bucketsWithStats.length} fresh buckets from backend`);
@@ -712,6 +750,7 @@ export function useLoadBucketsFromCache() {
                     name: bucket.name,
                     description: bucket.description,
                     icon: bucket.icon,
+                    iconAttachmentUuid: bucket.iconAttachmentUuid,
                     color: bucket.color,
                     createdAt: bucket.createdAt,
                     updatedAt: bucket.updatedAt,

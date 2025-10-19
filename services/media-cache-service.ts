@@ -104,7 +104,6 @@ class MediaCacheService {
         bucketName: string;
         bucketColor?: string;
         iconUrl?: string;
-        iconAttachmentUuid?: string;
         timestamp: number;
     }>();
 
@@ -1265,7 +1264,6 @@ class MediaCacheService {
         bucketName: string,
         bucketColor?: string,
         iconUrl?: string,
-        iconAttachmentUuid?: string
     ): Promise<string | null> {
         await this.initialize();
         if (!this.repo) return null;
@@ -1280,9 +1278,7 @@ class MediaCacheService {
             const paramsChanged = cachedParams && (
                 cachedParams.bucketName !== bucketName ||
                 cachedParams.bucketColor !== bucketColor ||
-                (iconAttachmentUuid 
-                    ? cachedParams.iconAttachmentUuid !== iconAttachmentUuid 
-                    : cachedParams.iconUrl !== iconUrl)
+                (cachedParams.iconUrl !== iconUrl)
             );
 
             if (paramsChanged) {
@@ -1293,10 +1289,10 @@ class MediaCacheService {
                 // console.log(`[MediaCache] 🗑️ Invalidating cache for ${bucketName}`);
                 await this.invalidateBucketIcon(bucketId, bucketName, bucketColor);
                 // Update timestamp for invalidated icon
-                this.bucketParamsCache.set(bucketId, { bucketName, bucketColor, iconUrl, iconAttachmentUuid, timestamp: currentTimestamp });
+                this.bucketParamsCache.set(bucketId, { bucketName, bucketColor, iconUrl, timestamp: currentTimestamp });
             } else if (!cachedParams) {
                 // First time seeing this bucket
-                this.bucketParamsCache.set(bucketId, { bucketName, bucketColor, iconUrl, iconAttachmentUuid, timestamp: currentTimestamp });
+                this.bucketParamsCache.set(bucketId, { bucketName, bucketColor, iconUrl, timestamp: currentTimestamp });
             }
 
             // Generate cache key
@@ -1576,14 +1572,14 @@ class MediaCacheService {
     /**
      * Invalidate cached bucket icon using saved parameters
      */
-    private async invalidateBucketIcon(bucketId: string, newBucketName: string, newBucketColor?: string): Promise<void> {
+    async invalidateBucketIcon(bucketId: string, newBucketName?: string, newBucketColor?: string): Promise<void> {
         try {
             // Get old params from in-memory cache
             const oldParams = this.bucketParamsCache.get(bucketId);
 
             if (!oldParams) {
                 // No old params cached, try to delete file anyway (file path is based on bucketId only)
-                if (!isWeb) {
+                if (!isWeb && newBucketName) {
                     const fileUri = await this.getBucketIconFilePath(bucketId, newBucketName, newBucketColor);
                     const file = new File(fileUri);
                     if (file.exists) {
@@ -1591,6 +1587,8 @@ class MediaCacheService {
                         console.log(`[MediaCache] ✅ Deleted bucket icon: ${fileUri}`);
                     }
                 }
+                // Remove from in-memory cache anyway
+                this.bucketParamsCache.delete(bucketId);
                 return;
             }
 
@@ -1620,6 +1618,10 @@ class MediaCacheService {
                     console.log(`[MediaCache] ✅ Deleted bucket icon: ${oldFileUri}`);
                 }
             }
+
+            // Remove from in-memory cache
+            this.bucketParamsCache.delete(bucketId);
+            console.log(`[MediaCache] ✅ Removed bucket ${bucketId} from params cache`);
         } catch (error) {
             console.error('[MediaCache] Error invalidating bucket icon:', error);
         }
