@@ -1286,11 +1286,11 @@ class MediaCacheService {
             );
 
             if (paramsChanged) {
-                console.log(`[MediaCache] 🔄 Bucket params changed for ${bucketName}`, {
-                    old: cachedParams,
-                    new: { bucketName, bucketColor, iconUrl, iconAttachmentUuid }
-                });
-                console.log(`[MediaCache] 🗑️ Invalidating cache for ${bucketName}`);
+                // console.log(`[MediaCache] 🔄 Bucket params changed for ${bucketName}`, {
+                //     old: cachedParams,
+                //     new: { bucketName, bucketColor, iconUrl, iconAttachmentUuid }
+                // });
+                // console.log(`[MediaCache] 🗑️ Invalidating cache for ${bucketName}`);
                 await this.invalidateBucketIcon(bucketId, bucketName, bucketColor);
                 // Update timestamp for invalidated icon
                 this.bucketParamsCache.set(bucketId, { bucketName, bucketColor, iconUrl, iconAttachmentUuid, timestamp: currentTimestamp });

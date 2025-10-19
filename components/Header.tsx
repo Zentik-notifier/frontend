@@ -158,7 +158,7 @@ export default function Header() {
     isMarkingAllAsRead,
   } = useBadgeSync();
   const { isLoginModalOpen, closeLoginModal, isMainLoading } = useAppContext();
-  const { itemsInQueue, inProcessing } = useDownloadQueue();
+  const { itemsInQueue } = useDownloadQueue();
   const { t } = useI18n();
   const { navigateToHome, navigateBack, navigateToAppSettings } =
     useNavigationUtils();
@@ -200,7 +200,7 @@ export default function Header() {
 
   // Animate download icon
   useEffect(() => {
-    if (inProcessing) {
+    if (itemsInQueue > 0) {
       const animation = Animated.loop(
         Animated.sequence([
           Animated.timing(downloadOpacity, {
@@ -220,7 +220,7 @@ export default function Header() {
     } else {
       downloadOpacity.setValue(1);
     }
-  }, [inProcessing, downloadOpacity]);
+  }, [itemsInQueue, downloadOpacity]);
 
   // Determine current route
   const currentRoute = `/${segments.join("/")}`;
@@ -385,7 +385,7 @@ export default function Header() {
             )}
 
             {/* Download Queue Progress Icon */}
-            {shouldShowStatusBadges && inProcessing && (
+            {shouldShowStatusBadges && itemsInQueue > 0 && (
               <View style={styles.downloadQueueContainer}>
                 <Animated.View style={{ opacity: downloadOpacity }}>
                   <Surface style={styles.iconButtonSurface} elevation={2}>
