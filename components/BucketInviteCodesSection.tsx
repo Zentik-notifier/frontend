@@ -1,71 +1,167 @@
 import { useI18n } from "@/hooks/useI18n";
-import React, { useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { usePermissions } from "@/hooks/usePermissions";
+import React, { useEffect, useState } from "react";
 import {
-  Button,
-  Card,
-  Chip,
-  Dialog,
-  IconButton,
-  Portal,
-  Surface,
-  Text,
-  TextInput,
-  useTheme,
-  Switch,
-} from "react-native-paper";
-import CopyButton from "./ui/CopyButton";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { Permission } from "@/generated/gql-operations-generated";
+  Alert,
+  ScrollView,
+  Share,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Text, TextInput, useTheme } from "react-native-paper";
+import DetailItemCard from "./ui/DetailItemCard";
+import DetailModal from "./ui/DetailModal";
+import DetailSectionCard from "./ui/DetailSectionCard";
+import {
+  Permission,
+  ResourceType,
+  useCreateInviteCodeMutation,
+  useUpdateInviteCodeMutation,
+  useDeleteInviteCodeMutation,
+  InviteCodeFragment,
+  useInviteCodesForResourceQuery,
+  InviteCodesForResourceDocument,
+  InviteCodesForResourceQuery,
+} from "@/generated/gql-operations-generated";
+
+const availablePermissions = [Permission.Read, Permission.Write];
 
 interface BucketInviteCodesSectionProps {
   bucketId: string;
   bucketName: string;
-}
-
-interface InviteCode {
-  id: string;
-  code: string;
-  permissions: string[];
-  expiresAt?: string | null;
-  usageCount: number;
-  maxUses: number;
-  createdAt: string;
-  creator: {
-    username?: string;
-    email: string;
-  };
+  refetchTrigger?: number;
 }
 
 export default function BucketInviteCodesSection({
   bucketId,
   bucketName,
+  refetchTrigger,
 }: BucketInviteCodesSectionProps) {
   const theme = useTheme();
   const { t } = useI18n();
-  const [isCreating, setIsCreating] = useState(false);
+  const { getPermissionLabel } = usePermissions();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [editingInviteCode, setEditingInviteCode] = useState<InviteCodeFragment | null>(null);
 
-  // Create form state
-  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([
-    "READ",
-  ]);
-  const [hasExpiration, setHasExpiration] = useState(false);
-  const [expirationDate, setExpirationDate] = useState(
-    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-  ); // 7 days from now
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [maxUses, setMaxUses] = useState("1");
-
-  // Mock data - will be replaced with GraphQL query
-  const inviteCodes: InviteCode[] = [];
-  const loading = false;
-
-  const availablePermissions = [
+  // Form state
+  const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([
     Permission.Read,
-    Permission.Write,
-    Permission.Admin,
-  ];
+  ]);
+  const [expirationDays, setExpirationDays] = useState("");
+  const [maxUses, setMaxUses] = useState("");
+
+  const isEditing = !!editingInviteCode;
+
+  const { data, loading, refetch } = useInviteCodesForResourceQuery({
+    variables: {
+      resourceType: ResourceType.Bucket,
+      resourceId: bucketId,
+    },
+    skip: !bucketId,
+  });
+
+  // Refetch when refetchTrigger changes
+  useEffect(() => {
+    if (refetchTrigger && bucketId) {
+      refetch();
+    }
+  }, [refetchTrigger, bucketId, refetch]);
+
+  const [createInviteCode, { loading: isCreating }] =
+    useCreateInviteCodeMutation({
+      update(cache, { data }) {
+        if (!data?.createInviteCode) return;
+
+        const existingData = cache.readQuery<InviteCodesForResourceQuery>({
+          query: InviteCodesForResourceDocument,
+          variables: {
+            resourceType: ResourceType.Bucket,
+            resourceId: bucketId,
+          },
+        });
+
+        if (existingData) {
+          cache.writeQuery<InviteCodesForResourceQuery>({
+            query: InviteCodesForResourceDocument,
+            variables: {
+              resourceType: ResourceType.Bucket,
+              resourceId: bucketId,
+            },
+            data: {
+              inviteCodesForResource: [
+                ...existingData.inviteCodesForResource,
+                data.createInviteCode,
+              ],
+            },
+          });
+        }
+      },
+    });
+
+  const [updateInviteCode, { loading: isUpdating }] =
+    useUpdateInviteCodeMutation({
+      update(cache, { data }) {
+        if (!data?.updateInviteCode) return;
+
+        const existingData = cache.readQuery<InviteCodesForResourceQuery>({
+          query: InviteCodesForResourceDocument,
+          variables: {
+            resourceType: ResourceType.Bucket,
+            resourceId: bucketId,
+          },
+        });
+
+        if (existingData) {
+          cache.writeQuery<InviteCodesForResourceQuery>({
+            query: InviteCodesForResourceDocument,
+            variables: {
+              resourceType: ResourceType.Bucket,
+              resourceId: bucketId,
+            },
+            data: {
+              inviteCodesForResource: existingData.inviteCodesForResource.map(
+                (code: InviteCodeFragment) =>
+                  code.id === data.updateInviteCode.id
+                    ? data.updateInviteCode
+                    : code
+              ),
+            },
+          });
+        }
+      }
+    });
+
+  const [deleteInviteCode] = useDeleteInviteCodeMutation({
+    update(cache, { data }, { variables }) {
+      if (!data?.deleteInviteCode || !variables?.id) return;
+
+      const existingData = cache.readQuery<InviteCodesForResourceQuery>({
+        query: InviteCodesForResourceDocument,
+        variables: {
+          resourceType: ResourceType.Bucket,
+          resourceId: bucketId,
+        },
+      });
+
+      if (existingData) {
+        cache.writeQuery<InviteCodesForResourceQuery>({
+          query: InviteCodesForResourceDocument,
+          variables: {
+            resourceType: ResourceType.Bucket,
+            resourceId: bucketId,
+          },
+          data: {
+            inviteCodesForResource: existingData.inviteCodesForResource.filter(
+              (code: InviteCodeFragment) => code.id !== variables.id
+            ),
+          },
+        });
+      }
+    },
+  });
+
+  const inviteCodes: InviteCodeFragment[] = data?.inviteCodesForResource || [];
 
   const togglePermission = (permission: Permission) => {
     if (selectedPermissions.includes(permission)) {
@@ -77,7 +173,7 @@ export default function BucketInviteCodesSection({
     }
   };
 
-  const handleCreateCode = async () => {
+  const handleSaveCode = async () => {
     if (selectedPermissions.length === 0) {
       Alert.alert(
         t("common.error"),
@@ -86,61 +182,132 @@ export default function BucketInviteCodesSection({
       return;
     }
 
-    const maxUsesNum = parseInt(maxUses, 10);
-    if (isNaN(maxUsesNum) || maxUsesNum < 1) {
-      Alert.alert(t("common.error"), t("buckets.inviteCodes.invalidMaxUses"));
-      return;
-    }
-
-    setIsCreating(true);
     try {
-      // TODO: Call GraphQL mutation
-      console.log("Creating invite code:", {
-        resourceType: "BUCKET",
-        resourceId: bucketId,
-        permissions: selectedPermissions,
-        expiresAt: hasExpiration ? expirationDate.toISOString() : undefined,
-        maxUses: maxUsesNum,
-      });
+      // Calculate expiration date from days input
+      let expiresAt: Date | undefined;
+      if (expirationDays.trim()) {
+        const days = parseInt(expirationDays, 10);
+        if (isNaN(days) || days < 1) {
+          Alert.alert(
+            t("common.error"),
+            t("buckets.inviteCodes.invalidExpirationDays")
+          );
+          return;
+        }
+        expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+      }
 
-      setShowCreateDialog(false);
-      resetCreateForm();
+      // Parse max uses (empty = no limit)
+      let maxUsesNum: number | undefined;
+      if (maxUses.trim()) {
+        maxUsesNum = parseInt(maxUses, 10);
+        if (isNaN(maxUsesNum) || maxUsesNum < 1) {
+          Alert.alert(
+            t("common.error"),
+            t("buckets.inviteCodes.invalidMaxUses")
+          );
+          return;
+        }
+      }
+
+      if (isEditing) {
+        await updateInviteCode({
+          variables: {
+            input: {
+              id: editingInviteCode!.id,
+              permissions: selectedPermissions,
+              ...(expiresAt && { expiresAt: expiresAt.toISOString() }),
+              ...(maxUsesNum !== undefined && { maxUses: maxUsesNum }),
+            },
+          },
+        });
+      } else {
+        await createInviteCode({
+          variables: {
+            input: {
+              resourceType: ResourceType.Bucket,
+              resourceId: bucketId,
+              permissions: selectedPermissions,
+              ...(expiresAt && { expiresAt: expiresAt.toISOString() }),
+              ...(maxUsesNum && { maxUses: maxUsesNum }),
+            },
+          },
+        });
+      }
+
+      handleCloseModal();
     } catch (error) {
-      console.error("Error creating invite code:", error);
+      console.error("Error saving invite code:", error);
       Alert.alert(t("common.error"), t("buckets.inviteCodes.createError"));
-    } finally {
-      setIsCreating(false);
     }
   };
 
   const handleDeleteCode = async (codeId: string) => {
-    Alert.alert(t("buckets.inviteCodes.deleteTitle"), t("buckets.inviteCodes.deleteConfirm"), [
-      {
-        text: t("common.cancel"),
-        style: "cancel",
-      },
-      {
-        text: t("common.delete"),
-        style: "destructive",
-        onPress: async () => {
-          try {
-            // TODO: Call GraphQL mutation
-            console.log("Deleting invite code:", codeId);
-          } catch (error) {
-            console.error("Error deleting invite code:", error);
-            Alert.alert(t("common.error"), t("buckets.inviteCodes.deleteError"));
-          }
+    Alert.alert(
+      t("buckets.inviteCodes.deleteTitle"),
+      t("buckets.inviteCodes.deleteConfirm"),
+      [
+        {
+          text: t("common.cancel"),
+          style: "cancel",
         },
-      },
-    ]);
+        {
+          text: t("common.delete"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteInviteCode({
+                variables: { id: codeId },
+              });
+            } catch (error) {
+              console.error("Error deleting invite code:", error);
+              Alert.alert(
+                t("common.error"),
+                t("buckets.inviteCodes.deleteError")
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const resetCreateForm = () => {
-    setSelectedPermissions(["READ"]);
-    setHasExpiration(false);
-    setExpirationDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
-    setMaxUses("1");
+  const handleEditCode = (code: InviteCodeFragment) => {
+    setEditingInviteCode(code);
+    setShowCreateDialog(true);
   };
+
+  const handleCloseModal = () => {
+    setShowCreateDialog(false);
+    setEditingInviteCode(null);
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setSelectedPermissions([Permission.Read]);
+    setExpirationDays("");
+    setMaxUses("");
+  };
+
+  // Initialize form when editing
+  useEffect(() => {
+    if (isEditing && editingInviteCode) {
+      setSelectedPermissions(editingInviteCode.permissions as Permission[]);
+      
+      if (editingInviteCode.expiresAt) {
+        const now = Date.now();
+        const expiresDate = new Date(editingInviteCode.expiresAt).getTime();
+        const daysRemaining = Math.ceil((expiresDate - now) / (24 * 60 * 60 * 1000));
+        setExpirationDays(daysRemaining > 0 ? daysRemaining.toString() : "");
+      } else {
+        setExpirationDays("");
+      }
+
+      setMaxUses(editingInviteCode.maxUses?.toString() || "");
+    } else {
+      resetForm();
+    }
+  }, [isEditing, editingInviteCode]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
@@ -151,348 +318,187 @@ export default function BucketInviteCodesSection({
     return new Date(expiresAt) < new Date();
   };
 
-  const isCodeExhausted = (code: InviteCode) => {
-    return code.usageCount >= code.maxUses;
+  const isCodeExhausted = (code: InviteCodeFragment) => {
+    return code.maxUses !== null ? code.usageCount >= code.maxUses : false;
+  };
+
+  const handleShareCode = async (code: string) => {
+    try {
+      await Share.share({
+        message: `${t("buckets.inviteCodes.shareMessage")}: ${code}`,
+        title: t("buckets.inviteCodes.shareTitle"),
+      });
+    } catch (error) {
+      console.error("Error sharing code:", error);
+    }
   };
 
   return (
-    <Card style={styles.container}>
-      <Card.Content>
-        <View style={styles.header}>
-          <Text variant="titleMedium" style={styles.title}>
-            {t("buckets.inviteCodes.title")}
-          </Text>
-          <Button
-            mode="contained"
-            icon="plus"
-            onPress={() => setShowCreateDialog(true)}
-            loading={isCreating}
-            disabled={isCreating}
-          >
-            {t("buckets.inviteCodes.create")}
-          </Button>
+    <>
+      <DetailSectionCard
+        title={t("buckets.inviteCodes.title")}
+        description={t("buckets.inviteCodes.description")}
+        actionButton={{
+          label: t("buckets.inviteCodes.create"),
+          icon: "plus",
+          onPress: () => setShowCreateDialog(true),
+          loading: isCreating,
+        }}
+        loading={loading}
+        emptyState={{
+          icon: "link-off",
+          text: t("buckets.inviteCodes.noCodesYet"),
+        }}
+        items={inviteCodes}
+        renderItem={(code) => {
+          const expired = isCodeExpired(code.expiresAt);
+          const exhausted = isCodeExhausted(code);
+          const inactive = expired || exhausted;
+
+          const details = [
+            code.permissions
+              .map((p) => getPermissionLabel(p as Permission))
+              .join(", "),
+            `${t("buckets.inviteCodes.usage")}: ${code.usageCount} / ${
+              code.maxUses ?? '-'
+            }${exhausted ? ` (${t("buckets.inviteCodes.exhausted")})` : ""}`,
+          ];
+
+          if (code.expiresAt) {
+            details.push(
+              `${formatDate(code.expiresAt)}${
+                expired ? ` (${t("buckets.inviteCodes.expired")})` : ""
+              }`
+            );
+          }
+
+          details.push(code.creator.username || code.creator.email);
+
+          return (
+            <DetailItemCard
+              icon="qrcode"
+              title={code.code}
+              details={details}
+              actions={[
+                {
+                  icon: "share-variant",
+                  onPress: () => handleShareCode(code.code),
+                  color: theme.colors.primary,
+                },
+                {
+                  icon: "pencil",
+                  onPress: () => handleEditCode(code),
+                  disabled: inactive,
+                },
+                {
+                  icon: "delete",
+                  onPress: () => handleDeleteCode(code.id),
+                  color: theme.colors.error,
+                },
+              ]}
+              opacity={inactive ? 0.5 : 1}
+            />
+          );
+        }}
+      />
+
+      <DetailModal
+        visible={showCreateDialog}
+        onDismiss={handleCloseModal}
+        title={isEditing ? t("buckets.inviteCodes.editTitle") : t("buckets.inviteCodes.createTitle")}
+        icon="link-plus"
+        actions={{
+          cancel: {
+            label: t("common.cancel"),
+            onPress: handleCloseModal,
+          },
+          confirm: {
+            label: isEditing ? t("common.save") : t("buckets.inviteCodes.create"),
+            onPress: handleSaveCode,
+            loading: isCreating || isUpdating,
+            disabled: selectedPermissions.length === 0,
+          },
+        }}
+      >
+        <Text variant="titleSmall" style={styles.label}>
+          {t("buckets.inviteCodes.selectPermissions")}:
+        </Text>
+        <View style={styles.permissionsContainer}>
+          {availablePermissions.map((permission) => (
+            <TouchableOpacity
+              key={permission}
+              style={[
+                styles.permissionChip,
+                { borderColor: theme.colors.outline },
+                selectedPermissions.includes(permission) && {
+                  backgroundColor: theme.colors.primary,
+                  borderColor: theme.colors.primary,
+                },
+              ]}
+              onPress={() => togglePermission(permission)}
+            >
+              <Text
+                style={[
+                  styles.permissionText,
+                  { color: theme.colors.onSurfaceVariant },
+                  selectedPermissions.includes(permission) && {
+                    color: theme.colors.onPrimary,
+                  },
+                ]}
+              >
+                {getPermissionLabel(permission)}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        <Text variant="bodySmall" style={styles.description}>
-          {t("buckets.inviteCodes.description")}
-        </Text>
-
-        {loading ? (
-          <Surface style={styles.emptyState}>
-            <Text>{t("common.loading")}</Text>
-          </Surface>
-        ) : inviteCodes.length === 0 ? (
-          <Surface style={styles.emptyState}>
-            <Text variant="bodyMedium" style={{ opacity: 0.6 }}>
-              {t("buckets.inviteCodes.noCodesYet")}
-            </Text>
-          </Surface>
-        ) : (
-          <ScrollView style={styles.codesList}>
-            {inviteCodes.map((code) => {
-              const expired = isCodeExpired(code.expiresAt);
-              const exhausted = isCodeExhausted(code);
-              const inactive = expired || exhausted;
-
-              return (
-                <Surface
-                  key={code.id}
-                  style={[
-                    styles.codeCard,
-                    { backgroundColor: theme.colors.surfaceVariant },
-                    inactive && { opacity: 0.5 },
-                  ]}
-                  elevation={1}
-                >
-                  <View style={styles.codeHeader}>
-                    <View style={styles.codeInfo}>
-                      <Text variant="labelSmall" style={styles.codeLabel}>
-                        {t("buckets.inviteCodes.code")}:
-                      </Text>
-                      <View style={styles.codeValueRow}>
-                        <Text
-                          variant="bodyMedium"
-                          style={[
-                            styles.codeValue,
-                            { fontFamily: "monospace" },
-                          ]}
-                        >
-                          {code.code}
-                        </Text>
-                        <CopyButton text={code.code} size={20} />
-                      </View>
-                    </View>
-                    <IconButton
-                      icon="delete"
-                      size={20}
-                      onPress={() => handleDeleteCode(code.id)}
-                      iconColor={theme.colors.error}
-                    />
-                  </View>
-
-                  <View style={styles.codeDetails}>
-                    <View style={styles.detailRow}>
-                      <Text variant="bodySmall" style={styles.detailLabel}>
-                        {t("buckets.inviteCodes.permissions")}:
-                      </Text>
-                      <View style={styles.permissionsChips}>
-                        {code.permissions.map((perm) => (
-                          <Chip
-                            key={perm}
-                            mode="outlined"
-                            compact
-                            style={styles.permissionChip}
-                          >
-                            {perm}
-                          </Chip>
-                        ))}
-                      </View>
-                    </View>
-
-                    <View style={styles.detailRow}>
-                      <Text variant="bodySmall" style={styles.detailLabel}>
-                        {t("buckets.inviteCodes.usage")}:
-                      </Text>
-                      <Text variant="bodySmall">
-                        {code.usageCount} / {code.maxUses}
-                        {exhausted && (
-                          <Text style={{ color: theme.colors.error }}>
-                            {" "}
-                            ({t("buckets.inviteCodes.exhausted")})
-                          </Text>
-                        )}
-                      </Text>
-                    </View>
-
-                    {code.expiresAt && (
-                      <View style={styles.detailRow}>
-                        <Text variant="bodySmall" style={styles.detailLabel}>
-                          {t("buckets.inviteCodes.expiresAt")}:
-                        </Text>
-                        <Text
-                          variant="bodySmall"
-                          style={expired && { color: theme.colors.error }}
-                        >
-                          {formatDate(code.expiresAt)}
-                          {expired && ` (${t("buckets.inviteCodes.expired")})`}
-                        </Text>
-                      </View>
-                    )}
-
-                    <View style={styles.detailRow}>
-                      <Text variant="bodySmall" style={styles.detailLabel}>
-                        {t("buckets.inviteCodes.createdBy")}:
-                      </Text>
-                      <Text variant="bodySmall">
-                        {code.creator.username || code.creator.email}
-                      </Text>
-                    </View>
-                  </View>
-                </Surface>
-              );
-            })}
-          </ScrollView>
-        )}
-      </Card.Content>
-
-      {/* Create Dialog */}
-      <Portal>
-        <Dialog
-          visible={showCreateDialog}
-          onDismiss={() => setShowCreateDialog(false)}
-        >
-          <Dialog.Title>{t("buckets.inviteCodes.createTitle")}</Dialog.Title>
-          <Dialog.ScrollArea>
-            <ScrollView contentContainerStyle={styles.dialogContent}>
-              <Text variant="labelMedium" style={styles.dialogLabel}>
-                {t("buckets.inviteCodes.selectPermissions")}:
-              </Text>
-              <View style={styles.permissionsSelector}>
-                {availablePermissions.map((permission) => (
-                  <Chip
-                    key={permission}
-                    mode={
-                      selectedPermissions.includes(permission)
-                        ? "flat"
-                        : "outlined"
-                    }
-                    selected={selectedPermissions.includes(permission)}
-                    onPress={() => togglePermission(permission)}
-                    style={styles.permissionSelectorChip}
-                  >
-                    {permission}
-                  </Chip>
-                ))}
-              </View>
-
-              <View style={styles.expirationSection}>
-                <View style={styles.switchRow}>
-                  <Text variant="labelMedium">
-                    {t("buckets.inviteCodes.setExpiration")}
-                  </Text>
-                  <Switch
-                    value={hasExpiration}
-                    onValueChange={setHasExpiration}
-                  />
-                </View>
-
-                {hasExpiration && (
-                  <Button
-                    mode="outlined"
-                    onPress={() => setShowDatePicker(true)}
-                    style={styles.dateButton}
-                  >
-                    {formatDate(expirationDate.toISOString())}
-                  </Button>
-                )}
-              </View>
-
-              <TextInput
-                label={t("buckets.inviteCodes.maxUses")}
-                value={maxUses}
-                onChangeText={setMaxUses}
-                keyboardType="number-pad"
-                mode="outlined"
-                style={styles.input}
-              />
-            </ScrollView>
-          </Dialog.ScrollArea>
-          <Dialog.Actions>
-            <Button onPress={() => setShowCreateDialog(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              onPress={handleCreateCode}
-              loading={isCreating}
-              disabled={isCreating || selectedPermissions.length === 0}
-            >
-              {t("buckets.inviteCodes.create")}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-
-      {/* Date Picker */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={expirationDate}
-          mode="date"
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowDatePicker(false);
-            if (selectedDate) {
-              setExpirationDate(selectedDate);
-            }
-          }}
-          minimumDate={new Date()}
+        <TextInput
+          label={t("buckets.inviteCodes.expirationDays")}
+          placeholder={t("buckets.inviteCodes.expirationDaysPlaceholder")}
+          value={expirationDays}
+          onChangeText={setExpirationDays}
+          keyboardType="number-pad"
+          mode="outlined"
+          style={styles.input}
+          right={<TextInput.Affix text={t("buckets.inviteCodes.days")} />}
         />
-      )}
-    </Card>
+
+        <TextInput
+          label={t("buckets.inviteCodes.maxUses")}
+          placeholder={t("buckets.inviteCodes.maxUsesPlaceholder")}
+          value={maxUses}
+          onChangeText={setMaxUses}
+          keyboardType="number-pad"
+          mode="outlined"
+          style={styles.input}
+        />
+      </DetailModal>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginTop: 16,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  label: {
+    fontSize: 16,
+    fontWeight: "500",
     marginBottom: 8,
   },
-  title: {
-    fontWeight: "600",
-  },
-  description: {
-    opacity: 0.7,
+  permissionsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
     marginBottom: 16,
-  },
-  emptyState: {
-    padding: 24,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  codesList: {
-    maxHeight: 400,
-  },
-  codeCard: {
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  codeHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 8,
-  },
-  codeInfo: {
-    flex: 1,
-  },
-  codeLabel: {
-    opacity: 0.7,
-    marginBottom: 4,
-  },
-  codeValueRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  codeValue: {
-    fontWeight: "600",
-  },
-  codeDetails: {
-    gap: 8,
-  },
-  detailRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  detailLabel: {
-    opacity: 0.7,
-    marginRight: 8,
-  },
-  permissionsChips: {
-    flexDirection: "row",
-    gap: 4,
-    flexWrap: "wrap",
   },
   permissionChip: {
-    height: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
   },
-  dialogContent: {
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-  },
-  dialogLabel: {
-    marginBottom: 8,
-  },
-  permissionsSelector: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 16,
-  },
-  permissionSelectorChip: {
-    marginRight: 4,
-  },
-  expirationSection: {
-    marginBottom: 16,
-  },
-  switchRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  dateButton: {
-    marginTop: 8,
+  permissionText: {
+    fontSize: 14,
   },
   input: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
 });

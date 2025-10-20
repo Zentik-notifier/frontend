@@ -14,7 +14,7 @@ import {
   useDeleteBucketWithNotifications,
 } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
-import React from "react";
+import React, { useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import { Button, Card, Surface, Text, useTheme } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
@@ -33,6 +33,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   const { userId } = useAppContext();
   const { navigateToHome } = useNavigationUtils();
   const { formatDate } = useDateFormat();
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
   const { bucket, loading, error, canAdmin, canDelete, isSharedWithMe } =
     useBucket(bucketId, { autoFetch: true, userId: userId ?? undefined });
@@ -41,6 +42,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   const isProtectedBucket = bucket?.isPublic || bucket?.isAdmin;
   const handleRefresh = async () => {
     await refreshBucket(bucketId).catch(console.error);
+    setRefetchTrigger((prev) => prev + 1);
   };
 
   const { deleteBucket, isLoading: deleteLoading } =
@@ -158,9 +160,25 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
 
       {canAdmin && (
         <>
-          <BucketAccessTokensSection bucketId={bucketId} bucketName={bucket?.name || ""} />
-          <BucketSharingSection bucketId={bucketId} />
-          <BucketInviteCodesSection bucketId={bucketId} bucketName={bucket?.name || ""} />
+          <BucketAccessTokensSection
+            bucketId={bucketId}
+            bucketName={bucket?.name || ""}
+            refetchTrigger={refetchTrigger}
+          />
+          <View style={styles.readonlyContainer} />
+
+          <BucketSharingSection 
+            bucketId={bucketId} 
+            refetchTrigger={refetchTrigger}
+          />
+
+          <View style={styles.readonlyContainer} />
+
+          <BucketInviteCodesSection
+            bucketId={bucketId}
+            bucketName={bucket?.name || ""}
+            refetchTrigger={refetchTrigger}
+          />
           <Button
             mode="contained"
             buttonColor={theme.colors.error}

@@ -2,7 +2,6 @@ import { useI18n } from "@/hooks/useI18n";
 import { AppLog, clearAllLogs, readLogs } from "@/services/logger";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import * as Clipboard from "expo-clipboard";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -15,15 +14,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Icon, Surface, Text, useTheme, IconButton } from "react-native-paper";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Icon, Surface, Text, useTheme } from "react-native-paper";
+import CopyButton from "./ui/CopyButton";
 import PaperScrollView from "./ui/PaperScrollView";
-import Selector, { SelectorOption } from "./ui/Selector";
+import Selector from "./ui/Selector";
 
 export default function AppLogs() {
   const { t } = useI18n();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const [logs, setLogs] = useState<AppLog[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -69,13 +67,6 @@ export default function AppLogs() {
     setShowLogDialog(false);
     setSelectedLog(null);
   }, []);
-
-  const handleCopyMetadata = useCallback(async () => {
-    if (selectedLog?.metadata) {
-      const metadataString = JSON.stringify(selectedLog.metadata, null, 2);
-      await Clipboard.setStringAsync(metadataString);
-    }
-  }, [selectedLog, t]);
 
   useEffect(() => {
     loadLogs();
@@ -411,6 +402,7 @@ export default function AppLogs() {
                       {t("appLogs.fields.level")}:
                     </Text>
                     <Text
+                      selectable
                       style={[
                         styles.dialogMetaValue,
                         {
@@ -427,17 +419,26 @@ export default function AppLogs() {
                     <Text style={styles.dialogMetaLabel}>
                       {t("appLogs.fields.timestamp")}:
                     </Text>
-                    <Text style={styles.dialogMetaValue}>
+                    <Text selectable style={styles.dialogMetaValue}>
                       {new Date(selectedLog.timestamp).toLocaleString()}
                     </Text>
                   </View>
+
+                  {selectedLog.source && (
+                    <View style={styles.dialogMetaRow}>
+                      <Text style={styles.dialogMetaLabel}>Source:</Text>
+                      <Text selectable style={styles.dialogMetaValue}>
+                        {selectedLog.source}
+                      </Text>
+                    </View>
+                  )}
 
                   {selectedLog.tag && (
                     <View style={styles.dialogMetaRow}>
                       <Text style={styles.dialogMetaLabel}>
                         {t("appLogs.fields.tag")}:
                       </Text>
-                      <Text style={styles.dialogMetaValue}>
+                      <Text selectable style={styles.dialogMetaValue}>
                         {selectedLog.tag}
                       </Text>
                     </View>
@@ -447,19 +448,20 @@ export default function AppLogs() {
                     <Text style={styles.dialogMetaLabel}>
                       {t("appLogs.fields.message")}:
                     </Text>
-                    <Text style={styles.dialogMetaValue}>
-                      {selectedLog.message}
-                    </Text>
+                    <TextInput
+                      value={selectedLog.message}
+                      multiline
+                      editable={false}
+                      style={[
+                        styles.fieldInput,
+                        {
+                          backgroundColor: theme.colors.surfaceVariant,
+                          borderColor: theme.colors.outline,
+                          color: theme.colors.onSurface,
+                        },
+                      ]}
+                    />
                   </View>
-
-                  {selectedLog.source && (
-                    <View style={styles.dialogMetaRow}>
-                      <Text style={styles.dialogMetaLabel}>Source:</Text>
-                      <Text style={styles.dialogMetaValue}>
-                        {selectedLog.source}
-                      </Text>
-                    </View>
-                  )}
 
                   {selectedLog.metadata && (
                     <View style={styles.metadataSection}>
@@ -467,11 +469,9 @@ export default function AppLogs() {
                         <Text style={styles.dialogMetaLabel}>
                           {t("appLogs.fields.meta")}:
                         </Text>
-                        <IconButton
-                          icon="content-copy"
-                          size={20}
-                          onPress={handleCopyMetadata}
-                          style={styles.copyButton}
+                        <CopyButton
+                          text={JSON.stringify(selectedLog.metadata, null, 2)}
+                          size={18}
                         />
                       </View>
                       <TextInput
@@ -657,6 +657,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     opacity: 0.9,
   },
+  fieldInput: {
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 80,
+    maxHeight: 200,
+    fontFamily: "monospace",
+    fontSize: 12,
+    lineHeight: 18,
+    padding: 12,
+    textAlignVertical: "top",
+  },
   metadataSection: {
     marginTop: 8,
   },
@@ -665,9 +676,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 8,
-  },
-  copyButton: {
-    margin: 0,
   },
   metadataInput: {
     borderRadius: 8,

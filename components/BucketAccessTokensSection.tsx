@@ -7,29 +7,28 @@ import {
   GetAccessTokensForBucketDocument,
 } from "@/generated/gql-operations-generated";
 import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, ScrollView, StyleSheet } from "react-native";
 import {
   Button,
-  Card,
   Dialog,
-  Icon,
-  IconButton,
   Portal,
-  Surface,
-  Text,
   useTheme,
 } from "react-native-paper";
 import BucketApiExamples from "./BucketApiExamples";
 import CopyButton from "./ui/CopyButton";
+import DetailItemCard from "./ui/DetailItemCard";
+import DetailSectionCard from "./ui/DetailSectionCard";
 
 interface BucketAccessTokensSectionProps {
   bucketId: string;
   bucketName: string;
+  refetchTrigger?: number;
 }
 
 export default function BucketAccessTokensSection({
   bucketId,
   bucketName,
+  refetchTrigger,
 }: BucketAccessTokensSectionProps) {
   const theme = useTheme();
   const { t } = useI18n();
@@ -70,6 +69,13 @@ export default function BucketAccessTokensSection({
   useEffect(() => {
     loadApiUrl();
   }, []);
+
+  // Refetch when refetchTrigger changes
+  useEffect(() => {
+    if (refetchTrigger && bucketId) {
+      refetch();
+    }
+  }, [refetchTrigger, bucketId, refetch]);
 
   const loadApiUrl = async () => {
     try {
@@ -137,127 +143,46 @@ export default function BucketAccessTokensSection({
   };
 
   return (
-    <Card style={styles.container}>
-      <Card.Content>
-        <View style={styles.header}>
-          <View style={styles.headerText}>
-            <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-              {t("buckets.accessTokens.title" as any)}
-            </Text>
-            <Text
-              style={[
-                styles.description,
-                { color: theme.colors.onSurfaceVariant },
-              ]}
-            >
-              {t("buckets.accessTokens.description" as any)}
-            </Text>
-          </View>
-          <Button
-            mode="contained-tonal"
-            compact
-            icon="plus"
-            onPress={handleCreateToken}
-            loading={isCreating}
-            disabled={isCreating}
-          >
-            {t("buckets.accessTokens.create" as any)}
-          </Button>
-        </View>
-
-        {loading ? (
-          <Text
-            style={[
-              styles.loadingText,
-              { color: theme.colors.onSurfaceVariant },
+    <>
+      <DetailSectionCard
+        title={t("buckets.accessTokens.title" as any)}
+        description={t("buckets.accessTokens.description" as any)}
+        actionButton={{
+          label: t("buckets.accessTokens.create" as any),
+          icon: "plus",
+          onPress: handleCreateToken,
+          loading: isCreating,
+        }}
+        loading={loading}
+        emptyState={{
+          icon: "key-off",
+          text: t("buckets.accessTokens.noTokens" as any),
+        }}
+        items={accessTokens}
+        renderItem={(token: any) => (
+          <DetailItemCard
+            icon={token.token ? "key" : "key-outline"}
+            title={token.name}
+            titleRight={
+              token.token ? <CopyButton text={token.token} size={18} /> : null
+            }
+            details={
+              token.isExpired ? [t("accessTokens.item.expired")] : undefined
+            }
+            actions={[
+              {
+                icon: "code-tags",
+                onPress: () => handleShowExamples(token),
+              },
+              {
+                icon: "delete",
+                onPress: () => handleDeleteToken(token.id, token.name),
+                color: theme.colors.error,
+              },
             ]}
-          >
-            {t("common.loading")}
-          </Text>
-        ) : accessTokens.length === 0 ? (
-          <Surface
-            style={[
-              styles.emptyState,
-              { backgroundColor: theme.colors.surfaceVariant },
-            ]}
-          >
-            <Icon
-              source="key-off"
-              size={48}
-              color={theme.colors.onSurfaceVariant}
-            />
-            <Text
-              style={[
-                styles.emptyText,
-                { color: theme.colors.onSurfaceVariant },
-              ]}
-            >
-              {t("buckets.accessTokens.noTokens" as any)}
-            </Text>
-          </Surface>
-        ) : (
-          <View style={styles.tokensList}>
-            {accessTokens.map((token: any) => (
-              <Surface
-                key={token.id}
-                style={[
-                  styles.tokenItem,
-                  { backgroundColor: theme.colors.elevation.level1 },
-                ]}
-                elevation={1}
-              >
-                <View style={styles.tokenInfo}>
-                  <View style={styles.tokenHeader}>
-                    <Icon
-                      source={token.token ? "key" : "key-outline"}
-                      size={20}
-                      color={theme.colors.primary}
-                    />
-                    <Text
-                      style={[
-                        styles.tokenName,
-                        { color: theme.colors.onSurface },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {token.name}
-                    </Text>
-                  </View>
-                  {token.isExpired && (
-                    <Text
-                      style={[
-                        styles.expiredText,
-                        { color: theme.colors.error },
-                      ]}
-                    >
-                      {t("accessTokens.item.expired")}
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.tokenActions}>
-                  {token.token && (
-                    <CopyButton
-                      text={token.token}
-                      size={20}
-                    />
-                  )}
-                  <IconButton
-                    icon="code-tags"
-                    size={20}
-                    onPress={() => handleShowExamples(token)}
-                  />
-                  <IconButton
-                    icon="delete"
-                    size={20}
-                    iconColor={theme.colors.error}
-                    onPress={() => handleDeleteToken(token.id, token.name)}
-                  />
-                </View>
-              </Surface>
-            ))}
-          </View>
+          />
         )}
-      </Card.Content>
+      />
 
       {/* API Examples Dialog */}
       <Portal>
@@ -284,83 +209,11 @@ export default function BucketAccessTokensSection({
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </Card>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 16,
-    gap: 12,
-  },
-  headerText: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  description: {
-    fontSize: 14,
-  },
-  loadingText: {
-    fontSize: 14,
-    textAlign: "center",
-    padding: 16,
-  },
-  emptyState: {
-    padding: 24,
-    borderRadius: 8,
-    alignItems: "center",
-    gap: 12,
-  },
-  emptyText: {
-    fontSize: 14,
-    textAlign: "center",
-  },
-  tokensList: {
-    gap: 8,
-  },
-  tokenItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 8,
-  },
-  tokenInfo: {
-    flex: 1,
-    marginRight: 8,
-  },
-  tokenHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 4,
-  },
-  tokenName: {
-    fontSize: 14,
-    fontWeight: "600",
-    flex: 1,
-  },
-  expiredText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  tokenActions: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  dialog: {
-    maxHeight: "80%",
-  },
   dialogScroll: {
     maxHeight: 500,
     paddingHorizontal: 0,

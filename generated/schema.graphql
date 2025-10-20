@@ -121,6 +121,19 @@ input CreateBucketDto {
   name: String!
 }
 
+input CreateInviteCodeInput {
+  """Expiration date (ISO string)"""
+  expiresAt: String
+  """Maximum number of uses"""
+  maxUses: Int
+  """Permissions to grant"""
+  permissions: [String!]!
+  """Resource ID"""
+  resourceId: String!
+  """Resource type"""
+  resourceType: String!
+}
+
 input CreateMessageDto {
   actions: [NotificationActionDto!]
   addDeleteAction: Boolean = true
@@ -241,6 +254,8 @@ type EntityPermission {
   expiresAt: DateTime
   grantedBy: User
   id: ID!
+  """Invite code ID used to create this permission"""
+  inviteCodeId: String
   permissions: [Permission!]!
   resourceId: String!
   resourceType: String!
@@ -344,6 +359,42 @@ enum HttpMethod {
   PATCH
   POST
   PUT
+}
+
+type InviteCode {
+  """Unique invite code"""
+  code: String!
+  createdAt: DateTime!
+  """User who created this code"""
+  createdBy: String!
+  creator: User!
+  """Expiration date for this code"""
+  expiresAt: String
+  id: String!
+  """Maximum number of uses (null = unlimited)"""
+  maxUses: Float
+  """Permissions granted by this code"""
+  permissions: [String!]!
+  """Resource ID this code grants access to"""
+  resourceId: String!
+  """Resource type (BUCKET, etc.)"""
+  resourceType: String!
+  updatedAt: DateTime!
+  """Number of times this code has been used"""
+  usageCount: Float!
+}
+
+type InviteCodeRedemptionResult {
+  """Error message if redemption failed"""
+  error: String
+  """Permissions that were granted"""
+  permissions: [String!]
+  """Resource ID that was granted access to"""
+  resourceId: String
+  """Resource type that was granted access to"""
+  resourceType: String
+  """Whether redemption was successful"""
+  success: Boolean!
 }
 
 """JSON custom scalar type"""
@@ -455,6 +506,8 @@ type Mutation {
   createAccessToken(input: CreateAccessTokenDto!): AccessTokenResponseDto!
   createAccessTokenForBucket(bucketId: String!, name: String!): AccessTokenResponseDto!
   createBucket(input: CreateBucketDto!): Bucket!
+  """Create a new invite code for a resource"""
+  createInviteCode(input: CreateInviteCodeInput!): InviteCode!
   """
   Create a new message and send notifications to bucket users (returns the created message).
   """
@@ -469,6 +522,8 @@ type Mutation {
   """Delete a specific backup file"""
   deleteBackup(filename: String!): Boolean!
   deleteBucket(id: String!): Boolean!
+  """Delete an invite code"""
+  deleteInviteCode(id: String!): Boolean!
   deleteNotification(id: String!): Boolean!
   deleteOAuthProvider(id: String!): Boolean!
   deletePayloadMapper(id: String!): Boolean!
@@ -486,6 +541,8 @@ type Mutation {
   massMarkNotificationsAsRead(ids: [String!]!): MassMarkResult!
   massMarkNotificationsAsUnread(ids: [String!]!): MassMarkResult!
   postponeNotification(input: PostponeNotificationDto!): PostponeResponseDto!
+  """Redeem an invite code to gain access"""
+  redeemInviteCode(input: RedeemInviteCodeInput!): InviteCodeRedemptionResult!
   refreshAccessToken(refreshToken: String!): RefreshTokenResponse!
   register(input: RegisterDto!): RegisterResponse!
   registerDevice(input: RegisterDeviceDto!): UserDevice!
@@ -516,6 +573,8 @@ type Mutation {
   updateBucket(id: String!, input: UpdateBucketDto!): Bucket!
   updateBucketSnoozes(bucketId: String!, snoozes: [SnoozeScheduleInput!]!): UserBucket! @deprecated(reason: "Usa future Bucket mutation (updateBucketSnoozes)")
   updateDeviceToken(input: UpdateDeviceTokenDto!): UserDevice!
+  """Update an invite code"""
+  updateInviteCode(input: UpdateInviteCodeInput!): InviteCode!
   updateOAuthProvider(id: String!, input: UpdateOAuthProviderDto!): OAuthProvider!
   updatePayloadMapper(id: String!, input: UpdatePayloadMapperDto!): PayloadMapper!
   updateProfile(input: UpdateProfileInput!): User!
@@ -733,6 +792,10 @@ type Query {
   getUserAccessTokens: [AccessTokenListDto!]!
   getUserSessions: [SessionInfoDto!]!
   healthcheck: String!
+  """Get invite code by ID"""
+  inviteCode(id: String!): InviteCode!
+  """Get invite codes for a resource"""
+  inviteCodesForResource(resourceId: String!, resourceType: String!): [InviteCode!]!
   """List all available database backups"""
   listBackups: [BackupInfoDto!]!
   listSystemTokens: [SystemAccessTokenDto!]!
@@ -766,6 +829,11 @@ type Query {
   userWebhooks: [UserWebhook!]!
   users: [User!]!
   webhook(id: ID!): UserWebhook!
+}
+
+input RedeemInviteCodeInput {
+  """Invite code to redeem"""
+  code: String!
 }
 
 type RefreshTokenResponse {
@@ -1015,6 +1083,17 @@ input UpdateBucketDto {
 input UpdateDeviceTokenDto {
   newDeviceToken: String!
   oldDeviceToken: String!
+}
+
+input UpdateInviteCodeInput {
+  """Expiration date (ISO string)"""
+  expiresAt: String
+  """Invite code ID"""
+  id: String!
+  """Maximum number of uses"""
+  maxUses: Int
+  """Permissions to grant"""
+  permissions: [String!]
 }
 
 input UpdateOAuthProviderDto {

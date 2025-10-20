@@ -408,6 +408,60 @@ mutation UnshareBucket($input: RevokeEntityPermissionInput!) {
   unshareBucket(input: $input)
 }
 
+# Invite Code operations
+fragment InviteCodeFragment on InviteCode {
+  id
+  code
+  resourceType
+  resourceId
+  createdBy
+  permissions
+  expiresAt
+  usageCount
+  maxUses
+  createdAt
+  updatedAt
+  creator {
+    id
+    email
+    username
+    firstName
+    lastName
+  }
+}
+
+query InviteCodesForResource($resourceType: String!, $resourceId: String!) {
+  inviteCodesForResource(resourceType: $resourceType, resourceId: $resourceId) {
+    ...InviteCodeFragment
+  }
+}
+
+mutation CreateInviteCode($input: CreateInviteCodeInput!) {
+  createInviteCode(input: $input) {
+    ...InviteCodeFragment
+  }
+}
+
+mutation UpdateInviteCode($input: UpdateInviteCodeInput!) {
+  updateInviteCode(input: $input) {
+    ...InviteCodeFragment
+  }
+}
+
+mutation DeleteInviteCode($id: String!) {
+  deleteInviteCode(id: $id)
+}
+
+mutation RedeemInviteCode($input: RedeemInviteCodeInput!) {
+  redeemInviteCode(input: $input) {
+    success
+    error
+    resourceType
+    resourceId
+    permissions
+  }
+}
+
 # User operations
 query GetMe {
   me {
@@ -742,6 +796,7 @@ fragment EntityPermissionFragment on EntityPermission {
   expiresAt
   createdAt
   updatedAt
+  inviteCodeId
   user {
     ...UserFragment
   }

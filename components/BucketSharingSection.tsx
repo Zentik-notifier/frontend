@@ -1,28 +1,31 @@
+import { useAppContext } from "@/contexts/AppContext";
 import {
   BucketFullFragment,
   EntityPermissionFragment,
   Permission,
   ResourceType,
-  UserRole,
 } from "@/generated/gql-operations-generated";
-import { useBucket, useShareBucket, useUnshareBucket } from "@/hooks/notifications";
-import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/contexts/AppContext";
-import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
+  useBucket,
+  useRefreshBucket,
+  useShareBucket,
+  useUnshareBucket,
+} from "@/hooks/notifications";
+import { useI18n } from "@/hooks/useI18n";
+import { usePermissions } from "@/hooks/usePermissions";
+import React, { useEffect, useState } from "react";
+import DetailItemCard from "./ui/DetailItemCard";
+import DetailSectionCard from "./ui/DetailSectionCard";
+import {
   Alert,
-  FlatList,
+  Dimensions,
   StyleSheet,
   TouchableOpacity,
   View,
-  Dimensions,
 } from "react-native";
 import {
   Button,
-  Card,
   Icon,
-  IconButton,
   Modal,
   Portal,
   Text,
@@ -32,39 +35,17 @@ import {
 } from "react-native-paper";
 import IdWithCopyButton from "./IdWithCopyButton";
 
+const availablePermissions = [
+  Permission.Read,
+  Permission.Write,
+  Permission.Delete,
+  Permission.Admin,
+];
+
 interface BucketSharingSectionProps {
   bucketId: string;
+  refetchTrigger?: number;
 }
-
-// Define permission levels
-type PermissionLevel = "read" | "readwrite" | "admin";
-
-const PERMISSION_LEVELS: {
-  value: PermissionLevel;
-  label: string;
-  permissions: Permission[];
-}[] = [
-  {
-    value: "read",
-    label: "buckets.sharing.permission.read",
-    permissions: [Permission.Read],
-  },
-  {
-    value: "readwrite",
-    label: "buckets.sharing.permission.readwrite",
-    permissions: [Permission.Read, Permission.Write],
-  },
-  {
-    value: "admin",
-    label: "buckets.sharing.permission.admin",
-    permissions: [
-      Permission.Read,
-      Permission.Write,
-      Permission.Delete,
-      Permission.Admin,
-    ],
-  },
-];
 
 interface ShareModalProps {
   visible: boolean;
@@ -85,16 +66,32 @@ const ShareModal: React.FC<ShareModalProps> = ({
 }) => {
   const { t } = useI18n();
   const theme = useTheme();
+  const { getPermissionLabel } = usePermissions();
   const [identifier, setIdentifier] = useState("");
-  const [selectedPermissionLevel, setSelectedPermissionLevel] =
-    useState<PermissionLevel>("read");
+  const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([
+    Permission.Read,
+  ]);
 
   const isEditing = !!editingPermission;
 
+  const togglePermission = (permission: Permission) => {
+    if (selectedPermissions.includes(permission)) {
+      setSelectedPermissions(
+        selectedPermissions.filter((p) => p !== permission)
+      );
+    } else {
+      setSelectedPermissions([...selectedPermissions, permission]);
+    }
+  };
+
   const handleShare = () => {
-    const selectedPermissions = PERMISSION_LEVELS.find(
-      (level) => level.value === selectedPermissionLevel
-    )?.permissions || [Permission.Read];
+    if (selectedPermissions.length === 0) {
+      Alert.alert(
+        t("common.error"),
+        t("buckets.inviteCodes.selectAtLeastOnePermission")
+      );
+      return;
+    }
 
     if (isEditing) {
       if (onUpdate) {
@@ -111,21 +108,13 @@ const ShareModal: React.FC<ShareModalProps> = ({
 
   const reset = () => {
     setIdentifier("");
-    setSelectedPermissionLevel("read");
+    setSelectedPermissions([Permission.Read]);
   };
 
   // Initialize form with editing data
   useEffect(() => {
     if (isEditing && editingPermission) {
-      // Find the matching permission level based on current permissions
-      const currentLevel = PERMISSION_LEVELS.find(
-        (level) =>
-          level.permissions.length === editingPermission.permissions.length &&
-          level.permissions.every((p) =>
-            editingPermission.permissions.includes(p)
-          )
-      );
-      setSelectedPermissionLevel(currentLevel?.value || "read");
+      setSelectedPermissions(editingPermission.permissions as Permission[]);
 
       if (editingPermission.user?.username) {
         setIdentifier(editingPermission.user.username);
@@ -236,31 +225,29 @@ const ShareModal: React.FC<ShareModalProps> = ({
             {t("buckets.sharing.permissions")}
           </Text>
           <View style={styles.permissionsContainer}>
-            {PERMISSION_LEVELS.map((level) => (
+            {availablePermissions.map((permission) => (
               <TouchableOpacity
-                key={level.value}
+                key={permission}
                 style={[
                   styles.permissionChip,
                   { borderColor: theme.colors.outline },
-                  selectedPermissionLevel === level.value && [
-                    {
-                      backgroundColor: theme.colors.primary,
-                      borderColor: theme.colors.primary,
-                    },
-                  ],
+                  selectedPermissions.includes(permission) && {
+                    backgroundColor: theme.colors.primary,
+                    borderColor: theme.colors.primary,
+                  },
                 ]}
-                onPress={() => setSelectedPermissionLevel(level.value)}
+                onPress={() => togglePermission(permission)}
               >
                 <Text
                   style={[
                     styles.permissionText,
                     { color: theme.colors.onSurfaceVariant },
-                    selectedPermissionLevel === level.value && {
+                    selectedPermissions.includes(permission) && {
                       color: theme.colors.onPrimary,
                     },
                   ]}
                 >
-                  {t(level.label as any)}
+                  {getPermissionLabel(permission)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -295,158 +282,30 @@ const ShareModal: React.FC<ShareModalProps> = ({
   );
 };
 
-interface PermissionItemProps {
-  permission: EntityPermissionFragment;
-  onRevoke: (permission: EntityPermissionFragment) => void;
-  onEdit: (permission: EntityPermissionFragment) => void;
-  loading: boolean;
-  bucket: BucketFullFragment;
-}
-
-const PermissionItem: React.FC<PermissionItemProps> = ({
-  permission,
-  onRevoke,
-  onEdit,
-  loading,
-  bucket,
-}) => {
-  const { t } = useI18n();
-  const theme = useTheme();
-
-  const getUserDisplayName = () => {
-    if (permission.user?.username) return `@${permission.user.username}`;
-    if (permission.user?.email) return permission.user.email;
-    return t("buckets.sharing.unknownUser");
-  };
-
-  const getPermissionsText = () => {
-    return permission.permissions
-      .map((p) => {
-        switch (p.toLowerCase()) {
-          case "read":
-            return t("buckets.sharing.permission.read");
-          case "write":
-            return t("buckets.sharing.permission.write");
-          case "delete":
-            return t("buckets.sharing.permission.delete");
-          case "admin":
-            return t("buckets.sharing.permission.admin");
-          default:
-            return p;
-        }
-      })
-      .join(", ");
-  };
-
-  const getExpirationText = () => {
-    if (!permission.expiresAt) return null;
-    const date = new Date(permission.expiresAt);
-    return t("buckets.sharing.expiresAt", { date: date.toLocaleDateString() });
-  };
-
-  const getGrantedByText = () => {
-    if (!permission.grantedBy) {
-      // If grantedBy is null, it was granted by the bucket owner
-      const bucketOwner = bucket?.user;
-      if (bucketOwner) {
-        let ownerDisplayName = "";
-        if (bucketOwner.username) {
-          ownerDisplayName = `@${bucketOwner.username}`;
-        } else if (bucketOwner.email) {
-          ownerDisplayName = bucketOwner.email;
-        } else {
-          return "Granted by owner";
-        }
-        return `Granted by ${ownerDisplayName} (owner)`;
-      }
-      return "Granted by owner";
-    }
-
-    let displayName = "";
-    if (permission.grantedBy.username) {
-      displayName = `@${permission.grantedBy.username}`;
-    } else if (permission.grantedBy.email) {
-      displayName = permission.grantedBy.email;
-    } else {
-      return null;
-    }
-
-    // Check if the grantor is the bucket owner
-    const isOwner = bucket?.user?.id === permission.grantedBy.id;
-    return `Granted by ${displayName}${isOwner ? " (owner)" : ""}`;
-  };
-
-  return (
-    <Card style={styles.permissionItem}>
-      <Card.Content>
-        <View style={styles.permissionInfo}>
-          <Text variant="titleSmall" style={styles.permissionUser}>
-            {getUserDisplayName()}
-          </Text>
-          <Text variant="bodyMedium" style={styles.permissionDetails}>
-            {getPermissionsText()}
-          </Text>
-          {getExpirationText() && (
-            <Text variant="bodySmall" style={styles.permissionExpiry}>
-              {getExpirationText()}
-            </Text>
-          )}
-          {getGrantedByText() && (
-            <Text
-              variant="bodySmall"
-              style={[
-                styles.permissionGrantedBy,
-                { color: theme.colors.onSurfaceVariant },
-              ]}
-            >
-              {getGrantedByText()}
-            </Text>
-          )}
-        </View>
-        <View style={styles.permissionActions}>
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => onEdit(permission)}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color={theme.colors.primary} />
-            ) : (
-              <Icon source="pencil" size={18} color={theme.colors.primary} />
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.revokeButton}
-            onPress={() => onRevoke(permission)}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color={theme.colors.error} />
-            ) : (
-              <Icon
-                source="account-remove"
-                size={20}
-                color={theme.colors.error}
-              />
-            )}
-          </TouchableOpacity>
-        </View>
-      </Card.Content>
-    </Card>
-  );
-};
-
 const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
   bucketId,
+  refetchTrigger,
 }) => {
   const { t } = useI18n();
   const theme = useTheme();
+  const { getPermissionsText } = usePermissions();
   const [showShareModal, setShowShareModal] = useState(false);
   const [editingPermission, setEditingPermission] =
     useState<EntityPermissionFragment | null>(null);
 
   const { userId } = useAppContext();
-  const { canAdmin, allPermissions, loading, bucket } = useBucket(bucketId, { autoFetch: true, userId: userId ?? undefined });
+  const { canAdmin, allPermissions, loading, bucket } = useBucket(bucketId, {
+    autoFetch: true,
+    userId: userId ?? undefined,
+  });
+  const refreshBucket = useRefreshBucket();
+
+  // Refetch when refetchTrigger changes
+  useEffect(() => {
+    if (refetchTrigger && bucketId) {
+      refreshBucket(bucketId).catch(console.error);
+    }
+  }, [refetchTrigger, bucketId, refreshBucket]);
 
   const { shareBucket, isLoading: sharingBucket } = useShareBucket({
     onSuccess: () => {
@@ -550,52 +409,99 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
 
   return (
     <>
-      <View style={styles.header}>
-        <Text style={styles.title}>{t("buckets.sharing.title")}</Text>
-        <IconButton
-          mode="contained"
-          onPress={() => setShowShareModal(true)}
-          icon="plus"
-          style={styles.addButton}
-        />
-      </View>
+      <DetailSectionCard
+        title={t("buckets.sharing.title")}
+        description={t("buckets.sharing.description")}
+        actionButton={{
+          label: t("buckets.sharing.share"),
+          icon: "plus",
+          onPress: () => setShowShareModal(true),
+          loading: sharingBucket,
+        }}
+        loading={loading}
+        emptyState={{
+          icon: "account-group",
+          text: t("buckets.sharing.noShares"),
+        }}
+        items={allPermissions}
+        renderItem={(permission) => {
+          const getUserDisplayName = () => {
+            if (permission.user?.username) return `@${permission.user.username}`;
+            if (permission.user?.email) return permission.user.email;
+            return t("buckets.sharing.unknownUser");
+          };
 
-      <Text style={styles.description}>{t("buckets.sharing.description")}</Text>
+          const details: string[] = [getPermissionsText(permission.permissions)];
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" />
-          <Text style={styles.loadingText}>{t("buckets.sharing.loading")}</Text>
-        </View>
-      ) : allPermissions.length === 0 ? (
-        <Card style={styles.emptyContainer}>
-          <Card.Content>
-            <Icon
-              source="account-group"
-              size={48}
-              color={theme.colors.onSurfaceVariant}
+          if (permission.expiresAt) {
+            const date = new Date(permission.expiresAt);
+            details.push(t("buckets.sharing.expiresAt", { date: date.toLocaleDateString() }));
+          }
+
+          // Show if permission was granted via invite code
+          if (permission.inviteCodeId) {
+            details.push(t("buckets.sharing.viaInviteCode"));
+          }
+
+          const getGrantedByText = (): string | null => {
+            if (!permission.grantedBy) {
+              const bucketOwner = bucket?.user;
+              if (bucketOwner) {
+                let ownerDisplayName = "";
+                if (bucketOwner.username) {
+                  ownerDisplayName = `@${bucketOwner.username}`;
+                } else if (bucketOwner.email) {
+                  ownerDisplayName = bucketOwner.email;
+                } else {
+                  return t("buckets.sharing.grantedByOwner");
+                }
+                return t("buckets.sharing.grantedByWithOwner", { user: ownerDisplayName });
+              }
+              return t("buckets.sharing.grantedByOwner");
+            }
+
+            let displayName = "";
+            if (permission.grantedBy.username) {
+              displayName = `@${permission.grantedBy.username}`;
+            } else if (permission.grantedBy.email) {
+              displayName = permission.grantedBy.email;
+            } else {
+              return null;
+            }
+
+            const isOwner = bucket?.user?.id === permission.grantedBy.id;
+            return isOwner 
+              ? t("buckets.sharing.grantedByWithOwner", { user: displayName })
+              : t("buckets.sharing.grantedBy", { user: displayName });
+          };
+
+          const grantedBy = getGrantedByText();
+          if (grantedBy) {
+            details.push(grantedBy);
+          }
+
+          return (
+            <DetailItemCard
+              icon="account"
+              title={getUserDisplayName()}
+              details={details}
+              actions={[
+                {
+                  icon: "pencil",
+                  onPress: () => handleEdit(permission),
+                  disabled: unsharingBucket || sharingBucket,
+                },
+                {
+                  icon: "delete",
+                  onPress: () => handleRevoke(permission),
+                  color: theme.colors.error,
+                  disabled: unsharingBucket || sharingBucket,
+                },
+              ]}
             />
-            <Text variant="titleMedium" style={styles.emptyText}>
-              {t("buckets.sharing.noShares")}
-            </Text>
-          </Card.Content>
-        </Card>
-      ) : (
-        <FlatList
-          data={allPermissions}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <PermissionItem
-              bucket={bucket!}
-              permission={item}
-              onRevoke={handleRevoke}
-              onEdit={handleEdit}
-              loading={unsharingBucket || sharingBucket}
-            />
-          )}
-          scrollEnabled={false}
-        />
-      )}
+          );
+        }}
+      />
 
       <ShareModal
         visible={showShareModal}
@@ -610,82 +516,6 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
 };
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  addButton: {
-    padding: 8,
-  },
-  description: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 20,
-  },
-  loadingText: {
-    marginLeft: 8,
-    opacity: 0.7,
-  },
-  emptyContainer: {
-    paddingVertical: 20,
-    alignItems: "center",
-  },
-  emptyText: {
-    opacity: 0.7,
-    fontStyle: "italic",
-  },
-  permissionItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  permissionInfo: {
-    flex: 1,
-  },
-  permissionUser: {
-    fontSize: 16,
-    fontWeight: "500",
-    marginBottom: 2,
-  },
-  permissionDetails: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  permissionExpiry: {
-    fontSize: 12,
-    opacity: 0.5,
-    marginTop: 2,
-  },
-  permissionGrantedBy: {
-    fontSize: 12,
-    opacity: 0.6,
-    marginTop: 2,
-    fontStyle: "italic",
-  },
-  permissionActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  editButton: {
-    padding: 8,
-  },
-  revokeButton: {
-    padding: 8,
-  },
   editingUserInfo: {
     flexDirection: "row",
     alignItems: "center",
@@ -700,17 +530,6 @@ const styles = StyleSheet.create({
   },
   editingUserValue: {
     fontSize: 14,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    width: "90%",
-    maxWidth: 400,
-    borderRadius: 12,
-    padding: 0,
   },
   modalHeader: {
     flexDirection: "row",
@@ -759,14 +578,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
   },
-  permissionChipSelected: {
-    // Selected state will be handled by theme colors
-  },
   permissionText: {
     fontSize: 14,
-  },
-  permissionTextSelected: {
-    // Selected text color will be handled by theme colors
   },
   modalFooter: {
     flexDirection: "row",
@@ -778,25 +591,6 @@ const styles = StyleSheet.create({
   },
   footerButton: {
     flex: 1,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    marginHorizontal: 4,
-  },
-  cancelButton: {
-    borderWidth: 1,
-  },
-  cancelButtonText: {
-    fontWeight: "500",
-  },
-  shareButton: {
-    // Background color will be handled by theme
-  },
-  shareButtonText: {
-    fontWeight: "500",
   },
 });
 

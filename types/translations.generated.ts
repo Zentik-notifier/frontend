@@ -454,8 +454,12 @@ export interface Translation {
       description: string;
       create: string;
       createTitle: string;
+      editTitle: string;
+      shareTitle: string;
+      shareMessage: string;
       selectAtLeastOnePermission: string;
       invalidMaxUses: string;
+      invalidExpirationDays: string;
       createError: string;
       deleteTitle: string;
       deleteConfirm: string;
@@ -469,8 +473,11 @@ export interface Translation {
       expired: string;
       createdBy: string;
       selectPermissions: string;
-      setExpiration: string;
+      expirationDays: string;
+      expirationDaysPlaceholder: string;
       maxUses: string;
+      maxUsesPlaceholder: string;
+      days: string;
       redeemTitle: string;
       redeemDescription: string;
       inviteCode: string;
@@ -490,11 +497,10 @@ export interface Translation {
       identifierPlaceholder: string;
       permissions: string;
       permission: {
-        read: string;
-        write: string;
-        delete: string;
-        admin: string;
-        readwrite: string;
+        READ: string;
+        WRITE: string;
+        DELETE: string;
+        ADMIN: string;
       };
       share: string;
       editTitle: string;
@@ -511,6 +517,10 @@ export interface Translation {
       revoke: string;
       unknownUser: string;
       expiresAt: string;
+      viaInviteCode: string;
+      grantedByOwner: string;
+      grantedBy: string;
+      grantedByWithOwner: string;
     };
     delete: {
       modalTitle: string;
