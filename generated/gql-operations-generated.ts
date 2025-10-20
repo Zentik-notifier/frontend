@@ -272,6 +272,7 @@ export enum EventType {
   Logout = 'LOGOUT',
   Message = 'MESSAGE',
   Notification = 'NOTIFICATION',
+  NotificationAck = 'NOTIFICATION_ACK',
   PushPassthrough = 'PUSH_PASSTHROUGH',
   Register = 'REGISTER'
 }
