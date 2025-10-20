@@ -1,5 +1,5 @@
 import { useI18n } from "@/hooks/useI18n";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import {
   Button,
@@ -10,22 +10,33 @@ import {
   useTheme,
   Icon,
 } from "react-native-paper";
+import { useRedeemInviteCodeMutation } from "@/generated/gql-operations-generated";
 
 interface RedeemInviteCodeModalProps {
   visible: boolean;
   onDismiss: () => void;
   onSuccess?: (resourceType: string, resourceId: string) => void;
+  initialCode?: string;
 }
 
 export default function RedeemInviteCodeModal({
   visible,
   onDismiss,
   onSuccess,
+  initialCode,
 }: RedeemInviteCodeModalProps) {
   const theme = useTheme();
   const { t } = useI18n();
   const [code, setCode] = useState("");
-  const [isRedeeming, setIsRedeeming] = useState(false);
+
+  const [redeemInviteCode, { loading: isRedeeming }] = useRedeemInviteCodeMutation();
+
+  // Set initial code if provided (from deep link)
+  useEffect(() => {
+    if (initialCode && visible) {
+      setCode(initialCode);
+    }
+  }, [initialCode, visible]);
 
   const handleRedeem = async () => {
     if (!code.trim()) {
@@ -36,20 +47,18 @@ export default function RedeemInviteCodeModal({
       return;
     }
 
-    setIsRedeeming(true);
     try {
-      // TODO: Call GraphQL mutation
-      console.log("Redeeming invite code:", code);
-      
-      // Mock success response
-      const mockResponse = {
-        success: true,
-        resourceType: "BUCKET",
-        resourceId: "mock-bucket-id",
-        permissions: ["READ", "WRITE"],
-      };
+      const result = await redeemInviteCode({
+        variables: {
+          input: {
+            code: code.trim(),
+          },
+        },
+      });
 
-      if (mockResponse.success) {
+      const redemptionResult = result.data?.redeemInviteCode;
+
+      if (redemptionResult?.success) {
         Alert.alert(
           t("common.success"),
           t("buckets.inviteCodes.redeemSuccess"),
@@ -57,7 +66,7 @@ export default function RedeemInviteCodeModal({
             {
               text: "OK",
               onPress: () => {
-                onSuccess?.(mockResponse.resourceType, mockResponse.resourceId);
+                onSuccess?.(redemptionResult.resourceType!, redemptionResult.resourceId!);
                 onDismiss();
                 setCode("");
               },
@@ -67,7 +76,7 @@ export default function RedeemInviteCodeModal({
       } else {
         Alert.alert(
           t("common.error"),
-          t("buckets.inviteCodes.redeemError")
+          redemptionResult?.error || t("buckets.inviteCodes.redeemError")
         );
       }
     } catch (error: any) {
@@ -76,8 +85,6 @@ export default function RedeemInviteCodeModal({
         t("common.error"),
         error?.message || t("buckets.inviteCodes.redeemError")
       );
-    } finally {
-      setIsRedeeming(false);
     }
   };
 

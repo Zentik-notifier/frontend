@@ -457,6 +457,12 @@ export interface Translation {
       editTitle: string;
       shareTitle: string;
       shareMessage: string;
+      shareMessageWithLink: string;
+      shareError: string;
+      linkCopied: string;
+      redeem: string;
+      redeemError: string;
+      redeemInfo: string;
       selectAtLeastOnePermission: string;
       invalidMaxUses: string;
       invalidExpirationDays: string;
@@ -483,9 +489,6 @@ export interface Translation {
       inviteCode: string;
       enterCode: string;
       redeemSuccess: string;
-      redeemError: string;
-      redeem: string;
-      redeemInfo: string;
     };
     sharing: {
       title: string;

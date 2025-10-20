@@ -1,14 +1,17 @@
 import { useI18n } from "@/hooks/useI18n";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useInviteCodeDeepLink } from "@/hooks/useInviteCodeDeepLink";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Platform,
   ScrollView,
   Share,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
+import * as Clipboard from 'expo-clipboard';
 import { Text, TextInput, useTheme } from "react-native-paper";
 import DetailItemCard from "./ui/DetailItemCard";
 import DetailModal from "./ui/DetailModal";
@@ -41,6 +44,7 @@ export default function BucketInviteCodesSection({
   const theme = useTheme();
   const { t } = useI18n();
   const { getPermissionLabel } = usePermissions();
+  const { createInviteLink } = useInviteCodeDeepLink();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingInviteCode, setEditingInviteCode] = useState<InviteCodeFragment | null>(null);
 
@@ -324,12 +328,42 @@ export default function BucketInviteCodesSection({
 
   const handleShareCode = async (code: string) => {
     try {
-      await Share.share({
-        message: `${t("buckets.inviteCodes.shareMessage")}: ${code}`,
-        title: t("buckets.inviteCodes.shareTitle"),
-      });
+      const inviteLink = createInviteLink(code);
+      
+      // Try native Share API (available on iOS and Android)
+      if (Platform.OS !== 'web') {
+        try {
+          await Share.share({
+            message: `${t("buckets.inviteCodes.shareMessageWithLink", { 
+              bucketName, 
+              link: inviteLink 
+            })}`,
+            title: t("buckets.inviteCodes.shareTitle"),
+            url: inviteLink,
+          });
+          return;
+        } catch (shareError: any) {
+          // If user cancels, error.code will be 'CANCELLED'
+          if (shareError?.code === 'CANCELLED') {
+            return;
+          }
+          // Otherwise fall through to clipboard
+          console.log("Share not available, falling back to clipboard");
+        }
+      }
+      
+      // Fallback: Copy to clipboard (for web or if Share fails)
+      await Clipboard.setStringAsync(inviteLink);
+      Alert.alert(
+        t("common.success"),
+        t("buckets.inviteCodes.linkCopied")
+      );
     } catch (error) {
       console.error("Error sharing code:", error);
+      Alert.alert(
+        t("common.error"),
+        t("buckets.inviteCodes.shareError")
+      );
     }
   };
 
