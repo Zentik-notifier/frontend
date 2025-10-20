@@ -1,0 +1,32 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": [
+          "C3F24V5NS5.com.apocaliss92.zentik",
+          "C3F24V5NS5.com.apocaliss92.zentik.dev"
+        ],
+        "components": [
+          {
+            "/": "/invite/*",
+            "comment": "Matches any URL whose path starts with /invite/ to open invite code redemption. Use ?env=dev query param to open dev app."
+          }
+        ]
+      }
+    ]
+  },
+  "activitycontinuation": {
+    "apps": [
+      "C3F24V5NS5.com.apocaliss92.zentik",
+      "C3F24V5NS5.com.apocaliss92.zentik.dev"
+    ]
+  },
+  "webcredentials": {
+    "apps": [
+      "C3F24V5NS5.com.apocaliss92.zentik",
+      "C3F24V5NS5.com.apocaliss92.zentik.dev"
+    ]
+  }
+}
+

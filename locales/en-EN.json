@@ -455,11 +455,9 @@
       "shareTitle": "Share Invite Code",
       "shareMessage": "Use this code to access the bucket",
       "shareMessageWithLink": "You've been invited to access the bucket \"{{bucketName}}\"!\n\nClick this link to redeem the invite:\n{{link}}",
+      "shareMessageComplete": "🎉 You've been invited to access the bucket \"{{bucketName}}\"!\n\n🔑 Invite code: {{code}}\n\n👉 Click here to redeem:\n{{link}}",
       "shareError": "Failed to share invite code",
       "linkCopied": "Invite link copied to clipboard",
-      "redeem": "Redeem",
-      "redeemError": "Failed to redeem invite code",
-      "redeemInfo": "The invite code will grant you access to the bucket with permissions specified by the creator.",
       "selectAtLeastOnePermission": "Please select at least one permission",
       "invalidMaxUses": "Please enter a valid maximum usage count (minimum 1)",
       "invalidExpirationDays": "Please enter a valid number of days (minimum 1)",
@@ -488,7 +486,10 @@
       "redeemSuccess": "Invite code redeemed successfully! You now have access to the shared resource.",
       "redeemError": "Failed to redeem invite code. Please check the code and try again.",
       "redeem": "Redeem",
-      "redeemInfo": "Once redeemed, you'll gain the permissions associated with this code. The code may have limited uses and an expiration date."
+      "redeemInfo": "Once redeemed, you'll gain the permissions associated with this code. The code may have limited uses and an expiration date.",
+      "openingApp": "Opening Zentik app",
+      "appNotOpening": "App not opening?",
+      "manualInstructions": "Open the Zentik app manually and enter the invite code in the Buckets section."
     },
     "sharing": {
       "title": "Sharing",

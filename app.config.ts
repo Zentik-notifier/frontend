@@ -7,6 +7,7 @@ import 'tsx/cjs';
 const isDev = process.env.APP_VARIANT === "development";
 const bundleIdentifier = isDev ? "com.apocaliss92.zentik.dev" : "com.apocaliss92.zentik";
 const name = isDev ? "Zentik Dev" : "Zentik";
+const scheme = isDev ? "zentik.dev" : "zentik";
 
 const commonEntitlements = {
     "com.apple.security.application-groups": [
@@ -26,7 +27,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
         version: "1.4.15",
         orientation: "default",
         icon: "./assets/icons/generators/glas_default.png",
-        scheme: "zentik",
+        scheme,
         userInterfaceStyle: "automatic",
         newArchEnabled: true,
         splash: {
@@ -44,6 +45,9 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             bundleIdentifier,
             appleTeamId: "C3F24V5NS5",
             buildNumber: "48",
+            associatedDomains: [
+                "applinks:notifier.zentik.app"
+            ],
             icon: "./assets/icons/generators/glas_default.png",
             // icon: {
             //     light: "./assets/icons/generators/glas_default.png",
@@ -81,6 +85,20 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                 "com.google.android.c2dm.permission.RECEIVE",
                 "android.permission.VIBRATE",
                 "android.permission.USE_FULL_SCREEN_INTENT"
+            ],
+            intentFilters: [
+                {
+                    action: "VIEW",
+                    autoVerify: true,
+                    data: [
+                        {
+                            scheme: "https",
+                            host: "notifier.zentik.app",
+                            pathPrefix: "/invite"
+                        }
+                    ],
+                    category: ["BROWSABLE", "DEFAULT"]
+                }
             ],
             softwareKeyboardLayoutMode: "pan",
             allowBackup: true

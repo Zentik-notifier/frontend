@@ -1,6 +1,5 @@
 import { useI18n } from "@/hooks/useI18n";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useInviteCodeDeepLink } from "@/hooks/useInviteCodeDeepLink";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -44,9 +43,10 @@ export default function BucketInviteCodesSection({
   const theme = useTheme();
   const { t } = useI18n();
   const { getPermissionLabel } = usePermissions();
-  const { createInviteLink } = useInviteCodeDeepLink();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingInviteCode, setEditingInviteCode] = useState<InviteCodeFragment | null>(null);
+  
+  const isDev = process.env.EXPO_PUBLIC_APP_VARIANT === "development";
 
   // Form state
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([
@@ -328,18 +328,22 @@ export default function BucketInviteCodesSection({
 
   const handleShareCode = async (code: string) => {
     try {
-      const inviteLink = createInviteLink(code);
+      // Create universal link using PWA domain
+      // Add env=dev parameter for development builds
+      const envParam = isDev ? '?env=dev' : '';
+      const universalLink = `https://notifier.zentik.app/invite/${code}${envParam}`;
       
       // Try native Share API (available on iOS and Android)
       if (Platform.OS !== 'web') {
         try {
           await Share.share({
-            message: `${t("buckets.inviteCodes.shareMessageWithLink", { 
+            message: t("buckets.inviteCodes.shareMessageComplete", { 
               bucketName, 
-              link: inviteLink 
-            })}`,
+              code,
+              link: universalLink 
+            }),
             title: t("buckets.inviteCodes.shareTitle"),
-            url: inviteLink,
+            url: universalLink,
           });
           return;
         } catch (shareError: any) {
@@ -353,7 +357,7 @@ export default function BucketInviteCodesSection({
       }
       
       // Fallback: Copy to clipboard (for web or if Share fails)
-      await Clipboard.setStringAsync(inviteLink);
+      await Clipboard.setStringAsync(universalLink);
       Alert.alert(
         t("common.success"),
         t("buckets.inviteCodes.linkCopied")

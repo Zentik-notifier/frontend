@@ -468,11 +468,9 @@
       "shareTitle": "Condividi Codice Invito",
       "shareMessage": "Usa questo codice per accedere al bucket",
       "shareMessageWithLink": "Sei stato invitato ad accedere al bucket \"{{bucketName}}\"!\n\nClicca questo link per riscattare l'invito:\n{{link}}",
+      "shareMessageComplete": "🎉 Sei stato invitato ad accedere al bucket \"{{bucketName}}\"!\n\n🔑 Codice invito: {{code}}\n\n👉 Clicca qui per riscattare:\n{{link}}",
       "shareError": "Impossibile condividere il codice invito",
       "linkCopied": "Link invito copiato negli appunti",
-      "redeem": "Riscatta",
-      "redeemError": "Impossibile riscattare il codice invito",
-      "redeemInfo": "Il codice invito ti garantirà accesso al bucket con i permessi specificati dal creatore.",
       "selectAtLeastOnePermission": "Seleziona almeno un permesso",
       "invalidMaxUses": "Inserisci un numero valido di utilizzi massimi (minimo 1)",
       "invalidExpirationDays": "Inserisci un numero valido di giorni (minimo 1)",
@@ -501,7 +499,10 @@
       "redeemSuccess": "Codice invito riscattato con successo! Ora hai accesso alla risorsa condivisa.",
       "redeemError": "Impossibile riscattare il codice invito. Verifica il codice e riprova.",
       "redeem": "Riscatta",
-      "redeemInfo": "Una volta riscattato, otterrai i permessi associati a questo codice. Il codice potrebbe avere utilizzi limitati e una data di scadenza."
+      "redeemInfo": "Una volta riscattato, otterrai i permessi associati a questo codice. Il codice potrebbe avere utilizzi limitati e una data di scadenza.",
+      "openingApp": "Apertura dell'app Zentik",
+      "appNotOpening": "L'app non si apre?",
+      "manualInstructions": "Apri l'app Zentik manualmente e inserisci il codice invito nella sezione Buckets."
     },
     "sharing": {
       "title": "Condivisione",
