@@ -24,6 +24,7 @@ import {
 } from "react-native-paper";
 import { CacheResetModal } from "./CacheResetModal";
 import Selector, { SelectorOption } from "./ui/Selector";
+import NumberListInput from "./ui/NumberListInput";
 
 export default function UnifiedCacheSettings() {
   const theme = useTheme();
@@ -72,11 +73,11 @@ export default function UnifiedCacheSettings() {
     useState(false);
 
   // Default postpones and snoozes
-  const [localDefaultPostpones, setLocalDefaultPostpones] = useState<string>(
-    settings.notificationsPreferences?.defaultPostpones?.join(',') || ''
+  const [localDefaultPostpones, setLocalDefaultPostpones] = useState<number[]>(
+    settings.notificationsPreferences?.defaultPostpones || []
   );
-  const [localDefaultSnoozes, setLocalDefaultSnoozes] = useState<string>(
-    settings.notificationsPreferences?.defaultSnoozes?.join(',') || ''
+  const [localDefaultSnoozes, setLocalDefaultSnoozes] = useState<number[]>(
+    settings.notificationsPreferences?.defaultSnoozes || []
   );
 
   // Notifications from database
@@ -118,11 +119,16 @@ export default function UnifiedCacheSettings() {
           : ""
       );
     }
+    // Sync default snoozes and postpones
+    setLocalDefaultPostpones(settings.notificationsPreferences?.defaultPostpones || []);
+    setLocalDefaultSnoozes(settings.notificationsPreferences?.defaultSnoozes || []);
   }, [
     settings.mediaCache.retentionPolicies?.maxCacheSizeMB,
     settings.mediaCache.retentionPolicies?.maxCageAgeDays,
     settings.maxCachedNotifications,
     settings.maxCachedNotificationsDay,
+    settings.notificationsPreferences?.defaultPostpones,
+    settings.notificationsPreferences?.defaultSnoozes,
     isEditingMaxNotifications,
     isEditingMaxNotificationsDays,
   ]);
@@ -167,18 +173,18 @@ export default function UnifiedCacheSettings() {
     setShowResetModal(true);
   };
 
-  const handleDefaultPostponesBlur = async () => {
+  const handleDefaultPostponesChange = async (values: number[]) => {
     try {
-      const values = localDefaultPostpones.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v));
+      setLocalDefaultPostpones(values);
       await setDefaultPostpones(values);
     } catch (error) {
       console.error('Error saving default postpones:', error);
     }
   };
 
-  const handleDefaultSnoozesBlur = async () => {
+  const handleDefaultSnoozesChange = async (values: number[]) => {
     try {
-      const values = localDefaultSnoozes.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v));
+      setLocalDefaultSnoozes(values);
       await setDefaultSnoozes(values);
     } catch (error) {
       console.error('Error saving default snoozes:', error);
@@ -912,54 +918,32 @@ export default function UnifiedCacheSettings() {
         {/* Default Postpones */}
         <Card style={styles.settingCard} elevation={0}>
           <Card.Content>
-            <View style={styles.settingColumn}>
-              <Text variant="titleMedium" style={styles.settingTitle}>
-                {t("appSettings.notifications.defaultPostpones")}
-              </Text>
-              <Text
-                variant="bodyMedium"
-                style={[
-                  styles.settingDescription,
-                  { color: theme.colors.onSurfaceVariant, marginBottom: 8 },
-                ]}
-              >
-                {t("appSettings.notifications.defaultPostponesDescription")}
-              </Text>
-              <TextInput
-                mode="outlined"
-                value={localDefaultPostpones}
-                onChangeText={setLocalDefaultPostpones}
-                onBlur={handleDefaultPostponesBlur}
-                keyboardType="numeric"
-              />
-            </View>
+            <NumberListInput
+              label={t("appSettings.notifications.defaultPostpones")}
+              values={localDefaultPostpones}
+              onValuesChange={handleDefaultPostponesChange}
+              placeholder={t("appSettings.notifications.defaultPostponesDescription")}
+              unit="m"
+              min={1}
+              max={9999}
+              compact={true}
+            />
           </Card.Content>
         </Card>
 
         {/* Default Snoozes */}
         <Card style={styles.settingCard} elevation={0}>
           <Card.Content>
-            <View style={styles.settingColumn}>
-              <Text variant="titleMedium" style={styles.settingTitle}>
-                {t("appSettings.notifications.defaultSnoozes")}
-              </Text>
-              <Text
-                variant="bodyMedium"
-                style={[
-                  styles.settingDescription,
-                  { color: theme.colors.onSurfaceVariant, marginBottom: 8 },
-                ]}
-              >
-                {t("appSettings.notifications.defaultSnoozesDescription")}
-              </Text>
-              <TextInput
-                mode="outlined"
-                value={localDefaultSnoozes}
-                onChangeText={setLocalDefaultSnoozes}
-                onBlur={handleDefaultSnoozesBlur}
-                keyboardType="numeric"
-              />
-            </View>
+            <NumberListInput
+              label={t("appSettings.notifications.defaultSnoozes")}
+              values={localDefaultSnoozes}
+              onValuesChange={handleDefaultSnoozesChange}
+              placeholder={t("appSettings.notifications.defaultSnoozesDescription")}
+              unit="m"
+              min={1}
+              max={9999}
+              compact={true}
+            />
           </Card.Content>
         </Card>
       </Surface>

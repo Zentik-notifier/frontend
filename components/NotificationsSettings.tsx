@@ -34,6 +34,7 @@ import NotificationActionsSelector from "./NotificationActionsSelector";
 import NotificationTapActionSelector from "./NotificationTapActionSelector";
 import Selector, { SelectorOption } from "./ui/Selector";
 import CopyButton from "./ui/CopyButton";
+import NumberListInput from "./ui/NumberListInput";
 
 export default function NotificationsSettings() {
   const {
@@ -97,14 +98,8 @@ export default function NotificationsSettings() {
     notificationFormDefaults.snoozeTimes
   );
   const [locale, setLocale] = useState<string>(notificationFormDefaults.locale);
-  const [snoozeTimeInput, setSnoozeTimeInput] = useState(
-    notificationFormDefaults.snoozeTimeInput
-  );
   const [postponeTimes, setPostponeTimes] = useState<number[]>(
     notificationFormDefaults.postponeTimes
-  );
-  const [postponeTimeInput, setPostponeTimeInput] = useState(
-    notificationFormDefaults.postponeTimeInput
   );
   const [showJsonPreview, setShowJsonPreview] = useState(
     notificationFormDefaults.showJsonPreview
@@ -180,32 +175,6 @@ export default function NotificationsSettings() {
     }
   };
 
-  // Snooze time management functions
-  const addSnoozeTime = () => {
-    const newTime = parseInt(snoozeTimeInput);
-    if (newTime > 0 && !snoozeTimes.includes(newTime)) {
-      setSnoozeTimes([...snoozeTimes, newTime].sort((a, b) => a - b));
-      setSnoozeTimeInput("");
-    }
-  };
-
-  const removeSnoozeTime = (time: number) => {
-    setSnoozeTimes(snoozeTimes.filter((t) => t !== time));
-  };
-
-  // Postpone time management functions
-  const addPostponeTime = () => {
-    const newTime = parseInt(postponeTimeInput);
-    if (newTime > 0 && !postponeTimes.includes(newTime)) {
-      setPostponeTimes([...postponeTimes, newTime].sort((a, b) => a - b));
-      setPostponeTimeInput("");
-    }
-  };
-
-  const removePostponeTime = (time: number) => {
-    setPostponeTimes(postponeTimes.filter((t) => t !== time));
-  };
-
   const loadTestData = () => {
     const testData = getNotificationTestData(t);
     setTitle(testData.title);
@@ -242,8 +211,6 @@ export default function NotificationsSettings() {
     setSnoozeTimes(defaults.snoozeTimes);
     setPostponeTimes(defaults.postponeTimes);
     setLocale(defaults.locale);
-    setSnoozeTimeInput(defaults.snoozeTimeInput);
-    setPostponeTimeInput(defaults.postponeTimeInput);
     setShowJsonPreview(defaults.showJsonPreview);
     setTapAction(defaults.tapAction);
   };
@@ -272,7 +239,14 @@ export default function NotificationsSettings() {
     // Add new optional fields
     if (groupId.trim()) message.groupId = groupId.trim();
     if (collapseId.trim()) message.collapseId = collapseId.trim();
-    if (selectedUserIds.length > 0) message.userIds = selectedUserIds;
+    if (selectedUserIds.length > 0) {
+      const resolvedUserIds = selectedUserIds
+        .map((id) => (id === "me" ? userId ?? "me" : id))
+        .filter((id) => id !== "me");
+      if (resolvedUserIds.length > 0) {
+        message.userIds = resolvedUserIds;
+      }
+    }
 
     if (actions.length > 0) {
       message.actions = actions;
@@ -424,17 +398,11 @@ export default function NotificationsSettings() {
               />
             </View>
 
-            {/* Divisor */}
-            <View style={styles.divisor} />
-
             {/* Media Attachments Section */}
             <MediaAttachmentsSelector
               attachments={attachments}
               onAttachmentsChange={setAttachments}
             />
-
-            {/* Divisor */}
-            <View style={styles.divisor} />
 
             {/* Settings Section */}
             <View style={styles.field}>
@@ -490,9 +458,6 @@ export default function NotificationsSettings() {
                 isSearchable={true}
               />
             </View>
-
-            {/* Divisor */}
-            <View style={styles.divisor} />
 
             {/* Automatic Actions Section */}
             <View style={styles.field}>
@@ -628,173 +593,31 @@ export default function NotificationsSettings() {
               </View>
 
               {/* Snooze Times Section */}
-              <View style={styles.field}>
-                <Text style={styles.label}>
-                  {t("notifications.automaticActions.snoozeTimes")}
-                </Text>
-                <Text
-                  style={[
-                    styles.inputHint,
-                    { color: theme.colors.onSurfaceVariant },
-                  ]}
-                >
-                  {t("notifications.automaticActions.snoozeTimesDescription")}
-                </Text>
-
-                {/* Current Snooze Times */}
-                {snoozeTimes.length > 0 && (
-                  <View style={styles.snoozeTimesContainer}>
-                    {snoozeTimes.map((time, index) => (
-                      <View
-                        key={index}
-                        style={[
-                          styles.snoozeTimeItem,
-                          {
-                            backgroundColor: theme.colors.surfaceVariant,
-                            borderColor: theme.colors.outline,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.snoozeTimeText,
-                            { color: theme.colors.onSurface },
-                          ]}
-                        >
-                          {time} min
-                        </Text>
-                        <TouchableOpacity
-                          style={styles.removeSnoozeTimeButton}
-                          onPress={() => removeSnoozeTime(time)}
-                        >
-                          <Icon source="minus" size={16} />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
+              <NumberListInput
+                label={t("notifications.automaticActions.snoozeTimes")}
+                values={snoozeTimes}
+                onValuesChange={setSnoozeTimes}
+                placeholder={t(
+                  "notifications.automaticActions.snoozeTimePlaceholder"
                 )}
-
-                {/* Add Snooze Time Input */}
-                <View style={styles.snoozeTimeInputContainer}>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      styles.snoozeTimeInput,
-                      {
-                        backgroundColor: theme.colors.surface,
-                        borderColor: theme.colors.outline,
-                        color: theme.colors.onSurface,
-                      },
-                    ]}
-                    value={snoozeTimeInput}
-                    onChangeText={setSnoozeTimeInput}
-                    placeholder={t(
-                      "notifications.automaticActions.snoozeTimePlaceholder"
-                    )}
-                    placeholderTextColor={theme.colors.onSurfaceVariant}
-                    keyboardType="numeric"
-                    maxLength={4}
-                  />
-                  <Button
-                    mode="outlined"
-                    icon="plus"
-                    onPress={addSnoozeTime}
-                    compact
-                    disabled={
-                      !snoozeTimeInput.trim() || parseInt(snoozeTimeInput) <= 0
-                    }
-                  >
-                    {t("common.add")}
-                  </Button>
-                </View>
-              </View>
+                unit="m"
+                min={1}
+                max={9999}
+              />
 
               {/* Postpone Times Section */}
-              <View style={styles.field}>
-                <Text style={styles.label}>
-                  {t("notifications.automaticActions.postponeTimes")}
-                </Text>
-                <Text
-                  style={[
-                    styles.inputHint,
-                    { color: theme.colors.onSurfaceVariant },
-                  ]}
-                >
-                  {t("notifications.automaticActions.postponeTimesDescription")}
-                </Text>
-
-                {/* Current Postpone Times */}
-                {postponeTimes.length > 0 && (
-                  <View style={styles.snoozeTimesContainer}>
-                    {postponeTimes.map((time, index) => (
-                      <View
-                        key={index}
-                        style={[
-                          styles.snoozeTimeItem,
-                          {
-                            backgroundColor: theme.colors.surfaceVariant,
-                            borderColor: theme.colors.outline,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.snoozeTimeText,
-                            { color: theme.colors.onSurface },
-                          ]}
-                        >
-                          {time} min
-                        </Text>
-                        <TouchableOpacity
-                          style={styles.removeSnoozeTimeButton}
-                          onPress={() => removePostponeTime(time)}
-                        >
-                          <Icon source="minus" size={16} />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
+              <NumberListInput
+                label={t("notifications.automaticActions.postponeTimes")}
+                values={postponeTimes}
+                onValuesChange={setPostponeTimes}
+                placeholder={t(
+                  "notifications.automaticActions.postponeTimePlaceholder"
                 )}
-
-                {/* Add Postpone Time Input */}
-                <View style={styles.snoozeTimeInputContainer}>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      styles.snoozeTimeInput,
-                      {
-                        backgroundColor: theme.colors.surface,
-                        borderColor: theme.colors.outline,
-                        color: theme.colors.onSurface,
-                      },
-                    ]}
-                    value={postponeTimeInput}
-                    onChangeText={setPostponeTimeInput}
-                    placeholder={t(
-                      "notifications.automaticActions.postponeTimePlaceholder"
-                    )}
-                    placeholderTextColor={theme.colors.onSurfaceVariant}
-                    keyboardType="numeric"
-                    maxLength={4}
-                  />
-                  <Button
-                    mode="outlined"
-                    icon="plus"
-                    onPress={addPostponeTime}
-                    compact
-                    disabled={
-                      !postponeTimeInput.trim() ||
-                      parseInt(postponeTimeInput) <= 0
-                    }
-                  >
-                    {t("common.add")}
-                  </Button>
-                </View>
-              </View>
+                unit="m"
+                min={1}
+                max={9999}
+              />
             </View>
-
-            {/* Divisor */}
-            <View style={styles.divisor} />
 
             {/* Targeting Section */}
             <View style={styles.field}>
@@ -983,9 +806,6 @@ export default function NotificationsSettings() {
               </View>
             )}
 
-            {/* Divisor */}
-            <View style={styles.divisor} />
-
             {/* Actions Section */}
             <NotificationActionsSelector
               actions={actions}
@@ -993,9 +813,6 @@ export default function NotificationsSettings() {
               webhookOptions={webhookOptions}
               hasWebhooks={hasWebhooks}
             />
-
-            {/* Divisor */}
-            <View style={styles.divisor} />
 
             {/* TapAction Section */}
             <NotificationTapActionSelector
@@ -1197,13 +1014,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     opacity: 0.9,
   },
-  divisor: {
-    height: 1,
-    backgroundColor: "#e0e0e0",
-    marginVertical: 24,
-    marginHorizontal: -16,
-    opacity: 0.2,
-  },
   loadingText: {
     fontSize: 14,
     textAlign: "center",
@@ -1309,47 +1119,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     fontStyle: "italic",
-  },
-  snoozeTimesContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 16,
-    marginTop: 8,
-  },
-  snoozeTimeItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-    borderWidth: 1.5,
-  },
-  snoozeTimeText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  removeSnoozeTimeButton: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: "#ef4444",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  snoozeTimeInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  snoozeTimeInput: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    borderWidth: 1,
   },
   description: {
     fontSize: 13,

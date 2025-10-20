@@ -25,6 +25,7 @@ import {
 import Selector, { SelectorOption } from "./ui/Selector";
 import NotificationActionsSelector from "./NotificationActionsSelector";
 import MediaAttachmentsSelector from "./MediaAttachmentsSelector";
+import NumberListInput from "./ui/NumberListInput";
 
 interface MessageBuilderProps {
   bucketId: string;
@@ -57,37 +58,10 @@ export default function MessageBuilder({
   const [addOpenNotificationAction, setAddOpenNotificationAction] =
     useState(false);
   const [snoozeTimes, setSnoozeTimes] = useState<number[]>([]);
-  const [snoozeTimeInput, setSnoozeTimeInput] = useState<string>("");
   const [postponeTimes, setPostponeTimes] = useState<number[]>([]);
-  const [postponeTimeInput, setPostponeTimeInput] = useState<string>("");
 
   const [createMessage, { loading: isCreating }] = useCreateMessageMutation();
 
-  // Snooze time management
-  const addSnoozeTime = useCallback(() => {
-    const newTime = parseInt(snoozeTimeInput, 10);
-    if (!isNaN(newTime) && newTime > 0 && !snoozeTimes.includes(newTime)) {
-      setSnoozeTimes((prev) => [...prev, newTime].sort((a, b) => a - b));
-      setSnoozeTimeInput("");
-    }
-  }, [snoozeTimeInput, snoozeTimes]);
-
-  const removeSnoozeTime = useCallback((time: number) => {
-    setSnoozeTimes((prev) => prev.filter((t) => t !== time));
-  }, []);
-
-  // Postpone time management
-  const addPostponeTime = useCallback(() => {
-    const newTime = parseInt(postponeTimeInput, 10);
-    if (!isNaN(newTime) && newTime > 0 && !postponeTimes.includes(newTime)) {
-      setPostponeTimes((prev) => [...prev, newTime].sort((a, b) => a - b));
-      setPostponeTimeInput("");
-    }
-  }, [postponeTimeInput, postponeTimes]);
-
-  const removePostponeTime = useCallback((time: number) => {
-    setPostponeTimes((prev) => prev.filter((t) => t !== time));
-  }, []);
 
   const handleSaveMessage = useCallback(async () => {
     try {
@@ -386,116 +360,26 @@ export default function MessageBuilder({
                   </View>
 
                   {/* Snoozes */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>
-                      {t("notifications.automaticActions.snoozeTimes")}
-                    </Text>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        gap: 8,
-                        alignItems: "center",
-                      }}
-                    >
-                      <TextInput
-                        mode="outlined"
-                        value={snoozeTimeInput}
-                        onChangeText={setSnoozeTimeInput}
-                        placeholder={t(
-                          "notifications.automaticActions.snoozeTimePlaceholder"
-                        )}
-                        keyboardType="numeric"
-                        style={[styles.textInput, { flex: 1 }]}
-                      />
-                      <Button mode="contained" onPress={addSnoozeTime}>
-                        {t("common.add")}
-                      </Button>
-                    </View>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        flexWrap: "wrap",
-                        gap: 8,
-                        marginTop: 8,
-                      }}
-                    >
-                      {snoozeTimes.map((m) => (
-                        <TouchableRipple
-                          key={m}
-                          onPress={() => removeSnoozeTime(m)}
-                          borderless
-                          style={{
-                            paddingHorizontal: 12,
-                            paddingVertical: 6,
-                            borderRadius: 16,
-                            backgroundColor: theme.colors.secondaryContainer,
-                          }}
-                        >
-                          <Text
-                            style={{ color: theme.colors.onSecondaryContainer }}
-                          >
-                            {m}m ✕
-                          </Text>
-                        </TouchableRipple>
-                      ))}
-                    </View>
-                  </View>
+                  <NumberListInput
+                    label={t("notifications.automaticActions.snoozeTimes")}
+                    values={snoozeTimes}
+                    onValuesChange={setSnoozeTimes}
+                    placeholder={t("notifications.automaticActions.snoozeTimePlaceholder")}
+                    unit="m"
+                    min={1}
+                    max={9999}
+                  />
 
                   {/* Postpones */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>
-                      {t("notifications.automaticActions.postponeTimes")}
-                    </Text>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        gap: 8,
-                        alignItems: "center",
-                      }}
-                    >
-                      <TextInput
-                        mode="outlined"
-                        value={postponeTimeInput}
-                        onChangeText={setPostponeTimeInput}
-                        placeholder={t(
-                          "notifications.automaticActions.postponeTimePlaceholder"
-                        )}
-                        keyboardType="numeric"
-                        style={[styles.textInput, { flex: 1 }]}
-                      />
-                      <Button mode="contained" onPress={addPostponeTime}>
-                        {t("common.add")}
-                      </Button>
-                    </View>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        flexWrap: "wrap",
-                        gap: 8,
-                        marginTop: 8,
-                      }}
-                    >
-                      {postponeTimes.map((m) => (
-                        <TouchableRipple
-                          key={m}
-                          onPress={() => removePostponeTime(m)}
-                          borderless
-                          style={{
-                            paddingHorizontal: 12,
-                            paddingVertical: 6,
-                            borderRadius: 16,
-                            backgroundColor: theme.colors.secondaryContainer,
-                          }}
-                        >
-                          <Text
-                            style={{ color: theme.colors.onSecondaryContainer }}
-                          >
-                            {m}m ✕
-                          </Text>
-                        </TouchableRipple>
-                      ))}
-                    </View>
-                  </View>
+                  <NumberListInput
+                    label={t("notifications.automaticActions.postponeTimes")}
+                    values={postponeTimes}
+                    onValuesChange={setPostponeTimes}
+                    placeholder={t("notifications.automaticActions.postponeTimePlaceholder")}
+                    unit="m"
+                    min={1}
+                    max={9999}
+                  />
                 </View>
               </List.Accordion>
             </List.Section>

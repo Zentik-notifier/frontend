@@ -933,6 +933,7 @@ export interface Translation {
     copy: string;
     copied: string;
     copiedToClipboard: string;
+    enterNumber: string;
     copyToClipboard: string;
     created: string;
     saved: string;
@@ -1401,6 +1402,8 @@ export interface Translation {
     AutoAddMarkAsReadAction_description: string;
     AutoAddOpenNotificationAction: string;
     AutoAddOpenNotificationAction_description: string;
+    GithubEventsFilter: string;
+    GithubEventsFilter_description: string;
   };
   userDropdown: {
     unknownUser: string;
