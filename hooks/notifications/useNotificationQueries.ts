@@ -281,9 +281,11 @@ export function useBucketsStats(
                         createdAt: bucket.createdAt,
                         isProtected: bucket.isProtected,
                         isPublic: bucket.isPublic,
+                        isAdmin: bucket.isAdmin,
                         userBucket: bucket.userBucket,
                         user: bucket.user,
                         permissions: bucket.permissions,
+                        userPermissions: bucket.userPermissions,
                     }));
 
                     await saveBuckets(bucketsToSave);
@@ -318,6 +320,7 @@ export function useBucketsStats(
                         updatedAt: bucket.updatedAt,
                         isProtected: bucket.isProtected,
                         isPublic: bucket.isPublic,
+                        isAdmin: bucket.isAdmin,
                         totalMessages: bucketStat?.totalCount ?? 0,
                         unreadCount: bucketStat?.unreadCount ?? 0,
                         lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
@@ -325,6 +328,7 @@ export function useBucketsStats(
                         snoozeUntil: snoozeUntil ?? null,
                         user: bucket.user,
                         permissions: bucket.permissions,
+                        userPermissions: bucket.userPermissions,
                         userBucket: bucket.userBucket,
                     };
                 });
@@ -373,9 +377,11 @@ export function useBucketsStats(
                                 createdAt: bucket.createdAt,
                                 isProtected: bucket.isProtected,
                                 isPublic: bucket.isPublic,
+                                isAdmin: bucket.isAdmin,
                                 userBucket: bucket.userBucket,
                                 user: bucket.user,
                                 permissions: bucket.permissions,
+                                userPermissions: bucket.userPermissions,
                             }));
 
                             await saveBuckets(bucketsToSave);
@@ -404,6 +410,7 @@ export function useBucketsStats(
                                 updatedAt: bucket.updatedAt,
                                 isProtected: bucket.isProtected,
                                 isPublic: bucket.isPublic,
+                                isAdmin: bucket.isAdmin,
                                 totalMessages: bucketStat?.totalCount ?? 0,
                                 unreadCount: bucketStat?.unreadCount ?? 0,
                                 lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
@@ -411,6 +418,7 @@ export function useBucketsStats(
                                 snoozeUntil: snoozeUntil ?? null,
                                 user: bucket.user,
                                 permissions: bucket.permissions,
+                                userPermissions: bucket.userPermissions,
                                 userBucket: bucket.userBucket,
                             };
                         });
@@ -574,11 +582,16 @@ export function useInitializeBucketsStats() {
                         updatedAt: bucket.updatedAt,
                         isProtected: bucket.isProtected,
                         isPublic: bucket.isPublic,
+                        isAdmin: bucket.isAdmin,
                         totalMessages: bucketStat?.totalCount ?? 0,
                         unreadCount: bucketStat?.unreadCount ?? 0,
                         lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
                         isSnoozed,
                         snoozeUntil: snoozeUntil ?? null,
+                        user: bucket.user,
+                        permissions: bucket.permissions,
+                        userPermissions: bucket.userPermissions,
+                        userBucket: bucket.userBucket,
                     };
                 });
 
@@ -639,7 +652,11 @@ export function useInitializeBucketsStats() {
                     createdAt: bucket.createdAt,
                     isProtected: bucket.isProtected,
                     isPublic: bucket.isPublic,
+                    isAdmin: bucket.isAdmin,
                     userBucket: bucket.userBucket,
+                    user: bucket.user,
+                    permissions: bucket.permissions,
+                    userPermissions: bucket.userPermissions,
                 }));
 
                 await saveBuckets(bucketsToSave);
@@ -671,11 +688,16 @@ export function useInitializeBucketsStats() {
                     updatedAt: bucket.updatedAt,
                     isProtected: bucket.isProtected,
                     isPublic: bucket.isPublic,
+                    isAdmin: bucket.isAdmin,
                     totalMessages: bucketStat?.totalCount ?? 0,
                     unreadCount: bucketStat?.unreadCount ?? 0,
                     lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
                     isSnoozed,
                     snoozeUntil: snoozeUntil ?? null,
+                    user: bucket.user,
+                    permissions: bucket.permissions,
+                    userPermissions: bucket.userPermissions,
+                    userBucket: bucket.userBucket,
                 };
             });
 

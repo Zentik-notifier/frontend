@@ -1,5 +1,9 @@
 import { useI18n } from "@/hooks/useI18n";
-import { useBucketsStats, useBatchMarkAsRead, useBucket } from "@/hooks/notifications";
+import {
+  useBucketsStats,
+  useBatchMarkAsRead,
+  useBucket,
+} from "@/hooks/notifications";
 import { queryBucketNotifications } from "@/db/repositories/notifications-query-repository";
 import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -31,21 +35,24 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { userId } = useAppContext();
   const { navigateToEditBucket, navigateToDanglingBucket } =
     useNavigationUtils();
-  
+
   // Read from GLOBAL bucketsStats cache - automatically updates when cache refreshes
   const { data: bucketsStats } = useBucketsStats();
   const bucketStats = bucketsStats?.find((b) => b.id === bucketId);
-  
-  // Bucket data with permissions
-  const { bucket, isSnoozed, error } = useBucket(bucketId, { userId: userId ?? undefined });
 
+  // Bucket data with permissions
+  const { bucket, isSnoozed, error, canWrite } = useBucket(bucketId, {
+    userId: userId ?? undefined,
+  });
+  console.log(bucket);
   const isOrphaned = error && error.message.includes("Bucket not found");
 
   // Get counts from bucketsStats (automatically updates when cache refreshes)
   const totalCount = bucketStats?.totalMessages ?? 0;
   const unreadCount = bucketStats?.unreadCount ?? 0;
-  
-  const { mutateAsync: batchMarkAsRead, isPending: markAllAsReadLoading } = useBatchMarkAsRead();
+
+  const { mutateAsync: batchMarkAsRead, isPending: markAllAsReadLoading } =
+    useBatchMarkAsRead();
 
   useEffect(() => {
     if (isOrphaned) {
@@ -140,9 +147,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
                   },
                 ]}
                 onPress={handleMarkAllAsRead}
-                disabled={
-                  unreadCount === 0 || markAllAsReadLoading
-                }
+                disabled={unreadCount === 0 || markAllAsReadLoading}
                 accessibilityLabel="mark-all-as-read"
               />
               {unreadCount > 0 && (
@@ -226,12 +231,14 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
         customHeader={<View style={[styles.filtersContainer]} />}
       />
 
-      <MessageBuilder
-        bucketId={bucketId}
-        trigger={(show: () => void) => (
-          <FAB icon="message" style={styles.fab} onPress={show} />
-        )}
-      />
+      {canWrite && (
+        <MessageBuilder
+          bucketId={bucketId}
+          trigger={(show: () => void) => (
+            <FAB icon="message" style={styles.fab} onPress={show} />
+          )}
+        />
+      )}
     </Surface>
   );
 }

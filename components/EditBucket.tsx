@@ -36,6 +36,8 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   const { bucket, loading, error, canAdmin, canDelete, isSharedWithMe } =
     useBucket(bucketId, { autoFetch: true, userId: userId ?? undefined });
   const refreshBucket = useRefreshBucket();
+
+  const isProtectedBucket = bucket?.isPublic || bucket?.isAdmin;
   const handleRefresh = async () => {
     await refreshBucket(bucketId).catch(console.error);
   };
@@ -132,24 +134,26 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     <PaperScrollView onRefresh={handleRefresh} loading={loading}>
       <CreateBucketForm bucketId={bucketId} />
 
-      <Card style={styles.readonlyContainer}>
-        <Card.Content>
-          <IdWithCopyButton
-            id={bucket.id}
-            label={t("buckets.form.bucketId")}
-            copyMessage={t("buckets.form.bucketIdCopied")}
-            valueStyle={styles.readonlyValue}
-          />
-          <View style={styles.readonlyField}>
-            <Text style={styles.readonlyLabel}>
-              {t("buckets.item.created")}:
-            </Text>
-            <Text style={styles.readonlyValue}>
-              {formatDate(bucket.createdAt)}
-            </Text>
-          </View>
-        </Card.Content>
-      </Card>
+      {!isProtectedBucket && (
+        <Card style={styles.readonlyContainer}>
+          <Card.Content>
+            <IdWithCopyButton
+              id={bucket.id}
+              label={t("buckets.form.bucketId")}
+              copyMessage={t("buckets.form.bucketIdCopied")}
+              valueStyle={styles.readonlyValue}
+            />
+            <View style={styles.readonlyField}>
+              <Text style={styles.readonlyLabel}>
+                {t("buckets.item.created")}:
+              </Text>
+              <Text style={styles.readonlyValue}>
+                {formatDate(bucket.createdAt)}
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+      )}
 
       {canAdmin && (
         <>

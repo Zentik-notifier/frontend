@@ -124,6 +124,16 @@ fragment NotificationFragment on Notification {
   }
 }
 
+fragment BucketPermissionsFragment on BucketPermissionsDto {
+  canWrite
+  canDelete
+  canAdmin
+  canRead
+  isOwner
+  isSharedWithMe
+  sharedCount
+}
+
 fragment BucketFragment on Bucket {
   id
   name
@@ -135,6 +145,7 @@ fragment BucketFragment on Bucket {
   updatedAt
   isProtected
   isPublic
+  isAdmin
 }
 
 fragment BucketWithDevicesFragment on Bucket {
@@ -147,6 +158,9 @@ fragment BucketWithDevicesFragment on Bucket {
   }
   userBucket {
     ...UserBucketFragment
+  }
+  userPermissions {
+    ...BucketPermissionsFragment
   }
 }
 
@@ -163,6 +177,9 @@ fragment BucketFullFragment on Bucket {
   }
   userBucket {
     ...UserBucketFragment
+  }
+  userPermissions {
+    ...BucketPermissionsFragment
   }
 }
 

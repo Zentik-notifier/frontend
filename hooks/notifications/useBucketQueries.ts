@@ -153,17 +153,18 @@ export function useBucket(
             };
         }
 
-        // Check if bucket has full details (fetched via useRefreshBucket)
-        const hasFullDetails = bucket.user !== undefined && bucket.permissions !== undefined;
+        // Get all permissions for allPermissions array
+        const allPermissions = bucket.permissions || [];
 
-        // If no full details (using bucketFromGlobal), return basic info without permissions
-        if (!hasFullDetails) {
+        // Use userPermissions from backend (always available when bucket is fetched)
+        if (!bucket.userPermissions) {
+            // If userPermissions is not available, bucket data is incomplete
             return {
                 bucket,
                 isSnoozed,
                 loading,
                 error,
-                canDelete: false, // Unknown without full details
+                canDelete: false,
                 canAdmin: false,
                 canWrite: false,
                 canRead: false,
@@ -174,83 +175,18 @@ export function useBucket(
             };
         }
 
-        // Check if user is the owner
-        const bucketUserId = bucket.user?.id;
-        const isOwner = bucketUserId ? bucketUserId === userId : false;
-
-        // Get all permissions
-        const allPermissions = bucket.permissions || [];
-        const sharedCount = allPermissions.length;
-
-        // Find permissions for current user
-        const userPermissions = allPermissions.find(
-            (permission: any) => permission.user.id === userId
-        );
-
-        // If no specific permissions found, but user is owner, they have all permissions
-        if (!userPermissions) {
-            if (isOwner) {
-                return {
-                    bucket,
-                    isSnoozed,
-                    loading,
-                    error,
-                    canDelete: true,
-                    canAdmin: true,
-                    canWrite: true,
-                    canRead: true,
-                    isOwner: true,
-                    isSharedWithMe: false,
-                    sharedCount,
-                    allPermissions,
-                };
-            } else {
-                return {
-                    bucket,
-                    isSnoozed,
-                    loading,
-                    error,
-                    canDelete: false,
-                    canAdmin: false,
-                    canWrite: false,
-                    canRead: false,
-                    isOwner: false,
-                    isSharedWithMe: false,
-                    sharedCount: 0,
-                    allPermissions,
-                };
-            }
-        }
-
-        // Check specific permissions
-        const permissions = userPermissions.permissions;
-        const canRead =
-            permissions.includes(Permission.Read) ||
-            permissions.includes(Permission.Admin);
-        const canWrite =
-            permissions.includes(Permission.Write) ||
-            permissions.includes(Permission.Admin);
-        const canDelete =
-            permissions.includes(Permission.Delete) ||
-            permissions.includes(Permission.Admin) ||
-            isOwner;
-        const canAdmin = permissions.includes(Permission.Admin) || isOwner;
-
-        // If user has permissions but is not owner, then bucket is shared with them
-        const isSharedWithMe = !isOwner && permissions.length > 0;
-
         return {
             bucket,
             isSnoozed,
             loading,
             error,
-            canDelete,
-            canAdmin,
-            canWrite,
-            canRead,
-            isOwner,
-            isSharedWithMe,
-            sharedCount,
+            canDelete: bucket.userPermissions.canDelete,
+            canAdmin: bucket.userPermissions.canAdmin,
+            canWrite: bucket.userPermissions.canWrite,
+            canRead: bucket.userPermissions.canRead,
+            isOwner: bucket.userPermissions.isOwner,
+            isSharedWithMe: bucket.userPermissions.isSharedWithMe,
+            sharedCount: bucket.userPermissions.sharedCount,
             allPermissions,
         };
     }, [userId, bucket, bucketId, loading, error, isSnoozedFromGlobal]);

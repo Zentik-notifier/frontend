@@ -58,6 +58,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
   const { data: appConfig } = usePublicAppConfigQuery();
 
+  const isProtectedBucket = bucket?.isProtected;
+
   const [createAccessTokenForBucketMutation] = useCreateAccessTokenForBucketMutation({
     refetchQueries: ["GetUserAccessTokens", "GetAccessTokensForBucket"],
   });
@@ -275,7 +277,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   return (
     <>
       {/* Read-only warning */}
-      {isEditing && !canWrite && (
+      {isEditing && !canWrite && !isProtectedBucket && (
         <Surface
           style={[
             styles.warningContainer,
@@ -306,121 +308,129 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           onChangeText={setBucketName}
           placeholder={t("buckets.form.namePlaceholder")}
           maxLength={50}
-          editable={!isEditing || canWrite}
+          editable={!isEditing || (canWrite && !isProtectedBucket)}
           disabled={(isEditing && !canWrite) || offline}
           mode="outlined"
         />
-        <Surface
-          style={[
-            styles.customColorInput,
-            { borderColor: theme.colors.outline },
-            ((isEditing && !canWrite) || offline) && styles.disabledInput,
-          ]}
-          onTouchEnd={() => colorPickerRef.current?.openModal()}
-        >
-          <View
+        {!isProtectedBucket && (
+          <Surface
             style={[
-              styles.colorPreview,
-              { backgroundColor: bucketColor }
+              styles.customColorInput,
+              { borderColor: theme.colors.outline },
+              ((isEditing && !canWrite) || offline) && styles.disabledInput,
             ]}
-          />
-          <Text style={[
-            styles.customColorInputText,
-            { color: theme.colors.onSurface }
-          ]}>
-            {bucketColor}
-          </Text>
-        </Surface>
-      </View>
-
-      {/* Icon URL Input */}
-      <View style={styles.iconInputContainer}>
-        <TextInput
-          style={styles.iconInput}
-          value={bucketIcon}
-          onChangeText={setBucketIcon}
-          placeholder={t("buckets.form.iconPlaceholder")}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          multiline={true}
-          editable={!isEditing || canWrite}
-          disabled={(isEditing && !canWrite) || offline}
-          mode="outlined"
-        />
-        {appConfig?.publicAppConfig?.uploadEnabled && (
-          <IconButton
-            icon="camera"
-            size={20}
-            onPress={handleEditIcon}
-            disabled={(isEditing && !canWrite) || offline}
-            style={styles.editIconButton}
-          />
+            onTouchEnd={() => colorPickerRef.current?.openModal()}
+          >
+            <View
+              style={[
+                styles.colorPreview,
+                { backgroundColor: bucketColor }
+              ]}
+            />
+            <Text style={[
+              styles.customColorInputText,
+              { color: theme.colors.onSurface }
+            ]}>
+              {bucketColor}
+            </Text>
+          </Surface>
         )}
       </View>
 
+      {/* Icon URL Input */}
+      {!isProtectedBucket && (
+        <View style={styles.iconInputContainer}>
+          <TextInput
+            style={styles.iconInput}
+            value={bucketIcon}
+            onChangeText={setBucketIcon}
+            placeholder={t("buckets.form.iconPlaceholder")}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            multiline={true}
+            editable={!isEditing || canWrite}
+            disabled={(isEditing && !canWrite) || offline}
+            mode="outlined"
+          />
+          {appConfig?.publicAppConfig?.uploadEnabled && (
+            <IconButton
+              icon="camera"
+              size={20}
+              onPress={handleEditIcon}
+              disabled={(isEditing && !canWrite) || offline}
+              style={styles.editIconButton}
+            />
+          )}
+        </View>
+      )}
+
       {/* Icon Preview */}
-      <View style={styles.previewSection}>
-        <Text style={styles.previewLabel}>{t("buckets.form.preview")}</Text>
-        <Surface style={styles.previewContainer} elevation={0}>
-          {bucketIcon ? (
-            <View style={styles.previewIconContainer}>
-              {/* Background circle with bucket color */}
+      {!isProtectedBucket && (
+        <View style={styles.previewSection}>
+          <Text style={styles.previewLabel}>{t("buckets.form.preview")}</Text>
+          <Surface style={styles.previewContainer} elevation={0}>
+            {bucketIcon ? (
+              <View style={styles.previewIconContainer}>
+                {/* Background circle with bucket color */}
+                <View
+                  style={[
+                    styles.previewIconBackground,
+                    { backgroundColor: bucketColor },
+                  ]}
+                />
+                {/* Image clipped to circle */}
+                <View style={styles.previewIconContent}>
+                  <Image
+                    source={{ uri: bucketIcon }}
+                    style={styles.previewIcon}
+                    contentFit="cover"
+                  />
+                </View>
+              </View>
+            ) : (
               <View
                 style={[
-                  styles.previewIconBackground,
+                  styles.previewColorIndicator,
                   { backgroundColor: bucketColor },
                 ]}
-              />
-              {/* Image clipped to circle */}
-              <View style={styles.previewIconContent}>
-                <Image
-                  source={{ uri: bucketIcon }}
-                  style={styles.previewIcon}
-                  contentFit="cover"
-                />
+              >
+                {/* Show initials if enabled in settings and bucket name exists */}
+                {userSettings.settings.notificationsPreferences?.generateBucketIconWithInitials && bucketName ? (
+                  <Text
+                    style={[
+                      styles.previewInitials,
+                      { color: theme.colors.onPrimary },
+                    ]}
+                  >
+                    {getInitials(bucketName).toUpperCase()}
+                  </Text>
+                ) : null}
               </View>
-            </View>
-          ) : (
-            <View
-              style={[
-                styles.previewColorIndicator,
-                { backgroundColor: bucketColor },
-              ]}
-            >
-              {/* Show initials if enabled in settings and bucket name exists */}
-              {userSettings.settings.notificationsPreferences?.generateBucketIconWithInitials && bucketName ? (
-                <Text
-                  style={[
-                    styles.previewInitials,
-                    { color: theme.colors.onPrimary },
-                  ]}
-                >
-                  {getInitials(bucketName).toUpperCase()}
-                </Text>
-              ) : null}
-            </View>
-          )}
-          <Text style={styles.previewText}>
-            {bucketIcon
-              ? t("buckets.form.iconPreview")
-              : userSettings.settings.notificationsPreferences?.generateBucketIconWithInitials && bucketName
-              ? t("buckets.form.initialsPreview")
-              : t("buckets.form.colorPreview")}
-          </Text>
-        </Surface>
-      </View>
+            )}
+            <Text style={styles.previewText}>
+              {bucketIcon
+                ? t("buckets.form.iconPreview")
+                : userSettings.settings.notificationsPreferences?.generateBucketIconWithInitials && bucketName
+                ? t("buckets.form.initialsPreview")
+                : t("buckets.form.colorPreview")}
+            </Text>
+          </Surface>
+        </View>
+      )}
 
       {/* Color Picker - Hidden but accessible via ref */}
-      <ColorPicker
-        ref={colorPickerRef}
-        selectedColor={bucketColor}
-        onColorChange={setBucketColor}
-        disabled={(isEditing && !canWrite) || offline}
-      />
+      {!isProtectedBucket && (
+        <ColorPicker
+          ref={colorPickerRef}
+          selectedColor={bucketColor}
+          onColorChange={setBucketColor}
+          disabled={(isEditing && !canWrite) || offline}
+        />
+      )}
 
       {/* Access Token Creation - Only show in create mode */}
-      {!isEditing && (
+      {!isEditing && !isProtectedBucket && (
         <View
           style={[
             styles.accessTokenSection,
@@ -455,38 +465,40 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       )}
 
       {/* Action Buttons */}
-      <View style={styles.buttonRow}>
-        <Button
-          mode="contained"
-          onPress={saveBucket}
-          disabled={
-            isLoading ||
-            !bucketName.trim() ||
-            (isEditing && !canWrite) ||
-            offline
-          }
-          style={styles.createButton}
-        >
-          {isEditing && !canWrite
-            ? t("buckets.form.readOnlyMode")
-            : isLoading
-            ? isEditing
-              ? t("buckets.form.updating")
-              : t("buckets.form.creating")
-            : isEditing
-            ? t("buckets.form.updateButton")
-            : t("buckets.form.createButton")}
-        </Button>
+      {!isProtectedBucket && (
+        <View style={styles.buttonRow}>
+          <Button
+            mode="contained"
+            onPress={saveBucket}
+            disabled={
+              isLoading ||
+              !bucketName.trim() ||
+              (isEditing && !canWrite) ||
+              offline
+            }
+            style={styles.createButton}
+          >
+            {isEditing && !canWrite
+              ? t("buckets.form.readOnlyMode")
+              : isLoading
+              ? isEditing
+                ? t("buckets.form.updating")
+                : t("buckets.form.creating")
+              : isEditing
+              ? t("buckets.form.updateButton")
+              : t("buckets.form.createButton")}
+          </Button>
 
-        <Button
-          mode="outlined"
-          onPress={resetForm}
-          disabled={(isEditing && !canWrite) || offline}
-          style={styles.resetButton}
-        >
-          {t("common.reset")}
-        </Button>
-      </View>
+          <Button
+            mode="outlined"
+            onPress={resetForm}
+            disabled={(isEditing && !canWrite) || offline}
+            style={styles.resetButton}
+          >
+            {t("common.reset")}
+          </Button>
+        </View>
+      )}
 
       {/* Snooze Schedules Manager - Only show in edit mode */}
       {isEditing && (

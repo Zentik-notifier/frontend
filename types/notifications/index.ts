@@ -139,6 +139,9 @@ export interface BucketWithStats {
   /** Whether the bucket is public */
   isPublic: boolean | null;
   
+  /** Whether the bucket is admin-only */
+  isAdmin?: boolean | null;
+  
   /** Total number of notifications in this bucket */
   totalMessages: number;
   
@@ -159,6 +162,17 @@ export interface BucketWithStats {
   
   /** Bucket permissions */
   permissions?: any[];
+  
+  /** User permissions for this bucket (calculated by backend) */
+  userPermissions?: {
+    canWrite: boolean;
+    canDelete: boolean;
+    canAdmin: boolean;
+    canRead: boolean;
+    isOwner: boolean;
+    isSharedWithMe: boolean;
+    sharedCount: number;
+  };
   
   /** User-specific bucket settings */
   userBucket?: any;
