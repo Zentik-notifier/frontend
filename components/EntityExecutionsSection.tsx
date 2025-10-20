@@ -412,8 +412,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     fontFamily: "monospace",
     fontSize: 12,
-    maxHeight: 80,
-    minHeight: 60,
+    maxHeight: 200,
     textAlignVertical: "top",
   },
 });

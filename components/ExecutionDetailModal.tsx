@@ -4,7 +4,7 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React from "react";
-import { ScrollView, StyleSheet, View, TextInput } from "react-native";
+import { ScrollView, StyleSheet, View, TextInput, useWindowDimensions } from "react-native";
 import { Card, Chip, Modal, Portal, Text, useTheme, IconButton } from "react-native-paper";
 import * as Clipboard from "expo-clipboard";
 
@@ -21,6 +21,7 @@ export default function ExecutionDetailModal({
 }: ExecutionDetailModalProps) {
   const theme = useTheme();
   const { t } = useI18n();
+  const { height } = useWindowDimensions();
 
   if (!execution) return null;
 
@@ -60,6 +61,18 @@ export default function ExecutionDetailModal({
     }
   };
 
+  const handleCopyInput = async () => {
+    if (execution.input) {
+      await Clipboard.setStringAsync(formatJsonString(execution.input));
+    }
+  };
+
+  const handleCopyOutput = async () => {
+    if (execution.output) {
+      await Clipboard.setStringAsync(formatJsonString(execution.output));
+    }
+  };
+
   return (
     <Portal>
       <Modal
@@ -90,8 +103,8 @@ export default function ExecutionDetailModal({
             </View>
             
             <ScrollView 
-              showsVerticalScrollIndicator={false}
-              style={styles.modalScrollView}
+              showsVerticalScrollIndicator={true}
+              style={[styles.modalScrollView, { maxHeight: height * 0.6 }]}
             >
 
               <View style={styles.detailsGrid}>
@@ -230,6 +243,11 @@ export default function ExecutionDetailModal({
                     <Text variant="labelMedium" style={styles.codeLabel}>
                       {t("entityExecutions.input")}:
                     </Text>
+                    <IconButton
+                      icon="content-copy"
+                      size={20}
+                      onPress={handleCopyInput}
+                    />
                   </View>
                   <TextInput
                     value={formatJsonString(execution.input)}
@@ -254,6 +272,11 @@ export default function ExecutionDetailModal({
                     <Text variant="labelMedium" style={styles.codeLabel}>
                       {t("entityExecutions.output")}:
                     </Text>
+                    <IconButton
+                      icon="content-copy"
+                      size={20}
+                      onPress={handleCopyOutput}
+                    />
                   </View>
                   <TextInput
                     value={formatJsonString(execution.output)}
@@ -283,10 +306,12 @@ const styles = StyleSheet.create({
   modalContainer: {
     margin: 20,
     borderRadius: 8,
-    maxHeight: "85%",
+    maxHeight: "90%",
+    flex: 1,
   },
   modalCard: {
     maxHeight: "100%",
+    flex: 1,
   },
   modalHeader: {
     flexDirection: "row",
@@ -302,7 +327,7 @@ const styles = StyleSheet.create({
     margin: 0,
   },
   modalScrollView: {
-    maxHeight: "100%",
+    flex: 1,
   },
   detailsGrid: {
     gap: 8,
@@ -337,8 +362,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     marginBottom: 8,
-    maxHeight: 300,
-    minHeight: 100,
+    maxHeight: 200,
     fontFamily: "monospace",
     fontSize: 12,
     lineHeight: 18,
