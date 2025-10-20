@@ -767,8 +767,7 @@
       "collapseIdPlaceholder": "ID to replace notifications (optional)",
       "userIds": "Target Users",
       "userIdsDescription": "Select specific users to send the notification to. If none are selected, the notification will be sent to all authorized users.",
-      "userIdsDefault": "Default: all users",
-      "clearSelection": "Clear Selection"
+      "userIdsDefault": "Default: all users"
     },
     "tapAction": {
       "title": "Tap Action",

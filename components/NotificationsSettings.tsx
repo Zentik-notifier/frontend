@@ -793,16 +793,6 @@ export default function NotificationsSettings() {
                 >
                   {t("notifications.targeting.userIdsDefault")}
                 </Text>
-                {selectedUserIds.length > 0 && (
-                  <TouchableOpacity
-                    style={styles.clearSelectionButton}
-                    onPress={() => setSelectedUserIds([])}
-                  >
-                    <Text style={styles.clearSelectionText}>
-                      {t("notifications.targeting.clearSelection")}
-                    </Text>
-                  </TouchableOpacity>
-                )}
               </View>
             )}
 
@@ -1143,19 +1133,6 @@ const styles = StyleSheet.create({
   userChipText: {
     fontSize: 14,
     fontWeight: "600",
-  },
-  clearSelectionButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: "#f3f4f6",
-    alignSelf: "flex-start",
-    marginTop: 4,
-  },
-  clearSelectionText: {
-    fontSize: 13,
-    color: "#6b7280",
-    fontWeight: "500",
   },
   sendButton: {
     borderRadius: 12,

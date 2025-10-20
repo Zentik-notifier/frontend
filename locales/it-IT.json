@@ -782,8 +782,7 @@
       "collapseIdPlaceholder": "ID per sostituire notifiche (opzionale)",
       "userIds": "Utenti Target",
       "userIdsDescription": "Seleziona gli utenti specifici a cui inviare la notifica. Se nessuno è selezionato, la notifica verrà inviata a tutti gli utenti autorizzati.",
-      "userIdsDefault": "Default: tutti gli utenti",
-      "clearSelection": "Cancella Selezione"
+      "userIdsDefault": "Default: tutti gli utenti"
     },
     "actions": {
       "title": "Pulsanti Azione",

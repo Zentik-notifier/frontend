@@ -771,7 +771,6 @@ export interface Translation {
       userIds: string;
       userIdsDescription: string;
       userIdsDefault: string;
-      clearSelection: string;
     };
     tapAction: {
       title: string;
