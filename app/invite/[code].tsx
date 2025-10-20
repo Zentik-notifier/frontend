@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Platform, View, StyleSheet } from "react-native";
 import { Text, ActivityIndicator, useTheme } from "react-native-paper";
 import { useI18n } from "@/hooks/useI18n";
@@ -8,20 +8,21 @@ export default function InviteCodeRedirect() {
   const { code, env } = useLocalSearchParams<{ code: string; env?: string }>();
   const theme = useTheme();
   const { t } = useI18n();
+  const [deepLink, setDeepLink] = useState<string>("");
 
   useEffect(() => {
     if (code) {
-      // On web, show instructions to open the app
-      // On native, this route is handled by the deep link system
+      // On web, redirect to appropriate app based on env parameter
+      // On native, this route is handled by the deep link system directly
       if (Platform.OS === 'web') {
-        // Determine which app to open based on env parameter
         // env=dev → zentik.dev://invite/{code}
-        // no env or env=prod → zentik://invite/{code}
+        // default → zentik://invite/{code}
         const scheme = env === 'dev' ? 'zentik.dev' : 'zentik';
-        const deepLink = `${scheme}://invite/${code}`;
+        const generatedDeepLink = `${scheme}://invite/${code}`;
+        setDeepLink(generatedDeepLink);
         
-        console.log('[InviteRedirect] Opening deep link:', deepLink);
-        window.location.href = deepLink;
+        console.log('[InviteRedirect] Opening deep link:', generatedDeepLink, 'for env:', env || 'prod');
+        window.location.href = generatedDeepLink;
         
         // After 2 seconds, show manual instructions if app didn't open
         setTimeout(() => {
@@ -51,6 +52,17 @@ export default function InviteCodeRedirect() {
             {code}
           </Text>
         </View>
+
+        {deepLink && (
+          <View style={styles.schemeContainer}>
+            <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 4 }}>
+              Opening:
+            </Text>
+            <Text variant="bodySmall" style={[styles.schemeText, { color: theme.colors.secondary }]}>
+              {deepLink}
+            </Text>
+          </View>
+        )}
 
         <ActivityIndicator size="large" style={styles.spinner} />
         
@@ -97,12 +109,23 @@ const styles = StyleSheet.create({
   },
   codeContainer: {
     alignItems: "center",
-    marginBottom: 32,
+    marginBottom: 24,
   },
   code: {
     fontWeight: "bold",
     letterSpacing: 2,
     marginTop: 8,
+  },
+  schemeContainer: {
+    alignItems: "center",
+    marginBottom: 24,
+    padding: 12,
+    backgroundColor: "rgba(0,0,0,0.05)",
+    borderRadius: 8,
+  },
+  schemeText: {
+    fontFamily: "monospace",
+    textAlign: "center",
   },
   spinner: {
     marginVertical: 24,

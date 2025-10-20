@@ -501,7 +501,7 @@ class MediaCacheService {
     }
 
     private async ensureDirectories(): Promise<void> {
-        const typeDirs = ['IMAGE', 'VIDEO', 'GIF', 'AUDIO', 'ICON'];
+        const typeDirs = ['IMAGE', 'VIDEO', 'GIF', 'AUDIO', 'ICON', 'BUCKET_ICON'];
         for (const type of typeDirs) {
             const dirPath = `${this.cacheDir}${type}/`;
             const directory = new Directory(dirPath);
@@ -509,11 +509,13 @@ class MediaCacheService {
                 directory.create()
             }
 
-            // Ensure thumbnails subdirectory INSIDE each media type folder
-            const thumbPath = `${dirPath}thumbnails/`;
-            const thumbDirectory = new Directory(thumbPath);
-            if (!thumbDirectory.exists) {
-                thumbDirectory.create()
+            // Ensure thumbnails subdirectory INSIDE each media type folder (except BUCKET_ICON)
+            if (type !== 'BUCKET_ICON') {
+                const thumbPath = `${dirPath}thumbnails/`;
+                const thumbDirectory = new Directory(thumbPath);
+                if (!thumbDirectory.exists) {
+                    thumbDirectory.create()
+                }
             }
         }
     }
@@ -1465,39 +1467,8 @@ class MediaCacheService {
                 // ===== MOBILE: Use filesystem with File.downloadAsync =====
                 await this.ensureDirectories();
 
-                // Generate temp file path
-                const tempDir = `${this.cacheDir}temp/`;
-                const dir = new Directory(tempDir);
-                if (!dir.exists) {
-                    dir.create();
-                }
-
-                const tempFileName = `bucket_icon_temp_${downloadTimestamp}.png`;
-                const tempPath = `${tempDir}${tempFileName}`;
-
-                // Download to temp file
-                console.log(`[MediaCache] 🔄 Downloading bucket icon to temp file`);
-                const downloadResult = await File.downloadAsync(iconUrl, tempPath);
-
-                if (!downloadResult.uri) {
-                    console.error('[MediaCache] ❌ Bucket icon download failed, no URI returned');
-                    return null;
-                }
-
-                console.log(`[MediaCache] ✅ Downloaded bucket icon: ${downloadResult.size || 0} bytes`);
-
-                // Resize image
-                const result = await ImageManipulator.manipulateAsync(
-                    downloadResult.uri,
-                    [{ resize: { width: standardSize, height: standardSize } }],
-                    { compress: 1, format: ImageManipulator.SaveFormat.PNG }
-                );
-
-                console.log(`[MediaCache] ✅ Resized bucket icon to ${standardSize}x${standardSize}`);
-
-                // Save to final location
+                // Download directly to final location (no resize)
                 const finalUri = await this.getBucketIconFilePath(bucketId, bucketName, bucketColor);
-                const resultFile = new File(result.uri);
                 const finalFile = new File(finalUri);
 
                 // Delete final file if exists
@@ -1505,11 +1476,14 @@ class MediaCacheService {
                     await finalFile.delete();
                 }
 
-                await resultFile.copy(finalFile as any);
-                console.log(`[MediaCache] ✅ Saved bucket icon to filesystem: ${finalUri}`);
+                const downloadResult = await File.downloadAsync(iconUrl, finalUri);
 
-                // Clean up temp files
-                await this.cleanupBucketIconTempFiles(downloadResult.uri, result.uri);
+                if (!downloadResult.uri) {
+                    console.error('[MediaCache] ❌ Bucket icon download failed, no URI returned');
+                    return null;
+                }
+
+                console.log(`[MediaCache] ✅ Downloaded bucket icon: ${downloadResult.size || 0} bytes to ${finalUri}`);
 
                 // Update timestamp in cache
                 const cachedParams = this.bucketParamsCache.get(bucketId);
@@ -1542,33 +1516,6 @@ class MediaCacheService {
         const bucketIconDir = `${this.cacheDir}BUCKET_ICON/`;
         const fileName = `${bucketId}.png`;
         return `${bucketIconDir}${fileName}`;
-    }
-
-    /**
-     * Clean up temporary files created during bucket icon processing
-     */
-    private async cleanupBucketIconTempFiles(downloadUri: string, manipulatedUri: string): Promise<void> {
-        // Clean up original download temp file if manipulator created a new one
-        if (manipulatedUri !== downloadUri) {
-            try {
-                const origFile = new File(downloadUri);
-                if (origFile.exists) {
-                    await origFile.delete();
-                }
-            } catch (e) {
-                // Ignore cleanup errors
-            }
-        }
-
-        // Clean up manipulated file if it's different from final location
-        try {
-            const manipFile = new File(manipulatedUri);
-            if (manipFile.exists) {
-                await manipFile.delete();
-            }
-        } catch (e) {
-            // Ignore cleanup errors
-        }
     }
 
     /**

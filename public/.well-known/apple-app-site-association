@@ -10,15 +10,15 @@
         "components": [
           {
             "/": "/invite/*",
-            "comment": "Matches any URL whose path starts with /invite/ to open invite code redemption. Use ?env=dev query param to open dev app."
+            "comment": "Invite code redemption - Production app by default, add ?env=dev for dev app"
           },
           {
             "/": "/oauth",
-            "comment": "OAuth callback for SSO authentication"
+            "comment": "OAuth SSO callback - Production app by default, add ?env=dev for dev app"
           },
           {
             "/": "/notifications/*",
-            "comment": "Deep link to specific notification (optional, for future use)"
+            "comment": "Notification deep links - Production app by default"
           }
         ]
       }

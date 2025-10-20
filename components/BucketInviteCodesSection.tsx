@@ -328,10 +328,11 @@ export default function BucketInviteCodesSection({
 
   const handleShareCode = async (code: string) => {
     try {
-      // Create universal link using PWA domain
-      // Add env=dev parameter for development builds
+      // Create universal link with env parameter for dev builds
+      // - Prod app: https://notifier.zentik.app/invite/{code}
+      // - Dev app: https://notifier.zentik.app/invite/{code}?env=dev
       const envParam = isDev ? '?env=dev' : '';
-      const universalLink = `https://notifier.zentik.app/invite/${code}${envParam}`;
+      const link = `https://notifier.zentik.app/invite/${code}${envParam}`;
       
       // Try native Share API (available on iOS and Android)
       if (Platform.OS !== 'web') {
@@ -340,10 +341,10 @@ export default function BucketInviteCodesSection({
             message: t("buckets.inviteCodes.shareMessageComplete", { 
               bucketName, 
               code,
-              link: universalLink 
+              link 
             }),
             title: t("buckets.inviteCodes.shareTitle"),
-            url: universalLink,
+            url: link,
           });
           return;
         } catch (shareError: any) {
@@ -357,7 +358,7 @@ export default function BucketInviteCodesSection({
       }
       
       // Fallback: Copy to clipboard (for web or if Share fails)
-      await Clipboard.setStringAsync(universalLink);
+      await Clipboard.setStringAsync(link);
       Alert.alert(
         t("common.success"),
         t("buckets.inviteCodes.linkCopied")
