@@ -24,7 +24,7 @@ function mappedObjectIdPlaceholder(type: EventType): string {
     case EventType.PushPassthrough:
       return "systemTokenId";
     case EventType.Notification:
-      return "-";
+      return "notificationId";
     case EventType.NotificationAck:
       return "notificationId";
     case EventType.BucketSharing:
