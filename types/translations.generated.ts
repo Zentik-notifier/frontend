@@ -1811,7 +1811,6 @@ export interface Translation {
       cors: string;
       logging: string;
       logStorage: string;
-      loki: string;
       prometheus: string;
     };
     authentication: string;
@@ -1827,7 +1826,6 @@ export interface Translation {
     cors: string;
     logging: string;
     logStorage: string;
-    loki: string;
     prometheus: string;
     fields: {
       JwtAccessTokenExpiration: string;
@@ -1863,7 +1861,6 @@ export interface Translation {
       AttachmentsMaxFileSize: string;
       AttachmentsAllowedMimeTypes: string;
       AttachmentsDeleteJobEnabled: string;
-      AttachmentsDeleteCronJob: string;
       AttachmentsMaxAge: string;
       BackupEnabled: string;
       BackupExecuteOnStart: string;
@@ -1872,7 +1869,6 @@ export interface Translation {
       BackupCronJob: string;
       MessagesMaxAge: string;
       MessagesDeleteJobEnabled: string;
-      MessagesDeleteCronJob: string;
       RateLimitTrustProxyEnabled: string;
       RateLimitForwardHeader: string;
       RateLimitTtlMs: string;
@@ -1885,8 +1881,6 @@ export interface Translation {
       LogLevel: string;
       LogStorageEnabled: string;
       LogRetentionDays: string;
-      LokiEnabled: string;
-      LokiUrl: string;
       PrometheusEnabled: string;
     };
     JwtAccessTokenExpiration: string;
@@ -1922,7 +1916,6 @@ export interface Translation {
     AttachmentsMaxFileSize: string;
     AttachmentsAllowedMimeTypes: string;
     AttachmentsDeleteJobEnabled: string;
-    AttachmentsDeleteCronJob: string;
     AttachmentsMaxAge: string;
     BackupEnabled: string;
     BackupExecuteOnStart: string;
@@ -1931,7 +1924,6 @@ export interface Translation {
     BackupCronJob: string;
     MessagesMaxAge: string;
     MessagesDeleteJobEnabled: string;
-    MessagesDeleteCronJob: string;
     RateLimitTrustProxyEnabled: string;
     RateLimitForwardHeader: string;
     RateLimitTtlMs: string;
@@ -1944,8 +1936,6 @@ export interface Translation {
     LogLevel: string;
     LogStorageEnabled: string;
     LogRetentionDays: string;
-    LokiEnabled: string;
-    LokiUrl: string;
     PrometheusEnabled: string;
   };
   serverLogs: {

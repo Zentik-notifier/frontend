@@ -201,12 +201,6 @@ const settingSections: Record<string, SectionConfig> = {
         dependsOn: { field: "AttachmentsEnabled", values: [true] },
       },
       {
-        key: "AttachmentsDeleteCronJob",
-        visibleWhen: (values) =>
-          values.AttachmentsEnabled === true &&
-          values.AttachmentsDeleteJobEnabled === true,
-      },
-      {
         key: "AttachmentsMaxAge",
         visibleWhen: (values) =>
           values.AttachmentsEnabled === true &&
@@ -242,10 +236,6 @@ const settingSections: Record<string, SectionConfig> = {
     icon: "message-text-clock" as const,
     settings: [
       "MessagesDeleteJobEnabled",
-      {
-        key: "MessagesDeleteCronJob",
-        dependsOn: { field: "MessagesDeleteJobEnabled", values: [true] },
-      },
       {
         key: "MessagesMaxAge",
         dependsOn: { field: "MessagesDeleteJobEnabled", values: [true] },
@@ -285,11 +275,6 @@ const settingSections: Record<string, SectionConfig> = {
         dependsOn: { field: "LogStorageEnabled", values: [true] },
       },
     ],
-  },
-  loki: {
-    title: "Loki Remote Logging",
-    icon: "cloud-upload" as const,
-    settings: ["LokiEnabled"],
   },
   prometheus: {
     title: "Prometheus Metrics",

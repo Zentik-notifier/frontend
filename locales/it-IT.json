@@ -1772,7 +1772,6 @@
       "cors": "CORS & Sicurezza",
       "logging": "Logging",
       "logStorage": "Archiviazione Log",
-      "loki": "Logging Remoto Loki",
       "prometheus": "Metriche Prometheus"
     },
     "fields": {
@@ -1809,7 +1808,6 @@
       "AttachmentsMaxFileSize": "Dimensione Massima File (bytes)",
       "AttachmentsAllowedMimeTypes": "Tipi MIME Consentiti",
       "AttachmentsDeleteJobEnabled": "Eliminazione Automatica Abilitata",
-      "AttachmentsDeleteCronJob": "Espressione Cron Eliminazione",
       "AttachmentsMaxAge": "Età Massima Allegati",
       "BackupEnabled": "Backup Abilitato",
       "BackupExecuteOnStart": "Esegui Backup all'Avvio",
@@ -1818,7 +1816,6 @@
       "BackupCronJob": "Espressione Cron Backup",
       "MessagesMaxAge": "Età Massima Messaggi",
       "MessagesDeleteJobEnabled": "Pulizia Messaggi Abilitata",
-      "MessagesDeleteCronJob": "Espressione Cron Pulizia Messaggi",
       "RateLimitTrustProxyEnabled": "Abilita Fiducia Proxy Headers",
       "RateLimitForwardHeader": "Nome Header Inoltro",
       "RateLimitTtlMs": "TTL Limitazione Rate (ms)",
@@ -1831,8 +1828,6 @@
       "LogLevel": "Livello di Log",
       "LogStorageEnabled": "Abilita Archiviazione Log nel Database",
       "LogRetentionDays": "Conservazione Log (giorni)",
-      "LokiEnabled": "Abilita Logging Remoto Loki",
-      "LokiUrl": "URL Server Loki",
       "PrometheusEnabled": "Abilita Metriche Prometheus"
     },
     "authentication": "Authentication & JWT",
@@ -1848,7 +1843,6 @@
     "cors": "CORS & Security",
     "logging": "Logging",
     "logStorage": "Log Storage",
-    "loki": "Remote Logging Loki",
     "prometheus": "Prometheus Metrics",
     "JwtAccessTokenExpiration": "JWT Access Token Expiration (minutes)",
     "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration (minutes)",
@@ -1883,7 +1877,6 @@
     "AttachmentsMaxFileSize": "Max File Size (bytes)",
     "AttachmentsAllowedMimeTypes": "Allowed MIME Types",
     "AttachmentsDeleteJobEnabled": "Auto Deletion Enabled",
-    "AttachmentsDeleteCronJob": "Deletion Cron Expression",
     "AttachmentsMaxAge": "Max Attachment Age",
     "BackupEnabled": "Backup Enabled",
     "BackupExecuteOnStart": "Execute Backup on Start",
@@ -1892,7 +1885,6 @@
     "BackupCronJob": "Backup Cron Expression",
     "MessagesMaxAge": "Max Message Age",
     "MessagesDeleteJobEnabled": "Message Cleanup Enabled",
-    "MessagesDeleteCronJob": "Cleanup Cron Expression",
     "RateLimitTrustProxyEnabled": "Enable Trust Proxy Headers",
     "RateLimitForwardHeader": "Forward Header Name",
     "RateLimitTtlMs": "Rate Limit TTL (ms)",
@@ -1905,8 +1897,6 @@
     "LogLevel": "Log Level",
     "LogStorageEnabled": "Enable Database Log Storage",
     "LogRetentionDays": "Log Retention (days)",
-    "LokiEnabled": "Enable Remote Loki Logging",
-    "LokiUrl": "Loki Server URL",
     "PrometheusEnabled": "Enable Prometheus Metrics"
   },
   "eventsReview": {
