@@ -1,6 +1,6 @@
 import React from "react";
 import { TextInput as RNTextInput } from "react-native";
-import { Text, useTheme } from "react-native-paper";
+import { useTheme } from "react-native-paper";
 import { HtmlTextRenderer } from "./HtmlTextRenderer";
 import type { TextRendererProps } from "./TextRenderer";
 import { TextRenderer } from "./TextRenderer";

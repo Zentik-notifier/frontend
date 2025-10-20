@@ -1,13 +1,12 @@
 import React, { useMemo } from "react";
 import {
   StyleProp,
-  StyleSheet,
   TextStyle,
-  View,
+  useWindowDimensions,
   ViewStyle,
 } from "react-native";
 import { useTheme } from "react-native-paper";
-import HTMLView from "react-native-htmlview";
+import RenderHTML from "react-native-render-html";
 
 export interface HtmlTextRendererProps {
   content: string;
@@ -29,6 +28,20 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
   testID,
 }) => {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+
+  // Convert Markdown to HTML
+  const convertMarkdownToHtml = (text: string): string => {
+    let processed = text;
+    
+    // Convert [text](url) to <a href="url">text</a>
+    processed = processed.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    
+    // Convert **text** to <strong>text</strong>
+    processed = processed.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+    
+    return processed;
+  };
   
   const getTextColor = () => {
     switch (color) {
@@ -90,62 +103,29 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
     }
   };
 
-  // Function to truncate HTML content based on maxLines
-  const truncateHtmlContent = useMemo(() => {
-    if (!maxLines || maxLines <= 0) return content;
+  // Process content: convert Markdown to HTML and handle newlines
+  const processedContent = useMemo(() => {
+    let processed = convertMarkdownToHtml(content);
+    // Convert newlines to <br> tags
+    processed = processed.replace(/\n/g, '<br/>');
+    // Wrap in a div to ensure proper rendering
+    return `<div>${processed}</div>`;
+  }, [content]);
 
-    // Remove HTML tags to count characters
-    const plainText = content.replace(/<[^>]*>/g, "");
-
-    // Estimate characters per line based on variant
-    const variantStyle = getVariantStyle();
-    const estimatedCharsPerLine = Math.floor(
-      300 / (variantStyle.fontSize || 16)
-    ); // Rough estimation
-
-    // Calculate max characters
-    const maxChars = estimatedCharsPerLine * maxLines;
-
-    if (plainText.length <= maxChars) return content;
-
-    // Truncate plain text
-    const truncatedText = plainText.substring(0, maxChars - 3) + "...";
-
-    // Try to preserve some basic HTML structure
-    let truncatedHtml = content;
-
-    // Find the last complete word within the limit
-    const words = plainText.split(" ");
-    let currentLength = 0;
-    let wordIndex = 0;
-
-    for (let i = 0; i < words.length; i++) {
-      if (currentLength + words[i].length + 1 <= maxChars - 3) {
-        currentLength += words[i].length + 1;
-        wordIndex = i;
-      } else {
-        break;
-      }
-    }
-
-    // Reconstruct truncated content with basic HTML preservation
-    const truncatedWords = words.slice(0, wordIndex + 1).join(" ");
-    truncatedHtml = truncatedWords + "...";
-
-    return truncatedHtml;
-  }, [content, maxLines, variant]);
-
-  // Custom stylesheet for HTML rendering
-  const stylesheet = StyleSheet.create({
+  // Custom tags styles for react-native-render-html
+  const tagsStyles = useMemo(() => ({
     body: {
       color: textColor,
       fontSize: getVariantStyle().fontSize,
       fontWeight: getVariantStyle().fontWeight,
       lineHeight: getVariantStyle().lineHeight,
     },
+    div: {
+      color: textColor,
+    },
     a: {
       color: linkColor,
-      textDecorationLine: "underline",
+      textDecorationLine: "underline" as const,
     },
     strong: {
       fontWeight: "700",
@@ -179,11 +159,9 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
     },
     ul: {
       marginVertical: 4,
-      paddingLeft: 20,
     },
     ol: {
       marginVertical: 4,
-      paddingLeft: 20,
     },
     li: {
       marginVertical: 2,
@@ -208,22 +186,20 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
       borderRadius: 8,
       marginVertical: 8,
     },
-  });
+  }), [textColor, linkColor, variant, theme]);
 
   // If no content, return null
   if (!content || content.trim() === "") {
     return null;
   }
 
-  // const finalStyle = [getVariantStyle(), style];
-
   return (
-    <View style={containerStyle} testID={testID}>
-      <HTMLView
-        value={truncateHtmlContent}
-        stylesheet={stylesheet}
-        // style={finalStyle}
-      />
-    </View>
+    <RenderHTML
+      contentWidth={width}
+      source={{ html: processedContent }}
+      tagsStyles={tagsStyles as any}
+      baseStyle={getVariantStyle() as any}
+      systemFonts={[]}
+    />
   );
 };
