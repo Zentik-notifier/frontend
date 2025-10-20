@@ -1,6 +1,7 @@
 import {
   EntityExecutionFragment,
   ExecutionType,
+  ExecutionStatus,
   useGetEntityExecutionsQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
@@ -11,6 +12,7 @@ import {
   View,
   Alert,
   TextInput,
+  ScrollView,
 } from "react-native";
 import {
   ActivityIndicator,
@@ -19,9 +21,9 @@ import {
   Text,
   useTheme,
   IconButton,
+  Divider,
 } from "react-native-paper";
 import { FlashList } from "@shopify/flash-list";
-import ExecutionDetailModal from "./ExecutionDetailModal";
 import * as Clipboard from "expo-clipboard";
 
 interface EntityExecutionsSectionProps {
@@ -32,22 +34,23 @@ interface EntityExecutionsSectionProps {
 
 interface ExecutionItemProps {
   execution: EntityExecutionFragment;
-  onPress: (execution: EntityExecutionFragment) => void;
+  isExpanded: boolean;
+  onToggle: () => void;
 }
 
-function ExecutionItem({ execution, onPress }: ExecutionItemProps) {
+function ExecutionItem({ execution, isExpanded, onToggle }: ExecutionItemProps) {
   const theme = useTheme();
   const { t } = useI18n();
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: ExecutionStatus) => {
     switch (status) {
-      case "SUCCESS":
+      case ExecutionStatus.Success:
         return theme.colors.primary;
-      case "ERROR":
+      case ExecutionStatus.Error:
         return theme.colors.error;
-      case "TIMEOUT":
+      case ExecutionStatus.Timeout:
         return theme.colors.tertiary;
-      case "SKIPPED":
+      case ExecutionStatus.Skipped:
         return theme.colors.outline;
       default:
         return theme.colors.onSurface;
@@ -59,19 +62,25 @@ function ExecutionItem({ execution, onPress }: ExecutionItemProps) {
     return `${durationMs}ms`;
   };
 
-  const handlePress = () => {
-    onPress(execution);
+  const formatJsonString = (jsonString?: string | null) => {
+    if (!jsonString) return "";
+    try {
+      const parsed = JSON.parse(jsonString);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return jsonString;
+    }
   };
 
   const handleCopyInput = async () => {
     if (execution.input) {
-      await Clipboard.setStringAsync(execution.input);
+      await Clipboard.setStringAsync(formatJsonString(execution.input));
     }
   };
 
   const handleCopyOutput = async () => {
     if (execution.output) {
-      await Clipboard.setStringAsync(execution.output);
+      await Clipboard.setStringAsync(formatJsonString(execution.output));
     }
   };
 
@@ -82,43 +91,116 @@ function ExecutionItem({ execution, onPress }: ExecutionItemProps) {
   };
 
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
-      <Card>
+    <Card style={styles.executionCard}>
+      <TouchableOpacity onPress={onToggle} activeOpacity={0.7}>
         <Card.Content>
           <View style={styles.executionHeader}>
-            <Chip
-              mode="outlined"
-              compact
-              style={[{ borderColor: getStatusColor(execution.status) }]}
-              textStyle={{ color: getStatusColor(execution.status) }}
-            >
-              {execution.status}
-            </Chip>
-            <Text variant="bodySmall" style={styles.executionDate}>
-              {new Date(execution.createdAt).toLocaleString()}
-            </Text>
-          </View>
-
-          <View style={styles.executionDetails}>
-            {execution.durationMs && (
-              <Text variant="bodySmall" style={styles.durationText}>
-                {t("entityExecutions.duration")}:{" "}
-                {formatDuration(execution.durationMs)}
+            <View style={styles.executionHeaderLeft}>
+              <Chip
+                mode="outlined"
+                compact
+                style={[{ borderColor: getStatusColor(execution.status) }]}
+                textStyle={{ color: getStatusColor(execution.status) }}
+              >
+                {execution.status}
+              </Chip>
+              <Text variant="bodySmall" style={styles.executionDate}>
+                {new Date(execution.createdAt).toLocaleString()}
               </Text>
+              {execution.durationMs && (
+                <Text variant="bodySmall" style={styles.durationText}>
+                  • {formatDuration(execution.durationMs)}
+                </Text>
+              )}
+            </View>
+            <IconButton
+              icon={isExpanded ? "chevron-up" : "chevron-down"}
+              size={20}
+              style={{ margin: 0 }}
+            />
+          </View>
+        </Card.Content>
+      </TouchableOpacity>
+
+      {isExpanded && (
+        <Card.Content style={styles.expandedContent}>
+          <Divider style={{ marginBottom: 12 }} />
+
+          {/* Type and Details Grid */}
+          <View style={styles.detailsGrid}>
+            <View style={styles.detailRow}>
+              <Text variant="bodySmall" style={styles.detailLabel}>
+                {t("entityExecutions.type")}:
+              </Text>
+              <Text variant="bodySmall" style={styles.detailValue}>
+                {execution.type}
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text variant="bodySmall" style={styles.detailLabel}>
+                ID:
+              </Text>
+              <Text variant="bodySmall" style={styles.detailValue}>
+                {execution.id}
+              </Text>
+            </View>
+
+            {execution.entityName && (
+              <View style={styles.detailRow}>
+                <Text variant="bodySmall" style={styles.detailLabel}>
+                  {t("entityExecutions.entityName")}:
+                </Text>
+                <Text variant="bodySmall" style={styles.detailValue}>
+                  {execution.entityName}
+                </Text>
+              </View>
             )}
 
-            {execution.errors && (
-              <View style={styles.codeSection}>
-                <View style={styles.codeSectionHeader}>
-                  <Text variant="labelSmall" style={styles.codeLabel}>
-                    {t("entityExecutions.errors")}:
-                  </Text>
-                  <IconButton
-                    icon="content-copy"
-                    size={16}
-                    onPress={handleCopyErrors}
-                  />
-                </View>
+            {execution.entityId && (
+              <View style={styles.detailRow}>
+                <Text variant="bodySmall" style={styles.detailLabel}>
+                  {t("entityExecutions.entityId")}:
+                </Text>
+                <Text variant="bodySmall" style={styles.detailValue}>
+                  {execution.entityId}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.detailRow}>
+              <Text variant="bodySmall" style={styles.detailLabel}>
+                {t("entityExecutions.userId")}:
+              </Text>
+              <Text variant="bodySmall" style={styles.detailValue}>
+                {execution.userId}
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text variant="bodySmall" style={styles.detailLabel}>
+                {t("entityExecutions.updatedAt")}:
+              </Text>
+              <Text variant="bodySmall" style={styles.detailValue}>
+                {new Date(execution.updatedAt).toLocaleString()}
+              </Text>
+            </View>
+          </View>
+
+          {/* Errors */}
+          {execution.errors && (
+            <View style={styles.codeSection}>
+              <View style={styles.codeSectionHeader}>
+                <Text variant="labelMedium" style={styles.codeLabel}>
+                  {t("entityExecutions.errors")}:
+                </Text>
+                <IconButton
+                  icon="content-copy"
+                  size={20}
+                  onPress={handleCopyErrors}
+                />
+              </View>
+              <ScrollView style={styles.codeScrollView} nestedScrollEnabled>
                 <TextInput
                   value={execution.errors}
                   multiline
@@ -134,23 +216,26 @@ function ExecutionItem({ execution, onPress }: ExecutionItemProps) {
                     },
                   ]}
                 />
-              </View>
-            )}
+              </ScrollView>
+            </View>
+          )}
 
-            {execution.input && (
-              <View style={styles.codeSection}>
-                <View style={styles.codeSectionHeader}>
-                  <Text variant="labelSmall" style={styles.codeLabel}>
-                    {t("entityExecutions.input")}:
-                  </Text>
-                  <IconButton
-                    icon="content-copy"
-                    size={16}
-                    onPress={handleCopyInput}
-                  />
-                </View>
+          {/* Input */}
+          {execution.input && (
+            <View style={styles.codeSection}>
+              <View style={styles.codeSectionHeader}>
+                <Text variant="labelMedium" style={styles.codeLabel}>
+                  {t("entityExecutions.input")}:
+                </Text>
+                <IconButton
+                  icon="content-copy"
+                  size={20}
+                  onPress={handleCopyInput}
+                />
+              </View>
+              <ScrollView style={styles.codeScrollView} nestedScrollEnabled>
                 <TextInput
-                  value={execution.input}
+                  value={formatJsonString(execution.input)}
                   multiline
                   editable={false}
                   scrollEnabled={false}
@@ -162,23 +247,26 @@ function ExecutionItem({ execution, onPress }: ExecutionItemProps) {
                     },
                   ]}
                 />
-              </View>
-            )}
+              </ScrollView>
+            </View>
+          )}
 
-            {execution.output && (
-              <View style={styles.codeSection}>
-                <View style={styles.codeSectionHeader}>
-                  <Text variant="labelSmall" style={styles.codeLabel}>
-                    {t("entityExecutions.output")}:
-                  </Text>
-                  <IconButton
-                    icon="content-copy"
-                    size={16}
-                    onPress={handleCopyOutput}
-                  />
-                </View>
+          {/* Output */}
+          {execution.output && (
+            <View style={styles.codeSection}>
+              <View style={styles.codeSectionHeader}>
+                <Text variant="labelMedium" style={styles.codeLabel}>
+                  {t("entityExecutions.output")}:
+                </Text>
+                <IconButton
+                  icon="content-copy"
+                  size={20}
+                  onPress={handleCopyOutput}
+                />
+              </View>
+              <ScrollView style={styles.codeScrollView} nestedScrollEnabled>
                 <TextInput
-                  value={execution.output}
+                  value={formatJsonString(execution.output)}
                   multiline
                   editable={false}
                   scrollEnabled={false}
@@ -190,12 +278,12 @@ function ExecutionItem({ execution, onPress }: ExecutionItemProps) {
                     },
                   ]}
                 />
-              </View>
-            )}
-          </View>
+              </ScrollView>
+            </View>
+          )}
         </Card.Content>
-      </Card>
-    </TouchableOpacity>
+      )}
+    </Card>
   );
 }
 
@@ -207,9 +295,7 @@ export default function EntityExecutionsSection({
   const { t } = useI18n();
 
   const [isExpanded, setIsExpanded] = useState(false);
-  const [selectedExecution, setSelectedExecution] =
-    useState<EntityExecutionFragment | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [expandedExecutionId, setExpandedExecutionId] = useState<string | null>(null);
 
   const { data, loading, error, refetch } = useGetEntityExecutionsQuery({
     variables: {
@@ -225,14 +311,10 @@ export default function EntityExecutionsSection({
   const executions = data?.getEntityExecutions || [];
   const hasExecutions = executions.length > 0;
 
-  const handleExecutionPress = (execution: EntityExecutionFragment) => {
-    setSelectedExecution(execution);
-    setModalVisible(true);
-  };
-
-  const handleCloseModal = () => {
-    setModalVisible(false);
-    setSelectedExecution(null);
+  const handleToggleExecution = (executionId: string) => {
+    setExpandedExecutionId(
+      expandedExecutionId === executionId ? null : executionId
+    );
   };
 
   return (
@@ -299,7 +381,8 @@ export default function EntityExecutionsSection({
               renderItem={({ item }) => (
                 <ExecutionItem
                   execution={item}
-                  onPress={handleExecutionPress}
+                  isExpanded={expandedExecutionId === item.id}
+                  onToggle={() => handleToggleExecution(item.id)}
                 />
               )}
               keyExtractor={(item) => item.id}
@@ -311,13 +394,6 @@ export default function EntityExecutionsSection({
           )}
         </View>
       )}
-
-      {/* Execution Detail Modal */}
-      <ExecutionDetailModal
-        visible={modalVisible}
-        execution={selectedExecution}
-        onClose={handleCloseModal}
-      />
     </View>
   );
 }
@@ -380,39 +456,71 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     textAlign: "center",
   },
+  executionCard: {
+    marginBottom: 8,
+    elevation: 1,
+  },
   executionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+  },
+  executionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+    flexWrap: "wrap",
   },
   executionDate: {
     opacity: 0.7,
   },
-  executionDetails: {
-    gap: 4,
-  },
   durationText: {
-    opacity: 0.8,
+    opacity: 0.7,
+  },
+  expandedContent: {
+    paddingTop: 0,
+  },
+  detailsGrid: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  detailLabel: {
+    opacity: 0.7,
+    minWidth: 100,
+  },
+  detailValue: {
+    flex: 1,
+    textAlign: "right",
   },
   codeSection: {
-    marginTop: 8,
+    marginTop: 12,
   },
   codeSectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 4,
+    marginBottom: 8,
   },
   codeLabel: {
-    opacity: 0.8,
+    fontWeight: "600",
+  },
+  codeScrollView: {
+    maxHeight: 200,
+    borderRadius: 8,
   },
   codeInput: {
-    padding: 8,
-    borderRadius: 4,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
     fontFamily: "monospace",
     fontSize: 12,
-    maxHeight: 200,
+    lineHeight: 18,
     textAlignVertical: "top",
   },
 });

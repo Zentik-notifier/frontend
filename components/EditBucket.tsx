@@ -1,5 +1,6 @@
 import BucketAccessTokensSection from "@/components/BucketAccessTokensSection";
 import BucketSharingSection from "@/components/BucketSharingSection";
+import BucketInviteCodesSection from "@/components/BucketInviteCodesSection";
 import CreateBucketForm from "@/components/CreateBucketForm";
 import { useAppContext } from "@/contexts/AppContext";
 import {
@@ -159,6 +160,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
         <>
           <BucketAccessTokensSection bucketId={bucketId} bucketName={bucket?.name || ""} />
           <BucketSharingSection bucketId={bucketId} />
+          <BucketInviteCodesSection bucketId={bucketId} bucketName={bucket?.name || ""} />
           <Button
             mode="contained"
             buttonColor={theme.colors.error}
