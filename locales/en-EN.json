@@ -1795,7 +1795,7 @@
     "restartSuccess": "Server restart initiated successfully",
     "restartFailed": "Failed to restart server",
     "saveSuccess": "Settings saved successfully",
-    "savedSuccessfully": "Successfully saved {count} settings. Restart the server to apply changes.",
+    "savedSuccessfully": "Successfully saved {{count}} settings. Restart the server to apply changes.",
     "failedToSave": "Failed to save settings",
     "failedToLoad": "Failed to load server settings",
     "selectPlaceholder": "Select {field}",

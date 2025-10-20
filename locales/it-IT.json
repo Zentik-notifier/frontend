@@ -1759,7 +1759,7 @@
     "restartSuccess": "Riavvio del server avviato con successo",
     "restartFailed": "Impossibile riavviare il server",
     "saveSuccess": "Impostazioni salvate con successo",
-    "savedSuccessfully": "Salvate con successo {count} impostazioni. Riavvia il server per applicare le modifiche.",
+    "savedSuccessfully": "Salvate con successo {{count}} impostazioni. Riavvia il server per applicare le modifiche.",
     "failedToSave": "Impossibile salvare le impostazioni",
     "failedToLoad": "Impossibile caricare le impostazioni del server",
     "selectPlaceholder": "Seleziona {field}",

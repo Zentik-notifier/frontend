@@ -20,6 +20,7 @@ import {
   useTheme,
 } from "react-native-paper";
 import BucketApiExamples from "./BucketApiExamples";
+import CopyButton from "./ui/CopyButton";
 
 interface BucketAccessTokensSectionProps {
   bucketId: string;
@@ -234,6 +235,12 @@ export default function BucketAccessTokensSection({
                   )}
                 </View>
                 <View style={styles.tokenActions}>
+                  {token.token && (
+                    <CopyButton
+                      text={token.token}
+                      size={20}
+                    />
+                  )}
                   <IconButton
                     icon="code-tags"
                     size={20}
