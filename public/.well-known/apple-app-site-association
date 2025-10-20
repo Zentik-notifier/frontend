@@ -11,6 +11,14 @@
           {
             "/": "/invite/*",
             "comment": "Matches any URL whose path starts with /invite/ to open invite code redemption. Use ?env=dev query param to open dev app."
+          },
+          {
+            "/": "/oauth",
+            "comment": "OAuth callback for SSO authentication"
+          },
+          {
+            "/": "/notifications/*",
+            "comment": "Deep link to specific notification (optional, for future use)"
           }
         ]
       }
