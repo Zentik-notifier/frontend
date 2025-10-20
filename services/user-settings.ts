@@ -914,117 +914,114 @@ export function useUserSettings() {
   useEffect(() => {
     const list = remoteUserSettings?.userSettings ?? [];
     if (!list || list.length === 0) return;
-    
+
     // Get current deviceId to filter device-specific settings
     getStoredDeviceId().then(currentDeviceId => {
       const timezoneSetting = list.find((s: any) => s?.configType === UserSettingType.Timezone);
       const languageSetting = list.find((s: any) => s?.configType === UserSettingType.Language);
-      
+
       // Device-specific setting: prioritize device-specific over user-level
-      const unencryptOnBigPayload = list.find((s: any) => 
+      const unencryptOnBigPayload = list.find((s: any) =>
         s?.configType === UserSettingType.UnencryptOnBigPayload && s?.deviceId === currentDeviceId
-      ) || list.find((s: any) => 
+      ) || list.find((s: any) =>
         s?.configType === UserSettingType.UnencryptOnBigPayload && !s?.deviceId
       );
-      
+
       // Device-specific settings: prioritize device-specific over user-level
-      const autoAddDeleteAction = list.find((s: any) => 
+      const autoAddDeleteAction = list.find((s: any) =>
         s?.configType === UserSettingType.AutoAddDeleteAction && s?.deviceId === currentDeviceId
-      ) || list.find((s: any) => 
+      ) || list.find((s: any) =>
         s?.configType === UserSettingType.AutoAddDeleteAction && !s?.deviceId
       );
-      
-      const autoAddMarkAsReadAction = list.find((s: any) => 
+
+      const autoAddMarkAsReadAction = list.find((s: any) =>
         s?.configType === UserSettingType.AutoAddMarkAsReadAction && s?.deviceId === currentDeviceId
-      ) || list.find((s: any) => 
+      ) || list.find((s: any) =>
         s?.configType === UserSettingType.AutoAddMarkAsReadAction && !s?.deviceId
       );
-      
-      const autoAddOpenNotificationAction = list.find((s: any) => 
+
+      const autoAddOpenNotificationAction = list.find((s: any) =>
         s?.configType === UserSettingType.AutoAddOpenNotificationAction && s?.deviceId === currentDeviceId
-      ) || list.find((s: any) => 
+      ) || list.find((s: any) =>
         s?.configType === UserSettingType.AutoAddOpenNotificationAction && !s?.deviceId
       );
 
-      const defaultPostpones = list.find((s: any) => 
+      const defaultPostpones = list.find((s: any) =>
         s?.configType === UserSettingType.DefaultPostpones && s?.deviceId === currentDeviceId
-      ) || list.find((s: any) => 
+      ) || list.find((s: any) =>
         s?.configType === UserSettingType.DefaultPostpones && !s?.deviceId
       );
 
-      const defaultSnoozes = list.find((s: any) => 
+      const defaultSnoozes = list.find((s: any) =>
         s?.configType === UserSettingType.DefaultSnoozes && s?.deviceId === currentDeviceId
-      ) || list.find((s: any) => 
+      ) || list.find((s: any) =>
         s?.configType === UserSettingType.DefaultSnoozes && !s?.deviceId
       );
 
       const githubEventsFilter = list.find((s: any) => s?.configType === UserSettingType.GithubEventsFilter);
-    
-    const updates: Partial<UserSettings> = {};
-    if (timezoneSetting?.valueText && timezoneSetting.valueText !== userSettings.getTimezone()) {
-      updates.timezone = timezoneSetting.valueText;
-    }
-    if (languageSetting?.valueText && languageSetting.valueText !== userSettings.getLocale()) {
-      updates.locale = languageSetting.valueText as Locale;
-    }
-    const currentPrefs = userSettings.getSettings().notificationsPreferences;
-    const nextPrefs = { ...(currentPrefs || {}) };
-    let touchPrefs = false;
-    
-    if (unencryptOnBigPayload?.valueBool !== undefined && unencryptOnBigPayload.valueBool !== currentPrefs?.unencryptOnBigPayload) {
-      nextPrefs.unencryptOnBigPayload = !!unencryptOnBigPayload.valueBool; 
-      touchPrefs = true;
-    }
-    if (autoAddDeleteAction?.valueBool !== undefined && autoAddDeleteAction.valueBool !== currentPrefs?.autoAddDeleteAction) {
-      nextPrefs.autoAddDeleteAction = !!autoAddDeleteAction.valueBool;
-      touchPrefs = true;
-    }
-    if (autoAddMarkAsReadAction?.valueBool !== undefined && autoAddMarkAsReadAction.valueBool !== currentPrefs?.autoAddMarkAsReadAction) {
-      nextPrefs.autoAddMarkAsReadAction = !!autoAddMarkAsReadAction.valueBool;
-      touchPrefs = true;
-    }
-    if (autoAddOpenNotificationAction?.valueBool !== undefined && autoAddOpenNotificationAction.valueBool !== currentPrefs?.autoAddOpenNotificationAction) {
-      nextPrefs.autoAddOpenNotificationAction = !!autoAddOpenNotificationAction.valueBool;
-      touchPrefs = true;
-    }
-    if (defaultPostpones?.valueText) {
-      try {
-        const parsed = JSON.parse(defaultPostpones.valueText);
-        if (Array.isArray(parsed)) {
-          nextPrefs.defaultPostpones = parsed;
-          touchPrefs = true;
-        }
-      } catch (e) {
-        console.error('Failed to parse defaultPostpones:', e);
+
+      const updates: Partial<UserSettings> = {};
+      if (timezoneSetting?.valueText && timezoneSetting.valueText !== userSettings.getTimezone()) {
+        updates.timezone = timezoneSetting.valueText;
       }
-    }
-    if (defaultSnoozes?.valueText) {
-      try {
-        const parsed = JSON.parse(defaultSnoozes.valueText);
-        if (Array.isArray(parsed)) {
-          nextPrefs.defaultSnoozes = parsed;
-          touchPrefs = true;
-        }
-      } catch (e) {
-        console.error('Failed to parse defaultSnoozes:', e);
+      if (languageSetting?.valueText && languageSetting.valueText !== userSettings.getLocale()) {
+        updates.locale = languageSetting.valueText as Locale;
       }
-    }
-    if (touchPrefs) {
-      updates.notificationsPreferences = nextPrefs;
-    }
-    if (githubEventsFilter?.valueText) {
-      try {
-        const parsed = JSON.parse(githubEventsFilter.valueText);
-        if (Array.isArray(parsed)) {
+      const currentPrefs = userSettings.getSettings().notificationsPreferences;
+      const nextPrefs = { ...(currentPrefs || {}) };
+      let touchPrefs = false;
+
+      if (unencryptOnBigPayload?.valueBool !== undefined && unencryptOnBigPayload.valueBool !== currentPrefs?.unencryptOnBigPayload) {
+        nextPrefs.unencryptOnBigPayload = !!unencryptOnBigPayload.valueBool;
+        touchPrefs = true;
+      }
+      if (autoAddDeleteAction?.valueBool !== undefined && autoAddDeleteAction.valueBool !== currentPrefs?.autoAddDeleteAction) {
+        nextPrefs.autoAddDeleteAction = !!autoAddDeleteAction.valueBool;
+        touchPrefs = true;
+      }
+      if (autoAddMarkAsReadAction?.valueBool !== undefined && autoAddMarkAsReadAction.valueBool !== currentPrefs?.autoAddMarkAsReadAction) {
+        nextPrefs.autoAddMarkAsReadAction = !!autoAddMarkAsReadAction.valueBool;
+        touchPrefs = true;
+      }
+      if (autoAddOpenNotificationAction?.valueBool !== undefined && autoAddOpenNotificationAction.valueBool !== currentPrefs?.autoAddOpenNotificationAction) {
+        nextPrefs.autoAddOpenNotificationAction = !!autoAddOpenNotificationAction.valueBool;
+        touchPrefs = true;
+      }
+      if (defaultPostpones?.valueText) {
+        try {
+          const parsed = JSON.parse(defaultPostpones.valueText);
+          if (Array.isArray(parsed)) {
+            nextPrefs.defaultPostpones = parsed;
+            touchPrefs = true;
+          }
+        } catch (e) {
+          console.error('Failed to parse defaultPostpones:', e);
+        }
+      }
+      if (defaultSnoozes?.valueText) {
+        try {
+          const parsed = JSON.parse(defaultSnoozes.valueText);
+          if (Array.isArray(parsed)) {
+            nextPrefs.defaultSnoozes = parsed;
+            touchPrefs = true;
+          }
+        } catch (e) {
+          console.error('Failed to parse defaultSnoozes:', e);
+        }
+      }
+      if (touchPrefs) {
+        updates.notificationsPreferences = nextPrefs;
+      }
+      if (githubEventsFilter?.valueText) {
+        try {
+          const parsed = githubEventsFilter.valueText.startsWith('[') ? JSON.parse(githubEventsFilter.valueText) : githubEventsFilter.valueText.split(',');
           updates.githubEventsFilter = parsed;
+        } catch (e) {
+          console.error('Failed to parse githubEventsFilter:', e);
+          updates.githubEventsFilter = githubEventsFilter.valueText.split(',');
         }
-      } catch (e) {
-        console.error('Failed to parse githubEventsFilter:', e);
       }
-    }
-    if (Object.keys(updates).length > 0) {
-      userSettings.updateSettings(updates).catch(() => { });
-    }
+      if (Object.keys(updates).length > 0) { userSettings.updateSettings(updates).catch(() => { }); }
     }).catch(() => { }); // Close getStoredDeviceId().then()
   }, [remoteUserSettings]);
 
@@ -1060,9 +1057,9 @@ export function useUserSettings() {
     },
     setUnencryptOnBigPayload: async (v: boolean) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), unencryptOnBigPayload: v } });
-      try { 
+      try {
         const deviceId = await getStoredDeviceId();
-        await upsertUserSetting({ variables: { input: { configType: UserSettingType.UnencryptOnBigPayload, valueBool: v, deviceId } } }); 
+        await upsertUserSetting({ variables: { input: { configType: UserSettingType.UnencryptOnBigPayload, valueBool: v, deviceId } } });
       } catch { }
     },
     setGenerateBucketIconWithInitials: async (v: boolean) => {
@@ -1070,43 +1067,43 @@ export function useUserSettings() {
     },
     setAutoAddDeleteAction: async (v: boolean) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), autoAddDeleteAction: v } });
-      try { 
+      try {
         const deviceId = await getStoredDeviceId();
-        await upsertUserSetting({ variables: { input: { configType: UserSettingType.AutoAddDeleteAction, valueBool: v, deviceId } } }); 
+        await upsertUserSetting({ variables: { input: { configType: UserSettingType.AutoAddDeleteAction, valueBool: v, deviceId } } });
       } catch { }
     },
     setAutoAddMarkAsReadAction: async (v: boolean) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), autoAddMarkAsReadAction: v } });
-      try { 
+      try {
         const deviceId = await getStoredDeviceId();
-        await upsertUserSetting({ variables: { input: { configType: UserSettingType.AutoAddMarkAsReadAction, valueBool: v, deviceId } } }); 
+        await upsertUserSetting({ variables: { input: { configType: UserSettingType.AutoAddMarkAsReadAction, valueBool: v, deviceId } } });
       } catch { }
     },
     setAutoAddOpenNotificationAction: async (v: boolean) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), autoAddOpenNotificationAction: v } });
-      try { 
+      try {
         const deviceId = await getStoredDeviceId();
-        await upsertUserSetting({ variables: { input: { configType: UserSettingType.AutoAddOpenNotificationAction, valueBool: v, deviceId } } }); 
+        await upsertUserSetting({ variables: { input: { configType: UserSettingType.AutoAddOpenNotificationAction, valueBool: v, deviceId } } });
       } catch { }
     },
     setDefaultPostpones: async (values: number[]) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), defaultPostpones: values } });
-      try { 
+      try {
         const deviceId = await getStoredDeviceId();
-        await upsertUserSetting({ variables: { input: { configType: UserSettingType.DefaultPostpones, valueText: JSON.stringify(values), deviceId } } }); 
+        await upsertUserSetting({ variables: { input: { configType: UserSettingType.DefaultPostpones, valueText: JSON.stringify(values), deviceId } } });
       } catch { }
     },
     setDefaultSnoozes: async (values: number[]) => {
       await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), defaultSnoozes: values } });
-      try { 
+      try {
         const deviceId = await getStoredDeviceId();
-        await upsertUserSetting({ variables: { input: { configType: UserSettingType.DefaultSnoozes, valueText: JSON.stringify(values), deviceId } } }); 
+        await upsertUserSetting({ variables: { input: { configType: UserSettingType.DefaultSnoozes, valueText: JSON.stringify(values), deviceId } } });
       } catch { }
     },
     setGithubEventsFilter: async (values: string[]) => {
       await userSettings.updateSettings({ githubEventsFilter: values });
-      try { 
-        await upsertUserSetting({ variables: { input: { configType: UserSettingType.GithubEventsFilter, valueText: JSON.stringify(values) } } }); 
+      try {
+        await upsertUserSetting({ variables: { input: { configType: UserSettingType.GithubEventsFilter, valueText: JSON.stringify(values) } } });
       } catch { }
     },
     resetSettings: userSettings.resetSettings.bind(userSettings),
