@@ -145,6 +145,10 @@ export interface Translation {
       autoAddMarkAsReadActionDescription: string;
       autoAddOpenNotificationAction: string;
       autoAddOpenNotificationActionDescription: string;
+      defaultPostpones: string;
+      defaultPostponesDescription: string;
+      defaultSnoozes: string;
+      defaultSnoozesDescription: string;
     };
     theme: {
       title: string;

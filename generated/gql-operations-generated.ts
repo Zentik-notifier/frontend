@@ -1499,7 +1499,9 @@ export enum SystemAccessTokenRequestStatus {
 }
 
 export type UpdateAccessTokenDto = {
+  expiresAt?: InputMaybe<Scalars['DateTime']['input']>;
   name: Scalars['String']['input'];
+  scopes?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 export type UpdateBucketDto = {
@@ -1731,7 +1733,10 @@ export enum UserSettingType {
   AutoAddDeleteAction = 'AutoAddDeleteAction',
   AutoAddMarkAsReadAction = 'AutoAddMarkAsReadAction',
   AutoAddOpenNotificationAction = 'AutoAddOpenNotificationAction',
+  DefaultPostpones = 'DefaultPostpones',
+  DefaultSnoozes = 'DefaultSnoozes',
   ExpoKey = 'ExpoKey',
+  GithubEventsFilter = 'GithubEventsFilter',
   HomeassistantToken = 'HomeassistantToken',
   HomeassistantUrl = 'HomeassistantUrl',
   Language = 'Language',

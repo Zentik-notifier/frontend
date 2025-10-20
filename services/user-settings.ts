@@ -106,7 +106,13 @@ export interface UserSettings {
     autoAddDeleteAction?: boolean;
     autoAddMarkAsReadAction?: boolean;
     autoAddOpenNotificationAction?: boolean;
+    // Default snooze and postpone options (in minutes)
+    defaultPostpones?: number[];
+    defaultSnoozes?: number[];
   };
+
+  // GitHub property mapper settings
+  githubEventsFilter?: string[];
 
   // Gallery settings
   gallery: {
@@ -182,7 +188,10 @@ const DEFAULT_SETTINGS: UserSettings = {
     autoAddDeleteAction: true,
     autoAddMarkAsReadAction: true,
     autoAddOpenNotificationAction: false,
+    defaultPostpones: [], // in minutes
+    defaultSnoozes: [], // in minutes
   },
+  githubEventsFilter: [],
   gallery: {
     autoPlay: true,
     showFaultyMedias: false,
@@ -664,7 +673,12 @@ class UserSettingsService {
           stored.notificationsPreferences?.autoAddMarkAsReadAction ?? DEFAULT_SETTINGS.notificationsPreferences!.autoAddMarkAsReadAction,
         autoAddOpenNotificationAction:
           stored.notificationsPreferences?.autoAddOpenNotificationAction ?? DEFAULT_SETTINGS.notificationsPreferences!.autoAddOpenNotificationAction,
+        defaultPostpones:
+          stored.notificationsPreferences?.defaultPostpones ?? DEFAULT_SETTINGS.notificationsPreferences!.defaultPostpones,
+        defaultSnoozes:
+          stored.notificationsPreferences?.defaultSnoozes ?? DEFAULT_SETTINGS.notificationsPreferences!.defaultSnoozes,
       },
+      githubEventsFilter: stored.githubEventsFilter ?? DEFAULT_SETTINGS.githubEventsFilter,
       gallery: {
         ...DEFAULT_SETTINGS.gallery,
         ...(stored.gallery || {}),
@@ -931,6 +945,20 @@ export function useUserSettings() {
       ) || list.find((s: any) => 
         s?.configType === UserSettingType.AutoAddOpenNotificationAction && !s?.deviceId
       );
+
+      const defaultPostpones = list.find((s: any) => 
+        s?.configType === UserSettingType.DefaultPostpones && s?.deviceId === currentDeviceId
+      ) || list.find((s: any) => 
+        s?.configType === UserSettingType.DefaultPostpones && !s?.deviceId
+      );
+
+      const defaultSnoozes = list.find((s: any) => 
+        s?.configType === UserSettingType.DefaultSnoozes && s?.deviceId === currentDeviceId
+      ) || list.find((s: any) => 
+        s?.configType === UserSettingType.DefaultSnoozes && !s?.deviceId
+      );
+
+      const githubEventsFilter = list.find((s: any) => s?.configType === UserSettingType.GithubEventsFilter);
     
     const updates: Partial<UserSettings> = {};
     if (timezoneSetting?.valueText && timezoneSetting.valueText !== userSettings.getTimezone()) {
@@ -959,8 +987,40 @@ export function useUserSettings() {
       nextPrefs.autoAddOpenNotificationAction = !!autoAddOpenNotificationAction.valueBool;
       touchPrefs = true;
     }
+    if (defaultPostpones?.valueText) {
+      try {
+        const parsed = JSON.parse(defaultPostpones.valueText);
+        if (Array.isArray(parsed)) {
+          nextPrefs.defaultPostpones = parsed;
+          touchPrefs = true;
+        }
+      } catch (e) {
+        console.error('Failed to parse defaultPostpones:', e);
+      }
+    }
+    if (defaultSnoozes?.valueText) {
+      try {
+        const parsed = JSON.parse(defaultSnoozes.valueText);
+        if (Array.isArray(parsed)) {
+          nextPrefs.defaultSnoozes = parsed;
+          touchPrefs = true;
+        }
+      } catch (e) {
+        console.error('Failed to parse defaultSnoozes:', e);
+      }
+    }
     if (touchPrefs) {
       updates.notificationsPreferences = nextPrefs;
+    }
+    if (githubEventsFilter?.valueText) {
+      try {
+        const parsed = JSON.parse(githubEventsFilter.valueText);
+        if (Array.isArray(parsed)) {
+          updates.githubEventsFilter = parsed;
+        }
+      } catch (e) {
+        console.error('Failed to parse githubEventsFilter:', e);
+      }
     }
     if (Object.keys(updates).length > 0) {
       userSettings.updateSettings(updates).catch(() => { });
@@ -1027,6 +1087,26 @@ export function useUserSettings() {
       try { 
         const deviceId = await getStoredDeviceId();
         await upsertUserSetting({ variables: { input: { configType: UserSettingType.AutoAddOpenNotificationAction, valueBool: v, deviceId } } }); 
+      } catch { }
+    },
+    setDefaultPostpones: async (values: number[]) => {
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), defaultPostpones: values } });
+      try { 
+        const deviceId = await getStoredDeviceId();
+        await upsertUserSetting({ variables: { input: { configType: UserSettingType.DefaultPostpones, valueText: JSON.stringify(values), deviceId } } }); 
+      } catch { }
+    },
+    setDefaultSnoozes: async (values: number[]) => {
+      await userSettings.updateSettings({ notificationsPreferences: { ...(userSettings.getSettings().notificationsPreferences!), defaultSnoozes: values } });
+      try { 
+        const deviceId = await getStoredDeviceId();
+        await upsertUserSetting({ variables: { input: { configType: UserSettingType.DefaultSnoozes, valueText: JSON.stringify(values), deviceId } } }); 
+      } catch { }
+    },
+    setGithubEventsFilter: async (values: string[]) => {
+      await userSettings.updateSettings({ githubEventsFilter: values });
+      try { 
+        await upsertUserSetting({ variables: { input: { configType: UserSettingType.GithubEventsFilter, valueText: JSON.stringify(values) } } }); 
       } catch { }
     },
     resetSettings: userSettings.resetSettings.bind(userSettings),

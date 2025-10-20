@@ -36,6 +36,8 @@ export default function UnifiedCacheSettings() {
     setAutoAddDeleteAction,
     setAutoAddMarkAsReadAction,
     setAutoAddOpenNotificationAction,
+    setDefaultPostpones,
+    setDefaultSnoozes,
   } = useUserSettings();
   const [showResetModal, setShowResetModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -68,6 +70,14 @@ export default function UnifiedCacheSettings() {
     useState(false);
   const [isEditingMaxNotificationsDays, setIsEditingMaxNotificationsDays] =
     useState(false);
+
+  // Default postpones and snoozes
+  const [localDefaultPostpones, setLocalDefaultPostpones] = useState<string>(
+    settings.notificationsPreferences?.defaultPostpones?.join(',') || ''
+  );
+  const [localDefaultSnoozes, setLocalDefaultSnoozes] = useState<string>(
+    settings.notificationsPreferences?.defaultSnoozes?.join(',') || ''
+  );
 
   // Notifications from database
   const [dbNotifications, setDbNotifications] = useState<any[]>([]);
@@ -155,6 +165,24 @@ export default function UnifiedCacheSettings() {
 
   const handleOpenResetModal = () => {
     setShowResetModal(true);
+  };
+
+  const handleDefaultPostponesBlur = async () => {
+    try {
+      const values = localDefaultPostpones.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v));
+      await setDefaultPostpones(values);
+    } catch (error) {
+      console.error('Error saving default postpones:', error);
+    }
+  };
+
+  const handleDefaultSnoozesBlur = async () => {
+    try {
+      const values = localDefaultSnoozes.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v));
+      await setDefaultSnoozes(values);
+    } catch (error) {
+      console.error('Error saving default snoozes:', error);
+    }
   };
 
   const handleExportMetadata = async () => {
@@ -880,6 +908,60 @@ export default function UnifiedCacheSettings() {
             </View>
           </Card.Content>
         </Card>
+
+        {/* Default Postpones */}
+        <Card style={styles.settingCard} elevation={0}>
+          <Card.Content>
+            <View style={styles.settingColumn}>
+              <Text variant="titleMedium" style={styles.settingTitle}>
+                {t("appSettings.notifications.defaultPostpones")}
+              </Text>
+              <Text
+                variant="bodyMedium"
+                style={[
+                  styles.settingDescription,
+                  { color: theme.colors.onSurfaceVariant, marginBottom: 8 },
+                ]}
+              >
+                {t("appSettings.notifications.defaultPostponesDescription")}
+              </Text>
+              <TextInput
+                mode="outlined"
+                value={localDefaultPostpones}
+                onChangeText={setLocalDefaultPostpones}
+                onBlur={handleDefaultPostponesBlur}
+                keyboardType="numeric"
+              />
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Default Snoozes */}
+        <Card style={styles.settingCard} elevation={0}>
+          <Card.Content>
+            <View style={styles.settingColumn}>
+              <Text variant="titleMedium" style={styles.settingTitle}>
+                {t("appSettings.notifications.defaultSnoozes")}
+              </Text>
+              <Text
+                variant="bodyMedium"
+                style={[
+                  styles.settingDescription,
+                  { color: theme.colors.onSurfaceVariant, marginBottom: 8 },
+                ]}
+              >
+                {t("appSettings.notifications.defaultSnoozesDescription")}
+              </Text>
+              <TextInput
+                mode="outlined"
+                value={localDefaultSnoozes}
+                onChangeText={setLocalDefaultSnoozes}
+                onBlur={handleDefaultSnoozesBlur}
+                keyboardType="numeric"
+              />
+            </View>
+          </Card.Content>
+        </Card>
       </Surface>
 
       {/* Advanced Section */}
@@ -1061,6 +1143,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  settingColumn: {
+    flexDirection: "column",
   },
   settingInfo: {
     flexDirection: "row",

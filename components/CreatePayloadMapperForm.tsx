@@ -529,10 +529,22 @@ export default function CreatePayloadMapperForm({
                   >
                     <Card.Content>
                       <View style={styles.settingCardHeader}>
-                        <Text variant="titleSmall" style={styles.settingName}>
-                          {t(`userSettings.${settingType}` as any) ||
-                            settingType}
-                        </Text>
+                        <View style={styles.settingTitleContainer}>
+                          <Text variant="titleSmall" style={styles.settingName}>
+                            {t(`userSettings.${settingType}` as any) ||
+                              settingType}
+                          </Text>
+                          <Text
+                            variant="bodySmall"
+                            style={[
+                              styles.settingDescription,
+                              { color: theme.colors.onSurfaceVariant },
+                            ]}
+                          >
+                            {t(`userSettings.${settingType}_description` as any) ||
+                              ""}
+                          </Text>
+                        </View>
                         {isModified && (
                           <View style={styles.actionButtons}>
                             <IconButton
@@ -817,13 +829,22 @@ const styles = StyleSheet.create({
   settingCardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: 12,
+  },
+  settingTitleContainer: {
+    flex: 1,
+    marginRight: 12,
   },
   settingName: {
     fontSize: 16,
     fontWeight: "600",
-    flex: 1,
+    marginBottom: 4,
+  },
+  settingDescription: {
+    fontSize: 12,
+    lineHeight: 16,
+    opacity: 0.8,
   },
   settingValueContainer: {
     marginTop: 8,

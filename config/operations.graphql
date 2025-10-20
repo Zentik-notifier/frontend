@@ -35,6 +35,9 @@ enum UserSettingType {
   AutoAddDeleteAction
   AutoAddMarkAsReadAction
   AutoAddOpenNotificationAction
+  DefaultPostpones
+  DefaultSnoozes
+  GithubEventsFilter
 }
 
 # Password Reset Mutations

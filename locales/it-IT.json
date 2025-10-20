@@ -129,6 +129,10 @@
       "autoAddMarkAsReadActionDescription": "Aggiunge automaticamente l'azione di marcatura come letto alle notifiche quando non è esplicitamente impostata nel payload",
       "autoAddOpenNotificationAction": "Aggiungi automaticamente azione apri notifica",
       "autoAddOpenNotificationActionDescription": "Aggiunge automaticamente l'azione di apertura notifica quando non è esplicitamente impostata nel payload",
+      "defaultPostpones": "Opzioni Posticipa Predefinite",
+      "defaultPostponesDescription": "Elenco separato da virgole delle opzioni di durata posticipa in minuti (es. 5,15,30,60)",
+      "defaultSnoozes": "Opzioni Snooze Predefinite",
+      "defaultSnoozesDescription": "Elenco separato da virgole delle opzioni di durata snooze in minuti (es. 15,30,60,120,240)",
       "unencryptOnBigPayload": "Non cifrare payload grandi",
       "unencryptOnBigPayloadDescription": "Invia payload non cifrati quando superano una certa dimensione",
       "markAsReadOnView": "Segna come letto alla visualizzazione",
@@ -1438,7 +1442,9 @@
     "AutoAddMarkAsReadAction": "Aggiungi Automaticamente Azione Segna Come Letta",
     "AutoAddMarkAsReadAction_description": "Aggiungi automaticamente l'azione segna come letta alle notifiche",
     "AutoAddOpenNotificationAction": "Aggiungi Automaticamente Azione Apri Notifica",
-    "AutoAddOpenNotificationAction_description": "Aggiungi automaticamente l'azione apri alle notifiche"
+    "AutoAddOpenNotificationAction_description": "Aggiungi automaticamente l'azione apri alle notifiche",
+    "GithubEventsFilter": "Filtro Eventi GitHub",
+    "GithubEventsFilter_description": "Elenco separato da virgole degli eventi GitHub da permettere (es. push,pull_request,issues). Puoi anche usare handler speciali: ALL_SUCCESS (solo eventi di successo) e ALL_FAILURE (solo eventi di fallimento). Tutti gli altri eventi verranno filtrati."
   },
   "userDropdown": {
     "unknownUser": "Utente Sconosciuto",

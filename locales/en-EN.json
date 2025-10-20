@@ -141,7 +141,11 @@
       "autoAddMarkAsReadAction": "Auto-add Mark as Read Action",
       "autoAddMarkAsReadActionDescription": "Automatically add a mark as read action to all notifications",
       "autoAddOpenNotificationAction": "Auto-add Open Action",
-      "autoAddOpenNotificationActionDescription": "Automatically add an open action to all notifications"
+      "autoAddOpenNotificationActionDescription": "Automatically add an open action to all notifications",
+      "defaultPostpones": "Default Postpone Options",
+      "defaultPostponesDescription": "Comma-separated list of postpone duration options in minutes (e.g., 5,15,30,60)",
+      "defaultSnoozes": "Default Snooze Options",
+      "defaultSnoozesDescription": "Comma-separated list of snooze duration options in minutes (e.g., 15,30,60,120,240)"
     },
     "theme": {
       "title": "Theme Settings",
@@ -1393,7 +1397,9 @@
     "AutoAddMarkAsReadAction": "Auto Add Mark as Read Action",
     "AutoAddMarkAsReadAction_description": "Automatically add mark as read action to notifications",
     "AutoAddOpenNotificationAction": "Auto Add Open Notification Action",
-    "AutoAddOpenNotificationAction_description": "Automatically add open action to notifications"
+    "AutoAddOpenNotificationAction_description": "Automatically add open action to notifications",
+    "GithubEventsFilter": "GitHub Events Filter",
+    "GithubEventsFilter_description": "Comma-separated list of GitHub events to allow (e.g., push,pull_request,issues). You can also use special handlers: ALL_SUCCESS (only success events) and ALL_FAILURE (only failure events). All other events will be filtered out."
   },
   "userDropdown": {
     "unknownUser": "Unknown User",
