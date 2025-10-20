@@ -1049,7 +1049,8 @@ export enum PayloadMapperBuiltInType {
   ZentikExpo = 'ZENTIK_EXPO',
   ZentikGithub = 'ZENTIK_GITHUB',
   ZentikRailway = 'ZENTIK_RAILWAY',
-  ZentikServarr = 'ZENTIK_SERVARR'
+  ZentikServarr = 'ZENTIK_SERVARR',
+  ZentikStatusIo = 'ZENTIK_STATUS_IO'
 }
 
 /** Permission enum for bucket access */
