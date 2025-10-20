@@ -592,6 +592,7 @@
     "description": "Access tokens allow external applications to access your account. Keep them secure.",
     "noTokensTitle": "No access tokens created yet",
     "noTokensSubtext": "Create your first token to get started",
+    "selectToken": "Select Token",
     "deleteError": "Failed to delete access token",
     "deleteSuccessMessage": "Access token revoked successfully",
     "item": {
@@ -1377,6 +1378,11 @@
       "requiredUserSettingsHelp": "Configure the required user settings for this payload mapper to function correctly",
       "settingName": "Setting",
       "settingValue": "Value"
+    },
+    "urlGenerator": {
+      "title": "Transformer URL Generator",
+      "description": "Generate a URL to transform payloads using this parser",
+      "generatedUrl": "Generated URL"
     }
   },
   "userSettings": {

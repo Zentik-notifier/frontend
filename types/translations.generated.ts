@@ -595,6 +595,7 @@ export interface Translation {
     description: string;
     noTokensTitle: string;
     noTokensSubtext: string;
+    selectToken: string;
     deleteError: string;
     deleteSuccessMessage: string;
     item: {
@@ -1380,6 +1381,11 @@ export interface Translation {
       requiredUserSettingsHelp: string;
       settingName: string;
       settingValue: string;
+    };
+    urlGenerator: {
+      title: string;
+      description: string;
+      generatedUrl: string;
     };
   };
   userSettings: {

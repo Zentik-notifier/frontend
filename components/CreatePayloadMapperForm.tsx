@@ -13,7 +13,13 @@ import {
   useGetUserSettingsQuery,
   useUpdatePayloadMapperMutation,
   useUpsertUserSettingMutation,
+  useGetBucketsQuery,
+  useGetAccessTokensForBucketQuery,
 } from "@/generated/gql-operations-generated";
+import { ApiConfigService } from "@/services/api-config";
+import CopyButton from "./ui/CopyButton";
+import Selector from "./ui/Selector";
+import BucketSelector from "./BucketSelector";
 import { useI18n } from "@/hooks/useI18n";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -79,6 +85,59 @@ export default function CreatePayloadMapperForm({
 
   const [name, setName] = useState("");
   const [jsEvalFn, setJsEvalFn] = useState("");
+
+  // States for URL generator
+  const [selectedBucketId, setSelectedBucketId] = useState<string | undefined>(
+    undefined
+  );
+  const [selectedTokenId, setSelectedTokenId] = useState<string | undefined>(
+    undefined
+  );
+  const [apiUrl, setApiUrl] = useState("https://your-server.com");
+
+  // Load buckets
+  const { data: bucketsData } = useGetBucketsQuery();
+  
+  // Load tokens for selected bucket
+  const { data: tokensData } = useGetAccessTokensForBucketQuery({
+    variables: { bucketId: selectedBucketId || "" },
+    skip: !selectedBucketId,
+  });
+
+  useEffect(() => {
+    loadApiUrl();
+  }, []);
+
+  useEffect(() => {
+    setSelectedTokenId(undefined);
+  }, [selectedBucketId]);
+
+  const loadApiUrl = async () => {
+    try {
+      const url = await ApiConfigService.getApiUrl();
+      setApiUrl(url);
+    } catch (error) {
+      console.error("Failed to load API URL:", error);
+    }
+  };
+
+  // Tokens already filtered by backend for the selected bucket
+  const availableTokens = tokensData?.getAccessTokensForBucket || [];
+
+  // Generate transformer URL
+  const generatedTransformerUrl = useMemo(() => {
+    if (!selectedBucketId || !selectedTokenId || !payloadMapper) {
+      return "";
+    }
+
+    const selectedToken = availableTokens.find(
+      (t: any) => t.id === selectedTokenId
+    );
+    const token = selectedToken?.token ?? "zat_<TOKEN>";
+
+    const parserIdentifier = payloadMapper.builtInName || payloadMapper.id;
+    return `${apiUrl}/api/v1/messages/transform?parser=${parserIdentifier}&token=${token}&bucketId=${selectedBucketId}`;
+  }, [selectedBucketId, selectedTokenId, payloadMapper, availableTokens, apiUrl]);
 
   // Load user settings
   const {
@@ -541,8 +600,9 @@ export default function CreatePayloadMapperForm({
                               { color: theme.colors.onSurfaceVariant },
                             ]}
                           >
-                            {t(`userSettings.${settingType}_description` as any) ||
-                              ""}
+                            {t(
+                              `userSettings.${settingType}_description` as any
+                            ) || ""}
                           </Text>
                         </View>
                         {isModified && (
@@ -768,6 +828,75 @@ export default function CreatePayloadMapperForm({
         </>
       )}
 
+      {/* Transformer URL Generator Section */}
+      {payloadMapperId && (
+        <Card style={styles.urlGeneratorSection}>
+          <Card.Content>
+            <Text variant="titleMedium" style={{ marginBottom: 16 }}>
+              {t("payloadMappers.urlGenerator.title")}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{ marginBottom: 16, color: theme.colors.onSurfaceVariant }}
+            >
+              {t("payloadMappers.urlGenerator.description")}
+            </Text>
+
+            {/* Bucket Selector */}
+            <View style={styles.input}>
+              <BucketSelector
+                selectedBucketId={selectedBucketId}
+                onBucketChange={setSelectedBucketId}
+                buckets={bucketsData?.buckets || []}
+                label={t("bucketSelector.selectBucket")}
+                searchable
+              />
+            </View>
+
+            {/* Token Selector */}
+            {selectedBucketId && (
+              <View style={styles.input}>
+                <Selector
+                  mode="inline"
+                  label={t("accessTokens.selectToken")}
+                  placeholder={t("accessTokens.selectToken")}
+                  options={availableTokens.map((token: any) => ({
+                    id: token.id,
+                    name: token.name,
+                    description: token.isExpired
+                      ? t("accessTokens.item.expired")
+                      : undefined,
+                  }))}
+                  selectedValue={selectedTokenId}
+                  onValueChange={setSelectedTokenId}
+                  isSearchable
+                  searchPlaceholder={t("common.search")}
+                />
+              </View>
+            )}
+
+            {/* Generated URL */}
+            {generatedTransformerUrl && (
+              <View style={styles.generatedUrlContainer}>
+                <Text variant="labelMedium" style={{ marginBottom: 8 }}>
+                  {t("payloadMappers.urlGenerator.generatedUrl")}
+                </Text>
+                <View style={styles.urlRow}>
+                  <TextInput
+                    value={generatedTransformerUrl}
+                    editable={false}
+                    multiline
+                    style={[styles.urlInput, { flex: 1 }]}
+                    mode="outlined"
+                  />
+                  <CopyButton text={generatedTransformerUrl} size={24} />
+                </View>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
+      )}
+
       {/* Entity Executions Section */}
       {payloadMapperId && (
         <View style={{ marginBottom: 100 }}>
@@ -810,6 +939,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 8,
     marginTop: -4,
+  },
+  urlGeneratorSection: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  generatedUrlContainer: {
+    marginTop: 16,
+  },
+  urlRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  urlInput: {
+    fontSize: 12,
   },
   userSettingsSection: {
     marginTop: 8,

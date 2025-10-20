@@ -627,6 +627,7 @@
     "description": "I token di accesso consentono alle applicazioni esterne di accedere al tuo account. Mantienili sicuri.",
     "noTokensTitle": "Nessun token di accesso creato ancora",
     "noTokensSubtext": "Crea il tuo primo token per iniziare",
+    "selectToken": "Seleziona Token",
     "deleteError": "Impossibile eliminare il token di accesso",
     "deleteSuccessMessage": "Token di accesso revocato con successo",
     "item": {
@@ -1422,6 +1423,11 @@
       "requiredUserSettingsHelp": "Configura le impostazioni utente richieste affinché questo mappatore payload funzioni correttamente",
       "settingName": "Impostazione",
       "settingValue": "Valore"
+    },
+    "urlGenerator": {
+      "title": "Generatore URL Transformer",
+      "description": "Genera un URL per trasformare payload usando questo parser",
+      "generatedUrl": "URL Generato"
     }
   },
   "userSettings": {
