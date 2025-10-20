@@ -449,6 +449,37 @@ export interface Translation {
       createError: string;
       deleteError: string;
     };
+    inviteCodes: {
+      title: string;
+      description: string;
+      create: string;
+      createTitle: string;
+      selectAtLeastOnePermission: string;
+      invalidMaxUses: string;
+      createError: string;
+      deleteTitle: string;
+      deleteConfirm: string;
+      deleteError: string;
+      noCodesYet: string;
+      code: string;
+      permissions: string;
+      usage: string;
+      exhausted: string;
+      expiresAt: string;
+      expired: string;
+      createdBy: string;
+      selectPermissions: string;
+      setExpiration: string;
+      maxUses: string;
+      redeemTitle: string;
+      redeemDescription: string;
+      inviteCode: string;
+      enterCode: string;
+      redeemSuccess: string;
+      redeemError: string;
+      redeem: string;
+      redeemInfo: string;
+    };
     sharing: {
       title: string;
       description: string;

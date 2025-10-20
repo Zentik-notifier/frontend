@@ -44,7 +44,6 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { bucket, isSnoozed, error, canWrite } = useBucket(bucketId, {
     userId: userId ?? undefined,
   });
-  console.log(bucket);
   const isOrphaned = error && error.message.includes("Bucket not found");
 
   // Get counts from bucketsStats (automatically updates when cache refreshes)

@@ -45,23 +45,33 @@ export default function BucketInviteCodesSection({
   const { t } = useI18n();
   const [isCreating, setIsCreating] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  
+
   // Create form state
-  const [selectedPermissions, setSelectedPermissions] = useState<string[]>(["READ"]);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([
+    "READ",
+  ]);
   const [hasExpiration, setHasExpiration] = useState(false);
-  const [expirationDate, setExpirationDate] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)); // 7 days from now
+  const [expirationDate, setExpirationDate] = useState(
+    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  ); // 7 days from now
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [maxUses, setMaxUses] = useState("1");
-  
+
   // Mock data - will be replaced with GraphQL query
   const inviteCodes: InviteCode[] = [];
   const loading = false;
 
-  const availablePermissions = [Permission.Read, Permission.Write, Permission.Admin];
+  const availablePermissions = [
+    Permission.Read,
+    Permission.Write,
+    Permission.Admin,
+  ];
 
   const togglePermission = (permission: Permission) => {
     if (selectedPermissions.includes(permission)) {
-      setSelectedPermissions(selectedPermissions.filter((p) => p !== permission));
+      setSelectedPermissions(
+        selectedPermissions.filter((p) => p !== permission)
+      );
     } else {
       setSelectedPermissions([...selectedPermissions, permission]);
     }
@@ -71,17 +81,14 @@ export default function BucketInviteCodesSection({
     if (selectedPermissions.length === 0) {
       Alert.alert(
         t("common.error"),
-        t("inviteCodes.selectAtLeastOnePermission" as any)
+        t("buckets.inviteCodes.selectAtLeastOnePermission")
       );
       return;
     }
 
     const maxUsesNum = parseInt(maxUses, 10);
     if (isNaN(maxUsesNum) || maxUsesNum < 1) {
-      Alert.alert(
-        t("common.error"),
-        t("inviteCodes.invalidMaxUses" as any)
-      );
+      Alert.alert(t("common.error"), t("buckets.inviteCodes.invalidMaxUses"));
       return;
     }
 
@@ -95,47 +102,37 @@ export default function BucketInviteCodesSection({
         expiresAt: hasExpiration ? expirationDate.toISOString() : undefined,
         maxUses: maxUsesNum,
       });
-      
+
       setShowCreateDialog(false);
       resetCreateForm();
     } catch (error) {
       console.error("Error creating invite code:", error);
-      Alert.alert(
-        t("common.error"),
-        t("inviteCodes.createError" as any)
-      );
+      Alert.alert(t("common.error"), t("buckets.inviteCodes.createError"));
     } finally {
       setIsCreating(false);
     }
   };
 
   const handleDeleteCode = async (codeId: string) => {
-    Alert.alert(
-      t("inviteCodes.deleteTitle" as any),
-      t("inviteCodes.deleteConfirm" as any),
-      [
-        {
-          text: t("common.cancel"),
-          style: "cancel",
+    Alert.alert(t("buckets.inviteCodes.deleteTitle"), t("buckets.inviteCodes.deleteConfirm"), [
+      {
+        text: t("common.cancel"),
+        style: "cancel",
+      },
+      {
+        text: t("common.delete"),
+        style: "destructive",
+        onPress: async () => {
+          try {
+            // TODO: Call GraphQL mutation
+            console.log("Deleting invite code:", codeId);
+          } catch (error) {
+            console.error("Error deleting invite code:", error);
+            Alert.alert(t("common.error"), t("buckets.inviteCodes.deleteError"));
+          }
         },
-        {
-          text: t("common.delete"),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              // TODO: Call GraphQL mutation
-              console.log("Deleting invite code:", codeId);
-            } catch (error) {
-              console.error("Error deleting invite code:", error);
-              Alert.alert(
-                t("common.error"),
-                t("inviteCodes.deleteError" as any)
-              );
-            }
-          },
-        },
-      ]
-    );
+      },
+    ]);
   };
 
   const resetCreateForm = () => {
@@ -163,7 +160,7 @@ export default function BucketInviteCodesSection({
       <Card.Content>
         <View style={styles.header}>
           <Text variant="titleMedium" style={styles.title}>
-            {t("inviteCodes.title" as any)}
+            {t("buckets.inviteCodes.title")}
           </Text>
           <Button
             mode="contained"
@@ -172,12 +169,12 @@ export default function BucketInviteCodesSection({
             loading={isCreating}
             disabled={isCreating}
           >
-            {t("inviteCodes.create" as any)}
+            {t("buckets.inviteCodes.create")}
           </Button>
         </View>
 
         <Text variant="bodySmall" style={styles.description}>
-          {t("inviteCodes.description" as any)}
+          {t("buckets.inviteCodes.description")}
         </Text>
 
         {loading ? (
@@ -187,7 +184,7 @@ export default function BucketInviteCodesSection({
         ) : inviteCodes.length === 0 ? (
           <Surface style={styles.emptyState}>
             <Text variant="bodyMedium" style={{ opacity: 0.6 }}>
-              {t("inviteCodes.noCodesYet" as any)}
+              {t("buckets.inviteCodes.noCodesYet")}
             </Text>
           </Surface>
         ) : (
@@ -210,7 +207,7 @@ export default function BucketInviteCodesSection({
                   <View style={styles.codeHeader}>
                     <View style={styles.codeInfo}>
                       <Text variant="labelSmall" style={styles.codeLabel}>
-                        {t("inviteCodes.code" as any)}:
+                        {t("buckets.inviteCodes.code")}:
                       </Text>
                       <View style={styles.codeValueRow}>
                         <Text
@@ -236,7 +233,7 @@ export default function BucketInviteCodesSection({
                   <View style={styles.codeDetails}>
                     <View style={styles.detailRow}>
                       <Text variant="bodySmall" style={styles.detailLabel}>
-                        {t("inviteCodes.permissions" as any)}:
+                        {t("buckets.inviteCodes.permissions")}:
                       </Text>
                       <View style={styles.permissionsChips}>
                         {code.permissions.map((perm) => (
@@ -254,14 +251,14 @@ export default function BucketInviteCodesSection({
 
                     <View style={styles.detailRow}>
                       <Text variant="bodySmall" style={styles.detailLabel}>
-                        {t("inviteCodes.usage" as any)}:
+                        {t("buckets.inviteCodes.usage")}:
                       </Text>
                       <Text variant="bodySmall">
                         {code.usageCount} / {code.maxUses}
                         {exhausted && (
                           <Text style={{ color: theme.colors.error }}>
                             {" "}
-                            ({t("inviteCodes.exhausted" as any)})
+                            ({t("buckets.inviteCodes.exhausted")})
                           </Text>
                         )}
                       </Text>
@@ -270,23 +267,21 @@ export default function BucketInviteCodesSection({
                     {code.expiresAt && (
                       <View style={styles.detailRow}>
                         <Text variant="bodySmall" style={styles.detailLabel}>
-                          {t("inviteCodes.expiresAt" as any)}:
+                          {t("buckets.inviteCodes.expiresAt")}:
                         </Text>
                         <Text
                           variant="bodySmall"
-                          style={
-                            expired && { color: theme.colors.error }
-                          }
+                          style={expired && { color: theme.colors.error }}
                         >
                           {formatDate(code.expiresAt)}
-                          {expired && ` (${t("inviteCodes.expired" as any)})`}
+                          {expired && ` (${t("buckets.inviteCodes.expired")})`}
                         </Text>
                       </View>
                     )}
 
                     <View style={styles.detailRow}>
                       <Text variant="bodySmall" style={styles.detailLabel}>
-                        {t("inviteCodes.createdBy" as any)}:
+                        {t("buckets.inviteCodes.createdBy")}:
                       </Text>
                       <Text variant="bodySmall">
                         {code.creator.username || code.creator.email}
@@ -306,11 +301,11 @@ export default function BucketInviteCodesSection({
           visible={showCreateDialog}
           onDismiss={() => setShowCreateDialog(false)}
         >
-          <Dialog.Title>{t("inviteCodes.createTitle" as any)}</Dialog.Title>
+          <Dialog.Title>{t("buckets.inviteCodes.createTitle")}</Dialog.Title>
           <Dialog.ScrollArea>
             <ScrollView contentContainerStyle={styles.dialogContent}>
               <Text variant="labelMedium" style={styles.dialogLabel}>
-                {t("inviteCodes.selectPermissions" as any)}:
+                {t("buckets.inviteCodes.selectPermissions")}:
               </Text>
               <View style={styles.permissionsSelector}>
                 {availablePermissions.map((permission) => (
@@ -333,7 +328,7 @@ export default function BucketInviteCodesSection({
               <View style={styles.expirationSection}>
                 <View style={styles.switchRow}>
                   <Text variant="labelMedium">
-                    {t("inviteCodes.setExpiration" as any)}
+                    {t("buckets.inviteCodes.setExpiration")}
                   </Text>
                   <Switch
                     value={hasExpiration}
@@ -353,7 +348,7 @@ export default function BucketInviteCodesSection({
               </View>
 
               <TextInput
-                label={t("inviteCodes.maxUses" as any)}
+                label={t("buckets.inviteCodes.maxUses")}
                 value={maxUses}
                 onChangeText={setMaxUses}
                 keyboardType="number-pad"
@@ -364,14 +359,14 @@ export default function BucketInviteCodesSection({
           </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button onPress={() => setShowCreateDialog(false)}>
-              {t("common.cancel" as any)}
+              {t("common.cancel")}
             </Button>
             <Button
               onPress={handleCreateCode}
               loading={isCreating}
               disabled={isCreating || selectedPermissions.length === 0}
             >
-              {t("common.create" as any)}
+              {t("buckets.inviteCodes.create")}
             </Button>
           </Dialog.Actions>
         </Dialog>
@@ -501,4 +496,3 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 });
-

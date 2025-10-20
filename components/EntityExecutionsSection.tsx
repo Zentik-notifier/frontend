@@ -10,7 +10,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
-  Alert,
   TextInput,
   ScrollView,
 } from "react-native";
@@ -24,7 +23,7 @@ import {
   Divider,
 } from "react-native-paper";
 import { FlashList } from "@shopify/flash-list";
-import * as Clipboard from "expo-clipboard";
+import CopyButton from "./ui/CopyButton";
 
 interface EntityExecutionsSectionProps {
   entityId: string;
@@ -72,23 +71,6 @@ function ExecutionItem({ execution, isExpanded, onToggle }: ExecutionItemProps) 
     }
   };
 
-  const handleCopyInput = async () => {
-    if (execution.input) {
-      await Clipboard.setStringAsync(formatJsonString(execution.input));
-    }
-  };
-
-  const handleCopyOutput = async () => {
-    if (execution.output) {
-      await Clipboard.setStringAsync(formatJsonString(execution.output));
-    }
-  };
-
-  const handleCopyErrors = async () => {
-    if (execution.errors) {
-      await Clipboard.setStringAsync(execution.errors);
-    }
-  };
 
   return (
     <Card style={styles.executionCard}>
@@ -187,19 +169,15 @@ function ExecutionItem({ execution, isExpanded, onToggle }: ExecutionItemProps) 
             </View>
           </View>
 
-          {/* Errors */}
-          {execution.errors && (
-            <View style={styles.codeSection}>
-              <View style={styles.codeSectionHeader}>
-                <Text variant="labelMedium" style={styles.codeLabel}>
-                  {t("entityExecutions.errors")}:
-                </Text>
-                <IconButton
-                  icon="content-copy"
-                  size={20}
-                  onPress={handleCopyErrors}
-                />
-              </View>
+            {/* Errors */}
+            {execution.errors && (
+              <View style={styles.codeSection}>
+                <View style={styles.codeSectionHeader}>
+                  <Text variant="labelMedium" style={styles.codeLabel}>
+                    {t("entityExecutions.errors")}:
+                  </Text>
+                  <CopyButton text={execution.errors} size={20} />
+                </View>
               <ScrollView style={styles.codeScrollView} nestedScrollEnabled>
                 <TextInput
                   value={execution.errors}
@@ -220,19 +198,15 @@ function ExecutionItem({ execution, isExpanded, onToggle }: ExecutionItemProps) 
             </View>
           )}
 
-          {/* Input */}
-          {execution.input && (
-            <View style={styles.codeSection}>
-              <View style={styles.codeSectionHeader}>
-                <Text variant="labelMedium" style={styles.codeLabel}>
-                  {t("entityExecutions.input")}:
-                </Text>
-                <IconButton
-                  icon="content-copy"
-                  size={20}
-                  onPress={handleCopyInput}
-                />
-              </View>
+            {/* Input */}
+            {execution.input && (
+              <View style={styles.codeSection}>
+                <View style={styles.codeSectionHeader}>
+                  <Text variant="labelMedium" style={styles.codeLabel}>
+                    {t("entityExecutions.input")}:
+                  </Text>
+                  <CopyButton text={formatJsonString(execution.input)} size={20} />
+                </View>
               <ScrollView style={styles.codeScrollView} nestedScrollEnabled>
                 <TextInput
                   value={formatJsonString(execution.input)}
@@ -251,19 +225,15 @@ function ExecutionItem({ execution, isExpanded, onToggle }: ExecutionItemProps) 
             </View>
           )}
 
-          {/* Output */}
-          {execution.output && (
-            <View style={styles.codeSection}>
-              <View style={styles.codeSectionHeader}>
-                <Text variant="labelMedium" style={styles.codeLabel}>
-                  {t("entityExecutions.output")}:
-                </Text>
-                <IconButton
-                  icon="content-copy"
-                  size={20}
-                  onPress={handleCopyOutput}
-                />
-              </View>
+            {/* Output */}
+            {execution.output && (
+              <View style={styles.codeSection}>
+                <View style={styles.codeSectionHeader}>
+                  <Text variant="labelMedium" style={styles.codeLabel}>
+                    {t("entityExecutions.output")}:
+                  </Text>
+                  <CopyButton text={formatJsonString(execution.output)} size={20} />
+                </View>
               <ScrollView style={styles.codeScrollView} nestedScrollEnabled>
                 <TextInput
                   value={formatJsonString(execution.output)}
@@ -329,6 +299,15 @@ export default function EntityExecutionsSection({
               {t("entityExecutions.title")}
             </Text>
             <View style={styles.sectionHeaderRight}>
+              {isExpanded && (
+                <IconButton
+                  icon="refresh"
+                  size={20}
+                  onPress={refetch}
+                  disabled={loading}
+                  style={{ margin: 0 }}
+                />
+              )}
               {hasExecutions && (
                 <Chip compact mode="outlined">
                   {executions.length}
@@ -457,7 +436,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   executionCard: {
-    marginBottom: 8,
+    // marginBottom: 8,
     elevation: 1,
   },
   executionHeader: {

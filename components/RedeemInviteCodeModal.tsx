@@ -31,7 +31,7 @@ export default function RedeemInviteCodeModal({
     if (!code.trim()) {
       Alert.alert(
         t("common.error"),
-        t("inviteCodes.enterCode" as any)
+        t("buckets.inviteCodes.enterCode")
       );
       return;
     }
@@ -52,7 +52,7 @@ export default function RedeemInviteCodeModal({
       if (mockResponse.success) {
         Alert.alert(
           t("common.success"),
-          t("inviteCodes.redeemSuccess" as any),
+          t("buckets.inviteCodes.redeemSuccess"),
           [
             {
               text: "OK",
@@ -67,14 +67,14 @@ export default function RedeemInviteCodeModal({
       } else {
         Alert.alert(
           t("common.error"),
-          t("inviteCodes.redeemError" as any)
+          t("buckets.inviteCodes.redeemError")
         );
       }
     } catch (error: any) {
       console.error("Error redeeming invite code:", error);
       Alert.alert(
         t("common.error"),
-        error?.message || t("inviteCodes.redeemError" as any)
+        error?.message || t("buckets.inviteCodes.redeemError")
       );
     } finally {
       setIsRedeeming(false);
@@ -89,14 +89,14 @@ export default function RedeemInviteCodeModal({
   return (
     <Portal>
       <Dialog visible={visible} onDismiss={handleClose}>
-        <Dialog.Title>{t("inviteCodes.redeemTitle" as any)}</Dialog.Title>
+        <Dialog.Title>{t("buckets.inviteCodes.redeemTitle")}</Dialog.Title>
         <Dialog.Content>
           <Text variant="bodyMedium" style={styles.description}>
-            {t("inviteCodes.redeemDescription" as any)}
+            {t("buckets.inviteCodes.redeemDescription")}
           </Text>
 
           <TextInput
-            label={t("inviteCodes.inviteCode" as any)}
+            label={t("buckets.inviteCodes.inviteCode")}
             value={code}
             onChangeText={setCode}
             mode="outlined"
@@ -122,7 +122,7 @@ export default function RedeemInviteCodeModal({
               variant="bodySmall"
               style={[styles.infoText, { color: theme.colors.onSurfaceVariant }]}
             >
-              {t("inviteCodes.redeemInfo" as any)}
+              {t("buckets.inviteCodes.redeemInfo")}
             </Text>
           </View>
         </Dialog.Content>
@@ -136,7 +136,7 @@ export default function RedeemInviteCodeModal({
             disabled={isRedeeming || !code.trim()}
             mode="contained"
           >
-            {t("inviteCodes.redeem" as any)}
+            {t("buckets.inviteCodes.redeem")}
           </Button>
         </Dialog.Actions>
       </Dialog>
