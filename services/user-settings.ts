@@ -892,12 +892,16 @@ export const userSettings = new UserSettingsService();
 // Export hook for React components
 export function useUserSettings() {
   const [settings, setSettings] = React.useState<UserSettings>(userSettings.getSettings());
+  const [isLoaded, setIsLoaded] = React.useState(false);
   const [loadUserSettings, { data: remoteUserSettings }] = useGetUserSettingsLazyQuery({ fetchPolicy: 'network-only' });
   const [upsertUserSetting] = useUpsertUserSettingMutation();
 
   useEffect(() => {
     // Initialize settings
-    userSettings.initialize().then(setSettings);
+    userSettings.initialize().then((loadedSettings) => {
+      setSettings(loadedSettings);
+      setIsLoaded(true);
+    });
 
     // Subscribe to changes
     const unsubscribe = userSettings.subscribe(setSettings);
@@ -1027,6 +1031,7 @@ export function useUserSettings() {
 
   return {
     settings,
+    isLoaded,
     updateSettings: userSettings.updateSettings.bind(userSettings),
     setThemeMode: userSettings.setThemeMode.bind(userSettings),
     getLayoutMode: userSettings.getLayoutMode.bind(userSettings),

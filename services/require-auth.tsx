@@ -12,6 +12,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { navigateToHome, navigateToLogin, navigateToTerms } =
     useNavigationUtils();
   const {
+    isLoaded,
     settings: {
       termsAcceptance: { acceptedVersion, termsAccepted },
     },
@@ -22,6 +23,9 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     const isPrivate = !isPublic;
     const isHome = segments[1] === "(home)";
     const isTerms = isPublic && segments[1] === "terms-acceptance";
+
+    // Wait for user settings to be loaded from AsyncStorage to avoid race condition
+    if (!isLoaded) return;
 
     // 1) Terms gate has highest priority
     const needsTerms =
@@ -56,6 +60,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     showPrivateRoutes,
     segments,
     isInitializing,
+    isLoaded,
     acceptedVersion,
     termsAccepted,
   ]);

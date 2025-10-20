@@ -395,6 +395,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Only show onboarding if user is logged in
       if (!userId) return;
 
+      // Wait for user settings to be loaded from AsyncStorage to avoid race condition
+      if (!userSettings.isLoaded) return;
+
       const onboardingSettings = userSettings.getOnboardingSettings();
 
       if (
@@ -407,7 +410,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     checkOnboarding();
-  }, [isInitializing, userId, userSettings.settings.onboarding]);
+  }, [isInitializing, userId, userSettings.isLoaded, userSettings.settings.onboarding]);
 
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {

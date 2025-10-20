@@ -560,6 +560,7 @@ export function useShareBucket(options?: {
             expiresAt: null,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
+            inviteCodeId: null,
             user: {
               __typename: 'User' as const,
               id: targetUserId,
