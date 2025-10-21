@@ -203,8 +203,11 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
     // First, convert Markdown syntax to HTML
     processed = convertMarkdownToHtml(processed);
     
-    // Then, auto-link any remaining plain text URLs/emails/phones
-    processed = autoLinkText(processed);
+    // Only auto-link if content doesn't already contain HTML anchor tags
+    // This prevents interfering with existing <a href="..."> tags
+    if (!/<a\s+[^>]*href\s*=/i.test(processed)) {
+      processed = autoLinkText(processed);
+    }
     
     // Convert newlines to <br> tags
     processed = processed.replace(/\n/g, '<br/>');
