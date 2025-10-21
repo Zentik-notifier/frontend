@@ -249,6 +249,13 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                                     entitlements: {
                                         ...commonEntitlements
                                     },
+                                },
+                                {
+                                    targetName: "ZentikShareExtension",
+                                    bundleIdentifier: `${bundleIdentifier}.ZentikShareExtension`,
+                                    entitlements: {
+                                        ...commonEntitlements
+                                    },
                                 }
                             ]
                         }
