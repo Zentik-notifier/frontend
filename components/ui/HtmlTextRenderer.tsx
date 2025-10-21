@@ -3,6 +3,7 @@ import {
   Alert,
   Linking,
   StyleProp,
+  StyleSheet,
   TextStyle,
   useWindowDimensions,
   ViewStyle,
@@ -292,6 +293,17 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
     },
   }), [textColor, linkColor, variant, theme]);
 
+  // Merge external styles with variant styles
+  const mergedBaseStyle = useMemo(() => {
+    const variantStyle = getVariantStyle();
+    const flattenedExternalStyle = StyleSheet.flatten(style) || {};
+    
+    return {
+      ...variantStyle,
+      ...flattenedExternalStyle,
+    };
+  }, [style, variant, textColor]);
+
   // If no content, return null
   if (!content || content.trim() === "") {
     return null;
@@ -302,7 +314,7 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
       contentWidth={width}
       source={{ html: processedContent }}
       tagsStyles={tagsStyles as any}
-      baseStyle={getVariantStyle() as any}
+      baseStyle={mergedBaseStyle as any}
       systemFonts={[]}
       renderersProps={{
         a: {
