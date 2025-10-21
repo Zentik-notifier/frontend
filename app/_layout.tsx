@@ -20,6 +20,9 @@ import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb, openWebStorageDb } from "../services/db-setup";
 import { settingsService } from "../services/settings-service";
 import { Platform } from "react-native";
+import { getCustomScheme } from "@/utils/universal-links";
+
+const scheme = getCustomScheme();
 
 function DeepLinkHandler() {
   const { refreshUserData } = useAppContext();
@@ -31,7 +34,7 @@ function DeepLinkHandler() {
 
       try {
         const parsed = Linking.parse(url);
-        if (parsed?.scheme === "zentik" && parsed?.path === "public/oauth") {
+        if (parsed?.scheme === scheme && parsed?.path === "oauth") {
           const hash = url.split("#")[1] || "";
           const params = new URLSearchParams(hash);
           const accessToken = params.get("accessToken");
@@ -102,16 +105,18 @@ export default function RootLayout() {
     openSharedCacheDb().catch();
     openWebStorageDb().catch();
     console.log("[LayoutInit] DB opened");
-    
+
     // Wait for settings service to be ready
     console.log("[LayoutInit] Waiting for settings service...");
-    const subscription = settingsService.isInitialized$.subscribe((initialized) => {
-      if (initialized) {
-        console.log("[LayoutInit] ✅ Settings service ready!");
-        setSettingsReady(true);
+    const subscription = settingsService.isInitialized$.subscribe(
+      (initialized) => {
+        if (initialized) {
+          console.log("[LayoutInit] ✅ Settings service ready!");
+          setSettingsReady(true);
+        }
       }
-    });
-    
+    );
+
     return () => subscription.unsubscribe();
   }, [loaded]);
 

@@ -1013,31 +1013,31 @@ class SettingsService {
     current.refreshToken = refreshToken;
     this.authDataSubject.next(current);
 
-    console.log('[SettingsService] 💾 Saving tokens to storage...', {
-      platform: Platform.OS,
-      isDevice: Device.isDevice,
-      hasAccessToken: !!accessToken,
-      hasRefreshToken: !!refreshToken,
-    });
+    // console.log('[SettingsService] 💾 Saving tokens to storage...', {
+    //   platform: Platform.OS,
+    //   isDevice: Device.isDevice,
+    //   hasAccessToken: !!accessToken,
+    //   hasRefreshToken: !!refreshToken,
+    // });
 
     if (Platform.OS === 'ios' || Platform.OS === 'macos') {
       const options: Keychain.SetOptions = Device.isDevice
         ? { service: SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
         : { service: SERVICE, accessible: ACCESSIBLE };
       
-      console.log('[SettingsService] 🔑 Saving to Keychain with options:', {
-        service: SERVICE,
-        accessGroup: Device.isDevice ? KEYCHAIN_ACCESS_GROUP : 'none',
-      });
+      // console.log('[SettingsService] 🔑 Saving to Keychain with options:', {
+      //   service: SERVICE,
+      //   accessGroup: Device.isDevice ? KEYCHAIN_ACCESS_GROUP : 'none',
+      // });
       
       const result = await Keychain.setGenericPassword(accessToken, refreshToken, options);
-      console.log('[SettingsService] ✅ Tokens saved to Keychain:', result ? 'SUCCESS' : 'FAILED');
+      // console.log('[SettingsService] ✅ Tokens saved to Keychain:', result ? 'SUCCESS' : 'FAILED');
     } else {
       await AsyncStorage.multiSet([
         ['access_token', accessToken],
         ['refresh_token', refreshToken],
       ]);
-      console.log('[SettingsService] ✅ Tokens saved to AsyncStorage');
+      // console.log('[SettingsService] ✅ Tokens saved to AsyncStorage');
     }
   }
 

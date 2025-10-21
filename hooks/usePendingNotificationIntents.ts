@@ -4,6 +4,7 @@ import { Linking } from 'react-native';
 import { settingsService } from '@/services/settings-service';
 import { apolloClient } from '@/config/apollo-client';
 import { MarkNotificationAsReadDocument } from '@/generated/gql-operations-generated';
+import { createNotificationLink } from '@/utils/universal-links';
 
 export function usePendingNotificationIntents() {
   const { navigateToNotificationDetail } = useNavigationUtils();
@@ -22,7 +23,7 @@ export function usePendingNotificationIntents() {
       if (typeof intent?.value === 'string' && intent.value.length > 0) {
         if (intent.type === 'OPEN_NOTIFICATION') {
           console.log('[PendingIntents] 📂 Opening notification detail for ID:', intent.value);
-          
+
           // Mark notification as read when opening via intent
           if (apolloClient) {
             try {
@@ -37,12 +38,11 @@ export function usePendingNotificationIntents() {
           } else {
             console.warn('[PendingIntents] ⚠️ Apollo client not initialized, skipping mark as read');
           }
-          
+
           try {
             navigateToNotificationDetail(intent.value);
           } catch (e) {
-            console.warn('[PendingIntents] ⚠️ Failed to navigate via router, falling back to deep link');
-            await Linking.openURL(`zentik://notifications/${intent.value}`);
+            console.warn('[PendingIntents] ⚠️ Failed to navigate via router');
           }
         } else if (intent.type === 'NAVIGATE') {
           console.log('[PendingIntents] 🧭 Opening deep link for pending intent:', intent.value);

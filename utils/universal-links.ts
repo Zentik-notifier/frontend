@@ -1,19 +1,13 @@
 import Constants from 'expo-constants';
 
 const PWA_DOMAIN = 'https://notifier.zentik.app';
-
-/**
- * Determines if running dev or prod app based on build configuration
- */
-export const isDevelopmentBuild = (): boolean => {
-  return Constants.expoConfig?.scheme === 'zentik.dev';
-};
+const isDev = process.env.EXPO_PUBLIC_APP_VARIANT === "development";
 
 /**
  * Get the custom scheme for the current build
  */
 export const getCustomScheme = (): string => {
-  return isDevelopmentBuild() ? 'zentik.dev' : 'zentik';
+  return isDev ? 'zentik.dev' : 'zentik';
 };
 
 /**
@@ -22,18 +16,19 @@ export const getCustomScheme = (): string => {
  * @returns Universal link that redirects to the app
  */
 export const createInviteLink = (code: string): string => {
-  const envParam = isDevelopmentBuild() ? '?env=dev' : '';
+  const envParam = isDev ? '?env=dev' : '';
   return `${PWA_DOMAIN}/invite/${code}${envParam}`;
 };
 
 /**
  * Creates a universal link for OAuth callback
- * @param path - Optional path after oauth (default: '/(mobile)/public/oauth')
+ * @param provider - OAuth provider name (e.g., 'google', 'github')
  * @returns Universal link for OAuth redirect
  */
-export const createOAuthRedirectLink = (path: string = '/(mobile)/public/oauth'): string => {
-  const envParam = isDevelopmentBuild() ? '?env=dev' : '';
-  return `${PWA_DOMAIN}/oauth${envParam}&path=${encodeURIComponent(path)}`;
+export const createOAuthRedirectLink = (): string => {
+  const scheme = getCustomScheme();
+  return `${scheme}:///oauth`;
+
 };
 
 /**
@@ -42,7 +37,7 @@ export const createOAuthRedirectLink = (path: string = '/(mobile)/public/oauth')
  * @returns Universal link to notification
  */
 export const createNotificationLink = (notificationId: string): string => {
-  const envParam = isDevelopmentBuild() ? '?env=dev' : '';
+  const envParam = isDev ? '?env=dev' : '';
   return `${PWA_DOMAIN}/notifications/${notificationId}${envParam}`;
 };
 
@@ -55,33 +50,59 @@ export const parseZentikLink = (url: string): {
   type: 'invite' | 'oauth' | 'notification' | 'unknown';
   code?: string;
   notificationId?: string;
-  path?: string;
+  provider?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  connected?: boolean;
   env?: string;
 } | null => {
   try {
     const urlObj = new URL(url);
-    
+
     // Parse query params
     const env = urlObj.searchParams.get('env') || undefined;
-    const path = urlObj.searchParams.get('path') || undefined;
-    
+
     // Check for invite link
     const inviteMatch = urlObj.pathname.match(/^\/invite\/([^/]+)$/);
     if (inviteMatch) {
       return { type: 'invite', code: inviteMatch[1], env };
     }
-    
+
     // Check for OAuth callback
-    if (urlObj.pathname === '/oauth') {
-      return { type: 'oauth', path, env };
+    // Format: /oauth/{provider} or /oauth (for backward compatibility)
+    const oauthMatch = urlObj.pathname.match(/^\/oauth(?:\/([^/]+))?$/);
+    if (oauthMatch) {
+      const provider = oauthMatch[1] || undefined;
+
+      // Parse tokens from hash (format: #accessToken=xxx&refreshToken=yyy)
+      let accessToken: string | undefined;
+      let refreshToken: string | undefined;
+      let connected: boolean | undefined;
+
+      if (urlObj.hash) {
+        const hashParams = new URLSearchParams(urlObj.hash.substring(1));
+        accessToken = hashParams.get('accessToken') || undefined;
+        refreshToken = hashParams.get('refreshToken') || undefined;
+        const connectedParam = hashParams.get('connected');
+        connected = connectedParam === 'true' ? true : undefined;
+      }
+
+      return {
+        type: 'oauth',
+        provider,
+        accessToken,
+        refreshToken,
+        connected,
+        env
+      };
     }
-    
+
     // Check for notification link
     const notificationMatch = urlObj.pathname.match(/^\/notifications\/([^/]+)$/);
     if (notificationMatch) {
       return { type: 'notification', notificationId: notificationMatch[1], env };
     }
-    
+
     return { type: 'unknown' };
   } catch (error) {
     console.error('[UniversalLinks] Error parsing URL:', error);

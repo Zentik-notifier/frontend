@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { Button, TextInput, HelperText } from "react-native-paper";
+import { createOAuthRedirectLink } from "@/utils/universal-links";
 
 type Props = {
   onSuccess?: () => void;
@@ -80,7 +81,7 @@ export default function LoginForm({
   const openProviderLogin = async (provider: string) => {
     try {
       const baseWithPrefix = settingsService.getApiBaseWithPrefix();
-      const redirect = `zentik://(mobile)/public/oauth`;
+      const redirect = createOAuthRedirectLink();
       const url = `${baseWithPrefix}/auth/${provider}?redirect=${encodeURIComponent(
         redirect
       )}&locale=${encodeURIComponent(currentLocale)}`;

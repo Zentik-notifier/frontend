@@ -19,6 +19,7 @@ import {
   Text,
   useTheme,
 } from "react-native-paper";
+import { createOAuthRedirectLink } from "@/utils/universal-links";
 
 interface OAuthConnectionsProps {
   identities: UserFragment["identities"];
@@ -80,7 +81,7 @@ export default function OAuthConnections({
       }
 
       const baseWithPrefix = settingsService.getApiBaseWithPrefix();
-      const redirect = `zentik://(mobile)/public/oauth`;
+      const redirect = createOAuthRedirectLink();
 
       // Create state with connection context and access token
       const stateData = {
