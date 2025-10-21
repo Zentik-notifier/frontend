@@ -45,7 +45,6 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
   useEffect(() => {
     const initializeLocale = async () => {
       try {
-        console.log('[ShareExtension] Loading locale from keychain (App Groups)');
         // getStoredLocale reads from keychain with accessGroup, allowing cross-app data sharing
         const storedLocale = await getStoredLocale();
         
@@ -55,10 +54,8 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
         };
         
         const locale: Locale = (storedLocale && isValidLocale(storedLocale)) ? storedLocale : 'en-EN';
-        console.log('[ShareExtension] Locale from keychain:', locale);
         
         await i18nService.setLocale(locale);
-        console.log('[ShareExtension] Locale set to:', locale, '- translations will now use this language');
         setLocaleInitialized(true);
       } catch (error) {
         console.error('[ShareExtension] Failed to initialize locale:', error);
