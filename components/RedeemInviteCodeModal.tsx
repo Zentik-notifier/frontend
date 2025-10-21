@@ -3,8 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import {
   Button,
-  Dialog,
-  Portal,
+  Surface,
   Text,
   TextInput,
   useTheme,
@@ -13,16 +12,14 @@ import {
 import { useRedeemInviteCodeMutation } from "@/generated/gql-operations-generated";
 
 interface RedeemInviteCodeModalProps {
-  visible: boolean;
-  onDismiss: () => void;
   onSuccess?: (resourceType: string, resourceId: string) => void;
+  onCancel?: () => void;
   initialCode?: string;
 }
 
 export default function RedeemInviteCodeModal({
-  visible,
-  onDismiss,
   onSuccess,
+  onCancel,
   initialCode,
 }: RedeemInviteCodeModalProps) {
   const theme = useTheme();
@@ -33,10 +30,10 @@ export default function RedeemInviteCodeModal({
 
   // Set initial code if provided (from deep link)
   useEffect(() => {
-    if (initialCode && visible) {
+    if (initialCode) {
       setCode(initialCode);
     }
-  }, [initialCode, visible]);
+  }, [initialCode]);
 
   const handleRedeem = async () => {
     if (!code.trim()) {
@@ -67,7 +64,6 @@ export default function RedeemInviteCodeModal({
               text: "OK",
               onPress: () => {
                 onSuccess?.(redemptionResult.resourceType!, redemptionResult.resourceId!);
-                onDismiss();
                 setCode("");
               },
             },
@@ -88,70 +84,84 @@ export default function RedeemInviteCodeModal({
     }
   };
 
-  const handleClose = () => {
+  const handleCancel = () => {
     setCode("");
-    onDismiss();
+    onCancel?.();
   };
 
   return (
-    <Portal>
-      <Dialog visible={visible} onDismiss={handleClose}>
-        <Dialog.Title>{t("buckets.inviteCodes.redeemTitle")}</Dialog.Title>
-        <Dialog.Content>
-          <Text variant="bodyMedium" style={styles.description}>
-            {t("buckets.inviteCodes.redeemDescription")}
-          </Text>
+    <Surface style={[styles.surface, { backgroundColor: theme.colors.surface }]} elevation={2}>
+      <Text variant="headlineSmall" style={styles.title}>
+        {t("buckets.inviteCodes.redeemTitle")}
+      </Text>
 
-          <TextInput
-            label={t("buckets.inviteCodes.inviteCode")}
-            value={code}
-            onChangeText={setCode}
-            mode="outlined"
-            autoCapitalize="none"
-            autoCorrect={false}
-            placeholder="ABC123XYZ..."
-            style={styles.input}
-            disabled={isRedeeming}
-            left={
-              <TextInput.Icon
-                icon="ticket"
-              />
-            }
+      <Text variant="bodyMedium" style={styles.description}>
+        {t("buckets.inviteCodes.redeemDescription")}
+      </Text>
+
+      <TextInput
+        label={t("buckets.inviteCodes.inviteCode")}
+        value={code}
+        onChangeText={setCode}
+        mode="outlined"
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholder="ABC123XYZ..."
+        style={styles.input}
+        disabled={isRedeeming}
+        left={
+          <TextInput.Icon
+            icon="ticket"
           />
+        }
+      />
 
-          <View style={styles.infoBox}>
-            <Icon
-              source="information"
-              size={20}
-              color={theme.colors.primary}
-            />
-            <Text
-              variant="bodySmall"
-              style={[styles.infoText, { color: theme.colors.onSurfaceVariant }]}
-            >
-              {t("buckets.inviteCodes.redeemInfo")}
-            </Text>
-          </View>
-        </Dialog.Content>
-        <Dialog.Actions>
-          <Button onPress={handleClose} disabled={isRedeeming}>
+      <View style={[styles.infoBox, { backgroundColor: theme.colors.surfaceVariant }]}>
+        <Icon
+          source="information"
+          size={20}
+          color={theme.colors.primary}
+        />
+        <Text
+          variant="bodySmall"
+          style={[styles.infoText, { color: theme.colors.onSurfaceVariant }]}
+        >
+          {t("buckets.inviteCodes.redeemInfo")}
+        </Text>
+      </View>
+
+      <View style={styles.actions}>
+        {onCancel && (
+          <Button 
+            onPress={handleCancel} 
+            disabled={isRedeeming}
+            style={styles.button}
+          >
             {t("common.cancel")}
           </Button>
-          <Button
-            onPress={handleRedeem}
-            loading={isRedeeming}
-            disabled={isRedeeming || !code.trim()}
-            mode="contained"
-          >
-            {t("buckets.inviteCodes.redeem")}
-          </Button>
-        </Dialog.Actions>
-      </Dialog>
-    </Portal>
+        )}
+        <Button
+          onPress={handleRedeem}
+          loading={isRedeeming}
+          disabled={isRedeeming || !code.trim()}
+          mode="contained"
+          style={styles.button}
+        >
+          {t("buckets.inviteCodes.redeem")}
+        </Button>
+      </View>
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
+  surface: {
+    padding: 24,
+    borderRadius: 12,
+  },
+  title: {
+    marginBottom: 8,
+  },
   description: {
     marginBottom: 16,
     opacity: 0.8,
@@ -165,11 +175,19 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
+    marginBottom: 16,
   },
   infoText: {
     flex: 1,
     fontSize: 12,
+  },
+  actions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  button: {
+    minWidth: 100,
   },
 });
 

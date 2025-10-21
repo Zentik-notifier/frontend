@@ -12,11 +12,10 @@ import {
   ActivityIndicator,
   Appbar,
   Icon,
-  IconButton,
   Surface,
   Text,
   TouchableRipple,
-  useTheme,
+  useTheme
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LoginModal } from "./LoginModal";
@@ -224,6 +223,7 @@ export default function Header() {
 
   // Determine current route
   const currentRoute = `/${segments.join("/")}`;
+  // console.log("currentRoute", currentRoute);
   const shouldShowHomeButton = ROUTES_WITH_HOME_BUTTON.some((route) =>
     currentRoute.startsWith(route)
   );

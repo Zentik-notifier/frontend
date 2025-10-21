@@ -1,25 +1,26 @@
 import OnboardingModal from "@/components/Onboarding/OnboardingModal";
-import RedeemInviteCodeModal from "@/components/RedeemInviteCodeModal";
 import {
   DeviceInfoDto,
   LoginDto,
   RegisterDto,
-  ResourceType,
   useGetMeLazyQuery,
   useLoginMutation,
   useLogoutMutation,
-  useRegisterMutation,
+  useRegisterMutation
 } from "@/generated/gql-operations-generated";
 import { useMarkAllAsRead } from "@/hooks/notifications/useNotificationMutations";
 import { useCleanup } from "@/hooks/useCleanup";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { Locale, localeToDatePickerLocale, useI18n } from "@/hooks/useI18n";
+import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
 import {
   UsePushNotifications,
   usePushNotifications,
 } from "@/hooks/usePushNotifications";
-import { useInviteCodeDeepLink } from "@/hooks/useInviteCodeDeepLink";
+import { closeSharedCacheDb, openSharedCacheDb } from "@/services/db-setup";
 import { i18nService } from "@/services/i18n";
+import { logger } from "@/services/logger";
+import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
 import * as Localization from "expo-localization";
 import React, {
@@ -42,10 +43,6 @@ import {
   saveTokens,
 } from "../services/auth-storage";
 import { useUserSettings } from "../services/user-settings";
-import { closeSharedCacheDb, openSharedCacheDb } from "@/services/db-setup";
-import { logger } from "@/services/logger";
-import { mediaCache } from "@/services/media-cache-service";
-import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -110,12 +107,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const userSettings = useUserSettings();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-  const [isRedeemInviteModalOpen, setIsRedeemInviteModalOpen] = useState(false);
   const [isMainLoading, setIsLoading] = useState(false);
   const { mutateAsync: markAllAsRead } = useMarkAllAsRead();
   const { cleanup } = useCleanup();
   const { processPendingNavigationIntent } = usePendingNotificationIntents();
-  const { inviteCode, clearInviteCode } = useInviteCodeDeepLink();
 
   useEffect(() => {
     if (!userSettings.settings.locale) {
@@ -393,17 +388,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Handle invite code deep links
-  useEffect(() => {
-    if (inviteCode && userId && !isInitializing) {
-      console.log(
-        "[AppContext] Opening redeem modal for invite code:",
-        inviteCode
-      );
-      setIsRedeemInviteModalOpen(true);
-    }
-  }, [inviteCode, userId, isInitializing]);
-
   // Auto-show onboarding for first-time users
   useEffect(() => {
     const checkOnboarding = async () => {
@@ -495,24 +479,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   //   console.log(`🔄 Bucket ${eventType} via subscription:`, data);
   //   debouncedRefetchBuckets();
   // };
-  const handleRedeemSuccess = (resourceType: string, resourceId: string) => {
-    console.log("[AppContext] Invite code redeemed successfully:", {
-      resourceType,
-      resourceId,
-    });
-    clearInviteCode();
-    setIsRedeemInviteModalOpen(false);
-
-    // Navigate to the redeemed resource
-    if (resourceType === ResourceType.Bucket) {
-      navigateToBucketDetail(resourceId);
-    }
-  };
-
-  const handleCloseRedeemModal = () => {
-    setIsRedeemInviteModalOpen(false);
-    clearInviteCode();
-  };
 
   return (
     <AppContext.Provider
@@ -545,12 +511,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         visible={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
         push={push}
-      />
-      <RedeemInviteCodeModal
-        visible={isRedeemInviteModalOpen}
-        onDismiss={handleCloseRedeemModal}
-        onSuccess={handleRedeemSuccess}
-        initialCode={inviteCode || undefined}
       />
     </AppContext.Provider>
   );

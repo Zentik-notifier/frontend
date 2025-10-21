@@ -1,82 +1,125 @@
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Platform, View, StyleSheet } from "react-native";
+import { Platform, View, StyleSheet, ScrollView } from "react-native";
 import { Text, ActivityIndicator, useTheme } from "react-native-paper";
 import { useI18n } from "@/hooks/useI18n";
+import RedeemInviteCodeModal from "@/components/RedeemInviteCodeModal";
+import { useNavigationUtils } from "@/utils/navigation";
+import { ResourceType } from "@/generated/gql-operations-generated";
+// import * as Linking from 'expo-linking';
+
+// console.log(Linking.createURL('/'));
 
 export default function InviteCodeRedirect() {
   const { code, env } = useLocalSearchParams<{ code: string; env?: string }>();
   const theme = useTheme();
   const { t } = useI18n();
-  const [deepLink, setDeepLink] = useState<string>("");
+  const [initialCode, setInitialCode] = useState<string>();
+  const { navigateToBucketDetail, navigateToHome } = useNavigationUtils();
 
   useEffect(() => {
-    if (code) {
-      // On web, redirect to appropriate app based on env parameter
-      // On native, this route is handled by the deep link system directly
-      if (Platform.OS === 'web') {
-        // env=dev → zentik.dev://invite/{code}
-        // default → zentik://invite/{code}
-        const scheme = env === 'dev' ? 'zentik.dev' : 'zentik';
-        const generatedDeepLink = `${scheme}://invite/${code}`;
-        setDeepLink(generatedDeepLink);
-        
-        console.log('[InviteRedirect] Opening deep link:', generatedDeepLink, 'for env:', env || 'prod');
-        window.location.href = generatedDeepLink;
-        
-        // After 2 seconds, show manual instructions if app didn't open
-        setTimeout(() => {
-          console.log('App did not open, showing instructions');
-        }, 2000);
-      }
+    setInitialCode(code);
+  }, [code]);
+
+  const handleRedeemSuccess = (resourceType: string, resourceId: string) => {
+    console.log("[AppContext] Invite code redeemed successfully:", {
+      resourceType,
+      resourceId,
+    });
+
+    if (resourceType === ResourceType.Bucket) {
+      navigateToBucketDetail(resourceId);
+    }
+  };
+
+  useEffect(() => {
+    if (Platform.OS === "web" && code) {
+      const scheme = env === "dev" ? "zentik.dev" : "zentik";
+      const generatedDeepLink = `${scheme}://invite/${code}`;
+
+      console.log(
+        "[InviteRedirect] Opening deep link:",
+        generatedDeepLink,
+        "for env:",
+        env || "prod"
+      );
+      window.location.href = generatedDeepLink;
+
+      setTimeout(() => {
+        console.log("App did not open, showing instructions");
+      }, 2000);
     }
   }, [code, env]);
 
-  // This component is only shown on web
-  if (Platform.OS !== 'web') {
-    return null;
+  if (Platform.OS !== "web") {
+    return (
+      <View
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <RedeemInviteCodeModal
+            onCancel={navigateToHome}
+            onSuccess={handleRedeemSuccess}
+            initialCode={initialCode}
+          />
+        </ScrollView>
+      </View>
+    );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.webContainer}>
       <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
         <Text variant="headlineMedium" style={styles.title}>
           🎉 {t("buckets.inviteCodes.shareTitle")}
         </Text>
-        
+
         <View style={styles.codeContainer}>
-          <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+          <Text
+            variant="labelMedium"
+            style={{ color: theme.colors.onSurfaceVariant }}
+          >
             {t("buckets.inviteCodes.inviteCode")}:
           </Text>
-          <Text variant="headlineSmall" style={[styles.code, { color: theme.colors.primary }]}>
+          <Text
+            variant="headlineSmall"
+            style={[styles.code, { color: theme.colors.primary }]}
+          >
             {code}
           </Text>
         </View>
 
-        {deepLink && (
-          <View style={styles.schemeContainer}>
-            <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 4 }}>
-              Opening:
-            </Text>
-            <Text variant="bodySmall" style={[styles.schemeText, { color: theme.colors.secondary }]}>
-              {deepLink}
-            </Text>
-          </View>
-        )}
-
         <ActivityIndicator size="large" style={styles.spinner} />
-        
-        <Text variant="bodyMedium" style={[styles.message, { color: theme.colors.onSurface }]}>
+
+        <Text
+          variant="bodyMedium"
+          style={[styles.message, { color: theme.colors.onSurface }]}
+        >
           {t("buckets.inviteCodes.openingApp")}...
         </Text>
-        
+
         <View style={styles.divider} />
-        
-        <Text variant="bodySmall" style={[styles.instructions, { color: theme.colors.onSurfaceVariant }]}>
+
+        <Text
+          variant="bodySmall"
+          style={[
+            styles.instructions,
+            { color: theme.colors.onSurfaceVariant },
+          ]}
+        >
           {t("buckets.inviteCodes.appNotOpening")}
         </Text>
-        
-        <Text variant="bodySmall" style={[styles.instructions, { color: theme.colors.onSurfaceVariant }]}>
+
+        <Text
+          variant="bodySmall"
+          style={[
+            styles.instructions,
+            { color: theme.colors.onSurfaceVariant },
+          ]}
+        >
           {t("buckets.inviteCodes.manualInstructions")}
         </Text>
       </View>
@@ -86,6 +129,14 @@ export default function InviteCodeRedirect() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  scrollContainer: {
+    minHeight: "100%",
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+  },
+  webContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
@@ -145,4 +196,3 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
-
