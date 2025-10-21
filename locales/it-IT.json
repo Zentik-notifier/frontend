@@ -987,6 +987,8 @@
     "PUSH_PASSTHROUGH": "Notifica Push",
     "MESSAGE": "Messaggio",
     "NOTIFICATION": "Notifica",
+    "NOTIFICATION_ACK": "Conferma Notifica",
+    "BUCKET_CREATION": "Creazione Bucket",
     "BUCKET_SHARING": "Condivisione Bucket",
     "BUCKET_UNSHARING": "Rimozione Condivisione",
     "DEVICE_REGISTER": "Registrazione Dispositivo",
@@ -2190,6 +2192,34 @@
       "documentationDescription": "Scopri tutte le funzionalità avanzate, esempi di integrazione e best practices.",
       "openDocumentation": "Apri Documentazione",
       "openDocError": "Errore durante l'apertura della documentazione"
+    }
+  },
+  "shareExtension": {
+    "header": "Invia a Zentik",
+    "selectBucket": "Seleziona Bucket",
+    "titleLabel": "Titolo",
+    "titleRequired": "Titolo *",
+    "titlePlaceholder": "Inserisci il titolo",
+    "messageLabel": "Messaggio",
+    "messagePlaceholder": "Inserisci il messaggio",
+    "sendButton": "Invia Messaggio",
+    "sendingButton": "Invio in corso...",
+    "loading": "Caricamento bucket...",
+    "updating": "Aggiornamento...",
+    "notAuthenticated": "Non autenticato. Apri l'app ed effettua l'accesso.",
+    "noBuckets": "Nessun bucket disponibile",
+    "noBucketsHelper": "Crea prima un bucket nell'app",
+    "retry": "Riprova",
+    "errors": {
+      "titleRequired": "Inserisci un titolo",
+      "bucketRequired": "Seleziona un bucket",
+      "notAuthenticated": "Non autenticato",
+      "sendFailed": "Invio del messaggio fallito",
+      "loadFailed": "Caricamento bucket fallito"
+    },
+    "success": {
+      "title": "Successo",
+      "message": "Messaggio inviato con successo!"
     }
   }
 }

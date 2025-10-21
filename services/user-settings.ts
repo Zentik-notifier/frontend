@@ -3,8 +3,8 @@ import AsyncStorage from '@/utils/async-storage-wrapper';
 import React, { useEffect } from 'react';
 import { ThemePreset } from './theme-presets';
 import { startOfDay, subDays, isWithinInterval } from 'date-fns';
+import { getStoredDeviceId, getStoredLocale, saveLocale } from './auth-storage';
 import { Locale } from '@/hooks/useI18n';
-import { getStoredDeviceId } from './auth-storage';
 
 // Current version of terms (update this when terms change)
 const CURRENT_TERMS_VERSION = '1.0.0';
@@ -69,7 +69,7 @@ export interface UserSettings {
   dynamicThemeColors?: DynamicThemeColors;
 
   // Localization settings
-  locale?: Locale;
+  locale: Locale;
   timezone: string;
   dateFormat: DateFormatPreferences;
 
@@ -150,7 +150,7 @@ const DEFAULT_SETTINGS: UserSettings = {
     secondary: '#625B71',
     tertiary: '#7D5260',
   },
-  locale: undefined,
+  locale: 'en-EN',
   timezone: getDeviceTimezone(),
   dateFormat: {
     dateStyle: 'medium',
@@ -227,6 +227,15 @@ class UserSettingsService {
         this.settings = this.mergeWithDefaults(parsed);
       }
 
+      // Fetch locale from auth-storage (Keychain) if available
+      try {
+        const storedLocale = await getStoredLocale();
+        if (storedLocale) {
+          this.settings.locale = storedLocale as Locale;
+        }
+      } catch (error) {
+        console.error('Failed to load locale from auth-storage:', error);
+      }
 
       return this.settings;
     } catch (error) {
@@ -285,12 +294,6 @@ class UserSettingsService {
     await this.updateSettings({ layoutMode: mode });
   }
 
-  /**
-   * Update locale
-   */
-  async setLocale(locale: Locale): Promise<void> {
-    await this.updateSettings({ locale });
-  }
 
   /**
    * Update notification filters
@@ -316,6 +319,32 @@ class UserSettingsService {
    */
   async setTimezone(timezone: string): Promise<void> {
     this.settings.timezone = timezone;
+    await this.saveSettings();
+    this.notifyListeners();
+  }
+
+  /**
+   * Get locale setting
+   */
+  getLocale(): string {
+    return this.settings.locale;
+  }
+
+  /**
+   * Set locale setting (syncs with auth-storage for App Groups support)
+   */
+  async setLocale(locale: string): Promise<void> {
+    this.settings.locale = locale as Locale;
+
+    // Save to auth-storage asynchronously (for App Groups support)
+    import('./auth-storage').then(({ saveLocale }) => {
+      saveLocale(locale).catch((error) => {
+        console.error('Failed to save locale to auth-storage:', error);
+      });
+    }).catch((error) => {
+      console.error('Failed to import auth-storage:', error);
+    });
+
     await this.saveSettings();
     this.notifyListeners();
   }
@@ -464,9 +493,6 @@ class UserSettingsService {
       case 'themeMode':
         this.settings.themeMode = DEFAULT_SETTINGS.themeMode;
         break;
-      case 'locale':
-        this.settings.locale = DEFAULT_SETTINGS.locale;
-        break;
       case 'notificationFilters':
         this.settings.notificationFilters = { ...DEFAULT_SETTINGS.notificationFilters };
         break;
@@ -494,12 +520,6 @@ class UserSettingsService {
     return this.settings.themeMode;
   }
 
-  /**
-   * Get locale
-   */
-  getLocale(): Locale {
-    return this.settings.locale ?? 'en-EN';
-  }
 
   /**
    * Get notification filters
@@ -920,9 +940,9 @@ export function useUserSettings() {
     if (!list || list.length === 0) return;
 
     // Get current deviceId to filter device-specific settings
-    getStoredDeviceId().then(currentDeviceId => {
+    getStoredDeviceId().then(async (currentDeviceId) => {
       const timezoneSetting = list.find((s: any) => s?.configType === UserSettingType.Timezone);
-      const languageSetting = list.find((s: any) => s?.configType === UserSettingType.Language);
+      const localeSetting = list.find((s: any) => s?.configType === UserSettingType.Language);
 
       // Device-specific setting: prioritize device-specific over user-level
       const unencryptOnBigPayload = list.find((s: any) =>
@@ -968,8 +988,10 @@ export function useUserSettings() {
       if (timezoneSetting?.valueText && timezoneSetting.valueText !== userSettings.getTimezone()) {
         updates.timezone = timezoneSetting.valueText;
       }
-      if (languageSetting?.valueText && languageSetting.valueText !== userSettings.getLocale()) {
-        updates.locale = languageSetting.valueText as Locale;
+      if (localeSetting?.valueText && localeSetting.valueText !== userSettings.getLocale()) {
+        const newLocale = localeSetting.valueText;
+        updates.locale = newLocale as Locale;
+        await saveLocale(newLocale);
       }
       const currentPrefs = userSettings.getSettings().notificationsPreferences;
       const nextPrefs = { ...(currentPrefs || {}) };
@@ -1037,17 +1059,18 @@ export function useUserSettings() {
     getLayoutMode: userSettings.getLayoutMode.bind(userSettings),
     setLayoutMode: userSettings.setLayoutMode.bind(userSettings),
     setCustomThemeSettings: userSettings.setCustomThemeSettings.bind(userSettings),
-    setLocale: async (locale: Locale) => {
-      await userSettings.setLocale(locale);
-      try {
-        await upsertUserSetting({ variables: { input: { configType: UserSettingType.Language, valueText: locale } } });
-      } catch { }
-    },
     getTimezone: userSettings.getTimezone.bind(userSettings),
     setTimezone: async (tz: string) => {
       await userSettings.setTimezone(tz);
       try {
         await upsertUserSetting({ variables: { input: { configType: UserSettingType.Timezone, valueText: tz } } });
+      } catch { }
+    },
+    getLocale: userSettings.getLocale.bind(userSettings),
+    setLocale: async (locale: string) => {
+      await userSettings.setLocale(locale);
+      try {
+        await upsertUserSetting({ variables: { input: { configType: UserSettingType.Language, valueText: locale } } });
       } catch { }
     },
     getDateFormatPreferences: userSettings.getDateFormatPreferences.bind(userSettings),

@@ -1833,6 +1833,8 @@ export interface Translation {
     PUSH_PASSTHROUGH: string;
     MESSAGE: string;
     NOTIFICATION: string;
+    NOTIFICATION_ACK: string;
+    BUCKET_CREATION: string;
     BUCKET_SHARING: string;
     BUCKET_UNSHARING: string;
     DEVICE_REGISTER: string;
@@ -2188,6 +2190,34 @@ export interface Translation {
       documentationDescription: string;
       openDocumentation: string;
       openDocError: string;
+    };
+  };
+  shareExtension: {
+    header: string;
+    selectBucket: string;
+    titleLabel: string;
+    titleRequired: string;
+    titlePlaceholder: string;
+    messageLabel: string;
+    messagePlaceholder: string;
+    sendButton: string;
+    sendingButton: string;
+    loading: string;
+    updating: string;
+    notAuthenticated: string;
+    noBuckets: string;
+    noBucketsHelper: string;
+    retry: string;
+    errors: {
+      titleRequired: string;
+      bucketRequired: string;
+      notAuthenticated: string;
+      sendFailed: string;
+      loadFailed: string;
+    };
+    success: {
+      title: string;
+      message: string;
     };
   };
   notFound: {

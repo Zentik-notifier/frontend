@@ -1830,6 +1830,8 @@
     "PUSH_PASSTHROUGH": "Push Passthrough",
     "MESSAGE": "Message",
     "NOTIFICATION": "Notification",
+    "NOTIFICATION_ACK": "Notification Acknowledgement",
+    "BUCKET_CREATION": "Bucket Creation",
     "BUCKET_SHARING": "Bucket Sharing",
     "BUCKET_UNSHARING": "Bucket Unsharing",
     "DEVICE_REGISTER": "Device Register",
@@ -2185,6 +2187,34 @@
       "documentationDescription": "Discover all advanced features, integration examples and best practices.",
       "openDocumentation": "Open Documentation",
       "openDocError": "Error opening documentation"
+    }
+  },
+  "shareExtension": {
+    "header": "Send to Zentik",
+    "selectBucket": "Select Bucket",
+    "titleLabel": "Title",
+    "titleRequired": "Title *",
+    "titlePlaceholder": "Enter title",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Enter message",
+    "sendButton": "Send Message",
+    "sendingButton": "Sending...",
+    "loading": "Loading buckets...",
+    "updating": "Updating...",
+    "notAuthenticated": "Not authenticated. Please open the app and sign in.",
+    "noBuckets": "No buckets available",
+    "noBucketsHelper": "Please create a bucket in the app first",
+    "retry": "Retry",
+    "errors": {
+      "titleRequired": "Please enter a title",
+      "bucketRequired": "Please select a bucket",
+      "notAuthenticated": "Not authenticated",
+      "sendFailed": "Failed to send message",
+      "loadFailed": "Failed to load buckets"
+    },
+    "success": {
+      "title": "Success",
+      "message": "Message sent successfully!"
     }
   },
   "notFound": {

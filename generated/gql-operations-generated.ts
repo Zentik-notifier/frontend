@@ -297,6 +297,7 @@ export type Event = {
 /** Tracked event type */
 export enum EventType {
   AccountDelete = 'ACCOUNT_DELETE',
+  BucketCreation = 'BUCKET_CREATION',
   BucketSharing = 'BUCKET_SHARING',
   BucketUnsharing = 'BUCKET_UNSHARING',
   DeviceRegister = 'DEVICE_REGISTER',
@@ -1145,6 +1146,7 @@ export type PayloadMapper = {
 
 /** Built-in payload mapper types */
 export enum PayloadMapperBuiltInType {
+  ZentikAtlasStatuspage = 'ZENTIK_ATLAS_STATUSPAGE',
   ZentikAuthentik = 'ZENTIK_AUTHENTIK',
   ZentikExpo = 'ZENTIK_EXPO',
   ZentikGithub = 'ZENTIK_GITHUB',

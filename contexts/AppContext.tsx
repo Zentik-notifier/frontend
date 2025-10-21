@@ -113,26 +113,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { processPendingNavigationIntent } = usePendingNotificationIntents();
 
   useEffect(() => {
-    if (!userSettings.settings.locale) {
-      const deviceLocale = getDeviceLocale();
-      console.log(
-        "[AppContext] Setting initial locale to device locale:",
-        deviceLocale
-      );
-      i18nService.setLocale(deviceLocale).catch((e) => {
-        console.error("Error setting locale:", e);
-      });
-      userSettings.setLocale(deviceLocale).catch((e) => {
-        console.error("Error setting userSettings locale:", e);
-      });
-    }
-  }, [userSettings.settings.locale]);
+    const checkAndSetLocale = async () => {
+      const currentLocale = await userSettings.getLocale();
+      if (!currentLocale) {
+        const deviceLocale = getDeviceLocale();
+        console.log(
+          "[AppContext] Setting initial locale to device locale:",
+          deviceLocale
+        );
+        try {
+          await i18nService.setLocale(deviceLocale);
+          await userSettings.setLocale(deviceLocale);
+        } catch (e) {
+          console.error("Error setting locale:", e);
+        }
+      }
+    };
+    checkAndSetLocale();
+  }, [userSettings]);
 
   useEffect(() => {
-    const appLocale = userSettings.settings.locale as Locale;
-    const datePickerLocale = localeToDatePickerLocale[appLocale] || "en";
+    const registerDatePickerTranslations = async () => {
+      const appLocale = (await userSettings.getLocale()) as Locale;
+      const datePickerLocale = localeToDatePickerLocale[appLocale] || "en";
 
-    registerTranslation(datePickerLocale, {
+      registerTranslation(datePickerLocale, {
       save: t("dateTime.save"),
       selectSingle: t("dateTime.selectSingle"),
       selectMultiple: t("dateTime.selectMultiple"),
@@ -154,9 +159,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       pickDateFromCalendar: t("dateTime.pickDateFromCalendar"),
       close: t("dateTime.close"),
       hour: t("dateTime.hour"),
-      minute: t("dateTime.minute"),
-    });
-  }, [userSettings.settings.locale, t]);
+        minute: t("dateTime.minute"),
+      });
+    };
+    registerDatePickerTranslations();
+  }, [userSettings, t]);
 
   const logout = async () => {
     try {
@@ -297,6 +304,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ): Promise<RegisterResult> => {
     const inputNormalized = email.toLowerCase().trim();
     const username = (firstName + lastName).replace(/\s+/g, "").toLowerCase();
+    const locale = await userSettings.getLocale();
 
     const gqlInput: RegisterDto = {
       email: inputNormalized,
@@ -304,7 +312,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       password,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      locale: userSettings.settings.locale,
+      locale,
     };
 
     const response = await registerMutation({

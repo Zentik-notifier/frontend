@@ -275,6 +275,7 @@ type Event {
 """Tracked event type"""
 enum EventType {
   ACCOUNT_DELETE
+  BUCKET_CREATION
   BUCKET_SHARING
   BUCKET_UNSHARING
   DEVICE_REGISTER
@@ -736,6 +737,7 @@ type PayloadMapper {
 
 """Built-in payload mapper types"""
 enum PayloadMapperBuiltInType {
+  ZENTIK_ATLAS_STATUSPAGE
   ZENTIK_AUTHENTIK
   ZENTIK_EXPO
   ZENTIK_GITHUB

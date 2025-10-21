@@ -18,6 +18,8 @@ const BADGE_COUNT_KEY = 'badge_count';
 const API_ENDPOINT_KEY = 'api_endpoint';
 const ACCESS_TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
+const USER_SETTINGS_KEY = '@zentik/user_settings';
+const LOCALE_KEY = 'locale';
 
 // Event emitter for terms acceptance changes
 class TermsEventEmitter {
@@ -71,6 +73,8 @@ export let saveApiEndpoint: (endpoint: string) => Promise<void>;
 export let getStoredApiEndpoint: () => Promise<string | null>;
 export let clearApiEndpoint: () => Promise<void>;
 export let clearPendingNotifications: () => Promise<void>;
+export let saveLocale: (locale: string) => Promise<void>;
+export let getStoredLocale: () => Promise<string | null>;
 
 const SERVICE = 'zentik-auth';
 const PUBLIC_KEY_SERVICE = 'zentik-public-key';
@@ -78,6 +82,7 @@ const PRIVATE_KEY_SERVICE = 'zentik-private-key';
 const PENDING_NAVIGATION_SERVICE = 'zentik-pending-navigation';
 const BADGE_COUNT_SERVICE = 'zentik-badge-count';
 const API_ENDPOINT_SERVICE = 'zentik-api-endpoint';
+const LOCALE_SERVICE = 'zentik-locale';
 
 const bundleIdentifier = process.env.EXPO_PUBLIC_APP_VARIANT === 'development' ?
   'com.apocaliss92.zentik.dev' :
@@ -419,6 +424,40 @@ if (Platform.OS === 'ios' || Platform.OS === 'macos') {
       await AsyncStorage.removeItem(API_ENDPOINT_KEY);
     } catch { }
   };
+
+  // Locale storage - use keychain with access group for iOS
+  saveLocale = async (locale: string) => {
+    try {
+      const options: Keychain.SetOptions = Device.isDevice
+        ? { service: LOCALE_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
+        : { service: LOCALE_SERVICE, accessible: ACCESSIBLE };
+      await Keychain.setGenericPassword('locale', locale, options);
+    } catch (error) {
+      console.error('Failed to save locale to keychain:', error);
+      await AsyncStorage.setItem(LOCALE_KEY, locale);
+    }
+  };
+  getStoredLocale = async () => {
+    try {
+      const options: Keychain.GetOptions = Device.isDevice
+        ? { service: LOCALE_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
+        : { service: LOCALE_SERVICE };
+      const creds = await Keychain.getGenericPassword(options);
+      if (creds) {
+        return creds.password;
+      }
+      const fallback = await AsyncStorage.getItem(LOCALE_KEY);
+      return fallback;
+    } catch (error) {
+      console.error('Failed to get locale from keychain:', error);
+      try {
+        const fallback = await AsyncStorage.getItem(LOCALE_KEY);
+        return fallback;
+      } catch {
+        return null;
+      }
+    }
+  };
 } else {
   // Auth tokens - use AsyncStorage for Android/Web
   saveTokens = async (accessToken, refreshToken) => {
@@ -539,6 +578,18 @@ if (Platform.OS === 'ios' || Platform.OS === 'macos') {
       await AsyncStorage.removeItem(API_ENDPOINT_KEY);
     } catch { }
   };
+
+  // Locale storage - use AsyncStorage for Android/Web
+  saveLocale = async (locale: string) => {
+    await AsyncStorage.setItem(LOCALE_KEY, locale);
+  };
+  getStoredLocale = async () => {
+    try {
+      return await AsyncStorage.getItem(LOCALE_KEY);
+    } catch {
+      return null;
+    }
+  };
 }
 
 /**
@@ -654,4 +705,3 @@ export const clearAllAuthData = async (): Promise<void> => {
     throw error;
   }
 };
-
