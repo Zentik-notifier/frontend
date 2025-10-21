@@ -6,6 +6,21 @@
         "appIDs": ["C3F24V5NS5.com.apocaliss92.zentik"],
         "components": [
           {
+            "/": "/invite/dev/*",
+            "exclude": true,
+            "comment": "Exclude dev paths from production app"
+          },
+          {
+            "/": "/oauth/dev",
+            "exclude": true,
+            "comment": "Exclude dev oauth from production app"
+          },
+          {
+            "/": "/notifications/dev/*",
+            "exclude": true,
+            "comment": "Exclude dev notifications from production app"
+          },
+          {
             "/": "/invite/*",
             "comment": "Invite code redemption - Production app"
           },
