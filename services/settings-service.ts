@@ -363,9 +363,9 @@ class SettingsService {
       };
 
       // Run all migrations in parallel
+      // Note: pendingNavigationIntent is no longer migrated - read directly from DB when needed
       await Promise.all([
         // Keys that were in Keychain with AsyncStorage fallback
-        migrateWithKeychain(PENDING_NAVIGATION_SERVICE, 'pending_navigation_intent', 'auth_pendingNavigationIntent'),
         migrateWithKeychain(BADGE_COUNT_SERVICE, 'badge_count', 'auth_badgeCount'),
         migrateWithKeychain(API_ENDPOINT_SERVICE, 'api_endpoint', 'auth_apiEndpoint'),
         migrateWithKeychain(LOCALE_SERVICE, 'locale', 'locale'),
@@ -387,7 +387,6 @@ class SettingsService {
           'device_id',
           'last_user_id',
           'push_notifications_initialized',
-          'pending_navigation_intent',
           'badge_count',
           'api_endpoint',
           'locale',
@@ -401,7 +400,6 @@ class SettingsService {
       if (Platform.OS === 'ios' || Platform.OS === 'macos') {
         try {
           const keychainServices = [
-            PENDING_NAVIGATION_SERVICE,
             BADGE_COUNT_SERVICE,
             API_ENDPOINT_SERVICE,
             LOCALE_SERVICE,
@@ -499,12 +497,12 @@ class SettingsService {
       ]);
 
       // Load non-sensitive data from settingsRepository
+      // Note: pendingNavigationIntent is read directly from DB in realtime, not cached
       const [
         deviceToken,
         deviceId,
         lastUserId,
         pushInitStr,
-        pendingNavStr,
         badgeCountStr,
         apiEndpoint,
       ] = await Promise.all([
@@ -512,12 +510,10 @@ class SettingsService {
         settingsRepository.getSetting('auth_deviceId'),
         settingsRepository.getSetting('auth_lastUserId'),
         settingsRepository.getSetting('auth_pushNotificationsInitialized'),
-        settingsRepository.getSetting('auth_pendingNavigationIntent'),
         settingsRepository.getSetting('auth_badgeCount'),
         settingsRepository.getSetting('auth_apiEndpoint'),
       ]);
 
-      const pendingNavigationIntent = pendingNavStr ? JSON.parse(pendingNavStr) : null;
       const pushNotificationsInitialized = pushInitStr === 'true';
       const badgeCount = badgeCountStr ? parseInt(badgeCountStr, 10) : 0;
 
@@ -530,7 +526,7 @@ class SettingsService {
         publicKey,
         privateKey,
         pushNotificationsInitialized,
-        pendingNavigationIntent,
+        pendingNavigationIntent: null, // Not cached - read directly from DB when needed
         badgeCount,
         apiEndpoint,
       });
@@ -1240,7 +1236,7 @@ class SettingsService {
       this.clearDeviceTokens(),
       settingsRepository.removeSetting('auth_lastUserId'),
       settingsRepository.removeSetting('auth_pushNotificationsInitialized'),
-      this.clearPendingNavigationIntent(),
+      settingsRepository.removeSetting('auth_pendingNavigationIntent'), // Clear from DB directly
       this.clearTermsAcceptance()
     ]);
   }

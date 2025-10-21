@@ -427,56 +427,30 @@ public class NotificationActionHandler {
                     )
                     
                 case "NAVIGATE", "OPEN_NOTIFICATION":
-                    // These actions are handled by the app itself, not in extensions
-                    // Store intent in keychain for app to process (matching react-native-keychain format)
+                    // Store intent in database for app to process (matching settings-service format)
                     let navigationData: [String: Any] = [
                         "type": type,
-                        "value": value,
-                        "timestamp": ISO8601DateFormatter().string(from: Date()),
-                        "notificationId": notificationId ?? "",
-                        "source": source
+                        "value": value
                     ]
                     
                     do {
-                        // Use react-native-keychain compatible format:
-                        // service: "zentik-pending-navigation"
-                        // username: "navigation"
-                        // password: JSON stringified data
                         let jsonData = try JSONSerialization.data(withJSONObject: navigationData)
                         guard let jsonString = String(data: jsonData, encoding: .utf8) else {
                             throw NSError(domain: "ActionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to encode navigation data"])
                         }
                         
-                        let keychainAccessGroup = KeychainAccess.getKeychainAccessGroup()
+                        // Write to database (settings repository)
+                        let success = DatabaseAccess.setSettingValue(key: "auth_pendingNavigationIntent", value: jsonString)
                         
-                        // Delete existing intent first
-                        let deleteQuery: [String: Any] = [
-                            kSecClass as String: kSecClassGenericPassword,
-                            kSecAttrService as String: "zentik-pending-navigation",
-                            kSecAttrAccessGroup as String: keychainAccessGroup
-                        ]
-                        SecItemDelete(deleteQuery as CFDictionary)
-                        
-                        // Store new intent (matching react-native-keychain format)
-                        let addQuery: [String: Any] = [
-                            kSecClass as String: kSecClassGenericPassword,
-                            kSecAttrService as String: "zentik-pending-navigation",
-                            kSecAttrAccount as String: "navigation",
-                            kSecValueData as String: jsonString.data(using: .utf8)!,
-                            kSecAttrAccessGroup as String: keychainAccessGroup,
-                            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
-                        ]
-                        
-                        let status = SecItemAdd(addQuery as CFDictionary, nil)
-                        if status == errSecSuccess {
+                        if success {
                             LoggingSystem.shared.info(
                                 tag: source,
-                                message: "[Action] Navigation intent stored in keychain",
-                                metadata: ["type": type, "value": value, "notificationId": notificationId ?? ""],
+                                message: "[Action] Navigation intent stored in database",
+                                metadata: ["type": type, "value": value],
                                 source: source
                             )
                         } else {
-                            throw NSError(domain: "KeychainError", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "Failed to save navigation intent (status: \(status))"])
+                            throw NSError(domain: "DatabaseError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to save navigation intent to database"])
                         }
                     } catch {
                         LoggingSystem.shared.error(

@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { DevicePlatform, NotificationActionFragment, NotificationActionType, RegisterDeviceDto } from '../generated/gql-operations-generated';
 import { settingsService } from './settings-service';
+import { settingsRepository } from './settings-repository';
 
 class IOSNativePushNotificationService {
     private isInitialized = false;
@@ -318,8 +319,13 @@ class IOSNativePushNotificationService {
      */
     private async processPendingIntents(): Promise<boolean> {
         try {
-            // Check for pending navigation intent using keychain
-            const navigationIntent = settingsService.getAuthData().pendingNavigationIntent;
+            // Read directly from database (realtime) instead of cached value
+            const intentStr = await settingsRepository.getSetting('auth_pendingNavigationIntent');
+            if (!intentStr) {
+                return false; // No navigation intent was processed
+            }
+
+            const navigationIntent = JSON.parse(intentStr);
             if (navigationIntent && this.actionCallbacks) {
                 console.log('[IOSNativePushNotificationService] Found pending navigation intent:', navigationIntent);
 
@@ -336,12 +342,11 @@ class IOSNativePushNotificationService {
                     });
                 }
 
-                // Clear the processed intent
-                await settingsService.clearPendingNavigationIntent();
+                // Clear the processed intent directly from database
+                await settingsRepository.removeSetting('auth_pendingNavigationIntent');
                 console.log('[IOSNativePushNotificationService] Navigation intent processed and cleared');
                 return true; // Intent was processed
             }
-
 
             return false; // No navigation intent was processed
 
