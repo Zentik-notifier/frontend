@@ -3,7 +3,6 @@ import { TextInput as RNTextInput } from "react-native";
 import { useTheme } from "react-native-paper";
 import { HtmlTextRenderer } from "./HtmlTextRenderer";
 import type { TextRendererProps } from "./TextRenderer";
-import { TextRenderer } from "./TextRenderer";
 
 export interface SmartTextRendererProps extends TextRendererProps {
   forceHtml?: boolean;
@@ -22,15 +21,6 @@ export const SmartTextRenderer: React.FC<SmartTextRendererProps> = ({
   ...props
 }) => {
   const theme = useTheme();
-
-  // Function to detect if content contains HTML tags
-  const containsHtml = (text: string): boolean => {
-    if (!detectHtml) return false;
-
-    // Simple HTML tag detection
-    const htmlRegex = /<[^>]*>/;
-    return htmlRegex.test(text);
-  };
 
   // If HTML is disabled, render TextInput for selectable text
   if (!enableHtml) {
@@ -54,11 +44,5 @@ export const SmartTextRenderer: React.FC<SmartTextRendererProps> = ({
     );
   }
 
-  // If HTML is forced or detected, use HtmlTextRenderer
-  if (forceHtml || containsHtml(content)) {
-    return <HtmlTextRenderer content={content} style={style} maxLines={maxLines} testID={testID} {...props} />;
-  }
-
-  // Otherwise, use the regular TextRenderer
-  return <TextRenderer content={content} style={style} maxLines={maxLines} testID={testID} {...props} />;
+  return <HtmlTextRenderer content={content} style={style} maxLines={maxLines} testID={testID} {...props} />;
 };

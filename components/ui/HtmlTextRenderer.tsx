@@ -1,5 +1,7 @@
 import React, { useMemo } from "react";
 import {
+  Alert,
+  Linking,
   StyleProp,
   TextStyle,
   useWindowDimensions,
@@ -7,6 +9,7 @@ import {
 } from "react-native";
 import { useTheme } from "react-native-paper";
 import RenderHTML from "react-native-render-html";
+import { useI18n } from "@/hooks/useI18n";
 
 export interface HtmlTextRendererProps {
   content: string;
@@ -29,6 +32,34 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
 }) => {
   const theme = useTheme();
   const { width } = useWindowDimensions();
+  const { t } = useI18n();
+
+  // Auto-link URLs, emails, and phone numbers
+  const autoLinkText = (text: string): string => {
+    let processed = text;
+    
+    // Regex patterns (migliorati per supportare trattini e caratteri speciali)
+    const urlRegex = /(?<!href=["'])(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/gi;
+    const emailRegex = /\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})\b/g;
+    const phoneRegex = /\b(\+?[\d\s\-()]{10,})\b/g;
+    
+    // Auto-link URLs (skip already in href attributes)
+    processed = processed.replace(urlRegex, '<a href="$1">$1</a>');
+    
+    // Auto-link emails
+    processed = processed.replace(emailRegex, '<a href="mailto:$1">$1</a>');
+    
+    // Auto-link phone numbers (Italian format priority)
+    processed = processed.replace(phoneRegex, (match) => {
+      const cleaned = match.replace(/\s/g, '');
+      if (cleaned.match(/^\+?[\d\-()]{10,}$/)) {
+        return `<a href="tel:${cleaned}">${match}</a>`;
+      }
+      return match;
+    });
+    
+    return processed;
+  };
 
   // Convert Markdown to HTML
   const convertMarkdownToHtml = (text: string): string => {
@@ -39,6 +70,13 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
     
     // Convert **text** to <strong>text</strong>
     processed = processed.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+    
+    // Convert *text* or _text_ to <em>text</em>
+    processed = processed.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
+    processed = processed.replace(/_([^_]+)_/g, '<em>$1</em>');
+    
+    // Convert `code` to <code>code</code>
+    processed = processed.replace(/`([^`]+)`/g, '<code>$1</code>');
     
     return processed;
   };
@@ -103,11 +141,74 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
     }
   };
 
-  // Process content: convert Markdown to HTML and handle newlines
+  // Handle link presses
+  const handleLinkPress = (evt: any, href: string) => {
+    if (href.startsWith('mailto:')) {
+      const email = href.replace('mailto:', '');
+      Alert.alert(
+        t('common.sendEmail'),
+        t('common.sendEmailConfirm', { email }),
+        [
+          { text: t('common.cancel'), style: "cancel" },
+          {
+            text: t('common.send'),
+            onPress: () => {
+              Linking.openURL(href).catch(() => {
+                Alert.alert(t('common.error'), t('common.cannotOpenEmail'));
+              });
+            },
+          },
+        ]
+      );
+    } else if (href.startsWith('tel:')) {
+      const phone = href.replace('tel:', '');
+      Alert.alert(
+        t('common.call'),
+        t('common.callConfirm', { phone }),
+        [
+          { text: t('common.cancel'), style: "cancel" },
+          {
+            text: t('common.call'),
+            onPress: () => {
+              Linking.openURL(href).catch(() => {
+                Alert.alert(t('common.error'), t('common.cannotMakeCall'));
+              });
+            },
+          },
+        ]
+      );
+    } else {
+      Alert.alert(
+        t('common.openLink'),
+        t('common.openLinkConfirm', { url: href }),
+        [
+          { text: t('common.cancel'), style: "cancel" },
+          {
+            text: t('common.open'),
+            onPress: () => {
+              Linking.openURL(href).catch(() => {
+                Alert.alert(t('common.error'), t('common.cannotOpenLink'));
+              });
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  // Process content: convert Markdown to HTML, auto-link, and handle newlines
   const processedContent = useMemo(() => {
-    let processed = convertMarkdownToHtml(content);
+    let processed = content;
+    
+    // First, convert Markdown syntax to HTML
+    processed = convertMarkdownToHtml(processed);
+    
+    // Then, auto-link any remaining plain text URLs/emails/phones
+    processed = autoLinkText(processed);
+    
     // Convert newlines to <br> tags
     processed = processed.replace(/\n/g, '<br/>');
+    
     // Wrap in a div to ensure proper rendering
     return `<div>${processed}</div>`;
   }, [content]);
@@ -200,6 +301,11 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
       tagsStyles={tagsStyles as any}
       baseStyle={getVariantStyle() as any}
       systemFonts={[]}
+      renderersProps={{
+        a: {
+          onPress: handleLinkPress,
+        },
+      }}
     />
   );
 };

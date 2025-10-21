@@ -1001,6 +1001,17 @@ export interface Translation {
     selectOption: string;
     noResults: string;
     noOptions: string;
+    sendEmail: string;
+    sendEmailConfirm: string;
+    send: string;
+    call: string;
+    callConfirm: string;
+    openLink: string;
+    openLinkConfirm: string;
+    open: string;
+    cannotOpenEmail: string;
+    cannotMakeCall: string;
+    cannotOpenLink: string;
     snoozeGeneric: string;
     deviceNotRegistered: string;
     notAvailableOnWeb: string;
