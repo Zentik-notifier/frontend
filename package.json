@@ -1,6 +1,6 @@
 {
   "name": "zentik-mobile",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "0.1.55",
   "dockerVersion": "0.0.43",
   "scripts": {
@@ -78,6 +78,7 @@
     "expo-router": "~6.0.12",
     "expo-screen-orientation": "~9.0.7",
     "expo-secure-store": "~15.0.7",
+    "expo-share-extension": "^5.0.0",
     "expo-sharing": "~14.0.7",
     "expo-splash-screen": "~31.0.10",
     "expo-sqlite": "~16.0.8",

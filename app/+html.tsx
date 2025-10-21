@@ -11,6 +11,7 @@ export default function Root({ children }: PropsWithChildren) {
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
         />
+        <meta name="apple-itunes-app" content="app-id=6749312723" />
 
         {/* PWA manifest */}
         <link rel="manifest" href="/manifest.json" />

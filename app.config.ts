@@ -41,6 +41,14 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
         },
         assetBundlePatterns: ["**/*"],
         ios: {
+            privacyManifests: {
+                NSPrivacyAccessedAPITypes: [
+                    {
+                        NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp",
+                        NSPrivacyAccessedAPITypeReasons: ["C617.1"],
+                    },
+                ],
+            },
             supportsTablet: true,
             bundleIdentifier,
             appleTeamId: "C3F24V5NS5",
@@ -133,6 +141,32 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             "expo-router",
             "expo-localization",
             "expo-background-task",
+            [
+                "expo-share-extension",
+                {
+                    "activationRules": [
+                        {
+                            "type": "file",
+                            "max": 3
+                        },
+                        {
+                            "type": "image",
+                            "max": 2
+                        },
+                        {
+                            "type": "video",
+                            "max": 1
+                        },
+                        {
+                            "type": "text"
+                        },
+                        {
+                            "type": "url",
+                            "max": 1
+                        }
+                    ]
+                }
+            ],
             [
                 "expo-screen-orientation",
                 {
