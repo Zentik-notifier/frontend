@@ -6,7 +6,7 @@ import {
   useGetMeLazyQuery,
   useLoginMutation,
   useLogoutMutation,
-  useRegisterMutation
+  useRegisterMutation,
 } from "@/generated/gql-operations-generated";
 import { useMarkAllAsRead } from "@/hooks/notifications/useNotificationMutations";
 import { useCleanup } from "@/hooks/useCleanup";
@@ -138,27 +138,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const datePickerLocale = localeToDatePickerLocale[appLocale] || "en";
 
       registerTranslation(datePickerLocale, {
-      save: t("dateTime.save"),
-      selectSingle: t("dateTime.selectSingle"),
-      selectMultiple: t("dateTime.selectMultiple"),
-      selectRange: t("dateTime.selectRange"),
-      notAccordingToDateFormat: (inputFormat: string) =>
-        t("dateTime.notAccordingToDateFormat").replace("{format}", inputFormat),
-      mustBeHigherThan: (date: string) =>
-        t("dateTime.mustBeHigherThan").replace("{date}", date),
-      mustBeLowerThan: (date: string) =>
-        t("dateTime.mustBeLowerThan").replace("{date}", date),
-      mustBeBetween: (startDate: string, endDate: string) =>
-        t("dateTime.mustBeBetween")
-          .replace("{startDate}", startDate)
-          .replace("{endDate}", endDate),
-      dateIsDisabled: t("dateTime.dateIsDisabled"),
-      previous: t("dateTime.previous"),
-      next: t("dateTime.next"),
-      typeInDate: t("dateTime.typeInDate"),
-      pickDateFromCalendar: t("dateTime.pickDateFromCalendar"),
-      close: t("dateTime.close"),
-      hour: t("dateTime.hour"),
+        save: t("dateTime.save"),
+        selectSingle: t("dateTime.selectSingle"),
+        selectMultiple: t("dateTime.selectMultiple"),
+        selectRange: t("dateTime.selectRange"),
+        notAccordingToDateFormat: (inputFormat: string) =>
+          t("dateTime.notAccordingToDateFormat").replace(
+            "{format}",
+            inputFormat
+          ),
+        mustBeHigherThan: (date: string) =>
+          t("dateTime.mustBeHigherThan").replace("{date}", date),
+        mustBeLowerThan: (date: string) =>
+          t("dateTime.mustBeLowerThan").replace("{date}", date),
+        mustBeBetween: (startDate: string, endDate: string) =>
+          t("dateTime.mustBeBetween")
+            .replace("{startDate}", startDate)
+            .replace("{endDate}", endDate),
+        dateIsDisabled: t("dateTime.dateIsDisabled"),
+        previous: t("dateTime.previous"),
+        next: t("dateTime.next"),
+        typeInDate: t("dateTime.typeInDate"),
+        pickDateFromCalendar: t("dateTime.pickDateFromCalendar"),
+        close: t("dateTime.close"),
+        hour: t("dateTime.hour"),
         minute: t("dateTime.minute"),
       });
     };
@@ -410,10 +413,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const onboardingSettings = userSettings.getOnboardingSettings();
 
-      if (
-        !onboardingSettings.hasCompletedOnboarding &&
-        onboardingSettings.showOnboardingV2
-      ) {
+      if (!onboardingSettings.hasCompletedOnboarding) {
         console.log("[AppContext] Auto-showing onboarding for first-time user");
         setIsOnboardingOpen(true);
       }
