@@ -139,7 +139,7 @@ export default function PaperScrollView({
     fabActions.push({
       icon: "refresh",
       label: t("common.refresh"),
-      onPress: refetch,
+      onPress: () => refetch(),
       style: { backgroundColor: theme.colors.tertiaryContainer },
     });
   }

@@ -87,7 +87,7 @@ const BucketsSection: React.FC = () => {
 
   return (
     <PaperScrollView
-      onRefresh={refetch}
+      onRefresh={() => refetch()}
       loading={loading}
       onAdd={() => navigateToCreateBucket(true)}
     >

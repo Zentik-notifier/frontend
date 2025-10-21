@@ -303,7 +303,7 @@ export default function EntityExecutionsSection({
                 <IconButton
                   icon="refresh"
                   size={20}
-                  onPress={refetch}
+                  onPress={() => refetch()}
                   disabled={loading}
                   style={{ margin: 0 }}
                 />
@@ -366,7 +366,7 @@ export default function EntityExecutionsSection({
               )}
               keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
-              onRefresh={refetch}
+              onRefresh={() => refetch()}
               refreshing={loading}
               style={{ maxHeight: 500 }}
             />
