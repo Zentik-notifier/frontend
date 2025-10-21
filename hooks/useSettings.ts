@@ -125,6 +125,14 @@ export function useSettings() {
     await settingsService.importSettings(settingsJson);
   }, []);
 
+  const forceMigrationFromLegacy = useCallback(async () => {
+    await settingsService.forceMigrationFromLegacy();
+  }, []);
+
+  const isMigrationCompleted = useCallback(async () => {
+    return await settingsService.isMigrationCompleted();
+  }, []);
+
   return {
     settings,
     isInitialized,
@@ -154,6 +162,8 @@ export function useSettings() {
     resetSettings,
     exportSettings,
     importSettings,
+    forceMigrationFromLegacy,
+    isMigrationCompleted,
     shouldFilterNotification: settingsService.shouldFilterNotification.bind(settingsService),
     getNotificationSortComparator: settingsService.getNotificationSortComparator.bind(settingsService),
     // Legacy methods for backward compatibility

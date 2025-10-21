@@ -237,6 +237,10 @@ class SettingsService {
   async initialize(): Promise<void> {
     try {
       await this.initializeDatabase();
+      
+      // Migrate from legacy AsyncStorage if needed
+      await this.migrateFromLegacyStorage();
+      
       await Promise.all([
         this.loadUserSettings(),
         this.loadAuthData()
@@ -253,25 +257,195 @@ class SettingsService {
     this.dbInitialized = true;
   }
 
-  private async loadUserSettings(): Promise<void> {
+  /**
+   * Migrates legacy auth-storage data from AsyncStorage and Keychain to the new system
+   * This method can be safely removed after all users have migrated
+   */
+  private async migrateFromLegacyStorage(): Promise<void> {
     try {
-      const stored = await settingsRepository.getSetting('user_settings');
+      // Check if migration has already been done
+      const migrationComplete = await settingsRepository.getSetting('migration_completed');
+      if (migrationComplete === 'true') {
+        return;
+      }
 
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const merged = this.deepMerge(DEFAULT_SETTINGS, parsed);
-        
+      console.log('[SettingsService] Starting migration from legacy storage...');
+
+      // Helper function to get value from Keychain with fallback to AsyncStorage
+      const getFromKeychainOrAsyncStorage = async (
+        service: string,
+        asyncStorageKey: string
+      ): Promise<string | null> => {
+        // Try Keychain first (iOS/macOS)
+        if (Platform.OS === 'ios' || Platform.OS === 'macos') {
+          try {
+            const options: Keychain.GetOptions = Device.isDevice
+              ? { service, accessGroup: KEYCHAIN_ACCESS_GROUP }
+              : { service };
+            const creds = await Keychain.getGenericPassword(options);
+            if (creds) {
+              console.log(`[SettingsService] Found ${asyncStorageKey} in Keychain`);
+              return creds.password;
+            }
+          } catch (error) {
+            console.log(`[SettingsService] Keychain read failed for ${asyncStorageKey}, trying AsyncStorage`);
+          }
+        }
+
+        // Fallback to AsyncStorage
         try {
-          const storedLocale = await this.getLocaleFromKeychain();
-          if (storedLocale) {
-            merged.locale = storedLocale as Locale;
+          const value = await AsyncStorage.getItem(asyncStorageKey);
+          if (value) {
+            console.log(`[SettingsService] Found ${asyncStorageKey} in AsyncStorage`);
+          }
+          return value;
+        } catch (error) {
+          return null;
+        }
+      };
+
+      // Migrate data with Keychain support
+      const migrateWithKeychain = async (
+        service: string,
+        asyncStorageKey: string,
+        newKey: string
+      ) => {
+        try {
+          const value = await getFromKeychainOrAsyncStorage(service, asyncStorageKey);
+          if (value !== null) {
+            await settingsRepository.setSetting(newKey, value);
+            console.log(`[SettingsService] Migrated ${asyncStorageKey} -> ${newKey}`);
           }
         } catch (error) {
-          console.error('Failed to load locale from keychain:', error);
+          console.error(`[SettingsService] Failed to migrate ${asyncStorageKey}:`, error);
         }
+      };
+
+      // Migrate simple AsyncStorage-only keys
+      const migrateSimple = async (oldKey: string, newKey: string) => {
+        try {
+          const value = await AsyncStorage.getItem(oldKey);
+          if (value !== null) {
+            await settingsRepository.setSetting(newKey, value);
+            console.log(`[SettingsService] Migrated ${oldKey} -> ${newKey}`);
+          }
+        } catch (error) {
+          console.error(`[SettingsService] Failed to migrate ${oldKey}:`, error);
+        }
+      };
+
+      // Run all migrations in parallel
+      await Promise.all([
+        // Keys that were in Keychain with AsyncStorage fallback
+        migrateWithKeychain(PENDING_NAVIGATION_SERVICE, 'pending_navigation_intent', 'auth_pendingNavigationIntent'),
+        migrateWithKeychain(BADGE_COUNT_SERVICE, 'badge_count', 'auth_badgeCount'),
+        migrateWithKeychain(API_ENDPOINT_SERVICE, 'api_endpoint', 'auth_apiEndpoint'),
         
-        this.settingsSubject.next(merged);
+        // Keys that were only in AsyncStorage
+        migrateSimple('device_token', 'auth_deviceToken'),
+        migrateSimple('device_id', 'auth_deviceId'),
+        migrateSimple('last_user_id', 'auth_lastUserId'),
+        migrateSimple('push_notifications_initialized', 'auth_pushNotificationsInitialized'),
+      ]);
+
+      // Mark migration as complete
+      await settingsRepository.setSetting('migration_completed', 'true');
+
+      // Clean up old AsyncStorage keys
+      try {
+        await AsyncStorage.multiRemove([
+          'device_token',
+          'device_id',
+          'last_user_id',
+          'push_notifications_initialized',
+          'pending_navigation_intent',
+          'badge_count',
+          'api_endpoint',
+        ]);
+        console.log('[SettingsService] AsyncStorage cleanup completed');
+      } catch (error) {
+        console.error('[SettingsService] Failed to clean up AsyncStorage:', error);
       }
+
+      // Clean up old Keychain entries (iOS/macOS only)
+      if (Platform.OS === 'ios' || Platform.OS === 'macos') {
+        try {
+          const keychainServices = [
+            PENDING_NAVIGATION_SERVICE,
+            BADGE_COUNT_SERVICE,
+            API_ENDPOINT_SERVICE,
+          ];
+
+          for (const service of keychainServices) {
+            try {
+              const options: Keychain.SetOptions = Device.isDevice
+                ? { service, accessGroup: KEYCHAIN_ACCESS_GROUP }
+                : { service };
+              await Keychain.resetGenericPassword(options);
+            } catch (error) {
+              // Ignore errors - key might not exist
+            }
+          }
+          console.log('[SettingsService] Keychain cleanup completed');
+        } catch (error) {
+          console.error('[SettingsService] Failed to clean up Keychain:', error);
+        }
+      }
+
+      console.log('[SettingsService] Migration completed successfully');
+    } catch (error) {
+      console.error('[SettingsService] Migration failed:', error);
+      // Don't throw - let the app continue even if migration fails
+    }
+  }
+
+  private async loadUserSettings(): Promise<void> {
+    try {
+      const settings: Partial<UserSettings> = {};
+
+      // Load each root key separately
+      const keys: (keyof UserSettings)[] = [
+        'theme',
+        'locale',
+        'timezone',
+        'dateFormat',
+        'retentionPolicies',
+        'downloadSettings',
+        'notificationsLastSeenId',
+        'notificationVisualization',
+        'notificationsPreferences',
+        'githubEventsFilter',
+        'galleryVisualization',
+        'onboarding',
+        'termsAcceptance',
+        'lastCleanup'
+      ];
+
+      await Promise.all(
+        keys.map(async (key) => {
+          try {
+            const stored = await settingsRepository.getSetting(key);
+            if (stored) {
+              settings[key] = JSON.parse(stored) as any;
+            }
+          } catch (error) {
+            console.error(`Failed to load setting ${key}:`, error);
+          }
+        })
+      );
+
+      // Special handling for locale - try keychain first
+      try {
+        const storedLocale = await this.getLocaleFromKeychain();
+        if (storedLocale) {
+          settings.locale = storedLocale as Locale;
+        }
+      } catch (error) {
+        console.error('Failed to load locale from keychain:', error);
+      }
+
+      const merged = this.deepMerge(DEFAULT_SETTINGS, settings);
+      this.settingsSubject.next(merged);
     } catch (error) {
       console.error('Failed to load user settings:', error);
     }
@@ -279,31 +453,36 @@ class SettingsService {
 
   private async loadAuthData(): Promise<void> {
     try {
+      // Load sensitive data from Keychain
+      const [accessToken, refreshToken, publicKey, privateKey] = await Promise.all([
+        this.getAccessTokenFromStorage(),
+        this.getRefreshTokenFromStorage(),
+        this.getPublicKeyFromStorage(),
+        this.getPrivateKeyFromStorage(),
+      ]);
+
+      // Load non-sensitive data from settingsRepository
       const [
-        accessToken,
-        refreshToken,
         deviceToken,
         deviceId,
         lastUserId,
-        publicKey,
-        privateKey,
-        pushNotificationsInitialized,
-        pendingNavigationIntent,
-        badgeCount,
-        apiEndpoint
+        pushInitStr,
+        pendingNavStr,
+        badgeCountStr,
+        apiEndpoint,
       ] = await Promise.all([
-        this.getAccessTokenFromStorage(),
-        this.getRefreshTokenFromStorage(),
-        AsyncStorage.getItem('device_token'),
-        AsyncStorage.getItem('device_id'),
-        AsyncStorage.getItem('last_user_id'),
-        this.getPublicKeyFromStorage(),
-        this.getPrivateKeyFromStorage(),
-        this.getPushInitializedFromStorage(),
-        this.getPendingNavigationFromStorage(),
-        this.getBadgeCountFromStorage(),
-        this.getApiEndpointFromStorage()
+        settingsRepository.getSetting('auth_deviceToken'),
+        settingsRepository.getSetting('auth_deviceId'),
+        settingsRepository.getSetting('auth_lastUserId'),
+        settingsRepository.getSetting('auth_pushNotificationsInitialized'),
+        settingsRepository.getSetting('auth_pendingNavigationIntent'),
+        settingsRepository.getSetting('auth_badgeCount'),
+        settingsRepository.getSetting('auth_apiEndpoint'),
       ]);
+
+      const pendingNavigationIntent = pendingNavStr ? JSON.parse(pendingNavStr) : null;
+      const pushNotificationsInitialized = pushInitStr === 'true';
+      const badgeCount = badgeCountStr ? parseInt(badgeCountStr, 10) : 0;
 
       this.authDataSubject.next({
         accessToken,
@@ -316,7 +495,7 @@ class SettingsService {
         pushNotificationsInitialized,
         pendingNavigationIntent,
         badgeCount,
-        apiEndpoint
+        apiEndpoint,
       });
     } catch (error) {
       console.error('Failed to load auth data:', error);
@@ -656,6 +835,35 @@ class SettingsService {
     await this.saveSettings(DEFAULT_SETTINGS);
   }
 
+  /**
+   * Force re-migration from legacy storage
+   * This will re-run the migration even if it was already completed
+   * Useful for testing or manual recovery
+   */
+  public async forceMigrationFromLegacy(): Promise<void> {
+    try {
+      await settingsRepository.removeSetting('migration_completed');
+      await this.migrateFromLegacyStorage();
+      console.log('[SettingsService] Forced migration completed');
+    } catch (error) {
+      console.error('[SettingsService] Forced migration failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if migration from legacy storage has been completed
+   */
+  public async isMigrationCompleted(): Promise<boolean> {
+    try {
+      const migrationComplete = await settingsRepository.getSetting('migration_completed');
+      return migrationComplete === 'true';
+    } catch (error) {
+      console.error('[SettingsService] Failed to check migration status:', error);
+      return false;
+    }
+  }
+
   public async exportSettings(): Promise<string> {
     return JSON.stringify(this.settingsSubject.value, null, 2);
   }
@@ -711,27 +919,14 @@ class SettingsService {
     const current = this.authDataSubject.value;
     current.deviceId = deviceId;
     this.authDataSubject.next(current);
-    await AsyncStorage.setItem('device_id', deviceId);
+    await settingsRepository.setSetting('auth_deviceId', deviceId);
   }
 
   public async saveBadgeCount(count: number): Promise<void> {
     const current = this.authDataSubject.value;
     current.badgeCount = count;
     this.authDataSubject.next(current);
-
-    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      try {
-        const options: Keychain.SetOptions = Device.isDevice
-          ? { service: BADGE_COUNT_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
-          : { service: BADGE_COUNT_SERVICE, accessible: ACCESSIBLE };
-        await Keychain.setGenericPassword('badge', count.toString(), options);
-      } catch (error) {
-        console.error('Failed to save badge count to keychain:', error);
-        await AsyncStorage.setItem('badge_count', count.toString());
-      }
-    } else {
-      await AsyncStorage.setItem('badge_count', count.toString());
-    }
+    await settingsRepository.setSetting('auth_badgeCount', count.toString());
   }
 
   public async saveApiEndpoint(endpoint: string): Promise<void> {
@@ -739,33 +934,21 @@ class SettingsService {
     current.apiEndpoint = endpoint;
     this.authDataSubject.next(current);
 
-    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      try {
-        const options: Keychain.SetOptions = Device.isDevice
-          ? { service: API_ENDPOINT_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
-          : { service: API_ENDPOINT_SERVICE, accessible: ACCESSIBLE };
-        await Keychain.setGenericPassword('endpoint', endpoint, options);
-      } catch (error) {
-        console.error('Failed to save API endpoint to keychain:', error);
-        await AsyncStorage.setItem('api_endpoint', endpoint);
-      }
-    } else {
-      await AsyncStorage.setItem('api_endpoint', endpoint);
-    }
+    await settingsRepository.setSetting('auth_apiEndpoint', endpoint);
   }
 
   public async saveDeviceToken(deviceToken: string): Promise<void> {
     const current = this.authDataSubject.value;
     current.deviceToken = deviceToken;
     this.authDataSubject.next(current);
-    await AsyncStorage.setItem('device_token', deviceToken);
+    await settingsRepository.setSetting('auth_deviceToken', deviceToken);
   }
 
   public async saveLastUserId(userId: string): Promise<void> {
     const current = this.authDataSubject.value;
     current.lastUserId = userId;
     this.authDataSubject.next(current);
-    await AsyncStorage.setItem('last_user_id', userId);
+    await settingsRepository.setSetting('auth_lastUserId', userId);
   }
 
   public async savePublicKey(publicKey: string): Promise<void> {
@@ -781,10 +964,8 @@ class SettingsService {
         await Keychain.setGenericPassword('public', publicKey, options);
       } catch (error) {
         console.error('Failed to save public key to keychain:', error);
-        await AsyncStorage.setItem('public_key', publicKey);
+        throw error;
       }
-    } else {
-      await AsyncStorage.setItem('public_key', publicKey);
     }
   }
 
@@ -801,10 +982,8 @@ class SettingsService {
         await Keychain.setGenericPassword('private', privateKey, options);
       } catch (error) {
         console.error('Failed to save private key to keychain:', error);
-        await AsyncStorage.setItem('private_key', privateKey);
+        throw error;
       }
-    } else {
-      await AsyncStorage.setItem('private_key', privateKey);
     }
   }
 
@@ -812,81 +991,35 @@ class SettingsService {
     const current = this.authDataSubject.value;
     current.pushNotificationsInitialized = initialized;
     this.authDataSubject.next(current);
-    await AsyncStorage.setItem('push_notifications_initialized', initialized.toString());
+    await settingsRepository.setSetting('auth_pushNotificationsInitialized', initialized.toString());
   }
 
   public async savePendingNavigationIntent(intent: any): Promise<void> {
     const current = this.authDataSubject.value;
     current.pendingNavigationIntent = intent;
     this.authDataSubject.next(current);
-
-    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      try {
-        const options: Keychain.SetOptions = Device.isDevice
-          ? { service: PENDING_NAVIGATION_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
-          : { service: PENDING_NAVIGATION_SERVICE, accessible: ACCESSIBLE };
-        await Keychain.setGenericPassword('navigation', JSON.stringify(intent), options);
-      } catch (error) {
-        console.error('Failed to save pending navigation intent to keychain:', error);
-        await AsyncStorage.setItem('pending_navigation_intent', JSON.stringify(intent));
-      }
-    } else {
-      await AsyncStorage.setItem('pending_navigation_intent', JSON.stringify(intent));
-    }
+    await settingsRepository.setSetting('auth_pendingNavigationIntent', JSON.stringify(intent));
   }
 
   public async clearPendingNavigationIntent(): Promise<void> {
     const current = this.authDataSubject.value;
     current.pendingNavigationIntent = null;
     this.authDataSubject.next(current);
-
-    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      try {
-        const options: Keychain.SetOptions = Device.isDevice
-          ? { service: PENDING_NAVIGATION_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-          : { service: PENDING_NAVIGATION_SERVICE };
-        await Keychain.resetGenericPassword(options);
-      } catch { }
-    }
-    try {
-      await AsyncStorage.removeItem('pending_navigation_intent');
-    } catch { }
+    await settingsRepository.removeSetting('auth_pendingNavigationIntent');
   }
 
   public async clearBadgeCount(): Promise<void> {
     const current = this.authDataSubject.value;
     current.badgeCount = 0;
     this.authDataSubject.next(current);
-
-    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      try {
-        const options: Keychain.SetOptions = Device.isDevice
-          ? { service: BADGE_COUNT_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-          : { service: BADGE_COUNT_SERVICE };
-        await Keychain.resetGenericPassword(options);
-      } catch { }
-    }
-    try {
-      await AsyncStorage.removeItem('badge_count');
-    } catch { }
+    await settingsRepository.removeSetting('auth_badgeCount');
   }
 
   public async clearApiEndpoint(): Promise<void> {
     const current = this.authDataSubject.value;
     current.apiEndpoint = null;
     this.authDataSubject.next(current);
-
-    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      try {
-        const options: Keychain.SetOptions = Device.isDevice
-          ? { service: API_ENDPOINT_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-          : { service: API_ENDPOINT_SERVICE };
-        await Keychain.resetGenericPassword(options);
-      } catch { }
-    }
-    try {
-      await AsyncStorage.removeItem('api_endpoint');
-    } catch { }
+    await settingsRepository.removeSetting('auth_apiEndpoint');
   }
 
   public async hasKeyPair(): Promise<boolean> {
@@ -914,12 +1047,6 @@ class SettingsService {
         await Keychain.resetGenericPassword(privateKeyOptions);
       } catch { }
     }
-    try {
-      await AsyncStorage.removeItem('public_key');
-    } catch { }
-    try {
-      await AsyncStorage.removeItem('private_key');
-    } catch { }
   }
 
   public async clearAllAuthData(): Promise<void> {
@@ -928,8 +1055,8 @@ class SettingsService {
     await Promise.all([
       this.clearTokens(),
       this.clearDeviceTokens(),
-      AsyncStorage.removeItem('last_user_id'),
-      AsyncStorage.removeItem('push_notifications_initialized'),
+      settingsRepository.removeSetting('auth_lastUserId'),
+      settingsRepository.removeSetting('auth_pushNotificationsInitialized'),
       this.clearPendingNavigationIntent(),
       this.clearTermsAcceptance()
     ]);
@@ -946,12 +1073,56 @@ class SettingsService {
       await Keychain.resetGenericPassword(publicKeyOptions);
       await Keychain.resetGenericPassword(privateKeyOptions);
     }
-    await AsyncStorage.multiRemove(['device_token', 'device_id', 'public_key', 'private_key']);
+    await Promise.all([
+      settingsRepository.removeSetting('auth_deviceToken'),
+      settingsRepository.removeSetting('auth_deviceId'),
+    ]);
   }
 
   private async saveSettings(settings: UserSettings): Promise<void> {
     try {
-      await settingsRepository.setSetting('user_settings', JSON.stringify(settings));
+      // Save each root key separately
+      const keys: (keyof UserSettings)[] = [
+        'theme',
+        'locale',
+        'timezone',
+        'dateFormat',
+        'retentionPolicies',
+        'downloadSettings',
+        'notificationsLastSeenId',
+        'notificationVisualization',
+        'notificationsPreferences',
+        'githubEventsFilter',
+        'galleryVisualization',
+        'onboarding',
+        'termsAcceptance',
+        'lastCleanup'
+      ];
+
+      await Promise.all(
+        keys.map(async (key) => {
+          try {
+            const value = settings[key];
+            if (value !== undefined) {
+              await settingsRepository.setSetting(key, JSON.stringify(value));
+            } else {
+              // Remove the key if undefined
+              await settingsRepository.removeSetting(key);
+            }
+          } catch (error) {
+            console.error(`Failed to save setting ${key}:`, error);
+          }
+        })
+      );
+
+      // Special handling for locale - also save to keychain
+      if (settings.locale) {
+        try {
+          await this.saveLocaleToKeychain(settings.locale);
+        } catch (error) {
+          console.error('Failed to save locale to keychain:', error);
+        }
+      }
     } catch (error) {
       console.error('Failed to save user settings:', error);
       throw error;
@@ -1032,17 +1203,12 @@ class SettingsService {
           ? { service: PUBLIC_KEY_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
           : { service: PUBLIC_KEY_SERVICE };
         const creds = await Keychain.getGenericPassword(options);
-        if (creds) return creds.password;
-        return await AsyncStorage.getItem('public_key');
-      } catch {
-        return await AsyncStorage.getItem('public_key');
-      }
-    } else {
-      try {
-        return await AsyncStorage.getItem('public_key');
+        return creds ? creds.password : null;
       } catch {
         return null;
       }
+    } else {
+      return null;
     }
   }
 
@@ -1053,95 +1219,15 @@ class SettingsService {
           ? { service: PRIVATE_KEY_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
           : { service: PRIVATE_KEY_SERVICE };
         const creds = await Keychain.getGenericPassword(options);
-        if (creds) return creds.password;
-        return await AsyncStorage.getItem('private_key');
-      } catch {
-        return await AsyncStorage.getItem('private_key');
-      }
-    } else {
-      try {
-        return await AsyncStorage.getItem('private_key');
-      } catch {
-        return null;
-      }
-    }
-  }
-
-  private async getPushInitializedFromStorage(): Promise<boolean> {
-    try {
-      const value = await AsyncStorage.getItem('push_notifications_initialized');
-      return value === 'true';
-    } catch {
-      return false;
-    }
-  }
-
-  private async getPendingNavigationFromStorage(): Promise<any | null> {
-    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      try {
-        const options: Keychain.GetOptions = Device.isDevice
-          ? { service: PENDING_NAVIGATION_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-          : { service: PENDING_NAVIGATION_SERVICE };
-        const creds = await Keychain.getGenericPassword(options);
-        if (creds) return JSON.parse(creds.password);
-        const fallback = await AsyncStorage.getItem('pending_navigation_intent');
-        return fallback ? JSON.parse(fallback) : null;
+        return creds ? creds.password : null;
       } catch {
         return null;
       }
     } else {
-      try {
-        const value = await AsyncStorage.getItem('pending_navigation_intent');
-        return value ? JSON.parse(value) : null;
-      } catch {
-        return null;
-      }
+      return null;
     }
   }
 
-  private async getBadgeCountFromStorage(): Promise<number> {
-    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      try {
-        const options: Keychain.GetOptions = Device.isDevice
-          ? { service: BADGE_COUNT_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-          : { service: BADGE_COUNT_SERVICE };
-        const creds = await Keychain.getGenericPassword(options);
-        if (creds) return parseInt(creds.password, 10) || 0;
-        const fallback = await AsyncStorage.getItem('badge_count');
-        return fallback ? parseInt(fallback, 10) : 0;
-      } catch {
-        return 0;
-      }
-    } else {
-      try {
-        const value = await AsyncStorage.getItem('badge_count');
-        return value ? parseInt(value, 10) : 0;
-      } catch {
-        return 0;
-      }
-    }
-  }
-
-  private async getApiEndpointFromStorage(): Promise<string | null> {
-    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      try {
-        const options: Keychain.GetOptions = Device.isDevice
-          ? { service: API_ENDPOINT_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-          : { service: API_ENDPOINT_SERVICE };
-        const creds = await Keychain.getGenericPassword(options);
-        if (creds) return creds.password;
-        return await AsyncStorage.getItem('api_endpoint');
-      } catch {
-        return null;
-      }
-    } else {
-      try {
-        return await AsyncStorage.getItem('api_endpoint');
-      } catch {
-        return null;
-      }
-    }
-  }
 
   private async saveLocaleToKeychain(locale: string): Promise<void> {
     if (Platform.OS === 'ios' || Platform.OS === 'macos') {
@@ -1152,10 +1238,7 @@ class SettingsService {
         await Keychain.setGenericPassword('locale', locale, options);
       } catch (error) {
         console.error('Failed to save locale to keychain:', error);
-        await AsyncStorage.setItem('locale', locale);
       }
-    } else {
-      await AsyncStorage.setItem('locale', locale);
     }
   }
 
@@ -1166,18 +1249,12 @@ class SettingsService {
           ? { service: LOCALE_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
           : { service: LOCALE_SERVICE };
         const creds = await Keychain.getGenericPassword(options);
-        if (creds) return creds.password;
-        return await AsyncStorage.getItem('locale');
-      } catch {
-        return null;
-      }
-    } else {
-      try {
-        return await AsyncStorage.getItem('locale');
+        return creds ? creds.password : null;
       } catch {
         return null;
       }
     }
+    return null;
   }
 
   // Getter methods for new structure
