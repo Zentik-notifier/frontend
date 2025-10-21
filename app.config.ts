@@ -144,6 +144,12 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             [
                 "expo-share-extension",
                 {
+                    "excludedPackages": [
+                        "expo-dev-client",
+                        "expo-splash-screen",
+                        "expo-updates",
+                        "expo-font",
+                    ],
                     "activationRules": [
                         {
                             "type": "file",
@@ -252,7 +258,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                                 },
                                 {
                                     targetName: "ZentikShareExtension",
-                                    bundleIdentifier: `${bundleIdentifier}.ZentikShareExtension`,
+                                    bundleIdentifier: `${bundleIdentifier}.ShareExtension`,
                                     entitlements: {
                                         ...commonEntitlements
                                     },
