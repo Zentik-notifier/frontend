@@ -40,28 +40,45 @@ public class KeychainAccess {
     
     // MARK: - Keychain Operations
     
-    /// Get API endpoint from keychain
+    /// Get API endpoint from SQLite database (replaces keychain storage)
     public static func getApiEndpoint() -> String? {
-        print("🔑 [KeychainAccess] 📍 Getting API endpoint...")
-        let value = getKeychainValue(key: "apiEndpoint")
+        print("🔑 [KeychainAccess] 📍 Getting API endpoint from database...")
+        let value = DatabaseAccess.getSettingValue(key: "auth_apiEndpoint")
         if let endpoint = value {
             print("🔑 [KeychainAccess] ✅ API endpoint found: \(endpoint)")
         } else {
-            print("🔑 [KeychainAccess] ❌ API endpoint not found")
+            print("🔑 [KeychainAccess] ❌ API endpoint not found in database")
         }
         return value
     }
     
-    /// Get stored auth token from keychain
+    /// Get stored auth token from keychain (reads accessToken from zentik-auth service)
     public static func getStoredAuthToken() -> String? {
-        print("🔑 [KeychainAccess] 🎫 Getting auth token...")
-        let value = getKeychainValue(key: "authToken")
-        if let token = value {
-            print("🔑 [KeychainAccess] ✅ Auth token found (length: \(token.count))")
-        } else {
-            print("🔑 [KeychainAccess] ❌ Auth token not found")
+        print("🔑 [KeychainAccess] 🎫 Getting auth token from Keychain...")
+        let keychainAccessGroup = getKeychainAccessGroup()
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "zentik-auth",
+            kSecAttrAccessGroup as String: keychainAccessGroup,
+            kSecReturnAttributes as String: true,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        
+        if status == errSecSuccess, let item = result as? [String: Any] {
+            // The accessToken is stored as kSecAttrAccount (username)
+            if let accountData = item[kSecAttrAccount as String] as? String {
+                print("🔑 [KeychainAccess] ✅ Auth token found (length: \(accountData.count))")
+                return accountData
+            }
         }
-        return value
+        
+        print("🔑 [KeychainAccess] ❌ Auth token not found (status: \(status))")
+        return nil
     }
     
     /// Save value to keychain
