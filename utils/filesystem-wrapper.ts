@@ -1,15 +1,14 @@
 import { Platform } from 'react-native';
 import * as ExpoFileSystem from 'expo-file-system';
 import { MediaCacheRepository } from '../services/media-cache-repository';
-import { ApiConfigService } from '../services/api-config';
-import { getAccessToken } from '../services/auth-storage';
+import { settingsService } from '../services/settings-service';
 
 // Helper function to get API credentials (similar to service worker)
 async function getApiCredentials(): Promise<{ apiEndpoint: string; authToken: string } | null> {
   try {
     // For web/mobile, we need to get the auth token from storage
-    const authToken = await getAccessToken();
-    const apiEndpoint = ApiConfigService.getApiBaseWithPrefix();
+    const authToken = settingsService.getAuthData().accessToken;
+    const apiEndpoint = settingsService.getApiBaseWithPrefix();
 
     if (!authToken) {
       console.warn('[WebFS] No auth token available for proxy request');

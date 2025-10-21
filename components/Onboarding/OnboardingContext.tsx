@@ -1,10 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
-import { i18nService } from "@/services/i18n";
-import { DateFormatStyle, MarkAsReadMode, userSettings } from "@/services/user-settings";
+import { DateFormatStyle, MarkAsReadMode, settingsService } from "@/services/settings-service";
 import { ThemePreset } from "@/services/theme-presets";
-import { Locale } from "@/hooks/useI18n";
+import { Locale, useI18n } from "@/hooks/useI18n";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
-import { ApiConfigService } from "@/services/api-config";
 import { BucketFragment } from "@/generated/gql-operations-generated";
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
@@ -163,7 +161,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     if (!customServerUrl) {
       setTestResult({
         success: false,
-        message: i18nService.t("onboardingV2.step1.enterServerUrl"),
+        message: "Please enter a server URL",
       });
       return;
     }
@@ -178,18 +176,18 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
       if (response.ok) {
         setTestResult({
           success: true,
-          message: i18nService.t("onboardingV2.step1.connectionSuccessful"),
+          message: "Connection successful",
         });
       } else {
         setTestResult({
           success: false,
-          message: i18nService.t("onboardingV2.step1.serverNotResponding"),
+          message: "Server not responding",
         });
       }
     } catch (error) {
       setTestResult({
         success: false,
-        message: i18nService.t("onboardingV2.step1.connectionFailed"),
+        message: "Connection failed",
       });
     } finally {
       setTestingServer(false);
@@ -221,11 +219,11 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
       // Apply custom server URL if configured
       if (useCustomServer && customServerUrl.trim()) {
         console.log("[Onboarding] Setting custom API URL:", customServerUrl);
-        await ApiConfigService.setCustomApiUrl(customServerUrl.trim());
+        await settingsService.saveApiEndpoint(customServerUrl.trim());
       } else if (!useCustomServer) {
         // Clear custom URL if user disabled it
         console.log("[Onboarding] Clearing custom API URL");
-        await ApiConfigService.clearCustomApiUrl();
+        await settingsService.clearApiEndpoint();
       }
 
       // Apply Step 3 retention and auto-download settings
@@ -235,18 +233,18 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
         maxNotifications: step3MaxNotifications,
         maxNotificationsDays: step3MaxNotificationsDays,
       });
-      await userSettings.updateMediaCacheRetentionPolicies({
+      await settingsService.updateRetentionPolicies({
         maxCacheSizeMB: step3MaxCacheSizeMB,
         maxCageAgeDays: step3MaxCacheAgeDays,
+        maxCachedNotifications: step3MaxNotifications,
+        maxCachedNotificationsDay: step3MaxNotificationsDays,
       });
-      await userSettings.setMaxCachedNotifications(step3MaxNotifications);
-      await userSettings.setMaxCachedNotificationsDay(step3MaxNotificationsDays);
 
       console.log("[Onboarding] Applying auto-download settings:", {
         autoDownloadEnabled: step3AutoDownloadEnabled,
         wifiOnlyDownload: step3WifiOnlyDownload,
       });
-      await userSettings.updateMediaCacheDownloadSettings({
+      await settingsService.updateDownloadSettings({
         autoDownloadEnabled: step3AutoDownloadEnabled,
         wifiOnlyDownload: step3WifiOnlyDownload,
       });

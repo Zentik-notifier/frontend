@@ -1,3 +1,4 @@
+import { settingsService } from "@/services/settings-service";
 import { useAppContext } from "@/contexts/AppContext";
 import {
   CreatePayloadMapperDto,
@@ -16,7 +17,6 @@ import {
   useGetBucketsQuery,
   useGetAccessTokensForBucketQuery,
 } from "@/generated/gql-operations-generated";
-import { ApiConfigService } from "@/services/api-config";
 import CopyButton from "./ui/CopyButton";
 import Selector from "./ui/Selector";
 import BucketSelector from "./BucketSelector";
@@ -114,7 +114,7 @@ export default function CreatePayloadMapperForm({
 
   const loadApiUrl = async () => {
     try {
-      const url = await ApiConfigService.getApiUrl();
+      const url = await settingsService.getApiUrl();
       setApiUrl(url);
     } catch (error) {
       console.error("Failed to load API URL:", error);

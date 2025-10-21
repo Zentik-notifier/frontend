@@ -1,8 +1,8 @@
+import { settingsService } from "@/services/settings-service";
 import { OAuthSelector } from "@/components/OAuthSelector";
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useLanguageSync } from "@/hooks/useLanguageSync";
-import { ApiConfigService } from "@/services/api-config";
 import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
 import { router } from "expo-router";
@@ -79,7 +79,7 @@ export default function LoginForm({
 
   const openProviderLogin = async (provider: string) => {
     try {
-      const baseWithPrefix = ApiConfigService.getApiBaseWithPrefix();
+      const baseWithPrefix = settingsService.getApiBaseWithPrefix();
       const redirect = `zentik://(mobile)/public/oauth`;
       const url = `${baseWithPrefix}/auth/${provider}?redirect=${encodeURIComponent(
         redirect

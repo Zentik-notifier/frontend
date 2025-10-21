@@ -1,7 +1,7 @@
 import { useNavigationUtils } from '@/utils/navigation';
 import { useCallback } from 'react';
 import { Linking } from 'react-native';
-import { clearPendingNavigationIntent, getPendingNavigationIntent } from '../services/auth-storage';
+import { settingsService } from '@/services/settings-service';
 import { apolloClient } from '@/config/apollo-client';
 import { MarkNotificationAsReadDocument } from '@/generated/gql-operations-generated';
 
@@ -10,7 +10,7 @@ export function usePendingNotificationIntents() {
 
   const processPendingNavigationIntent = useCallback(async () => {
     try {
-      const intent = await getPendingNavigationIntent();
+      const intent = settingsService.getAuthData().pendingNavigationIntent;
       if (intent) {
         console.log(`[PendingIntents] Pending navigation intent found: ${JSON.stringify(intent)}`);
       } else {
@@ -54,7 +54,7 @@ export function usePendingNotificationIntents() {
         console.log('[PendingIntents] ⚠️ Intent value missing or invalid', intent?.value);
       }
 
-      await clearPendingNavigationIntent();
+      await settingsService.clearPendingNavigationIntent();
       console.log('[PendingIntents] 🧭 Pending navigation intent processed and cleared');
       return true;
     } catch (error) {

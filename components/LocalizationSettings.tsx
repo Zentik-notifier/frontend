@@ -1,5 +1,6 @@
 import { useAppContext } from "@/contexts/AppContext";
 import { useI18n, useLanguageSync } from "@/hooks";
+import { useSettings } from "@/hooks/useSettings";
 import {
   DATE_FORMAT_STYLES,
   DateFormatPreferences,
@@ -18,13 +19,10 @@ export function LocalizationSettings() {
   const { currentLocale, setLocale, availableLocales, getLocaleDisplayName } =
     useLanguageSync();
   const {
-    userSettings: {
-      getTimezone,
-      setTimezone,
-      getDateFormatPreferences,
-      setDateFormatPreferences,
-    },
-  } = useAppContext();
+    settings,
+    setTimezone,
+    setDateFormatPreferences,
+  } = useSettings();
 
   // Language settings state
   const [languageSearchQuery, setLanguageSearchQuery] = useState("");
@@ -35,9 +33,9 @@ export function LocalizationSettings() {
 
   // Date format settings state
   const [dateFormatPreferences, setDateFormatPreferencesState] =
-    useState<DateFormatPreferences>(getDateFormatPreferences());
+    useState<DateFormatPreferences>(settings.dateFormat);
 
-  const currentTimezone = getTimezone();
+  const currentTimezone = settings.timezone;
 
   // Get device default timezone
   const getDeviceTimezone = (): string => {

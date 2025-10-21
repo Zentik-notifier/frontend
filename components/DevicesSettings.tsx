@@ -2,7 +2,7 @@ import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useAppContext } from "@/contexts/AppContext";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import { getStoredDeviceId } from "@/services/auth-storage";
+import { settingsService } from "@/services/settings-service";
 import React, { useEffect, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import { Icon, Text, useTheme } from "react-native-paper";
@@ -29,7 +29,8 @@ export default function DevicesSettings() {
 
   // Load stored device ID on mount
   useEffect(() => {
-    getStoredDeviceId().then((id) => setStoredDeviceId(id));
+    const deviceId = settingsService.getAuthData().deviceId;
+    setStoredDeviceId(deviceId);
   }, []);
 
   const handleRefresh = async () => {

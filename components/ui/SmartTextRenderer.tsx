@@ -33,7 +33,7 @@ export const SmartTextRenderer: React.FC<SmartTextRendererProps> = ({
         style={[
           {
             color: theme.colors.onSurface,
-            backgroundColor: 'transparent',
+            backgroundColor: "transparent",
             padding: 0,
             margin: 0,
           },
@@ -44,5 +44,5 @@ export const SmartTextRenderer: React.FC<SmartTextRendererProps> = ({
     );
   }
 
-  return <HtmlTextRenderer content={content} style={style} maxLines={maxLines} testID={testID} {...props} />;
+  return <HtmlTextRenderer content={content} style={style} {...props} />;
 };

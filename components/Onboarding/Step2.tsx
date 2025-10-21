@@ -2,16 +2,17 @@ import Selector from "@/components/ui/Selector";
 import { AVAILABLE_TIMEZONES } from "@/constants/timezones";
 import { Locale, useI18n } from "@/hooks/useI18n";
 import { DATE_FORMAT_STYLES } from "@/services/date-format";
-import { i18nService } from "@/services/i18n";
 import { ThemePreset } from "@/services/theme-presets";
-import { DateFormatStyle, MarkAsReadMode, userSettings } from "@/services/user-settings";
+import { DateFormatStyle, MarkAsReadMode } from "@/services/settings-service";
+import { useSettings } from "@/hooks/useSettings";
 import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Icon, Text, useTheme } from "react-native-paper";
 
 const Step2 = memo(() => {
   const theme = useTheme();
-  const { t } = useI18n();
+  const { t, locale: currentLocale, availableLocales, getLocaleDisplayName } = useI18n();
+  const { settings, setLocale, setCustomThemeSettings, setDateFormatPreferences, setTimezone, updateSettings } = useSettings();
   
   // Local state for UI only - settings are managed directly via userSettings
   const [selectedLanguage, setSelectedLanguage] = useState<Locale>("en-EN");
@@ -20,60 +21,56 @@ const Step2 = memo(() => {
   const [selectedTimezone, setSelectedTimezone] = useState<string>("UTC");
   const [selectedMarkAsReadMode, setSelectedMarkAsReadMode] = useState<MarkAsReadMode>("on-view");
 
-  // Initialize from userSettings on mount
+  // Initialize from settings on mount
   useEffect(() => {
-    const settings = userSettings.getSettings();
     setSelectedLanguage(settings.locale || "en-EN");
-    setSelectedThemePreset(settings.themePreset || ThemePreset.Material3);
+    setSelectedThemePreset(settings.theme.themePreset || ThemePreset.Material3);
     setSelectedDateFormat(settings.dateFormat.dateStyle);
     setSelectedTimezone(settings.timezone);
     setSelectedMarkAsReadMode(settings.notificationsPreferences?.markAsReadMode || "on-view");
-  }, [setSelectedLanguage, setSelectedThemePreset, setSelectedDateFormat, setSelectedTimezone, setSelectedMarkAsReadMode]);
+  }, [settings]);
 
   const handleLanguageSelect = useCallback(async (lang: Locale) => {
     setSelectedLanguage(lang);
-    await userSettings.setLocale(lang);
-    // Apply language immediately via i18nService
-    await i18nService.setLocale(lang);
-  }, []);
+    await setLocale(lang);
+  }, [setLocale]);
 
   const handleThemePresetSelect = useCallback((preset: ThemePreset) => {
     setSelectedThemePreset(preset);
-    userSettings.setCustomThemeSettings({
+    setCustomThemeSettings({
       themePreset: preset,
       useDynamicTheme: false,
     });
-  }, []);
+  }, [setCustomThemeSettings]);
 
   const handleDateFormatSelect = useCallback((format: DateFormatStyle) => {
     setSelectedDateFormat(format);
-    userSettings.setDateFormatPreferences({ dateStyle: format });
-  }, []);
+    setDateFormatPreferences({ dateStyle: format });
+  }, [setDateFormatPreferences]);
 
   const handleTimezoneSelect = useCallback((timezone: string) => {
     setSelectedTimezone(timezone);
-    userSettings.setTimezone(timezone);
-  }, []);
+    setTimezone(timezone);
+  }, [setTimezone]);
 
   const handleMarkAsReadModeSelect = useCallback(async (mode: MarkAsReadMode) => {
     setSelectedMarkAsReadMode(mode);
-    const settings = userSettings.getSettings();
-    await userSettings.updateSettings({ 
+    await updateSettings({ 
       notificationsPreferences: { 
         ...(settings.notificationsPreferences!), 
         markAsReadMode: mode 
       } 
     });
-  }, []);
+  }, [updateSettings, settings.notificationsPreferences]);
 
-  // Language options from i18n service
+  // Language options
   const languageOptions = useMemo(() => 
-    i18nService.getAvailableLocales().map((locale) => ({
+    availableLocales.map((locale) => ({
       id: locale,
-      name: i18nService.getLocaleDisplayName(locale),
+      name: getLocaleDisplayName(locale),
       iconName: "translate" as const,
     }))
-  , []);
+  , [availableLocales, getLocaleDisplayName]);
 
   // Material theme presets (excluding Custom)
   const themePresets = useMemo(() => [

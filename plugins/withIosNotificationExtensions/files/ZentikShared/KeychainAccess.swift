@@ -218,61 +218,30 @@ public class KeychainAccess {
     
     // MARK: - Badge Count Operations
     
-    /// Get badge count from keychain
+    /// Get badge count from SQLite database (replaces keychain storage)
     public static func getBadgeCountFromKeychain() -> Int {
-        let accessGroup = getKeychainAccessGroup()
-        
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "zentik-badge-count",
-            kSecAttrAccount as String: "badge",
-            kSecAttrAccessGroup as String: accessGroup,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        
-        if status == errSecSuccess,
-           let data = result as? Data,
-           let countString = String(data: data, encoding: .utf8),
-           let count = Int(countString) {
-            return count
+        guard let countString = DatabaseAccess.getSettingValue(key: "auth_badgeCount"),
+              let count = Int(countString) else {
+            print("🔑 [KeychainAccess] ℹ️ No badge count found in database, returning 0")
+            return 0
         }
         
-        return 0
+        print("🔑 [KeychainAccess] ✅ Retrieved badge count from database: \(count)")
+        return count
     }
     
-    /// Save badge count to keychain
+    /// Save badge count to SQLite database (replaces keychain storage)
     public static func saveBadgeCountToKeychain(count: Int) {
-        let accessGroup = getKeychainAccessGroup()
+        let success = DatabaseAccess.setSettingValue(key: "auth_badgeCount", value: String(count))
         
-        guard let countData = String(count).data(using: .utf8) else { return }
-        
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "zentik-badge-count",
-            kSecAttrAccount as String: "badge",
-            kSecAttrAccessGroup as String: accessGroup,
-            kSecValueData as String: countData,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
-        ]
-        
-        // Delete any existing item first
-        let deleteQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "zentik-badge-count",
-            kSecAttrAccount as String: "badge",
-            kSecAttrAccessGroup as String: accessGroup
-        ]
-        SecItemDelete(deleteQuery as CFDictionary)
-        
-        // Add the new item
-        SecItemAdd(query as CFDictionary, nil)
+        if success {
+            print("🔑 [KeychainAccess] ✅ Saved badge count to database: \(count)")
+        } else {
+            print("🔑 [KeychainAccess] ❌ Failed to save badge count to database")
+        }
     }
     
-    /// Decrement badge count in keychain
+    /// Decrement badge count in SQLite database
     public static func decrementBadgeCount(source: String) {
         let currentCount = getBadgeCountFromKeychain()
         let newCount = max(0, currentCount - 1)
@@ -283,77 +252,60 @@ public class KeychainAccess {
     
     // MARK: - Intent Storage Operations
     
-    /// Store intent data in keychain
+    /// Store intent data in SQLite database (replaces keychain storage)
+    /// - Parameters:
+    ///   - data: Intent data dictionary
+    ///   - service: Service identifier (ignored, kept for compatibility)
     public static func storeIntentInKeychain(data: [String: Any], service: String) throws {
-        let accessGroup = getKeychainAccessGroup()
-        
-        let jsonData = try JSONSerialization.data(withJSONObject: data)
-        
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: "intent",
-            kSecAttrAccessGroup as String: accessGroup,
-            kSecValueData as String: jsonData,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
-        ]
-        
-        // Delete any existing item first
-        let deleteQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: "intent",
-            kSecAttrAccessGroup as String: accessGroup
-        ]
-        SecItemDelete(deleteQuery as CFDictionary)
-        
-        // Add the new item
-        let status = SecItemAdd(query as CFDictionary, nil)
-        if status != errSecSuccess {
-            throw NSError(domain: "KeychainError", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "Failed to store intent in keychain"])
-        }
-    }
-    
-    /// Get intent data from keychain
-    public static func getIntentFromKeychain(service: String) -> [String: Any]? {
-        let accessGroup = getKeychainAccessGroup()
-        
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: "intent",
-            kSecAttrAccessGroup as String: accessGroup,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        
-        if status == errSecSuccess, let data = result as? Data {
-            do {
-                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-                return json
-            } catch {
-                return nil
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: data)
+            guard let jsonString = String(data: jsonData, encoding: .utf8) else {
+                throw NSError(domain: "KeychainError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to convert intent to JSON string"])
             }
+            
+            let success = DatabaseAccess.setSettingValue(key: "auth_pendingNavigationIntent", value: jsonString)
+            
+            if success {
+                print("🔑 [KeychainAccess] ✅ Stored pending navigation intent in database (service: \(service))")
+            } else {
+                throw NSError(domain: "KeychainError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to store intent in database"])
+            }
+        } catch {
+            print("🔑 [KeychainAccess] ❌ Failed to store intent: \(error.localizedDescription)")
+            throw error
         }
-        
-        return nil
     }
     
-    /// Clear intent data from keychain
+    /// Get intent data from SQLite database (replaces keychain storage)
+    /// - Parameter service: Service identifier (ignored, kept for compatibility)
+    /// - Returns: Intent data dictionary or nil if not found
+    public static func getIntentFromKeychain(service: String) -> [String: Any]? {
+        guard let jsonString = DatabaseAccess.getSettingValue(key: "auth_pendingNavigationIntent"),
+              let jsonData = jsonString.data(using: .utf8) else {
+            print("🔑 [KeychainAccess] ℹ️ No pending navigation intent found in database (service: \(service))")
+            return nil
+        }
+        
+        do {
+            let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+            print("🔑 [KeychainAccess] ✅ Retrieved pending navigation intent from database (service: \(service))")
+            return json
+        } catch {
+            print("🔑 [KeychainAccess] ❌ Failed to parse intent JSON: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    /// Clear intent data from SQLite database (replaces keychain storage)
+    /// - Parameter service: Service identifier (ignored, kept for compatibility)
     public static func clearIntentFromKeychain(service: String) {
-        let accessGroup = getKeychainAccessGroup()
+        let success = DatabaseAccess.removeSettingValue(key: "auth_pendingNavigationIntent")
         
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: "intent",
-            kSecAttrAccessGroup as String: accessGroup
-        ]
-        
-        SecItemDelete(query as CFDictionary)
+        if success {
+            print("🔑 [KeychainAccess] ✅ Cleared pending navigation intent from database (service: \(service))")
+        } else {
+            print("🔑 [KeychainAccess] ⚠️ Failed to clear intent from database (service: \(service))")
+        }
     }
     
     // MARK: - Generic Keychain Operations

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useCallback } from "react";
 import {
   Alert,
   Linking,
@@ -12,98 +12,109 @@ import { useTheme } from "react-native-paper";
 import RenderHTML from "react-native-render-html";
 import { useI18n } from "@/hooks/useI18n";
 
+// Pure helper functions - moved outside component to prevent recreation
+const autoLinkText = (text: string): string => {
+  let processed = text;
+  
+  // Regex patterns (migliorati per supportare trattini e caratteri speciali)
+  const urlRegex = /(?<!href=["'])(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/gi;
+  const emailRegex = /\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})\b/g;
+  const phoneRegex = /\b(\+?[\d\s\-()]{10,})\b/g;
+  
+  // Auto-link URLs (skip already in href attributes)
+  processed = processed.replace(urlRegex, '<a href="$1">$1</a>');
+  
+  // Auto-link emails
+  processed = processed.replace(emailRegex, '<a href="mailto:$1">$1</a>');
+  
+  // Auto-link phone numbers (Italian format priority)
+  processed = processed.replace(phoneRegex, (match) => {
+    const cleaned = match.replace(/\s/g, '');
+    if (cleaned.match(/^\+?[\d\-()]{10,}$/)) {
+      return `<a href="tel:${cleaned}">${match}</a>`;
+    }
+    return match;
+  });
+  
+  return processed;
+};
+
+// Convert Markdown to HTML
+const convertMarkdownToHtml = (text: string): string => {
+  let processed = text;
+  
+  // Convert [text](url) to <a href="url">text</a>
+  processed = processed.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  
+  // Convert **text** to <strong>text</strong>
+  processed = processed.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+  
+  // Convert *text* or _text_ to <em>text</em>
+  processed = processed.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
+  processed = processed.replace(/_([^_]+)_/g, '<em>$1</em>');
+  
+  // Convert `code` to <code>code</code>
+  processed = processed.replace(/`([^`]+)`/g, '<code>$1</code>');
+  
+  return processed;
+};
+
 export interface HtmlTextRendererProps {
   content: string;
   style?: StyleProp<TextStyle>;
-  containerStyle?: ViewStyle;
   variant?: "body" | "title" | "subtitle" | "caption";
   color?: "primary" | "secondary" | "muted" | "error" | "success";
-  maxLines?: number;
-  testID?: string;
 }
 
-export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
+const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
   content,
   style,
-  containerStyle,
   variant = "body",
   color = "primary",
-  maxLines,
-  testID,
 }) => {
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const { t } = useI18n();
 
-  // Auto-link URLs, emails, and phone numbers
-  const autoLinkText = (text: string): string => {
-    let processed = text;
-    
-    // Regex patterns (migliorati per supportare trattini e caratteri speciali)
-    const urlRegex = /(?<!href=["'])(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/gi;
-    const emailRegex = /\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})\b/g;
-    const phoneRegex = /\b(\+?[\d\s\-()]{10,})\b/g;
-    
-    // Auto-link URLs (skip already in href attributes)
-    processed = processed.replace(urlRegex, '<a href="$1">$1</a>');
-    
-    // Auto-link emails
-    processed = processed.replace(emailRegex, '<a href="mailto:$1">$1</a>');
-    
-    // Auto-link phone numbers (Italian format priority)
-    processed = processed.replace(phoneRegex, (match) => {
-      const cleaned = match.replace(/\s/g, '');
-      if (cleaned.match(/^\+?[\d\-()]{10,}$/)) {
-        return `<a href="tel:${cleaned}">${match}</a>`;
-      }
-      return match;
-    });
-    
-    return processed;
-  };
+  // Extract only the theme colors we need to prevent unnecessary rerenders
+  const themeColors = useMemo(() => ({
+    onSurface: theme.colors.onSurface,
+    onSurfaceVariant: theme.colors.onSurfaceVariant,
+    outline: theme.colors.outline,
+    error: theme.colors.error,
+    primary: theme.colors.primary,
+    surfaceVariant: theme.colors.surfaceVariant,
+  }), [
+    theme.colors.onSurface,
+    theme.colors.onSurfaceVariant,
+    theme.colors.outline,
+    theme.colors.error,
+    theme.colors.primary,
+    theme.colors.surfaceVariant,
+  ]);
 
-  // Convert Markdown to HTML
-  const convertMarkdownToHtml = (text: string): string => {
-    let processed = text;
-    
-    // Convert [text](url) to <a href="url">text</a>
-    processed = processed.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-    
-    // Convert **text** to <strong>text</strong>
-    processed = processed.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
-    
-    // Convert *text* or _text_ to <em>text</em>
-    processed = processed.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
-    processed = processed.replace(/_([^_]+)_/g, '<em>$1</em>');
-    
-    // Convert `code` to <code>code</code>
-    processed = processed.replace(/`([^`]+)`/g, '<code>$1</code>');
-    
-    return processed;
-  };
-  
-  const getTextColor = () => {
+  // Get text color based on color prop
+  const textColor = useMemo(() => {
     switch (color) {
       case "primary":
-        return theme.colors.onSurface;
+        return themeColors.onSurface;
       case "secondary":
-        return theme.colors.onSurfaceVariant;
+        return themeColors.onSurfaceVariant;
       case "muted":
-        return theme.colors.outline;
+        return themeColors.outline;
       case "error":
-        return theme.colors.error;
+        return themeColors.error;
       case "success":
-        return theme.colors.primary;
+        return themeColors.primary;
       default:
-        return theme.colors.onSurface;
+        return themeColors.onSurface;
     }
-  };
+  }, [color, themeColors]);
 
-  const textColor = getTextColor();
-  const linkColor = theme.colors.primary;
+  const linkColor = useMemo(() => themeColors.primary, [themeColors]);
 
-  // Get variant styles
-  const getVariantStyle = (): TextStyle => {
+  // Get variant styles - memoized
+  const variantStyle = useMemo((): TextStyle => {
     const baseStyle: TextStyle = {
       color: textColor,
     };
@@ -140,10 +151,10 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
       default:
         return baseStyle;
     }
-  };
+  }, [variant, textColor]);
 
-  // Handle link presses
-  const handleLinkPress = (evt: any, href: string) => {
+  // Handle link presses - memoized to prevent renderersProps recreation
+  const handleLinkPress = useCallback((evt: any, href: string) => {
     if (href.startsWith('mailto:')) {
       const email = href.replace('mailto:', '');
       Alert.alert(
@@ -195,7 +206,7 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
         ]
       );
     }
-  };
+  }, [t]);
 
   // Process content: convert Markdown to HTML, auto-link, and handle newlines
   const processedContent = useMemo(() => {
@@ -220,13 +231,11 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
   // Custom tags styles for react-native-render-html
   const tagsStyles = useMemo(() => ({
     body: {
-      color: textColor,
-      fontSize: getVariantStyle().fontSize,
-      fontWeight: getVariantStyle().fontWeight,
-      lineHeight: getVariantStyle().lineHeight,
+      // Don't set styles on body tag - let baseStyle handle it
+      // This prevents overriding parent styles
     },
     div: {
-      color: textColor,
+      // Don't set color here either - baseStyle handles it
     },
     a: {
       color: linkColor,
@@ -279,30 +288,41 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
       fontStyle: "italic",
     },
     code: {
-      backgroundColor: theme.colors.surfaceVariant,
+      backgroundColor: themeColors.surfaceVariant,
       paddingHorizontal: 4,
       paddingVertical: 2,
       borderRadius: 4,
       fontFamily: "monospace",
     },
     pre: {
-      backgroundColor: theme.colors.surfaceVariant,
+      backgroundColor: themeColors.surfaceVariant,
       padding: 12,
       borderRadius: 8,
       marginVertical: 8,
     },
-  }), [textColor, linkColor, variant, theme]);
+  }), [textColor, linkColor, variantStyle, themeColors]);
 
   // Merge external styles with variant styles
+  // Use JSON.stringify for stable comparison of style object
+  const styleKey = useMemo(() => 
+    JSON.stringify(StyleSheet.flatten(style) || {})
+  , [style]);
+  
   const mergedBaseStyle = useMemo(() => {
-    const variantStyle = getVariantStyle();
-    const flattenedExternalStyle = StyleSheet.flatten(style) || {};
+    const flattenedExternalStyle = JSON.parse(styleKey);
     
     return {
       ...variantStyle,
       ...flattenedExternalStyle,
     };
-  }, [style, variant, textColor]);
+  }, [styleKey, variantStyle]);
+
+  // Memoize renderersProps to prevent recreation on every render
+  const renderersProps = useMemo(() => ({
+    a: {
+      onPress: handleLinkPress,
+    },
+  }), [handleLinkPress]);
 
   // If no content, return null
   if (!content || content.trim() === "") {
@@ -315,12 +335,18 @@ export const HtmlTextRenderer: React.FC<HtmlTextRendererProps> = ({
       source={{ html: processedContent }}
       tagsStyles={tagsStyles as any}
       baseStyle={mergedBaseStyle as any}
-      systemFonts={[]}
-      renderersProps={{
-        a: {
-          onPress: handleLinkPress,
-        },
-      }}
+      renderersProps={renderersProps as any}
     />
   );
 };
+
+// Memoize the entire component to prevent unnecessary rerenders
+export const HtmlTextRenderer = React.memo(HtmlTextRendererComponent, (prevProps, nextProps) => {
+  // Custom comparison: only rerender if these props actually changed
+  return (
+    prevProps.content === nextProps.content &&
+    prevProps.variant === nextProps.variant &&
+    prevProps.color === nextProps.color &&
+    JSON.stringify(StyleSheet.flatten(prevProps.style)) === JSON.stringify(StyleSheet.flatten(nextProps.style))
+  );
+});

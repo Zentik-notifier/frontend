@@ -25,9 +25,7 @@ export const useCachedItem = (url: string, mediaType: MediaType, options?: {
   const {
     userSettings: {
       settings: {
-        mediaCache: {
-          downloadSettings: { autoDownloadEnabled },
-        },
+        downloadSettings: { autoDownloadEnabled },
       },
     },
   } = useAppContext();

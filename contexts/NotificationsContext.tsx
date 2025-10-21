@@ -1,5 +1,5 @@
 import { NotificationFragment } from "@/generated/gql-operations-generated";
-import { NotificationFilters } from "@/services/user-settings";
+import { NotificationVisualization } from "@/services/settings-service";
 import { useAppContext } from "@/contexts/AppContext";
 import React, { createContext, useContext, useReducer, ReactNode, useEffect, useCallback } from "react";
 
@@ -164,7 +164,7 @@ export function NotificationsProvider({
     dispatch({ type: "SET_SHOW_FILTERS_MODAL", payload: false });
   };
 
-  const updateActiveFiltersCount = (filters: NotificationFilters): void => {
+  const updateActiveFiltersCount = (filters: NotificationVisualization): void => {
     let count = 0;
     if (filters.hideRead) count++;
     if (filters.timeRange !== "all") count++;
@@ -175,8 +175,8 @@ export function NotificationsProvider({
   };
 
   useEffect(() => {
-    updateActiveFiltersCount(settings.notificationFilters);
-  }, [settings.notificationFilters]);
+    updateActiveFiltersCount(settings.notificationVisualization);
+  }, [settings.notificationVisualization]);
 
   const value: NotificationsContextType = {
     state,

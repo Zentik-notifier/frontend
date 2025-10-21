@@ -1,3 +1,4 @@
+import { settingsService } from "@/services/settings-service";
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useEffect, useState } from "react";
@@ -13,7 +14,6 @@ import {
   useTheme,
 } from "react-native-paper";
 import { reinitializeApolloClient } from "../config/apollo-client";
-import { ApiConfigService } from "../services/api-config";
 import { LegalDocumentsSettings } from "./LegalDocumentsSettings";
 import { LocalizationSettings } from "./LocalizationSettings";
 import ThemeSettings from "./ThemeSettings";
@@ -40,7 +40,7 @@ export function AppSettings() {
 
   const loadApiUrl = async () => {
     try {
-      const customUrl = await ApiConfigService.getCustomApiUrl();
+      const customUrl = await settingsService.getCustomApiUrl();
       setApiUrl(customUrl);
       setOriginalApiUrl(customUrl);
     } catch (error) {
@@ -51,7 +51,7 @@ export function AppSettings() {
   const saveApiUrl = async () => {
     setLoading(true);
     try {
-      await ApiConfigService.setCustomApiUrl(apiUrl);
+      await settingsService.saveApiEndpoint(apiUrl);
       setOriginalApiUrl(apiUrl);
 
       // Reinitialize Apollo Client with new URL
@@ -69,8 +69,30 @@ export function AppSettings() {
     }
   };
 
-  const resetApiUrl = () => {
-    setApiUrl(originalApiUrl);
+  const resetApiUrl = async () => {
+    setLoading(true);
+    try {
+      // Reset to default API URL
+      await settingsService.resetApiEndpoint();
+      
+      // Reload the value
+      const defaultUrl = settingsService.getCustomApiUrl();
+      setApiUrl(defaultUrl);
+      setOriginalApiUrl(defaultUrl);
+      
+      // Reinitialize Apollo Client with default URL
+      await reinitializeApolloClient();
+      
+      // Show success dialog
+      setDialogMessage(t("appSettings.apiUrl.successMessage"));
+      setShowSuccessDialog(true);
+    } catch (error) {
+      console.error("Failed to reset API URL:", error);
+      setDialogMessage(t("appSettings.apiUrl.saveError"));
+      setShowErrorDialog(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const hasChanges = apiUrl !== originalApiUrl;

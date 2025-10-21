@@ -1,5 +1,5 @@
 import { MD3DarkTheme, MD3LightTheme } from 'react-native-paper';
-import { DynamicThemeColors } from './user-settings';
+import { DynamicThemeColors } from './settings-service';
 import { ColorScheme } from '@/hooks/useTheme';
 
 export enum ThemePreset {

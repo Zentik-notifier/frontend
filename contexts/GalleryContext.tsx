@@ -3,7 +3,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useAppContext } from "@/contexts/AppContext";
 import { CacheItem, mediaCache } from "@/services/media-cache-service";
-import { DEFAULT_MEDIA_TYPES } from "@/services/user-settings";
+import { DEFAULT_MEDIA_TYPES } from "@/services/settings-service";
 import React, {
   createContext,
   useContext,
@@ -122,7 +122,7 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
   const { cachedItems } = useGetCacheStats();
   const { t } = useI18n();
   const { userSettings } = useAppContext();
-  const numColumns = userSettings.settings.gallery.gridSize;
+  const numColumns = userSettings.settings.galleryVisualization.gridSize;
 
   const handleSetFilteredMedia = (media: CacheItem[]) => {
     dispatch({ type: "SET_FILTERED_MEDIA", payload: media });
@@ -269,14 +269,14 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
     }));
 
     // Get selected media types from settings (or use defaults if empty)
-    const savedSelectedTypes = userSettings.settings.gallery.selectedMediaTypes;
+    const savedSelectedTypes = userSettings.settings.galleryVisualization.selectedMediaTypes;
     const selectedMediaTypes = savedSelectedTypes.length > 0 
       ? new Set(savedSelectedTypes) 
       : new Set(DEFAULT_MEDIA_TYPES);
 
     const filteredMedia = allWithIds.filter((item) => {
       if (!selectedMediaTypes.has(item.mediaType)) return false;
-      if (!userSettings.settings.gallery.showFaultyMedias) {
+      if (!userSettings.settings.galleryVisualization.showFaultyMedias) {
         if (item?.isUserDeleted || item?.isPermanentFailure) return false;
       }
       return true;
@@ -351,8 +351,8 @@ export function GalleryProvider({ children }: GalleryProviderProps) {
     handleSetFlatOrder(flatOrder);
   }, [
     cachedItems,
-    userSettings.settings.gallery.selectedMediaTypes,
-    userSettings.settings.gallery.showFaultyMedias,
+    userSettings.settings.galleryVisualization.selectedMediaTypes,
+    userSettings.settings.galleryVisualization.showFaultyMedias,
     numColumns,
     t,
   ]);

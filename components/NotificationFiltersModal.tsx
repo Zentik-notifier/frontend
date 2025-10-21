@@ -2,7 +2,7 @@ import { useBucketsStats } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useAppContext } from "@/contexts/AppContext";
-import { NotificationFilters } from "@/services/user-settings";
+import { NotificationVisualization } from "@/services/settings-service";
 import { useNotificationsContext } from "@/contexts/NotificationsContext";
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, ScrollView, Dimensions } from "react-native";
@@ -19,14 +19,14 @@ import {
 import BucketSelector from "./BucketSelector";
 import MultiBucketSelector from "./MultiBucketSelector";
 
-export default function NotificationFiltersModal() {
+export default function NotificationVisualizationModal() {
   const { data: bucketsWithStats = [] } = useBucketsStats();
   const { t } = useI18n();
   const { datePickerLocale } = useDateFormat();
   const {
-    userSettings: { settings, setNotificationFilters },
+    userSettings: { settings, setNotificationVisualization },
   } = useAppContext();
-  const savedFilters = settings.notificationFilters;
+  const savedFilters = settings.notificationVisualization;
 
   // Use notifications context
   const {
@@ -36,7 +36,7 @@ export default function NotificationFiltersModal() {
 
   // Local state for filters
   const [localFilters, setLocalFilters] =
-    useState<NotificationFilters>(savedFilters);
+    useState<NotificationVisualization>(savedFilters);
 
   // Local state for date range picker modal
   const [showDateRangePicker, setShowDateRangePicker] = useState(false);
@@ -97,11 +97,12 @@ export default function NotificationFiltersModal() {
       showOnlyWithAttachments: false,
       loadOnlyVisible: false,
       enableHtmlRendering: true,
+      isCompactMode: localFilters.isCompactMode,
     });
   };
 
   const applyFilters = () => {
-    setNotificationFilters(localFilters);
+    setNotificationVisualization(localFilters);
     handleHideFiltersModal();
   };
 

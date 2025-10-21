@@ -1,7 +1,6 @@
 import { GetNotificationsDocument, GetNotificationsQuery, NotificationFragment } from '@/generated/gql-operations-generated';
-import { ApiConfigService } from '@/services/api-config';
 import { authService } from '@/services/auth-service';
-import { getStoredDeviceToken } from '@/services/auth-storage';
+import { settingsService } from '@/services/settings-service';
 import { ApolloClient, createHttpLink, InMemoryCache, makeVar, split } from '@apollo/client';
 import { loadDevMessages, loadErrorMessages } from "@apollo/client/dev";
 import { setContext } from '@apollo/client/link/context';
@@ -17,27 +16,27 @@ if (__DEV__) {
 
 // Get the base URL from environment or custom setting
 const getBaseUrl = () => {
-  const apiUrl = ApiConfigService.getApiUrlSync();
+  const apiUrl = settingsService.getApiUrl();
   return apiUrl.replace('http://', '').replace('https://', '');
 };
 
 // Create HTTP link for queries and mutations - function to allow recreation
 const createHttpLinkDynamic = () => createHttpLink({
-  uri: `${ApiConfigService.getApiUrlSync()}/api/v1/graphql`,
+  uri: `${settingsService.getApiUrl()}/api/v1/graphql`,
 });
 
 export const subscriptionsEnabledVar = makeVar<boolean>(false);
 
 // Create WebSocket link - function to allow recreation
 const createWsLinkDynamic = () => {
-  const wsProtocol = ApiConfigService.getApiUrlSync().startsWith('https') ? 'wss' : 'ws';
+  const wsProtocol = settingsService.getApiUrl().startsWith('https') ? 'wss' : 'ws';
   return new GraphQLWsLink(
     createClient({
       url: `${wsProtocol}://${getBaseUrl()}/api/v1/graphql`,
       connectionParams: async () => {
         const validToken = await authService.ensureValidToken();
-        const deviceToken = await getStoredDeviceToken();
-        return { authorization: validToken ? `Bearer ${validToken}` : '', deviceToken };
+        const deviceToken = settingsService.getAuthData().deviceToken;
+        return { authorization: validToken ? `Bearer ${validToken}` : '', deviceToken: deviceToken || undefined };
       },
     })
   );
@@ -46,7 +45,7 @@ const createWsLinkDynamic = () => {
 // Auth link to add authentication headers with proactive token refresh
 const authLink = setContext(async (_, { headers }) => {
   const validToken = await authService.ensureValidToken();
-  const deviceToken = await getStoredDeviceToken();
+  const deviceToken = settingsService.getAuthData().deviceToken;
   return {
     headers: {
       ...headers,
@@ -99,7 +98,7 @@ const cache = createCacheDynamic();
 export let apolloClient: ApolloClient<any> | null = null;
 
 export const initApolloClient = async () => {
-  await ApiConfigService.initialize();
+  await Promise.resolve();
 
   const splitLink = createSplitLinkDynamic();
 
@@ -154,9 +153,9 @@ export const reinitializeApolloClient = async (): Promise<void> => {
   if (!apolloClient) return;
 
   try {
-    await ApiConfigService.initialize();
+    await Promise.resolve();
 
-    console.log('🔄 Reinitializing Apollo Client with new API URL:', ApiConfigService.getApiUrlSync());
+    console.log('🔄 Reinitializing Apollo Client with new API URL:', settingsService.getApiUrl());
 
     await apolloClient.clearStore();
 

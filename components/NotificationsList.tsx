@@ -17,7 +17,7 @@ import {
   useAllNotificationIds,
 } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
-import type { NotificationFilters as RQFilters } from "@/types/notifications";
+import type { NotificationVisualization as RQFilters } from "@/services/settings-service";
 import { FlashList } from "@shopify/flash-list";
 import React, {
   useCallback,
@@ -41,8 +41,8 @@ import {
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
-import NotificationFilters from "./NotificationFilters";
 import NotificationItem from "./NotificationItem";
+import NotificationFilters from "./NotificationFilters";
 import { useBadgeSync } from "@/hooks/useBadgeSync";
 
 interface NotificationsListProps {
@@ -107,13 +107,13 @@ export default function NotificationsList({
 
   const {
     userSettings: {
-      settings: { notificationFilters },
+      settings: { notificationVisualization },
     },
   } = useAppContext();
 
   // Build filters from user settings
   const queryFilters = useMemo((): RQFilters => {
-    const filters: RQFilters = {};
+    const filters: any = {};
 
     // Add bucket filter if provided
     if (bucketId) {
@@ -121,23 +121,23 @@ export default function NotificationsList({
     }
 
     // Apply user settings filters
-    if (notificationFilters?.hideRead) {
+    if (notificationVisualization?.hideRead) {
       filters.isRead = false;
     }
 
-    if (notificationFilters?.showOnlyWithAttachments) {
+    if (notificationVisualization.showOnlyWithAttachments) {
       filters.hasAttachments = true;
     }
 
-    if (notificationFilters?.searchQuery) {
-      filters.searchQuery = notificationFilters.searchQuery;
+    if (notificationVisualization.searchQuery) {
+      filters.searchQuery = notificationVisualization.searchQuery;
     }
 
     // Handle time range filters
-    if (notificationFilters?.timeRange) {
+    if (notificationVisualization.timeRange) {
       const now = new Date();
 
-      switch (notificationFilters.timeRange) {
+      switch (notificationVisualization.timeRange) {
         case "today":
           filters.createdAfter = new Date(
             now.setHours(0, 0, 0, 0)
@@ -154,11 +154,11 @@ export default function NotificationsList({
           filters.createdAfter = monthAgo.toISOString();
           break;
         case "custom":
-          if (notificationFilters.customTimeRange?.from) {
-            filters.createdAfter = notificationFilters.customTimeRange.from;
+          if (notificationVisualization.customTimeRange?.from) {
+            filters.createdAfter = notificationVisualization.customTimeRange.from;
           }
-          if (notificationFilters.customTimeRange?.to) {
-            filters.createdBefore = notificationFilters.customTimeRange.to;
+          if (notificationVisualization.customTimeRange?.to) {
+            filters.createdBefore = notificationVisualization.customTimeRange.to;
           }
           break;
       }
@@ -166,8 +166,8 @@ export default function NotificationsList({
 
     // Apply selected bucket IDs filter
     if (
-      notificationFilters?.selectedBucketIds &&
-      notificationFilters.selectedBucketIds.length > 0 &&
+      notificationVisualization.selectedBucketIds &&
+      notificationVisualization.selectedBucketIds.length > 0 &&
       !bucketId
     ) {
       // If we have selected buckets and we're not already filtering by a specific bucket
@@ -176,18 +176,18 @@ export default function NotificationsList({
     }
 
     return filters;
-  }, [bucketId, notificationFilters]);
+  }, [bucketId, notificationVisualization]);
 
   // Build sort from user settings
   const querySort = useMemo(() => {
-    const sortPreference = notificationFilters?.sortBy || "newest";
+    const sortPreference = notificationVisualization.sortBy || "newest";
 
     return {
       field: "createdAt" as const,
       direction:
         sortPreference === "oldest" ? ("asc" as const) : ("desc" as const),
     };
-  }, [notificationFilters?.sortBy]);
+  }, [notificationVisualization.sortBy]);
 
   // Fetch notifications with React Query Infinite
   // No autoSync - sync only happens on app startup
@@ -421,11 +421,11 @@ export default function NotificationsList({
           isSelected={isSelected}
           noBucketRouting={!!bucketId}
           onToggleSelection={() => toggleItemSelection(item.id)}
-          enableHtmlRendering={notificationFilters.enableHtmlRendering}
+          enableHtmlRendering={notificationVisualization.enableHtmlRendering}
         />
       );
     },
-    [selectedItems, selectionMode, hideBucketInfo, visibleItems, notificationFilters.enableHtmlRendering]
+    [selectedItems, selectionMode, hideBucketInfo, visibleItems, notificationVisualization.enableHtmlRendering]
   );
 
   // Memoized key extractor

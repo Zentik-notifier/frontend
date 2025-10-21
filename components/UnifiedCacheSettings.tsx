@@ -4,7 +4,8 @@ import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useNotificationExportImport } from "@/hooks/useNotificationExportImport";
 import { mediaCache } from "@/services/media-cache-service";
 import { getAllNotificationsFromCache } from "@/services/notifications-repository";
-import { useUserSettings, MarkAsReadMode } from "@/services/user-settings";
+import { useSettings } from "@/hooks/useSettings";
+import type { MarkAsReadMode } from "@/services/settings-service";
 import { formatFileSize } from "@/utils";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
@@ -39,7 +40,7 @@ export default function UnifiedCacheSettings() {
     setAutoAddOpenNotificationAction,
     setDefaultPostpones,
     setDefaultSnoozes,
-  } = useUserSettings();
+  } = useSettings();
   const [showResetModal, setShowResetModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -51,20 +52,20 @@ export default function UnifiedCacheSettings() {
   const [dialogMessage, setDialogMessage] = useState("");
 
   const [localMaxCacheSizeMB, setLocalMaxCacheSizeMB] = useState<string>(
-    settings.mediaCache.retentionPolicies?.maxCacheSizeMB?.toString() || ""
+    settings.retentionPolicies?.maxCacheSizeMB?.toString() || ""
   );
   const [localMaxCacheAgeDays, setLocalMaxCacheAgeDays] = useState<string>(
-    settings.mediaCache.retentionPolicies?.maxCageAgeDays?.toString() || ""
+    settings.retentionPolicies?.maxCageAgeDays?.toString() || ""
   );
   const [localMaxNotifications, setLocalMaxNotifications] = useState<string>(
-    settings.maxCachedNotifications !== undefined
-      ? String(settings.maxCachedNotifications)
+    settings.retentionPolicies.maxCachedNotifications !== undefined
+      ? String(settings.retentionPolicies.maxCachedNotifications)
       : ""
   );
   const [localMaxNotificationsDays, setLocalMaxNotificationsDays] =
     useState<string>(
-      settings.maxCachedNotificationsDay !== undefined
-        ? String(settings.maxCachedNotificationsDay)
+      settings.retentionPolicies.maxCachedNotificationsDay !== undefined
+        ? String(settings.retentionPolicies.maxCachedNotificationsDay)
         : ""
     );
   const [isEditingMaxNotifications, setIsEditingMaxNotifications] =
@@ -100,22 +101,22 @@ export default function UnifiedCacheSettings() {
   // Sync when settings change externally
   useEffect(() => {
     setLocalMaxCacheSizeMB(
-      settings.mediaCache.retentionPolicies?.maxCacheSizeMB?.toString() || ""
+      settings.retentionPolicies?.maxCacheSizeMB?.toString() || ""
     );
     setLocalMaxCacheAgeDays(
-      settings.mediaCache.retentionPolicies?.maxCageAgeDays?.toString() || ""
+      settings.retentionPolicies?.maxCageAgeDays?.toString() || ""
     );
     if (!isEditingMaxNotifications) {
       setLocalMaxNotifications(
-        settings.maxCachedNotifications !== undefined
-          ? String(settings.maxCachedNotifications)
+        settings.retentionPolicies.maxCachedNotifications !== undefined
+          ? String(settings.retentionPolicies.maxCachedNotifications)
           : ""
       );
     }
     if (!isEditingMaxNotificationsDays) {
       setLocalMaxNotificationsDays(
-        settings.maxCachedNotificationsDay !== undefined
-          ? String(settings.maxCachedNotificationsDay)
+        settings.retentionPolicies.maxCachedNotificationsDay !== undefined
+          ? String(settings.retentionPolicies.maxCachedNotificationsDay)
           : ""
       );
     }
@@ -123,10 +124,10 @@ export default function UnifiedCacheSettings() {
     setLocalDefaultPostpones(settings.notificationsPreferences?.defaultPostpones || []);
     setLocalDefaultSnoozes(settings.notificationsPreferences?.defaultSnoozes || []);
   }, [
-    settings.mediaCache.retentionPolicies?.maxCacheSizeMB,
-    settings.mediaCache.retentionPolicies?.maxCageAgeDays,
-    settings.maxCachedNotifications,
-    settings.maxCachedNotificationsDay,
+    settings.retentionPolicies?.maxCacheSizeMB,
+    settings.retentionPolicies?.maxCageAgeDays,
+    settings.retentionPolicies.maxCachedNotifications,
+    settings.retentionPolicies.maxCachedNotificationsDay,
     settings.notificationsPreferences?.defaultPostpones,
     settings.notificationsPreferences?.defaultSnoozes,
     isEditingMaxNotifications,
@@ -141,7 +142,7 @@ export default function UnifiedCacheSettings() {
       setMaxCachedNotifications,
       setMaxCachedNotificationsDay,
       settings: {
-        mediaCache: { downloadSettings },
+        downloadSettings,
         notificationsPreferences,
       },
     },

@@ -1,6 +1,6 @@
 import { cleanupGalleryBySettings, mediaCache } from "@/services/media-cache-service";
 import { cleanupNotificationsBySettings, getAllNotificationsFromCache } from "@/services/notifications-repository";
-import { userSettings } from "@/services/user-settings";
+import { settingsService } from "@/services/settings-service";
 import { setBadgeCount } from "@/utils/badgeUtils";
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -32,7 +32,7 @@ export const useCleanup = () => {
     const { loadBucketsFromCache } = useLoadBucketsFromCache();
 
     const cleanup = useCallback(async ({ immediate, force }: CleanupProps) => {
-        const shouldCleanup = !userSettings.shouldRunCleanup() ? false : true;
+        const shouldCleanup = !settingsService.shouldRunCleanup() ? false : true;
 
         const executeWithRAF = <T>(fn: () => Promise<T>, label: string): Promise<T> => {
             return new Promise((resolve, reject) => {
@@ -139,7 +139,7 @@ export const useCleanup = () => {
             ).catch((e) => {
                 console.error('[Cleanup] Error during gallery cleanup', e);
             });
-            await userSettings.setLastCleanup(new Date().toISOString());
+            await settingsService.setLastCleanup(new Date().toISOString());
             console.log('[Cleanup] Updated last cleanup timestamp');
 
             await waitRAF();

@@ -17,6 +17,7 @@ import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useRecyclingState } from "@shopify/flash-list";
 import React, { useEffect, useMemo, useRef } from "react";
+import { useSettings } from "@/hooks/useSettings";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 import {
   Icon,
@@ -126,8 +127,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     connectionStatus: { canAutoDownload },
     userSettings: {
       settings: {
-        isCompactMode,
-        notificationFilters: { loadOnlyVisible },
+        notificationVisualization: { loadOnlyVisible, isCompactMode },
       },
     },
   } = useAppContext();

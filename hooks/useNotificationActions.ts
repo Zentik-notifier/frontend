@@ -1,5 +1,5 @@
 import { UpdateUserDeviceInput, useUpdateUserDeviceMutation } from '@/generated/gql-operations-generated';
-import { clearPendingNavigationIntent } from '@/services/auth-storage';
+import { settingsService } from '@/services/settings-service';
 import { useNavigationUtils } from '@/utils/navigation';
 import * as Notifications from 'expo-notifications';
 import { useCallback } from 'react';
@@ -57,7 +57,7 @@ export function useNotificationActions() {
 
     // Clear any pending navigation intent to avoid conflicts
     try {
-      await clearPendingNavigationIntent();
+      await settingsService.clearPendingNavigationIntent();
       console.log('[useNotificationActions] Cleared pending navigation intent');
     } catch (error) {
       console.warn('[useNotificationActions] Failed to clear pending navigation intent:', error);
@@ -215,7 +215,7 @@ export function useNotificationActions() {
 
     // Clear any pending navigation intent to avoid conflicts
     try {
-      await clearPendingNavigationIntent();
+      await settingsService.clearPendingNavigationIntent();
       console.log('[useNotificationActions] Cleared pending navigation intent');
     } catch (error) {
       console.warn('[useNotificationActions] Failed to clear pending navigation intent:', error);

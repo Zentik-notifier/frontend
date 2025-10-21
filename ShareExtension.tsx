@@ -1,20 +1,34 @@
-import { getAccessToken, getStoredApiEndpoint, getStoredLocale } from '@/services/auth-storage';
-import { getAllBuckets, saveBuckets, BucketData } from '@/db/repositories/buckets-repository';
-import { Locale, useI18n } from '@/hooks/useI18n';
-import { i18nService } from '@/services/i18n';
-import { Image } from 'expo-image';
+import {
+  BucketData,
+  getAllBuckets,
+  saveBuckets,
+} from "@/db/repositories/buckets-repository";
+import { useI18n } from "@/hooks/useI18n";
+import { settingsRepository } from "@/services/settings-repository";
+import * as Device from "expo-device";
+import { Image } from "expo-image";
 import React, { useCallback, useEffect, useState } from "react";
-import { 
-  ActivityIndicator, 
-  Alert, 
+import {
+  ActivityIndicator,
+  Alert,
   Dimensions,
+  Platform,
   ScrollView,
-  StyleSheet, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  View 
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import * as Keychain from "react-native-keychain";
+
+// Keychain constants for share extension
+const bundleIdentifier = __DEV__
+  ? "com.apocaliss92.zentik.dev"
+  : "com.apocaliss92.zentik";
+const KEYCHAIN_ACCESS_GROUP = `C3F24V5NS5.${bundleIdentifier}.keychain`;
+const ACCESS_TOKEN_SERVICE = "zentik.auth.access";
+const REFRESH_TOKEN_SERVICE = "zentik.auth.refresh";
 
 interface Bucket extends BucketData {
   color?: string | null;
@@ -23,7 +37,23 @@ interface Bucket extends BucketData {
 
 const BUCKET_SIZE = 80;
 const BUCKETS_PER_ROW = 3;
-const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_WIDTH = Dimensions.get("window").width;
+
+// Helper function to get access token from Keychain
+async function getAccessTokenFromKeychain(): Promise<string | null> {
+  if (Platform.OS === "ios" || Platform.OS === "macos") {
+    try {
+      const options: Keychain.GetOptions = Device.isDevice
+        ? { service: ACCESS_TOKEN_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
+        : { service: ACCESS_TOKEN_SERVICE };
+      const creds = await Keychain.getGenericPassword(options);
+      return creds ? creds.username : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
 
 interface ShareExtensionProps {
   url: string;
@@ -36,46 +66,20 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
   const [sending, setSending] = useState(false);
   const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [selectedBucket, setSelectedBucket] = useState<Bucket | null>(null);
-  const [title, setTitle] = useState('');
-  const [message, setMessage] = useState(url || '');
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState(url || "");
   const [error, setError] = useState<string | null>(null);
-  const [localeInitialized, setLocaleInitialized] = useState(false);
-
-  // Initialize locale from keychain (shared via App Groups)
-  useEffect(() => {
-    const initializeLocale = async () => {
-      try {
-        // getStoredLocale reads from keychain with accessGroup, allowing cross-app data sharing
-        const storedLocale = await getStoredLocale();
-        
-        // Validate and fallback to default locale
-        const isValidLocale = (locale: string): locale is Locale => {
-          return locale === 'en-EN' || locale === 'it-IT';
-        };
-        
-        const locale: Locale = (storedLocale && isValidLocale(storedLocale)) ? storedLocale : 'en-EN';
-        
-        await i18nService.setLocale(locale);
-        setLocaleInitialized(true);
-      } catch (error) {
-        console.error('[ShareExtension] Failed to initialize locale:', error);
-        setLocaleInitialized(true);
-      }
-    };
-
-    initializeLocale();
-  }, []);
 
   const loadBuckets = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const token = await getAccessToken();
-      const api = await getStoredApiEndpoint();
+      const token = await getAccessTokenFromKeychain();
+      const api = await settingsRepository.getSetting("auth_apiEndpoint");
 
       if (!token || !api) {
-        setError(t('shareExtension.notAuthenticated'));
+        setError(t("shareExtension.notAuthenticated"));
         setLoading(false);
         return;
       }
@@ -85,22 +89,22 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
       // Prima carica dalla cache locale (SQLite/IndexedDB) per un'esperienza più veloce
       const cachedBuckets = await getAllBuckets();
       if (cachedBuckets && cachedBuckets.length > 0) {
-        console.log('[ShareExtension] Loading buckets from local DB cache');
+        console.log("[ShareExtension] Loading buckets from local DB cache");
         setBuckets(cachedBuckets as Bucket[]);
         setSelectedBucket(cachedBuckets[0] as Bucket);
         setLoading(false);
       }
 
       // Poi carica dal server in background per aggiornare la cache
-      console.log('[ShareExtension] Fetching fresh buckets from server');
+      console.log("[ShareExtension] Fetching fresh buckets from server");
       setRefreshing(true);
-      
+
       try {
         const response = await fetch(`${api}/api/v1/buckets`, {
-          method: 'GET',
+          method: "GET",
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
         });
 
@@ -109,39 +113,45 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
         }
 
         const freshBuckets: Bucket[] = await response.json();
-        
+
         // Salva nella cache locale (SQLite/IndexedDB)
         await saveBuckets(freshBuckets);
-        
+
         // Aggiorna l'UI solo se non avevamo cache o se i bucket sono diversi
-        if (!cachedBuckets || cachedBuckets.length === 0 || 
-            JSON.stringify(cachedBuckets) !== JSON.stringify(freshBuckets)) {
-          console.log('[ShareExtension] Updating UI with fresh buckets');
+        if (
+          !cachedBuckets ||
+          cachedBuckets.length === 0 ||
+          JSON.stringify(cachedBuckets) !== JSON.stringify(freshBuckets)
+        ) {
+          console.log("[ShareExtension] Updating UI with fresh buckets");
           setBuckets(freshBuckets);
-          
+
           if (freshBuckets.length > 0) {
             // Mantieni la selezione se il bucket esiste ancora, altrimenti seleziona il primo
             const currentSelected = selectedBucket;
-            const stillExists = currentSelected && freshBuckets.find((b: Bucket) => b.id === currentSelected.id);
+            const stillExists =
+              currentSelected &&
+              freshBuckets.find((b: Bucket) => b.id === currentSelected.id);
             setSelectedBucket(stillExists ? currentSelected : freshBuckets[0]);
           }
         }
       } finally {
         setRefreshing(false);
       }
-
     } catch (err: any) {
-      console.error('[ShareExtension] Error loading buckets:', err);
-      
+      console.error("[ShareExtension] Error loading buckets:", err);
+
       // Se abbiamo cache e c'è un errore di rete, usa la cache
       const cachedBuckets = await getAllBuckets();
       if (cachedBuckets && cachedBuckets.length > 0) {
-        console.log('[ShareExtension] Using cached buckets from local DB due to network error');
+        console.log(
+          "[ShareExtension] Using cached buckets from local DB due to network error"
+        );
         setBuckets(cachedBuckets as Bucket[]);
         setSelectedBucket(cachedBuckets[0] as Bucket);
         setError(null);
       } else {
-        setError(err.message || 'Failed to load buckets');
+        setError(err.message || "Failed to load buckets");
       }
     } finally {
       setLoading(false);
@@ -150,19 +160,17 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
 
   // Load buckets after locale is initialized
   useEffect(() => {
-    if (localeInitialized) {
-      loadBuckets();
-    }
-  }, [localeInitialized, loadBuckets]);
+    loadBuckets();
+  }, []);
 
   const sendMessage = async () => {
     if (!title.trim()) {
-      Alert.alert(t('common.error'), t('shareExtension.errors.titleRequired'));
+      Alert.alert(t("common.error"), t("shareExtension.errors.titleRequired"));
       return;
     }
 
     if (!selectedBucket) {
-      Alert.alert(t('common.error'), t('shareExtension.errors.bucketRequired'));
+      Alert.alert(t("common.error"), t("shareExtension.errors.bucketRequired"));
       return;
     }
 
@@ -170,11 +178,14 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
       setSending(true);
       setError(null);
 
-      const token = await getAccessToken();
-      const apiUrl = await getStoredApiEndpoint();
+      const token = await getAccessTokenFromKeychain();
+      const apiUrl = await settingsRepository.getSetting("auth_apiEndpoint");
 
       if (!token || !apiUrl) {
-        Alert.alert(t('common.error'), t('shareExtension.errors.notAuthenticated'));
+        Alert.alert(
+          t("common.error"),
+          t("shareExtension.errors.notAuthenticated")
+        );
         return;
       }
 
@@ -182,39 +193,46 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
         title: title.trim(),
         body: message.trim() || undefined,
         bucketId: selectedBucket.id,
-        deliveryType: 'normal',
+        deliveryType: "normal",
       };
 
       const response = await fetch(`${apiUrl}/api/v1/messages`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to send message: ${response.status}`);
+        throw new Error(
+          errorData.message || `Failed to send message: ${response.status}`
+        );
       }
 
-      Alert.alert(t('shareExtension.success.title'), t('shareExtension.success.message'), [
-        { text: t('common.ok'), onPress: () => {} }
-      ]);
+      Alert.alert(
+        t("shareExtension.success.title"),
+        t("shareExtension.success.message"),
+        [{ text: t("common.ok"), onPress: () => {} }]
+      );
 
-      setTitle('');
-      setMessage('');
+      setTitle("");
+      setMessage("");
     } catch (err: any) {
-      console.error('[ShareExtension] Error sending message:', err);
-      Alert.alert(t('common.error'), err.message || t('shareExtension.errors.sendFailed'));
+      console.error("[ShareExtension] Error sending message:", err);
+      Alert.alert(
+        t("common.error"),
+        err.message || t("shareExtension.errors.sendFailed")
+      );
     } finally {
       setSending(false);
     }
   };
 
   const renderBucketIcon = (bucket: Bucket) => {
-    const backgroundColor = bucket.color || '#6200EE';
+    const backgroundColor = bucket.color || "#6200EE";
     const initials = bucket.name.substring(0, 2).toUpperCase();
 
     // Priority: iconAttachmentUuid > icon URL > color + initials
@@ -228,7 +246,7 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
           cachePolicy="memory-disk"
         />
       );
-    } else if (bucket.icon && bucket.icon.startsWith('http')) {
+    } else if (bucket.icon && bucket.icon.startsWith("http")) {
       return (
         <Image
           source={{ uri: bucket.icon }}
@@ -253,17 +271,11 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
     return (
       <TouchableOpacity
         key={bucket.id}
-        style={[
-          styles.bucketItem,
-          isSelected && styles.bucketItemSelected
-        ]}
+        style={[styles.bucketItem, isSelected && styles.bucketItemSelected]}
         onPress={() => setSelectedBucket(bucket)}
       >
         {renderBucketIcon(bucket)}
-        <Text 
-          style={styles.bucketName} 
-          numberOfLines={1}
-        >
+        <Text style={styles.bucketName} numberOfLines={1}>
           {bucket.name}
         </Text>
       </TouchableOpacity>
@@ -272,20 +284,11 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
 
   const [apiUrl, setApiUrl] = useState<string | null>(null);
 
-  // Wait for locale to be initialized before showing any translated content
-  if (!localeInitialized) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#6200EE" />
-      </View>
-    );
-  }
-
   if (loading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#6200EE" />
-        <Text style={styles.loadingText}>{t('shareExtension.loading')}</Text>
+        <Text style={styles.loadingText}>{t("shareExtension.loading")}</Text>
       </View>
     );
   }
@@ -295,7 +298,9 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={loadBuckets}>
-          <Text style={styles.retryButtonText}>{t('shareExtension.retry')}</Text>
+          <Text style={styles.retryButtonText}>
+            {t("shareExtension.retry")}
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -304,9 +309,9 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
   if (buckets.length === 0) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{t('shareExtension.noBuckets')}</Text>
+        <Text style={styles.errorText}>{t("shareExtension.noBuckets")}</Text>
         <Text style={styles.helperText}>
-          {t('shareExtension.noBucketsHelper')}
+          {t("shareExtension.noBucketsHelper")}
         </Text>
       </View>
     );
@@ -314,22 +319,26 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
 
   return (
     <View style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollContentContainer}
       >
         <View style={styles.headerContainer}>
-          <Text style={styles.header}>{t('shareExtension.header')}</Text>
+          <Text style={styles.header}>{t("shareExtension.header")}</Text>
           {refreshing && (
             <View style={styles.refreshIndicator}>
               <ActivityIndicator size="small" color="#6200EE" />
-              <Text style={styles.refreshText}>{t('shareExtension.updating')}</Text>
+              <Text style={styles.refreshText}>
+                {t("shareExtension.updating")}
+              </Text>
             </View>
           )}
         </View>
 
-        <Text style={styles.sectionLabel}>{t('shareExtension.selectBucket')}</Text>
-        
+        <Text style={styles.sectionLabel}>
+          {t("shareExtension.selectBucket")}
+        </Text>
+
         <View style={styles.bucketsGrid}>
           {buckets.map((bucket, index) => renderBucket(bucket, index))}
         </View>
@@ -337,23 +346,27 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
 
       <View style={styles.stickyForm}>
         <View style={styles.formSection}>
-          <Text style={styles.formLabel}>{t('shareExtension.titleRequired')}</Text>
+          <Text style={styles.formLabel}>
+            {t("shareExtension.titleRequired")}
+          </Text>
           <TextInput
             style={styles.input}
             value={title}
             onChangeText={setTitle}
-            placeholder={t('shareExtension.titlePlaceholder')}
+            placeholder={t("shareExtension.titlePlaceholder")}
             placeholderTextColor="#999"
           />
         </View>
 
         <View style={styles.formSection}>
-          <Text style={styles.formLabel}>{t('shareExtension.messageLabel')}</Text>
+          <Text style={styles.formLabel}>
+            {t("shareExtension.messageLabel")}
+          </Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             value={message}
             onChangeText={setMessage}
-            placeholder={t('shareExtension.messagePlaceholder')}
+            placeholder={t("shareExtension.messagePlaceholder")}
             placeholderTextColor="#999"
             multiline
             numberOfLines={3}
@@ -368,7 +381,9 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
           {sending ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.sendButtonText}>{t('shareExtension.sendButton')}</Text>
+            <Text style={styles.sendButtonText}>
+              {t("shareExtension.sendButton")}
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -379,7 +394,7 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   scrollContent: {
     flex: 1,
@@ -390,27 +405,27 @@ const styles = StyleSheet.create({
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 24,
   },
   header: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
     flex: 1,
   },
   refreshIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3E5F5',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3E5F5",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -418,38 +433,38 @@ const styles = StyleSheet.create({
   refreshText: {
     marginLeft: 6,
     fontSize: 12,
-    color: '#6200EE',
-    fontWeight: '500',
+    color: "#6200EE",
+    fontWeight: "500",
   },
   sectionLabel: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 16,
-    color: '#000',
+    color: "#000",
   },
   bucketsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-start",
     gap: 16,
   },
   bucketItem: {
     width: (SCREEN_WIDTH - 64) / BUCKETS_PER_ROW,
-    alignItems: 'center',
+    alignItems: "center",
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     borderWidth: 3,
-    borderColor: 'transparent',
-    shadowColor: '#000',
+    borderColor: "transparent",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
   bucketItemSelected: {
-    borderColor: '#6200EE',
-    backgroundColor: '#F3E5F5',
+    borderColor: "#6200EE",
+    backgroundColor: "#F3E5F5",
     shadowOpacity: 0.2,
     elevation: 5,
   },
@@ -457,31 +472,31 @@ const styles = StyleSheet.create({
     width: BUCKET_SIZE,
     height: BUCKET_SIZE,
     borderRadius: BUCKET_SIZE / 2,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 8,
   },
   bucketInitial: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   bucketName: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
-    textAlign: 'center',
+    fontWeight: "600",
+    color: "#000",
+    textAlign: "center",
   },
   stickyForm: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 16,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -492,63 +507,63 @@ const styles = StyleSheet.create({
   },
   formLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 6,
-    color: '#000',
+    color: "#000",
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
-    color: '#000',
+    backgroundColor: "#fff",
+    color: "#000",
   },
   textArea: {
     height: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   sendButton: {
-    backgroundColor: '#6200EE',
+    backgroundColor: "#6200EE",
     padding: 14,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   sendButtonDisabled: {
     opacity: 0.6,
   },
   sendButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: "#666",
   },
   errorText: {
     fontSize: 16,
-    color: '#d32f2f',
-    textAlign: 'center',
+    color: "#d32f2f",
+    textAlign: "center",
     marginBottom: 16,
   },
   helperText: {
     fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
   },
   retryButton: {
     marginTop: 16,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: '#6200EE',
+    backgroundColor: "#6200EE",
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

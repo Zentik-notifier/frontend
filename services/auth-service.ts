@@ -1,5 +1,4 @@
-import { ApiConfigService } from '@/services/api-config';
-import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/services/auth-storage';
+import { settingsService } from '@/services/settings-service';
 
 class AuthService {
   private static instance: AuthService;
@@ -36,17 +35,17 @@ class AuthService {
 
   public async ensureValidToken(): Promise<string | null> {
     try {
-      const currentToken = await getAccessToken();
+      const currentToken = settingsService.getAuthData().accessToken;
       if (!currentToken) return null;
       if (!this.isTokenExpired(currentToken)) return currentToken;
       const refreshed = await this.refreshAccessToken();
       if (!refreshed) {
-        // await clearTokens();
+        // await settingsService.clearTokens();
         return null;
       }
       return refreshed;
     } catch (error) {
-      // await clearTokens();
+      // await settingsService.clearTokens();
       return null;
     }
   }
@@ -56,9 +55,9 @@ class AuthService {
     this.isRefreshing = true;
     this.refreshPromise = (async () => {
       try {
-        const refreshToken = await getRefreshToken();
+        const refreshToken = settingsService.getAuthData().refreshToken;
         if (!refreshToken) return null;
-        const url = `${ApiConfigService.getApiUrlSync()}/api/v1/graphql`;
+        const url = `${settingsService.getApiUrl()}/api/v1/graphql`;
         const body = {
           query: 'mutation Refresh($refreshToken: String!) { refreshAccessToken(refreshToken: $refreshToken) { accessToken refreshToken } }',
           errorPolicy: "all",
@@ -72,7 +71,7 @@ class AuthService {
         const json = await resp.json();
         const data = json?.data?.refreshAccessToken;
         if (!data?.accessToken || !data?.refreshToken) return null;
-        await saveTokens(data.accessToken, data.refreshToken);
+        await settingsService.saveTokens(data.accessToken, data.refreshToken);
         return data.accessToken as string;
       } catch (e) {
         return null;
@@ -85,19 +84,19 @@ class AuthService {
   }
 
   public async clearTokens(): Promise<void> {
-    await clearTokens();
+    await settingsService.clearTokens();
   }
 
   public async getAccessToken(): Promise<string | null> {
-    return getAccessToken();
+    return settingsService.getAuthData().accessToken;
   }
 
   public async getRefreshToken(): Promise<string | null> {
-    return getRefreshToken();
+    return settingsService.getAuthData().refreshToken;
   }
 
   public async saveTokens(accessToken: string, refreshToken: string): Promise<void> {
-    await saveTokens(accessToken, refreshToken);
+    await settingsService.saveTokens(accessToken, refreshToken);
   }
 }
 

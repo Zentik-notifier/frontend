@@ -1,3 +1,4 @@
+import { settingsService } from "@/services/settings-service";
 import { useI18n } from "@/hooks/useI18n";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import React, { useMemo } from "react";
@@ -6,8 +7,6 @@ import { Icon, Text, useTheme } from "react-native-paper";
 import SwipeableItem, { SwipeAction, MenuItem } from "./SwipeableItem";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import { ApiConfigService } from "@/services/api-config";
-import { getAccessToken } from "@/services/auth-storage";
 import { formatFileSize } from "@/utils/fileUtils";
 
 interface BackupInfo {
@@ -35,8 +34,8 @@ export const SwipeableBackupItem: React.FC<SwipeableBackupItemProps> = ({
   const handleDownload = async () => {
     try {
       setDownloading(true);
-      const apiUrl = await ApiConfigService.getApiUrl();
-      const token = await getAccessToken();
+      const apiUrl = await settingsService.getApiUrl();
+      const token = settingsService.getAuthData().accessToken;
 
       if (!apiUrl || !token) {
         Alert.alert(

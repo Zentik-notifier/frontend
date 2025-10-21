@@ -18,7 +18,6 @@ import {
   usePushNotifications,
 } from "@/hooks/usePushNotifications";
 import { closeSharedCacheDb, openSharedCacheDb } from "@/services/db-setup";
-import { i18nService } from "@/services/i18n";
 import { logger } from "@/services/logger";
 import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -32,17 +31,8 @@ import React, {
 } from "react";
 import { Alert, AppState } from "react-native";
 import { registerTranslation } from "react-native-paper-dates";
-import {
-  clearLastUserId,
-  clearTokens,
-  getAccessToken,
-  getLastUserId,
-  getRefreshToken,
-  saveLastUserId,
-  savePushNotificationsInitialized,
-  saveTokens,
-} from "../services/auth-storage";
-import { useUserSettings } from "../services/user-settings";
+import { settingsService } from "../services/settings-service";
+import { useSettings, useAuthData } from "../hooks/useSettings";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -83,7 +73,7 @@ interface AppContextProps {
   hideOnboarding: () => void;
   setMainLoading: (loading: boolean) => void;
   isMainLoading: boolean;
-  userSettings: ReturnType<typeof useUserSettings>;
+  userSettings: ReturnType<typeof useSettings>;
   connectionStatus: ReturnType<typeof useConnectionStatus>;
   deviceToken: string | null;
   isInitializing: boolean;
@@ -104,7 +94,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
   const connectionStatus = useConnectionStatus(push);
-  const userSettings = useUserSettings();
+  const userSettings = useSettings();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isMainLoading, setIsLoading] = useState(false);
@@ -114,7 +104,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const checkAndSetLocale = async () => {
-      const currentLocale = await userSettings.getLocale();
+      const currentLocale = userSettings.settings.locale;
       if (!currentLocale) {
         const deviceLocale = getDeviceLocale();
         console.log(
@@ -122,7 +112,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           deviceLocale
         );
         try {
-          await i18nService.setLocale(deviceLocale);
           await userSettings.setLocale(deviceLocale);
         } catch (e) {
           console.error("Error setting locale:", e);
@@ -134,7 +123,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const registerDatePickerTranslations = async () => {
-      const appLocale = (await userSettings.getLocale()) as Locale;
+      const appLocale = userSettings.settings.locale as Locale;
       const datePickerLocale = localeToDatePickerLocale[appLocale] || "en";
 
       registerTranslation(datePickerLocale, {
@@ -189,9 +178,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     console.debug("🧹 Clearing tokens and setting logout state...");
-    await clearTokens();
-    await savePushNotificationsInitialized(false);
-    await clearLastUserId();
+    await settingsService.clearTokens();
+    await settingsService.savePushNotificationsInitialized(false);
+    await settingsService.saveLastUserId('');
     setUserId(null);
     setLastUserId(null);
     console.debug("✅ Logout completed");
@@ -246,7 +235,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const completeAuth = async (accessToken: string, refreshToken: string) => {
     try {
-      await saveTokens(accessToken, refreshToken);
+      await settingsService.saveTokens(accessToken, refreshToken);
 
       const newUserId = await refreshUserData();
       if (!newUserId) {
@@ -256,11 +245,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       setUserId(newUserId);
 
-      const previousUserId = await getLastUserId();
+      const previousUserId = settingsService.getAuthData().lastUserId;
       if (previousUserId && previousUserId !== newUserId) {
-        await savePushNotificationsInitialized(false);
+        await settingsService.savePushNotificationsInitialized(false);
       }
-      await saveLastUserId(newUserId);
+      await settingsService.saveLastUserId(newUserId);
       setLastUserId(newUserId);
 
       await push.initialize();
@@ -307,7 +296,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ): Promise<RegisterResult> => {
     const inputNormalized = email.toLowerCase().trim();
     const username = (firstName + lastName).replace(/\s+/g, "").toLowerCase();
-    const locale = await userSettings.getLocale();
+    const locale = userSettings.settings.locale;
 
     const gqlInput: RegisterDto = {
       email: inputNormalized,
@@ -372,7 +361,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         // subscriptionsEnabledVar(true);
         const [accessToken, refreshToken, storedLastUserId] = await Promise.all(
-          [getAccessToken(), getRefreshToken(), getLastUserId()]
+          [
+            Promise.resolve(settingsService.getAuthData().accessToken),
+            Promise.resolve(settingsService.getAuthData().refreshToken),
+            Promise.resolve(settingsService.getAuthData().lastUserId)
+          ]
         );
         console.log(
           `[AppInit] tokens found: accessToken: ${
@@ -408,10 +401,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Only show onboarding if user is logged in
       if (!userId) return;
 
-      // Wait for user settings to be loaded from AsyncStorage to avoid race condition
-      if (!userSettings.isLoaded) return;
+      // Wait for user settings to be loaded from storage to avoid race condition
+      if (!userSettings.isInitialized) return;
 
-      const onboardingSettings = userSettings.getOnboardingSettings();
+      const onboardingSettings = userSettings.settings.onboarding;
 
       if (!onboardingSettings.hasCompletedOnboarding) {
         console.log("[AppContext] Auto-showing onboarding for first-time user");
@@ -423,7 +416,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [
     isInitializing,
     userId,
-    userSettings.isLoaded,
+    userSettings.isInitialized,
     userSettings.settings.onboarding,
   ]);
 

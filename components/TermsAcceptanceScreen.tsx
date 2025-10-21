@@ -21,7 +21,8 @@ import {
   useSafeAreaInsets
 } from "react-native-safe-area-context";
 import { useI18n } from "../hooks/useI18n";
-import { acceptTerms, getCurrentTermsVersion } from "../services/auth-storage";
+import { CURRENT_TERMS_VERSION } from "@/services/settings-service";
+import { useSettings } from "@/hooks/useSettings";
 import {
   getLegalDocumentContent,
   LEGAL_DOCUMENTS,
@@ -31,6 +32,7 @@ import {
 export const TermsAcceptanceScreen: React.FC = () => {
   const { t } = useI18n();
   const theme = useTheme();
+  const { acceptTerms } = useSettings();
   const [currentDocument, setCurrentDocument] = useState<LegalDocument | null>(
     null
   );
@@ -41,7 +43,7 @@ export const TermsAcceptanceScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const [footerHeight, setFooterHeight] = useState(0);
 
-  const currentVersion = getCurrentTermsVersion();
+  const currentVersion = CURRENT_TERMS_VERSION;
 
   useEffect(() => {
     loadInitialDocument();

@@ -1,10 +1,10 @@
 import { formatDistanceToNow, isToday, isValid, isYesterday, parseISO } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, it } from 'date-fns/locale';
-import { DateFormatPreferences, DateFormatStyle, userSettings } from './user-settings';
+import { DateFormatPreferences, DateFormatStyle, settingsService } from './settings-service';
 
-// Re-export types from user-settings for convenience
-export type { DateFormatPreferences, DateFormatStyle } from './user-settings';
+// Re-export types from settings-service for convenience
+export type { DateFormatPreferences, DateFormatStyle } from './settings-service';
 
 // Utility function to get date-fns locale
 const getDateFnsLocale = (locale: string) => {
@@ -181,33 +181,33 @@ export class DateFormatService {
   }
 
   /**
-   * Get locale with fallback when userSettings is not initialized
+   * Get locale with fallback when settings is not initialized
    */
   private getLocaleWithFallback(): string {
     try {
-      return userSettings.getLocale();
+      return settingsService.getSettings().locale;
     } catch (error) {
       return 'en-EN';
     }
   }
 
   /**
-   * Get timezone with fallback when userSettings is not initialized
+   * Get timezone with fallback when settings is not initialized
    */
   private getTimezoneWithFallback(): string {
     try {
-      return userSettings.getTimezone();
+      return settingsService.getSettings().timezone;
     } catch (error) {
       return 'UTC';
     }
   }
 
   /**
-   * Get date format preferences with fallback when userSettings is not initialized
+   * Get date format preferences with fallback when settings is not initialized
    */
   private getDateFormatPreferencesWithFallback(): DateFormatPreferences {
     try {
-      return userSettings.getDateFormatPreferences();
+      return settingsService.getSettings().dateFormat;
     } catch (error) {
       return {
         dateStyle: 'medium',

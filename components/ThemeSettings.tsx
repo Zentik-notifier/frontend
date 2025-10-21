@@ -1,10 +1,11 @@
 import { useI18n } from "@/hooks/useI18n";
-import { useUserSettings, DynamicThemeColors, LayoutMode } from "@/services/user-settings";
+import { useSettings } from "@/hooks/useSettings";
 import {
   generateDynamicTheme,
   isValidHexColor,
   DEFAULT_DYNAMIC_COLORS,
 } from "@/services/theme-generator";
+import type { DynamicThemeColors, LayoutMode } from "@/services/settings-service";
 import {
   ThemePreset,
   getAllThemePresets,
@@ -29,13 +30,13 @@ export default function ThemeSettings() {
   const { t } = useI18n();
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const { settings, setCustomThemeSettings, getLayoutMode, setLayoutMode } = useUserSettings();
+  const { settings, setCustomThemeSettings, getLayoutMode, setLayoutMode } = useSettings();
 
   const [selectedPreset, setSelectedPreset] = useState<ThemePreset>(
-    settings.themePreset || ThemePreset.Material3
+    settings.theme.themePreset || ThemePreset.Material3
   );
   const [dynamicColors, setDynamicColors] = useState<DynamicThemeColors>(
-    settings.dynamicThemeColors || DEFAULT_DYNAMIC_COLORS
+    settings.theme.dynamicThemeColors || DEFAULT_DYNAMIC_COLORS
   );
 
   const handlePresetChange = useCallback(

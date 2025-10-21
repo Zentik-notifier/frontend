@@ -1,3 +1,4 @@
+import { settingsService } from "@/services/settings-service";
 import { useAppContext } from "@/contexts/AppContext";
 import {
   UserFragment,
@@ -5,8 +6,6 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import { ApiConfigService } from "@/services/api-config";
-import { getAccessToken } from "@/services/auth-storage";
 import React, { useState } from "react";
 import { Alert, Image, StyleSheet, View } from "react-native";
 import {
@@ -71,7 +70,7 @@ export default function OAuthConnections({
       console.log("🔗 Starting OAuth connection for provider:", providerId);
 
       // Get the current access token to pass for authentication
-      const accessToken = await getAccessToken();
+      const accessToken = settingsService.getAuthData().accessToken;
       if (!accessToken) {
         Alert.alert(
           t("common.error"),
@@ -80,7 +79,7 @@ export default function OAuthConnections({
         return;
       }
 
-      const baseWithPrefix = ApiConfigService.getApiBaseWithPrefix();
+      const baseWithPrefix = settingsService.getApiBaseWithPrefix();
       const redirect = `zentik://(mobile)/public/oauth`;
 
       // Create state with connection context and access token

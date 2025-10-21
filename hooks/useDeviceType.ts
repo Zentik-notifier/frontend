@@ -1,11 +1,12 @@
-import { userSettings } from '@/services/user-settings';
 import * as Device from 'expo-device';
 import { useMemo } from 'react';
 import { useWindowDimensions } from "react-native";
+import { useSettings } from './useSettings';
 
 export function useDeviceType() {
   const { width } = useWindowDimensions();
-  const layout = userSettings.getLayoutMode();
+  const { settings } = useSettings();
+  const layout = settings.theme.layoutMode;
 
   return useMemo(() => {
     const isReady = width > 0;

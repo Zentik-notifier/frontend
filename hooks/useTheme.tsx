@@ -3,7 +3,8 @@ import { useColorScheme as useSystemColorScheme } from "react-native";
 import { MD3DarkTheme, MD3LightTheme, PaperProvider } from "react-native-paper";
 import { generateDynamicTheme } from "../services/theme-generator";
 import { getPresetColors, ThemePreset } from "../services/theme-presets";
-import { userSettings, UserSettings } from "../services/user-settings";
+import { UserSettings, settingsService } from "@/services/settings-service";
+import { useSettings } from "./useSettings";
 
 export type ThemeMode = "light" | "dark" | "system";
 export type ColorScheme = "light" | "dark";
@@ -20,15 +21,15 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 // Helper function to generate theme based on settings
 function generateThemeFromSettings(
-  settings: UserSettings,
+  themeSettings: UserSettings['theme'],
   colorScheme: ColorScheme
 ) {
   const baseTheme = colorScheme === "dark" ? MD3DarkTheme : MD3LightTheme;
 
   // If using dynamic theme, generate it
-  if (settings.useDynamicTheme && settings.dynamicThemeColors) {
+  if (themeSettings.useDynamicTheme && themeSettings.dynamicThemeColors) {
     try {
-      const dynamicTheme = generateDynamicTheme(settings.dynamicThemeColors);
+      const dynamicTheme = generateDynamicTheme(themeSettings.dynamicThemeColors);
       const dynamicColors =
         colorScheme === "dark" ? dynamicTheme.dark : dynamicTheme.light;
 
@@ -47,8 +48,8 @@ function generateThemeFromSettings(
   }
 
   // If using preset, apply preset colors
-  if (settings.themePreset && settings.themePreset !== ThemePreset.Custom) {
-    const presetColors = getPresetColors(settings.themePreset, colorScheme);
+  if (themeSettings.themePreset && themeSettings.themePreset !== ThemePreset.Custom) {
+    const presetColors = getPresetColors(themeSettings.themePreset, colorScheme);
     // Create a custom theme based on preset colors
     return {
       ...baseTheme,
@@ -67,10 +68,10 @@ function generateThemeFromSettings(
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemColorScheme = useSystemColorScheme();
-  const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
-  const [themeSettings, setThemeSettingsState] = useState<UserSettings | null>(
-    null
-  );
+  const { settings } = useSettings();
+  
+  const themeMode = settings.theme.themeMode;
+  const themeSettings = settings.theme;
 
   // Determine actual color scheme based on theme mode
   const colorScheme: ColorScheme =
@@ -79,34 +80,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const isDark = colorScheme === "dark";
   const isLight = colorScheme === "light";
 
-  // Load saved theme preference and subscribe to changes
-  useEffect(() => {
-    let mounted = true;
-
-    // Initialize settings and get current theme
-    userSettings.initialize().then((settings) => {
-      if (mounted) {
-        setThemeModeState(settings.themeMode);
-        setThemeSettingsState(settings);
-      }
-    });
-
-    const unsubscribe = userSettings.subscribe((settings) => {
-      if (mounted) {
-        setThemeModeState(settings.themeMode);
-        setThemeSettingsState(settings);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      unsubscribe();
-    };
-  }, []);
-
   const setThemeMode = async (mode: ThemeMode) => {
     try {
-      await userSettings.setThemeMode(mode);
+      await settingsService.setThemeMode(mode);
       console.debug("Theme changed to:", mode);
     } catch (error) {
       console.error("Error saving theme preference:", error);
@@ -114,11 +90,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Generate theme based on current settings
-  const theme = themeSettings
-    ? generateThemeFromSettings(themeSettings, colorScheme)
-    : colorScheme === "dark"
-    ? MD3DarkTheme
-    : MD3LightTheme;
+  const theme = generateThemeFromSettings(themeSettings, colorScheme);
 
   // Log theme changes for debugging
   // useEffect(() => {

@@ -2,8 +2,9 @@ import { useAppContext } from "@/contexts/AppContext";
 import { useGalleryContext } from "@/contexts/GalleryContext";
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { useSettings } from "@/hooks/useSettings";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
-import { DEFAULT_MEDIA_TYPES } from "@/services/user-settings";
+import { DEFAULT_MEDIA_TYPES } from "@/services/settings-service";
 import { formatFileSize } from "@/utils";
 import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
@@ -36,6 +37,7 @@ export default function GalleryFilters() {
   const theme = useTheme();
   const { userSettings } = useAppContext();
   const { t } = useI18n();
+  const { settings } = useSettings();
   const { cacheStats, updateStats } = useGetCacheStats();
 
   useEffect(() => {
@@ -62,7 +64,7 @@ export default function GalleryFilters() {
     let count = 0;
 
     // Get selected media types from settings
-    const savedSelectedTypes = userSettings.settings.gallery.selectedMediaTypes;
+    const savedSelectedTypes = settings.galleryVisualization.selectedMediaTypes;
     const selectedMediaTypes = savedSelectedTypes.length > 0 
       ? savedSelectedTypes 
       : DEFAULT_MEDIA_TYPES;
@@ -78,9 +80,9 @@ export default function GalleryFilters() {
     }
 
     // Count other non-default settings
-    if (userSettings.settings.gallery.showFaultyMedias) count++;
-    if (userSettings.settings.gallery.autoPlay) count++;
-    if (userSettings.settings.gallery.gridSize !== 3) count++;
+    if (settings.galleryVisualization.showFaultyMedias) count++;
+    if (settings.galleryVisualization.autoPlay) count++;
+    if (settings.galleryVisualization.gridSize !== 3) count++;
 
     return count;
   };

@@ -2,11 +2,7 @@ import { NotificationActionCallbacks } from '@/hooks/useNotificationActions';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { DevicePlatform, NotificationActionFragment, NotificationActionType, RegisterDeviceDto } from '../generated/gql-operations-generated';
-import { ApiConfigService } from './api-config';
-import {
-    clearPendingNavigationIntent,
-    getPendingNavigationIntent,
-} from './auth-storage';
+import { settingsService } from './settings-service';
 
 class IOSNativePushNotificationService {
     private isInitialized = false;
@@ -90,7 +86,7 @@ class IOSNativePushNotificationService {
 
         try {
             // Initialize API config to ensure endpoint is saved to keychain for NSE access
-            await ApiConfigService.initialize();
+            await Promise.resolve();
 
             const hasPermission = await this.checkPermissions();
 
@@ -323,7 +319,7 @@ class IOSNativePushNotificationService {
     private async processPendingIntents(): Promise<boolean> {
         try {
             // Check for pending navigation intent using keychain
-            const navigationIntent = await getPendingNavigationIntent();
+            const navigationIntent = settingsService.getAuthData().pendingNavigationIntent;
             if (navigationIntent && this.actionCallbacks) {
                 console.log('[IOSNativePushNotificationService] Found pending navigation intent:', navigationIntent);
 
@@ -341,7 +337,7 @@ class IOSNativePushNotificationService {
                 }
 
                 // Clear the processed intent
-                await clearPendingNavigationIntent();
+                await settingsService.clearPendingNavigationIntent();
                 console.log('[IOSNativePushNotificationService] Navigation intent processed and cleared');
                 return true; // Intent was processed
             }

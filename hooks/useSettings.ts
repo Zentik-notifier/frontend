@@ -1,11 +1,14 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
-import { settingsService, UserSettings, AuthData, NotificationVisualization, DateFormatPreferences, MarkAsReadMode, LayoutMode, DynamicThemeColors, RetentionPolicies, DownloadSettings, GalleryVisualization } from '@/services/settings-service';
+import { UserSettingType, useUpsertUserSettingMutation } from '@/generated/gql-operations-generated';
+import { AuthData, DateFormatPreferences, DownloadSettings, DynamicThemeColors, GalleryVisualization, LayoutMode, MarkAsReadMode, NotificationVisualization, RetentionPolicies, settingsService, UserSettings } from '@/services/settings-service';
 import { ThemePreset } from '@/services/theme-presets';
-import { MediaType } from '@/generated/gql-operations-generated';
+import { useCallback, useEffect, useState } from 'react';
 
 export function useSettings() {
   const [settings, setSettings] = useState<UserSettings>(settingsService.getSettings());
   const [isInitialized, setIsInitialized] = useState(false);
+  
+  // Backend sync mutation
+  const [upsertUserSetting] = useUpsertUserSettingMutation();
 
   useEffect(() => {
     const settingsSub = settingsService.userSettings$.subscribe(setSettings);
@@ -16,6 +19,29 @@ export function useSettings() {
       initSub.unsubscribe();
     };
   }, []);
+  
+  // Helper to sync with backend
+  const syncWithBackend = useCallback(async (
+    configType: UserSettingType,
+    valueText?: string | null,
+    valueBool?: boolean | null
+  ) => {
+    try {
+      await upsertUserSetting({
+        variables: {
+          input: {
+            configType,
+            valueText: valueText === undefined ? null : valueText,
+            valueBool: valueBool === undefined ? null : valueBool,
+            deviceId: null,
+          },
+        },
+      });
+      console.log(`[useSettings] ✅ Synced ${configType} with backend`);
+    } catch (error) {
+      console.error(`[useSettings] ❌ Failed to sync ${configType} with backend:`, error);
+    }
+  }, [upsertUserSetting]);
 
   const updateSettings = useCallback(async (updates: Partial<UserSettings>) => {
     await settingsService.updateSettings(updates);
@@ -27,6 +53,10 @@ export function useSettings() {
 
   const setLayoutMode = useCallback(async (mode: LayoutMode) => {
     await settingsService.setLayoutMode(mode);
+  }, []);
+
+  const getLayoutMode = useCallback(() => {
+    return settingsService.getLayoutMode();
   }, []);
 
   const setCustomThemeSettings = useCallback(async (themeSettings: {
@@ -43,11 +73,13 @@ export function useSettings() {
 
   const setLocale = useCallback(async (locale: string) => {
     await settingsService.setLocale(locale);
-  }, []);
+    await syncWithBackend(UserSettingType.Language, locale);
+  }, [syncWithBackend]);
 
   const setTimezone = useCallback(async (timezone: string) => {
     await settingsService.setTimezone(timezone);
-  }, []);
+    await syncWithBackend(UserSettingType.Timezone, timezone);
+  }, [syncWithBackend]);
 
   const setDateFormatPreferences = useCallback(async (preferences: Partial<DateFormatPreferences>) => {
     await settingsService.setDateFormatPreferences(preferences);
@@ -68,6 +100,49 @@ export function useSettings() {
   const setNotificationsLastSeenId = useCallback(async (id: string | undefined) => {
     await settingsService.setNotificationsLastSeenId(id);
   }, []);
+
+  const setUnencryptOnBigPayload = useCallback(async (value: boolean) => {
+    await settingsService.setUnencryptOnBigPayload(value);
+    await syncWithBackend(UserSettingType.UnencryptOnBigPayload, null, value);
+  }, [syncWithBackend]);
+
+  const setMarkAsReadMode = useCallback(async (mode: MarkAsReadMode) => {
+    await settingsService.setMarkAsReadMode(mode);
+  }, []);
+
+  const setGenerateBucketIconWithInitials = useCallback(async (value: boolean) => {
+    await settingsService.setGenerateBucketIconWithInitials(value);
+  }, []);
+
+  const setAutoAddDeleteAction = useCallback(async (value: boolean) => {
+    await settingsService.setAutoAddDeleteAction(value);
+    await syncWithBackend(UserSettingType.AutoAddDeleteAction, null, value);
+  }, [syncWithBackend]);
+
+  const setAutoAddMarkAsReadAction = useCallback(async (value: boolean) => {
+    await settingsService.setAutoAddMarkAsReadAction(value);
+    await syncWithBackend(UserSettingType.AutoAddMarkAsReadAction, null, value);
+  }, [syncWithBackend]);
+
+  const setAutoAddOpenNotificationAction = useCallback(async (value: boolean) => {
+    await settingsService.setAutoAddOpenNotificationAction(value);
+    await syncWithBackend(UserSettingType.AutoAddOpenNotificationAction, null, value);
+  }, [syncWithBackend]);
+
+  const setDefaultPostpones = useCallback(async (values: number[]) => {
+    await settingsService.setDefaultPostpones(values);
+    await syncWithBackend(UserSettingType.DefaultPostpones, JSON.stringify(values));
+  }, [syncWithBackend]);
+
+  const setDefaultSnoozes = useCallback(async (values: number[]) => {
+    await settingsService.setDefaultSnoozes(values);
+    await syncWithBackend(UserSettingType.DefaultSnoozes, JSON.stringify(values));
+  }, [syncWithBackend]);
+
+  const setGithubEventsFilter = useCallback(async (events: string[]) => {
+    await settingsService.setGithubEventsFilter(events);
+    await syncWithBackend(UserSettingType.GithubEventsFilter, JSON.stringify(events));
+  }, [syncWithBackend]);
 
   const setGalleryGridSize = useCallback(async (size: number) => {
     await settingsService.setGalleryGridSize(size);
@@ -91,6 +166,10 @@ export function useSettings() {
 
   const completeOnboarding = useCallback(async () => {
     await settingsService.completeOnboarding();
+  }, []);
+
+  const skipOnboarding = useCallback(async () => {
+    await settingsService.skipOnboarding();
   }, []);
 
   const updateTermsAcceptanceSettings = useCallback(async (updates: Partial<UserSettings['termsAcceptance']>) => {
@@ -125,20 +204,13 @@ export function useSettings() {
     await settingsService.importSettings(settingsJson);
   }, []);
 
-  const forceMigrationFromLegacy = useCallback(async () => {
-    await settingsService.forceMigrationFromLegacy();
-  }, []);
-
-  const isMigrationCompleted = useCallback(async () => {
-    return await settingsService.isMigrationCompleted();
-  }, []);
-
   return {
     settings,
     isInitialized,
     updateSettings,
     setThemeMode,
     setLayoutMode,
+    getLayoutMode,
     setCustomThemeSettings,
     setNotificationVisualization,
     setLocale,
@@ -150,10 +222,20 @@ export function useSettings() {
     updateRetentionPolicies,
     updateDownloadSettings,
     setNotificationsLastSeenId,
+    setUnencryptOnBigPayload,
+    setMarkAsReadMode,
+    setGenerateBucketIconWithInitials,
+    setAutoAddDeleteAction,
+    setAutoAddMarkAsReadAction,
+    setAutoAddOpenNotificationAction,
+    setDefaultPostpones,
+    setDefaultSnoozes,
+    setGithubEventsFilter,
     updateGalleryVisualization,
     setGalleryGridSize,
     updateOnboardingSettings,
     completeOnboarding,
+    skipOnboarding,
     updateTermsAcceptanceSettings,
     acceptTerms,
     clearTermsAcceptance,
@@ -162,10 +244,15 @@ export function useSettings() {
     resetSettings,
     exportSettings,
     importSettings,
-    forceMigrationFromLegacy,
-    isMigrationCompleted,
     shouldFilterNotification: settingsService.shouldFilterNotification.bind(settingsService),
     getNotificationSortComparator: settingsService.getNotificationSortComparator.bind(settingsService),
+    getApiUrl: useCallback(() => settingsService.getApiUrl(), []),
+    getApiBaseWithPrefix: useCallback(() => settingsService.getApiBaseWithPrefix(), []),
+    getCustomApiUrl: useCallback(() => settingsService.getCustomApiUrl(), []),
+    hasCustomApiUrl: useCallback(() => settingsService.hasCustomApiUrl(), []),
+    saveApiEndpoint: useCallback((endpoint: string) => settingsService.saveApiEndpoint(endpoint), []),
+    resetApiEndpoint: useCallback(() => settingsService.resetApiEndpoint(), []),
+    clearApiEndpoint: useCallback(() => settingsService.clearApiEndpoint(), []),
     // Legacy methods for backward compatibility
     setNotificationFilters: setNotificationVisualization,
     updateMediaCacheRetentionPolicies: updateRetentionPolicies,

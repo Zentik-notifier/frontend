@@ -1,5 +1,5 @@
+import { settingsService } from "@/services/settings-service";
 import { useI18n } from "@/hooks/useI18n";
-import { ApiConfigService } from "@/services/api-config";
 import {
   useGetAccessTokensForBucketQuery,
   useCreateAccessTokenForBucketMutation,
@@ -79,7 +79,7 @@ export default function BucketAccessTokensSection({
 
   const loadApiUrl = async () => {
     try {
-      const customUrl = await ApiConfigService.getCustomApiUrl();
+      const customUrl = await settingsService.getCustomApiUrl();
       setApiUrl(customUrl || "https://your-server.com");
     } catch (error) {
       console.error("Failed to load API URL:", error);

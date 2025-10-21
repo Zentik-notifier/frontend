@@ -12,6 +12,13 @@ import AsyncStorage from '@/utils/async-storage-wrapper';
 
 const CURRENT_TERMS_VERSION = '1.0.0';
 
+// API Configuration
+const API_PREFIX = 'api/v1';
+const IS_SELF_HOSTED = process.env.EXPO_PUBLIC_SELFHOSTED === 'true';
+const DEFAULT_API_URL = IS_SELF_HOSTED && typeof window !== 'undefined' 
+  ? window.location.origin 
+  : (process.env.EXPO_PUBLIC_API_URL || 'https://notifier-api.zentik.app');
+
 const getDeviceTimezone = (): string => {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -236,15 +243,36 @@ class SettingsService {
 
   async initialize(): Promise<void> {
     try {
+      console.log('[SettingsService] 🚀 Initializing...', {
+        platform: Platform.OS,
+        isDevice: Device.isDevice,
+        bundleIdentifier,
+        keychainAccessGroup: KEYCHAIN_ACCESS_GROUP,
+        defaultApiUrl: DEFAULT_API_URL,
+      });
+      
       await this.initializeDatabase();
       
       // Migrate from legacy AsyncStorage if needed
       await this.migrateFromLegacyStorage();
       
+      console.log('[SettingsService] 📂 Loading settings and auth data...');
       await Promise.all([
         this.loadUserSettings(),
         this.loadAuthData()
       ]);
+      
+      // Ensure API endpoint is set in database for iOS extensions (NCE/NSE)
+      // Never allow empty API endpoint - always use default as fallback
+      const currentEndpoint = this.authDataSubject.value.apiEndpoint;
+      if (!currentEndpoint || currentEndpoint.trim() === '') {
+        console.log('[SettingsService] 🌐 API endpoint missing or empty, saving default:', DEFAULT_API_URL);
+        await this.saveApiEndpoint(DEFAULT_API_URL);
+      } else {
+        console.log('[SettingsService] 🌐 API endpoint already set:', currentEndpoint);
+      }
+      
+      console.log('[SettingsService] ✅ Initialization complete');
       this.initializedSubject.next(true);
     } catch (error) {
       console.error('Failed to initialize SettingsService:', error);
@@ -340,6 +368,7 @@ class SettingsService {
         migrateWithKeychain(PENDING_NAVIGATION_SERVICE, 'pending_navigation_intent', 'auth_pendingNavigationIntent'),
         migrateWithKeychain(BADGE_COUNT_SERVICE, 'badge_count', 'auth_badgeCount'),
         migrateWithKeychain(API_ENDPOINT_SERVICE, 'api_endpoint', 'auth_apiEndpoint'),
+        migrateWithKeychain(LOCALE_SERVICE, 'locale', 'locale'),
         
         // Keys that were only in AsyncStorage
         migrateSimple('device_token', 'auth_deviceToken'),
@@ -361,6 +390,7 @@ class SettingsService {
           'pending_navigation_intent',
           'badge_count',
           'api_endpoint',
+          'locale',
         ]);
         console.log('[SettingsService] AsyncStorage cleanup completed');
       } catch (error) {
@@ -374,6 +404,7 @@ class SettingsService {
             PENDING_NAVIGATION_SERVICE,
             BADGE_COUNT_SERVICE,
             API_ENDPOINT_SERVICE,
+            LOCALE_SERVICE,
           ];
 
           for (const service of keychainServices) {
@@ -403,46 +434,52 @@ class SettingsService {
     try {
       const settings: Partial<UserSettings> = {};
 
-      // Load each root key separately
-      const keys: (keyof UserSettings)[] = [
-        'theme',
+      // Settings that are stored as plain strings (not JSON)
+      const stringKeys: (keyof UserSettings)[] = [
         'locale',
         'timezone',
+        'notificationsLastSeenId',
+        'lastCleanup'
+      ];
+      
+      // Settings that are stored as JSON objects
+      const jsonKeys: (keyof UserSettings)[] = [
+        'theme',
         'dateFormat',
         'retentionPolicies',
         'downloadSettings',
-        'notificationsLastSeenId',
         'notificationVisualization',
         'notificationsPreferences',
         'githubEventsFilter',
         'galleryVisualization',
         'onboarding',
-        'termsAcceptance',
-        'lastCleanup'
+        'termsAcceptance'
       ];
 
-      await Promise.all(
-        keys.map(async (key) => {
+      await Promise.all([
+        // Load string settings
+        ...stringKeys.map(async (key) => {
+          try {
+            const stored = await settingsRepository.getSetting(key);
+            if (stored) {
+              settings[key] = stored as any;
+            }
+          } catch (error) {
+            console.error(`Failed to load string setting ${key}:`, error);
+          }
+        }),
+        // Load JSON settings
+        ...jsonKeys.map(async (key) => {
           try {
             const stored = await settingsRepository.getSetting(key);
             if (stored) {
               settings[key] = JSON.parse(stored) as any;
             }
           } catch (error) {
-            console.error(`Failed to load setting ${key}:`, error);
+            console.error(`Failed to load JSON setting ${key}:`, error);
           }
         })
-      );
-
-      // Special handling for locale - try keychain first
-      try {
-        const storedLocale = await this.getLocaleFromKeychain();
-        if (storedLocale) {
-          settings.locale = storedLocale as Locale;
-        }
-      } catch (error) {
-        console.error('Failed to load locale from keychain:', error);
-      }
+      ]);
 
       const merged = this.deepMerge(DEFAULT_SETTINGS, settings);
       this.settingsSubject.next(merged);
@@ -539,7 +576,10 @@ class SettingsService {
   public async updateSettings(updates: Partial<UserSettings>): Promise<void> {
     const newSettings = { ...this.settingsSubject.value, ...updates };
     this.settingsSubject.next(newSettings);
-    await this.saveSettings(newSettings);
+    
+    // Save only the changed keys
+    const changedKeys = Object.keys(updates) as (keyof UserSettings)[];
+    await this.savePartialSettings(changedKeys, newSettings);
   }
 
   public async setThemeMode(mode: 'light' | 'dark' | 'system'): Promise<void> {
@@ -590,11 +630,7 @@ class SettingsService {
     const current = this.settingsSubject.value;
     current.locale = locale as Locale;
     this.settingsSubject.next(current);
-    
-    await Promise.all([
-      this.saveSettings(current),
-      this.saveLocaleToKeychain(locale)
-    ]);
+    await this.saveSettings(current);
   }
 
   public async setTimezone(timezone: string): Promise<void> {
@@ -665,6 +701,91 @@ class SettingsService {
     await this.updateSettings({ notificationsLastSeenId: id });
   }
 
+  // Notification Preferences setters
+  public async setUnencryptOnBigPayload(value: boolean): Promise<void> {
+    const current = this.settingsSubject.value;
+    await this.updateSettings({
+      notificationsPreferences: {
+        ...current.notificationsPreferences,
+        unencryptOnBigPayload: value,
+      },
+    });
+  }
+
+  public async setMarkAsReadMode(mode: MarkAsReadMode): Promise<void> {
+    const current = this.settingsSubject.value;
+    await this.updateSettings({
+      notificationsPreferences: {
+        ...current.notificationsPreferences,
+        markAsReadMode: mode,
+      },
+    });
+  }
+
+  public async setGenerateBucketIconWithInitials(value: boolean): Promise<void> {
+    const current = this.settingsSubject.value;
+    await this.updateSettings({
+      notificationsPreferences: {
+        ...current.notificationsPreferences,
+        generateBucketIconWithInitials: value,
+      },
+    });
+  }
+
+  public async setAutoAddDeleteAction(value: boolean): Promise<void> {
+    const current = this.settingsSubject.value;
+    await this.updateSettings({
+      notificationsPreferences: {
+        ...current.notificationsPreferences,
+        autoAddDeleteAction: value,
+      },
+    });
+  }
+
+  public async setAutoAddMarkAsReadAction(value: boolean): Promise<void> {
+    const current = this.settingsSubject.value;
+    await this.updateSettings({
+      notificationsPreferences: {
+        ...current.notificationsPreferences,
+        autoAddMarkAsReadAction: value,
+      },
+    });
+  }
+
+  public async setAutoAddOpenNotificationAction(value: boolean): Promise<void> {
+    const current = this.settingsSubject.value;
+    await this.updateSettings({
+      notificationsPreferences: {
+        ...current.notificationsPreferences,
+        autoAddOpenNotificationAction: value,
+      },
+    });
+  }
+
+  public async setDefaultPostpones(values: number[]): Promise<void> {
+    const current = this.settingsSubject.value;
+    await this.updateSettings({
+      notificationsPreferences: {
+        ...current.notificationsPreferences,
+        defaultPostpones: values,
+      },
+    });
+  }
+
+  public async setDefaultSnoozes(values: number[]): Promise<void> {
+    const current = this.settingsSubject.value;
+    await this.updateSettings({
+      notificationsPreferences: {
+        ...current.notificationsPreferences,
+        defaultSnoozes: values,
+      },
+    });
+  }
+
+  public async setGithubEventsFilter(events: string[]): Promise<void> {
+    await this.updateSettings({ githubEventsFilter: events });
+  }
+
   public async updateGalleryVisualization(updates: Partial<GalleryVisualization>): Promise<void> {
     const current = this.settingsSubject.value;
     await this.updateSettings({
@@ -692,6 +813,12 @@ class SettingsService {
   }
 
   public async completeOnboarding(): Promise<void> {
+    await this.updateOnboardingSettings({
+      hasCompletedOnboarding: true,
+    });
+  }
+
+  public async skipOnboarding(): Promise<void> {
     await this.updateOnboardingSettings({
       hasCompletedOnboarding: true,
     });
@@ -886,16 +1013,31 @@ class SettingsService {
     current.refreshToken = refreshToken;
     this.authDataSubject.next(current);
 
+    console.log('[SettingsService] 💾 Saving tokens to storage...', {
+      platform: Platform.OS,
+      isDevice: Device.isDevice,
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+    });
+
     if (Platform.OS === 'ios' || Platform.OS === 'macos') {
       const options: Keychain.SetOptions = Device.isDevice
         ? { service: SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
         : { service: SERVICE, accessible: ACCESSIBLE };
-      await Keychain.setGenericPassword(accessToken, refreshToken, options);
+      
+      console.log('[SettingsService] 🔑 Saving to Keychain with options:', {
+        service: SERVICE,
+        accessGroup: Device.isDevice ? KEYCHAIN_ACCESS_GROUP : 'none',
+      });
+      
+      const result = await Keychain.setGenericPassword(accessToken, refreshToken, options);
+      console.log('[SettingsService] ✅ Tokens saved to Keychain:', result ? 'SUCCESS' : 'FAILED');
     } else {
       await AsyncStorage.multiSet([
         ['access_token', accessToken],
         ['refresh_token', refreshToken],
       ]);
+      console.log('[SettingsService] ✅ Tokens saved to AsyncStorage');
     }
   }
 
@@ -931,10 +1073,25 @@ class SettingsService {
 
   public async saveApiEndpoint(endpoint: string): Promise<void> {
     const current = this.authDataSubject.value;
-    current.apiEndpoint = endpoint;
+    
+    // Validate endpoint - never allow empty, use default instead
+    const trimmedEndpoint = endpoint?.trim() || '';
+    const finalEndpoint = trimmedEndpoint !== '' ? trimmedEndpoint : DEFAULT_API_URL;
+    
+    if (trimmedEndpoint === '') {
+      console.warn('[SettingsService] ⚠️ Empty API endpoint provided, using default:', DEFAULT_API_URL);
+    }
+    
+    current.apiEndpoint = finalEndpoint;
     this.authDataSubject.next(current);
 
-    await settingsRepository.setSetting('auth_apiEndpoint', endpoint);
+    await settingsRepository.setSetting('auth_apiEndpoint', finalEndpoint);
+    console.log('[SettingsService] 🌐 API endpoint saved:', finalEndpoint);
+  }
+  
+  public async resetApiEndpoint(): Promise<void> {
+    console.log('[SettingsService] 🔄 Resetting API endpoint to default:', DEFAULT_API_URL);
+    await this.saveApiEndpoint(DEFAULT_API_URL);
   }
 
   public async saveDeviceToken(deviceToken: string): Promise<void> {
@@ -1016,10 +1173,36 @@ class SettingsService {
   }
 
   public async clearApiEndpoint(): Promise<void> {
-    const current = this.authDataSubject.value;
-    current.apiEndpoint = null;
-    this.authDataSubject.next(current);
-    await settingsRepository.removeSetting('auth_apiEndpoint');
+    console.log('[SettingsService] 🔄 Clearing API endpoint (resetting to default)');
+    await this.resetApiEndpoint();
+  }
+
+  // API URL Helper Methods (replaces ApiConfigService)
+  public getApiUrl(): string {
+    const customUrl = this.authDataSubject.value.apiEndpoint;
+    
+    // If custom URL is set and not empty, use it
+    if (customUrl && customUrl.trim() !== '') {
+      return customUrl.trim();
+    }
+
+    // Otherwise use the default from environment
+    return DEFAULT_API_URL;
+  }
+
+  public getApiBaseWithPrefix(): string {
+    const base = this.getApiUrl().replace(/\/$/, '');
+    const prefix = API_PREFIX.replace(/^\/+|\/+$/g, '');
+    return `${base}/${prefix}`;
+  }
+
+  public hasCustomApiUrl(): boolean {
+    const customUrl = this.authDataSubject.value.apiEndpoint;
+    return customUrl !== null && customUrl.trim() !== '';
+  }
+
+  public getCustomApiUrl(): string {
+    return this.authDataSubject.value.apiEndpoint || '';
   }
 
   public async hasKeyPair(): Promise<boolean> {
@@ -1079,9 +1262,48 @@ class SettingsService {
     ]);
   }
 
+  /**
+   * Save only specific keys to storage (for granular updates)
+   */
+  private async savePartialSettings(keys: (keyof UserSettings)[], settings: UserSettings): Promise<void> {
+    try {
+      // Settings that are stored as plain strings (not JSON)
+      const stringKeys = new Set<keyof UserSettings>([
+        'locale',
+        'timezone',
+        'notificationsLastSeenId',
+        'lastCleanup'
+      ]);
+      
+      await Promise.all(
+        keys.map(async (key) => {
+          try {
+            const value = settings[key];
+            if (value !== undefined) {
+              // Save string settings directly, JSON settings as stringified JSON
+              const valueToSave = stringKeys.has(key) 
+                ? String(value) 
+                : JSON.stringify(value);
+              await settingsRepository.setSetting(key, valueToSave);
+            } else {
+              await settingsRepository.removeSetting(key);
+            }
+          } catch (error) {
+            console.error(`Failed to save setting ${key}:`, error);
+          }
+        })
+      );
+    } catch (error) {
+      console.error('Failed to save partial settings:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Save all settings to storage (used for reset/import operations)
+   */
   private async saveSettings(settings: UserSettings): Promise<void> {
     try {
-      // Save each root key separately
       const keys: (keyof UserSettings)[] = [
         'theme',
         'locale',
@@ -1099,30 +1321,7 @@ class SettingsService {
         'lastCleanup'
       ];
 
-      await Promise.all(
-        keys.map(async (key) => {
-          try {
-            const value = settings[key];
-            if (value !== undefined) {
-              await settingsRepository.setSetting(key, JSON.stringify(value));
-            } else {
-              // Remove the key if undefined
-              await settingsRepository.removeSetting(key);
-            }
-          } catch (error) {
-            console.error(`Failed to save setting ${key}:`, error);
-          }
-        })
-      );
-
-      // Special handling for locale - also save to keychain
-      if (settings.locale) {
-        try {
-          await this.saveLocaleToKeychain(settings.locale);
-        } catch (error) {
-          console.error('Failed to save locale to keychain:', error);
-        }
-      }
+      await this.savePartialSettings(keys, settings);
     } catch (error) {
       console.error('Failed to save user settings:', error);
       throw error;
@@ -1162,15 +1361,23 @@ class SettingsService {
         const options: Keychain.GetOptions = Device.isDevice
           ? { service: SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
           : { service: SERVICE };
+        console.log('[SettingsService] 🔑 Getting accessToken from Keychain with options:', { 
+          service: SERVICE, 
+          accessGroup: Device.isDevice ? KEYCHAIN_ACCESS_GROUP : 'none',
+          isDevice: Device.isDevice 
+        });
         const creds = await Keychain.getGenericPassword(options);
+        console.log('[SettingsService] 🔑 Keychain result for accessToken:', creds ? 'FOUND' : 'NOT FOUND');
         return creds ? creds.username : null;
-      } catch {
+      } catch (error) {
+        console.error('[SettingsService] ❌ Error reading accessToken from Keychain:', error);
         return null;
       }
     } else {
       try {
         return await AsyncStorage.getItem('access_token');
-      } catch {
+      } catch (error) {
+        console.error('[SettingsService] ❌ Error reading accessToken from AsyncStorage:', error);
         return null;
       }
     }
@@ -1183,14 +1390,17 @@ class SettingsService {
           ? { service: SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
           : { service: SERVICE };
         const creds = await Keychain.getGenericPassword(options);
+        console.log('[SettingsService] 🔑 Keychain result for refreshToken:', creds ? 'FOUND' : 'NOT FOUND');
         return creds ? creds.password : null;
-      } catch {
+      } catch (error) {
+        console.error('[SettingsService] ❌ Error reading refreshToken from Keychain:', error);
         return null;
       }
     } else {
       try {
         return await AsyncStorage.getItem('refresh_token');
-      } catch {
+      } catch (error) {
+        console.error('[SettingsService] ❌ Error reading refreshToken from AsyncStorage:', error);
         return null;
       }
     }
@@ -1226,35 +1436,6 @@ class SettingsService {
     } else {
       return null;
     }
-  }
-
-
-  private async saveLocaleToKeychain(locale: string): Promise<void> {
-    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      try {
-        const options: Keychain.SetOptions = Device.isDevice
-          ? { service: LOCALE_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP, accessible: ACCESSIBLE }
-          : { service: LOCALE_SERVICE, accessible: ACCESSIBLE };
-        await Keychain.setGenericPassword('locale', locale, options);
-      } catch (error) {
-        console.error('Failed to save locale to keychain:', error);
-      }
-    }
-  }
-
-  private async getLocaleFromKeychain(): Promise<string | null> {
-    if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-      try {
-        const options: Keychain.GetOptions = Device.isDevice
-          ? { service: LOCALE_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-          : { service: LOCALE_SERVICE };
-        const creds = await Keychain.getGenericPassword(options);
-        return creds ? creds.password : null;
-      } catch {
-        return null;
-      }
-    }
-    return null;
   }
 
   // Getter methods for new structure

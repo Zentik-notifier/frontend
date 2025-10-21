@@ -15,7 +15,7 @@ import {
 } from "react-native-paper";
 import NotificationFiltersModal from "./NotificationFiltersModal";
 
-interface NotificationFiltersProps {
+interface NotificationVisualizationProps {
   totalNotifications?: number;
   refreshing?: boolean;
   onToggleReadStatus?: () => void;
@@ -23,20 +23,20 @@ interface NotificationFiltersProps {
   onRefresh?: () => void;
 }
 
-export default function NotificationFilters({
+export default function NotificationVisualization({
   totalNotifications = 0,
   refreshing,
   onToggleReadStatus,
   onDeleteSelected,
   onRefresh,
-}: NotificationFiltersProps) {
+}: NotificationVisualizationProps) {
   const { t } = useI18n();
   const theme = useTheme();
   const {
-    userSettings: { settings, setNotificationFilters, setIsCompactMode },
+    userSettings: { settings, setNotificationVisualization, setIsCompactMode },
   } = useAppContext();
-  const filters = settings.notificationFilters;
-  const isCompactMode = settings.isCompactMode;
+  const filters = settings.notificationVisualization;
+  const isCompactMode = settings.notificationVisualization.isCompactMode;
 
   // Use notifications context
   const {
@@ -77,11 +77,11 @@ export default function NotificationFilters({
       }
 
       debounceTimeoutRef.current = setTimeout(() => {
-        setNotificationFilters({ searchQuery });
+        setNotificationVisualization({ searchQuery });
         isTypingRef.current = false;
       }, 150);
     },
-    [setNotificationFilters]
+    [setNotificationVisualization]
   );
 
   // Cleanup del timeout quando il componente viene smontato

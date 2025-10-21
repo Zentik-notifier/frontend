@@ -16,8 +16,7 @@ import { MediaType, NotificationFragment } from '../generated/gql-operations-gen
 import { Directory, File } from '../utils/filesystem-wrapper';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
 import { MediaCacheRepository } from './media-cache-repository';
-import { ApiConfigService } from './api-config';
-import { getAccessToken } from './auth-storage';
+import { settingsService } from './settings-service';
 
 const isWeb = Platform.OS === 'web';
 
@@ -1395,8 +1394,8 @@ class MediaCacheService {
                 }
 
                 // Get API credentials for proxy request
-                const authToken = await getAccessToken();
-                const apiEndpoint = ApiConfigService.getApiBaseWithPrefix();
+                const authToken = settingsService.getAuthData().accessToken;
+                const apiEndpoint = settingsService.getApiBaseWithPrefix();
 
                 if (!authToken) {
                     throw new Error('No auth token available for proxy request');
@@ -1578,8 +1577,7 @@ class MediaCacheService {
 
     async cleanupGalleryBySettings(): Promise<GalleryCleanupResult> {
         await this.initialize();
-        const { userSettings } = await import('./user-settings');
-        const retentionPolicies = userSettings.getMediaCacheRetentionPolicies();
+        const retentionPolicies = settingsService.getRetentionPolicies();
         const maxCacheSizeMB = retentionPolicies.maxCacheSizeMB;
         const maxCageAgeDays = retentionPolicies.maxCageAgeDays;
 

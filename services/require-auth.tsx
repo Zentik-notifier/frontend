@@ -2,8 +2,8 @@ import { useNavigationUtils } from "@/utils/navigation";
 import { useSegments } from "expo-router";
 import { useEffect } from "react";
 import { useAppContext } from "../contexts/AppContext";
-import { useUserSettings } from "./user-settings";
-import { CURRENT_TERMS_VERSION } from "./auth-storage";
+import { useSettings } from "@/hooks/useSettings";
+import { CURRENT_TERMS_VERSION } from "./settings-service";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { lastUserId, isInitializing } = useAppContext();
@@ -12,11 +12,11 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { navigateToHome, navigateToLogin, navigateToTerms } =
     useNavigationUtils();
   const {
-    isLoaded,
+    isInitialized,
     settings: {
       termsAcceptance: { acceptedVersion, termsAccepted },
     },
-  } = useUserSettings();
+  } = useSettings();
 
   useEffect(() => {
     const isPublic = segments[0] === "(common)";
@@ -24,8 +24,8 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     const isHome = segments[1] === "(home)";
     const isTerms = isPublic && segments[1] === "terms-acceptance";
 
-    // Wait for user settings to be loaded from AsyncStorage to avoid race condition
-    if (!isLoaded) return;
+    // Wait for user settings to be loaded from storage to avoid race condition
+    if (!isInitialized) return;
 
     // 1) Terms gate has highest priority
     const needsTerms =
@@ -60,7 +60,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     showPrivateRoutes,
     segments,
     isInitializing,
-    isLoaded,
+    isInitialized,
     acceptedVersion,
     termsAccepted,
   ]);

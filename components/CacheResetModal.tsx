@@ -3,10 +3,10 @@ import { useI18n } from "@/hooks/useI18n";
 import {
   useGetCacheStats
 } from "@/hooks/useMediaCache";
-import { clearAllAuthData } from "@/services/auth-storage";
+import { settingsService } from "@/services/settings-service";
+import { useSettings } from "@/hooks/useSettings";
 import { localNotifications } from "@/services/local-notifications";
 import { mediaCache } from "@/services/media-cache-service";
-import { userSettings } from "@/services/user-settings";
 import { getAllNotificationsFromCache, clearAllNotificationsFromCache } from "@/services/notifications-repository";
 import { deleteAllBuckets } from "@/db/repositories/buckets-repository";
 import { clearAllLogs } from "@/services/logger";
@@ -52,6 +52,7 @@ export function CacheResetModal({
 }: CacheResetModalProps) {
   const theme = useTheme();
   const { t } = useI18n();
+  const { resetSettings } = useSettings();
   const { cacheStats } = useGetCacheStats();
   const [selectedEntities, setSelectedEntities] = useState<Set<string>>(
     new Set()
@@ -98,8 +99,8 @@ export function CacheResetModal({
         deleteAllBuckets(),
         mediaCache.clearCacheComplete(),
         clearAllLogs(),
-        userSettings.resetSettings(),
-        clearAllAuthData(),
+        resetSettings(),
+        settingsService.clearAllAuthData(),
       ]);
 
       setDialogMessage(t("appSettings.cacheReset.completeResetSuccess"));
@@ -189,8 +190,8 @@ export function CacheResetModal({
 
       if (selectedEntities.has("settings")) {
         await Promise.all([
-          userSettings.resetSettings(),
-          clearAllAuthData(),
+          resetSettings(),
+          settingsService.clearAllAuthData(),
         ]);
       }
 

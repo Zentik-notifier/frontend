@@ -1,7 +1,8 @@
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { useSettings } from "@/hooks/useSettings";
 import { useAppContext } from "@/contexts/AppContext";
-import { DEFAULT_MEDIA_TYPES } from "@/services/user-settings";
+import { DEFAULT_MEDIA_TYPES } from "@/services/settings-service";
 import { useGalleryContext } from "@/contexts/GalleryContext";
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, ScrollView, Dimensions } from "react-native";
@@ -21,6 +22,7 @@ const availableMediaTypes = Object.values(MediaType);
 export default function GalleryFiltersModal() {
   const { t } = useI18n();
   const { userSettings } = useAppContext();
+  const { updateGalleryVisualization } = useSettings();
 
   // Get default media types from utility
   const defaultMediaTypes = new Set(DEFAULT_MEDIA_TYPES);
@@ -33,7 +35,7 @@ export default function GalleryFiltersModal() {
 
   // Get gallery settings from user settings - memoize to prevent infinite loops
   const savedGallerySettings = React.useMemo(() => 
-    userSettings.getGallerySettings(), 
+    userSettings.settings.galleryVisualization, 
     [userSettings]
   );
 
@@ -49,14 +51,14 @@ export default function GalleryFiltersModal() {
   // Sync local state when modal opens
   useEffect(() => {
     if (showFiltersModal) {
-      const settings = userSettings.getGallerySettings();
-      const mediaTypes = settings.selectedMediaTypes.length > 0
-        ? new Set(settings.selectedMediaTypes)
+      const gallerySettings = userSettings.settings.galleryVisualization;
+      const mediaTypes = gallerySettings.selectedMediaTypes.length > 0
+        ? new Set(gallerySettings.selectedMediaTypes)
         : defaultMediaTypes;
       setLocalSelectedMediaTypes(mediaTypes);
-      setLocalGallerySettings(settings);
+      setLocalGallerySettings(gallerySettings);
     }
-  }, [showFiltersModal]);
+  }, [showFiltersModal, userSettings]);
 
   const toggleMediaType = (mediaType: MediaType) => {
     const newSelectedTypes = new Set(localSelectedMediaTypes);
@@ -101,7 +103,7 @@ export default function GalleryFiltersModal() {
   };
 
   const applyFilters = async () => {
-    await userSettings.updateGallerySettings({
+    await updateGalleryVisualization({
       ...localGallerySettings,
       selectedMediaTypes: Array.from(localSelectedMediaTypes),
     });

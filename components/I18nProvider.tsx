@@ -1,6 +1,5 @@
 import { Locale } from "@/hooks/useI18n";
-import { i18nService } from "@/services/i18n";
-import { userSettings } from "@/services/user-settings";
+import { useSettings } from "@/hooks/useSettings";
 import React from "react";
 
 interface I18nContextType {
@@ -16,41 +15,11 @@ interface I18nProviderProps {
 
 /**
  * Provider component for internationalization context
+ * Now simplified - locale is managed by settings service
  */
 export function I18nProvider({ children }: I18nProviderProps) {
-  const [locale, setLocale] = React.useState<Locale>(
-    i18nService.getCurrentLocale()
-  );
-  const [isInitialized, setIsInitialized] = React.useState(false);
-
-  React.useEffect(() => {
-    // First initialize user settings, then set the locale in i18n service
-    const initializeI18n = async () => {
-      try {
-        // Load user settings first
-        const settings = await userSettings.initialize();
-        const locale: Locale = settings.locale ?? "en-EN";
-
-        // Set the locale from user settings to i18n service
-        await i18nService.setLocale(locale);
-
-        // Update state
-        setLocale(locale);
-        setIsInitialized(true);
-      } catch (error) {
-        console.error("Failed to initialize i18n:", error);
-        // Fallback to default locale
-        setIsInitialized(true);
-      }
-    };
-
-    initializeI18n();
-
-    // Subscribe to locale changes
-    const unsubscribe = i18nService.subscribe(setLocale);
-
-    return unsubscribe;
-  }, []);
+  const { settings, isInitialized } = useSettings();
+  const locale = settings.locale as Locale;
 
   const contextValue: I18nContextType = {
     locale,
@@ -64,6 +33,7 @@ export function I18nProvider({ children }: I18nProviderProps) {
 
 /**
  * Hook to access i18n context
+ * @deprecated Use useI18n hook directly instead
  */
 export function useI18nContext(): I18nContextType {
   const context = React.useContext(I18nContext);

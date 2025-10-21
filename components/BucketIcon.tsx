@@ -1,9 +1,8 @@
+import { settingsService } from "@/services/settings-service";
 import {
-  BucketFragment,
-  usePublicAppConfigQuery,
+  usePublicAppConfigQuery
 } from "@/generated/gql-operations-generated";
 import { useBucket } from "@/hooks/notifications";
-import { ApiConfigService } from "@/services/api-config";
 import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
 import { Image } from "expo-image";
@@ -79,7 +78,7 @@ export default function BucketIcon({
 
         if (iconAttachmentUuid) {
           // Use attachment API (public endpoint)
-          const apiUrl = await ApiConfigService.getApiUrl();
+          const apiUrl = await settingsService.getApiUrl();
           iconUrlToUse = `${apiUrl}/api/v1/attachments/${iconAttachmentUuid}/download/public`;
         } else if (
           icon &&

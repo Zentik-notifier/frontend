@@ -10,6 +10,7 @@ import {
 import { useBucket, useRefreshBucket, useRefreshBucketsStatsFromDB } from "@/hooks/notifications";
 import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
+import { useSettings } from "@/hooks/useSettings";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";

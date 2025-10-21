@@ -1,6 +1,5 @@
 import { Platform } from 'react-native';
-import { ApiConfigService } from './api-config';
-import { getAccessToken } from './auth-storage';
+import { settingsService } from './settings-service';
 
 export interface UploadBucketIconResponse {
     icon: string;
@@ -12,10 +11,10 @@ export const uploadBucketIcon = async (
     imageUri: string,
     filename: string = 'icon.jpg'
 ): Promise<string> => {
-    const apiUrl = await ApiConfigService.getApiUrl();
+    const apiUrl = await settingsService.getApiUrl();
     const url = `${apiUrl}/api/v1/attachments/upload`;
 
-    const token = await getAccessToken();
+    const token = settingsService.getAuthData().accessToken;
     if (!token) {
         throw new Error('No authentication token found');
     }

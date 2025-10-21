@@ -13,12 +13,13 @@ import {
 import { useI18n } from "../hooks/useI18n";
 import { LEGAL_DOCUMENTS } from "../services/legal-documents";
 import { LegalDocumentViewer } from "./LegalDocumentViewer";
-import { useUserSettings } from "../services/user-settings";
+import { useSettings } from "@/hooks/useSettings";
+import { settingsService } from "@/services/settings-service";
 
 export const LegalDocumentsSettings: React.FC = () => {
   const { t } = useI18n();
   const theme = useTheme();
-  const { clearTermsAcceptance } = useUserSettings();
+  const { clearTermsAcceptance } = useSettings();
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [viewerVisible, setViewerVisible] = useState(false);
   const [showRevokeDialog, setShowRevokeDialog] = useState(false);

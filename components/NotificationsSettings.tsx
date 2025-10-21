@@ -1,3 +1,4 @@
+import { settingsService } from "@/services/settings-service";
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import { useAppContext } from "@/contexts/AppContext";
 import {
@@ -12,7 +13,6 @@ import {
 import { useLanguageSync, useNotificationUtils } from "@/hooks";
 import { useBucket, useBucketsStats } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
-import { ApiConfigService } from "@/services/api-config";
 import {
   getNotificationTestData,
   notificationFormDefaults,
@@ -262,7 +262,7 @@ export default function NotificationsSettings() {
 
   // Generate cURL command
   const generateCurlCommand = () => {
-    const apiUrl = ApiConfigService.getApiBaseWithPrefix();
+    const apiUrl = settingsService.getApiBaseWithPrefix();
     const payload = buildMessagePayload();
     const jsonPayload = JSON.stringify(payload, null, 2);
 

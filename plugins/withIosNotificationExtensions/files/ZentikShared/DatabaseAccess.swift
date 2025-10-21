@@ -483,4 +483,130 @@ public class DatabaseAccess {
             }
         }
     }
+    
+    // MARK: - Settings Repository Operations
+    
+    /// Get a setting value from app_settings table
+    /// - Parameter key: The setting key to retrieve
+    /// - Returns: The setting value as a string, or nil if not found
+    public static func getSettingValue(key: String) -> String? {
+        guard let dbPath = getDbPath() else {
+            print("📱 [DatabaseAccess] ❌ Failed to get database path")
+            return nil
+        }
+        
+        var db: OpaquePointer?
+        guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
+            print("📱 [DatabaseAccess] ❌ Failed to open database for reading setting: \(key)")
+            return nil
+        }
+        defer { sqlite3_close(db) }
+        
+        let sql = "SELECT value FROM app_settings WHERE key = ? LIMIT 1"
+        var stmt: OpaquePointer?
+        
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("📱 [DatabaseAccess] ❌ Failed to prepare SELECT statement for key: \(key)")
+            return nil
+        }
+        defer { sqlite3_finalize(stmt) }
+        
+        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        
+        if sqlite3_step(stmt) == SQLITE_ROW {
+            if let cString = sqlite3_column_text(stmt, 0) {
+                let value = String(cString: cString)
+                print("📱 [DatabaseAccess] ✅ Retrieved setting '\(key)': \(value)")
+                return value
+            }
+        }
+        
+        print("📱 [DatabaseAccess] ℹ️ Setting '\(key)' not found")
+        return nil
+    }
+    
+    /// Set a setting value in app_settings table
+    /// - Parameters:
+    ///   - key: The setting key
+    ///   - value: The setting value
+    /// - Returns: True if successful, false otherwise
+    @discardableResult
+    public static func setSettingValue(key: String, value: String) -> Bool {
+        guard let dbPath = getDbPath() else {
+            print("📱 [DatabaseAccess] ❌ Failed to get database path")
+            return false
+        }
+        
+        var db: OpaquePointer?
+        guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
+            print("📱 [DatabaseAccess] ❌ Failed to open database for writing setting: \(key)")
+            return false
+        }
+        defer { sqlite3_close(db) }
+        
+        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+        let sql = """
+            INSERT INTO app_settings (key, value, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+            """
+        
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("📱 [DatabaseAccess] ❌ Failed to prepare INSERT statement for key: \(key)")
+            return false
+        }
+        defer { sqlite3_finalize(stmt) }
+        
+        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        sqlite3_bind_text(stmt, 2, (value as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        sqlite3_bind_int64(stmt, 3, timestamp)
+        
+        if sqlite3_step(stmt) == SQLITE_DONE {
+            print("📱 [DatabaseAccess] ✅ Saved setting '\(key)': \(value)")
+            return true
+        } else {
+            let errorMsg = String(cString: sqlite3_errmsg(db))
+            print("📱 [DatabaseAccess] ❌ Failed to save setting '\(key)': \(errorMsg)")
+            return false
+        }
+    }
+    
+    /// Remove a setting value from app_settings table
+    /// - Parameter key: The setting key to remove
+    /// - Returns: True if successful, false otherwise
+    @discardableResult
+    public static func removeSettingValue(key: String) -> Bool {
+        guard let dbPath = getDbPath() else {
+            print("📱 [DatabaseAccess] ❌ Failed to get database path")
+            return false
+        }
+        
+        var db: OpaquePointer?
+        guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
+            print("📱 [DatabaseAccess] ❌ Failed to open database for removing setting: \(key)")
+            return false
+        }
+        defer { sqlite3_close(db) }
+        
+        let sql = "DELETE FROM app_settings WHERE key = ?"
+        var stmt: OpaquePointer?
+        
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("📱 [DatabaseAccess] ❌ Failed to prepare DELETE statement for key: \(key)")
+            return false
+        }
+        defer { sqlite3_finalize(stmt) }
+        
+        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        
+        if sqlite3_step(stmt) == SQLITE_DONE {
+            print("📱 [DatabaseAccess] ✅ Removed setting '\(key)'")
+            return true
+        } else {
+            let errorMsg = String(cString: sqlite3_errmsg(db))
+            print("📱 [DatabaseAccess] ❌ Failed to remove setting '\(key)': \(errorMsg)")
+            return false
+        }
+    }
 }

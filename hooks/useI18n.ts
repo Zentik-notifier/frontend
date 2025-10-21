@@ -1,6 +1,8 @@
-import { i18nService } from '@/services/i18n';
 import { Translation } from '@/types/translations.generated';
-import React from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useSettings } from './useSettings';
+import enTranslations from '@/locales/en-EN.json';
+import itTranslations from '@/locales/it-IT.json';
 
 export type Locale = 'en-EN' | 'it-IT';
 
@@ -11,6 +13,12 @@ export type DatePickerLocale = 'en' | 'it';
 export const localeToDatePickerLocale: Record<Locale, DatePickerLocale> = {
   'en-EN': 'en',
   'it-IT': 'it',
+};
+
+// Translations map
+const translations: Record<Locale, Translation> = {
+  'en-EN': enTranslations,
+  'it-IT': itTranslations,
 };
 
 // Helper type to get the value type for a given translation key path
@@ -61,32 +69,64 @@ export interface UseI18nReturn {
 }
 
 /**
+ * Get nested value from object using dot notation
+ */
+function getNestedValue(obj: any, path: string): any {
+  return path.split('.').reduce((current, key) => {
+    return current && current[key] !== undefined ? current[key] : undefined;
+  }, obj);
+}
+
+/**
+ * Replace parameters in translation string
+ */
+function replaceParams(translation: string, params: Record<string, string | number>): string {
+  return Object.entries(params).reduce((result, [key, value]) => {
+    return result.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
+  }, translation);
+}
+
+/**
  * Hook to use internationalization in React components
+ * Automatically syncs with settings service locale
  */
 export function useI18n(): UseI18nReturn {
-  const [locale, setLocaleState] = React.useState<Locale>(i18nService.getCurrentLocale());
+  const { settings } = useSettings();
+  const locale = settings.locale as Locale;
 
-  React.useEffect(() => {
-    // Initialize i18n service
-    i18nService.initialize().then(setLocaleState);
-
-    // Subscribe to locale changes
-    const unsubscribe = i18nService.subscribe(setLocaleState);
-
-    return unsubscribe;
-  }, []);
-
-  const t = React.useCallback(<T extends TranslationKeyPath>(
+  const t = useCallback(<T extends TranslationKeyPath>(
     key: T,
     params?: Record<string, string | number>
   ): GetTranslationValue<T> => {
-    return i18nService.t(key, params);
-  }, [locale]); // Re-create when locale changes
+    const translation = getNestedValue(translations[locale], key);
+
+    if (typeof translation !== 'string') {
+      console.warn(`Translation not found for key: ${key}`);
+      return key as unknown as GetTranslationValue<T>;
+    }
+
+    // Replace parameters if provided
+    if (params) {
+      return replaceParams(translation, params) as GetTranslationValue<T>;
+    }
+
+    return translation as GetTranslationValue<T>;
+  }, [locale]);
+
+  const availableLocales = useMemo(() => Object.keys(translations) as Locale[], []);
+
+  const getLocaleDisplayName = useCallback((loc: Locale): string => {
+    const displayNames: Record<Locale, string> = {
+      'en-EN': 'English',
+      'it-IT': 'Italiano',
+    };
+    return displayNames[loc] || loc;
+  }, []);
 
   return {
     locale,
     t,
-    availableLocales: i18nService.getAvailableLocales(),
-    getLocaleDisplayName: i18nService.getLocaleDisplayName.bind(i18nService),
+    availableLocales,
+    getLocaleDisplayName,
   };
 }

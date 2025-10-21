@@ -1,9 +1,9 @@
+import { settingsService } from "@/services/settings-service";
 import React, { memo, useEffect, useState } from "react";
 import { Platform, ScrollView, StyleSheet, View, TouchableOpacity, Alert, Linking } from "react-native";
 import { Button, Card, Icon, Text, useTheme } from "react-native-paper";
 import { useOnboarding } from "./OnboardingContext";
 import { useI18n } from "@/hooks/useI18n";
-import { ApiConfigService } from "@/services/api-config";
 import * as Clipboard from "expo-clipboard";
 
 const Step6 = memo(() => {
@@ -15,7 +15,7 @@ const Step6 = memo(() => {
   // Carica l'URL API effettivo
   useEffect(() => {
     const loadApiUrl = async () => {
-      const url = await ApiConfigService.getApiUrl();
+      const url = await settingsService.getApiUrl();
       setApiUrl(url);
     };
     loadApiUrl();

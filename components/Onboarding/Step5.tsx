@@ -1,3 +1,4 @@
+import { settingsService } from "@/services/settings-service";
 import React, { memo, useState, useCallback } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import {
@@ -10,7 +11,6 @@ import {
 } from "react-native-paper";
 import { useOnboarding } from "./OnboardingContext";
 import { useI18n } from "@/hooks/useI18n";
-import { ApiConfigService } from "@/services/api-config";
 
 const Step5 = memo(() => {
   const theme = useTheme();
@@ -46,7 +46,7 @@ const Step5 = memo(() => {
     setResult(null);
 
     try {
-      const apiUrl = ApiConfigService.getApiBaseWithPrefix();
+      const apiUrl = settingsService.getApiBaseWithPrefix();
       console.log(apiUrl, generatedToken);
       const response = await fetch(`${apiUrl}/messages`, {
         method: "POST",

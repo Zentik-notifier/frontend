@@ -1,14 +1,14 @@
 import { useCallback, useMemo } from 'react';
 import { dateFormatService } from '../services/date-format';
 import { DatePickerLocale, localeToDatePickerLocale, useI18n } from './useI18n';
-import { useUserSettings } from '@/services/user-settings';
+import { useSettings } from './useSettings';
 
 /**
  * Hook for formatting dates according to user preferences
  */
 export function useDateFormat() {
   const { t, locale } = useI18n();
-  const { settings } = useUserSettings();
+  const { settings } = useSettings();
 
   const formatDate = useCallback((date: Date | string, includeTime?: boolean) => {
     return dateFormatService.formatDate(date, includeTime);

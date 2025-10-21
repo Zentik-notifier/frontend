@@ -1,6 +1,7 @@
 import { useAppContext } from "@/contexts/AppContext";
 import { GalleryProvider, useGalleryContext } from "@/contexts/GalleryContext";
 import { useI18n } from "@/hooks/useI18n";
+import { useSettings } from "@/hooks/useSettings";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { CacheItem } from "@/services/media-cache-service";
 import React, { useMemo, useState } from "react";
@@ -37,7 +38,7 @@ export default function GallerySection() {
   } = useGalleryContext();
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const { updateStats } = useGetCacheStats();
-  const numColumns = userSettings.settings.gallery.gridSize;
+  const numColumns = userSettings.settings.galleryVisualization.gridSize;
 
   const itemWidth = useMemo(() => {
     if (containerWidth === 0) {
@@ -74,7 +75,7 @@ export default function GallerySection() {
                 <CachedMedia
                   url={mediaItem.url}
                   mediaType={mediaItem.mediaType}
-                  useThumbnail={!userSettings.settings.gallery.autoPlay}
+                  useThumbnail={!userSettings.settings.galleryVisualization.autoPlay}
                   style={styles.gridMediaThumbnail}
                   originalFileName={mediaItem.originalFileName}
                   videoProps={{

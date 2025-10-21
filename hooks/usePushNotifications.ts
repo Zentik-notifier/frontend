@@ -1,16 +1,6 @@
 import { DevicePlatform, GetUserDevicesDocument, NotificationServiceType, RegisterDeviceDto, useGetNotificationServicesLazyQuery, useGetUserDevicesLazyQuery, useRegisterDeviceMutation, useRemoveDeviceMutation } from '@/generated/gql-operations-generated';
 import { useNotificationActions } from '@/hooks/useNotificationActions';
-import {
-  clearDeviceTokens,
-  getPushNotificationsInitialized,
-  getStoredDeviceId,
-  getStoredDeviceToken,
-  saveDeviceId,
-  saveDeviceToken,
-  savePrivateKey,
-  savePublicKey,
-  savePushNotificationsInitialized
-} from '@/services/auth-storage';
+import { settingsService } from '@/services/settings-service';
 import { firebasePushNotificationService } from '@/services/firebase-push-notifications';
 import { iosNativePushNotificationService } from '@/services/ios-push-notifications';
 import { localNotifications } from '@/services/local-notifications';
@@ -22,8 +12,6 @@ import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import { useCleanup } from './useCleanup';
-import { apolloClient } from '@/config/apollo-client';
 import { installConsoleLoggerBridge } from '@/services/console-logger-hook';
 
 const isWeb = Platform.OS === 'web';
@@ -51,7 +39,7 @@ export function usePushNotifications() {
       })
     });
 
-    getStoredDeviceToken().then((tok) => setDeviceToken(tok ?? null)).catch(() => setDeviceToken(null));
+    setDeviceToken(settingsService.getAuthData().deviceToken);
   }, []);
 
   const [registerDeviceMutation] = useRegisterDeviceMutation();
@@ -97,13 +85,11 @@ export function usePushNotifications() {
       }
     }
 
-    const pushNotificationsInitialized =
-      await getPushNotificationsInitialized();
-
+    const pushNotificationsInitialized = settingsService.getAuthData().pushNotificationsInitialized;
 
     if (!pushNotificationsInitialized) {
       await registerDevice();
-      await savePushNotificationsInitialized(true);
+      await settingsService.savePushNotificationsInitialized(true);
     }
 
     await enableBackgroundFetch();
@@ -163,7 +149,7 @@ export function usePushNotifications() {
     };
 
     // Get stored deviceId if available
-    const storedDeviceId = await getStoredDeviceId();
+    const storedDeviceId = settingsService.getAuthData().deviceId;
     if (storedDeviceId) {
       console.log("[usePushNotifications] Found stored deviceId, will update existing device:", storedDeviceId);
       info.deviceId = storedDeviceId;
@@ -176,14 +162,14 @@ export function usePushNotifications() {
       console.log("[usePushNotifications] RegisterDevice response:", device);
 
       if (device) {
-        await saveDeviceId(device.id);
+        await settingsService.saveDeviceId(device.id);
 
         if (device.publicKey) {
-          await savePublicKey(device.publicKey);
+          await settingsService.savePublicKey(device.publicKey);
         }
 
         if (device.privateKey) {
-          await savePrivateKey(device.privateKey);
+          await settingsService.savePrivateKey(device.privateKey);
         }
 
         if (isIOS) {
@@ -219,8 +205,8 @@ export function usePushNotifications() {
       setDeviceRegistered(!!tokenToStore);
 
       if (tokenToStore) {
-        await saveDeviceToken(tokenToStore);
-        await savePushNotificationsInitialized(true);
+        await settingsService.saveDeviceToken(tokenToStore);
+        await settingsService.savePushNotificationsInitialized(true);
         setDeviceToken(tokenToStore);
 
         console.log('[usePushNotifications] Device registered successfully');
@@ -241,7 +227,7 @@ export function usePushNotifications() {
     try {
       const res = await fetchUserDevices({ fetchPolicy: 'network-only' });
       const devices = res.data?.userDevices;
-      const token = (await getStoredDeviceToken()) || (await getDeviceToken());
+      const token = settingsService.getAuthData().deviceToken || (await getDeviceToken());
       if (isWeb) {
         await webPushNotificationService.unregisterDevice();
       }
@@ -250,7 +236,9 @@ export function usePushNotifications() {
         await removeDeviceMutation({ variables: { deviceId: current.id }, refetchQueries: [{ query: GetUserDevicesDocument }] });
       }
 
-      await clearDeviceTokens();
+      await settingsService.clearKeyPair();
+      await settingsService.saveDeviceToken('');
+      await settingsService.saveDeviceId('');
       setDeviceToken(null);
       console.log('[usePushNotifications] Tokens and device ID cleared');
 
@@ -269,7 +257,7 @@ export function usePushNotifications() {
   };
 
   const getDeviceToken = async (): Promise<string | null> => {
-    if (isSimulator) return (await getStoredDeviceToken()) ?? `${await generateSimulatorToken(32)}`;
+    if (isSimulator) return settingsService.getAuthData().deviceToken ?? `${await generateSimulatorToken(32)}`;
     if (isWeb) return webPushNotificationService.getDeviceToken();
     if (isAndroid) return firebasePushNotificationService.getDeviceToken();
     if (isIOS) return iosNativePushNotificationService.getDeviceToken();
@@ -293,7 +281,7 @@ export function usePushNotifications() {
   const getDeviceInfo = async (): Promise<RegisterDeviceDto | null> => {
     if (isSimulator) return {
       ...getBasicDeviceInfo(),
-      deviceToken: (await getStoredDeviceToken()) ?? `${await generateSimulatorToken(32)}`,
+      deviceToken: settingsService.getAuthData().deviceToken ?? `${await generateSimulatorToken(32)}`,
       onlyLocal: true
     };
     if (isWeb) return webPushNotificationService.getDeviceInfo();

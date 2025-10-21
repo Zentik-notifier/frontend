@@ -10,15 +10,15 @@ import { RequireAuth } from "@/services/require-auth";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useFonts } from "expo-font";
 import * as Linking from "expo-linking";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { MenuProvider } from "react-native-popup-menu";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppProvider, useAppContext } from "../contexts/AppContext";
-import { ApiConfigService } from "../services/api-config";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb, openWebStorageDb } from "../services/db-setup";
+import { settingsService } from "../services/settings-service";
 import { Platform } from "react-native";
 
 function DeepLinkHandler() {
@@ -57,55 +57,78 @@ function DeepLinkHandler() {
   return null;
 }
 
+function AppContent() {
+  const { isMobile } = useDeviceType();
+  const { processPendingNavigationIntent } = usePendingNotificationIntents();
+
+  useEffect(() => {
+    (async () => {
+      await processPendingNavigationIntent();
+      console.log("[LayoutInit] Pending navigation intent processed");
+    })();
+  }, []);
+
+  return (
+    <AppProvider>
+      <MenuProvider>
+        <DeepLinkHandler />
+        <RequireAuth>
+          {isMobile ? <MobileLayout /> : <TabletLayout />}
+          {Platform.OS === "web" && <AlertDialog />}
+        </RequireAuth>
+      </MenuProvider>
+    </AppProvider>
+  );
+}
+
 export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
-  const { isMobile } = useDeviceType();
-  const { processPendingNavigationIntent } = usePendingNotificationIntents();
+  const [settingsReady, setSettingsReady] = useState(false);
 
   useEffect(() => {
     console.log("[RootLayout] Loaded");
   }, []);
 
   useEffect(() => {
-    if (loaded) {
-      (async () => {
-        installConsoleLoggerBridge();
-        console.log("[LayoutInit] Console logger bridge installed");
-        ApiConfigService.initialize().catch();
-        console.log("[LayoutInit] App config initialized");
-        openSharedCacheDb().catch();
-        openWebStorageDb().catch();
-        console.log("[LayoutInit] DB opened");
-        await processPendingNavigationIntent();
-        console.log("[LayoutInit] Pending navigation intent processed");
-      })();
-    }
+    if (!loaded) return;
+
+    // Initialize core services
+    installConsoleLoggerBridge();
+    console.log("[LayoutInit] Console logger bridge installed");
+    Promise.resolve().catch();
+    console.log("[LayoutInit] App config initialized");
+    openSharedCacheDb().catch();
+    openWebStorageDb().catch();
+    console.log("[LayoutInit] DB opened");
+    
+    // Wait for settings service to be ready
+    console.log("[LayoutInit] Waiting for settings service...");
+    const subscription = settingsService.isInitialized$.subscribe((initialized) => {
+      if (initialized) {
+        console.log("[LayoutInit] ✅ Settings service ready!");
+        setSettingsReady(true);
+      }
+    });
+    
+    return () => subscription.unsubscribe();
   }, [loaded]);
 
-  if (!loaded) {
+  if (!loaded || !settingsReady) {
     return null;
   }
 
   return (
     <GestureHandlerRootView>
       <SafeAreaProvider>
-        <ThemeProvider>
-          <I18nProvider>
-            <QueryProviders>
-              <AppProvider>
-                <MenuProvider>
-                  <DeepLinkHandler />
-                  <RequireAuth>
-                    {isMobile ? <MobileLayout /> : <TabletLayout />}
-                    {Platform.OS === "web" && <AlertDialog />}
-                  </RequireAuth>
-                </MenuProvider>
-              </AppProvider>
-            </QueryProviders>
-          </I18nProvider>
-        </ThemeProvider>
+        <QueryProviders>
+          <ThemeProvider>
+            <I18nProvider>
+              <AppContent />
+            </I18nProvider>
+          </ThemeProvider>
+        </QueryProviders>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

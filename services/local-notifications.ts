@@ -4,7 +4,7 @@ import { NotificationActionCallbacks } from '@/hooks/useNotificationActions';
 import * as BackgroundFetch from 'expo-background-task';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
-import { userSettings } from './user-settings';
+import { settingsService } from './settings-service';
 
 export type DeliveryMode = 'nativePush' | 'gqlRealtime' | 'backgroundFetch';
 
@@ -67,7 +67,7 @@ class LocalNotificationsService {
       try {
         TaskManager.defineTask(BACKGROUND_TASK, async () => {
           try {
-            const lastSeenId = await userSettings.getNotificationsLastSeenId();
+            const lastSeenId = settingsService.getSettings().notificationsLastSeenId;
             const res = await apolloClient?.query({
               query: GetNotificationsDocument,
               fetchPolicy: 'network-only'
@@ -88,7 +88,7 @@ class LocalNotificationsService {
             }
 
             if (notifications[0]?.id) {
-              await userSettings.setNotificationsLastSeenId(notifications[0].id);
+              await settingsService.setNotificationsLastSeenId(notifications[0].id);
             }
           } catch (e) {
             console.warn('⚠️ Background fetch task failed:', e);

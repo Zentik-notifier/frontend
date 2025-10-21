@@ -1,7 +1,7 @@
 import { NotificationFragment } from '@/generated/gql-operations-generated';
 import { Platform } from 'react-native';
 import { openSharedCacheDb, openWebStorageDb, parseNotificationForDB, parseNotificationFromDB, executeQuery as executeQuerySafe } from './db-setup';
-import { userSettings } from './user-settings';
+import { settingsService } from './settings-service';
 
 /**
  * Notification repository for managing notification storage operations
@@ -774,8 +774,8 @@ export interface NotificationCleanupResult {
  * ```
  */
 export async function cleanupNotificationsBySettings(): Promise<NotificationCleanupResult> {
-  const max = userSettings.getMaxCachedNotifications?.() ?? 500;
-  const maxDays = userSettings.getMaxCachedNotificationsDay?.();
+  const max = settingsService.getMaxCachedNotifications() ?? 500;
+  const maxDays = settingsService.getMaxCachedNotificationsDay();
 
   const notifications = await getAllNotificationsFromCache();
 

@@ -3,7 +3,7 @@ import { Platform, StyleSheet, View } from "react-native";
 import { Button, Modal, Portal, Text, useTheme } from "react-native-paper";
 import { OnboardingProvider, useOnboarding } from "./OnboardingContext";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
-import { userSettings } from "@/services/user-settings";
+import { useSettings } from "@/hooks/useSettings";
 import Step1 from "./Step1";
 import Step2 from "./Step2";
 import Step3 from "./Step3";
@@ -67,6 +67,7 @@ interface NavigationButtonsProps {
 
 const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
   const { currentStep, goToPreviousStep, goToNextStep, applySettings, isStep4Complete } = useOnboarding();
+  const { completeOnboarding, skipOnboarding } = useSettings();
   const [isApplying, setIsApplying] = React.useState(false);
 
   const handleNext = useCallback(async () => {
@@ -76,13 +77,13 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
       try {
         await applySettings();
         // Mark onboarding as completed
-        await userSettings.completeOnboarding();
+        await completeOnboarding();
         console.log("[Onboarding] Completed successfully");
         onClose();
       } catch (error) {
         console.error("[Onboarding] Error applying settings:", error);
         // Still close and mark as completed even if there's an error
-        await userSettings.completeOnboarding();
+        await completeOnboarding();
         onClose();
       } finally {
         setIsApplying(false);
@@ -90,7 +91,7 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
     } else {
       goToNextStep();
     }
-  }, [currentStep, goToNextStep, onClose, applySettings]);
+  }, [currentStep, goToNextStep, onClose, applySettings, completeOnboarding]);
 
   // Disabilita Next in Step4 se non è completo
   const isNextDisabled = isApplying || (currentStep === 4 && !isStep4Complete());
@@ -154,12 +155,13 @@ StepRenderer.displayName = "StepRenderer";
 const OnboardingModalV2Content: React.FC<OnboardingModalProps> = memo(
   ({ visible, onClose, push }) => {
     const theme = useTheme();
+    const { skipOnboarding } = useSettings();
 
     const handleSkip = useCallback(async () => {
       console.log("[Onboarding] Skipped by user");
-      await userSettings.skipOnboarding();
+      await skipOnboarding();
       onClose();
-    }, [onClose]);
+    }, [onClose, skipOnboarding]);
 
     return (
       <Modal visible={visible} onDismiss={handleSkip}>
