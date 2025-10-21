@@ -3,7 +3,9 @@
     "apps": [],
     "details": [
       {
-        "appIDs": ["C3F24V5NS5.com.apocaliss92.zentik"],
+        "appIDs": [
+          "C3F24V5NS5.com.apocaliss92.zentik"
+        ],
         "components": [
           {
             "/": "/invite/dev/*",
@@ -35,50 +37,23 @@
         ]
       },
       {
-        "appIDs": ["C3F24V5NS5.com.apocaliss92.zentik.dev"],
-        "components": [
-          {
-            "/": "/invite/dev/*",
-            "comment": "Invite code redemption - Development app"
-          },
-          {
-            "/": "/oauth/dev",
-            "comment": "OAuth SSO callback - Development app"
-          },
-          {
-            "/": "/notifications/dev/*",
-            "comment": "Notification deep links - Development app"
-          }
-        ]
-      },
-      {
         "appID": "C3F24V5NS5.com.apocaliss92.zentik",
         "paths": [
           "/invite/*",
           "/oauth",
           "/notifications/*"
         ]
-      },
-      {
-        "appID": "C3F24V5NS5.com.apocaliss92.zentik.dev",
-        "paths": [
-          "/invite/dev/*",
-          "/oauth/dev",
-          "/notifications/dev/*"
-        ]
       }
     ]
   },
   "activitycontinuation": {
     "apps": [
-      "C3F24V5NS5.com.apocaliss92.zentik",
-      "C3F24V5NS5.com.apocaliss92.zentik.dev"
+      "C3F24V5NS5.com.apocaliss92.zentik"
     ]
   },
   "webcredentials": {
     "apps": [
-      "C3F24V5NS5.com.apocaliss92.zentik",
-      "C3F24V5NS5.com.apocaliss92.zentik.dev"
+      "C3F24V5NS5.com.apocaliss92.zentik"
     ]
   }
 }
