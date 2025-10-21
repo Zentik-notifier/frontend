@@ -2,7 +2,7 @@
   "name": "zentik-mobile",
   "main": "index.js",
   "version": "0.1.57",
-  "dockerVersion": "0.0.44",
+  "dockerVersion": "0.0.45",
   "scripts": {
     "start": "expo start",
     "export:web": "npx expo export --platform web --output-dir dist",
