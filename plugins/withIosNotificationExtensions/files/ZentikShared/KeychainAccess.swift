@@ -81,6 +81,296 @@ public class KeychainAccess {
         return nil
     }
     
+    /// Get stored refresh token from keychain
+    public static func getStoredRefreshToken() -> String? {
+        print("🔑 [KeychainAccess] 🔄 Getting refresh token from Keychain...")
+        let keychainAccessGroup = getKeychainAccessGroup()
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "zentik-auth",
+            kSecAttrAccessGroup as String: keychainAccessGroup,
+            kSecReturnAttributes as String: true,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        
+        if status == errSecSuccess, let item = result as? [String: Any] {
+            // The refreshToken is stored as kSecValueData
+            if let data = item[kSecValueData as String] as? Data,
+               let refreshToken = String(data: data, encoding: .utf8) {
+                print("🔑 [KeychainAccess] ✅ Refresh token found (length: \(refreshToken.count))")
+                return refreshToken
+            }
+        }
+        
+        print("🔑 [KeychainAccess] ❌ Refresh token not found (status: \(status))")
+        return nil
+    }
+    
+    // MARK: - JWT Token Validation & Refresh
+    
+    /// Decode JWT token and extract payload
+    private static func decodeJWT(_ token: String) -> [String: Any]? {
+        let components = token.components(separatedBy: ".")
+        guard components.count == 3 else {
+            print("🔑 [KeychainAccess] ❌ Invalid JWT format")
+            return nil
+        }
+        
+        let payload = components[1]
+        
+        // Add padding if needed
+        var paddedPayload = payload
+        let remainder = payload.count % 4
+        if remainder > 0 {
+            paddedPayload += String(repeating: "=", count: 4 - remainder)
+        }
+        
+        // Replace URL-safe characters
+        let base64Payload = paddedPayload
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        
+        guard let data = Data(base64Encoded: base64Payload),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("🔑 [KeychainAccess] ❌ Failed to decode JWT payload")
+            return nil
+        }
+        
+        return json
+    }
+    
+    /// Check if JWT token is expired
+    private static func isTokenExpired(_ token: String, bufferSeconds: Int = 30) -> Bool {
+        guard let payload = decodeJWT(token),
+              let exp = payload["exp"] as? Int else {
+            print("🔑 [KeychainAccess] ❌ Invalid token or missing expiration")
+            return true
+        }
+        
+        let now = Int(Date().timeIntervalSince1970)
+        let isExpired = now >= (exp - bufferSeconds)
+        
+        if isExpired {
+            print("🔑 [KeychainAccess] ⏰ Token expired (exp: \(exp), now: \(now))")
+        } else {
+            print("🔑 [KeychainAccess] ✅ Token valid (exp: \(exp), now: \(now))")
+        }
+        
+        return isExpired
+    }
+    
+    /// Refresh access token using refresh token
+    private static func refreshAccessToken() async -> String? {
+        guard let refreshToken = getStoredRefreshToken(),
+              let apiEndpoint = getApiEndpoint() else {
+            print("🔑 [KeychainAccess] ❌ Missing refresh token or API endpoint")
+            
+            // Log refresh failure to database
+            LoggingSystem.shared.log(
+                level: "ERROR",
+                tag: "TOKEN_REFRESH",
+                message: "Token refresh failed - missing refresh token or API endpoint",
+                metadata: [
+                    "source": "KeychainAccess",
+                    "action": "token_refresh",
+                    "success": "false",
+                    "error": "missing_credentials",
+                    "has_refresh_token": getStoredRefreshToken() != nil ? "true" : "false",
+                    "has_api_endpoint": getApiEndpoint() != nil ? "true" : "false"
+                ],
+                source: "KeychainAccess"
+            )
+            
+            return nil
+        }
+        
+        print("🔑 [KeychainAccess] 🔄 Refreshing access token...")
+        
+        let url = URL(string: "\(apiEndpoint)/api/v1/auth/refresh")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body = [
+            "refreshToken": refreshToken
+        ] as [String: Any]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                print("🔑 [KeychainAccess] ❌ HTTP error: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+                
+                // Log refresh failure to database
+                LoggingSystem.shared.log(
+                    level: "ERROR",
+                    tag: "TOKEN_REFRESH",
+                    message: "Token refresh failed with HTTP error",
+                    metadata: [
+                        "source": "KeychainAccess",
+                        "action": "token_refresh",
+                        "success": "false",
+                        "error": "http_error",
+                        "status_code": String(httpResponse?.statusCode ?? -1)
+                    ],
+                    source: "KeychainAccess"
+                )
+                
+                return nil
+            }
+            
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let newAccessToken = json["accessToken"] as? String,
+                  let newRefreshToken = json["refreshToken"] as? String else {
+                print("🔑 [KeychainAccess] ❌ Invalid response format")
+                
+                // Log refresh failure to database
+                LoggingSystem.shared.log(
+                    level: "ERROR",
+                    tag: "TOKEN_REFRESH",
+                    message: "Token refresh failed - invalid response format",
+                    metadata: [
+                        "source": "KeychainAccess",
+                        "action": "token_refresh",
+                        "success": "false",
+                        "error": "invalid_response_format"
+                    ],
+                    source: "KeychainAccess"
+                )
+                
+                return nil
+            }
+            
+            // Save new tokens to keychain
+            let success = saveTokensToKeychain(accessToken: newAccessToken, refreshToken: newRefreshToken)
+            if success {
+                print("🔑 [KeychainAccess] ✅ Tokens refreshed and saved successfully")
+                
+                // Log token refresh to database
+                LoggingSystem.shared.log(
+                    level: "INFO",
+                    tag: "TOKEN_REFRESH",
+                    message: "Access token refreshed successfully",
+                    metadata: [
+                        "source": "KeychainAccess",
+                        "action": "token_refresh",
+                        "success": "true",
+                        "new_token_length": String(newAccessToken.count),
+                        "refresh_token_length": String(newRefreshToken.count)
+                    ],
+                    source: "KeychainAccess"
+                )
+                
+                return newAccessToken
+            } else {
+                print("🔑 [KeychainAccess] ❌ Failed to save refreshed tokens")
+                
+                // Log token refresh failure to database
+                LoggingSystem.shared.log(
+                    level: "ERROR",
+                    tag: "TOKEN_REFRESH",
+                    message: "Failed to save refreshed tokens to keychain",
+                    metadata: [
+                        "source": "KeychainAccess",
+                        "action": "token_refresh",
+                        "success": "false",
+                        "error": "keychain_save_failed"
+                    ],
+                    source: "KeychainAccess"
+                )
+                
+                return nil
+            }
+            
+        } catch {
+            print("🔑 [KeychainAccess] ❌ Refresh token error: \(error.localizedDescription)")
+            
+            // Log refresh failure to database
+            LoggingSystem.shared.log(
+                level: "ERROR",
+                tag: "TOKEN_REFRESH",
+                message: "Token refresh failed with network error",
+                metadata: [
+                    "source": "KeychainAccess",
+                    "action": "token_refresh",
+                    "success": "false",
+                    "error": "network_error",
+                    "error_description": error.localizedDescription
+                ],
+                source: "KeychainAccess"
+            )
+            
+            return nil
+        }
+    }
+    
+    /// Save both access and refresh tokens to keychain
+    private static func saveTokensToKeychain(accessToken: String, refreshToken: String) -> Bool {
+        let keychainAccessGroup = getKeychainAccessGroup()
+        
+        // Delete existing item first
+        let deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "zentik-auth",
+            kSecAttrAccessGroup as String: keychainAccessGroup
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+        
+        // Add new item with both tokens
+        let addQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "zentik-auth",
+            kSecAttrAccount as String: accessToken,  // Store access token as account
+            kSecValueData as String: refreshToken.data(using: .utf8)!,  // Store refresh token as data
+            kSecAttrAccessGroup as String: keychainAccessGroup,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+        ]
+        
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        let success = status == errSecSuccess
+        
+        if success {
+            print("🔑 [KeychainAccess] ✅ Successfully saved tokens to keychain")
+        } else {
+            print("🔑 [KeychainAccess] ❌ Failed to save tokens to keychain (status: \(status))")
+        }
+        
+        return success
+    }
+    
+    /// Get valid auth token (checks expiration and refreshes if needed)
+    public static func getValidAuthToken() async -> String? {
+        guard let currentToken = getStoredAuthToken() else {
+            print("🔑 [KeychainAccess] ❌ No access token found")
+            return nil
+        }
+        
+        // Check if token is still valid
+        if !isTokenExpired(currentToken) {
+            print("🔑 [KeychainAccess] ✅ Access token is valid")
+            return currentToken
+        }
+        
+        print("🔑 [KeychainAccess] ⏰ Access token expired, refreshing...")
+        
+        // Try to refresh the token
+        if let newToken = await refreshAccessToken() {
+            print("🔑 [KeychainAccess] ✅ Token refreshed successfully")
+            return newToken
+        } else {
+            print("🔑 [KeychainAccess] ❌ Failed to refresh token")
+            return nil
+        }
+    }
+    
     /// Save value to keychain
     public static func saveToKeychain(key: String, value: String) -> Bool {
         let keychainAccessGroup = getKeychainAccessGroup()

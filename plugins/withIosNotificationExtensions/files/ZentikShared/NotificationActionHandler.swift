@@ -77,7 +77,7 @@ public class NotificationActionHandler {
         request.httpMethod = "PATCH"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        if let authToken = KeychainAccess.getStoredAuthToken() {
+        if let authToken = await KeychainAccess.getValidAuthToken() {
             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -108,7 +108,7 @@ public class NotificationActionHandler {
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         
-        if let authToken = KeychainAccess.getStoredAuthToken() {
+        if let authToken = await KeychainAccess.getValidAuthToken() {
             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -140,7 +140,7 @@ public class NotificationActionHandler {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        if let authToken = KeychainAccess.getStoredAuthToken() {
+        if let authToken = await KeychainAccess.getValidAuthToken() {
             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -178,7 +178,7 @@ public class NotificationActionHandler {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        if let authToken = KeychainAccess.getStoredAuthToken() {
+        if let authToken = await KeychainAccess.getValidAuthToken() {
             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -235,7 +235,7 @@ public class NotificationActionHandler {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        if let authToken = KeychainAccess.getStoredAuthToken() {
+        if let authToken = await KeychainAccess.getValidAuthToken() {
             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         }
         

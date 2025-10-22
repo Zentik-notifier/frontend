@@ -855,87 +855,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
     }
     
     
-    private func setupMediaSelector() {
-        print("📱 [ContentExtension] Setting up media selector with \(attachments.count) items")
-        
-        // Remove existing selector if any
-        mediaSelectorView?.removeFromSuperview()
-        mediaThumbnails.forEach { $0.removeFromSuperview() }
-        mediaThumbnails.removeAll()
-        
-        // Create selector scroll view
-        let scrollView = UIScrollView()
-        scrollView.backgroundColor = UIColor.systemGray6
-        scrollView.showsHorizontalScrollIndicator = false
-        scrollView.showsVerticalScrollIndicator = false
-        scrollView.layer.borderWidth = 1
-        scrollView.layer.borderColor = UIColor.systemGray4.cgColor
-        view.addSubview(scrollView)
-        mediaSelectorView = scrollView
-        
-        print("📱 [ContentExtension] Created media selector with background")
-        
-        // Setup constraints for selector
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            scrollView.heightAnchor.constraint(equalToConstant: 80)
-        ])
-        
-        // Update container constraints to make room for selector
-        if let container = mediaContainerView {
-            // Remove all existing constraints for the container
-            container.removeFromSuperview()
-            view.addSubview(container)
-            
-            // Re-setup container constraints with proper bottom constraint
-            container.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                container.topAnchor.constraint(equalTo: view.topAnchor),
-                container.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                container.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-                container.bottomAnchor.constraint(equalTo: scrollView.topAnchor)
-            ])
-        }
-        
-        // Create thumbnails
-        let thumbnailSize: CGFloat = 60
-        let spacing: CGFloat = 10
-        var xOffset: CGFloat = spacing
-        
-        for (index, attachment) in attachments.enumerated() {
-            // Skip AUDIO media types - they shouldn't appear in the selector
-            let mediaType = getMediaType(for: attachment)
-            if mediaType == .audio {
-                print("📱 [ContentExtension] Skipping AUDIO attachment at index \(index) from media selector")
-                continue
-            }
-            
-            let button = UIButton(type: .custom)
-            button.tag = index
-            button.layer.cornerRadius = 8
-            button.layer.borderWidth = 3
-            button.layer.borderColor = (index == 0) ? UIColor.systemBlue.cgColor : UIColor.systemGray3.cgColor
-            button.backgroundColor = UIColor.systemBackground
-            button.clipsToBounds = true
-            button.addTarget(self, action: #selector(thumbnailTapped(_:)), for: .touchUpInside)
-            
-            // Set thumbnail based on media type
-            setupThumbnail(for: button, attachment: attachment, index: index)
-            
-            scrollView.addSubview(button)
-            button.frame = CGRect(x: xOffset, y: 10, width: thumbnailSize, height: thumbnailSize)
-            
-            mediaThumbnails.append(button)
-            xOffset += thumbnailSize + spacing
-            
-            print("📱 [ContentExtension] Created thumbnail \(index) at x: \(xOffset - thumbnailSize - spacing)")
-        }
-        
-        scrollView.contentSize = CGSize(width: xOffset, height: 80)
-    }
     
     private func setupMediaSelectorFromData() {
         print("📱 [ContentExtension] Setting up media selector from attachmentData with \(attachmentData.count) items")
@@ -1054,53 +973,6 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         return 0
     }
     
-    private func setupThumbnail(for button: UIButton, attachment: UNNotificationAttachment, index: Int) {
-        let mediaType = getMediaType(for: attachment)
-        
-        // Create type label
-        let label = UILabel()
-        label.textAlignment = .center
-        label.font = .systemFont(ofSize: 10, weight: .medium)
-        label.textColor = .white
-        label.backgroundColor = UIColor.black.withAlphaComponent(0.6)
-        
-        switch mediaType {
-        case .image, .gif:
-            // Try to load thumbnail
-            if let data = try? Data(contentsOf: attachment.url),
-               let image = UIImage(data: data) {
-                button.setImage(image, for: .normal)
-                button.imageView?.contentMode = .scaleAspectFill
-            }
-            label.text = mediaType == .gif ? "GIF" : "IMG"
-            
-        case .video:
-            button.backgroundColor = .systemBlue
-            if let icon = UIImage(systemName: "video.fill") {
-                button.setImage(icon, for: .normal)
-                button.tintColor = .white
-            }
-            label.text = "VIDEO"
-            
-        case .audio:
-            button.backgroundColor = .systemPurple
-            if let icon = UIImage(systemName: "music.note") {
-                button.setImage(icon, for: .normal)
-                button.tintColor = .white
-            }
-            label.text = "AUDIO"
-        }
-        
-        // Add label
-        button.addSubview(label)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: button.leadingAnchor),
-            label.trailingAnchor.constraint(equalTo: button.trailingAnchor),
-            label.bottomAnchor.constraint(equalTo: button.bottomAnchor),
-            label.heightAnchor.constraint(equalToConstant: 16)
-        ])
-    }
     
     private func setupThumbnailFromData(for button: UIButton, attachmentDataItem: [String: Any], index: Int) {
         let mediaTypeString = attachmentDataItem["mediaType"] as? String ?? "UNKNOWN"
@@ -1177,51 +1049,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         displayMediaFromSharedCache(at: index)
     }
     
-    @objc private func thumbnailTapped(_ sender: UIButton) {
-        let index = sender.tag
-        print("📱 [ContentExtension] Thumbnail tapped: \(index)")
-        
-        // Check if we're already displaying this media
-        if selectedMediaIndex == index {
-            print("📱 [ContentExtension] Same media already selected (\(index)), skipping refresh")
-            return
-        }
-        
-        // Update selection UI
-        mediaThumbnails.forEach { $0.layer.borderColor = UIColor.systemGray3.cgColor }
-        sender.layer.borderColor = UIColor.systemBlue.cgColor
-        
-        // Display selected media
-        selectedMediaIndex = index
-        displayMedia(at: index)
-    }
     
     // MARK: - Media Display
     
-    private func displayMedia(at index: Int) {
-        guard attachments.indices.contains(index) else {
-            print("📱 [ContentExtension] Invalid index: \(index)")
-                return
-        }
-        
-        let attachment = attachments[index]
-        print("📱 [ContentExtension] Displaying media at index \(index): \(attachment.url.lastPathComponent)")
-        
-        // Clean up previous media
-        cleanupCurrentMedia()
-        
-        // Display based on type
-        let mediaType = getMediaType(for: attachment)
-        
-        switch mediaType {
-        case .image, .gif:
-            displayImage(from: attachment.url)
-        case .video:
-            displayVideo(from: attachment.url)
-        case .audio:
-            displayAudio(from: attachment.url)
-        }
-    }
     
     private func downloadAndDisplayMedia(from url: URL, mediaType: MediaType) {
         print("📱 [ContentExtension] Downloading media: \(mediaType)")
@@ -3445,171 +3275,6 @@ extension NotificationViewController {
 
 extension NotificationViewController {
     
-    private func executeWebhookViaBackend(webhookId: String) async throws {
-        print("📱 [ContentExtension] 📡 Executing webhook via backend: \(webhookId)")
-        
-        guard let apiEndpoint = KeychainAccess.getApiEndpoint() else {
-            throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not configured"])
-        }
-        
-        let urlString = "\(apiEndpoint)/api/v1/webhooks/\(webhookId)/execute"
-        guard let url = URL(string: urlString) else {
-            throw NSError(domain: "APIError", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid API URL"])
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Zentik-iOS-Extension/1.0", forHTTPHeaderField: "User-Agent")
-        
-        // Add authentication token if available
-        if let authToken = KeychainAccess.getStoredAuthToken() {
-            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
-        }
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        if let httpResponse = response as? HTTPURLResponse {
-            print("📱 [ContentExtension] 📥 Execute webhook response: \(httpResponse.statusCode)")
-            if httpResponse.statusCode >= 400 {
-                let responseString = String(data: data, encoding: .utf8) ?? "Unknown error"
-                throw NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): \(responseString)"])
-            }
-        }
-        
-        // Optionally parse response for additional info
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            print("📱 [ContentExtension] 📥 Webhook execution response: \(json)")
-        }
-    }
-    
-    private func postponeViaNotificationsEndpoint(notificationId: String, minutes: Int) async throws {
-        print("📱 [ContentExtension] ⏳ Postponing notification \(notificationId) for \(minutes) minutes via backend")
-        
-        guard let apiEndpoint = KeychainAccess.getApiEndpoint() else {
-            throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not configured"])
-        }
-        
-        let urlString = "\(apiEndpoint)/api/v1/notifications/postpone"
-        guard let url = URL(string: urlString) else {
-            throw NSError(domain: "PostponeError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Zentik-iOS-Extension/1.0", forHTTPHeaderField: "User-Agent")
-        
-        // Add authentication token if available
-        if let authToken = KeychainAccess.getStoredAuthToken() {
-            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
-        }
-        
-        let body: [String: Any] = [
-            "notificationId": notificationId,
-            "minutes": minutes
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NSError(domain: "PostponeError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
-        }
-        
-        print("📱 [ContentExtension] 📥 Postpone notification response: \(httpResponse.statusCode)")
-        
-        guard httpResponse.statusCode == 200 || httpResponse.statusCode == 201 else {
-            let responseText = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(domain: "PostponeError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Server error: \(responseText)"])
-        }
-        
-        if let json = try? JSONSerialization.jsonObject(with: data) {
-            print("📱 [ContentExtension] 📥 Notification postpone response: \(json)")
-        }
-    }
-    
-    private func snoozeViaBucketsEndpoint(minutes: Int) async throws {
-        print("📱 [ContentExtension] ⏰ Snoozing bucket for \(minutes) minutes via backend")
-        
-        // First, get the bucket ID from the current notification
-        guard let userInfo = currentNotificationUserInfo,
-              let bucketId = extractBucketId(from: userInfo) else {
-            throw NSError(domain: "SnoozeError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Bucket ID not found in notification"])
-        }
-        
-        guard let apiEndpoint = KeychainAccess.getApiEndpoint() else {
-            throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not configured"])
-        }
-        
-        let urlString = "\(apiEndpoint)/api/v1/buckets/\(bucketId)/snooze-minutes"
-        guard let url = URL(string: urlString) else {
-            throw NSError(domain: "APIError", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid API URL"])
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Zentik-iOS-Extension/1.0", forHTTPHeaderField: "User-Agent")
-        
-        // Add authentication token if available
-        if let authToken = KeychainAccess.getStoredAuthToken() {
-            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
-        }
-        
-        // Create request body
-        let requestBody = ["minutes": minutes]
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        if let httpResponse = response as? HTTPURLResponse {
-            print("📱 [ContentExtension] 📥 Snooze bucket response: \(httpResponse.statusCode)")
-            if httpResponse.statusCode >= 400 {
-                let responseString = String(data: data, encoding: .utf8) ?? "Unknown error"
-                throw NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): \(responseString)"])
-            }
-        }
-        
-        // Optionally parse response for additional info
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            print("📱 [ContentExtension] 📥 Bucket snooze response: \(json)")
-        }
-    }
-    
-    private func extractBucketId(from userInfo: [AnyHashable: Any]) -> String? {
-        print("📱 [ContentExtension] 🔍 Extracting bucketId from userInfo keys: \(userInfo.keys)")
-        
-        // Try to extract bucket ID from notification payload
-        // For non-encrypted notifications: bucketId should be directly in userInfo
-        if let bucketId = userInfo["bucketId"] as? String {
-            print("📱 [ContentExtension] ✅ Found bucketId directly in userInfo: \(bucketId)")
-            return bucketId
-        }
-        
-        // For encrypted notifications: bucketId should be in the decrypted payload
-        if let payload = userInfo["payload"] as? [String: Any] {
-            print("📱 [ContentExtension] 🔍 Found payload, keys: \(payload.keys)")
-            if let bucketId = payload["bucketId"] as? String {
-                print("📱 [ContentExtension] ✅ Found bucketId in payload: \(bucketId)")
-                return bucketId
-            }
-        }
-        
-        // Fallback: try to extract from nested structure (legacy format)
-        if let payload = userInfo["payload"] as? [String: Any],
-           let message = payload["message"] as? [String: Any],
-           let bucket = message["bucket"] as? [String: Any],
-           let bucketId = bucket["id"] as? String {
-            print("📱 [ContentExtension] ✅ Found bucketId in legacy format: \(bucketId)")
-            return bucketId
-        }
-        
-        print("📱 [ContentExtension] ❌ bucketId not found in any expected location")
-        return nil
-    }
-    
-    
     private func executeBackgroundCall(method: String, url: String) async throws {
         print("📱 [ContentExtension] 📞 Executing background call: \(method) \(url)")
         
@@ -3632,79 +3297,11 @@ extension NotificationViewController {
         }
     }
     
-    private func markNotificationAsRead(notificationId: String) async throws {
-        print("📱 [ContentExtension] ✅ Marking notification as read: \(notificationId)")
-        
-        guard let apiEndpoint = KeychainAccess.getApiEndpoint() else {
-            throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not configured"])
-        }
-        
-        let urlString = "\(apiEndpoint)/api/v1/notifications/\(notificationId)/read"
-        guard let url = URL(string: urlString) else {
-            throw NSError(domain: "APIError", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid API URL"])
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "PATCH"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add authentication token if available
-        if let authToken = KeychainAccess.getStoredAuthToken() {
-            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
-        }
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        if let httpResponse = response as? HTTPURLResponse {
-            print("📱 [ContentExtension] 📥 Mark as read response: \(httpResponse.statusCode)")
-            if httpResponse.statusCode >= 400 {
-                let responseString = String(data: data, encoding: .utf8) ?? "Unknown error"
-                throw NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): \(responseString)"])
-            }
-        }
-    }
-    
-    private func deleteNotification(notificationId: String) async throws {
-        print("📱 [ContentExtension] 🗑️ Deleting notification: \(notificationId)")
-        
-        guard let apiEndpoint = KeychainAccess.getApiEndpoint() else {
-            throw NSError(domain: "APIError", code: -1, userInfo: [NSLocalizedDescriptionKey: "API endpoint not configured"])
-        }
-        
-        let urlString = "\(apiEndpoint)/api/v1/notifications/\(notificationId)"
-        guard let url = URL(string: urlString) else {
-            throw NSError(domain: "APIError", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid API URL"])
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add authentication token if available
-        if let authToken = KeychainAccess.getStoredAuthToken() {
-            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
-        }
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        if let httpResponse = response as? HTTPURLResponse {
-            print("📱 [ContentExtension] 📥 Delete notification response: \(httpResponse.statusCode)")
-            if httpResponse.statusCode >= 400 {
-                let responseString = String(data: data, encoding: .utf8) ?? "Unknown error"
-                throw NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): \(responseString)"])
-            }
-        }
-    }
 }
 
 // MARK: - Keychain Operations
 
 extension NotificationViewController {
-    
-    private func clearNavigationIntent() {
-        KeychainAccess.clearIntentFromKeychain(service: "zentik-pending-navigation")
-    }
-    
     // MARK: - Shared Cache Management
     
     private func displayMediaFromSharedCache(at index: Int) {
@@ -4089,6 +3686,4 @@ extension NotificationViewController {
             }
         }.resume()
     }
-    
-    // MARK: - Shared Storage Methods
 }
