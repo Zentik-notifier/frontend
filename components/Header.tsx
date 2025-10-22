@@ -84,7 +84,7 @@ const ROUTE_TITLES: Partial<Record<string, TranslationKeyPath>> = {
   "/(mobile)/(settings)/webhook/list": "webhooks.title",
   "/(mobile)/(settings)/webhook/create": "webhooks.create",
   "/(mobile)/(settings)/webhook/[id]": "webhooks.edit",
-  "/(mobile)/(home)/bucket/settings/create": "webhooks.create",
+  "/(mobile)/(home)/bucket/settings/create": "buckets.form.createTitle",
   "/(tablet)/(settings)/webhook/create": "webhooks.create",
   "/(tablet)/(settings)/webhook/[id]": "webhooks.edit",
   "/(mobile)/(settings)/access-token/list": "accessTokens.title",
