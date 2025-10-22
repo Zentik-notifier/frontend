@@ -21,6 +21,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { Alert, Pressable, StyleSheet, View, ScrollView } from "react-native";
 import {
   Icon,
+  IconButton,
   Surface,
   Text,
   TouchableRipple,
@@ -375,11 +376,17 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               <Text style={styles.date}>
                 {formatRelativeTime(notification.createdAt)}
               </Text>
-              {/* <NotificationSnoozeButton
-                bucketId={notification.message?.bucket?.id}
-                variant="inline"
-                showText
-              /> */}
+              <IconButton
+                icon="chevron-right"
+                size={16}
+                iconColor={theme.colors.onSurface}
+                style={[
+                  styles.detailButton,
+                  { backgroundColor: theme.colors.surfaceVariant }
+                ]}
+                onPress={() => navigateToNotificationDetail(notification.id)}
+                accessibilityLabel="View notification details"
+              />
             </View>
           </View>
 
@@ -403,14 +410,15 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         </Surface>
 
         {!isMultiSelectionMode && !isRead && (
-          <Surface
+          <View
             style={[
-              styles.unreadIndicator,
-              { backgroundColor: theme.colors.primary },
+              styles.unreadCornerFold,
+              { 
+                borderTopColor: theme.colors.primary,
+                borderRightColor: theme.colors.primary,
+              },
             ]}
-          >
-            <></>
-          </Surface>
+          />
         )}
       </Pressable>
 
@@ -605,6 +613,14 @@ const styles = StyleSheet.create({
   },
   date: {
     fontSize: 11,
+    right: 13,
+    top: -10
+  },
+  detailButton: {
+    width: 24,
+    height: 24,
+    marginTop: 2,
+    borderRadius: 12,
   },
   title: {
     fontSize: 15,
@@ -634,13 +650,19 @@ const styles = StyleSheet.create({
     marginTop: 0,
     marginBottom: 4,
   },
-  unreadIndicator: {
+  unreadCornerFold: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    top: 0,
+    right: 0,
+    width: 0,
+    height: 0,
+    borderTopWidth: 16,
+    borderRightWidth: 16,
+    borderBottomWidth: 0,
+    borderLeftWidth: 0,
+    borderTopColor: "transparent",
+    borderRightColor: "transparent",
+    borderTopRightRadius: 8,
   },
   mediaScrollView: {
     flex: 1,

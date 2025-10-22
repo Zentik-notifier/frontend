@@ -99,14 +99,21 @@ export function useMarkAsRead(
 
     return useMutation({
         mutationFn: async (notificationId: string) => {
-            // 1. Call backend GraphQL mutation (this cancels reminders)
-            await markAsReadGQL({
-                variables: { id: notificationId }
-            });
-
-            // 2. Update local DB
             const now = new Date().toISOString();
+            
+            // 1. Update local DB first (optimistic update)
             await updateNotificationReadStatus(notificationId, now);
+
+            // 2. Try to call backend GraphQL mutation (this cancels reminders)
+            try {
+                await markAsReadGQL({
+                    variables: { id: notificationId }
+                });
+            } catch (error) {
+                // If backend fails, we still want to update the cache
+                // The local DB is already updated, so we proceed
+                console.warn('Backend markAsRead failed, but local update succeeded:', error);
+            }
 
             return notificationId;
         },
