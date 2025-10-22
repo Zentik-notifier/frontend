@@ -4,18 +4,22 @@ import {
 } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import React from "react";
+import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Icon, Text, TouchableRipple, useTheme } from "react-native-paper";
+import { Icon, Text, TouchableRipple, useTheme, Portal, Modal } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import NotificationSnoozeButton from "./NotificationSnoozeButton";
 import PaperScrollView from "./ui/PaperScrollView";
+import RedeemInviteCodeModal from "./RedeemInviteCodeModal";
 
 const BucketsSection: React.FC = () => {
   const { t } = useI18n();
   const theme = useTheme();
   const { navigateToCreateBucket, navigateToBucketDetail } =
     useNavigationUtils();
+
+  // State for redeem modal
+  const [showRedeemModal, setShowRedeemModal] = useState(false);
 
   // Read buckets from GLOBAL cache (populated by useCleanup on startup)
   const { data: bucketStats = [], isLoading: loading } = useBucketsStats({});
@@ -85,11 +89,31 @@ const BucketsSection: React.FC = () => {
     await initializeBucketsStats();
   };
 
+  const handleRedeemSuccess = (resourceType: string, resourceId: string) => {
+    console.log("[BucketsSection] Redeem successful:", { resourceType, resourceId });
+    setShowRedeemModal(false);
+    // Refresh buckets to show the newly joined bucket
+    initializeBucketsStats().catch(console.error);
+  };
+
+  const handleRedeemCancel = () => {
+    setShowRedeemModal(false);
+  };
+
   return (
-    <PaperScrollView
+    <>
+      <PaperScrollView
       onRefresh={() => refetch()}
       loading={loading}
       onAdd={() => navigateToCreateBucket(true)}
+      fabGroupIcon="plus"
+      customActions={[
+        {
+          icon: "ticket",
+          label: t("buckets.inviteCodes.redeem"),
+          onPress: () => setShowRedeemModal(true),
+        },
+      ]}
     >
       {bucketStats.length === 0 ? (
         emptyState
@@ -134,6 +158,13 @@ const BucketsSection: React.FC = () => {
                       >
                         {bucket.description}
                       </Text>
+                    )}
+                    {bucket.userPermissions?.isSharedWithMe && (
+                      <View style={styles.sharedWithMeTag}>
+                        <Text variant="bodySmall" style={styles.sharedWithMeText}>
+                          {t("buckets.item.sharedWithMe")}
+                        </Text>
+                      </View>
                     )}
                   </View>
 
@@ -207,6 +238,21 @@ const BucketsSection: React.FC = () => {
         </View>
       )}
     </PaperScrollView>
+
+    {/* Redeem Invite Code Modal */}
+    <Portal>
+      <Modal
+        visible={showRedeemModal}
+        onDismiss={handleRedeemCancel}
+        contentContainerStyle={styles.modalContainer}
+      >
+        <RedeemInviteCodeModal
+          onSuccess={handleRedeemSuccess}
+          onCancel={handleRedeemCancel}
+        />
+      </Modal>
+    </Portal>
+    </>
   );
 };
 
@@ -236,6 +282,18 @@ const styles = StyleSheet.create({
   },
   bucketDescription: {
     // fontSize handled by variant
+  },
+  sharedWithMeTag: {
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 4,
+    alignSelf: "flex-start",
+  },
+  sharedWithMeText: {
+    color: "#fff",
+    fontWeight: "600",
   },
   unreadBadge: {
     minWidth: 24,
@@ -285,6 +343,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 24,
     right: 24,
+  },
+  modalContainer: {
+    margin: 20,
+    padding: 0,
   },
 });
 

@@ -305,7 +305,7 @@ const BucketSharingSection: React.FC<BucketSharingSectionProps> = ({
     if (refetchTrigger && bucketId) {
       refreshBucket(bucketId).catch(console.error);
     }
-  }, [refetchTrigger, bucketId, refreshBucket]);
+  }, [refetchTrigger, bucketId]);
 
   const { shareBucket, isLoading: sharingBucket } = useShareBucket({
     onSuccess: () => {

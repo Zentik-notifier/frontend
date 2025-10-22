@@ -160,7 +160,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
             </View>
 
             <IconButton
-              icon="pencil"
+              icon="cog"
               size={15}
               iconColor={theme.colors.onSurfaceVariant}
               style={[

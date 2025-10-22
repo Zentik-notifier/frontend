@@ -486,12 +486,15 @@ export interface Translation {
       days: string;
       redeemTitle: string;
       redeemDescription: string;
+      redeemTitleManual: string;
+      redeemDescriptionManual: string;
       inviteCode: string;
       enterCode: string;
       redeemSuccess: string;
       redeemError: string;
       redeem: string;
       redeemInfo: string;
+      redeemInfoManual: string;
       openingApp: string;
       appNotOpening: string;
       manualInstructions: string;
@@ -530,6 +533,31 @@ export interface Translation {
       grantedByOwner: string;
       grantedBy: string;
       grantedByWithOwner: string;
+    };
+    shareExtension: {
+      notAuthenticated: string;
+      loading: string;
+      retry: string;
+      noBuckets: string;
+      noBucketsHelper: string;
+      header: string;
+      updating: string;
+      selectBucket: string;
+      titleRequired: string;
+      titlePlaceholder: string;
+      messageLabel: string;
+      messagePlaceholder: string;
+      sendButton: string;
+      errors: {
+        titleRequired: string;
+        bucketRequired: string;
+        notAuthenticated: string;
+        sendFailed: string;
+      };
+      success: {
+        title: string;
+        message: string;
+      };
     };
     delete: {
       modalTitle: string;

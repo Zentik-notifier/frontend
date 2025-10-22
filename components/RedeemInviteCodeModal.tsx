@@ -28,6 +28,9 @@ export default function RedeemInviteCodeModal({
 
   const [redeemInviteCode, { loading: isRedeeming }] = useRedeemInviteCodeMutation();
 
+  // Determine if this is a pre-filled code (from deep link) or manual entry
+  const isPreFilled = !!initialCode;
+
   // Set initial code if provided (from deep link)
   useEffect(() => {
     if (initialCode) {
@@ -92,11 +95,11 @@ export default function RedeemInviteCodeModal({
   return (
     <Surface style={[styles.surface, { backgroundColor: theme.colors.surface }]} elevation={2}>
       <Text variant="headlineSmall" style={styles.title}>
-        {t("buckets.inviteCodes.redeemTitle")}
+        {isPreFilled ? t("buckets.inviteCodes.redeemTitle") : t("buckets.inviteCodes.redeemTitleManual")}
       </Text>
 
       <Text variant="bodyMedium" style={styles.description}>
-        {t("buckets.inviteCodes.redeemDescription")}
+        {isPreFilled ? t("buckets.inviteCodes.redeemDescription") : t("buckets.inviteCodes.redeemDescriptionManual")}
       </Text>
 
       <TextInput
@@ -108,7 +111,8 @@ export default function RedeemInviteCodeModal({
         autoCorrect={false}
         placeholder="ABC123XYZ..."
         style={styles.input}
-        disabled={isRedeeming}
+        disabled={isRedeeming || isPreFilled}
+        editable={!isPreFilled}
         left={
           <TextInput.Icon
             icon="ticket"
@@ -126,7 +130,7 @@ export default function RedeemInviteCodeModal({
           variant="bodySmall"
           style={[styles.infoText, { color: theme.colors.onSurfaceVariant }]}
         >
-          {t("buckets.inviteCodes.redeemInfo")}
+          {isPreFilled ? t("buckets.inviteCodes.redeemInfo") : t("buckets.inviteCodes.redeemInfoManual")}
         </Text>
       </View>
 
