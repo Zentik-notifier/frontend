@@ -2,15 +2,16 @@ import { I18nProvider } from "@/components/I18nProvider";
 import { QueryProviders } from "@/components/QueryProviders";
 import { AlertDialog } from "@/components/ui/AlertDialog";
 import { useDeviceType } from "@/hooks/useDeviceType";
-import { usePendingNotificationIntents } from "@/hooks/usePendingNotificationIntents";
 import { ThemeProvider } from "@/hooks/useTheme";
 import MobileLayout from "@/layouts/mobile";
 import TabletLayout from "@/layouts/tablet";
 import { RequireAuth } from "@/services/require-auth";
 import { useNavigationUtils } from "@/utils/navigation";
+import { getCustomScheme } from "@/utils/universal-links";
 import { useFonts } from "expo-font";
 import * as Linking from "expo-linking";
 import React, { useEffect, useState } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { MenuProvider } from "react-native-popup-menu";
 import "react-native-reanimated";
@@ -19,8 +20,6 @@ import { AppProvider, useAppContext } from "../contexts/AppContext";
 import { installConsoleLoggerBridge } from "../services/console-logger-hook";
 import { openSharedCacheDb, openWebStorageDb } from "../services/db-setup";
 import { settingsService } from "../services/settings-service";
-import { Platform } from "react-native";
-import { getCustomScheme } from "@/utils/universal-links";
 
 const scheme = getCustomScheme();
 
@@ -62,14 +61,6 @@ function DeepLinkHandler() {
 
 function AppContent() {
   const { isMobile } = useDeviceType();
-  const { processPendingNavigationIntent } = usePendingNotificationIntents();
-
-  useEffect(() => {
-    (async () => {
-      await processPendingNavigationIntent();
-      console.log("[LayoutInit] Pending navigation intent processed");
-    })();
-  }, []);
 
   return (
     <AppProvider>

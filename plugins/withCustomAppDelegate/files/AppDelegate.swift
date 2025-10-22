@@ -4,12 +4,32 @@ import React
 import ReactAppDependencyProvider
 import UserNotifications
 
+class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
+  // Extension point for config-plugins
+
+  override func sourceURL(for bridge: RCTBridge) -> URL? {
+    // needed to return the correct URL for expo-dev-client.
+    bridge.bundleURL ?? bundleURL()
+  }
+
+  override func bundleURL() -> URL? {
+#if DEBUG
+    return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
+#else
+    return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
+#endif
+  }
+}
+
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
   var window: UIWindow?
 
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
+  
+  // Keep reference to Expo's original notification delegate
+  private var expoNotificationDelegate: UNUserNotificationCenterDelegate?
 
   public override func application(
     _ application: UIApplication,
@@ -33,12 +53,14 @@ FirebaseApp.configure()
       in: window,
       launchOptions: launchOptions)
 #endif
-
-    // Set notification delegate to handle action responses
+    let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    
+    expoNotificationDelegate = UNUserNotificationCenter.current().delegate
+    
     UNUserNotificationCenter.current().delegate = self
-    print("📱 [AppDelegate] Notification delegate set")
+    print("📱 [AppDelegate] Notification delegate set (with Expo delegate saved)")
 
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    return result
   }
   
   // MARK: - UNUserNotificationCenterDelegate
@@ -56,10 +78,31 @@ FirebaseApp.configure()
     let userInfo = response.notification.request.content.userInfo
     print("📱 [AppDelegate] UserInfo: \(userInfo)")
     
-    // Handle the action
+    // Log action to database
+    LoggingSystem.shared.info(
+      tag: "AppDelegate",
+      message: "[UserAction] Notification action triggered",
+      metadata: [
+        "actionIdentifier": response.actionIdentifier,
+        "notificationId": response.notification.request.identifier,
+        "appState": UIApplication.shared.applicationState == .active ? "foreground" : "background"
+      ],
+      source: "AppDelegate"
+    )
+    
+    // Handle the action in Swift (for background operations)
     handleNotificationAction(response: response)
     
-    completionHandler()
+    // CRITICAL: Propagate event to Expo delegate for React Native listeners
+    if let expoDelegate = expoNotificationDelegate {
+      expoDelegate.userNotificationCenter?(
+        center,
+        didReceive: response,
+        withCompletionHandler: completionHandler
+      )
+    } else {
+      completionHandler()
+    }
   }
   
   /// Called when a notification arrives while app is in foreground
@@ -70,11 +113,31 @@ FirebaseApp.configure()
   ) {
     print("📱 [AppDelegate] Notification will present in foreground")
     
-    // Show notification even when app is in foreground
-    if #available(iOS 14.0, *) {
-      completionHandler([.banner, .sound, .badge])
+    let userInfo = notification.request.content.userInfo
+    print("📱 [AppDelegate] UserInfo: \(userInfo)")
+    
+    // Log to database
+    LoggingSystem.shared.info(
+      tag: "AppDelegate",
+      message: "Notification received in foreground",
+      metadata: ["notificationId": notification.request.identifier],
+      source: "AppDelegate"
+    )
+    
+    // CRITICAL: Propagate event to Expo delegate for React Native listeners
+    if let expoDelegate = expoNotificationDelegate {
+      expoDelegate.userNotificationCenter?(
+        center,
+        willPresent: notification,
+        withCompletionHandler: completionHandler
+      )
     } else {
-      completionHandler([.alert, .sound, .badge])
+      // Fallback: show notification banner
+      if #available(iOS 14.0, *) {
+        completionHandler([.banner, .sound, .badge])
+      } else {
+        completionHandler([.alert, .sound, .badge])
+      }
     }
   }
   
@@ -158,22 +221,5 @@ FirebaseApp.configure()
   ) -> Bool {
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
-  }
-}
-
-class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
-  // Extension point for config-plugins
-
-  override func sourceURL(for bridge: RCTBridge) -> URL? {
-    // needed to return the correct URL for expo-dev-client.
-    bridge.bundleURL ?? bundleURL()
-  }
-
-  override func bundleURL() -> URL? {
-#if DEBUG
-    return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
-#else
-    return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
-#endif
   }
 }

@@ -443,10 +443,16 @@ public class NotificationActionHandler {
                         let success = DatabaseAccess.setSettingValue(key: "auth_pendingNavigationIntent", value: jsonString)
                         
                         if success {
+                            // Log to database for tracking
                             LoggingSystem.shared.info(
                                 tag: source,
-                                message: "[Action] Navigation intent stored in database",
-                                metadata: ["type": type, "value": value],
+                                message: "[PendingIntent] Navigation intent saved to database",
+                                metadata: [
+                                    "type": type,
+                                    "value": value,
+                                    "notificationId": notificationId ?? "unknown",
+                                    "intentData": jsonString
+                                ],
                                 source: source
                             )
                         } else {
@@ -455,7 +461,7 @@ public class NotificationActionHandler {
                     } catch {
                         LoggingSystem.shared.error(
                             tag: source,
-                            message: "[Action] Failed to store navigation intent",
+                            message: "[PendingIntent] Failed to store navigation intent",
                             metadata: ["type": type, "value": value, "error": error.localizedDescription],
                             source: source
                         )
