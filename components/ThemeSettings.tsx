@@ -1,36 +1,34 @@
 import { useI18n } from "@/hooks/useI18n";
 import { useSettings } from "@/hooks/useSettings";
+import type { DynamicThemeColors, LayoutMode } from "@/services/settings-service";
 import {
+  DEFAULT_DYNAMIC_COLORS,
   generateDynamicTheme,
   isValidHexColor,
-  DEFAULT_DYNAMIC_COLORS,
 } from "@/services/theme-generator";
-import type { DynamicThemeColors, LayoutMode } from "@/services/settings-service";
 import {
   ThemePreset,
   getAllThemePresets,
-  getThemePreset,
-  isCustomPreset,
+  getThemePreset
 } from "@/services/theme-presets";
 import React, { useCallback, useState } from "react";
-import { ScrollView, StyleSheet, View, Alert, useWindowDimensions } from "react-native";
+import { Alert, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import {
   Button,
   Divider,
-  Switch,
   Text,
   TextInput,
-  useTheme,
+  useTheme
 } from "react-native-paper";
 import Selector, { SelectorOption } from "./ui/Selector";
+import Slider from "./ui/Slider";
 
 const THEME_PRESETS = getAllThemePresets();
 
 export default function ThemeSettings() {
   const { t } = useI18n();
-  const theme = useTheme();
   const { width } = useWindowDimensions();
-  const { settings, setCustomThemeSettings, getLayoutMode, setLayoutMode } = useSettings();
+  const { settings, setCustomThemeSettings, getLayoutMode, setLayoutMode, setTextScale } = useSettings();
 
   const [selectedPreset, setSelectedPreset] = useState<ThemePreset>(
     settings.theme.themePreset || ThemePreset.Material3
@@ -205,6 +203,32 @@ export default function ThemeSettings() {
         </View>
       </View>
 
+      <Divider style={styles.divider} />
+
+      <View style={styles.section}>
+        <Text variant="titleMedium" style={styles.sectionTitle}>
+          {t("appSettings.theme.textScale")}
+        </Text>
+        <Text variant="bodyMedium" style={styles.sectionDescription}>
+          {t("appSettings.theme.textScaleDescription")}
+        </Text>
+        
+        <View style={styles.scaleContainer}>
+          <Text variant="bodySmall" style={styles.sliderLabel}>
+            {Math.round(settings.theme.textScale * 100)}%
+          </Text>
+          <Slider
+            value={settings.theme.textScale}
+            onValueChange={(v: number) => setTextScale(v)}
+            minimumValue={0.5}
+            maximumValue={2.0}
+            step={0.05}
+            style={styles.slider}
+          />
+          <Text variant="bodySmall" style={styles.scaleRange}>Range: 50% - 200%</Text>
+        </View>
+      </View>
+
       {showDynamic && <Divider style={styles.divider} />}
 
       {showDynamic && (
@@ -315,5 +339,48 @@ const styles = StyleSheet.create({
   },
   resetButton: {
     alignSelf: "flex-start",
+  },
+  sectionTitle: {
+    marginBottom: 8,
+    fontWeight: "600",
+  },
+  sectionDescription: {
+    marginBottom: 16,
+    opacity: 0.8,
+  },
+  sliderContainer: {
+    marginTop: 8,
+  },
+  sliderLabel: {
+    textAlign: "center",
+    marginBottom: 8,
+    fontWeight: "500",
+  },
+  slider: {
+    marginVertical: 8,
+  },
+  sliderLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  sliderMinMax: {
+    opacity: 0.6,
+  },
+  scaleContainer: {
+    marginTop: 8,
+  },
+  scaleButtons: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 8,
+  },
+  scaleButton: {
+    marginRight: 4,
+  },
+  scaleRange: {
+    opacity: 0.6,
+    marginTop: 8,
   },
 });

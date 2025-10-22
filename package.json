@@ -48,6 +48,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-native-community/netinfo": "^11.4.1",
+    "@react-native-community/slider": "^5.0.1",
     "@react-native-firebase/app": "^23.0.1",
     "@react-native-firebase/messaging": "^23.0.1",
     "@react-native-vector-icons/material-design-icons": "^12.3.0",

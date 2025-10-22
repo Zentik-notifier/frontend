@@ -69,6 +69,7 @@ export interface ThemeSettings {
   themePreset?: ThemePreset;
   useDynamicTheme?: boolean;
   dynamicThemeColors?: DynamicThemeColors;
+  textScale: number;
 }
 
 export interface RetentionPolicies {
@@ -146,6 +147,7 @@ const DEFAULT_SETTINGS: UserSettings = {
       secondary: '#625B71',
       tertiary: '#7D5260',
     },
+    textScale: 1.0,
   },
   locale: 'en-EN',
   timezone: getDeviceTimezone(),
@@ -602,12 +604,23 @@ class SettingsService {
     themePreset?: ThemePreset;
     useDynamicTheme?: boolean;
     dynamicThemeColors?: DynamicThemeColors;
+    textScale?: number;
   }): Promise<void> {
     const current = this.settingsSubject.value;
     await this.updateSettings({
       theme: {
         ...current.theme,
         ...settings,
+      },
+    });
+  }
+
+  public async setTextScale(scale: number): Promise<void> {
+    const current = this.settingsSubject.value;
+    await this.updateSettings({
+      theme: {
+        ...current.theme,
+        textScale: Math.max(0.5, Math.min(2.0, scale)), // Clamp between 0.5 and 2.0
       },
     });
   }

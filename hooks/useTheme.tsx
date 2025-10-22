@@ -25,6 +25,36 @@ function generateThemeFromSettings(
   colorScheme: ColorScheme
 ) {
   const baseTheme = colorScheme === "dark" ? MD3DarkTheme : MD3LightTheme;
+  const textScale = themeSettings.textScale || 1.0;
+
+  // Scale all font sizes in the theme
+  const scaleFontToken = (token: any, defaultFontSize: number, defaultLineHeight: number) => ({
+    ...token,
+    fontSize: (token.fontSize || defaultFontSize) * textScale,
+    lineHeight: token.lineHeight ? token.lineHeight * textScale : defaultLineHeight * textScale,
+  });
+
+  const scaledTheme = {
+    ...baseTheme,
+    fonts: {
+      ...baseTheme.fonts,
+      displayLarge: scaleFontToken(baseTheme.fonts.displayLarge, 57, 64),
+      displayMedium: scaleFontToken(baseTheme.fonts.displayMedium, 45, 52),
+      displaySmall: scaleFontToken(baseTheme.fonts.displaySmall, 36, 44),
+      headlineLarge: scaleFontToken(baseTheme.fonts.headlineLarge, 32, 40),
+      headlineMedium: scaleFontToken(baseTheme.fonts.headlineMedium, 28, 36),
+      headlineSmall: scaleFontToken(baseTheme.fonts.headlineSmall, 24, 32),
+      titleLarge: scaleFontToken(baseTheme.fonts.titleLarge, 22, 28),
+      titleMedium: scaleFontToken(baseTheme.fonts.titleMedium, 16, 24),
+      titleSmall: scaleFontToken(baseTheme.fonts.titleSmall, 14, 20),
+      bodyLarge: scaleFontToken(baseTheme.fonts.bodyLarge, 16, 24),
+      bodyMedium: scaleFontToken(baseTheme.fonts.bodyMedium, 14, 20),
+      bodySmall: scaleFontToken(baseTheme.fonts.bodySmall, 12, 16),
+      labelLarge: scaleFontToken(baseTheme.fonts.labelLarge, 14, 20),
+      labelMedium: scaleFontToken(baseTheme.fonts.labelMedium, 12, 16),
+      labelSmall: scaleFontToken(baseTheme.fonts.labelSmall, 11, 16),
+    },
+  };
 
   // If using dynamic theme, generate it
   if (themeSettings.useDynamicTheme && themeSettings.dynamicThemeColors) {
@@ -35,15 +65,15 @@ function generateThemeFromSettings(
 
       // Create a complete theme by merging base theme with dynamic colors
       return {
-        ...baseTheme,
+        ...scaledTheme,
         colors: {
-          ...baseTheme.colors,
+          ...scaledTheme.colors,
           ...dynamicColors,
         },
       };
     } catch (error) {
       console.error("Error generating dynamic theme:", error);
-      return baseTheme;
+      return scaledTheme;
     }
   }
 
@@ -52,9 +82,9 @@ function generateThemeFromSettings(
     const presetColors = getPresetColors(themeSettings.themePreset, colorScheme);
     // Create a custom theme based on preset colors
     return {
-      ...baseTheme,
+      ...scaledTheme,
       colors: {
-        ...baseTheme.colors,
+        ...scaledTheme.colors,
         primary: presetColors.primary,
         secondary: presetColors.secondary,
         tertiary: presetColors.tertiary,
@@ -62,8 +92,8 @@ function generateThemeFromSettings(
     };
   }
 
-  // Default theme
-  return baseTheme;
+  // Default theme with scaled fonts
+  return scaledTheme;
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

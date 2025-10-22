@@ -165,6 +165,8 @@ export interface Translation {
       layoutMode: string;
       layoutModePlaceholder: string;
       currentWidth: string;
+      textScale: string;
+      textScaleDescription: string;
       layoutModes: {
         auto: string;
         desktop: string;

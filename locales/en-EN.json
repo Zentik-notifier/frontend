@@ -162,6 +162,8 @@
       "layoutMode": "Layout Mode",
       "layoutModePlaceholder": "Select layout mode",
       "currentWidth": "Current Width",
+      "textScale": "Text Scale",
+      "textScaleDescription": "Adjust the size of all text in the app",
       "layoutModes": {
         "auto": "Auto",
         "desktop": "Desktop",

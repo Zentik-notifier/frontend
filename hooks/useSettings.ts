@@ -63,8 +63,13 @@ export function useSettings() {
     themePreset?: ThemePreset;
     useDynamicTheme?: boolean;
     dynamicThemeColors?: DynamicThemeColors;
+    textScale?: number;
   }) => {
     await settingsService.setCustomThemeSettings(themeSettings);
+  }, []);
+
+  const setTextScale = useCallback(async (scale: number) => {
+    await settingsService.setTextScale(scale);
   }, []);
 
   const setNotificationVisualization = useCallback(async (filters: Partial<NotificationVisualization>) => {
@@ -212,6 +217,7 @@ export function useSettings() {
     setLayoutMode,
     getLayoutMode,
     setCustomThemeSettings,
+    setTextScale,
     setNotificationVisualization,
     setLocale,
     setTimezone,
