@@ -4,12 +4,10 @@
  */
 
 import { 
-    NotificationFragment, 
-    useMarkNotificationAsReadMutation, 
-    useMarkNotificationAsUnreadMutation,
-    useMassMarkNotificationsAsReadMutation,
-    useMassMarkNotificationsAsUnreadMutation
+    NotificationFragment,
+    getSdk
 } from '@/generated/gql-operations-generated';
+import { graphqlClient } from '@/services/graphql-client';
 import {
     deleteNotificationFromCache,
     deleteNotificationsFromCache,
@@ -32,6 +30,9 @@ import {
     useQueryClient,
 } from '@tanstack/react-query';
 import { notificationKeys, useRefreshBucketsStatsFromDB } from './useNotificationQueries';
+
+// Create SDK instance
+const sdk = getSdk(graphqlClient);
 
 // ====================
 // HELPER FUNCTIONS
@@ -95,14 +96,11 @@ export function useMarkAsRead(
     mutationOptions?: Omit<UseMutationOptions<string, Error, string>, 'mutationFn'>
 ): UseMutationResult<string, Error, string> {
     const queryClient = useQueryClient();
-    const [markAsReadGQL] = useMarkNotificationAsReadMutation();
 
     return useMutation({
         mutationFn: async (notificationId: string) => {
             // 1. Call backend GraphQL mutation (this cancels reminders)
-            await markAsReadGQL({
-                variables: { id: notificationId }
-            });
+            await sdk.MarkNotificationAsRead({ id: notificationId });
 
             // 2. Update local DB
             const now = new Date().toISOString();
@@ -281,8 +279,6 @@ export function useBatchMarkAsRead(
     >
 ): UseMutationResult<string[], Error, MarkAsReadInput> {
     const queryClient = useQueryClient();
-    const [massMarkAsReadGQL] = useMassMarkNotificationsAsReadMutation();
-    const [massMarkAsUnreadGQL] = useMassMarkNotificationsAsUnreadMutation();
 
     return useMutation({
         mutationFn: async (input: MarkAsReadInput) => {
@@ -290,13 +286,9 @@ export function useBatchMarkAsRead(
             
             // 1. Call backend GraphQL batch mutation (this cancels reminders)
             if (isMarkingAsRead) {
-                await massMarkAsReadGQL({ 
-                    variables: { ids: input.notificationIds } 
-                });
+                await sdk.MassMarkNotificationsAsRead({ ids: input.notificationIds });
             } else {
-                await massMarkAsUnreadGQL({ 
-                    variables: { ids: input.notificationIds } 
-                });
+                await sdk.MassMarkNotificationsAsUnread({ ids: input.notificationIds });
             }
 
             // 2. Update local DB

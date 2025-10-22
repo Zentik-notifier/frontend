@@ -17,15 +17,12 @@ import {
     deleteBucket,
     BucketData
 } from '@/db/repositories/buckets-repository';
-import {
+import { 
     GetBucketsQuery,
     NotificationFragment,
-    useGetBucketsLazyQuery,
-    useGetNotificationLazyQuery,
-    useGetNotificationsLazyQuery,
-    useUpdateReceivedNotificationsMutation,
-    useMassDeleteNotificationsMutation
+    getSdk
 } from '@/generated/gql-operations-generated';
+import { graphqlClient } from '@/services/graphql-client';
 import {
     upsertNotificationsBatch,
     saveNotificationToCache,
@@ -55,6 +52,9 @@ import {
     UseQueryOptions,
     UseQueryResult,
 } from '@tanstack/react-query';
+
+// Create SDK instance
+const sdk = getSdk(graphqlClient);
 
 // ====================
 // QUERY KEYS
@@ -231,9 +231,11 @@ export function useBucketsStats(
     } = options || {};
 
     // Use lazy query for manual control
-    const [fetchBuckets] = useGetBucketsLazyQuery({
-        fetchPolicy: 'network-only', // Don't use Apollo cache
-    });
+    const fetchBucketsFromAPI = async () => {
+        const result = await sdk.GetBuckets();
+        const buckets = result.buckets;
+        return { data: { buckets } };
+    };
 
     // Type for bucket from GetBucketsQuery (includes userBucket)
     type BucketWithUserData = NonNullable<GetBucketsQuery['buckets']>[number];
@@ -247,7 +249,7 @@ export function useBucketsStats(
                     console.log('[useBucketsStats] Force fetching buckets from GraphQL API...');
                     
                     // 1. Fetch buckets from GraphQL API
-                    const { data } = await fetchBuckets();
+                    const { data } = await fetchBucketsFromAPI();
                     const buckets = (data?.buckets ?? []) as BucketWithUserData[];
 
                     console.log(`[useBucketsStats] Fetched ${buckets.length} buckets from API with full details`);
@@ -359,7 +361,7 @@ export function useBucketsStats(
                         console.log('[useBucketsStats] No cached buckets found, fetching from API...');
                         
                         // Fetch from API if no cache
-                        const { data } = await fetchBuckets();
+                        const { data } = await fetchBucketsFromAPI();
                         const buckets = (data?.buckets ?? []) as BucketWithUserData[];
 
                         console.log(`[useBucketsStats] Fetched ${buckets.length} buckets from API`);
@@ -542,9 +544,6 @@ export function useBucketsStats(
  */
 export function useInitializeBucketsStats() {
     const queryClient = useQueryClient();
-    const [fetchBuckets] = useGetBucketsLazyQuery({
-        fetchPolicy: 'network-only',
-    });
 
     type BucketWithUserData = NonNullable<GetBucketsQuery['buckets']>[number];
 
@@ -618,8 +617,8 @@ export function useInitializeBucketsStats() {
             // STEP 2: Fetch fresh buckets from GraphQL API in background
             // console.log('[initializeBucketsStats] Fetching fresh buckets from GraphQL...');
 
-            const { data } = await fetchBuckets();
-            const buckets = (data?.buckets ?? []) as BucketWithUserData[];
+            const result = await sdk.GetBuckets();
+        const buckets = result.buckets;
 
             // console.log(`[initializeBucketsStats] Fetched ${buckets.length} buckets from API`);
 
@@ -909,10 +908,6 @@ export function useRefreshBucketsStatsFromDB() {
 export function useNotificationDetail(
     notificationId: string | undefined
 ): UseQueryResult<NotificationFragment> {
-    const [fetchNotification] = useGetNotificationLazyQuery({
-        fetchPolicy: 'network-only', // Don't use Apollo cache
-    });
-
     return useQuery({
         queryKey: notificationKeys.detail(notificationId || ''),
         queryFn: async (): Promise<NotificationFragment> => {
@@ -931,16 +926,12 @@ export function useNotificationDetail(
                 // If not found locally, fetch from GraphQL API
                 console.log(`[useNotificationDetail] Notification ${notificationId} not found locally, fetching from remote API...`);
 
-                const { data } = await fetchNotification({
-                    variables: { id: notificationId },
-                    fetchPolicy: 'network-only',
-                });
+                const result = await sdk.GetNotification({ id: notificationId });
+                const remoteNotification = result.notification;
 
-                if (!data?.notification) {
+                if (!remoteNotification) {
                     throw new Error(`Notification ${notificationId} not found`);
                 }
-
-                const remoteNotification = data.notification as NotificationFragment;
 
                 // Save to local DB for future use
                 await saveNotificationToCache(remoteNotification);
@@ -1056,11 +1047,9 @@ export function useInfiniteNotifications(
 /**
  * Helper function to fetch notifications from GraphQL API
  */
-async function fetchNotificationsFromAPI(
-    fetchNotifications: ReturnType<typeof useGetNotificationsLazyQuery>[0]
-): Promise<NotificationFragment[]> {
-    const { data } = await fetchNotifications();
-    return (data?.notifications || []) as NotificationFragment[];
+async function fetchNotificationsFromAPI(): Promise<NotificationFragment[]> {
+    const result = await sdk.GetNotifications();
+    return result.notifications;
 }
 
 /**
@@ -1068,7 +1057,6 @@ async function fetchNotificationsFromAPI(
  * Uses the most recent notification ID to mark all up to that point as received
  */
 async function updateReceivedNotificationsOnServer(
-    updateReceivedNotifications: ReturnType<typeof useUpdateReceivedNotificationsMutation>[0],
     notificationIds: string[]
 ): Promise<void> {
     if (notificationIds.length === 0) {
@@ -1080,12 +1068,11 @@ async function updateReceivedNotificationsOnServer(
         // to mark all older notifications as received
         const mostRecentNotificationId = notificationIds[0];
 
-        const result = await updateReceivedNotifications({
-            variables: { id: mostRecentNotificationId }
-        });
+        const result = await sdk.UpdateReceivedNotifications({ id: mostRecentNotificationId });
+        const updateResult = result.updateReceivedNotifications;
 
-        if (result.data?.updateReceivedNotifications.success) {
-            console.log(`[updateReceivedNotificationsOnServer] Successfully marked ${result.data.updateReceivedNotifications.updatedCount} notifications as received on server`);
+        if (updateResult.success) {
+            console.log(`[updateReceivedNotificationsOnServer] Successfully marked ${updateResult.updatedCount} notifications as received on server`);
         }
     } catch (err) {
         console.warn(`[updateReceivedNotificationsOnServer] Failed to mark ${notificationIds.length} notifications as received:`, err);
@@ -1102,7 +1089,7 @@ async function updateReceivedNotificationsOnServer(
  * Called during sync to attempt server deletion of locally-deleted notifications
  * Uses mass delete for efficiency - deletes all tombstones in a single API call
  */
-async function retryDeleteTombstones(massDeleteNotificationsMutation: any) {
+async function retryDeleteTombstones() {
     try {
         // Get all tombstone IDs
         const deletedIds = await getAllDeletedNotificationIds();
@@ -1116,12 +1103,11 @@ async function retryDeleteTombstones(massDeleteNotificationsMutation: any) {
         
         try {
             // Attempt mass delete of all tombstones in one call
-            const result = await massDeleteNotificationsMutation({
-                variables: { ids: idsArray },
-            });
+            const result = await sdk.MassDeleteNotifications({ ids: idsArray });
+            const deleteResult = result.massDeleteNotifications;
             
-            const deletedCount = result.data?.massDeleteNotifications?.deletedCount ?? 0;
-            const success = result.data?.massDeleteNotifications?.success ?? false;
+            const deletedCount = deleteResult.deletedCount ?? 0;
+            const success = deleteResult.success ?? false;
             
             if (success) {
                 // Mass delete succeeded - remove ALL tombstones
@@ -1166,17 +1152,11 @@ async function retryDeleteTombstones(massDeleteNotificationsMutation: any) {
  * ```
  */
 export function useSyncNotificationsFromAPI() {
-    const [fetchNotifications] = useGetNotificationsLazyQuery({
-        fetchPolicy: 'network-only',
-    });
-    const [updateReceivedNotifications] = useUpdateReceivedNotificationsMutation();
-    const [massDeleteNotificationsMutation] = useMassDeleteNotificationsMutation();
-
     const syncNotifications = async (): Promise<number> => {
         try {
             console.log('[syncNotifications] Fetching notifications from server...');
 
-            const apiNotifications = await fetchNotificationsFromAPI(fetchNotifications);
+            const apiNotifications = await fetchNotificationsFromAPI();
 
             if (apiNotifications.length > 0) {
                 console.log(`[syncNotifications] Fetched ${apiNotifications.length} notifications`);
@@ -1185,11 +1165,11 @@ export function useSyncNotificationsFromAPI() {
                 console.log(`[syncNotifications] Saved ${apiNotifications.length} to local DB`);
 
                 const notificationIds = apiNotifications.map((n: NotificationFragment) => n.id);
-                await updateReceivedNotificationsOnServer(updateReceivedNotifications, notificationIds);
+                await updateReceivedNotificationsOnServer(notificationIds);
                 console.log(`[syncNotifications] Marked ${apiNotifications.length} notifications as received on server`);
 
                 // Retry deleting notifications with tombstones
-                await retryDeleteTombstones(massDeleteNotificationsMutation);
+                await retryDeleteTombstones();
 
                 return apiNotifications.length;
             }
@@ -1197,7 +1177,7 @@ export function useSyncNotificationsFromAPI() {
             console.log('[syncNotifications] No new notifications');
             
             // Still retry deleting notifications with tombstones even if no new notifications
-            await retryDeleteTombstones(massDeleteNotificationsMutation);
+            await retryDeleteTombstones();
             
             return 0;
         } catch (error) {

@@ -4,13 +4,10 @@ import {
   SnoozeScheduleInput,
   UnshareBucketMutationVariables,
   UpdateBucketSnoozesMutationVariables,
-  useDeleteBucketMutation,
   UserRole,
-  useSetBucketSnoozeMutation,
-  useShareBucketMutation,
-  useUnshareBucketMutation,
-  useUpdateBucketSnoozesMutation
 } from '@/generated/gql-operations-generated';
+import { getSdk } from '@/generated/gql-operations-generated';
+import { graphqlClient } from '@/services/graphql-client';
 import { deleteNotificationsByBucketId } from '@/services/notifications-repository';
 import { deleteBucket } from '@/db/repositories/buckets-repository';
 import { mediaCache } from '@/services/media-cache-service';
@@ -18,6 +15,9 @@ import { BucketWithStats } from '@/types/notifications';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BucketDetailData, bucketKeys } from './useBucketQueries';
 import { notificationKeys } from './useNotificationQueries';
+
+// Create SDK instance
+const sdk = getSdk(graphqlClient);
 
 /**
  * Hook for deleting a bucket and all its notifications with optimistic updates
@@ -41,7 +41,6 @@ export function useDeleteBucketWithNotifications(options?: {
   onError?: (error: Error) => void;
 }) {
   const queryClient = useQueryClient();
-  const [deleteBucketMutation] = useDeleteBucketMutation();
 
   const mutation = useMutation({
     mutationFn: async (bucketId: string) => {
@@ -63,13 +62,8 @@ export function useDeleteBucketWithNotifications(options?: {
 
       // Step 4: Delete the bucket from the server
       try {
-        const result = await deleteBucketMutation({
-          variables: { id: bucketId },
-        });
-
-        if (!result.data?.deleteBucket) {
-          console.warn('[useDeleteBucketWithNotifications] Server returned false, but continuing with local cleanup');
-        }
+        await sdk.DeleteBucket({ id: bucketId });
+        console.log(`[useDeleteBucketWithNotifications] Deleted bucket ${bucketId} from server`);
       } catch (serverError: any) {
         // If bucket not found on server, that's OK - it was already deleted
         if (serverError.message?.includes('Bucket not found') || 
@@ -229,7 +223,6 @@ export function useSetBucketSnooze(options?: {
   onError?: (error: Error) => void;
 }) {
   const queryClient = useQueryClient();
-  const [setBucketSnoozeMutation] = useSetBucketSnoozeMutation();
 
   const mutation = useMutation({
     mutationFn: async ({ bucketId, snoozeUntil }: { bucketId: string; snoozeUntil: Date | null }) => {
@@ -237,11 +230,10 @@ export function useSetBucketSnooze(options?: {
       
       console.log('[useSetBucketSnooze] Setting snooze:', { bucketId, snoozeUntil: snoozeUntilISO });
       
-      const result = await setBucketSnoozeMutation({
-        variables: { bucketId, snoozeUntil: snoozeUntilISO },
-      });
+      const result = await sdk.SetBucketSnooze({ bucketId, snoozeUntil: snoozeUntilISO });
+      const snoozeResult = result.setBucketSnooze;
 
-      if (!result.data?.setBucketSnooze) {
+      if (!snoozeResult) {
         throw new Error('Failed to set bucket snooze');
       }
 
@@ -381,17 +373,15 @@ export function useUpdateBucketSnoozes(options?: {
   onError?: (error: Error) => void;
 }) {
   const queryClient = useQueryClient();
-  const [updateBucketSnoozesMutation] = useUpdateBucketSnoozesMutation();
 
   const mutation = useMutation({
     mutationFn: async (variables: UpdateBucketSnoozesMutationVariables) => {
       console.log('[useUpdateBucketSnoozes] Updating snooze schedules:', variables);
       
-      const result = await updateBucketSnoozesMutation({
-        variables,
-      });
+      const result = await sdk.UpdateBucketSnoozes({ bucketId: variables.bucketId, snoozes: Array.isArray(variables.snoozes) ? variables.snoozes : [variables.snoozes] });
+      const updateResult = result.updateBucketSnoozes;
 
-      if (!result.data?.updateBucketSnoozes) {
+      if (!updateResult) {
         throw new Error('Failed to update bucket snooze schedules');
       }
 
@@ -506,24 +496,22 @@ export function useShareBucket(options?: {
   onError?: (error: Error) => void;
 }) {
   const queryClient = useQueryClient();
-  const [shareBucketMutation] = useShareBucketMutation();
 
   const mutation = useMutation({
     mutationFn: async (variables: ShareBucketMutationVariables) => {
       console.log('[useShareBucket] Sharing bucket:', variables);
       
-      const result = await shareBucketMutation({
-        variables,
-      });
+      const result = await sdk.ShareBucket({ input: variables.input });
+      const shareResult = result.shareBucket;
 
-      if (!result.data?.shareBucket) {
+      if (!shareResult) {
         throw new Error('Failed to share bucket');
       }
 
       return { 
         bucketId: variables.input.resourceId, 
         targetUserId: variables.input.userId,
-        newPermission: result.data.shareBucket,
+        newPermission: shareResult,
       };
     },
     onMutate: async (variables) => {
@@ -672,17 +660,14 @@ export function useUnshareBucket(options?: {
   onError?: (error: Error) => void;
 }) {
   const queryClient = useQueryClient();
-  const [unshareBucketMutation] = useUnshareBucketMutation();
 
   const mutation = useMutation({
     mutationFn: async (variables: UnshareBucketMutationVariables) => {
       console.log('[useUnshareBucket] Unsharing bucket:', variables);
       
-      const result = await unshareBucketMutation({
-        variables,
-      });
+      const result = await sdk.UnshareBucket({ input: variables.input });
 
-      if (!result.data?.unshareBucket) {
+      if (!result) {
         throw new Error('Failed to unshare bucket');
       }
 

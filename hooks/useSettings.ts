@@ -1,4 +1,5 @@
-import { UserSettingType, useUpsertUserSettingMutation } from '@/generated/gql-operations-generated';
+import { UserSettingType, getSdk } from '@/generated/gql-operations-generated';
+import { graphqlClient } from '@/services/graphql-client';
 import { AuthData, DateFormatPreferences, DownloadSettings, DynamicThemeColors, GalleryVisualization, LayoutMode, MarkAsReadMode, NotificationVisualization, RetentionPolicies, settingsService, UserSettings } from '@/services/settings-service';
 import { ThemePreset } from '@/services/theme-presets';
 import { useCallback, useEffect, useState } from 'react';
@@ -7,8 +8,8 @@ export function useSettings() {
   const [settings, setSettings] = useState<UserSettings>(settingsService.getSettings());
   const [isInitialized, setIsInitialized] = useState(false);
   
-  // Backend sync mutation
-  const [upsertUserSetting] = useUpsertUserSettingMutation();
+  // SDK instance for backend sync
+  const sdk = getSdk(graphqlClient);
 
   useEffect(() => {
     const settingsSub = settingsService.userSettings$.subscribe(setSettings);
@@ -27,21 +28,19 @@ export function useSettings() {
     valueBool?: boolean | null
   ) => {
     try {
-      await upsertUserSetting({
-        variables: {
-          input: {
-            configType,
-            valueText: valueText === undefined ? null : valueText,
-            valueBool: valueBool === undefined ? null : valueBool,
-            deviceId: null,
-          },
+      await sdk.UpsertUserSetting({
+        input: {
+          configType,
+          valueText: valueText === undefined ? null : valueText,
+          valueBool: valueBool === undefined ? null : valueBool,
+          deviceId: null,
         },
       });
       console.log(`[useSettings] ✅ Synced ${configType} with backend`);
     } catch (error) {
       console.error(`[useSettings] ❌ Failed to sync ${configType} with backend:`, error);
     }
-  }, [upsertUserSetting]);
+  }, [sdk]);
 
   const updateSettings = useCallback(async (updates: Partial<UserSettings>) => {
     await settingsService.updateSettings(updates);

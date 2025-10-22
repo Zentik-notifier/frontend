@@ -1,5 +1,6 @@
 import { useAppContext } from "@/contexts/AppContext";
-import { UserRole, useGetMeQuery } from "@/generated/gql-operations-generated";
+import { UserRole, getSdk } from "@/generated/gql-operations-generated";
+import { graphqlClient } from "@/services/graphql-client";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppTheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -32,8 +33,29 @@ export default function UserDropdown({
   const { t } = useI18n();
   const { navigateToSettings, navigateToAdmin } = useNavigationUtils();
 
-  const { data: userData } = useGetMeQuery();
-  const user = userData?.me;
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const sdk = getSdk(graphqlClient);
+
+  // Load user data
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        setLoading(true);
+        const result = await sdk.GetMe();
+        setUserData(result.me);
+      } catch (error) {
+        console.warn('Failed to load user data:', error);
+        setUserData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadUserData();
+  }, [sdk]);
+
+  const user = userData;
 
   useEffect(() => {
     setShowInitials(!user?.avatar);

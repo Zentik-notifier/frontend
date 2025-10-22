@@ -3,11 +3,9 @@ import {
   DeviceInfoDto,
   LoginDto,
   RegisterDto,
-  useGetMeLazyQuery,
-  useLoginMutation,
-  useLogoutMutation,
-  useRegisterMutation,
+  getSdk,
 } from "@/generated/gql-operations-generated";
+import { graphqlClient } from "@/services/graphql-client";
 import { useMarkAllAsRead } from "@/hooks/notifications/useNotificationMutations";
 import { useCleanup } from "@/hooks/useCleanup";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
@@ -89,10 +87,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const push = usePushNotifications();
   const { t } = useI18n();
   const { navigateToBucketDetail } = useNavigationUtils();
-  const [fetchMe] = useGetMeLazyQuery();
-  const [logoutMutation] = useLogoutMutation();
-  const [loginMutation] = useLoginMutation();
-  const [registerMutation] = useRegisterMutation();
+  const sdk = getSdk(graphqlClient);
   const connectionStatus = useConnectionStatus(push);
   const userSettings = useSettings();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -171,7 +166,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      await logoutMutation();
+      await sdk.Logout();
       console.debug("✅ Logout successful");
     } catch (error: any) {
       console.debug("❌ Logout error:", error?.message);
@@ -198,8 +193,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ? { email: inputNormalized, password, deviceInfo }
         : { username: inputNormalized, password, deviceInfo };
 
-      const response = await loginMutation({ variables: { input: gqlInput } });
-      const loginRes = response.data?.login;
+      const response = await sdk.Login({ input: gqlInput });
+      const loginRes = response.login;
       if (loginRes?.accessToken && loginRes?.refreshToken) {
         setIsInitializing(true);
         return completeAuth(loginRes.accessToken, loginRes.refreshToken);
@@ -307,12 +302,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       locale,
     };
 
-    const response = await registerMutation({
-      variables: { input: gqlInput },
-    });
+    const response = await sdk.Register({ input: gqlInput });
 
     try {
-      const registerRes = response.data?.register;
+      const registerRes = response.register;
       if (!registerRes) {
         return "error";
       }
@@ -338,10 +331,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const refreshUserData = async (): Promise<string | null> => {
     try {
-      const result = await fetchMe({ fetchPolicy: "network-only" });
+      const result = await sdk.GetMe();
 
-      if (result.data?.me) {
-        const newUserId = result.data.me.id;
+      if (result.me) {
+        const newUserId = result.me.id;
         setUserId(newUserId);
 
         return newUserId;

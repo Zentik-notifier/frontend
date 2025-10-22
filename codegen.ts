@@ -17,20 +17,14 @@ const config: CodegenConfig = {
             documents: ['./config/operations.graphql'],
             plugins: [
                 'typescript',
-                "typescript-operations",
-                'typescript-react-apollo'
+                'typescript-operations',
+                'typescript-graphql-request'
             ],
             config: {
-                withHooks: true,
-                withComponent: false,
-                withHOC: false,
-                withRefetchFn: false,
-                apolloReactHooksImportFrom: '@apollo/client',
                 skipTypename: false,
                 enumsAsTypes: false,
                 dedupeOperationSuffix: true,
                 omitOperationSuffix: false,
-                gqlImport: '@apollo/client#gql',
                 documentMode: 'documentNode',
                 avoidOptionals: {
                     field: true,

@@ -3,15 +3,18 @@
  * Provides hooks for fetching and managing buckets with React Query
  */
 
+import { saveBucket } from '@/db/repositories/buckets-repository';
 import {
-    GetBucketQuery,
-    Permission,
-    useGetBucketLazyQuery
+    GetBucketQuery
 } from '@/generated/gql-operations-generated';
+import { getSdk } from '@/generated/gql-operations-generated';
+import { graphqlClient } from '@/services/graphql-client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { notificationKeys } from './useNotificationQueries';
-import { saveBucket } from '@/db/repositories/buckets-repository';
+
+// Create SDK instance
+const sdk = getSdk(graphqlClient);
 
 // ====================
 // TYPES
@@ -89,9 +92,10 @@ export function useBucket(
     const { autoFetch = false, userId } = options || {};
 
     // Use lazy query ONLY for manual refetch (via useRefreshBucket)
-    const [getBucket] = useGetBucketLazyQuery({
-        fetchPolicy: 'network-only',
-    });
+    const getBucketFromAPI = async (bucketId: string) => {
+        const result = await sdk.GetBucket({ id: bucketId });
+        return result.bucket;
+    };
 
     // Read bucket details from separate query (for permissions and full data)
     // This query is populated by manual refetch via useRefreshBucket OR autoFetch
@@ -99,8 +103,8 @@ export function useBucket(
         queryKey: bucketKeys.detail(bucketId!),
         queryFn: async () => {
             console.log(`[useBucket] Fetching bucket ${bucketId} details from GraphQL...`);
-            const { data } = await getBucket({ variables: { id: bucketId! } });
-            return data?.bucket ?? null;
+            const bucket = await getBucketFromAPI(bucketId!);
+            return bucket ?? null;
         },
         enabled: autoFetch && !!bucketId, // ✅ Auto-fetch if option is enabled
         staleTime: Infinity,
@@ -204,17 +208,14 @@ export function useBucket(
  */
 export function useRefreshBucket() {
     const queryClient = useQueryClient();
-    const [getBucket] = useGetBucketLazyQuery({
-        fetchPolicy: 'network-only',
-    });
 
     const refreshBucket = async (bucketId: string): Promise<void> => {
         try {
             console.log(`[refreshBucket] Manually fetching bucket ${bucketId} from GraphQL...`);
 
             // 1. Fetch fresh data from GraphQL API
-            const { data } = await getBucket({ variables: { id: bucketId } });
-            const freshBucket = data?.bucket;
+            const result = await sdk.GetBucket({ id: bucketId });
+            const freshBucket = result.bucket;
 
             if (!freshBucket) {
                 console.warn(`[refreshBucket] Bucket ${bucketId} not found`);

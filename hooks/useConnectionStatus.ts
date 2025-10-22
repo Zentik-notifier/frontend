@@ -1,4 +1,5 @@
-import { useGetMeQuery, useHealthcheckLazyQuery } from '@/generated/gql-operations-generated';
+import { getSdk } from '@/generated/gql-operations-generated';
+import { graphqlClient } from '@/services/graphql-client';
 import NetInfo from '@react-native-community/netinfo';
 import * as Updates from 'expo-updates';
 import { File, Paths } from 'expo-file-system/next';
@@ -30,11 +31,30 @@ export function useConnectionStatus(push: UsePushNotifications) {
   const [isOfflineAuth, setIsOfflineAuth] = useState(false);
   const [isBackendUnreachable, setIsBackendUnreachable] = useState(false);
 
-  const [healthcheck] = useHealthcheckLazyQuery();
+  const sdk = getSdk(graphqlClient);
   const errorCountRef = useRef(0);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isPollingRef = useRef(false);
-  const { data: userData, loading } = useGetMeQuery();
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Load user data
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        setLoading(true);
+        const result = await sdk.GetMe();
+        setUserData(result.me);
+      } catch (error) {
+        console.warn('Failed to load user data:', error);
+        setUserData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadUserData();
+  }, [sdk]);
 
   // Check filesystem permissions (mobile only)
   useEffect(() => {
@@ -161,7 +181,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
 
     isPollingRef.current = true;
     try {
-      const result = await healthcheck({ fetchPolicy: 'network-only' });
+      const result = await sdk.Healthcheck();
 
       if (result.error) {
         // Check for 401 Unauthorized

@@ -1,4 +1,5 @@
-import { UpdateUserDeviceInput, useUpdateUserDeviceMutation } from '@/generated/gql-operations-generated';
+import { UpdateUserDeviceInput, getSdk } from '@/generated/gql-operations-generated';
+import { graphqlClient } from '@/services/graphql-client';
 import { settingsService } from '@/services/settings-service';
 import { useNavigationUtils } from '@/utils/navigation';
 import * as Notifications from 'expo-notifications';
@@ -8,11 +9,6 @@ import {
   NotificationActionFragment,
   NotificationActionType,
   UpdateDeviceTokenDto,
-  useDeviceReportNotificationReceivedMutation,
-  useExecuteWebhookMutation,
-  useGetNotificationLazyQuery,
-  useSetBucketSnoozeMinutesMutation,
-  useUpdateDeviceTokenMutation
 } from '../generated/gql-operations-generated';
 import { useI18n } from './useI18n';
 import { useCleanup } from './useCleanup';
@@ -31,12 +27,7 @@ import { useQueryClient } from '@tanstack/react-query';/**
 export function useNotificationActions() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
-  const [getNotification] = useGetNotificationLazyQuery();
-  const [executeWebhook] = useExecuteWebhookMutation();
-  const [setBucketSnoozeMinutes] = useSetBucketSnoozeMinutesMutation();
-  const [deviceReportReceived] = useDeviceReportNotificationReceivedMutation();
-  const [updateDeviceToken] = useUpdateDeviceTokenMutation();
-  const [updateUserDeviceMutation] = useUpdateUserDeviceMutation();
+  const sdk = getSdk(graphqlClient);
   const { navigateToNotificationDetail, navigateToHome } = useNavigationUtils();
   const { cleanup } = useCleanup();
 
@@ -89,11 +80,9 @@ export function useNotificationActions() {
       console.log('[useNotificationActions] Executing webhook via backend endpoint:', webhookId);
 
       // Execute the webhook using the new backend endpoint
-      const response = await executeWebhook({
-        variables: { id: webhookId }
-      });
+      const response = await sdk.ExecuteWebhook({ id: webhookId });
 
-      if (response.data?.executeWebhook) {
+      if (response.executeWebhook) {
         console.log('[useNotificationActions] Webhook executed successfully via backend');
         // Show success feedback to user
         Alert.alert(t('common.success'), t('webhooks.form.webhookSuccess', { name: webhookId }));
@@ -104,7 +93,7 @@ export function useNotificationActions() {
       console.error('[useNotificationActions] Failed to execute webhook:', error);
       Alert.alert(t('webhooks.form.webhookError'), t('webhooks.form.webhookExecutionFailed'));
     }
-  }, [executeWebhook, t]);
+  }, [sdk, t]);
 
   const onBackgroundCall = useCallback(async (action: NotificationActionFragment) => {
     console.log('[useNotificationActions] Executing background call:', JSON.stringify(action));
@@ -174,11 +163,9 @@ export function useNotificationActions() {
 
     try {
       // Get the notification to extract bucket ID
-      const notificationResponse = await getNotification({
-        variables: { id: notificationId }
-      });
+      const notificationResponse = await sdk.GetNotification({ id: notificationId });
 
-      const notification = notificationResponse.data?.notification;
+      const notification = notificationResponse.notification;
       if (!notification) {
         throw new Error('Notification not found');
       }
@@ -191,11 +178,9 @@ export function useNotificationActions() {
         console.log(`[useNotificationActions] Snoozing bucket ${bucketId} for ${minutes} minutes`);
 
         // Use the new endpoint to snooze the bucket
-        await setBucketSnoozeMinutes({
-          variables: {
-            bucketId: bucketId,
-            input: { minutes: minutes }
-          }
+        await sdk.SetBucketSnoozeMinutes({
+          bucketId: bucketId,
+          input: { minutes: minutes }
         });
 
         console.log('[useNotificationActions] Bucket snoozed successfully');
@@ -208,7 +193,7 @@ export function useNotificationActions() {
       console.error('[useNotificationActions] Failed to snooze bucket:', error);
       Alert.alert(t('common.error'), 'Failed to snooze notification');
     }
-  }, [getNotification, setBucketSnoozeMinutes, t]);
+  }, [sdk, t]);
 
   const onOpenNotification = useCallback(async (action: NotificationActionFragment) => {
     console.log('[useNotificationActions] Opening notification:', JSON.stringify(action));
@@ -277,26 +262,22 @@ export function useNotificationActions() {
   }, [onNavigate, onWebhook, onBackgroundCall, onMarkAsRead, onDelete, onSnooze, onOpenNotification, t]);
 
   const refreshPushToken = useCallback(async (updateTokenDto: UpdateDeviceTokenDto) => {
-    await updateDeviceToken({
-      variables: {
-        input: updateTokenDto
-      }
+    await sdk.UpdateDeviceToken({
+      input: updateTokenDto
     });
-  }, [updateDeviceToken]);
+  }, [sdk]);
 
   const useUpdateUserDevice = useCallback(async (userDevice: UpdateUserDeviceInput) => {
-    await updateUserDeviceMutation({
-      variables: {
-        input: userDevice
-      }
+    await sdk.UpdateUserDevice({
+      input: userDevice
     });
-  }, [updateDeviceToken]);
+  }, [sdk]);
 
   const pushNotificationReceived = useCallback(async (notificationId: string) => {
     try {
       // Report to server that notification was received
       try {
-        await deviceReportReceived({ variables: { id: notificationId } });
+        await sdk.DeviceReportNotificationReceived({ id: notificationId });
       } catch (error) {
         console.warn('[useNotificationActions] Failed to report notification received:', error);
       }
@@ -316,7 +297,7 @@ export function useNotificationActions() {
     } catch (error) {
       console.error('[useNotificationActions] pushNotificationReceived error', error);
     }
-  }, [queryClient, deviceReportReceived]);
+  }, [queryClient, sdk]);
 
   return {
     onNavigate,

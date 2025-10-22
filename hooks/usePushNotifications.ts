@@ -1,4 +1,5 @@
-import { DevicePlatform, GetUserDevicesDocument, NotificationServiceType, RegisterDeviceDto, useGetNotificationServicesLazyQuery, useGetUserDevicesLazyQuery, useRegisterDeviceMutation, useRemoveDeviceMutation } from '@/generated/gql-operations-generated';
+import { DevicePlatform, GetUserDevicesDocument, NotificationServiceType, RegisterDeviceDto, getSdk } from '@/generated/gql-operations-generated';
+import { graphqlClient } from '@/services/graphql-client';
 import { useNotificationActions } from '@/hooks/useNotificationActions';
 import { settingsService } from '@/services/settings-service';
 import { firebasePushNotificationService } from '@/services/firebase-push-notifications';
@@ -42,14 +43,11 @@ export function usePushNotifications() {
     setDeviceToken(settingsService.getAuthData().deviceToken);
   }, []);
 
-  const [registerDeviceMutation] = useRegisterDeviceMutation();
-  const [removeDeviceMutation] = useRemoveDeviceMutation();
-  const [fetchUserDevices] = useGetUserDevicesLazyQuery();
-  const [getPushTypes] = useGetNotificationServicesLazyQuery();
+  const sdk = getSdk(graphqlClient);
 
   const initialize = async () => {
-    const pushTypes = await getPushTypes({ fetchPolicy: 'network-only' });
-    const pushType = pushTypes.data?.notificationServices?.find(
+    const pushTypes = await sdk.GetNotificationServices();
+    const pushType = pushTypes.notificationServices?.find(
       (service) => service?.devicePlatform === (
         isIOS ? DevicePlatform.Ios :
           isAndroid ? DevicePlatform.Android :
@@ -156,8 +154,8 @@ export function usePushNotifications() {
     }
 
     try {
-      const res = await registerDeviceMutation({ variables: { input: info } });
-      const device = res.data?.registerDevice;
+      const res = await sdk.RegisterDevice({ input: info });
+      const device = res.registerDevice;
 
       console.log("[usePushNotifications] RegisterDevice response:", device);
 
@@ -225,15 +223,15 @@ export function usePushNotifications() {
 
   const unregisterDevice = async (): Promise<boolean> => {
     try {
-      const res = await fetchUserDevices({ fetchPolicy: 'network-only' });
-      const devices = res.data?.userDevices;
+      const res = await sdk.GetUserDevices();
+      const devices = res.userDevices;
       const token = settingsService.getAuthData().deviceToken || (await getDeviceToken());
       if (isWeb) {
         await webPushNotificationService.unregisterDevice();
       }
       const current = devices?.find(d => d?.deviceToken === token);
       if (current) {
-        await removeDeviceMutation({ variables: { deviceId: current.id }, refetchQueries: [{ query: GetUserDevicesDocument }] });
+        await sdk.RemoveDevice({ deviceId: current.id });
       }
 
       await settingsService.clearKeyPair();
