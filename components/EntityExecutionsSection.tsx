@@ -31,13 +31,13 @@ interface EntityExecutionsSectionProps {
   entityName?: string;
 }
 
-interface ExecutionItemProps {
+export interface ExecutionItemProps {
   execution: EntityExecutionFragment;
   isExpanded: boolean;
   onToggle: () => void;
 }
 
-function ExecutionItem({ execution, isExpanded, onToggle }: ExecutionItemProps) {
+export function ExecutionItem({ execution, isExpanded, onToggle }: ExecutionItemProps) {
   const theme = useTheme();
   const { t } = useI18n();
 
@@ -59,16 +59,6 @@ function ExecutionItem({ execution, isExpanded, onToggle }: ExecutionItemProps) 
   const formatDuration = (durationMs?: number | null) => {
     if (!durationMs) return "";
     return `${durationMs}ms`;
-  };
-
-  const formatJsonString = (jsonString?: string | null) => {
-    if (!jsonString) return "";
-    try {
-      const parsed = JSON.parse(jsonString);
-      return JSON.stringify(parsed, null, 2);
-    } catch {
-      return jsonString;
-    }
   };
 
 
@@ -107,153 +97,177 @@ function ExecutionItem({ execution, isExpanded, onToggle }: ExecutionItemProps) 
       {isExpanded && (
         <Card.Content style={styles.expandedContent}>
           <Divider style={{ marginBottom: 12 }} />
-
-          {/* Type and Details Grid */}
-          <View style={styles.detailsGrid}>
-            <View style={styles.detailRow}>
-              <Text variant="bodySmall" style={styles.detailLabel}>
-                {t("entityExecutions.type")}:
-              </Text>
-              <Text variant="bodySmall" style={styles.detailValue}>
-                {execution.type}
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Text variant="bodySmall" style={styles.detailLabel}>
-                ID:
-              </Text>
-              <Text variant="bodySmall" style={styles.detailValue}>
-                {execution.id}
-              </Text>
-            </View>
-
-            {execution.entityName && (
-              <View style={styles.detailRow}>
-                <Text variant="bodySmall" style={styles.detailLabel}>
-                  {t("entityExecutions.entityName")}:
-                </Text>
-                <Text variant="bodySmall" style={styles.detailValue}>
-                  {execution.entityName}
-                </Text>
-              </View>
-            )}
-
-            {execution.entityId && (
-              <View style={styles.detailRow}>
-                <Text variant="bodySmall" style={styles.detailLabel}>
-                  {t("entityExecutions.entityId")}:
-                </Text>
-                <Text variant="bodySmall" style={styles.detailValue}>
-                  {execution.entityId}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.detailRow}>
-              <Text variant="bodySmall" style={styles.detailLabel}>
-                {t("entityExecutions.userId")}:
-              </Text>
-              <Text variant="bodySmall" style={styles.detailValue}>
-                {execution.userId}
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Text variant="bodySmall" style={styles.detailLabel}>
-                {t("entityExecutions.updatedAt")}:
-              </Text>
-              <Text variant="bodySmall" style={styles.detailValue}>
-                {new Date(execution.updatedAt).toLocaleString()}
-              </Text>
-            </View>
-          </View>
-
-            {/* Errors */}
-            {execution.errors && (
-              <View style={styles.codeSection}>
-                <View style={styles.codeSectionHeader}>
-                  <Text variant="labelMedium" style={styles.codeLabel}>
-                    {t("entityExecutions.errors")}:
-                  </Text>
-                  <CopyButton text={execution.errors} size={20} />
-                </View>
-              <ScrollView style={styles.codeScrollView} nestedScrollEnabled>
-                <TextInput
-                  value={execution.errors}
-                  multiline
-                  editable={false}
-                  scrollEnabled={false}
-                  style={[
-                    styles.codeInput,
-                    {
-                      backgroundColor: theme.colors.errorContainer,
-                      color: theme.colors.error,
-                      borderLeftWidth: 4,
-                      borderLeftColor: theme.colors.error,
-                    },
-                  ]}
-                />
-              </ScrollView>
-            </View>
-          )}
-
-            {/* Input */}
-            {execution.input && (
-              <View style={styles.codeSection}>
-                <View style={styles.codeSectionHeader}>
-                  <Text variant="labelMedium" style={styles.codeLabel}>
-                    {t("entityExecutions.input")}:
-                  </Text>
-                  <CopyButton text={formatJsonString(execution.input)} size={20} />
-                </View>
-              <ScrollView style={styles.codeScrollView} nestedScrollEnabled>
-                <TextInput
-                  value={formatJsonString(execution.input)}
-                  multiline
-                  editable={false}
-                  scrollEnabled={false}
-                  style={[
-                    styles.codeInput,
-                    {
-                      backgroundColor: theme.colors.surfaceVariant,
-                      color: theme.colors.onSurface,
-                    },
-                  ]}
-                />
-              </ScrollView>
-            </View>
-          )}
-
-            {/* Output */}
-            {execution.output && (
-              <View style={styles.codeSection}>
-                <View style={styles.codeSectionHeader}>
-                  <Text variant="labelMedium" style={styles.codeLabel}>
-                    {t("entityExecutions.output")}:
-                  </Text>
-                  <CopyButton text={formatJsonString(execution.output)} size={20} />
-                </View>
-              <ScrollView style={styles.codeScrollView} nestedScrollEnabled>
-                <TextInput
-                  value={formatJsonString(execution.output)}
-                  multiline
-                  editable={false}
-                  scrollEnabled={false}
-                  style={[
-                    styles.codeInput,
-                    {
-                      backgroundColor: theme.colors.surfaceVariant,
-                      color: theme.colors.onSurface,
-                    },
-                  ]}
-                />
-              </ScrollView>
-            </View>
-          )}
+          <ExecutionExpandedContent execution={execution} />
         </Card.Content>
       )}
     </Card>
+  );
+}
+
+export interface ExecutionExpandedContentProps {
+  execution: EntityExecutionFragment;
+}
+
+export function ExecutionExpandedContent({ execution }: ExecutionExpandedContentProps) {
+  const theme = useTheme();
+  const { t } = useI18n();
+
+  const formatJsonString = (jsonString?: string | null) => {
+    if (!jsonString) return "";
+    try {
+      const parsed = JSON.parse(jsonString);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return jsonString;
+    }
+  };
+
+  return (
+    <View>
+      {/* Type and Details Grid */}
+      <View style={styles.detailsGrid}>
+        <View style={styles.detailRow}>
+          <Text variant="bodySmall" style={styles.detailLabel}>
+            {t("entityExecutions.type")}:
+          </Text>
+          <Text variant="bodySmall" style={styles.detailValue}>
+            {execution.type}
+          </Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text variant="bodySmall" style={styles.detailLabel}>
+            ID:
+          </Text>
+          <Text variant="bodySmall" style={styles.detailValue}>
+            {execution.id}
+          </Text>
+        </View>
+
+        {execution.entityName && (
+          <View style={styles.detailRow}>
+            <Text variant="bodySmall" style={styles.detailLabel}>
+              {t("entityExecutions.entityName")}:
+            </Text>
+            <Text variant="bodySmall" style={styles.detailValue}>
+              {execution.entityName}
+            </Text>
+          </View>
+        )}
+
+        {execution.entityId && (
+          <View style={styles.detailRow}>
+            <Text variant="bodySmall" style={styles.detailLabel}>
+              {t("entityExecutions.entityId")}:
+            </Text>
+            <Text variant="bodySmall" style={styles.detailValue}>
+              {execution.entityId}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.detailRow}>
+          <Text variant="bodySmall" style={styles.detailLabel}>
+            {t("entityExecutions.userId")}:
+          </Text>
+          <Text variant="bodySmall" style={styles.detailValue}>
+            {execution.userId}
+          </Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text variant="bodySmall" style={styles.detailLabel}>
+            {t("entityExecutions.updatedAt")}:
+          </Text>
+          <Text variant="bodySmall" style={styles.detailValue}>
+            {new Date(execution.updatedAt).toLocaleString()}
+          </Text>
+        </View>
+      </View>
+
+      {/* Errors */}
+      {execution.errors && (
+        <View style={styles.codeSection}>
+          <View style={styles.codeSectionHeader}>
+            <Text variant="labelMedium" style={styles.codeLabel}>
+              {t("entityExecutions.errors")}:
+            </Text>
+            <CopyButton text={execution.errors} size={20} />
+          </View>
+          <ScrollView style={styles.codeScrollView} nestedScrollEnabled>
+            <TextInput
+              value={execution.errors}
+              multiline
+              editable={false}
+              scrollEnabled={false}
+              style={[
+                styles.codeInput,
+                {
+                  backgroundColor: theme.colors.errorContainer,
+                  color: theme.colors.error,
+                  borderLeftWidth: 4,
+                  borderLeftColor: theme.colors.error,
+                },
+              ]}
+            />
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Input */}
+      {execution.input && (
+        <View style={styles.codeSection}>
+          <View style={styles.codeSectionHeader}>
+            <Text variant="labelMedium" style={styles.codeLabel}>
+              {t("entityExecutions.input")}:
+            </Text>
+            <CopyButton text={formatJsonString(execution.input)} size={20} />
+          </View>
+          <ScrollView style={styles.codeScrollView} nestedScrollEnabled>
+            <TextInput
+              value={formatJsonString(execution.input)}
+              multiline
+              editable={false}
+              scrollEnabled={false}
+              style={[
+                styles.codeInput,
+                {
+                  backgroundColor: theme.colors.surfaceVariant,
+                  color: theme.colors.onSurface,
+                },
+              ]}
+            />
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Output */}
+      {execution.output && (
+        <View style={styles.codeSection}>
+          <View style={styles.codeSectionHeader}>
+            <Text variant="labelMedium" style={styles.codeLabel}>
+              {t("entityExecutions.output")}:
+            </Text>
+            <CopyButton text={formatJsonString(execution.output)} size={20} />
+          </View>
+          <ScrollView style={styles.codeScrollView} nestedScrollEnabled>
+            <TextInput
+              value={formatJsonString(execution.output)}
+              multiline
+              editable={false}
+              scrollEnabled={false}
+              style={[
+                styles.codeInput,
+                {
+                  backgroundColor: theme.colors.surfaceVariant,
+                  color: theme.colors.onSurface,
+                },
+              ]}
+            />
+          </ScrollView>
+        </View>
+      )}
+    </View>
   );
 }
 

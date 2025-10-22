@@ -6,15 +6,15 @@ import NotificationSnoozeButton from "@/components/NotificationSnoozeButton";
 import {
   MediaType,
   NotificationActionType,
+  useGetEntityExecutionQuery
 } from "@/generated/gql-operations-generated";
-import { useDateFormat } from "@/hooks/useDateFormat";
-import { useI18n } from "@/hooks/useI18n";
 import {
-  useNotificationDetail,
   useDeleteNotification,
   useMarkAsRead,
+  useNotificationDetail,
 } from "@/hooks/notifications";
-import { useNotificationUtils } from "@/hooks/useNotificationUtils";
+import { useDateFormat } from "@/hooks/useDateFormat";
+import { useI18n } from "@/hooks/useI18n";
 import * as Clipboard from "expo-clipboard";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
@@ -26,11 +26,27 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import { Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
+import {
+  Icon,
+  IconButton,
+  List,
+  Surface,
+  Text,
+  TouchableRipple,
+  useTheme
+} from "react-native-paper";
+import {
+  Menu,
+  MenuOption,
+  MenuOptions,
+  MenuTrigger,
+} from "react-native-popup-menu";
+import { ExecutionExpandedContent } from "./EntityExecutionsSection";
 import { NotificationActionsMenu } from "./NotificationActionsMenu";
 import ButtonGroup from "./ui/ButtonGroup";
+import DetailModal from "./ui/DetailModal";
 
 interface NotificationDetailProps {
   notificationId: string;
@@ -54,8 +70,19 @@ export default function NotificationDetail({
     isLoading: loading,
     error,
   } = useNotificationDetail(notificationId);
+
+  const message = notification?.message;
+
+  // Hook per ottenere i dettagli dell'esecuzione se executionId è presente
+  const { data: executionData, loading: executionLoading } = useGetEntityExecutionQuery({
+    variables: { id: message?.executionId || "" },
+    skip: !message?.executionId,
+  });
   const [isCopying, setIsCopying] = useState(false);
   const [enableHtmlRendering, setEnableHtmlRendering] = useState(true);
+  const [copyMenuOpen, setCopyMenuOpen] = useState(false);
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [payloadModalVisible, setPayloadModalVisible] = useState(false);
 
   const handleMediaPress = (imageUri: string) => {
     const attachments = notification?.message?.attachments || [];
@@ -72,7 +99,6 @@ export default function NotificationDetail({
     }
   }, [notification, markAsReadMutation]);
 
-  const message = notification?.message;
   const bucketName = message?.bucket?.name;
 
   // Extract all Navigate actions from actions and tapAction
@@ -159,6 +185,19 @@ export default function NotificationDetail({
     }
   };
 
+  const copyNotificationSource = async () => {
+    try {
+      const sourceData = JSON.stringify(notification, null, 2);
+      await Clipboard.setStringAsync(sourceData);
+      setIsCopying(true);
+      setTimeout(() => {
+        setIsCopying(false);
+      }, 2000);
+    } catch (error) {
+      console.error("Error copying notification source:", error);
+    }
+  };
+
   const shareNotification = async () => {
     const fullText = buildNotificationText();
     try {
@@ -187,6 +226,41 @@ export default function NotificationDetail({
         Alert.alert(
           t("common.copied"),
           t("notificationDetail.shareNotification")
+        );
+      } catch (clipboardError) {
+        console.error("Clipboard fallback failed:", clipboardError);
+      }
+    }
+  };
+
+  const shareNotificationSource = async () => {
+    const sourceData = JSON.stringify(notification, null, 2);
+    try {
+      if (await Sharing.isAvailableAsync()) {
+        const fileName = `notification_source_${Date.now()}.json`;
+        const fileUri = `${Paths.document.uri}${fileName}`;
+        const file = new File(fileUri);
+        file.write(sourceData, {});
+
+        await Sharing.shareAsync(fileUri, {
+          mimeType: "application/json",
+          dialogTitle: t("notificationDetail.shareSource"),
+          UTI: "public.json",
+        });
+
+        try {
+          file.delete();
+        } catch (cleanupError) {
+          console.log("File cleanup failed:", cleanupError);
+        }
+      }
+    } catch (error) {
+      console.error("Error sharing notification source:", error);
+      try {
+        await Clipboard.setStringAsync(sourceData);
+        Alert.alert(
+          t("common.copied"),
+          t("notificationDetail.shareSource")
         );
       } catch (clipboardError) {
         console.error("Clipboard fallback failed:", clipboardError);
@@ -248,6 +322,16 @@ export default function NotificationDetail({
     }
   };
 
+  const formatJsonString = (jsonString?: string | null) => {
+    if (!jsonString) return "";
+    try {
+      const parsed = JSON.parse(jsonString);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return jsonString;
+    }
+  };
+
   return (
     <Surface
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -282,26 +366,164 @@ export default function NotificationDetail({
               {/* Actions */}
               <View style={styles.actionsContainer}>
                 <ButtonGroup>
-                  <IconButton
-                    icon={isCopying ? "check" : "content-copy"}
-                    size={15}
-                    iconColor={
-                      isCopying
-                        ? theme.colors.primary
-                        : theme.colors.onSurfaceVariant
-                    }
-                    style={[styles.actionButton, { width: 26, height: 26 }]}
-                    onPress={copyNotificationToClipboard}
-                    accessibilityLabel="copy-notification"
-                  />
-                  <IconButton
-                    icon="share"
-                    size={15}
-                    iconColor={theme.colors.onSurfaceVariant}
-                    style={[styles.actionButton, { width: 26, height: 26 }]}
-                    onPress={shareNotification}
-                    accessibilityLabel="share-notification"
-                  />
+                  {/* Copy Menu */}
+                  <Menu opened={copyMenuOpen} onBackdropPress={() => setCopyMenuOpen(false)}>
+                    <MenuTrigger
+                      customStyles={{
+                        TriggerTouchableComponent: TouchableOpacity,
+                        triggerTouchable: {
+                          activeOpacity: 0.7,
+                        },
+                      }}
+                      onPress={() => setCopyMenuOpen(!copyMenuOpen)}
+                    >
+                      <IconButton
+                        icon={isCopying ? "check" : "content-copy"}
+                        size={15}
+                        iconColor={
+                          isCopying
+                            ? theme.colors.primary
+                            : theme.colors.onSurfaceVariant
+                        }
+                        style={[styles.actionButton, { width: 26, height: 26 }]}
+                        accessibilityLabel="copy-menu"
+                      />
+                    </MenuTrigger>
+                    <MenuOptions
+                      customStyles={{
+                        optionsContainer: {
+                          backgroundColor: theme.colors.surface,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: theme.colors.outlineVariant,
+                          padding: 4,
+                          minWidth: 180,
+                          marginLeft: -35,
+                        },
+                      }}
+                    >
+                      <MenuOption onSelect={() => {
+                        copyNotificationToClipboard();
+                        setCopyMenuOpen(false);
+                      }}>
+                        <Surface style={styles.menuItem} elevation={0}>
+                          <TouchableRipple
+                            onPress={() => {
+                              copyNotificationToClipboard();
+                              setCopyMenuOpen(false);
+                            }}
+                            style={styles.menuItemContent}
+                          >
+                            <View style={styles.menuItemInner}>
+                              <List.Icon icon="text" color={theme.colors.onSurface} />
+                              <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>
+                                {t("notificationDetail.copyText")}
+                              </Text>
+                            </View>
+                          </TouchableRipple>
+                        </Surface>
+                      </MenuOption>
+                      <MenuOption onSelect={() => {
+                        copyNotificationSource();
+                        setCopyMenuOpen(false);
+                      }}>
+                        <Surface style={styles.menuItem} elevation={0}>
+                          <TouchableRipple
+                            onPress={() => {
+                              copyNotificationSource();
+                              setCopyMenuOpen(false);
+                            }}
+                            style={styles.menuItemContent}
+                          >
+                            <View style={styles.menuItemInner}>
+                              <List.Icon icon="code-json" color={theme.colors.onSurface} />
+                              <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>
+                                {t("notificationDetail.copySource")}
+                              </Text>
+                            </View>
+                          </TouchableRipple>
+                        </Surface>
+                      </MenuOption>
+                    </MenuOptions>
+                  </Menu>
+
+                  {/* Share Menu */}
+                  <Menu opened={shareMenuOpen} onBackdropPress={() => setShareMenuOpen(false)}>
+                    <MenuTrigger
+                      customStyles={{
+                        TriggerTouchableComponent: TouchableOpacity,
+                        triggerTouchable: {
+                          activeOpacity: 0.7,
+                        },
+                      }}
+                      onPress={() => setShareMenuOpen(!shareMenuOpen)}
+                    >
+                      <IconButton
+                        icon="share"
+                        size={15}
+                        iconColor={theme.colors.onSurfaceVariant}
+                        style={[styles.actionButton, { width: 26, height: 26 }]}
+                        accessibilityLabel="share-menu"
+                      />
+                    </MenuTrigger>
+                    <MenuOptions
+                      customStyles={{
+                        optionsContainer: {
+                          backgroundColor: theme.colors.surface,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: theme.colors.outlineVariant,
+                          padding: 4,
+                          minWidth: 180,
+                          marginLeft: -35,
+                        },
+                      }}
+                    >
+                      <MenuOption onSelect={() => {
+                        shareNotification();
+                        setShareMenuOpen(false);
+                      }}>
+                        <Surface style={styles.menuItem} elevation={0}>
+                          <TouchableRipple
+                            onPress={() => {
+                              shareNotification();
+                              setShareMenuOpen(false);
+                            }}
+                            style={styles.menuItemContent}
+                          >
+                            <View style={styles.menuItemInner}>
+                              <List.Icon icon="text" color={theme.colors.onSurface} />
+                              <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>
+                                {t("notificationDetail.shareText")}
+                              </Text>
+                            </View>
+                          </TouchableRipple>
+                        </Surface>
+                      </MenuOption>
+                      <MenuOption onSelect={() => {
+                        shareNotificationSource();
+                        setShareMenuOpen(false);
+                      }}>
+                        <Surface style={styles.menuItem} elevation={0}>
+                          <TouchableRipple
+                            onPress={() => {
+                              shareNotificationSource();
+                              setShareMenuOpen(false);
+                            }}
+                            style={styles.menuItemContent}
+                          >
+                            <View style={styles.menuItemInner}>
+                              <List.Icon icon="code-json" color={theme.colors.onSurface} />
+                              <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>
+                                {t("notificationDetail.shareSource")}
+                              </Text>
+                            </View>
+                          </TouchableRipple>
+                        </Surface>
+                      </MenuOption>
+                    </MenuOptions>
+                  </Menu>
+
                   <IconButton
                     icon="delete"
                     size={15}
@@ -345,43 +567,74 @@ export default function NotificationDetail({
                 )}
               </View>
 
-              {/* HTML Rendering Toggle */}
-              <TouchableOpacity
-                style={[
-                  styles.htmlToggleButtonSmall,
-                  {
-                    backgroundColor: enableHtmlRendering
-                      ? theme.colors.primaryContainer
-                      : theme.colors.surfaceVariant,
-                    borderColor: theme.colors.outline,
-                  },
-                ]}
-                onPress={() => setEnableHtmlRendering(!enableHtmlRendering)}
-              >
-                <Icon
-                  source={"code-tags"}
-                  size={12}
-                  color={
-                    enableHtmlRendering
-                      ? theme.colors.onPrimaryContainer
-                      : theme.colors.onSurfaceVariant
-                  }
-                />
-                <Text
+              {/* HTML Rendering Toggle and Payload Button */}
+              <ButtonGroup>
+                <TouchableOpacity
                   style={[
-                    styles.htmlToggleTextSmall,
+                    styles.htmlToggleButtonSmall,
                     {
-                      color: enableHtmlRendering
-                        ? theme.colors.onPrimaryContainer
-                        : theme.colors.onSurfaceVariant,
+                      backgroundColor: enableHtmlRendering
+                        ? theme.colors.primaryContainer
+                        : theme.colors.surfaceVariant,
+                      borderColor: theme.colors.outline,
                     },
                   ]}
+                  onPress={() => setEnableHtmlRendering(!enableHtmlRendering)}
                 >
-                  {enableHtmlRendering
-                    ? t("notificationDetail.htmlEnabled")
-                    : t("notificationDetail.htmlDisabled")}
-                </Text>
-              </TouchableOpacity>
+                  <Icon
+                    source={"code-tags"}
+                    size={12}
+                    color={
+                      enableHtmlRendering
+                        ? theme.colors.onPrimaryContainer
+                        : theme.colors.onSurfaceVariant
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.htmlToggleTextSmall,
+                      {
+                        color: enableHtmlRendering
+                          ? theme.colors.onPrimaryContainer
+                          : theme.colors.onSurfaceVariant,
+                      },
+                    ]}
+                  >
+                    {enableHtmlRendering
+                      ? t("notificationDetail.htmlEnabled")
+                      : t("notificationDetail.htmlDisabled")}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Execution Payload Button */}
+                {message?.executionId && (
+                  <TouchableOpacity
+                    style={[
+                      styles.payloadButtonContainer,
+                      {
+                        backgroundColor: theme.colors.surfaceVariant,
+                        borderColor: theme.colors.outline,
+                      },
+                    ]}
+                    onPress={() => setPayloadModalVisible(true)}
+                    accessibilityLabel="view-payload"
+                  >
+                    <Icon
+                      source="code-braces"
+                      size={12}
+                      color={theme.colors.onSurfaceVariant}
+                    />
+                    <Text
+                      style={[
+                        styles.payloadButtonText,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {t("notificationDetail.showPayload")}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </ButtonGroup>
             </View>
           </View>
 
@@ -492,6 +745,41 @@ export default function NotificationDetail({
             : undefined
         }
       />
+
+      {/* Payload Modal */}
+      <DetailModal
+        visible={payloadModalVisible}
+        onDismiss={() => setPayloadModalVisible(false)}
+        title={t("notificationDetail.payloadModal.title")}
+        icon="code-braces"
+        actions={{
+          cancel: {
+            label: t("common.close"),
+            onPress: () => setPayloadModalVisible(false),
+          },
+          confirm: {
+            label: t("common.close"),
+            onPress: () => setPayloadModalVisible(false),
+          },
+        }}
+      >
+        {executionLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={styles.loadingText}>
+              {t("notificationDetail.payloadModal.loading")}
+            </Text>
+          </View>
+        ) : executionData?.entityExecution ? (
+          <ExecutionExpandedContent execution={executionData.entityExecution} />
+        ) : (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>
+              {t("notificationDetail.payloadModal.error")}
+            </Text>
+          </View>
+        )}
+      </DetailModal>
     </Surface>
   );
 }
@@ -680,10 +968,86 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     borderRadius: 6,
     borderWidth: 1,
-    marginTop: 4,
   },
   htmlToggleTextSmall: {
     fontSize: 9,
     fontWeight: "500",
+  },
+  payloadButtonContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    minWidth: 80,
+  },
+  payloadButtonText: {
+    fontSize: 9,
+    fontWeight: "500",
+  },
+  // Details grid styles (reused from EntityExecutionsSection)
+  detailsGrid: {
+    gap: 8,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  detailLabel: {
+    fontWeight: "600",
+    opacity: 0.7,
+    flex: 1,
+  },
+  detailValue: {
+    flex: 2,
+    textAlign: "right",
+  },
+  // Code section styles (reused from EntityExecutionsSection)
+  codeSection: {
+    marginBottom: 16,
+  },
+  codeSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  codeLabel: {
+    fontWeight: "600",
+  },
+  codeScrollView: {
+    maxHeight: 200,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 8,
+  },
+  codeInput: {
+    fontFamily: "monospace",
+    fontSize: 12,
+    padding: 12,
+    minHeight: 100,
+  },
+  // Menu item styles (from SwipeableItem)
+  menuItem: {
+    backgroundColor: "transparent",
+    borderRadius: 4,
+    marginVertical: 1,
+  },
+  menuItemContent: {
+    borderRadius: 4,
+  },
+  menuItemInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  menuItemText: {
+    fontSize: 14,
+    marginLeft: 8,
+    flex: 1,
   },
 });

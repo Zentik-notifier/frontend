@@ -1,6 +1,5 @@
 import { useAppContext } from "@/contexts/AppContext";
 import {
-  BucketFullFragment,
   EntityPermissionFragment,
   Permission,
   ResourceType,

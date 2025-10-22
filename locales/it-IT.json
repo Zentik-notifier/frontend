@@ -1163,6 +1163,17 @@
     },
     "notificationCopied": "Notifica copiata negli appunti",
     "shareNotification": "Condividi Notifica",
+    "copyText": "Copia Testo",
+    "copySource": "Copia Sorgente",
+    "shareText": "Condividi Testo",
+    "shareSource": "Condividi Sorgente",
+    "viewPayload": "Visualizza Payload",
+    "showPayload": "Mostra Payload",
+    "payloadModal": {
+      "title": "Payload Originale",
+      "loading": "Caricamento payload...",
+      "error": "Errore nel caricamento del payload"
+    },
     "deleteConfirmTitle": "Elimina Notifica",
     "deleteConfirmMessage": "Sei sicuro di voler eliminare questa notifica? Questa azione non può essere annullata.",
     "deleteConfirmButton": "Elimina",

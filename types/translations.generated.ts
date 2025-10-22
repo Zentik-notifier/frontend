@@ -1119,6 +1119,17 @@ export interface Translation {
     };
     notificationCopied: string;
     shareNotification: string;
+    copyText: string;
+    copySource: string;
+    shareText: string;
+    shareSource: string;
+    viewPayload: string;
+    showPayload: string;
+    payloadModal: {
+      title: string;
+      loading: string;
+      error: string;
+    };
     deleteConfirmTitle: string;
     deleteConfirmMessage: string;
     deleteConfirmButton: string;

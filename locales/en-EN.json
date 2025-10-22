@@ -1116,6 +1116,17 @@
     },
     "notificationCopied": "Notification copied to clipboard",
     "shareNotification": "Share Notification",
+    "copyText": "Copy Text",
+    "copySource": "Copy Source",
+    "shareText": "Share Text",
+    "shareSource": "Share Source",
+    "viewPayload": "View Payload",
+    "showPayload": "Show Payload",
+    "payloadModal": {
+      "title": "Original Payload",
+      "loading": "Loading payload...",
+      "error": "Error loading payload"
+    },
     "deleteConfirmTitle": "Delete Notification",
     "deleteConfirmMessage": "Are you sure you want to delete this notification? This action cannot be undone.",
     "deleteConfirmButton": "Delete",

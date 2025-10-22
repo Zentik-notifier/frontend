@@ -18,7 +18,7 @@ import { useNavigationUtils } from "@/utils/navigation";
 import { useRecyclingState } from "@shopify/flash-list";
 import React, { useEffect, useMemo, useRef } from "react";
 import { useSettings } from "@/hooks/useSettings";
-import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { Alert, Pressable, StyleSheet, View, ScrollView } from "react-native";
 import {
   Icon,
   Surface,
@@ -447,7 +447,12 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       )}
 
       <Surface style={[styles.bottomRow]} elevation={0}>
-        <Surface style={[styles.mediaIndicators]} elevation={0}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.mediaScrollView}
+          contentContainerStyle={styles.mediaIndicators}
+        >
           {attachments.length > 0 &&
             (isCompactMode ? (
               <View style={styles.inlinePillsRow}>
@@ -517,7 +522,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 );
               })
             ))}
-        </Surface>
+        </ScrollView>
       </Surface>
 
       {fullScreenIndex >= 0 && attachments[fullScreenIndex] && (
@@ -637,14 +642,17 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
+  mediaScrollView: {
+    flex: 1,
+    maxWidth: "90%",
+  },
   mediaIndicators: {
     flexDirection: "row",
     marginTop: 6,
     gap: 8,
-    flex: 1,
     alignItems: "center",
     minHeight: 24,
-    flexWrap: "nowrap",
+    paddingHorizontal: 4,
   },
   inlinePillsRow: {
     flexDirection: "row",
