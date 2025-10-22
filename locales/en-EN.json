@@ -481,14 +481,14 @@
       "maxUses": "Maximum Uses",
       "maxUsesPlaceholder": "Leave empty for unlimited",
       "days": "days",
-      "redeemTitle": "Redeem Invite Code",
-      "redeemDescription": "Enter the invite code you received to gain access",
+      "redeemTitle": "Join Bucket Invitation",
+      "redeemDescription": "You've been invited to subscribe to a bucket to receive incoming messages. Enter the invite code to join.",
       "inviteCode": "Invite Code",
       "enterCode": "Please enter an invite code",
-      "redeemSuccess": "Invite code redeemed successfully! You now have access to the shared resource.",
+      "redeemSuccess": "Successfully joined the bucket! You will now receive incoming messages from this bucket.",
       "redeemError": "Failed to redeem invite code. Please check the code and try again.",
       "redeem": "Redeem",
-      "redeemInfo": "Once redeemed, you'll gain the permissions associated with this code. The code may have limited uses and an expiration date.",
+      "redeemInfo": "By joining this bucket, you'll receive notifications and messages sent to it. You can manage your subscriptions in the Buckets section.",
       "openingApp": "Opening Zentik app",
       "appNotOpening": "App not opening?",
       "manualInstructions": "Open the Zentik app manually and enter the invite code in the Buckets section."
@@ -527,6 +527,31 @@
       "grantedByOwner": "Granted by owner",
       "grantedBy": "Granted by {{user}}",
       "grantedByWithOwner": "Granted by {{user}} (owner)"
+    },
+    "shareExtension": {
+      "notAuthenticated": "Not authenticated. Please log in to the main app first.",
+      "loading": "Loading buckets...",
+      "retry": "Retry",
+      "noBuckets": "No buckets available",
+      "noBucketsHelper": "Create a bucket in the main app first.",
+      "header": "Share to Bucket",
+      "updating": "Updating...",
+      "selectBucket": "Select a bucket",
+      "titleRequired": "Title",
+      "titlePlaceholder": "Enter message title",
+      "messageLabel": "Message",
+      "messagePlaceholder": "Enter your message",
+      "sendButton": "Send",
+      "errors": {
+        "titleRequired": "Title is required",
+        "bucketRequired": "Please select a bucket",
+        "notAuthenticated": "Not authenticated. Please log in to the main app first.",
+        "sendFailed": "Failed to send message"
+      },
+      "success": {
+        "title": "Success",
+        "message": "Message sent successfully!"
+      }
     },
     "delete": {
       "modalTitle": "Delete Bucket",

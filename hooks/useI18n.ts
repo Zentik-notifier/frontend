@@ -1,6 +1,6 @@
 import { Translation } from '@/types/translations.generated';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useSettings } from './useSettings';
+import { settingsService } from '@/services/settings-service';
 import enTranslations from '@/locales/en-EN.json';
 import itTranslations from '@/locales/it-IT.json';
 
@@ -88,17 +88,45 @@ function replaceParams(translation: string, params: Record<string, string | numb
 
 /**
  * Hook to use internationalization in React components
- * Automatically syncs with settings service locale
+ * Automatically syncs with settings service locale via direct subscription
  */
 export function useI18n(): UseI18nReturn {
-  const { settings } = useSettings();
-  const locale = settings.locale as Locale;
+  const [locale, setLocale] = useState<Locale>('en-EN');
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Subscribe directly to settings service to avoid Apollo dependency
+  useEffect(() => {
+    // Subscribe to initialization status first
+    const initSubscription = settingsService.isInitialized$.subscribe((initialized) => {
+      setIsInitialized(initialized);
+      
+      if (initialized) {
+        // Get initial locale only after service is initialized
+        const initialSettings = settingsService.getSettings();
+        setLocale(initialSettings.locale as Locale);
+      }
+    });
+
+    // Subscribe to settings changes
+    const settingsSubscription = settingsService.userSettings$.subscribe((settings) => {
+      if (isInitialized) {
+        setLocale(settings.locale as Locale);
+      }
+    });
+
+    return () => {
+      initSubscription.unsubscribe();
+      settingsSubscription.unsubscribe();
+    };
+  }, [isInitialized]);
 
   const t = useCallback(<T extends TranslationKeyPath>(
     key: T,
     params?: Record<string, string | number>
   ): GetTranslationValue<T> => {
-    const translation = getNestedValue(translations[locale], key);
+    // Use current locale state, fallback to 'en-EN' if not initialized
+    const currentLocale = isInitialized ? locale : 'en-EN';
+    const translation = getNestedValue(translations[currentLocale], key);
 
     if (typeof translation !== 'string') {
       console.warn(`Translation not found for key: ${key}`);
@@ -111,7 +139,7 @@ export function useI18n(): UseI18nReturn {
     }
 
     return translation as GetTranslationValue<T>;
-  }, [locale]);
+  }, [locale, isInitialized]);
 
   const availableLocales = useMemo(() => Object.keys(translations) as Locale[], []);
 
@@ -124,7 +152,7 @@ export function useI18n(): UseI18nReturn {
   }, []);
 
   return {
-    locale,
+    locale: isInitialized ? locale : 'en-EN',
     t,
     availableLocales,
     getLocaleDisplayName,

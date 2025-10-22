@@ -1,18 +1,13 @@
-import {
-  BucketData,
-  getAllBuckets,
-  saveBuckets,
-} from "@/db/repositories/buckets-repository";
 import { useI18n } from "@/hooks/useI18n";
-import { settingsRepository } from "@/services/settings-repository";
-import * as Device from "expo-device";
+import { useBucketsStats, useInitializeBucketsStats } from "@/hooks/notifications/useNotificationQueries";
+import { settingsService } from "@/services/settings-service";
+import { QueryProviders } from "@/components/QueryProviders";
 import { Image } from "expo-image";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,148 +15,46 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import * as Keychain from "react-native-keychain";
 
-// Keychain constants for share extension
-const bundleIdentifier = __DEV__
-  ? "com.apocaliss92.zentik.dev"
-  : "com.apocaliss92.zentik";
-const KEYCHAIN_ACCESS_GROUP = `C3F24V5NS5.${bundleIdentifier}.keychain`;
-const ACCESS_TOKEN_SERVICE = "zentik.auth.access";
-const REFRESH_TOKEN_SERVICE = "zentik.auth.refresh";
-
-interface Bucket extends BucketData {
-  color?: string | null;
-  iconAttachmentUuid?: string | null;
-}
+// Use the bucket type from the hooks
+type Bucket = NonNullable<ReturnType<typeof useBucketsStats>['data']>[number];
 
 const BUCKET_SIZE = 80;
 const BUCKETS_PER_ROW = 3;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
 // Helper function to get access token from Keychain
-async function getAccessTokenFromKeychain(): Promise<string | null> {
-  if (Platform.OS === "ios" || Platform.OS === "macos") {
-    try {
-      const options: Keychain.GetOptions = Device.isDevice
-        ? { service: ACCESS_TOKEN_SERVICE, accessGroup: KEYCHAIN_ACCESS_GROUP }
-        : { service: ACCESS_TOKEN_SERVICE };
-      const creds = await Keychain.getGenericPassword(options);
-      return creds ? creds.username : null;
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
 interface ShareExtensionProps {
   url: string;
 }
 
-export default function ShareExtension({ url }: ShareExtensionProps) {
+function ShareExtensionContent({ url }: ShareExtensionProps) {
   const { t } = useI18n();
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [sending, setSending] = useState(false);
-  const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [selectedBucket, setSelectedBucket] = useState<Bucket | null>(null);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState(url || "");
-  const [error, setError] = useState<string | null>(null);
-
-  const loadBuckets = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const token = await getAccessTokenFromKeychain();
-      const api = await settingsRepository.getSetting("auth_apiEndpoint");
-
-      if (!token || !api) {
-        setError(t("shareExtension.notAuthenticated"));
-        setLoading(false);
-        return;
-      }
-
-      setApiUrl(api);
-
-      // Prima carica dalla cache locale (SQLite/IndexedDB) per un'esperienza più veloce
-      const cachedBuckets = await getAllBuckets();
-      if (cachedBuckets && cachedBuckets.length > 0) {
-        console.log("[ShareExtension] Loading buckets from local DB cache");
-        setBuckets(cachedBuckets as Bucket[]);
-        setSelectedBucket(cachedBuckets[0] as Bucket);
-        setLoading(false);
-      }
-
-      // Poi carica dal server in background per aggiornare la cache
-      console.log("[ShareExtension] Fetching fresh buckets from server");
-      setRefreshing(true);
-
-      try {
-        const response = await fetch(`${api}/api/v1/buckets`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to load buckets: ${response.status}`);
-        }
-
-        const freshBuckets: Bucket[] = await response.json();
-
-        // Salva nella cache locale (SQLite/IndexedDB)
-        await saveBuckets(freshBuckets);
-
-        // Aggiorna l'UI solo se non avevamo cache o se i bucket sono diversi
-        if (
-          !cachedBuckets ||
-          cachedBuckets.length === 0 ||
-          JSON.stringify(cachedBuckets) !== JSON.stringify(freshBuckets)
-        ) {
-          console.log("[ShareExtension] Updating UI with fresh buckets");
-          setBuckets(freshBuckets);
-
-          if (freshBuckets.length > 0) {
-            // Mantieni la selezione se il bucket esiste ancora, altrimenti seleziona il primo
-            const currentSelected = selectedBucket;
-            const stillExists =
-              currentSelected &&
-              freshBuckets.find((b: Bucket) => b.id === currentSelected.id);
-            setSelectedBucket(stillExists ? currentSelected : freshBuckets[0]);
-          }
-        }
-      } finally {
-        setRefreshing(false);
-      }
-    } catch (err: any) {
-      console.error("[ShareExtension] Error loading buckets:", err);
-
-      // Se abbiamo cache e c'è un errore di rete, usa la cache
-      const cachedBuckets = await getAllBuckets();
-      if (cachedBuckets && cachedBuckets.length > 0) {
-        console.log(
-          "[ShareExtension] Using cached buckets from local DB due to network error"
-        );
-        setBuckets(cachedBuckets as Bucket[]);
-        setSelectedBucket(cachedBuckets[0] as Bucket);
-        setError(null);
-      } else {
-        setError(err.message || "Failed to load buckets");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
-
-  // Load buckets after locale is initialized
+  
+  // Use buckets stats hook that handles cache + GraphQL automatically
+  const { data: buckets, isLoading: loading, error, refreshBucketsStats } = useBucketsStats();
+  
+  // Hook to manually initialize buckets from API (for initial load)
+  const { initializeBucketsStats } = useInitializeBucketsStats();
+  
+  // Initialize buckets on mount if not already loaded
   useEffect(() => {
-    loadBuckets();
-  }, []);
+    if ((!buckets || buckets.length === 0) && !loading) {
+      console.log("[ShareExtension] No buckets in cache, initializing...");
+      initializeBucketsStats().catch(console.error);
+    }
+  }, [buckets, loading, initializeBucketsStats]);
+  
+  // Set initial selected bucket when buckets are loaded
+  useEffect(() => {
+    if (buckets && buckets.length > 0 && !selectedBucket) {
+      setSelectedBucket(buckets[0]);
+    }
+  }, [buckets, selectedBucket]);
 
   const sendMessage = async () => {
     if (!title.trim()) {
@@ -176,10 +69,9 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
 
     try {
       setSending(true);
-      setError(null);
 
-      const token = await getAccessTokenFromKeychain();
-      const apiUrl = await settingsRepository.getSetting("auth_apiEndpoint");
+      const token = await settingsService.getAccessTokenFromStorage();
+      const apiUrl = settingsService.getApiUrl();
 
       if (!token || !apiUrl) {
         Alert.alert(
@@ -236,17 +128,22 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
     const initials = bucket.name.substring(0, 2).toUpperCase();
 
     // Priority: iconAttachmentUuid > icon URL > color + initials
-    if (bucket.iconAttachmentUuid && apiUrl) {
-      const iconUrl = `${apiUrl}/api/v1/attachments/${bucket.iconAttachmentUuid}/download/public`;
-      return (
-        <Image
-          source={{ uri: iconUrl }}
-          style={styles.bucketIcon}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-        />
-      );
-    } else if (bucket.icon && bucket.icon.startsWith("http")) {
+    if (bucket.iconAttachmentUuid) {
+      const apiUrl = settingsService.getApiUrl();
+      if (apiUrl) {
+        const iconUrl = `${apiUrl}/api/v1/attachments/${bucket.iconAttachmentUuid}/download/public`;
+        return (
+          <Image
+            source={{ uri: iconUrl }}
+            style={styles.bucketIcon}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
+        );
+      }
+    }
+    
+    if (bucket.icon && bucket.icon.startsWith("http")) {
       return (
         <Image
           source={{ uri: bucket.icon }}
@@ -255,14 +152,14 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
           cachePolicy="memory-disk"
         />
       );
-    } else {
-      // Fallback: colored circle with initials
-      return (
-        <View style={[styles.bucketIcon, { backgroundColor }]}>
-          <Text style={styles.bucketInitial}>{initials}</Text>
-        </View>
-      );
     }
+    
+    // Fallback: colored circle with initials
+    return (
+      <View style={[styles.bucketIcon, { backgroundColor }]}>
+        <Text style={styles.bucketInitial}>{initials}</Text>
+      </View>
+    );
   };
 
   const renderBucket = (bucket: Bucket, index: number) => {
@@ -282,8 +179,6 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
     );
   };
 
-  const [apiUrl, setApiUrl] = useState<string | null>(null);
-
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -296,8 +191,8 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
   if (error) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadBuckets}>
+        <Text style={styles.errorText}>{error.message || "Failed to load buckets"}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={refreshBucketsStats}>
           <Text style={styles.retryButtonText}>
             {t("shareExtension.retry")}
           </Text>
@@ -306,7 +201,7 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
     );
   }
 
-  if (buckets.length === 0) {
+  if (!buckets || buckets.length === 0) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>{t("shareExtension.noBuckets")}</Text>
@@ -325,14 +220,6 @@ export default function ShareExtension({ url }: ShareExtensionProps) {
       >
         <View style={styles.headerContainer}>
           <Text style={styles.header}>{t("shareExtension.header")}</Text>
-          {refreshing && (
-            <View style={styles.refreshIndicator}>
-              <ActivityIndicator size="small" color="#6200EE" />
-              <Text style={styles.refreshText}>
-                {t("shareExtension.updating")}
-              </Text>
-            </View>
-          )}
         </View>
 
         <Text style={styles.sectionLabel}>
@@ -567,3 +454,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+
+export default function ShareExtension({ url }: ShareExtensionProps) {
+  return (
+    <QueryProviders>
+      <ShareExtensionContent url={url} />
+    </QueryProviders>
+  );
+}

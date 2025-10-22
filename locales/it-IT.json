@@ -494,14 +494,14 @@
       "maxUses": "Utilizzi Massimi",
       "maxUsesPlaceholder": "Lascia vuoto per illimitati",
       "days": "giorni",
-      "redeemTitle": "Riscatta Codice Invito",
-      "redeemDescription": "Inserisci il codice invito che hai ricevuto per ottenere l'accesso",
+      "redeemTitle": "Invito a Unirsi al Bucket",
+      "redeemDescription": "Sei stato invitato a sottoscriverti a un bucket per ricevere i messaggi in arrivo. Inserisci il codice invito per partecipare.",
       "inviteCode": "Codice Invito",
       "enterCode": "Inserisci un codice invito",
-      "redeemSuccess": "Codice invito riscattato con successo! Ora hai accesso alla risorsa condivisa.",
+      "redeemSuccess": "Ti sei unito con successo al bucket! Ora riceverai i messaggi in arrivo da questo bucket.",
       "redeemError": "Impossibile riscattare il codice invito. Verifica il codice e riprova.",
       "redeem": "Riscatta",
-      "redeemInfo": "Una volta riscattato, otterrai i permessi associati a questo codice. Il codice potrebbe avere utilizzi limitati e una data di scadenza.",
+      "redeemInfo": "Unendoti a questo bucket, riceverai le notifiche e i messaggi inviati ad esso. Puoi gestire le tue sottoscrizioni nella sezione Buckets.",
       "openingApp": "Apertura dell'app Zentik",
       "appNotOpening": "L'app non si apre?",
       "manualInstructions": "Apri l'app Zentik manualmente e inserisci il codice invito nella sezione Buckets."
@@ -540,6 +540,31 @@
       "grantedByOwner": "Concesso dal proprietario",
       "grantedBy": "Concesso da {{user}}",
       "grantedByWithOwner": "Concesso da {{user}} (proprietario)"
+    },
+    "shareExtension": {
+      "notAuthenticated": "Non autenticato. Effettua prima l'accesso nell'app principale.",
+      "loading": "Caricamento bucket...",
+      "retry": "Riprova",
+      "noBuckets": "Nessun bucket disponibile",
+      "noBucketsHelper": "Crea prima un bucket nell'app principale.",
+      "header": "Condividi nel Bucket",
+      "updating": "Aggiornamento...",
+      "selectBucket": "Seleziona un bucket",
+      "titleRequired": "Titolo",
+      "titlePlaceholder": "Inserisci il titolo del messaggio",
+      "messageLabel": "Messaggio",
+      "messagePlaceholder": "Inserisci il tuo messaggio",
+      "sendButton": "Invia",
+      "errors": {
+        "titleRequired": "Il titolo è obbligatorio",
+        "bucketRequired": "Seleziona un bucket",
+        "notAuthenticated": "Non autenticato. Effettua prima l'accesso nell'app principale.",
+        "sendFailed": "Invio del messaggio fallito"
+      },
+      "success": {
+        "title": "Successo",
+        "message": "Messaggio inviato con successo!"
+      }
     },
     "delete": {
       "modalTitle": "Elimina Bucket",

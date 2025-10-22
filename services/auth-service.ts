@@ -39,13 +39,12 @@ class AuthService {
       if (!currentToken) return null;
       if (!this.isTokenExpired(currentToken)) return currentToken;
       const refreshed = await this.refreshAccessToken();
+      console.log('[authService] token expired and refreshed');
       if (!refreshed) {
-        // await settingsService.clearTokens();
         return null;
       }
       return refreshed;
     } catch (error) {
-      // await settingsService.clearTokens();
       return null;
     }
   }
