@@ -44,5 +44,5 @@ export const SmartTextRenderer: React.FC<SmartTextRendererProps> = ({
     );
   }
 
-  return <HtmlTextRenderer content={content} style={style} {...props} />;
+  return <HtmlTextRenderer content={content} style={style} maxLines={maxLines} {...props} />;
 };

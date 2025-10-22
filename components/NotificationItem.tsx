@@ -205,13 +205,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const hasAttachments = attachments.length > 0;
 
   // const itemHeight = getNotificationItemHeight(notification, isCompactMode);
-  const bodyMaxLines = isCompactMode
-    ? hasAttachments
-      ? 1
-      : 2
-    : hasAttachments
-    ? 2
-    : 5;
+  const bodyMaxLines = isCompactMode ? 2 : 5;
 
   // Swipe actions
   const handleMarkAsRead = async () => {

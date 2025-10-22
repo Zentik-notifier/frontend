@@ -4,8 +4,10 @@ import {
   Linking,
   StyleProp,
   StyleSheet,
+  Text,
   TextStyle,
   useWindowDimensions,
+  View,
   ViewStyle,
 } from "react-native";
 import { useTheme } from "react-native-paper";
@@ -64,6 +66,7 @@ export interface HtmlTextRendererProps {
   style?: StyleProp<TextStyle>;
   variant?: "body" | "title" | "subtitle" | "caption";
   color?: "primary" | "secondary" | "muted" | "error" | "success";
+  maxLines?: number;
 }
 
 const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
@@ -71,6 +74,7 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
   style,
   variant = "body",
   color = "primary",
+  maxLines,
 }) => {
   const theme = useTheme();
   const { width } = useWindowDimensions();
@@ -303,6 +307,7 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
   }), [textColor, linkColor, variantStyle, themeColors]);
 
   // Merge external styles with variant styles
+  // IMPORTANT: Parent styles have priority over variant styles
   // Use JSON.stringify for stable comparison of style object
   const styleKey = useMemo(() => 
     JSON.stringify(StyleSheet.flatten(style) || {})
@@ -311,6 +316,7 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
   const mergedBaseStyle = useMemo(() => {
     const flattenedExternalStyle = JSON.parse(styleKey);
     
+    // Parent styles override variant styles for proper inheritance
     return {
       ...variantStyle,
       ...flattenedExternalStyle,
@@ -329,7 +335,22 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
     return null;
   }
 
-  return (
+  // When maxLines is specified, wrap in a View to enable ellipsis
+  // Note: react-native-render-html doesn't support numberOfLines directly,
+  // but we can limit the container height as a workaround
+  const containerStyle = useMemo(() => {
+    if (!maxLines) return undefined;
+    
+    const lineHeight = mergedBaseStyle.lineHeight || 22;
+    const maxHeight = lineHeight * maxLines;
+    
+    return {
+      maxHeight,
+      overflow: 'hidden' as const,
+    };
+  }, [maxLines, mergedBaseStyle.lineHeight]);
+
+  const renderedHtml = (
     <RenderHTML
       contentWidth={width}
       source={{ html: processedContent }}
@@ -338,6 +359,13 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
       renderersProps={renderersProps as any}
     />
   );
+
+  // Wrap in View with maxHeight when maxLines is specified
+  if (maxLines && containerStyle) {
+    return <View style={containerStyle}>{renderedHtml}</View>;
+  }
+
+  return renderedHtml;
 };
 
 // Memoize the entire component to prevent unnecessary rerenders
@@ -347,6 +375,7 @@ export const HtmlTextRenderer = React.memo(HtmlTextRendererComponent, (prevProps
     prevProps.content === nextProps.content &&
     prevProps.variant === nextProps.variant &&
     prevProps.color === nextProps.color &&
+    prevProps.maxLines === nextProps.maxLines &&
     JSON.stringify(StyleSheet.flatten(prevProps.style)) === JSON.stringify(StyleSheet.flatten(nextProps.style))
   );
 });

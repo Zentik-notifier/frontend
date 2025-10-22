@@ -627,14 +627,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "700",
-    marginBottom: 8,
     lineHeight: 30,
   },
   subtitle: {
     fontSize: 16,
     opacity: 0.7,
     fontStyle: "italic",
-    marginBottom: 16,
     lineHeight: 22,
   },
   body: {
