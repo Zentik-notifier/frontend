@@ -26,7 +26,6 @@ export default function UserDropdown({
 }: UserDropdownProps) {
   const { logout, showOnboarding } = useAppContext();
   const [showInitials, setShowInitials] = useState(false);
-  const [showInitialsSmall, setShowInitialsSmall] = useState(false);
   const theme = useTheme();
   const { themeMode, setThemeMode } = useAppTheme();
   const { t } = useI18n();
@@ -37,7 +36,6 @@ export default function UserDropdown({
 
   useEffect(() => {
     setShowInitials(!user?.avatar);
-    setShowInitialsSmall(!user?.avatar);
   }, [user?.avatar]);
 
   function getInitials() {
@@ -105,7 +103,6 @@ export default function UserDropdown({
               <Image
                 source={{ uri: user.avatar }}
                 style={styles.avatarImage}
-                onError={() => setShowInitialsSmall(true)}
                 cachePolicy={"memory-disk"}
               />
             ) : (
