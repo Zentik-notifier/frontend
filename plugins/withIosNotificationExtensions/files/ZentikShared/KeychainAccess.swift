@@ -207,7 +207,8 @@ public class KeychainAccess {
             
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else {
-                print("🔑 [KeychainAccess] ❌ HTTP error: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+                print("🔑 [KeychainAccess] ❌ HTTP error: \(statusCode)")
                 
                 // Log refresh failure to database
                 LoggingSystem.shared.log(
@@ -219,7 +220,7 @@ public class KeychainAccess {
                         "action": "token_refresh",
                         "success": "false",
                         "error": "http_error",
-                        "status_code": String(httpResponse?.statusCode ?? -1)
+                        "status_code": String(statusCode)
                     ],
                     source: "KeychainAccess"
                 )
