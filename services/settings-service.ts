@@ -257,7 +257,7 @@ class SettingsService {
       // Migrate from legacy AsyncStorage if needed
       await this.migrateFromLegacyStorage();
 
-      console.log('[SettingsService] 📂 Loading settings and auth data...');
+      console.log('[SettingsService] Loading settings and auth data...');
       await Promise.all([
         this.loadUserSettings(),
         this.loadAuthData()
@@ -270,6 +270,7 @@ class SettingsService {
         await this.saveApiEndpoint(DEFAULT_API_URL);
       }
 
+      console.log('[SettingsService] Settings loaded successfully');
       this.initializedSubject.next(true);
     } catch (error) {
       console.error('Failed to initialize SettingsService:', error);

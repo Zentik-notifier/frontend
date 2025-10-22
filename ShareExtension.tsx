@@ -1,8 +1,14 @@
-import { useI18n } from "@/hooks/useI18n";
-import { useBucketsStats, useInitializeBucketsStats } from "@/hooks/notifications/useNotificationQueries";
-import { settingsService } from "@/services/settings-service";
 import { QueryProviders } from "@/components/QueryProviders";
+import { MediaType, MediaViewer } from "@/components/ui";
+import { useI18n } from "@/hooks/useI18n";
+import { authService } from "@/services/auth-service";
+import { settingsService } from "@/services/settings-service";
 import { Image } from "expo-image";
+import {
+  InitialProps,
+  clearAppGroupContainer,
+  close,
+} from "expo-share-extension";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -15,46 +21,109 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { NotificationDeliveryType } from "./generated/gql-operations-generated";
 
-// Use the bucket type from the hooks
-type Bucket = NonNullable<ReturnType<typeof useBucketsStats>['data']>[number];
+// Bucket type from REST
+type Bucket = {
+  id: string;
+  name: string;
+  color?: string;
+  icon?: string;
+  iconAttachmentUuid?: string;
+};
 
 const BUCKET_SIZE = 80;
 const BUCKETS_PER_ROW = 3;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-// Helper function to get access token from Keychain
-interface ShareExtensionProps {
-  url: string;
+interface MediaPreviewItemProps {
+  media: { url: string; mediaType: string };
+  index: number;
 }
 
-function ShareExtensionContent({ url }: ShareExtensionProps) {
+const MediaPreviewItem: React.FC<MediaPreviewItemProps> = ({
+  media,
+  index,
+}) => {
+  return (
+    <View style={styles.mediaPreviewItem}>
+      <MediaViewer
+        url={media.url}
+        mediaType={media.mediaType as MediaType}
+        style={styles.mediaPreview}
+        contentFit="cover"
+        showVideoControls={false}
+        isMuted
+        autoPlay
+        isLooping
+      />
+      <Text style={styles.mediaPreviewLabel} numberOfLines={1}>
+        {media.mediaType === "IMAGE"
+          ? `Image ${index + 1}`
+          : `Video ${index + 1}`}
+      </Text>
+    </View>
+  );
+};
+
+function ShareExtensionContent(props: InitialProps) {
+  const { url, images = [], videos = [] } = props;
   const { t } = useI18n();
   const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedBucket, setSelectedBucket] = useState<Bucket | null>(null);
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState("Upload from Zentik");
   const [message, setMessage] = useState(url || "");
-  
-  // Use buckets stats hook that handles cache + GraphQL automatically
-  const { data: buckets, isLoading: loading, error, refreshBucketsStats } = useBucketsStats();
-  
-  // Hook to manually initialize buckets from API (for initial load)
-  const { initializeBucketsStats } = useInitializeBucketsStats();
-  
-  // Initialize buckets on mount if not already loaded
-  useEffect(() => {
-    if ((!buckets || buckets.length === 0) && !loading) {
-      console.log("[ShareExtension] No buckets in cache, initializing...");
-      initializeBucketsStats().catch(console.error);
+
+  // Combine images and videos for preview
+  const allMedia = [
+    ...images.map((url) => ({ url, mediaType: "IMAGE" })),
+    ...videos.map((url) => ({ url, mediaType: "VIDEO" })),
+  ];
+
+  const [token, setToken] = useState<string | null>(null);
+  const [apiUrl, setApiUrl] = useState<string | null>(null);
+  const [buckets, setBuckets] = useState<Bucket[] | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  const loadBuckets = async () => {
+    try {
+      setError(null);
+      const resp = await fetch(`${apiUrl}/api/v1/buckets`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) throw new Error(`Failed to load buckets (${resp.status})`);
+      const data = await resp.json();
+      setBuckets(data);
+
+      setSelectedBucket(data[0]);
+    } catch (e: any) {
+      console.log(e);
+      setError(e);
+      setBuckets([]);
+    } finally {
+      setLoading(false);
     }
-  }, [buckets, loading, initializeBucketsStats]);
-  
-  // Set initial selected bucket when buckets are loaded
+  };
+
   useEffect(() => {
-    if (buckets && buckets.length > 0 && !selectedBucket) {
-      setSelectedBucket(buckets[0]);
+    settingsService.isInitialized$.subscribe(async (initialized) => {
+      if (initialized) {
+        const apiUrl = settingsService.getApiUrl();
+        if (!apiUrl) throw new Error("API URL not configured");
+        const token = await authService.ensureValidToken(true);
+        if (!token) throw new Error("Not authenticated");
+        setToken(token);
+        setApiUrl(apiUrl);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (apiUrl && token) {
+      loadBuckets();
     }
-  }, [buckets, selectedBucket]);
+  }, [apiUrl, token]);
 
   const sendMessage = async () => {
     if (!title.trim()) {
@@ -70,9 +139,6 @@ function ShareExtensionContent({ url }: ShareExtensionProps) {
     try {
       setSending(true);
 
-      const token = await settingsService.getAccessTokenFromStorage();
-      const apiUrl = settingsService.getApiUrl();
-
       if (!token || !apiUrl) {
         Alert.alert(
           t("common.error"),
@@ -81,11 +147,115 @@ function ShareExtensionContent({ url }: ShareExtensionProps) {
         return;
       }
 
+      // First, upload all attachments in parallel and get their UUIDs
+      const uploadPromises = allMedia.map(async (media) => {
+        try {
+          // Use FormData with native file uri without reading file contents
+          const formData = new FormData();
+          const isImage = media.mediaType === "IMAGE";
+
+          // Extract filename from the local path
+          const pathParts = media.url.split("/");
+          const originalFilename = pathParts[pathParts.length - 1];
+
+          // Determine mime type based on file extension
+          const fileExtension = originalFilename
+            .split(".")
+            .pop()
+            ?.toLowerCase();
+          let mimeType = isImage ? "image/jpeg" : "video/mp4";
+
+          if (fileExtension) {
+            if (isImage) {
+              switch (fileExtension) {
+                case "png":
+                  mimeType = "image/png";
+                  break;
+                case "gif":
+                  mimeType = "image/gif";
+                  break;
+                case "webp":
+                  mimeType = "image/webp";
+                  break;
+                case "heic":
+                  mimeType = "image/heic";
+                  break;
+                default:
+                  mimeType = "image/jpeg";
+                  break;
+              }
+            } else {
+              switch (fileExtension) {
+                case "mov":
+                  mimeType = "video/quicktime";
+                  break;
+                case "avi":
+                  mimeType = "video/x-msvideo";
+                  break;
+                case "webm":
+                  mimeType = "video/webm";
+                  break;
+                default:
+                  mimeType = "video/mp4";
+                  break;
+              }
+            }
+          }
+
+          const filePart: any = {
+            uri: media.url,
+            name: originalFilename,
+            type: mimeType,
+          };
+          (formData as any).append("file", filePart);
+          formData.append("filename", originalFilename as any);
+          formData.append("mediaType", media.mediaType as any);
+
+          // Upload attachment
+          const uploadResponse = await fetch(
+            `${apiUrl}/api/v1/attachments/upload`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              body: formData,
+            }
+          );
+
+          if (uploadResponse.ok) {
+            const attachment = await uploadResponse.json();
+            return {
+              success: true,
+              uuid: attachment.id,
+              mediaType: media.mediaType,
+            };
+          } else {
+            console.error(
+              `Failed to upload ${media.url}:`,
+              uploadResponse.status
+            );
+            return { success: false, error: `HTTP ${uploadResponse.status}` };
+          }
+        } catch (error) {
+          console.error(`Error uploading ${media.url}:`, error);
+          return { success: false, error: (error as Error).message };
+        }
+      });
+
+      // Wait for all uploads to complete
+      const uploadResults = await Promise.all(uploadPromises);
+
+      // Filter successful uploads for payload
+      const successfulUploads = uploadResults.filter(
+        (result) => result.success
+      );
       const payload = {
         title: title.trim(),
         body: message.trim() || undefined,
         bucketId: selectedBucket.id,
-        deliveryType: "normal",
+        deliveryType: NotificationDeliveryType.Normal,
+        attachmentUuids: successfulUploads.map((result) => result.uuid),
       };
 
       const response = await fetch(`${apiUrl}/api/v1/messages`, {
@@ -120,6 +290,8 @@ function ShareExtensionContent({ url }: ShareExtensionProps) {
       );
     } finally {
       setSending(false);
+      await clearAppGroupContainer();
+      close();
     }
   };
 
@@ -142,7 +314,7 @@ function ShareExtensionContent({ url }: ShareExtensionProps) {
         );
       }
     }
-    
+
     if (bucket.icon && bucket.icon.startsWith("http")) {
       return (
         <Image
@@ -153,7 +325,7 @@ function ShareExtensionContent({ url }: ShareExtensionProps) {
         />
       );
     }
-    
+
     // Fallback: colored circle with initials
     return (
       <View style={[styles.bucketIcon, { backgroundColor }]}>
@@ -179,24 +351,26 @@ function ShareExtensionContent({ url }: ShareExtensionProps) {
     );
   };
 
+  if (error) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorText}>
+          {error.message || "Failed to load buckets"}
+        </Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadBuckets}>
+          <Text style={styles.retryButtonText}>
+            {t("shareExtension.retry")}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#6200EE" />
         <Text style={styles.loadingText}>{t("shareExtension.loading")}</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error.message || "Failed to load buckets"}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={refreshBucketsStats}>
-          <Text style={styles.retryButtonText}>
-            {t("shareExtension.retry")}
-          </Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -214,24 +388,8 @@ function ShareExtensionContent({ url }: ShareExtensionProps) {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollContent}
-        contentContainerStyle={styles.scrollContentContainer}
-      >
-        <View style={styles.headerContainer}>
-          <Text style={styles.header}>{t("shareExtension.header")}</Text>
-        </View>
-
-        <Text style={styles.sectionLabel}>
-          {t("shareExtension.selectBucket")}
-        </Text>
-
-        <View style={styles.bucketsGrid}>
-          {buckets.map((bucket, index) => renderBucket(bucket, index))}
-        </View>
-      </ScrollView>
-
-      <View style={styles.stickyForm}>
+      {/* Form inputs at the top */}
+      <View style={styles.topForm}>
         <View style={styles.formSection}>
           <Text style={styles.formLabel}>
             {t("shareExtension.titleRequired")}
@@ -259,7 +417,35 @@ function ShareExtensionContent({ url }: ShareExtensionProps) {
             numberOfLines={3}
           />
         </View>
+      </View>
 
+      {/* Media preview section */}
+      {allMedia.length > 0 && (
+        <View style={styles.mediaPreviewSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {allMedia.map((media, index: number) => (
+              <MediaPreviewItem key={index} media={media} index={index} />
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Buckets selection */}
+      <ScrollView
+        style={styles.scrollContent}
+        contentContainerStyle={styles.scrollContentContainer}
+      >
+        <Text style={styles.sectionLabel}>
+          {t("shareExtension.selectBucket")}
+        </Text>
+
+        <View style={styles.bucketsGrid}>
+          {buckets.map((bucket, index) => renderBucket(bucket, index))}
+        </View>
+      </ScrollView>
+
+      {/* Send button at bottom */}
+      <View style={styles.bottomButton}>
         <TouchableOpacity
           style={[styles.sendButton, sending && styles.sendButtonDisabled]}
           onPress={sendMessage}
@@ -283,12 +469,45 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
+  topForm: {
+    backgroundColor: "#fff",
+    padding: 16,
+  },
   scrollContent: {
     flex: 1,
   },
   scrollContentContainer: {
     padding: 16,
-    paddingBottom: 320,
+    paddingBottom: 80, // Space for bottom button
+  },
+  bottomButton: {
+    backgroundColor: "#fff",
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#e0e0e0",
+  },
+  mediaPreviewSection: {
+    backgroundColor: "#fff",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  mediaPreviewItem: {
+    marginRight: 12,
+    alignItems: "center",
+  },
+  mediaPreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: "#f5f5f5",
+  },
+  mediaPreviewLabel: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
+    textAlign: "center",
+    maxWidth: 80,
   },
   centerContainer: {
     flex: 1,
@@ -296,32 +515,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     backgroundColor: "#fff",
-  },
-  headerContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  header: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#000",
-    flex: 1,
-  },
-  refreshIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F3E5F5",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  refreshText: {
-    marginLeft: 6,
-    fontSize: 12,
-    color: "#6200EE",
-    fontWeight: "500",
   },
   sectionLabel: {
     fontSize: 18,
@@ -373,21 +566,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#000",
     textAlign: "center",
-  },
-  stickyForm: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#fff",
-    padding: 16,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 10,
   },
   formSection: {
     marginBottom: 12,
@@ -455,10 +633,10 @@ const styles = StyleSheet.create({
   },
 });
 
-export default function ShareExtension({ url }: ShareExtensionProps) {
+export default function ShareExtension(props: InitialProps) {
   return (
     <QueryProviders>
-      <ShareExtensionContent url={url} />
+      <ShareExtensionContent {...props} />
     </QueryProviders>
   );
 }

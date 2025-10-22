@@ -102,7 +102,6 @@ export default function RootLayout() {
     const subscription = settingsService.isInitialized$.subscribe(
       (initialized) => {
         if (initialized) {
-          console.log("[LayoutInit] ✅ Settings service ready!");
           setSettingsReady(true);
         }
       }

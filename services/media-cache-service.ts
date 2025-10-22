@@ -457,7 +457,7 @@ class MediaCacheService {
             }
 
             await this.loadMetadata();
-            console.log('[MediaCache] ✅ DB initialized successfully');
+            console.log('[MediaCache] DB initialized successfully');
 
             // Queue thumbnail generation for all media that are downloaded but missing thumbnails
             if (!isWeb) {

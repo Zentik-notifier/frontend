@@ -8,4 +8,6 @@ export { default as ThemedBottomSheet } from './ThemedBottomSheet';
 export type { ThemedBottomSheetProps, ThemedBottomSheetRef } from './ThemedBottomSheet';
 export { default as Multiselect } from './Multiselect';
 export type { MultiselectOption } from './Multiselect';
+export { MediaViewer } from './MediaViewer';
+export type { MediaType } from '@/generated/gql-operations-generated';
 

@@ -33,20 +33,59 @@ class AuthService {
     return now >= (decoded.exp - bufferSeconds);
   }
 
-  public async ensureValidToken(): Promise<string | null> {
+  public async ensureValidToken(rest?: boolean): Promise<string | null> {
     try {
       const currentToken = settingsService.getAuthData().accessToken;
       if (!currentToken) return null;
       if (!this.isTokenExpired(currentToken)) return currentToken;
-      const refreshed = await this.refreshAccessToken();
-      console.log('[authService] token expired and refreshed');
-      if (!refreshed) {
-        return null;
+      if (rest) {
+        const refreshed = await this.refreshAccessTokenRest();
+        console.log('[authService] token expired and refreshed via REST');
+        if (!refreshed) {
+          return null;
+        }
+        return refreshed;
+      } else {
+        const refreshed = await this.refreshAccessToken();
+        console.log('[authService] token expired and refreshed via GraphQL');
+        if (!refreshed) {
+          return null;
+        }
+        return refreshed;
       }
-      return refreshed;
     } catch (error) {
       return null;
     }
+  }
+
+  public async refreshAccessTokenRest(): Promise<string | null> {
+    if (this.isRefreshing && this.refreshPromise) return this.refreshPromise;
+    this.isRefreshing = true;
+    this.refreshPromise = (async () => {
+      try {
+        const refreshToken = settingsService.getAuthData().refreshToken;
+        if (!refreshToken) return null;
+        const url = `${settingsService.getApiUrl()}/api/v1/auth/refresh`;
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        const accessToken = data?.accessToken;
+        const newRefreshToken = data?.refreshToken;
+        if (!accessToken || !newRefreshToken) return null;
+        await settingsService.saveTokens(accessToken, newRefreshToken);
+        return accessToken as string;
+      } catch (e) {
+        return null;
+      } finally {
+        this.isRefreshing = false;
+        this.refreshPromise = null;
+      }
+    })();
+    return this.refreshPromise;
   }
 
   public async refreshAccessToken(): Promise<string | null> {

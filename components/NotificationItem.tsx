@@ -284,6 +284,12 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
     return items;
   }, [filteredActions, getActionTypeIcon, executeAction, notification.id]);
+
+  // Memoize style props for SmartTextRenderer to prevent unnecessary re-renders
+  const titleStyle = useMemo(() => [styles.title, !isRead && styles.titleUnread], [isRead]);
+  const subtitleStyle = useMemo(() => styles.subtitle, []);
+  const bodyStyle = useMemo(() => styles.body, []);
+
   const deliveryType = notification.message?.deliveryType;
   const borderColor =
     deliveryType === NotificationDeliveryType.Critical
@@ -361,7 +367,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               <SmartTextRenderer
                 content={notification.message?.title}
                 maxLines={1}
-                style={[styles.title, !isRead && styles.titleUnread]}
+                style={titleStyle}
                 enableHtml={enableHtmlRendering}
               />
             </View>
@@ -381,7 +387,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             <SmartTextRenderer
               content={notification.message.subtitle}
               maxLines={1}
-              style={styles.subtitle}
+              style={subtitleStyle}
               enableHtml={enableHtmlRendering}
             />
           )}
@@ -390,7 +396,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             <SmartTextRenderer
               content={notification.message.body}
               maxLines={bodyMaxLines}
-              style={styles.body}
+              style={bodyStyle}
               enableHtml={enableHtmlRendering}
             />
           )}
