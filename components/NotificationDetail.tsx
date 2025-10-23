@@ -6,7 +6,7 @@ import NotificationSnoozeButton from "@/components/NotificationSnoozeButton";
 import {
   MediaType,
   NotificationActionType,
-  useGetEntityExecutionQuery
+  useGetEntityExecutionQuery,
 } from "@/generated/gql-operations-generated";
 import {
   useDeleteNotification,
@@ -26,7 +26,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import {
   Icon,
@@ -35,13 +35,13 @@ import {
   Surface,
   Text,
   TouchableRipple,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import { ExecutionExpandedContent } from "./EntityExecutionsSection";
 import { NotificationActionsMenu } from "./NotificationActionsMenu";
 import ButtonGroup from "./ui/ButtonGroup";
 import DetailModal from "./ui/DetailModal";
-import PaperMenu, { PaperMenuItem } from "./ui/PaperMenu";
+import PaperScrollView from "./ui/PaperScrollView";
 
 interface NotificationDetailProps {
   notificationId: string;
@@ -69,10 +69,11 @@ export default function NotificationDetail({
   const message = notification?.message;
 
   // Hook per ottenere i dettagli dell'esecuzione se executionId è presente
-  const { data: executionData, loading: executionLoading } = useGetEntityExecutionQuery({
-    variables: { id: message?.executionId || "" },
-    skip: !message?.executionId,
-  });
+  const { data: executionData, loading: executionLoading } =
+    useGetEntityExecutionQuery({
+      variables: { id: message?.executionId || "" },
+      skip: !message?.executionId,
+    });
   const [isCopying, setIsCopying] = useState(false);
   const [enableHtmlRendering, setEnableHtmlRendering] = useState(true);
   const [payloadModalVisible, setPayloadModalVisible] = useState(false);
@@ -251,46 +252,12 @@ export default function NotificationDetail({
       console.error("Error sharing notification source:", error);
       try {
         await Clipboard.setStringAsync(sourceData);
-        Alert.alert(
-          t("common.copied"),
-          t("notificationDetail.shareSource")
-        );
+        Alert.alert(t("common.copied"), t("notificationDetail.shareSource"));
       } catch (clipboardError) {
         console.error("Clipboard fallback failed:", clipboardError);
       }
     }
   };
-
-  // ✅ Menu items per PaperMenu
-  const copyMenuItems: PaperMenuItem[] = [
-    {
-      id: "copy-text",
-      label: t("notificationDetail.copyText"),
-      icon: "text",
-      onPress: copyNotificationToClipboard,
-    },
-    {
-      id: "copy-source",
-      label: t("notificationDetail.copySource"),
-      icon: "code-json",
-      onPress: copyNotificationSource,
-    },
-  ];
-
-  const shareMenuItems: PaperMenuItem[] = [
-    {
-      id: "share-text",
-      label: t("notificationDetail.shareText"),
-      icon: "text",
-      onPress: shareNotification,
-    },
-    {
-      id: "share-source",
-      label: t("notificationDetail.shareSource"),
-      icon: "code-json",
-      onPress: shareNotificationSource,
-    },
-  ];
 
   const handleDeleteNotification = () => {
     Alert.alert(
@@ -357,265 +324,235 @@ export default function NotificationDetail({
   };
 
   return (
-    <Surface
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    <PaperScrollView
+      style={StyleSheet.flatten([
+        styles.container,
+        { backgroundColor: theme.colors.background },
+      ])}
+      customActions={[
+        {
+          icon: "content-copy",
+          label: t("notificationDetail.copySource"),
+          onPress: copyNotificationSource,
+        },
+        {
+          icon: "share",
+          label: t("notificationDetail.shareSource"),
+          onPress: shareNotificationSource,
+        },
+        {
+          icon: "code-tags",
+          label: enableHtmlRendering 
+            ? t("notificationDetail.htmlEnabled")
+            : t("notificationDetail.htmlDisabled"),
+          onPress: () => setEnableHtmlRendering(!enableHtmlRendering),
+          style: {
+            backgroundColor: enableHtmlRendering 
+              ? theme.colors.primaryContainer 
+              : theme.colors.surfaceVariant,
+          },
+        },
+      ]}
     >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.notificationContainer}>
-          {/* Header with two columns: left (bucket info) and right (actions + timestamps) */}
-          <View style={styles.headerRow}>
-            {/* Left side: Bucket info */}
-            <View style={styles.headerLeft}>
-              <View style={styles.bucketContainer}>
-                <BucketIcon bucketId={message?.bucket?.id || ""} size="xxl" />
-                <View style={styles.bucketInfo}>
-                  <Text
-                    style={[
-                      styles.bucketName,
-                      { color: theme.colors.onBackground },
-                    ]}
-                  >
-                    {bucketName}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Right side: Actions and timestamps */}
-            <View style={styles.headerRight}>
-              {/* Actions */}
-              <View style={styles.actionsContainer}>
-                <ButtonGroup>
-                  {/* Copy Menu */}
-                  <PaperMenu
-                    items={copyMenuItems}
-                    size="small"
-                    width={180}
-                    menuOffset={40}
-                    customTrigger={
-                      <IconButton
-                        icon={isCopying ? "check" : "content-copy"}
-                        size={15}
-                        iconColor={
-                          isCopying
-                            ? theme.colors.primary
-                            : theme.colors.onSurfaceVariant
-                        }
-                        style={[styles.actionButton, { width: 26, height: 26 }]}
-                        accessibilityLabel="copy-menu"
-                      />
-                    }
-                  />
-
-                  {/* Share Menu */}
-                  <PaperMenu
-                    items={shareMenuItems}
-                    size="small"
-                    width={180}
-                    menuOffset={40}
-                    customTrigger={
-                      <IconButton
-                        icon="share"
-                        size={15}
-                        iconColor={theme.colors.onSurfaceVariant}
-                        style={[styles.actionButton, { width: 26, height: 26 }]}
-                        accessibilityLabel="share-menu"
-                      />
-                    }
-                  />
-
-                  <IconButton
-                    icon="delete"
-                    size={15}
-                    iconColor={theme.colors.error}
-                    style={[styles.actionButton, { width: 26, height: 26 }]}
-                    onPress={handleDeleteNotification}
-                    accessibilityLabel="delete-notification"
-                  />
-                  <NotificationSnoozeButton
-                    bucketId={message?.bucket?.id!}
-                    variant="detail"
-                    showText={false}
-                    style={{ width: 26, height: 26 }}
-                  />
-                </ButtonGroup>
-              </View>
-
-              {/* Timestamps */}
-              <View style={styles.timestampsContainer}>
-                {notification.sentAt && (
-                  <Text
-                    style={[
-                      styles.timestampText,
-                      { color: theme.colors.onBackground },
-                    ]}
-                  >
-                    {t("notificationDetail.sent")}{" "}
-                    {formatDate(notification.sentAt, true)}
-                  </Text>
-                )}
-                {notification.readAt && (
-                  <Text
-                    style={[
-                      styles.timestampText,
-                      { color: theme.colors.onBackground },
-                    ]}
-                  >
-                    {t("notificationDetail.read")}{" "}
-                    {formatDate(notification.readAt, true)}
-                  </Text>
-                )}
-              </View>
-
-              {/* HTML Rendering Toggle and Payload Button */}
-              <ButtonGroup variant="compact">
-                <TouchableOpacity
+      <View style={styles.notificationContainer}>
+        {/* Header with two columns: left (bucket info) and right (actions + timestamps) */}
+        <View style={styles.headerRow}>
+          {/* Left side: Bucket info */}
+          <View style={styles.headerLeft}>
+            <View style={styles.bucketContainer}>
+              <BucketIcon bucketId={message?.bucket?.id || ""} size="xxl" />
+              <View style={styles.bucketInfo}>
+                <Text
                   style={[
-                    styles.htmlToggleButtonSmall,
-                    {
-                      backgroundColor: enableHtmlRendering
-                        ? theme.colors.primaryContainer
-                        : theme.colors.surfaceVariant,
-                    },
+                    styles.bucketName,
+                    { color: theme.colors.onBackground },
                   ]}
-                  onPress={() => setEnableHtmlRendering(!enableHtmlRendering)}
                 >
-                  <Icon
-                    source={"code-tags"}
-                    size={12}
-                    color={
-                      enableHtmlRendering
-                        ? theme.colors.onPrimaryContainer
-                        : theme.colors.onSurfaceVariant
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.htmlToggleTextSmall,
-                      {
-                        color: enableHtmlRendering
-                          ? theme.colors.onPrimaryContainer
-                          : theme.colors.onSurfaceVariant,
-                      },
-                    ]}
-                  >
-                    {enableHtmlRendering
-                      ? t("notificationDetail.htmlEnabled")
-                      : t("notificationDetail.htmlDisabled")}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Execution Payload Button */}
-                {message?.executionId && (
-                  <TouchableOpacity
-                    style={[
-                      styles.payloadButtonContainer,
-                      {
-                        backgroundColor: theme.colors.surfaceVariant,
-                      },
-                    ]}
-                    onPress={() => setPayloadModalVisible(true)}
-                    accessibilityLabel="view-payload"
-                  >
-                    <Icon
-                      source="code-braces"
-                      size={12}
-                      color={theme.colors.onSurfaceVariant}
-                    />
-                    <Text
-                      style={[
-                        styles.payloadButtonText,
-                        { color: theme.colors.onSurfaceVariant },
-                      ]}
-                    >
-                      {t("notificationDetail.showPayload")}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </ButtonGroup>
+                  {bucketName}
+                </Text>
+              </View>
             </View>
           </View>
 
-          {/* Title */}
+          {/* Right side: Actions and timestamps */}
+          <View style={styles.headerRight}>
+            {/* Actions */}
+            <View style={styles.actionsContainer}>
+              <ButtonGroup>
+                {/* Copy Text Button */}
+                <IconButton
+                  icon={isCopying ? "check" : "content-copy"}
+                  size={15}
+                  iconColor={
+                    isCopying
+                      ? theme.colors.primary
+                      : theme.colors.onSurfaceVariant
+                  }
+                  style={[styles.actionButton, { width: 26, height: 26 }]}
+                  onPress={copyNotificationToClipboard}
+                  accessibilityLabel="copy-text"
+                />
+
+                {/* Share Text Button */}
+                <IconButton
+                  icon="share"
+                  size={15}
+                  iconColor={theme.colors.onSurfaceVariant}
+                  style={[styles.actionButton, { width: 26, height: 26 }]}
+                  onPress={shareNotification}
+                  accessibilityLabel="share-text"
+                />
+
+                <IconButton
+                  icon="delete"
+                  size={15}
+                  iconColor={theme.colors.error}
+                  style={[styles.actionButton, { width: 26, height: 26 }]}
+                  onPress={handleDeleteNotification}
+                  accessibilityLabel="delete-notification"
+                />
+                <NotificationSnoozeButton
+                  bucketId={message?.bucket?.id!}
+                  variant="detail"
+                  showText={false}
+                  style={{ width: 26, height: 26 }}
+                />
+              </ButtonGroup>
+            </View>
+
+            {/* Timestamps */}
+            <View style={styles.timestampsContainer}>
+              {notification.sentAt && (
+                <Text
+                  style={[
+                    styles.timestampText,
+                    { color: theme.colors.onBackground },
+                  ]}
+                >
+                  {t("notificationDetail.sent")}{" "}
+                  {formatDate(notification.sentAt, true)}
+                </Text>
+              )}
+              {notification.readAt && (
+                <Text
+                  style={[
+                    styles.timestampText,
+                    { color: theme.colors.onBackground },
+                  ]}
+                >
+                  {t("notificationDetail.read")}{" "}
+                  {formatDate(notification.readAt, true)}
+                </Text>
+              )}
+            </View>
+
+             {/* Execution Payload Button */}
+             {message?.executionId && (
+               <ButtonGroup variant="compact">
+                 <TouchableOpacity
+                   style={[
+                     styles.payloadButtonContainer,
+                     {
+                       backgroundColor: theme.colors.surfaceVariant,
+                     },
+                   ]}
+                   onPress={() => setPayloadModalVisible(true)}
+                   accessibilityLabel="view-payload"
+                 >
+                   <Icon
+                     source="code-braces"
+                     size={12}
+                     color={theme.colors.onSurfaceVariant}
+                   />
+                   <Text
+                     style={[
+                       styles.payloadButtonText,
+                       { color: theme.colors.onSurfaceVariant },
+                     ]}
+                   >
+                     {t("notificationDetail.showPayload")}
+                   </Text>
+                 </TouchableOpacity>
+               </ButtonGroup>
+             )}
+          </View>
+        </View>
+
+        {/* Title */}
+        <SmartTextRenderer
+          content={message?.title!}
+          style={styles.title}
+          enableHtml={enableHtmlRendering}
+        />
+
+        {/* Subtitle */}
+        {message?.subtitle && (
           <SmartTextRenderer
-            content={message?.title!}
-            style={styles.title}
+            content={message.subtitle}
+            style={styles.subtitle}
             enableHtml={enableHtmlRendering}
           />
+        )}
 
-          {/* Subtitle */}
-          {message?.subtitle && (
-            <SmartTextRenderer
-              content={message.subtitle}
-              style={styles.subtitle}
-              enableHtml={enableHtmlRendering}
-            />
-          )}
+        {/* Body */}
+        {message?.body && (
+          <SmartTextRenderer
+            content={message.body}
+            style={styles.body}
+            enableHtml={enableHtmlRendering}
+          />
+        )}
 
-          {/* Body */}
-          {message?.body && (
-            <SmartTextRenderer
-              content={message.body}
-              style={styles.body}
-              enableHtml={enableHtmlRendering}
-            />
-          )}
-
-          {/* Links */}
-          {navigationLinks.length > 0 && (
-            <View style={styles.linksContainer}>
-              <Text
-                style={[
-                  styles.linksTitle,
-                  { color: theme.colors.onSurfaceVariant },
-                ]}
-              >
-                Links
-              </Text>
-              <View style={styles.linksGrid}>
-                {navigationLinks.slice(0, 3).map((link, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.linkItem,
-                      { backgroundColor: theme.colors.surfaceVariant },
-                    ]}
-                    onPress={() => handleLinkPress(link.url)}
-                    activeOpacity={0.7}
+        {/* Links */}
+        {navigationLinks.length > 0 && (
+          <View style={styles.linksContainer}>
+            <Text
+              style={[
+                styles.linksTitle,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              Links
+            </Text>
+            <View style={styles.linksGrid}>
+              {navigationLinks.slice(0, 3).map((link, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.linkItem,
+                    { backgroundColor: theme.colors.surfaceVariant },
+                  ]}
+                  onPress={() => handleLinkPress(link.url)}
+                  activeOpacity={0.7}
+                >
+                  <Icon
+                    source="open-in-new"
+                    size={18}
+                    color={theme.colors.primary}
+                  />
+                  <Text
+                    style={[styles.linkText, { color: theme.colors.primary }]}
+                    numberOfLines={1}
                   >
-                    <Icon
-                      source="open-in-new"
-                      size={18}
-                      color={theme.colors.primary}
-                    />
-                    <Text
-                      style={[styles.linkText, { color: theme.colors.primary }]}
-                      numberOfLines={1}
-                    >
-                      {link.title}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                    {link.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          )}
+          </View>
+        )}
 
-          {/* Attachments */}
-          {attachments.length > 0 && (
-            <View style={styles.attachmentsContainer}>
-              <AttachmentGallery
-                attachments={attachments}
-                onMediaPress={handleMediaPress}
-                notificationDate={new Date(notification.createdAt).getTime()}
-              />
-            </View>
-          )}
-        </View>
-      </ScrollView>
+        {/* Attachments */}
+        {attachments.length > 0 && (
+          <View style={styles.attachmentsContainer}>
+            <AttachmentGallery
+              attachments={attachments}
+              onMediaPress={handleMediaPress}
+              notificationDate={new Date(notification.createdAt).getTime()}
+            />
+          </View>
+        )}
+      </View>
 
       {/* Actions Menu FAB */}
       <NotificationActionsMenu
@@ -682,7 +619,7 @@ export default function NotificationDetail({
           </View>
         )}
       </DetailModal>
-    </Surface>
+    </PaperScrollView>
   );
 }
 
