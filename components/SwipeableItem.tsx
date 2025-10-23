@@ -273,18 +273,18 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
         >
           <View style={styles.contentWrapper}>
             {children}
-            {hasMenu && (
-              <View style={styles.menuButton}>
-                <PaperMenu
-                  items={allMenuItems}
-                  size={menuSize}
-                  width={200}
-                  menuOffset={50}
-                  onMenuItemPress={handleMenuItemPress}
-                />
-              </View>
-            )}
           </View>
+          {hasMenu && (
+            <View style={styles.menuButton}>
+              <PaperMenu
+                items={allMenuItems}
+                size={menuSize}
+                width={200}
+                menuOffset={50}
+                onMenuItemPress={handleMenuItemPress}
+              />
+            </View>
+          )}
         </Surface>
       </ReanimatedSwipeable>
     </>

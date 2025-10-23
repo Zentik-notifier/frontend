@@ -375,11 +375,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 enableHtml={enableHtmlRendering}
               />
             </View>
-            <View style={styles.rightMeta}>
-              <Text style={styles.date}>
-                {formatRelativeTime(notification.createdAt)}
-              </Text>
-            </View>
           </View>
 
           {!!notification.message?.subtitle && (
@@ -400,6 +395,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             />
           )}
         </Surface>
+
+        {/* Date positioned absolutely in top right */}
+        <View style={styles.absoluteDate}>
+          <Text style={styles.date}>
+            {formatRelativeTime(notification.createdAt)}
+          </Text>
+        </View>
 
         {!isMultiSelectionMode && !isRead && (
           <View
@@ -568,11 +570,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 4,
   },
-  rightMeta: {
-    marginLeft: 8,
-    alignItems: "flex-end",
-    gap: 4,
-  },
   titleSection: {
     flex: 1,
     marginRight: 8,
@@ -719,6 +716,12 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
+  },
+  absoluteDate: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    zIndex: 5,
   },
 });
 
