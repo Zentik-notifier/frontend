@@ -87,6 +87,10 @@ export default function DanglingBucketResolver({
     (bucket) => bucket.id === id
   );
 
+  if (!currentDanglingBucket && !loading) {
+    navigateToHome();
+  }
+
   if (!currentDanglingBucket) {
     return (
       <View style={styles.container}>
