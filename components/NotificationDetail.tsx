@@ -37,16 +37,11 @@ import {
   TouchableRipple,
   useTheme
 } from "react-native-paper";
-import {
-  Menu,
-  MenuOption,
-  MenuOptions,
-  MenuTrigger,
-} from "react-native-popup-menu";
 import { ExecutionExpandedContent } from "./EntityExecutionsSection";
 import { NotificationActionsMenu } from "./NotificationActionsMenu";
 import ButtonGroup from "./ui/ButtonGroup";
 import DetailModal from "./ui/DetailModal";
+import PaperMenu, { PaperMenuItem } from "./ui/PaperMenu";
 
 interface NotificationDetailProps {
   notificationId: string;
@@ -80,8 +75,6 @@ export default function NotificationDetail({
   });
   const [isCopying, setIsCopying] = useState(false);
   const [enableHtmlRendering, setEnableHtmlRendering] = useState(true);
-  const [copyMenuOpen, setCopyMenuOpen] = useState(false);
-  const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [payloadModalVisible, setPayloadModalVisible] = useState(false);
 
   const handleMediaPress = (imageUri: string) => {
@@ -268,6 +261,37 @@ export default function NotificationDetail({
     }
   };
 
+  // ✅ Menu items per PaperMenu
+  const copyMenuItems: PaperMenuItem[] = [
+    {
+      id: "copy-text",
+      label: t("notificationDetail.copyText"),
+      icon: "text",
+      onPress: copyNotificationToClipboard,
+    },
+    {
+      id: "copy-source",
+      label: t("notificationDetail.copySource"),
+      icon: "code-json",
+      onPress: copyNotificationSource,
+    },
+  ];
+
+  const shareMenuItems: PaperMenuItem[] = [
+    {
+      id: "share-text",
+      label: t("notificationDetail.shareText"),
+      icon: "text",
+      onPress: shareNotification,
+    },
+    {
+      id: "share-source",
+      label: t("notificationDetail.shareSource"),
+      icon: "code-json",
+      onPress: shareNotificationSource,
+    },
+  ];
+
   const handleDeleteNotification = () => {
     Alert.alert(
       t("notificationDetail.deleteConfirmTitle"),
@@ -367,16 +391,12 @@ export default function NotificationDetail({
               <View style={styles.actionsContainer}>
                 <ButtonGroup>
                   {/* Copy Menu */}
-                  <Menu opened={copyMenuOpen} onBackdropPress={() => setCopyMenuOpen(false)}>
-                    <MenuTrigger
-                      customStyles={{
-                        TriggerTouchableComponent: TouchableOpacity,
-                        triggerTouchable: {
-                          activeOpacity: 0.7,
-                        },
-                      }}
-                      onPress={() => setCopyMenuOpen(!copyMenuOpen)}
-                    >
+                  <PaperMenu
+                    items={copyMenuItems}
+                    size="small"
+                    width={180}
+                    menuOffset={40}
+                    customTrigger={
                       <IconButton
                         icon={isCopying ? "check" : "content-copy"}
                         size={15}
@@ -388,76 +408,16 @@ export default function NotificationDetail({
                         style={[styles.actionButton, { width: 26, height: 26 }]}
                         accessibilityLabel="copy-menu"
                       />
-                    </MenuTrigger>
-                    <MenuOptions
-                      customStyles={{
-                        optionsContainer: {
-                          backgroundColor: theme.colors.surface,
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          borderColor: theme.colors.outlineVariant,
-                          padding: 4,
-                          minWidth: 180,
-                          marginLeft: -35,
-                        },
-                      }}
-                    >
-                      <MenuOption onSelect={() => {
-                        copyNotificationToClipboard();
-                        setCopyMenuOpen(false);
-                      }}>
-                        <Surface style={styles.menuItem} elevation={0}>
-                          <TouchableRipple
-                            onPress={() => {
-                              copyNotificationToClipboard();
-                              setCopyMenuOpen(false);
-                            }}
-                            style={styles.menuItemContent}
-                          >
-                            <View style={styles.menuItemInner}>
-                              <List.Icon icon="text" color={theme.colors.onSurface} />
-                              <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>
-                                {t("notificationDetail.copyText")}
-                              </Text>
-                            </View>
-                          </TouchableRipple>
-                        </Surface>
-                      </MenuOption>
-                      <MenuOption onSelect={() => {
-                        copyNotificationSource();
-                        setCopyMenuOpen(false);
-                      }}>
-                        <Surface style={styles.menuItem} elevation={0}>
-                          <TouchableRipple
-                            onPress={() => {
-                              copyNotificationSource();
-                              setCopyMenuOpen(false);
-                            }}
-                            style={styles.menuItemContent}
-                          >
-                            <View style={styles.menuItemInner}>
-                              <List.Icon icon="code-json" color={theme.colors.onSurface} />
-                              <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>
-                                {t("notificationDetail.copySource")}
-                              </Text>
-                            </View>
-                          </TouchableRipple>
-                        </Surface>
-                      </MenuOption>
-                    </MenuOptions>
-                  </Menu>
+                    }
+                  />
 
                   {/* Share Menu */}
-                  <Menu opened={shareMenuOpen} onBackdropPress={() => setShareMenuOpen(false)}>
-                    <MenuTrigger
-                      customStyles={{
-                        TriggerTouchableComponent: TouchableOpacity,
-                        triggerTouchable: {
-                          activeOpacity: 0.7,
-                        },
-                      }}
-                      onPress={() => setShareMenuOpen(!shareMenuOpen)}
-                    >
+                  <PaperMenu
+                    items={shareMenuItems}
+                    size="small"
+                    width={180}
+                    menuOffset={40}
+                    customTrigger={
                       <IconButton
                         icon="share"
                         size={15}
@@ -465,64 +425,8 @@ export default function NotificationDetail({
                         style={[styles.actionButton, { width: 26, height: 26 }]}
                         accessibilityLabel="share-menu"
                       />
-                    </MenuTrigger>
-                    <MenuOptions
-                      customStyles={{
-                        optionsContainer: {
-                          backgroundColor: theme.colors.surface,
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          borderColor: theme.colors.outlineVariant,
-                          padding: 4,
-                          minWidth: 180,
-                          marginLeft: -35,
-                        },
-                      }}
-                    >
-                      <MenuOption onSelect={() => {
-                        shareNotification();
-                        setShareMenuOpen(false);
-                      }}>
-                        <Surface style={styles.menuItem} elevation={0}>
-                          <TouchableRipple
-                            onPress={() => {
-                              shareNotification();
-                              setShareMenuOpen(false);
-                            }}
-                            style={styles.menuItemContent}
-                          >
-                            <View style={styles.menuItemInner}>
-                              <List.Icon icon="text" color={theme.colors.onSurface} />
-                              <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>
-                                {t("notificationDetail.shareText")}
-                              </Text>
-                            </View>
-                          </TouchableRipple>
-                        </Surface>
-                      </MenuOption>
-                      <MenuOption onSelect={() => {
-                        shareNotificationSource();
-                        setShareMenuOpen(false);
-                      }}>
-                        <Surface style={styles.menuItem} elevation={0}>
-                          <TouchableRipple
-                            onPress={() => {
-                              shareNotificationSource();
-                              setShareMenuOpen(false);
-                            }}
-                            style={styles.menuItemContent}
-                          >
-                            <View style={styles.menuItemInner}>
-                              <List.Icon icon="code-json" color={theme.colors.onSurface} />
-                              <Text style={[styles.menuItemText, { color: theme.colors.onSurface }]}>
-                                {t("notificationDetail.shareSource")}
-                              </Text>
-                            </View>
-                          </TouchableRipple>
-                        </Surface>
-                      </MenuOption>
-                    </MenuOptions>
-                  </Menu>
+                    }
+                  />
 
                   <IconButton
                     icon="delete"

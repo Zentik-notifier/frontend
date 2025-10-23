@@ -1,22 +1,15 @@
-import React, { useRef, useState } from "react";
+import React, { useRef } from "react";
 import { Alert, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 import {
   Icon,
-  List,
   Surface,
   Text,
-  TouchableRipple,
   useTheme,
 } from "react-native-paper";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
-import {
-  Menu,
-  MenuTrigger,
-  MenuOptions,
-  MenuOption,
-} from "react-native-popup-menu";
 import * as Clipboard from "expo-clipboard";
 import { useI18n } from "@/utils/i18n";
+import PaperMenu, { PaperMenuItem } from "./ui/PaperMenu";
 
 export interface SwipeAction {
   icon: string;
@@ -32,19 +25,7 @@ export interface SwipeAction {
   };
 }
 
-export interface MenuItem {
-  id: string;
-  label: string;
-  icon: string;
-  onPress: () => Promise<void> | void;
-  type?: "normal" | "destructive";
-  showAlert?: {
-    title: string;
-    message: string;
-    confirmText?: string;
-    cancelText?: string;
-  };
-}
+export interface MenuItem extends PaperMenuItem {}
 
 interface SwipeableItemProps {
   children: React.ReactNode;
@@ -59,6 +40,7 @@ interface SwipeableItemProps {
   menuItems?: MenuItem[];
   showMenu?: boolean;
   copyId?: string;
+  menuSize?: "small" | "medium" | "large";
 }
 
 const SwipeableItem: React.FC<SwipeableItemProps> = ({
@@ -74,10 +56,10 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   menuItems = [],
   showMenu = true,
   copyId,
+  menuSize = "small",
 }) => {
   const swipeableRef = useRef<any>(null);
   const theme = useTheme();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { t } = useI18n();
 
   const withActions = Platform.OS !== "web";
@@ -86,10 +68,6 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
 
   const closeSwipeable = () => {
     swipeableRef.current?.close();
-  };
-
-  const closeMenu = () => {
-    setIsMenuOpen(false);
   };
 
   const handleActionPress = async (action?: SwipeAction) => {
@@ -141,7 +119,6 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
           {
             text: item.showAlert.cancelText || "Cancel",
             style: "cancel",
-            onPress: closeMenu,
           },
           {
             text: item.showAlert.confirmText || "Confirm",
@@ -149,23 +126,19 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
             onPress: async () => {
               try {
                 item.onPress()?.catch(console.error);
-                closeMenu();
               } catch (error) {
                 console.error("Error during menu action:", error);
-                closeMenu();
               }
             },
           },
         ],
-        { cancelable: true, onDismiss: closeMenu }
+        { cancelable: true }
       );
     } else {
       try {
         item.onPress()?.catch(console.error);
-        closeMenu();
       } catch (error) {
         console.error("Error during menu action:", error);
-        closeMenu();
       }
     }
   };
@@ -302,88 +275,11 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
             {children}
             {hasMenu && (
               <View style={styles.menuButton}>
-                <Menu opened={isMenuOpen} onBackdropPress={closeMenu}>
-                  <MenuTrigger
-                    customStyles={{
-                      TriggerTouchableComponent: TouchableOpacity,
-                      triggerTouchable: {
-                        activeOpacity: 0.7,
-                      },
-                    }}
-                    onPress={() => setIsMenuOpen(!isMenuOpen)}
-                  >
-                    <Surface
-                      style={{
-                        backgroundColor: theme.colors.surface,
-                        borderColor: finalBorderColor,
-                        width: 32,
-                        height: 32,
-                        borderRadius: 16,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderWidth: 1,
-                      }}
-                      elevation={1}
-                    >
-                      <Icon
-                        source="dots-vertical"
-                        size={18}
-                        color={theme.colors.onSurface}
-                      />
-                    </Surface>
-                  </MenuTrigger>
-                  <MenuOptions
-                    customStyles={{
-                      optionsContainer: {
-                        backgroundColor: theme.colors.surface,
-                        borderRadius: 8,
-                        borderWidth: 1,
-                        borderColor: finalBorderColor,
-                        padding: 4,
-                        minWidth: 180,
-                        marginLeft: -35,
-                      },
-                    }}
-                  >
-                    {allMenuItems.map((item) => (
-                      <MenuOption
-                        key={item.id}
-                        onSelect={() => handleMenuItemPress(item)}
-                      >
-                        <Surface style={styles.menuItem} elevation={0}>
-                          <TouchableRipple
-                            onPress={() => handleMenuItemPress(item)}
-                            style={styles.menuItemContent}
-                          >
-                            <View style={styles.menuItemInner}>
-                              <List.Icon
-                                icon={item.icon}
-                                color={
-                                  item.type === "destructive"
-                                    ? theme.colors.error
-                                    : theme.colors.onSurface
-                                }
-                              />
-                              <Text
-                                style={[
-                                  styles.menuItemText,
-                                  {
-                                    color:
-                                      item.type === "destructive"
-                                        ? theme.colors.error
-                                        : theme.colors.onSurface,
-                                  },
-                                ]}
-                              >
-                                {item.label}
-                              </Text>
-                            </View>
-                          </TouchableRipple>
-                        </Surface>
-                      </MenuOption>
-                    ))}
-                  </MenuOptions>
-                </Menu>
+                <PaperMenu
+                  items={allMenuItems}
+                  size={menuSize}
+                  onMenuItemPress={handleMenuItemPress}
+                />
               </View>
             )}
           </View>
@@ -427,25 +323,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
     zIndex: 10,
-  },
-  menuItem: {
-    backgroundColor: "transparent",
-  },
-  menuItemContent: {
-    flex: 1,
-  },
-  menuItemInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-  },
-  menuItemText: {
-    flex: 1,
-    fontSize: 16,
-    marginLeft: 12,
   },
 });
 
