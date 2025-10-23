@@ -3,18 +3,16 @@
  * Provides hooks for fetching and managing buckets with React Query
  */
 
+import { saveBucket } from '@/db/repositories/buckets-repository';
 import {
     GetBucketQuery,
-    Permission,
-    useGetBucketLazyQuery,
-    NotificationFragment
+    NotificationFragment,
+    useGetBucketLazyQuery
 } from '@/generated/gql-operations-generated';
+import { BucketWithStats } from '@/types/notifications';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { notificationKeys } from './useNotificationQueries';
-import { saveBucket } from '@/db/repositories/buckets-repository';
-import { useAppState } from './useNotificationQueries';
-import { BucketWithStats } from '@/types/notifications';
+import { useNotificationsState } from './useNotificationQueries';
 
 // ====================
 // TYPES
@@ -89,11 +87,10 @@ export function useBucket(
     bucketId?: string,
     options?: { autoFetch?: boolean; userId?: string }
 ): BucketWithPermissions {
-    const queryClient = useQueryClient();
     const { autoFetch = false, userId } = options || {};
 
     // Get bucket info from app state (includes orphan status)
-    const { data: appState } = useAppState();
+    const { data: appState } = useNotificationsState();
     const bucketFromGlobal = appState?.buckets.find((b) => b.id === bucketId);
 
     // Use lazy query ONLY for manual refetch (via useRefreshBucket)

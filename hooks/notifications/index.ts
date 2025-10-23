@@ -14,7 +14,7 @@ export {
 export {
   useNotification,
   useInfiniteNotifications,
-  useAppState,
+  useNotificationsState as useAppState,
   useAllNotificationIds,
   refreshNotificationQueries,
   notificationKeys,

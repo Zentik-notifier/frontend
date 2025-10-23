@@ -257,7 +257,6 @@ class SettingsService {
       // Migrate from legacy AsyncStorage if needed
       await this.migrateFromLegacyStorage();
 
-      console.log('[SettingsService] Loading settings and auth data...');
       await Promise.all([
         this.loadUserSettings(),
         this.loadAuthData()

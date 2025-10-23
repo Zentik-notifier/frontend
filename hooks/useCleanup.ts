@@ -5,7 +5,7 @@ import { setBadgeCount } from "@/utils/badgeUtils";
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-    useAppState,
+    useNotificationsState,
 } from "@/hooks/notifications/useNotificationQueries";
 
 // Polyfill for requestIdleCallback (not available in React Native)
@@ -24,7 +24,7 @@ interface CleanupProps {
 
 export const useCleanup = () => {
     const queryClient = useQueryClient();
-    const { refreshAll } = useAppState();
+    const { refreshAll } = useNotificationsState();
 
     const cleanup = useCallback(async ({ immediate, force }: CleanupProps) => {
         const shouldCleanup = !settingsService.shouldRunCleanup() ? false : true;

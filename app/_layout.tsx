@@ -91,8 +91,6 @@ export default function RootLayout() {
     // Initialize core services
     installConsoleLoggerBridge();
     console.log("[LayoutInit] Console logger bridge installed");
-    Promise.resolve().catch();
-    console.log("[LayoutInit] App config initialized");
     openSharedCacheDb().catch();
     openWebStorageDb().catch();
     console.log("[LayoutInit] DB opened");

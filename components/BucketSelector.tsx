@@ -2,7 +2,7 @@ import { BucketFragment } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
 import Selector, { SelectorOption } from "./ui/Selector";
-import { useAppState } from "@/hooks/notifications/useNotificationQueries";
+import { useNotificationsState } from "@/hooks/notifications/useNotificationQueries";
 
 interface BucketSelectorProps {
   selectedBucketId?: string;
@@ -18,7 +18,7 @@ export default function BucketSelector({
   searchable = false,
 }: BucketSelectorProps) {
   const { t } = useI18n();
-  const { data: appState } = useAppState();
+  const { data: appState } = useNotificationsState();
 
   const bucketOptions = useMemo(() => {
     const buckets = (appState?.buckets || []).filter(

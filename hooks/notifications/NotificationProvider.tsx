@@ -197,7 +197,7 @@ export function NotificationProvider({
  */
 export {
   useNotification,
-  useAppState,
+  useNotificationsState as useAppState,
   notificationKeys,
 } from "./useNotificationQueries";
 
