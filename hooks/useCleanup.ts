@@ -5,10 +5,7 @@ import { setBadgeCount } from "@/utils/badgeUtils";
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-    useSyncNotificationsFromAPI,
-    useInitializeBucketsStats,
-    useLoadBucketsFromCache,
-    notificationKeys
+    useAppState,
 } from "@/hooks/notifications/useNotificationQueries";
 
 // Polyfill for requestIdleCallback (not available in React Native)
@@ -27,9 +24,7 @@ interface CleanupProps {
 
 export const useCleanup = () => {
     const queryClient = useQueryClient();
-    const { syncNotifications } = useSyncNotificationsFromAPI();
-    const { initializeBucketsStats } = useInitializeBucketsStats();
-    const { loadBucketsFromCache } = useLoadBucketsFromCache();
+    const { refreshAll } = useAppState();
 
     const cleanup = useCallback(async ({ immediate, force }: CleanupProps) => {
         const shouldCleanup = !settingsService.shouldRunCleanup() ? false : true;
@@ -58,61 +53,27 @@ export const useCleanup = () => {
 
         await new Promise(resolve => setTimeout(resolve, delay));
 
-        // 1. Load from LOCAL CACHE in parallel (instant UI)
-        await Promise.all([
-            executeWithRAF(
-                async () => {
-                    console.log('[Cleanup] Starting notification sync from API...');
-                    const count = await syncNotifications();
-                    console.log(`[Cleanup] Synced ${count} notifications from API`);
+        // 1. Sync complete app state with BACKEND (single unified call)
+        await executeWithRAF(
+            async () => {
+                console.log('[Cleanup] Syncing complete app state with backend...');
+                await refreshAll();
+                console.log('[Cleanup] Complete app state synced with backend');
 
-                    // Invalidate notification queries to refresh UI with new data
-                    await queryClient.invalidateQueries({ queryKey: notificationKeys.all });
-                    console.log('[Cleanup] Notification queries invalidated');
-
-                    // Update badge count with unread notifications
-                    try {
-                        const dbNotifications = await getAllNotificationsFromCache();
-                        const unreadCount = dbNotifications.filter(n => !n.readAt).length;
-                        await setBadgeCount(unreadCount);
-                        console.log(`[Cleanup] Badge count updated: ${unreadCount} unread`);
-                    } catch (error) {
-                        console.error('[Cleanup] Error updating badge count:', error);
-                    }
-                },
-                'syncing notifications from API'
-            ).catch((e) => {
-                console.error('[Cleanup] Error during sync of notifications with backend', e);
-            }),
-            executeWithRAF(
-                async () => {
-                    console.log('[Cleanup] Loading buckets from local DB cache...');
-                    await loadBucketsFromCache();
-                    console.log('[Cleanup] Buckets loaded from cache into React Query');
-                },
-                'loading buckets from cache'
-            ).catch((e) => {
-                console.error('[Cleanup] Error loading buckets from local DB cache', e);
-            }),
-
-            // Note: Notifications are loaded on-demand by useInfiniteNotifications from local DB
-            // No need to preload all notifications into memory
-        ]);
-        await waitRAF();
-
-        // 2. Sync with BACKEND in parallel (background updates)
-        await Promise.all([
-            executeWithRAF(
-                async () => {
-                    console.log('[Cleanup] Syncing buckets with backend...');
-                    await initializeBucketsStats();
-                    console.log('[Cleanup] Buckets synced with backend and saved to DB');
-                },
-                'syncing buckets with backend'
-            ).catch((e) => {
-                console.error('[Cleanup] Error during sync of buckets with backend', e);
-            }),
-        ]);
+                // Update badge count after sync
+                try {
+                    const dbNotifications = await getAllNotificationsFromCache();
+                    const unreadCount = dbNotifications.filter(n => !n.readAt).length;
+                    await setBadgeCount(unreadCount);
+                    console.log(`[Cleanup] Badge count updated: ${unreadCount} unread`);
+                } catch (error) {
+                    console.error('[Cleanup] Error updating badge count:', error);
+                }
+            },
+            'syncing complete app state with backend'
+        ).catch((e) => {
+            console.error('[Cleanup] Error during sync of complete app state with backend', e);
+        });
         await waitRAF();
 
         // 4. Cleanup notifications by settings
@@ -159,7 +120,7 @@ export const useCleanup = () => {
         await waitRAF();
 
         console.log('[Cleanup] Cleanup completed');
-    }, [queryClient, syncNotifications, loadBucketsFromCache, initializeBucketsStats]);
+    }, [queryClient, refreshAll]);
 
     return { cleanup };
 }

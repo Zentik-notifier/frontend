@@ -7,7 +7,7 @@ import {
   usePublicAppConfigQuery,
   useUpdateBucketMutation,
 } from "@/generated/gql-operations-generated";
-import { useBucket, useRefreshBucket, useRefreshBucketsStatsFromDB } from "@/hooks/notifications";
+import { useBucket, useRefreshBucket, useAppState } from "@/hooks/notifications";
 import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
 import { useSettings } from "@/hooks/useSettings";
@@ -56,7 +56,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
 
   const { bucket, canWrite } = useBucket(bucketId, { autoFetch: isEditing, userId: userId ?? undefined });
   const refreshBucket = useRefreshBucket();
-  const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
+  const { refreshAll } = useAppState();
   const { data: appConfig } = usePublicAppConfigQuery();
 
   const isProtectedBucket = bucket?.isProtected;
@@ -120,10 +120,10 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
             }
           }
 
-          // Refresh bucket stats from DB to get real statistics (in case there are notifications)
-          console.log('[CreateBucketForm] Refreshing bucket stats from DB...');
-          await refreshBucketsStatsFromDB();
-          console.log('[CreateBucketForm] Bucket stats refreshed from DB');
+          // Refresh app state to get real statistics (in case there are notifications)
+          console.log('[CreateBucketForm] Refreshing app state...');
+          await refreshAll();
+          console.log('[CreateBucketForm] App state refreshed');
         }
 
         setBucketName("");

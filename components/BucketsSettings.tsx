@@ -1,6 +1,6 @@
 import PaperScrollView from "@/components/ui/PaperScrollView";
 import { NotificationFragment } from "@/generated/gql-operations-generated";
-import { useBucketsStats } from "@/hooks/notifications";
+import { useAppState } from "@/hooks/notifications";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { getAllNotificationsFromCache } from "@/services/notifications-repository";
@@ -23,66 +23,33 @@ export default function BucketsSettings() {
     useNavigationUtils();
 
   const [showDanglingBuckets, setShowDanglingBuckets] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationFragment[]>(
-    []
-  );
 
   const {
-    data: bucketsWithStats = [],
+    data: appState,
     isLoading: loading,
     error,
-    refreshBucketsStats,
-  } = useBucketsStats({ forceFullDetails: true });
-
-  // Load notifications from local DB
-  const loadNotifications = async () => {
-    try {
-      const allNotifications = await getAllNotificationsFromCache();
-      setNotifications(allNotifications);
-    } catch (error) {
-      console.error("[BucketsSettings] Error loading notifications:", error);
-    }
-  };
-
-  useEffect(() => {
-    loadNotifications();
-  }, []);
+    refreshAll,
+  } = useAppState({ forceFullDetails: true });
+  const { buckets, orphanedBuckets } = useMemo(() => {
+    const buckets = appState?.buckets || [];
+    return {
+      buckets: buckets.filter((bucket) => !bucket.isOrphan),
+      orphanedBuckets: buckets.filter((bucket) => bucket.isOrphan),
+    };
+  }, [appState]);
 
   const handleRefresh = async () => {
-    await refreshBucketsStats();
-    await loadNotifications();
+    await refreshAll();
   };
 
   const handleBucketDeleted = async () => {
-    await refreshBucketsStats();
-    await loadNotifications();
+    await refreshAll();
   };
 
-  const buckets = bucketsWithStats;
   const sortedBuckets = useEntitySorting(buckets, "desc");
 
-  // Identifica i dangling buckets (bucket collegati a notifiche ma non esistenti nel remote)
-  const danglingBuckets = useMemo(() => {
-    const remoteBucketIds = new Set(buckets.map((bucket) => bucket.id));
-    const danglingBucketMap = new Map<string, { bucket: any; count: number }>();
-
-    notifications.forEach((notification) => {
-      const bucket = notification.message?.bucket;
-      if (bucket && !remoteBucketIds.has(bucket.id)) {
-        const existing = danglingBucketMap.get(bucket.id);
-        if (existing) {
-          existing.count++;
-        } else {
-          danglingBucketMap.set(bucket.id, { bucket, count: 1 });
-        }
-      }
-    });
-
-    return Array.from(danglingBucketMap.values());
-  }, [notifications, buckets]);
-
-  const handleDanglingBucketPress = (item: { bucket: any; count: number }) => {
-    navigateToDanglingBucket(item.bucket.id, false);
+  const handleDanglingBucketPress = (bucket: any) => {
+    navigateToDanglingBucket(bucket.id, false);
   };
 
   return (
@@ -94,7 +61,7 @@ export default function BucketsSettings() {
         error={!loading && !!error}
       >
         {/* Header collassabile Dangling Buckets */}
-        {danglingBuckets.length > 0 && (
+        {orphanedBuckets.length > 0 && (
           <Card
             style={[
               styles.danglingSection,
@@ -125,8 +92,8 @@ export default function BucketsSettings() {
                         { color: theme.colors.onSurfaceVariant },
                       ]}
                     >
-                      {danglingBuckets.length}{" "}
-                      {danglingBuckets.length === 1 ? "bucket" : "buckets"}
+                      {orphanedBuckets.length}{" "}
+                      {orphanedBuckets.length === 1 ? "bucket" : "buckets"}
                     </Text>
                   </View>
                 </View>
@@ -151,9 +118,9 @@ export default function BucketsSettings() {
                 </Text>
 
                 <View style={styles.danglingBucketsContainer}>
-                  {danglingBuckets.map((item) => (
+                  {orphanedBuckets.map((bucket) => (
                     <Card
-                      key={item.bucket.id}
+                      key={bucket.id}
                       style={[
                         styles.danglingBucketItem,
                         { backgroundColor: theme.colors.surface },
@@ -161,7 +128,7 @@ export default function BucketsSettings() {
                       elevation={0}
                     >
                       <TouchableRipple
-                        onPress={() => handleDanglingBucketPress(item)}
+                        onPress={() => handleDanglingBucketPress(bucket)}
                       >
                         <Card.Content>
                           <View style={styles.danglingBucketInfo}>
@@ -175,8 +142,8 @@ export default function BucketsSettings() {
                                 variant="titleSmall"
                                 style={styles.danglingBucketName}
                               >
-                                {item.bucket.name ||
-                                  `Bucket ${item.bucket.id.slice(0, 8)}`}
+                                {bucket.name ||
+                                  `Bucket ${bucket.id.slice(0, 8)}`}
                               </Text>
                               <Text
                                 variant="bodySmall"
@@ -186,7 +153,7 @@ export default function BucketsSettings() {
                                 ]}
                               >
                                 {t("buckets.danglingBucketItem", {
-                                  count: item.count,
+                                  count: bucket.totalMessages,
                                 })}
                               </Text>
                             </View>

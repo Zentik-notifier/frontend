@@ -95,9 +95,6 @@ export default function CreatePayloadMapperForm({
   );
   const [apiUrl, setApiUrl] = useState("https://your-server.com");
 
-  // Load buckets
-  const { data: bucketsData } = useGetBucketsQuery();
-  
   // Load tokens for selected bucket
   const { data: tokensData } = useGetAccessTokensForBucketQuery({
     variables: { bucketId: selectedBucketId || "" },
@@ -847,7 +844,6 @@ export default function CreatePayloadMapperForm({
               <BucketSelector
                 selectedBucketId={selectedBucketId}
                 onBucketChange={setSelectedBucketId}
-                buckets={bucketsData?.buckets || []}
                 label={t("bucketSelector.selectBucket")}
                 searchable
               />

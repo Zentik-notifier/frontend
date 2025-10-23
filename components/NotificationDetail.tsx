@@ -11,7 +11,7 @@ import {
 import {
   useDeleteNotification,
   useMarkAsRead,
-  useNotificationDetail,
+  useNotification,
 } from "@/hooks/notifications";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
@@ -69,7 +69,7 @@ export default function NotificationDetail({
     data: notification,
     isLoading: loading,
     error,
-  } = useNotificationDetail(notificationId);
+  } = useNotification(notificationId);
 
   const message = notification?.message;
 

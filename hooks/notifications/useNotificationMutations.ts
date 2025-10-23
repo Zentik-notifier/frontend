@@ -31,14 +31,145 @@ import {
     UseMutationResult,
     useQueryClient,
 } from '@tanstack/react-query';
-import { notificationKeys, useRefreshBucketsStatsFromDB } from './useNotificationQueries';
+import { notificationKeys } from './useNotificationQueries';
 
 // ====================
 // HELPER FUNCTIONS
 // ====================
 
 /**
- * Update stats for a specific bucket in bucketsStats cache
+ * Update notifications in appState cache
+ * 
+ * @param queryClient - React Query client
+ * @param notificationId - ID of the notification to update
+ * @param updates - Partial notification updates
+ */
+function updateAppStateNotification(
+    queryClient: QueryClient,
+    notificationId: string,
+    updates: Partial<NotificationFragment>
+): void {
+    queryClient.setQueryData<{
+        buckets: BucketWithStats[];
+        notifications: NotificationFragment[];
+        stats: any;
+        lastSync: string;
+    }>(
+        ['app-state'],
+        (oldAppState) => {
+            if (!oldAppState) return oldAppState;
+
+            const updatedNotifications = oldAppState.notifications.map(notification => {
+                if (notification.id !== notificationId) return notification;
+                return { ...notification, ...updates };
+            });
+
+            return {
+                ...oldAppState,
+                notifications: updatedNotifications,
+            };
+        }
+    );
+}
+
+/**
+ * Remove notification from appState cache
+ * 
+ * @param queryClient - React Query client
+ * @param notificationId - ID of the notification to remove
+ */
+function removeAppStateNotification(
+    queryClient: QueryClient,
+    notificationId: string
+): void {
+    queryClient.setQueryData<{
+        buckets: BucketWithStats[];
+        notifications: NotificationFragment[];
+        stats: any;
+        lastSync: string;
+    }>(
+        ['app-state'],
+        (oldAppState) => {
+            if (!oldAppState) return oldAppState;
+
+            const updatedNotifications = oldAppState.notifications.filter(
+                notification => notification.id !== notificationId
+            );
+
+            return {
+                ...oldAppState,
+                notifications: updatedNotifications,
+            };
+        }
+    );
+}
+
+/**
+ * Remove multiple notifications from appState cache
+ * 
+ * @param queryClient - React Query client
+ * @param notificationIds - IDs of the notifications to remove
+ */
+function removeAppStateNotifications(
+    queryClient: QueryClient,
+    notificationIds: string[]
+): void {
+    queryClient.setQueryData<{
+        buckets: BucketWithStats[];
+        notifications: NotificationFragment[];
+        stats: any;
+        lastSync: string;
+    }>(
+        ['app-state'],
+        (oldAppState) => {
+            if (!oldAppState) return oldAppState;
+
+            const updatedNotifications = oldAppState.notifications.filter(
+                notification => !notificationIds.includes(notification.id)
+            );
+
+            return {
+                ...oldAppState,
+                notifications: updatedNotifications,
+            };
+        }
+    );
+}
+
+/**
+ * Update all notifications in appState cache
+ * 
+ * @param queryClient - React Query client
+ * @param updates - Partial notification updates to apply to all notifications
+ */
+function updateAllAppStateNotifications(
+    queryClient: QueryClient,
+    updates: Partial<NotificationFragment>
+): void {
+    queryClient.setQueryData<{
+        buckets: BucketWithStats[];
+        notifications: NotificationFragment[];
+        stats: any;
+        lastSync: string;
+    }>(
+        ['app-state'],
+        (oldAppState) => {
+            if (!oldAppState) return oldAppState;
+
+            const updatedNotifications = oldAppState.notifications.map(notification => ({
+                ...notification,
+                ...updates,
+            }));
+
+            return {
+                ...oldAppState,
+                notifications: updatedNotifications,
+            };
+        }
+    );
+}
+/**
+ * Update stats for a specific bucket in appState cache
  * This is much more efficient than refreshing all buckets from DB
  * 
  * @param queryClient - React Query client
@@ -46,7 +177,7 @@ import { notificationKeys, useRefreshBucketsStatsFromDB } from './useNotificatio
  * @param totalDelta - Change in total count (e.g., -1 for delete)
  * @param unreadDelta - Change in unread count (e.g., -1 for mark as read)
  */
-function updateBucketStats(
+function updateAppStateBucketStats(
     queryClient: QueryClient,
     bucketId: string | undefined,
     totalDelta: number,
@@ -54,12 +185,17 @@ function updateBucketStats(
 ): void {
     if (!bucketId) return;
 
-    queryClient.setQueryData<BucketWithStats[]>(
-        notificationKeys.bucketsStats(),
-        (oldBuckets) => {
-            if (!oldBuckets) return oldBuckets;
+    queryClient.setQueryData<{
+        buckets: BucketWithStats[];
+        notifications: NotificationFragment[];
+        stats: any;
+        lastSync: string;
+    }>(
+        ['app-state'],
+        (oldAppState) => {
+            if (!oldAppState) return oldAppState;
 
-            return oldBuckets.map(bucket => {
+            const updatedBuckets = oldAppState.buckets.map(bucket => {
                 if (bucket.id !== bucketId) return bucket;
 
                 const newTotalMessages = Math.max(0, bucket.totalMessages + totalDelta);
@@ -71,26 +207,23 @@ function updateBucketStats(
                     unreadCount: newUnreadCount,
                 };
             });
+
+            // Update overall stats
+            const updatedStats = {
+                ...oldAppState.stats,
+                totalCount: Math.max(0, oldAppState.stats.totalCount + totalDelta),
+                unreadCount: Math.max(0, oldAppState.stats.unreadCount + unreadDelta),
+            };
+
+            return {
+                ...oldAppState,
+                buckets: updatedBuckets,
+                stats: updatedStats,
+            };
         }
     );
 }
 
-// ====================
-// READ STATUS MUTATIONS
-// ====================
-
-/**
- * Hook for marking a notification as read
- * 
- * @example
- * ```tsx
- * const markReadMutation = useMarkAsRead();
- * 
- * const handleMarkRead = () => {
- *   markReadMutation.mutate('notification-id');
- * };
- * ```
- */
 export function useMarkAsRead(
     mutationOptions?: Omit<UseMutationOptions<string, Error, string>, 'mutationFn'>
 ): UseMutationResult<string, Error, string> {
@@ -148,22 +281,13 @@ export function useMarkAsRead(
                 }
             );
 
-            // Update stats cache - decrease unread count only if it was unread
+            // Update bucket stats: decrease unread count by 1
             if (wasUnreadRef.current) {
-                queryClient.setQueriesData(
-                    { queryKey: notificationKeys.stats() },
-                    (oldStats: any) => {
-                        if (!oldStats) return oldStats;
-                        return {
-                            ...oldStats,
-                            unreadCount: Math.max(0, (oldStats.unreadCount || 0) - 1),
-                        };
-                    }
-                );
-
-                // Update bucket stats: decrease unread count by 1
-                updateBucketStats(queryClient, bucketIdRef.current, 0, -1);
+                updateAppStateBucketStats(queryClient, bucketIdRef.current, 0, -1);
             }
+
+            // Update notification in appState
+            updateAppStateNotification(queryClient, notificationId, { readAt: now });
 
             // Update detail cache if exists
             const cachedNotification = queryClient.getQueryData<NotificationFragment>(
@@ -234,22 +358,13 @@ export function useMarkAsUnread(
                 }
             );
 
-            // Update stats cache - increase unread count only if it was read
+            // Update bucket stats: increase unread count by 1
             if (wasReadRef.current) {
-                queryClient.setQueriesData(
-                    { queryKey: notificationKeys.stats() },
-                    (oldStats: any) => {
-                        if (!oldStats) return oldStats;
-                        return {
-                            ...oldStats,
-                            unreadCount: (oldStats.unreadCount || 0) + 1,
-                        };
-                    }
-                );
-
-                // Update bucket stats: increase unread count by 1
-                updateBucketStats(queryClient, bucketIdRef.current, 0, +1);
+                updateAppStateBucketStats(queryClient, bucketIdRef.current, 0, +1);
             }
+
+            // Update notification in appState
+            updateAppStateNotification(queryClient, notificationId, { readAt: null });
 
             // Update detail cache if exists
             const cachedNotification = queryClient.getQueryData<NotificationFragment>(
@@ -370,22 +485,10 @@ export function useBatchMarkAsRead(
                 }
             });
 
-            // Update stats cache
-            queryClient.setQueriesData(
-                { queryKey: notificationKeys.stats() },
-                (oldStats: any) => {
-                    if (!oldStats) return oldStats;
-                    return {
-                        ...oldStats,
-                        unreadCount: newUnreadCount,
-                    };
-                }
-            );
-
             // Update bucket stats for affected buckets
             bucketChanges.forEach((unreadDelta, bucketId) => {
                 if (unreadDelta !== 0) {
-                    updateBucketStats(queryClient, bucketId, 0, unreadDelta);
+                    updateAppStateBucketStats(queryClient, bucketId, 0, unreadDelta);
                 }
             });
         },
@@ -409,7 +512,6 @@ export function useMarkAllAsRead(
     mutationOptions?: Omit<UseMutationOptions<string, Error, void>, 'mutationFn'>
 ): UseMutationResult<string, Error, void> {
     const queryClient = useQueryClient();
-    const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
 
     return useMutation({
         mutationFn: async () => {
@@ -451,20 +553,40 @@ export function useMarkAllAsRead(
                 }
             );
 
-            // Update stats cache - set unread count to 0
-            queryClient.setQueriesData(
-                { queryKey: notificationKeys.stats() },
-                (oldStats: any) => {
-                    if (!oldStats) return oldStats;
-                    return {
-                        ...oldStats,
+            // Update app state - set all bucket unread counts to 0
+            queryClient.setQueryData<{
+                buckets: BucketWithStats[];
+                notifications: NotificationFragment[];
+                stats: any;
+                lastSync: string;
+            }>(
+                ['app-state'],
+                (oldAppState) => {
+                    if (!oldAppState) return oldAppState;
+
+                    const updatedBuckets = oldAppState.buckets.map(bucket => ({
+                        ...bucket,
                         unreadCount: 0,
+                    }));
+
+                    const updatedNotifications = oldAppState.notifications.map(notification => ({
+                        ...notification,
+                        readAt: notification.readAt || timestamp,
+                    }));
+
+                    const updatedStats = {
+                        ...oldAppState.stats,
+                        unreadCount: 0,
+                    };
+
+                    return {
+                        ...oldAppState,
+                        buckets: updatedBuckets,
+                        notifications: updatedNotifications,
+                        stats: updatedStats,
                     };
                 }
             );
-
-            // Refresh bucketsStats from local DB
-            refreshBucketsStatsFromDB();
         },
         ...mutationOptions,
     });
@@ -532,28 +654,16 @@ export function useDeleteNotification(
                 }
             );
 
-            // Update stats cache - decrease both total and unread if applicable
-            queryClient.setQueriesData(
-                { queryKey: notificationKeys.stats() },
-                (oldStats: any) => {
-                    if (!oldStats) return oldStats;
-                    return {
-                        ...oldStats,
-                        totalCount: Math.max(0, (oldStats.totalCount || 0) - 1),
-                        unreadCount: wasUnreadRef.current
-                            ? Math.max(0, (oldStats.unreadCount || 0) - 1)
-                            : oldStats.unreadCount,
-                    };
-                }
-            );
-
             // Update bucket stats: decrease total by 1, decrease unread by 1 if was unread
-            updateBucketStats(
+            updateAppStateBucketStats(
                 queryClient, 
                 bucketIdRef.current, 
                 -1, 
                 wasUnreadRef.current ? -1 : 0
             );
+
+            // Remove notification from appState
+            removeAppStateNotification(queryClient, notificationId);
 
             // Remove from detail cache
             queryClient.removeQueries({
@@ -634,23 +744,13 @@ export function useBatchDeleteNotifications(
                 }
             );
 
-            // Update stats cache
-            queryClient.setQueriesData(
-                { queryKey: notificationKeys.stats() },
-                (oldStats: any) => {
-                    if (!oldStats) return oldStats;
-                    return {
-                        ...oldStats,
-                        totalCount: Math.max(0, (oldStats.totalCount || 0) - deletedIds.length),
-                        unreadCount: Math.max(0, (oldStats.unreadCount || 0) - deletedUnreadCount),
-                    };
-                }
-            );
-
             // Update bucket stats for affected buckets
             bucketChanges.forEach(({ total, unread }, bucketId) => {
-                updateBucketStats(queryClient, bucketId, -total, -unread);
+                updateAppStateBucketStats(queryClient, bucketId, -total, -unread);
             });
+
+            // Remove notifications from appState
+            removeAppStateNotifications(queryClient, deletedIds);
 
             // Remove from detail cache
             deletedIds.forEach(id => {

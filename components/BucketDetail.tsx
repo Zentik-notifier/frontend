@@ -1,6 +1,6 @@
 import { useI18n } from "@/hooks/useI18n";
 import {
-  useBucketsStats,
+  useAppState,
   useBatchMarkAsRead,
   useBucket,
 } from "@/hooks/notifications";
@@ -16,6 +16,7 @@ import {
   IconButton,
   Surface,
   Text,
+  Button,
   useTheme,
 } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
@@ -36,15 +37,15 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
   const { navigateToEditBucket, navigateToDanglingBucket } =
     useNavigationUtils();
 
-  // Read from GLOBAL bucketsStats cache - automatically updates when cache refreshes
-  const { data: bucketsStats } = useBucketsStats();
-  const bucketStats = bucketsStats?.find((b) => b.id === bucketId);
+  // Read from GLOBAL app state cache - automatically updates when cache refreshes
+  const { data: appState } = useAppState();
+  const bucketStats = appState?.buckets.find((b) => b.id === bucketId);
 
   // Bucket data with permissions
-  const { bucket, isSnoozed, error, canWrite } = useBucket(bucketId, {
+  const { bucket, isSnoozed, isOrphan, canWrite } = useBucket(bucketId, {
     userId: userId ?? undefined,
+    autoFetch: true,
   });
-  const isOrphaned = error && error.message.includes("Bucket not found");
 
   // Get counts from bucketsStats (automatically updates when cache refreshes)
   const totalCount = bucketStats?.totalMessages ?? 0;
@@ -52,13 +53,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
 
   const { mutateAsync: batchMarkAsRead, isPending: markAllAsReadLoading } =
     useBatchMarkAsRead();
-
-  useEffect(() => {
-    if (isOrphaned) {
-      navigateToDanglingBucket(bucketId, true);
-    }
-  }, [bucketId, isOrphaned]);
-
+ 
   const handleMarkAllAsRead = async () => {
     if (unreadCount === 0) return;
 
@@ -124,81 +119,96 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
       {/* Action Block (Top row: mark/edit/copy; Bottom row: snooze) */}
       <View style={styles.actionBlock}>
         <View style={styles.actionTopRow}>
-          <ButtonGroup>
-            <View style={{ position: "relative" }}>
+          {isOrphan ? (
+            // Orphan bucket: show link bucket button
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.error}
+              textColor={theme.colors.onError}
+              icon="link"
+              onPress={() => navigateToDanglingBucket(bucketId, false)}
+              style={styles.orphanButton}
+            >
+              {t("buckets.linkBucket")}
+            </Button>
+          ) : (
+            // Normal bucket: show standard actions
+            <ButtonGroup>
+              <View style={{ position: "relative" }}>
+                <IconButton
+                  icon="check-all"
+                  size={15}
+                  iconColor={
+                    unreadCount > 0
+                      ? theme.colors.onPrimary
+                      : theme.colors.onSurfaceVariant
+                  }
+                  style={[
+                    styles.actionButton,
+                    {
+                      backgroundColor:
+                        unreadCount > 0
+                          ? theme.colors.primary
+                          : theme.colors.surfaceVariant,
+                      width: 26,
+                      height: 26,
+                    },
+                  ]}
+                  onPress={handleMarkAllAsRead}
+                  disabled={unreadCount === 0 || markAllAsReadLoading}
+                  accessibilityLabel="mark-all-as-read"
+                />
+                {unreadCount > 0 && (
+                  <Badge
+                    size={16}
+                    style={{ position: "absolute", top: -2, right: -2 }}
+                  >
+                    {unreadCount}
+                  </Badge>
+                )}
+              </View>
+
               <IconButton
-                icon="check-all"
+                icon="cog"
                 size={15}
-                iconColor={
-                  unreadCount > 0
-                    ? theme.colors.onPrimary
-                    : theme.colors.onSurfaceVariant
-                }
+                iconColor={theme.colors.onSurfaceVariant}
                 style={[
                   styles.actionButton,
                   {
-                    backgroundColor:
-                      unreadCount > 0
-                        ? theme.colors.primary
-                        : theme.colors.surfaceVariant,
+                    backgroundColor: theme.colors.surfaceVariant,
                     width: 26,
                     height: 26,
                   },
                 ]}
-                onPress={handleMarkAllAsRead}
-                disabled={unreadCount === 0 || markAllAsReadLoading}
-                accessibilityLabel="mark-all-as-read"
+                onPress={() => navigateToEditBucket(bucketId, true)}
+                accessibilityLabel="edit-bucket"
               />
-              {unreadCount > 0 && (
-                <Badge
-                  size={16}
-                  style={{ position: "absolute", top: -2, right: -2 }}
-                >
-                  {unreadCount}
-                </Badge>
-              )}
-            </View>
 
-            <IconButton
-              icon="cog"
-              size={15}
-              iconColor={theme.colors.onSurfaceVariant}
-              style={[
-                styles.actionButton,
-                {
-                  backgroundColor: theme.colors.surfaceVariant,
-                  width: 26,
-                  height: 26,
-                },
-              ]}
-              onPress={() => navigateToEditBucket(bucketId, true)}
-              accessibilityLabel="edit-bucket"
-            />
+              <CopyButton
+                text={bucketId}
+                size={13}
+                style={[
+                  styles.actionButton,
+                  {
+                    backgroundColor: theme.colors.surfaceVariant,
+                    width: 26,
+                    height: 26,
+                    margin: 0,
+                    padding: 0,
+                  },
+                ]}
+              />
 
-            <CopyButton
-              text={bucketId}
-              size={13}
-              style={[
-                styles.actionButton,
-                {
-                  backgroundColor: theme.colors.surfaceVariant,
-                  width: 26,
-                  height: 26,
-                  margin: 0,
-                  padding: 0,
-                },
-              ]}
-            />
-
-            <NotificationSnoozeButton
-              bucketId={bucketId}
-              variant="detail"
-              showText={false}
-              style={{ width: 26, height: 26 }}
-              isSnoozed={isSnoozed}
-              snoozeUntilDate={bucket?.userBucket?.snoozeUntil ?? null}
-            />
-          </ButtonGroup>
+              <NotificationSnoozeButton
+                bucketId={bucketId}
+                variant="detail"
+                showText={false}
+                style={{ width: 26, height: 26 }}
+                isSnoozed={isSnoozed}
+                snoozeUntilDate={bucket?.userBucket?.snoozeUntil ?? null}
+              />
+            </ButtonGroup>
+          )}
         </View>
       </View>
     </Surface>
@@ -319,6 +329,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
+  },
+  orphanButton: {
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   markAllButton: {
     padding: 8,

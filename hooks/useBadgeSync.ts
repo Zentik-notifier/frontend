@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { useI18n } from './useI18n';
-import { useMarkAllAsRead, useNotificationStats } from './notifications';
+import { useMarkAllAsRead, useAppState } from './notifications';
 import { setBadgeCount } from '@/utils/badgeUtils';
 
 /**
@@ -12,7 +12,8 @@ export function useBadgeSync() {
     const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false);
 
     // Use React Query stats hook
-    const { data: stats, isLoading } = useNotificationStats();
+    const { data: appState, isLoading } = useAppState();
+    const stats = appState?.stats;
     const markAllAsReadMutation = useMarkAllAsRead();
 
     const unreadCount = stats?.unreadCount || 0;

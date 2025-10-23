@@ -1,10 +1,14 @@
-import { NotificationFragment, useCreateBucketMutation } from "@/generated/gql-operations-generated";
-import { useBucketsStats, useRefreshBucketsStatsFromDB } from "@/hooks/notifications";
+import {
+  NotificationFragment,
+  useCreateBucketMutation,
+} from "@/generated/gql-operations-generated";
+import { useAppState } from "@/hooks/notifications";
 import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
 import {
   getAllNotificationsFromCache,
   upsertNotificationsBatch,
+  deleteNotificationsByBucketId,
 } from "@/services/notifications-repository";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -31,7 +35,7 @@ interface DanglingBucketResolverProps {
 export default function DanglingBucketResolver({
   id,
 }: DanglingBucketResolverProps) {
-  const { navigateBack } = useNavigationUtils();
+  const { navigateBack, navigateToHome } = useNavigationUtils();
   const theme = useTheme();
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -45,18 +49,15 @@ export default function DanglingBucketResolver({
   const [selectedBucketId, setSelectedBucketId] = useState<string>();
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [dialogMessage, setDialogMessage] = useState("");
 
   const [createBucketMutation, { loading: creatingBucket }] =
     useCreateBucketMutation({
       refetchQueries: ["GetBuckets"],
     });
-  const {
-    data: bucketsWithStats = [],
-    isLoading: loading,
-    refreshBucketsStats,
-  } = useBucketsStats();
-  const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
+  const { data: appState, isLoading: loading, refreshAll } = useAppState();
+  const bucketsWithStats = appState?.buckets || [];
   const buckets = bucketsWithStats;
 
   // Load notifications from local DB
@@ -76,28 +77,13 @@ export default function DanglingBucketResolver({
     loadNotifications();
   }, []);
 
-  // Identifica i dangling buckets (bucket collegati a notifiche ma non esistenti nel remote)
+  // Identifica i dangling buckets (bucket orfani con isOrphan: true)
   const danglingBuckets = useMemo(() => {
-    const remoteBucketIds = new Set(buckets.map((bucket) => bucket.id));
-    const danglingBucketMap = new Map<string, { bucket: any; count: number }>();
-
-    notifications.forEach((notification) => {
-      const bucket = notification.message?.bucket;
-      if (bucket && !remoteBucketIds.has(bucket.id)) {
-        const existing = danglingBucketMap.get(bucket.id);
-        if (existing) {
-          existing.count++;
-        } else {
-          danglingBucketMap.set(bucket.id, { bucket, count: 1 });
-        }
-      }
-    });
-
-    return Array.from(danglingBucketMap.values());
-  }, [notifications, buckets]);
+    return buckets.filter((bucket) => bucket.isOrphan === true);
+  }, [buckets]);
 
   const currentDanglingBucket = danglingBuckets.find(
-    (item) => item.bucket.id === id
+    (bucket) => bucket.id === id
   );
 
   if (!currentDanglingBucket) {
@@ -182,7 +168,7 @@ export default function DanglingBucketResolver({
       });
 
       // Refresh bucketsStats from local DB to update counts
-      await refreshBucketsStatsFromDB();
+      await refreshAll();
 
       console.log(
         `✅ Successfully migrated ${danglingNotifications.length} notifications to bucket ${targetBucketName} and updated React Query cache`
@@ -210,14 +196,14 @@ export default function DanglingBucketResolver({
     setIsMigrating(true);
     try {
       await migrateNotificationsToBucket(
-        currentDanglingBucket.bucket.id,
+        currentDanglingBucket.id,
         selectedBucketId,
         targetBucket.name
       );
 
       setDialogMessage(
         t("buckets.migrationSuccessMessage", {
-          count: currentDanglingBucket.count,
+          count: currentDanglingBucket.totalMessages,
           bucketName: targetBucket.name,
         })
       );
@@ -244,11 +230,11 @@ export default function DanglingBucketResolver({
       // Crea il nuovo bucket utilizzando i dati del dangling bucket
       const newBucketInput = {
         name:
-          currentDanglingBucket.bucket.name ||
-          `Bucket ${currentDanglingBucket.bucket.id.slice(0, 8)}`,
-        icon: currentDanglingBucket.bucket.icon,
-        description: currentDanglingBucket.bucket.description,
-        color: currentDanglingBucket.bucket.color || "#0a7ea4",
+          currentDanglingBucket.name ||
+          `Bucket ${currentDanglingBucket.id.slice(0, 8)}`,
+        icon: currentDanglingBucket.icon,
+        description: currentDanglingBucket.description,
+        color: currentDanglingBucket.color || "#0a7ea4",
         isProtected: false,
         isPublic: false,
       };
@@ -268,19 +254,19 @@ export default function DanglingBucketResolver({
 
         // Refresh buckets from GraphQL to get the new bucket and save it to local DB
         console.log("🔄 Refreshing buckets from API to include new bucket...");
-        await refreshBucketsStats();
+        await refreshAll();
         console.log("✅ Buckets refreshed, new bucket is now available");
 
         // Migra le notifiche al nuovo bucket
         await migrateNotificationsToBucket(
-          currentDanglingBucket.bucket.id,
+          currentDanglingBucket.id,
           newBucket.id,
           newBucket.name
         );
 
         setDialogMessage(
           t("buckets.bucketCreationSuccessMessage", {
-            count: currentDanglingBucket.count,
+            count: currentDanglingBucket.totalMessages,
             bucketName: newBucket.name,
           })
         );
@@ -300,8 +286,88 @@ export default function DanglingBucketResolver({
     }
   };
 
+  const handleDeleteBucket = async () => {
+    if (!currentDanglingBucket) return;
+
+    setIsMigrating(true);
+    try {
+      console.log(
+        `🗑️ Deleting dangling bucket ${currentDanglingBucket.id} with ${currentDanglingBucket.totalMessages} notifications`
+      );
+
+      // 1. Elimina tutte le notifiche del bucket orfano dal database locale
+      await deleteNotificationsByBucketId(currentDanglingBucket.id);
+      console.log("✅ Deleted notifications from local DB");
+
+      // 2. Aggiorna l'appState per rimuovere il bucket orfano
+      queryClient.setQueryData<{
+        buckets: any[];
+        notifications: NotificationFragment[];
+        stats: any;
+        lastSync: string;
+      }>(["app-state"], (oldAppState) => {
+        if (!oldAppState) return oldAppState;
+
+        // Rimuovi il bucket orfano dalla lista
+        const updatedBuckets = oldAppState.buckets.filter(
+          (bucket) => bucket.id !== currentDanglingBucket.id
+        );
+
+        // Rimuovi le notifiche del bucket orfano
+        const updatedNotifications = oldAppState.notifications.filter(
+          (notification) =>
+            notification.message?.bucket?.id !== currentDanglingBucket.id
+        );
+
+        // Aggiorna le statistiche
+        const updatedStats = {
+          ...oldAppState.stats,
+          totalCount: Math.max(
+            0,
+            oldAppState.stats.totalCount - currentDanglingBucket.totalMessages
+          ),
+          unreadCount: Math.max(
+            0,
+            oldAppState.stats.unreadCount - currentDanglingBucket.unreadCount
+          ),
+        };
+
+        return {
+          ...oldAppState,
+          buckets: updatedBuckets,
+          notifications: updatedNotifications,
+          stats: updatedStats,
+        };
+      });
+
+      // 3. Aggiorna anche le notifiche locali
+      const allNotifications = await getAllNotificationsFromCache();
+      setNotifications(allNotifications);
+
+      setDialogMessage(
+        t("buckets.bucketDeletionSuccessMessage", {
+          count: currentDanglingBucket.totalMessages,
+          bucketName: currentDanglingBucket.name,
+        })
+      );
+      setShowSuccessDialog(true);
+      setShowDeleteDialog(false);
+      navigateToHome();
+    } catch (error) {
+      console.error("Delete bucket error:", error);
+      setDialogMessage(
+        t("buckets.bucketDeletionErrorMessage", {
+          error: error instanceof Error ? error.message : "Unknown error",
+        })
+      );
+      setShowErrorDialog(true);
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
   const handleRefresh = async () => {
-    await refreshBucketsStats();
+    await refreshAll();
 
     // Reload notifications from DB
     try {
@@ -335,7 +401,7 @@ export default function DanglingBucketResolver({
             </View>
             <View style={styles.bucketInfo}>
               <Text variant="titleMedium" style={styles.bucketName}>
-                {currentDanglingBucket.bucket.name}
+                {currentDanglingBucket.name}
               </Text>
               <Text
                 variant="bodyMedium"
@@ -344,8 +410,8 @@ export default function DanglingBucketResolver({
                   { color: theme.colors.onSurfaceVariant },
                 ]}
               >
-                {currentDanglingBucket.count}{" "}
-                {currentDanglingBucket.count === 1
+                {currentDanglingBucket.totalMessages}{" "}
+                {currentDanglingBucket.totalMessages === 1
                   ? t("buckets.notification")
                   : t("buckets.notifications")}
               </Text>
@@ -363,7 +429,7 @@ export default function DanglingBucketResolver({
             ? t("buckets.creatingBucketDescription")
             : t("buckets.migratingDescription")
           : t("buckets.danglingBucketActionDescription", {
-              count: currentDanglingBucket.count,
+              count: currentDanglingBucket.totalMessages,
             })}
       </Text>
 
@@ -376,7 +442,6 @@ export default function DanglingBucketResolver({
             <BucketSelector
               selectedBucketId={selectedBucketId}
               onBucketChange={(bucketId) => setSelectedBucketId(bucketId)}
-              buckets={buckets as any}
               searchable
             />
           </View>
@@ -402,6 +467,21 @@ export default function DanglingBucketResolver({
               style={styles.createNewButton}
             >
               {t("buckets.createNewBucket")}
+            </Button>
+          </View>
+
+          <Divider />
+
+          <View style={styles.section}>
+            <Button
+              mode="outlined"
+              onPress={() => setShowDeleteDialog(true)}
+              icon="delete"
+              buttonColor={theme.colors.errorContainer}
+              textColor={theme.colors.onErrorContainer}
+              style={styles.deleteButton}
+            >
+              {t("buckets.deleteBucket")}
             </Button>
           </View>
         </>
@@ -459,6 +539,37 @@ export default function DanglingBucketResolver({
           </Dialog.Actions>
         </Dialog>
       </Portal>
+
+      {/* Delete Confirmation Dialog */}
+      <Portal>
+        <Dialog
+          visible={showDeleteDialog}
+          onDismiss={() => setShowDeleteDialog(false)}
+        >
+          <Dialog.Title>{t("buckets.deleteBucketTitle")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">
+              {t("buckets.deleteBucketConfirmation", {
+                bucketName: currentDanglingBucket?.name,
+                count: currentDanglingBucket?.totalMessages,
+              })}
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowDeleteDialog(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.error}
+              textColor={theme.colors.onError}
+              onPress={handleDeleteBucket}
+            >
+              {t("buckets.deleteBucket")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </PaperScrollView>
   );
 }
@@ -505,6 +616,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   migrateButton: {
+    marginTop: 8,
+  },
+  deleteButton: {
     marginTop: 8,
   },
   loadingOverlay: {

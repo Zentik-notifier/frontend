@@ -1,6 +1,5 @@
 import {
-  useBucketsStats,
-  useInitializeBucketsStats,
+  useAppState,
 } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -21,17 +20,20 @@ const BucketsSection: React.FC = () => {
   // State for redeem modal
   const [showRedeemModal, setShowRedeemModal] = useState(false);
 
-  // Read buckets from GLOBAL cache (populated by useCleanup on startup)
-  const { data: bucketStats = [], isLoading: loading } = useBucketsStats({});
+  // Read buckets from GLOBAL app state cache (populated by useCleanup on startup)
+  const { data: appState, isLoading: loading, refreshAll } = useAppState({});
+  const bucketStats = appState?.buckets || [];
 
   // Hook to manually refresh buckets from API (for pull-to-refresh)
-  const { initializeBucketsStats } = useInitializeBucketsStats();
+  const handleRefresh = async () => {
+    await refreshAll();
+  };
 
   // Initialize buckets on mount if not already loaded
   React.useEffect(() => {
     if (bucketStats.length === 0 && !loading) {
       console.log("[BucketsSection] No buckets in cache, initializing...");
-      initializeBucketsStats().catch(console.error);
+      handleRefresh().catch(console.error);
     }
   }, []);
 
@@ -86,14 +88,14 @@ const BucketsSection: React.FC = () => {
   );
 
   const refetch = async () => {
-    await initializeBucketsStats();
+    await handleRefresh();
   };
 
   const handleRedeemSuccess = (resourceType: string, resourceId: string) => {
     console.log("[BucketsSection] Redeem successful:", { resourceType, resourceId });
     setShowRedeemModal(false);
     // Refresh buckets to show the newly joined bucket
-    initializeBucketsStats().catch(console.error);
+    handleRefresh().catch(console.error);
   };
 
   const handleRedeemCancel = () => {
@@ -163,6 +165,13 @@ const BucketsSection: React.FC = () => {
                       <View style={styles.sharedWithMeTag}>
                         <Text variant="bodySmall" style={styles.sharedWithMeText}>
                           {t("buckets.item.sharedWithMe")}
+                        </Text>
+                      </View>
+                    )}
+                    {bucket.isOrphan && (
+                      <View style={styles.orphanTag}>
+                        <Text variant="bodySmall" style={styles.orphanText}>
+                          {t("buckets.item.orphan")}
                         </Text>
                       </View>
                     )}
@@ -292,6 +301,18 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   sharedWithMeText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  orphanTag: {
+    backgroundColor: "#FF9500",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 4,
+    alignSelf: "flex-start",
+  },
+  orphanText: {
     color: "#fff",
     fontWeight: "600",
   },

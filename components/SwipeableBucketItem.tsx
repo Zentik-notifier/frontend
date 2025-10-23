@@ -40,6 +40,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
   // Use the bucket permissions hook to check permissions
   const { canDelete, isSharedWithMe, sharedCount } = useBucket(bucket.id, {
     userId: userId ?? undefined,
+    autoFetch: true,
   });
 
   const { deleteBucket } = useDeleteBucketWithNotifications({

@@ -59,7 +59,7 @@ const NotificationSnoozeButton: React.FC<NotificationSnoozeButtonProps> = ({
   // Only fetch bucket if snooze data not provided (for BucketDetail page)
   const { bucket, isSnoozed: isSnoozedFetched } = useBucket(
     isSnoozedProp === undefined ? bucketId : undefined,
-    { userId: userId ?? undefined }
+    { userId: userId ?? undefined, autoFetch: true }
   );
   
   const { setSnooze, isLoading: settingSnooze } = useSetBucketSnooze({

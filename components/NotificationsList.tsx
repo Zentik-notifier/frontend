@@ -13,12 +13,14 @@ import {
   useBatchDeleteNotifications,
   useBatchMarkAsRead,
   useInfiniteNotifications,
-  useRefreshNotifications,
+  refreshNotificationQueries,
   useAllNotificationIds,
 } from "@/hooks/notifications";
+import { NotificationQueryResult } from "@/types/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import type { NotificationVisualization as RQFilters } from "@/services/settings-service";
 import { FlashList } from "@shopify/flash-list";
+import { useQueryClient } from "@tanstack/react-query";
 import React, {
   useCallback,
   useEffect,
@@ -80,7 +82,7 @@ export default function NotificationsList({
   // React Query hooks
   const batchMarkAsReadMutation = useBatchMarkAsRead();
   const batchDeleteMutation = useBatchDeleteNotifications();
-  const refreshWithSync = useRefreshNotifications();
+  const queryClient = useQueryClient();
   const { hasUnreadNotifications } = useBadgeSync();
 
   const [visibleItems, setVisibileItems] = useState<Set<string>>(new Set());
@@ -155,10 +157,12 @@ export default function NotificationsList({
           break;
         case "custom":
           if (notificationVisualization.customTimeRange?.from) {
-            filters.createdAfter = notificationVisualization.customTimeRange.from;
+            filters.createdAfter =
+              notificationVisualization.customTimeRange.from;
           }
           if (notificationVisualization.customTimeRange?.to) {
-            filters.createdBefore = notificationVisualization.customTimeRange.to;
+            filters.createdBefore =
+              notificationVisualization.customTimeRange.to;
           }
           break;
       }
@@ -196,15 +200,15 @@ export default function NotificationsList({
     data,
     isLoading,
     isFetching,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
     error,
     refetch,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
   } = useInfiniteNotifications({
     filters: queryFilters,
     sort: querySort,
-    pageSize: limit,
+    pagination: { limit },
     refetchInterval: 10000, // Refresh from local DB every 10 seconds
   });
 
@@ -215,15 +219,20 @@ export default function NotificationsList({
 
   // Flatten all pages into single array
   const notifications = useMemo(() => {
-    return data?.pages.flatMap((page) => page.notifications) || [];
-  }, [data?.pages]);
+    if (!data?.pages) return [];
+    return data.pages.flatMap(
+      (page: NotificationQueryResult) => page.notifications
+    );
+  }, [data]);
 
   const filteredNotifications = notifications;
 
   // Sync all notification IDs to context when they change
   useEffect(() => {
     if (allNotificationIds) {
-      console.log(`[NotificationsList] Syncing ${allNotificationIds.length} notification IDs to context`);
+      console.log(
+        `[NotificationsList] Syncing ${allNotificationIds.length} notification IDs to context`
+      );
       handleSetAllNotificationIds(allNotificationIds);
     }
   }, [allNotificationIds, handleSetAllNotificationIds]);
@@ -257,9 +266,9 @@ export default function NotificationsList({
       const visibleSet = new Set(visibleIds);
       setVisibileItems(visibleSet);
       visibleIdsRef.current = visibleSet;
-      
+
       // Aggiungi tutte le notifiche attualmente visibili al set di quelle mai visibili
-      visibleIds.forEach(id => everVisibleIdsRef.current.add(id));
+      visibleIds.forEach((id) => everVisibleIdsRef.current.add(id));
 
       // Determina il primo e ultimo indice visibile
       const firstVisibleItem = viewableItems[0];
@@ -276,7 +285,7 @@ export default function NotificationsList({
         // Controlla se ci sono notifiche non lette prima di questo indice
         const hasUnread = filteredNotifications
           .slice(0, firstIndex)
-          .some((n) => !n.readAt);
+          .some((n: NotificationFragment) => !n.readAt);
         setHasUnreadAbove(hasUnread);
       }
 
@@ -291,7 +300,7 @@ export default function NotificationsList({
         // Controlla se ci sono notifiche non lette dopo questo indice
         const hasUnread = filteredNotifications
           .slice(lastIndex + 1)
-          .some((n) => !n.readAt);
+          .some((n: NotificationFragment) => !n.readAt);
         setHasUnreadBelow(hasUnread);
       }
 
@@ -344,11 +353,13 @@ export default function NotificationsList({
   // Funzione per eliminare notifiche selezionate
   const handleDeleteSelected = useCallback(async () => {
     const count = selectedItems.size;
-    
+
     if (count === 0) return;
 
     const notificationIds = Array.from(selectedItems);
-    console.log(`[NotificationsList] Deleting ${notificationIds.length} notifications`);
+    console.log(
+      `[NotificationsList] Deleting ${notificationIds.length} notifications`
+    );
 
     Alert.alert(
       t("notifications.deleteSelected.title"),
@@ -370,16 +381,20 @@ export default function NotificationsList({
   // Funzione per cambiare lo stato di lettura delle notifiche selezionate
   const handleToggleReadStatus = useCallback(async () => {
     const count = selectedItems.size;
-    
+
     if (count === 0) return;
 
     const notificationIds = Array.from(selectedItems);
-    console.log(`[NotificationsList] Toggling read status for ${notificationIds.length} notifications`);
-
-    const selectedNotifications = filteredNotifications.filter((n) =>
-      selectedItems.has(n.id)
+    console.log(
+      `[NotificationsList] Toggling read status for ${notificationIds.length} notifications`
     );
-    const hasUnreadNotifications = selectedNotifications.some((n) => !n.readAt);
+
+    const selectedNotifications = filteredNotifications.filter(
+      (n: NotificationFragment) => selectedItems.has(n.id)
+    );
+    const hasUnreadNotifications = selectedNotifications.some(
+      (n: NotificationFragment) => !n.readAt
+    );
 
     try {
       batchMarkAsReadMutation.mutate({
@@ -400,7 +415,8 @@ export default function NotificationsList({
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refreshWithSync(refetch);
+      await refreshNotificationQueries(queryClient);
+      await refetch();
     } catch (error) {
       console.error("[NotificationsListRQ] Pull-to-refresh error:", error);
     } finally {
@@ -425,17 +441,22 @@ export default function NotificationsList({
         />
       );
     },
-    [selectedItems, selectionMode, hideBucketInfo, visibleItems, notificationVisualization.enableHtmlRendering]
+    [
+      selectedItems,
+      selectionMode,
+      hideBucketInfo,
+      visibleItems,
+      notificationVisualization.enableHtmlRendering,
+    ]
   );
 
   // Memoized key extractor
   const keyExtractor = useCallback((item: NotificationFragment) => item.id, []);
 
-  // Handle loading more notifications with infinite query
+  // Handle loading more notifications
   const handleLoadMore = useCallback(() => {
-    if (isFetchingNextPage || isLoading) return;
-    if (!hasNextPage) return;
-
+    if (isFetchingNextPage || isLoading || !hasNextPage) return;
+    // console.log('[NotificationsList] Loading next page...');
     fetchNextPage();
   }, [isFetchingNextPage, isLoading, hasNextPage, fetchNextPage]);
 
@@ -516,7 +537,7 @@ export default function NotificationsList({
       );
     }
 
-    // Show end of list when no more pages
+    // Show message if no more pages
     if (!hasNextPage && filteredNotifications.length > 0) {
       return (
         <View style={styles.listFooter}>
@@ -604,7 +625,8 @@ export default function NotificationsList({
           onPress={() => {
             try {
               const firstUnreadIndex = filteredNotifications.findIndex(
-                (n, idx) => idx < firstVisibleIndex && !n.readAt
+                (n: NotificationFragment, idx: number) =>
+                  idx < firstVisibleIndex && !n.readAt
               );
               if (firstUnreadIndex !== -1) {
                 listRef.current?.scrollToIndex({
@@ -645,7 +667,8 @@ export default function NotificationsList({
           onPress={() => {
             try {
               const firstUnreadIndex = filteredNotifications.findIndex(
-                (n, idx) => idx > lastVisibleIndex && !n.readAt
+                (n: NotificationFragment, idx: number) =>
+                  idx > lastVisibleIndex && !n.readAt
               );
               if (firstUnreadIndex !== -1) {
                 listRef.current?.scrollToIndex({

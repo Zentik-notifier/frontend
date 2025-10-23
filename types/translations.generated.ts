@@ -359,6 +359,7 @@ export interface Translation {
     danglingBucketTitle: string;
     danglingBuckets: string;
     danglingBucketsDescription: string;
+    linkBucket: string;
     showDanglingBuckets: string;
     hideDanglingBuckets: string;
     noDanglingBuckets: string;
@@ -382,6 +383,11 @@ export interface Translation {
     bucketCreationSuccessMessage: string;
     bucketCreationError: string;
     bucketCreationErrorMessage: string;
+    deleteBucketTitle: string;
+    deleteBucket: string;
+    deleteBucketConfirmation: string;
+    bucketDeletionSuccessMessage: string;
+    bucketDeletionErrorMessage: string;
     loadingBucket: string;
     bucketNotFound: string;
     bucketNotFoundDescription: string;
@@ -394,6 +400,7 @@ export interface Translation {
       sharedWithPlural: string;
       notShared: string;
       sharedWithMe: string;
+      orphan: string;
       messages: string;
       noActivity: string;
       daysAgo: string;

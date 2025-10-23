@@ -35,6 +35,7 @@ export default function BucketIcon({
 
   const { bucket, isOrphan } = useBucket(bucketId, {
     userId: userId ?? undefined,
+    autoFetch: true,
   });
   const { color, icon, iconAttachmentUuid, name: bucketName } = bucket || {};
   const { navigateToDanglingBucket, navigateToBucketDetail } =
@@ -170,7 +171,7 @@ export default function BucketIcon({
                 width: currentSize.icon,
                 height: currentSize.icon,
                 borderRadius: currentSize.icon / 2,
-                backgroundColor: theme.colors.error,
+                backgroundColor: color ?? theme.colors.error,
               },
             ]}
           >

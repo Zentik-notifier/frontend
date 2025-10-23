@@ -9,12 +9,13 @@ import {
   useSetBucketSnoozeMutation,
   useShareBucketMutation,
   useUnshareBucketMutation,
-  useUpdateBucketSnoozesMutation
+  useUpdateBucketSnoozesMutation,
+  NotificationFragment
 } from '@/generated/gql-operations-generated';
 import { deleteNotificationsByBucketId } from '@/services/notifications-repository';
 import { deleteBucket } from '@/db/repositories/buckets-repository';
-import { mediaCache } from '@/services/media-cache-service';
 import { BucketWithStats } from '@/types/notifications';
+import { mediaCache } from '@/services/media-cache-service';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BucketDetailData, bucketKeys } from './useBucketQueries';
 import { notificationKeys } from './useNotificationQueries';
@@ -256,13 +257,11 @@ export function useSetBucketSnooze(options?: {
 
       // Cancel outgoing queries to prevent overwriting optimistic update
       await queryClient.cancelQueries({ queryKey: bucketKeys.detail(bucketId) });
-      await queryClient.cancelQueries({ queryKey: notificationKeys.bucketsStats() });
-      await queryClient.cancelQueries({ queryKey: notificationKeys.stats() });
+      await queryClient.cancelQueries({ queryKey: ['app-state'] });
 
       // Snapshot previous values for rollback
       const previousBucketDetail = queryClient.getQueryData(bucketKeys.detail(bucketId));
-      const previousBucketsStats = queryClient.getQueryData(notificationKeys.bucketsStats());
-      const previousStats = queryClient.getQueryData(notificationKeys.stats());
+      const previousAppState = queryClient.getQueryData(['app-state']);
 
       // 1. Update bucket detail query (useBucket)
       queryClient.setQueryData(bucketKeys.detail(bucketId), (old: any) => {
@@ -285,49 +284,54 @@ export function useSetBucketSnooze(options?: {
         };
       });
 
-      // 2. Update GLOBAL bucketsStats query (shared by ALL components)
-      queryClient.setQueryData<BucketWithStats[]>(notificationKeys.bucketsStats(), (old) => {
-        if (!old) {
-          console.log('[useSetBucketSnooze] No bucketsStats cache found, skipping optimistic update');
-          return old;
+      // 2. Update appState cache
+      queryClient.setQueryData<{
+        buckets: BucketWithStats[];
+        notifications: NotificationFragment[];
+        stats: any;
+        lastSync: string;
+      }>(['app-state'], (oldAppState) => {
+        if (!oldAppState) {
+          console.log('[useSetBucketSnooze] No appState cache found, skipping optimistic update');
+          return oldAppState;
         }
         
-        console.log(`[useSetBucketSnooze] Updating bucket ${bucketId} in bucketsStats cache:`, {
+        console.log(`[useSetBucketSnooze] Updating bucket ${bucketId} in appState cache:`, {
           isSnoozed,
           snoozeUntil: snoozeUntilISO,
         });
         
-        return old.map((bucket) =>
+        const updatedBuckets = oldAppState.buckets.map((bucket) =>
           bucket.id === bucketId
             ? { ...bucket, isSnoozed, snoozeUntil: snoozeUntilISO }
             : bucket
         );
+
+        return {
+          ...oldAppState,
+          buckets: updatedBuckets,
+        };
       });
 
-      console.log('[useSetBucketSnooze] Optimistic updates applied to GLOBAL cache');
+      console.log('[useSetBucketSnooze] Optimistic updates applied to appState cache');
 
       // Return context for rollback
-      return { previousBucketDetail, previousBucketsStats, previousStats };
+      return { previousBucketDetail, previousAppState };
     },
     onSuccess: async (data, variables) => {
-      console.log('[useSetBucketSnooze] Mutation successful, invalidating GLOBAL queries...');
+      console.log('[useSetBucketSnooze] Mutation successful, invalidating appState...');
 
-      // Invalidate GLOBAL bucketsStats query - updates ALL components automatically
+      // Invalidate appState query - updates ALL components automatically
       await queryClient.invalidateQueries({
-        queryKey: notificationKeys.bucketsStats(),
+        queryKey: ['app-state'],
       });
       
       // Also invalidate specific bucket detail
       await queryClient.invalidateQueries({
         queryKey: bucketKeys.detail(variables.bucketId),
       });
-      
-      // And notification stats
-      await queryClient.invalidateQueries({
-        queryKey: notificationKeys.stats(),
-      });
 
-      console.log('[useSetBucketSnooze] GLOBAL queries invalidated - all components will update');
+      console.log('[useSetBucketSnooze] appState invalidated - all components will update');
 
       if (options?.onSuccess) {
         options.onSuccess(data.snoozeUntil);
@@ -340,11 +344,8 @@ export function useSetBucketSnooze(options?: {
       if (context?.previousBucketDetail) {
         queryClient.setQueryData(bucketKeys.detail(variables.bucketId), context.previousBucketDetail);
       }
-      if (context?.previousBucketsStats) {
-        queryClient.setQueryData(notificationKeys.bucketsStats(), context.previousBucketsStats);
-      }
-      if (context?.previousStats) {
-        queryClient.setQueryData(notificationKeys.stats(), context.previousStats);
+      if (context?.previousAppState) {
+        queryClient.setQueryData(['app-state'], context.previousAppState);
       }
 
       if (options?.onError) {

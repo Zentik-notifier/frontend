@@ -1,4 +1,4 @@
-import { useBucketsStats } from "@/hooks/notifications";
+import { useAppState } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useAppContext } from "@/contexts/AppContext";
@@ -20,7 +20,8 @@ import BucketSelector from "./BucketSelector";
 import MultiBucketSelector from "./MultiBucketSelector";
 
 export default function NotificationVisualizationModal() {
-  const { data: bucketsWithStats = [] } = useBucketsStats();
+  const { data: appState } = useAppState();
+  const bucketsWithStats = appState?.buckets || [];
   const { t } = useI18n();
   const { datePickerLocale } = useDateFormat();
   const {

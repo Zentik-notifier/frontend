@@ -1318,9 +1318,6 @@ class MediaCacheService {
                 await this.addBucketIconToQueue(bucketId, bucketName, bucketColor, iconUrl);
                 return null;
             }
-
-            // No icon URL (legacy buckets?) - show placeholder in component
-            console.log(`[MediaCache] ⚠️ No icon URL for ${bucketName}, will show placeholder`);
             return null;
         } catch (error) {
             console.error('[MediaCache] Failed to get bucket icon:', error);

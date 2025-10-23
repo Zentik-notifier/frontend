@@ -6,12 +6,15 @@
 import {
     GetBucketQuery,
     Permission,
-    useGetBucketLazyQuery
+    useGetBucketLazyQuery,
+    NotificationFragment
 } from '@/generated/gql-operations-generated';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { notificationKeys } from './useNotificationQueries';
 import { saveBucket } from '@/db/repositories/buckets-repository';
+import { useAppState } from './useNotificationQueries';
+import { BucketWithStats } from '@/types/notifications';
 
 // ====================
 // TYPES
@@ -89,6 +92,10 @@ export function useBucket(
     const queryClient = useQueryClient();
     const { autoFetch = false, userId } = options || {};
 
+    // Get bucket info from app state (includes orphan status)
+    const { data: appState } = useAppState();
+    const bucketFromGlobal = appState?.buckets.find((b) => b.id === bucketId);
+
     // Use lazy query ONLY for manual refetch (via useRefreshBucket)
     const [getBucket] = useGetBucketLazyQuery({
         fetchPolicy: 'network-only',
@@ -96,6 +103,7 @@ export function useBucket(
 
     // Read bucket details from separate query (for permissions and full data)
     // This query is populated by manual refetch via useRefreshBucket OR autoFetch
+    // BUT: Don't fetch if bucket is orphan (exists only through notifications)
     const { data: bucketDetail, isLoading: loadingDetail, error } = useQuery({
         queryKey: bucketKeys.detail(bucketId!),
         queryFn: async () => {
@@ -103,14 +111,10 @@ export function useBucket(
             const { data } = await getBucket({ variables: { id: bucketId! } });
             return data?.bucket ?? null;
         },
-        enabled: autoFetch && !!bucketId, // ✅ Auto-fetch if option is enabled
+        enabled: autoFetch && !!bucketId && bucketFromGlobal?.isOrphan !== true, // ✅ Don't fetch if orphan
         staleTime: Infinity,
         gcTime: Infinity,
     });
-
-    // Read bucket from GLOBAL bucketsStats cache for basic info
-    const bucketsStats = queryClient.getQueryData<any[]>(['notifications', 'bucketsStats']);
-    const bucketFromGlobal = bucketsStats?.find((b: any) => b.id === bucketId);
 
     // Use bucketDetail if manually fetched (has permissions), otherwise use bucketFromGlobal
     // bucketFromGlobal has: id, name, description, icon, color, isSnoozed, snoozeUntil, etc.
@@ -120,9 +124,12 @@ export function useBucket(
     // Loading state logic:
     // - If autoFetch is enabled: loading = true when fetching and no data yet
     // - If autoFetch is disabled: loading = true only when manually fetching and no fallback data
-    const loading = autoFetch 
-        ? loadingDetail && !bucketDetail  // With autoFetch: loading until we have full details
-        : loadingDetail && !bucketFromGlobal; // Without autoFetch: loading only if no global data
+    // - If bucket is orphan: never loading (no fetch will happen)
+    const loading = bucketFromGlobal?.isOrphan 
+        ? false // Orphan buckets never load
+        : autoFetch 
+            ? loadingDetail && !bucketDetail  // With autoFetch: loading until we have full details
+            : loadingDetail && !bucketFromGlobal; // Without autoFetch: loading only if no global data
     
     // Get snooze info from global cache (always up-to-date from bucketsStats)
     const isSnoozedFromGlobal = bucketFromGlobal?.isSnoozed ?? false;
@@ -137,10 +144,7 @@ export function useBucket(
         );
 
         // Check if bucket is orphan (exists locally but not on remote server)
-        const isOrphan = bucketFromGlobal && !bucketDetail && error && 
-            (error.message?.includes('Bucket not found') || 
-             error.message?.includes('not found') ||
-             (error as any).graphQLErrors?.some((e: any) => e.message?.includes('not found')));
+        const isOrphan = bucketFromGlobal?.isOrphan ?? false;
 
         // If no bucket or userId, return empty permissions
         if (!userId || !bucketId || !bucket) {
@@ -220,6 +224,21 @@ export function useRefreshBucket() {
 
     const refreshBucket = async (bucketId: string): Promise<void> => {
         try {
+            // Check if bucket is orphan before attempting to fetch
+            const appState = queryClient.getQueryData<{
+                buckets: BucketWithStats[];
+                notifications: NotificationFragment[];
+                stats: any;
+                lastSync: string;
+            }>(['app-state']);
+            
+            const bucketFromGlobal = appState?.buckets.find((b) => b.id === bucketId);
+            
+            if (bucketFromGlobal?.isOrphan) {
+                console.log(`[refreshBucket] Skipping fetch for orphan bucket ${bucketId}`);
+                return;
+            }
+
             console.log(`[refreshBucket] Manually fetching bucket ${bucketId} from GraphQL...`);
 
             // 1. Fetch fresh data from GraphQL API
@@ -234,13 +253,18 @@ export function useRefreshBucket() {
             // 2. Set data directly in React Query cache for this bucket detail
             queryClient.setQueryData(bucketKeys.detail(bucketId), freshBucket);
 
-            // 3. Update the bucket in global bucketsStats cache
-            queryClient.setQueryData<any[]>(notificationKeys.bucketsStats(), (old) => {
-                if (!old) return old;
+            // 3. Update the bucket in appState cache
+            queryClient.setQueryData<{
+                buckets: BucketWithStats[];
+                notifications: NotificationFragment[];
+                stats: any;
+                lastSync: string;
+            }>(['app-state'], (oldAppState) => {
+                if (!oldAppState) return oldAppState;
                 
-                return old.map(bucket => {
+                const updatedBuckets = oldAppState.buckets.map(bucket => {
                     if (bucket.id === bucketId) {
-                        console.log(`[refreshBucket] Updating bucket ${bucketId} in bucketsStats cache`);
+                        console.log(`[refreshBucket] Updating bucket ${bucketId} in appState cache`);
                         return {
                             ...bucket,
                             name: freshBucket.name,
@@ -251,10 +275,19 @@ export function useRefreshBucket() {
                             updatedAt: freshBucket.updatedAt,
                             isProtected: freshBucket.isProtected,
                             isPublic: freshBucket.isPublic,
+                            userBucket: freshBucket.userBucket,
+                            user: freshBucket.user,
+                            permissions: freshBucket.permissions,
+                            isOrphan: false, // Mark as no longer orphan
                         };
                     }
                     return bucket;
                 });
+
+                return {
+                    ...oldAppState,
+                    buckets: updatedBuckets,
+                };
             });
 
             // 4. Save to local DB

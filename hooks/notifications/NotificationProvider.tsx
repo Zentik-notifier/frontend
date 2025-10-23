@@ -197,9 +197,7 @@ export function NotificationProvider({
  */
 export {
   useNotification,
-  useNotificationStats,
-  useBucketStats,
-  useUnreadCountsByBucket,
+  useAppState,
   notificationKeys,
 } from "./useNotificationQueries";
 

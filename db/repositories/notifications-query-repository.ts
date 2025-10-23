@@ -232,15 +232,15 @@ export async function queryNotifications(
       if (Platform.OS === 'web') {
         // IndexedDB - optimized querying with cursor iteration
         // Only load what we need instead of fetching everything
-        
+
         const limit = pagination?.limit || 50;
         const offset = pagination?.offset || 0;
         const sortDirection = sort?.direction === 'asc' ? 'next' : 'prev';
-        
+
         // If we have complex filters or search, we still need to load everything
         // But for simple queries (e.g., by bucket, by read status), we can optimize
         const hasComplexFilters = filters?.searchQuery || filters?.createdAfter || filters?.createdBefore;
-        
+
         if (hasComplexFilters) {
           // Fallback to full scan for complex queries
           const allNotifications = await db.getAll('notifications');
@@ -271,41 +271,41 @@ export async function queryNotifications(
             sort,
             pagination: pagination
               ? {
-                  limit,
-                  offset,
-                  hasMore: offset + paginated.length < totalCount,
-                }
+                limit,
+                offset,
+                hasMore: offset + paginated.length < totalCount,
+              }
               : undefined,
           };
         }
-        
+
         // Optimized path: Use cursor iteration for simple queries
         // This avoids loading all notifications into memory
         const tx = db.transaction('notifications', 'readonly');
         const store = tx.objectStore('notifications');
-        
+
         // Use the created_at index for sorted iteration
         const index = store.index('created_at');
         let cursor = await index.openCursor(null, sortDirection);
         const notifications: NotificationFragment[] = [];
         let totalCount = 0;
         let skipped = 0;
-        
+
         // Iterate through records with cursor
         while (cursor) {
           const parsed = parseNotificationFromDB(cursor.value, db);
-          
+
           // Check if notification is valid and matches filters
           if (parsed) {
-            const matchesFilters = 
+            const matchesFilters =
               (!filters?.bucketId || parsed.message?.bucket?.id === filters.bucketId) &&
               (filters?.isRead === undefined || (parsed.readAt !== null) === filters.isRead) &&
-              (filters?.hasAttachments === undefined || 
+              (filters?.hasAttachments === undefined ||
                 ((parsed.message?.attachments?.length || 0) > 0) === filters.hasAttachments);
-            
+
             if (matchesFilters) {
               totalCount++;
-              
+
               // Apply pagination: skip offset, collect up to limit
               if (skipped < offset) {
                 skipped++;
@@ -316,10 +316,10 @@ export async function queryNotifications(
               // (can't exit early as we need totalCount)
             }
           }
-          
+
           cursor = await cursor.continue();
         }
-        
+
         await tx.done;
 
         return {
@@ -329,10 +329,10 @@ export async function queryNotifications(
           sort,
           pagination: pagination
             ? {
-                limit,
-                offset,
-                hasMore: offset + notifications.length < totalCount,
-              }
+              limit,
+              offset,
+              hasMore: offset + notifications.length < totalCount,
+            }
             : undefined,
         };
       } else {
@@ -349,7 +349,7 @@ export async function queryNotifications(
         const limit = buildLimitClause(pagination);
         const query = `SELECT * FROM notifications ${where} ${orderBy} ${limit}`;
         const results = await db.getAllAsync(query, params);
-        
+
         let parsed = results
           .map((record: any) => parseNotificationFromDB(record, db))
           .filter((n: NotificationFragment | null): n is NotificationFragment => n !== null); // Filter out corrupted
@@ -372,10 +372,10 @@ export async function queryNotifications(
           sort,
           pagination: pagination
             ? {
-                limit: pagination.limit || 50,
-                offset: pagination.offset || 0,
-                hasMore: (pagination.offset || 0) + parsed.length < totalCount,
-              }
+              limit: pagination.limit || 50,
+              offset: pagination.offset || 0,
+              hasMore: (pagination.offset || 0) + parsed.length < totalCount,
+            }
             : undefined,
         };
       }
@@ -447,7 +447,7 @@ export async function getBucketStats(bucketId: string): Promise<BucketStats> {
         // IndexedDB - optimized cursor iteration instead of loading all
         const tx = db.transaction('notifications', 'readonly');
         const store = tx.objectStore('notifications');
-        
+
         let cursor = await store.openCursor();
         let totalCount = 0;
         let unreadCount = 0;
@@ -455,22 +455,22 @@ export async function getBucketStats(bucketId: string): Promise<BucketStats> {
         let bucketName: string | undefined;
         let firstDate: number | undefined;
         let lastDate: number | undefined;
-        
+
         // Iterate only through notifications, calculate stats on the fly
         while (cursor) {
           const parsed = parseNotificationFromDB(cursor.value, db);
-          
+
           if (parsed && parsed.message?.bucket?.id === bucketId) {
             totalCount++;
-            
+
             if (!parsed.readAt) {
               unreadCount++;
             }
-            
+
             if (parsed.message.attachments && parsed.message.attachments.length > 0) {
               withAttachmentsCount++;
             }
-            
+
             // Track dates
             const createdTime = new Date(parsed.createdAt).getTime();
             if (firstDate === undefined || createdTime < firstDate) {
@@ -479,16 +479,16 @@ export async function getBucketStats(bucketId: string): Promise<BucketStats> {
             if (lastDate === undefined || createdTime > lastDate) {
               lastDate = createdTime;
             }
-            
+
             // Get bucket name from first match
             if (!bucketName) {
               bucketName = parsed.message.bucket.name;
             }
           }
-          
+
           cursor = await cursor.continue();
         }
-        
+
         await tx.done;
 
         if (totalCount === 0) {
@@ -574,14 +574,14 @@ export async function getNotificationStats(
         // IndexedDB - optimized cursor iteration for statistics
         const tx = db.transaction('notifications', 'readonly');
         const store = tx.objectStore('notifications');
-        
+
         let cursor = await store.openCursor();
         let totalCount = 0;
         let unreadCount = 0;
         let withAttachmentsCount = 0;
         let firstDate: number | undefined;
         let lastDate: number | undefined;
-        
+
         // Bucket-level stats tracking
         interface BucketData {
           bucketName?: string;
@@ -592,28 +592,28 @@ export async function getNotificationStats(
           lastDate?: number;
         }
         const bucketMap = new Map<string, BucketData>();
-        
+
         // Single pass through all notifications
         while (cursor) {
           const parsed = parseNotificationFromDB(cursor.value, db);
-          
+
           if (parsed && parsed.message?.bucket?.id) {
             const bucketId = parsed.message.bucket.id;
-            
+
             // Check if we should include this notification based on bucketIds filter
             const shouldInclude = !bucketIds || bucketIds.length === 0 || bucketIds.includes(bucketId);
-            
+
             if (shouldInclude) {
               totalCount++;
-              
+
               if (!parsed.readAt) {
                 unreadCount++;
               }
-              
+
               if (parsed.message.attachments && parsed.message.attachments.length > 0) {
                 withAttachmentsCount++;
               }
-              
+
               // Track overall dates
               const createdTime = new Date(parsed.createdAt).getTime();
               if (firstDate === undefined || createdTime < firstDate) {
@@ -622,7 +622,7 @@ export async function getNotificationStats(
               if (lastDate === undefined || createdTime > lastDate) {
                 lastDate = createdTime;
               }
-              
+
               // Track per-bucket stats
               let bucketData = bucketMap.get(bucketId);
               if (!bucketData) {
@@ -634,7 +634,7 @@ export async function getNotificationStats(
                 };
                 bucketMap.set(bucketId, bucketData);
               }
-              
+
               bucketData.totalCount++;
               if (!parsed.readAt) {
                 bucketData.unreadCount++;
@@ -650,10 +650,10 @@ export async function getNotificationStats(
               }
             }
           }
-          
+
           cursor = await cursor.continue();
         }
-        
+
         await tx.done;
 
         if (totalCount === 0) {
@@ -788,20 +788,20 @@ export async function getAllNotificationIds(filters?: NotificationFilters): Prom
         const tx = db.transaction('notifications', 'readonly');
         const store = tx.objectStore('notifications');
         const allNotifications = await store.getAll();
-        
+
         // Apply filters
         const filtered = applyFilters(allNotifications, filters);
-        
+
         return filtered.map(n => n.id);
       } else {
         // SQLite
         const { where, params } = buildWhereClause(filters);
-        
+
         const results = await db.getAllAsync(
           `SELECT id FROM notifications ${where}`,
           params
         );
-        
+
         return results.map((r: any) => r.id);
       }
     } catch (error) {
@@ -822,22 +822,22 @@ export async function getUnreadCountsByBucket(): Promise<Map<string, number>> {
         // IndexedDB - optimized cursor iteration for unread counts
         const tx = db.transaction('notifications', 'readonly');
         const store = tx.objectStore('notifications');
-        
+
         const countMap = new Map<string, number>();
         let cursor = await store.openCursor();
-        
+
         // Single pass: count unread per bucket
         while (cursor) {
           const parsed = parseNotificationFromDB(cursor.value, db);
-          
+
           if (parsed && !parsed.readAt && parsed.message?.bucket?.id) {
             const bucketId = parsed.message.bucket.id;
             countMap.set(bucketId, (countMap.get(bucketId) || 0) + 1);
           }
-          
+
           cursor = await cursor.continue();
         }
-        
+
         await tx.done;
         return countMap;
       } else {

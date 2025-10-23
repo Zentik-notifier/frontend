@@ -2,11 +2,11 @@ import { BucketFragment } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
 import Selector, { SelectorOption } from "./ui/Selector";
+import { useAppState } from "@/hooks/notifications/useNotificationQueries";
 
 interface BucketSelectorProps {
   selectedBucketId?: string;
   onBucketChange: (bucketId: string) => void;
-  buckets: BucketFragment[];
   label?: string;
   searchable?: boolean;
 }
@@ -14,12 +14,16 @@ interface BucketSelectorProps {
 export default function BucketSelector({
   selectedBucketId,
   onBucketChange,
-  buckets,
   label,
   searchable = false,
 }: BucketSelectorProps) {
   const { t } = useI18n();
+  const { data: appState } = useAppState();
+
   const bucketOptions = useMemo(() => {
+    const buckets = (appState?.buckets || []).filter(
+      (bucket) => !bucket.isOrphan
+    );
     const options: SelectorOption[] = [];
 
     // Add regular buckets
@@ -34,7 +38,7 @@ export default function BucketSelector({
     });
 
     return options;
-  }, [buckets, t]);
+  }, [appState, t]);
 
   const selectedOption = bucketOptions.find(
     (option) => option.id === selectedBucketId

@@ -11,7 +11,7 @@ import {
   useGetUserWebhooksQuery,
 } from "@/generated/gql-operations-generated";
 import { useLanguageSync, useNotificationUtils } from "@/hooks";
-import { useBucket, useBucketsStats } from "@/hooks/notifications";
+import { useBucket, useAppState } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import {
   getNotificationTestData,
@@ -56,10 +56,11 @@ export default function NotificationsSettings() {
 
   // GraphQL queries for data
   const {
-    data: bucketsWithStats = [],
+    data: appState,
     isLoading: bucketsLoading,
-    refreshBucketsStats,
-  } = useBucketsStats();
+    refreshAll,
+  } = useAppState();
+  const bucketsWithStats = appState?.buckets || [];
   const {
     data: webhooksData,
     loading: webhooksLoading,
@@ -313,7 +314,7 @@ export default function NotificationsSettings() {
   }));
 
   const handleRefresh = async () => {
-    await refreshBucketsStats();
+    await refreshAll();
     await refetchWebhooks();
   };
 
@@ -635,8 +636,7 @@ export default function NotificationsSettings() {
                   label={t("notifications.targeting.bucket")}
                   selectedBucketId={bucketId}
                   onBucketChange={(id) => setBucketId(id || "")}
-                  buckets={bucketsWithStats as any}
-                  searchable={true}
+                  searchable
                 />
               ) : (
                 <View style={styles.field}>

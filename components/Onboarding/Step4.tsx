@@ -314,7 +314,6 @@ const Step4 = memo(({ push }: Step4Props) => {
           ) : buckets.length > 0 ? (
             <BucketSelector
               label={t("onboardingV2.step4.bucketLabel")}
-              buckets={buckets}
               selectedBucketId={selectedBucketId}
               onBucketChange={handleBucketSelect}
             />

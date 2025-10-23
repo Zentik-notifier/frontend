@@ -1,5 +1,5 @@
 import { useI18n } from "@/hooks/useI18n";
-import { useNotificationStats, useBucketsStats } from "@/hooks/notifications";
+import { useAppState } from "@/hooks/notifications";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { Tabs } from "expo-router";
 import { Platform } from "react-native";
@@ -8,12 +8,11 @@ import { Icon, useTheme } from "react-native-paper";
 export default function TabsLayout() {
   const theme = useTheme();
   const { t } = useI18n();
-  const { data: notificationStats, isLoading: isLoadingStats } = useNotificationStats();
-  const { data: bucketsWithStats = [] } = useBucketsStats();
+  const { data: appState, isLoading: isLoadingStats } = useAppState();
   const { cacheStats } = useGetCacheStats();
 
-  const notifCount = notificationStats?.totalCount || 0;
-  const bucketsCount = bucketsWithStats.length;
+  const notifCount = appState?.stats.totalCount || 0;
+  const bucketsCount = appState?.buckets.length || 0;
   const galleryCount = cacheStats?.totalItems ?? 0;
 
   const content = (

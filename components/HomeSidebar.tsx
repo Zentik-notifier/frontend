@@ -1,6 +1,6 @@
 import BucketIcon from "@/components/BucketIcon";
 import { useDeviceType } from "@/hooks/useDeviceType";
-import { useNotificationStats, useBucketsStats } from "@/hooks/notifications";
+import { useAppState } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -20,8 +20,9 @@ export default function HomeSidebar() {
   const { t } = useI18n();
   
   // Use React Query for stats
-  const { data: notificationStats, isLoading: isLoadingStats } = useNotificationStats();
-  const { data: bucketsWithStats = [] } = useBucketsStats();
+  const { data: appState, isLoading: isLoadingStats } = useAppState();
+  const notificationStats = appState?.stats;
+  const bucketsWithStats = appState?.buckets || [];
   const { cacheStats } = useGetCacheStats();
   const pathname = usePathname();
   const {

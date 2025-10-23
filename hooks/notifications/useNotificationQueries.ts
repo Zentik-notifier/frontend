@@ -18,16 +18,8 @@ import {
     BucketData
 } from '@/db/repositories/buckets-repository';
 import {
-    GetBucketsQuery,
-    NotificationFragment,
-    useGetBucketsLazyQuery,
-    useGetNotificationLazyQuery,
-    useGetNotificationsLazyQuery,
-    useUpdateReceivedNotificationsMutation,
-    useMassDeleteNotificationsMutation
-} from '@/generated/gql-operations-generated';
-import {
     upsertNotificationsBatch,
+    getAllNotificationsFromCache,
     saveNotificationToCache,
     deleteNotificationFromCache,
     deleteNotificationsFromCache,
@@ -38,6 +30,15 @@ import {
 } from '@/services/notifications-repository';
 import { mediaCache } from '@/services/media-cache-service';
 import {
+    GetBucketsQuery,
+    NotificationFragment,
+    useGetBucketsLazyQuery,
+    useGetNotificationLazyQuery,
+    useGetNotificationsLazyQuery,
+    useUpdateReceivedNotificationsMutation,
+    useMassDeleteNotificationsMutation
+} from '@/generated/gql-operations-generated';
+import {
     BucketStats,
     BucketWithStats,
     NotificationQueryResult,
@@ -46,42 +47,97 @@ import {
     UseNotificationsOptions,
     UseNotificationStatsOptions,
 } from '@/types/notifications';
-import {
-    InfiniteData,
-    useInfiniteQuery,
-    UseInfiniteQueryResult,
-    useQuery,
-    useQueryClient,
-    UseQueryOptions,
-    UseQueryResult,
-} from '@tanstack/react-query';
-
-// ====================
-// QUERY KEYS
-// ====================
+import { useQuery, useQueryClient, UseQueryResult, UseQueryOptions, useInfiniteQuery, UseInfiniteQueryResult } from '@tanstack/react-query';
 
 /**
- * Query key factory for notifications
- * Provides consistent and hierarchical keys for react-query
+ * Query keys for notification-related queries
+ * Centralized key management for React Query
  */
 export const notificationKeys = {
     all: ['notifications'] as const,
     lists: () => [...notificationKeys.all, 'list'] as const,
-    list: (filters?: any, sort?: any, pagination?: any) =>
-        [...notificationKeys.lists(), { filters, sort, pagination }] as const,
-    details: () => [...notificationKeys.all, 'detail'] as const,
-    detail: (id: string) => [...notificationKeys.details(), id] as const,
+    list: (bucketIds?: string[], unreadOnly?: boolean, withAttachments?: boolean, limit?: number) =>
+        [...notificationKeys.lists(), { bucketIds, unreadOnly, withAttachments, limit }] as const,
+    detail: (id: string) => [...notificationKeys.all, 'detail', id] as const,
     stats: () => [...notificationKeys.all, 'stats'] as const,
     stat: (bucketIds?: string[]) => [...notificationKeys.stats(), { bucketIds }] as const,
-    bucketStats: () => [...notificationKeys.all, 'bucketStats'] as const,
-    bucketStat: (bucketId: string) => [...notificationKeys.bucketStats(), bucketId] as const,
+    bucketStat: (bucketId: string) => [...notificationKeys.stats(), 'bucket', bucketId] as const,
     bucketsStats: () => [...notificationKeys.all, 'bucketsStats'] as const,
-    unreadCounts: () => [...notificationKeys.all, 'unreadCounts'] as const,
+    allIds: (bucketIds?: string[], unreadOnly?: boolean, withAttachments?: boolean) =>
+        [...notificationKeys.all, 'allIds', { bucketIds, unreadOnly, withAttachments }] as const,
 };
 
-// ====================
-// QUERY HOOKS
-// ====================
+/**
+ * Hook for fetching notifications with pagination and local DB sync
+ * 
+ * @example
+ * ```tsx
+ * const { data, isLoading, fetchNextPage, hasNextPage } = useInfiniteNotifications({
+ *   bucketIds: ['bucket-1', 'bucket-2'],
+ *   unreadOnly: true,
+ * });
+ * ```
+ */
+/**
+ * Type for infinite query result with pages
+ */
+type InfiniteQueryResult<T> = {
+    pages: T[];
+    pageParams: unknown[];
+};
+
+export function useInfiniteNotifications(
+    options?: UseNotificationsOptions
+) {
+    const {
+        filters,
+        sort,
+        pagination,
+        realtime = false,
+        refetchInterval = 0,
+    } = options || {};
+
+    const limit = pagination?.limit || 20;
+
+    return useInfiniteQuery({
+        queryKey: notificationKeys.list(
+            filters?.bucketId ? [filters.bucketId] : undefined,
+            filters?.isRead === false,
+            filters?.hasAttachments,
+            limit
+        ),
+        queryFn: async ({ pageParam = 0 }): Promise<NotificationQueryResult> => {
+            try {
+                const result = await queryNotifications({
+                    filters,
+                    sort,
+                    pagination: {
+                        limit,
+                        offset: (pageParam as number) * limit,
+                    }
+                });
+                // console.log(`[useInfiniteNotifications] Loaded ${result.notifications.length} notifications (page ${pageParam})`);
+                return result;
+            } catch (error) {
+                console.error('[useInfiniteNotifications] Error:', error);
+                throw error;
+            }
+        },
+        initialPageParam: 0,
+        getNextPageParam: (lastPage: NotificationQueryResult, allPages) => {
+            // If we got fewer notifications than the limit, we've reached the end
+            if (lastPage.notifications.length < limit) {
+                return undefined;
+            }
+            // Otherwise, return the next page number
+            return allPages.length;
+        },
+        refetchInterval: realtime ? (refetchInterval || 5000) : refetchInterval,
+        staleTime: 10000, // 10 seconds
+        gcTime: 10 * 60 * 1000, // 10 minutes
+        ...options,
+    });
+}
 
 /**
  * Hook for fetching a single notification by ID
@@ -99,130 +155,50 @@ export function useNotification(
         queryKey: notificationKeys.detail(notificationId),
         queryFn: async (): Promise<NotificationFragment | null> => {
             try {
-                // Always use local DB - notifications are already synced
-                const localNotification = await getNotificationById(notificationId);
-                return localNotification;
+                const notification = await getNotificationById(notificationId);
+                return notification;
             } catch (error) {
                 console.error('[useNotification] Error:', error);
-                return null;
+                throw error;
             }
         },
-        staleTime: 60000, // 1 minute
-        gcTime: 10 * 60 * 1000, // 10 minutes
         ...queryOptions,
     });
 }
 
 /**
- * Hook for fetching notification statistics
+ * SINGLE UNIFIED QUERY: Complete app state initialization
+ * This replaces ALL fragmented queries and ensures complete consistency
+ * 
+ * Manages:
+ * - Bucket stats (API + orphaned from notifications)
+ * - Notification stats (overall + by bucket)
+ * - Notification sync from API
+ * - Bucket sync from API
+ * - Cache management
+ * - Orphaned data cleanup
  * 
  * @example
  * ```tsx
- * const { data: stats, isLoading } = useNotificationStats({
- *   bucketIds: ['bucket-1', 'bucket-2'],
- *   realtime: true,
- * });
- * ```
- */
-export function useNotificationStats(
-    options?: UseNotificationStatsOptions
-): UseQueryResult<NotificationStats> {
-    const {
-        bucketIds,
-        realtime = false,
-        refetchInterval = 0,
-    } = options || {};
-
-    return useQuery({
-        queryKey: notificationKeys.stat(bucketIds),
-        queryFn: async (): Promise<NotificationStats> => {
-            try {
-                // Get stats from local DB (fast and always available)
-                const stats = await getNotificationStats(bucketIds);
-                return stats;
-            } catch (error) {
-                console.error('[useNotificationStats] Error:', error);
-                throw error;
-            }
-        },
-        refetchInterval: realtime ? (refetchInterval || 5000) : refetchInterval,
-        staleTime: 10000, // 10 seconds
-        gcTime: 2 * 60 * 1000, // 2 minutes
-    });
-}
-
-/**
- * Hook for fetching statistics for a specific bucket
- * 
- * @example
- * ```tsx
- * const { data: bucketStats, isLoading } = useBucketStats('bucket-id');
- * ```
- */
-export function useBucketStats(
-    bucketId: string
-): UseQueryResult<BucketStats> {
-    const queryClient = useQueryClient();
-
-    return useQuery({
-        queryKey: notificationKeys.bucketStat(bucketId),
-        queryFn: async (): Promise<BucketStats> => {
-            // Always read from global bucketsStats cache
-            const bucketsStats = queryClient.getQueryData<BucketWithStats[]>(
-                notificationKeys.bucketsStats()
-            );
-
-            const bucketFromGlobal = bucketsStats?.find(b => b.id === bucketId);
-
-            if (bucketFromGlobal) {
-                // Return stats from global cache
-                return {
-                    bucketId: bucketFromGlobal.id,
-                    bucketName: bucketFromGlobal.name,
-                    totalCount: bucketFromGlobal.totalMessages,
-                    unreadCount: bucketFromGlobal.unreadCount,
-                    readCount: bucketFromGlobal.totalMessages - bucketFromGlobal.unreadCount,
-                    withAttachmentsCount: 0, // Not tracked in bucketsStats
-                    lastNotificationDate: bucketFromGlobal.lastNotificationAt ?? undefined,
-                };
-            }
-
-            // Fallback: calculate from local DB if not in global cache
-            try {
-                const stats = await getBucketStats(bucketId);
-                return stats;
-            } catch (error) {
-                console.error('[useBucketStats] Error:', error);
-                throw error;
-            }
-        },
-        // React to changes: when global bucketsStats is invalidated, this will refetch
-        staleTime: 0, // Always consider stale so it refetches on invalidation
-        gcTime: 5 * 60 * 1000,
-    });
-}
-
-/**
- * Hook for fetching all buckets with their notification statistics
- * GLOBAL SINGLETON - Uses React Query to cache buckets data globally
- * All components share the same cached data instance
- * 
- * @example
- * ```tsx
- * const { data: bucketsWithStats, isLoading, refreshBucketsStats } = useBucketsStats({
+ * const { data: appState, isLoading, refreshAll } = useAppState({
  *   realtime: true, // Auto-refresh every 5 seconds
  * });
  * 
- * // bucketsWithStats is BucketWithStats[] - sorted by unreadCount, lastNotificationAt, name
+ * // appState contains everything: buckets, notifications, stats
  * // Data is SHARED across all components - updates propagate automatically
  * 
- * // To refresh buckets from API and re-calculate stats:
- * await refreshBucketsStats();
+ * // To refresh everything from API:
+ * await refreshAll();
  * ```
  */
-export function useBucketsStats(
+export function useAppState(
     options?: UseBucketsStatsOptions
-): UseQueryResult<BucketWithStats[]> & { refreshBucketsStats: () => Promise<void> } {
+): UseQueryResult<{
+    buckets: BucketWithStats[];
+    notifications: NotificationFragment[];
+    stats: NotificationStats;
+    lastSync: string;
+}> & { refreshAll: () => Promise<void> } {
     const queryClient = useQueryClient();
     const {
         realtime = false,
@@ -230,8 +206,11 @@ export function useBucketsStats(
         forceFullDetails = false,
     } = options || {};
 
-    // Use lazy query for manual control
+    // Use lazy queries for manual control
     const [fetchBuckets] = useGetBucketsLazyQuery({
+        fetchPolicy: 'network-only', // Don't use Apollo cache
+    });
+    const [fetchNotifications] = useGetNotificationsLazyQuery({
         fetchPolicy: 'network-only', // Don't use Apollo cache
     });
 
@@ -239,44 +218,96 @@ export function useBucketsStats(
     type BucketWithUserData = NonNullable<GetBucketsQuery['buckets']>[number];
 
     const queryResult = useQuery({
-        queryKey: notificationKeys.bucketsStats(),
-        queryFn: async (): Promise<BucketWithStats[]> => {
+        queryKey: ['app-state'],
+        queryFn: async (): Promise<{
+            buckets: BucketWithStats[];
+            notifications: NotificationFragment[];
+            stats: NotificationStats;
+            lastSync: string;
+        }> => {
             try {
-                // If forceFullDetails is true, always fetch from API
-                if (forceFullDetails) {
-                    console.log('[useBucketsStats] Force fetching buckets from GraphQL API...');
-                    
-                    // 1. Fetch buckets from GraphQL API
+                console.log('[useAppState] Starting complete app state initialization...');
+
+                // STEP 1: Get ALL notification stats first (this includes orphaned buckets)
+                const allNotificationStats = await getNotificationStats([]);
+                const allBucketFromNotifications = allNotificationStats.byBucket ?? [];
+
+                console.log(`[useAppState] Found ${allBucketFromNotifications.length} bucket from notifications`);
+
+                // STEP 2: Try to sync notifications from API
+                let notifications: NotificationFragment[] = [];
+                let notificationSyncSuccess = false;
+
+                try {
+                    console.log('[useAppState] Syncing notifications from API...');
+                    const { data } = await fetchNotifications();
+                    notifications = (data?.notifications ?? []) as NotificationFragment[];
+
+                    if (notifications.length > 0) {
+                        // Save notifications to local DB
+                        await upsertNotificationsBatch(notifications);
+                        console.log(`[useAppState] Saved ${notifications.length} notifications to local DB`);
+                    }
+
+                    notificationSyncSuccess = true;
+                    console.log(`[useAppState] Successfully synced ${notifications.length} notifications from API`);
+                } catch (error) {
+                    console.warn('[useAppState] Failed to sync notifications from API, using cache:', error);
+
+                    // Load from local cache as fallback
+                    notifications = await getAllNotificationsFromCache();
+                    console.log(`[useAppState] Using ${notifications.length} notifications from local cache`);
+                }
+
+                // STEP 3: Try to get buckets from API
+                let apiBuckets: BucketWithUserData[] = [];
+                let apiSuccess = false;
+
+                try {
+                    console.log('[useAppState] Syncing buckets from API...');
                     const { data } = await fetchBuckets();
-                    const buckets = (data?.buckets ?? []) as BucketWithUserData[];
+                    apiBuckets = (data?.buckets ?? []) as BucketWithUserData[];
+                    apiSuccess = true;
+                    console.log(`[useAppState] Successfully synced ${apiBuckets.length} buckets from API`);
+                } catch (error) {
+                    console.warn('[useAppState] Failed to sync buckets from API, using cache:', error);
+                }
 
-                    console.log(`[useBucketsStats] Fetched ${buckets.length} buckets from API with full details`);
-
-                // 2. Clean up orphaned buckets
-                const localBucketsForce = await getAllBuckets();
-                const serverBucketIdsForce = new Set(buckets.map(b => b.id));
-                const orphanedBucketsForce = localBucketsForce.filter(cb => !serverBucketIdsForce.has(cb.id));
-                
-                if (orphanedBucketsForce.length > 0) {
-                    console.log(`[useBucketsStats] Found ${orphanedBucketsForce.length} orphaned buckets, deleting...`);
-                    for (const orphan of orphanedBucketsForce) {
-                        await deleteBucket(orphan.id);
-                        await deleteNotificationsByBucketId(orphan.id);
-                        await mediaCache.invalidateBucketIcon(orphan.id);
-                        console.log(`[useBucketsStats] Deleted orphaned bucket: ${orphan.name}`);
+                // STEP 4: If API failed, try to get buckets from cache
+                if (!apiSuccess) {
+                    const cachedBuckets = await getAllBuckets();
+                    if (cachedBuckets.length > 0) {
+                        // Convert cached buckets to API format
+                        apiBuckets = cachedBuckets.map(bucket => ({
+                            id: bucket.id,
+                            name: bucket.name,
+                            description: bucket.description,
+                            icon: bucket.icon,
+                            iconAttachmentUuid: bucket.iconAttachmentUuid,
+                            color: bucket.color,
+                            createdAt: bucket.createdAt,
+                            updatedAt: bucket.updatedAt,
+                            isProtected: bucket.isProtected,
+                            isPublic: bucket.isPublic,
+                            isAdmin: bucket.isAdmin,
+                            userBucket: bucket.userBucket,
+                            user: bucket.user,
+                            permissions: bucket.permissions,
+                            userPermissions: bucket.userPermissions,
+                        })) as BucketWithUserData[];
+                        console.log(`[useAppState] Using ${apiBuckets.length} buckets from cache`);
                     }
                 }
 
-                // 3. Save buckets to local DB for offline access
-                if (buckets.length > 0) {
-                    const bucketsToSave: BucketData[] = buckets.map(bucket => ({
+                // STEP 5: Save API buckets to cache if we got them from API
+                if (apiSuccess && apiBuckets.length > 0) {
+                    const bucketsToSave: BucketData[] = apiBuckets.map(bucket => ({
                         id: bucket.id,
                         name: bucket.name,
                         icon: bucket.icon,
                         iconAttachmentUuid: bucket.iconAttachmentUuid,
                         description: bucket.description,
                         updatedAt: bucket.updatedAt,
-                        // Include all bucket fields for complete caching
                         color: bucket.color,
                         createdAt: bucket.createdAt,
                         isProtected: bucket.isProtected,
@@ -289,25 +320,22 @@ export function useBucketsStats(
                     }));
 
                     await saveBuckets(bucketsToSave);
-                    console.log(`[useBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
+                    console.log(`[useAppState] Saved ${bucketsToSave.length} buckets to local DB`);
                 }
 
-                // 4. Get all bucket IDs from notifications (including orphaned ones)
-                const allNotificationStats = await getNotificationStats([]);
-                const allBucketIdsFromNotifications = allNotificationStats.byBucket?.map(s => s.bucketId) ?? [];
-                
-                // Find bucket IDs that exist only through notifications (orphaned)
-                const apiBucketIds = new Set(buckets.map(b => b.id));
-                const orphanedBucketIds = allBucketIdsFromNotifications.filter(id => !apiBucketIds.has(id));
-                
-                console.log(`[useBucketsStats] Found ${orphanedBucketIds.length} orphaned buckets from notifications (forceFullDetails case)`);
-                
-                // Create orphaned bucket entries
-                const orphanedBuckets: BucketWithStats[] = orphanedBucketIds.map(bucketId => {
-                    const bucketStat = allNotificationStats.byBucket?.find(s => s.bucketId === bucketId);
+                // STEP 6: Identify orphaned buckets (exist in notifications but not in API/cache)
+                const apiBucketIds = new Set(apiBuckets.map(b => b.id));
+                const orphanedFullBuckets = allBucketFromNotifications.filter(bucket => !apiBucketIds.has(bucket.bucketId));
+
+                console.log(`[useAppState] Found ${orphanedFullBuckets.length} orphaned buckets from notifications`);
+
+                // STEP 7: Create orphaned bucket entries
+                const orphanedBuckets: BucketWithStats[] = orphanedFullBuckets.map(bucket => {
+                    const bucketStat = allNotificationStats.byBucket?.find(s => s.bucketId === bucket.bucketId);
+
                     return {
-                        id: bucketId,
-                        name: `Orphaned Bucket ${bucketId.slice(0, 8)}`, // Fallback name
+                        id: bucket.bucketId,
+                        name: bucket.bucketName ?? `Bucket ${bucket.bucketId.slice(0, 8)}`,
                         description: null,
                         icon: null,
                         iconAttachmentUuid: null,
@@ -324,22 +352,16 @@ export function useBucketsStats(
                         user: null,
                         permissions: [],
                         userBucket: null,
-                        isOrphan: true, // Mark as orphan
+                        isOrphan: true,
                     };
                 });
 
-                // 5. Get bucket IDs for API buckets
-                const bucketIds = buckets.map((b) => b.id);
+                // STEP 8: Create API bucket entries
+                const apiBucketIdsForStats = apiBuckets.map((b) => b.id);
+                const apiNotificationStats = await getNotificationStats(apiBucketIdsForStats);
 
-                // 6. Get notification stats from local DB for API buckets
-                const notificationStats = await getNotificationStats(bucketIds);
-
-                // 7. Combine bucket metadata with stats
-                const bucketsWithStats: BucketWithStats[] = buckets.map((bucket) => {
-                    // Find stats for this bucket
-                    const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
-
-                    // Calculate isSnoozed from bucket.userBucket.snoozeUntil
+                const apiBucketsWithStats: BucketWithStats[] = apiBuckets.map((bucket) => {
+                    const bucketStat = apiNotificationStats.byBucket?.find(s => s.bucketId === bucket.id);
                     const snoozeUntil = bucket.userBucket?.snoozeUntil;
                     const isSnoozed = snoozeUntil
                         ? new Date().getTime() < new Date(snoozeUntil).getTime()
@@ -369,11 +391,11 @@ export function useBucketsStats(
                         isOrphan: false, // Not orphan
                     };
                 });
-                
-                // 8. Combine API buckets with orphaned buckets
-                const allBucketsWithStats = [...bucketsWithStats, ...orphanedBuckets];
 
-                // 9. Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
+                // STEP 9: Combine all buckets
+                const allBucketsWithStats = [...apiBucketsWithStats, ...orphanedBuckets];
+
+                // STEP 10: Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
                 allBucketsWithStats.sort((a, b) => {
                     if (a.unreadCount !== b.unreadCount) {
                         return b.unreadCount - a.unreadCount;
@@ -386,1009 +408,110 @@ export function useBucketsStats(
                     return a.name.localeCompare(b.name);
                 });
 
-                    console.log(`[useBucketsStats] Processed ${allBucketsWithStats.length} buckets with stats (${bucketsWithStats.length} API + ${orphanedBuckets.length} orphaned)`);
-                    return allBucketsWithStats;
-                } else {
-                    // Normal behavior: try cache first, then API if needed
-                    console.log('[useBucketsStats] Loading buckets from local cache...');
-                    
-                    // 1. Load buckets from local DB
-                    const cachedBuckets = await getAllBuckets();
+                // STEP 11: Get final notification stats (includes all buckets)
+                const finalStats = await getNotificationStats([]);
 
-                    if (cachedBuckets.length === 0) {
-                        console.log('[useBucketsStats] No cached buckets found, fetching from API...');
-                        
-                        // Fetch from API if no cache
-                        const { data } = await fetchBuckets();
-                        const buckets = (data?.buckets ?? []) as BucketWithUserData[];
+                console.log(`[useAppState] Processed ${allBucketsWithStats.length} buckets total (${apiBucketsWithStats.length} API + ${orphanedBuckets.length} orphaned)`);
+                console.log(`[useAppState] Processed ${notifications.length} notifications`);
+                console.log(`[useAppState] Final stats: ${finalStats.totalCount} total, ${finalStats.unreadCount} unread`);
 
-                        console.log(`[useBucketsStats] Fetched ${buckets.length} buckets from API`);
+                return {
+                    buckets: allBucketsWithStats,
+                    notifications,
+                    stats: finalStats,
+                    lastSync: new Date().toISOString(),
+                };
 
-                        // Save to cache
-                        if (buckets.length > 0) {
-                            const bucketsToSave: BucketData[] = buckets.map(bucket => ({
-                                id: bucket.id,
-                                name: bucket.name,
-                                icon: bucket.icon,
-                                iconAttachmentUuid: bucket.iconAttachmentUuid,
-                                description: bucket.description,
-                                updatedAt: bucket.updatedAt,
-                                color: bucket.color,
-                                createdAt: bucket.createdAt,
-                                isProtected: bucket.isProtected,
-                                isPublic: bucket.isPublic,
-                                isAdmin: bucket.isAdmin,
-                                userBucket: bucket.userBucket,
-                                user: bucket.user,
-                                permissions: bucket.permissions,
-                                userPermissions: bucket.userPermissions,
-                            }));
-
-                            await saveBuckets(bucketsToSave);
-                            console.log(`[useBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
-                        }
-
-                        // Get all bucket IDs from notifications (including orphaned ones)
-                        const allNotificationStats = await getNotificationStats([]);
-                        const allBucketIdsFromNotifications = allNotificationStats.byBucket?.map(s => s.bucketId) ?? [];
-                        
-                        // Find bucket IDs that exist only through notifications (orphaned)
-                        const apiBucketIds = new Set(buckets.map(b => b.id));
-                        const orphanedBucketIds = allBucketIdsFromNotifications.filter(id => !apiBucketIds.has(id));
-                        
-                        console.log(`[useBucketsStats] Found ${orphanedBucketIds.length} orphaned buckets from notifications (API case)`);
-                        
-                        // Create orphaned bucket entries
-                        const orphanedBuckets: BucketWithStats[] = orphanedBucketIds.map(bucketId => {
-                            const bucketStat = allNotificationStats.byBucket?.find(s => s.bucketId === bucketId);
-                            return {
-                                id: bucketId,
-                                name: `Orphaned Bucket ${bucketId.slice(0, 8)}`, // Fallback name
-                                description: null,
-                                icon: null,
-                                iconAttachmentUuid: null,
-                                color: null,
-                                createdAt: new Date().toISOString(),
-                                updatedAt: new Date().toISOString(),
-                                isProtected: false,
-                                isPublic: false,
-                                totalMessages: bucketStat?.totalCount ?? 0,
-                                unreadCount: bucketStat?.unreadCount ?? 0,
-                                lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
-                                isSnoozed: false,
-                                snoozeUntil: null,
-                                user: null,
-                                permissions: [],
-                                userBucket: null,
-                                isOrphan: true, // Mark as orphan
-                            };
-                        });
-
-                        // Use API buckets for stats calculation
-                        const bucketIds = buckets.map((b) => b.id);
-                        const notificationStats = await getNotificationStats(bucketIds);
-
-                        const bucketsWithStats: BucketWithStats[] = buckets.map((bucket) => {
-                            const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
-                            const snoozeUntil = bucket.userBucket?.snoozeUntil;
-                            const isSnoozed = snoozeUntil
-                                ? new Date().getTime() < new Date(snoozeUntil).getTime()
-                                : false;
-
-                            return {
-                                id: bucket.id,
-                                name: bucket.name,
-                                description: bucket.description,
-                                icon: bucket.icon,
-                                iconAttachmentUuid: bucket.iconAttachmentUuid,
-                                color: bucket.color,
-                                createdAt: bucket.createdAt,
-                                updatedAt: bucket.updatedAt,
-                                isProtected: bucket.isProtected,
-                                isPublic: bucket.isPublic,
-                                isAdmin: bucket.isAdmin,
-                                totalMessages: bucketStat?.totalCount ?? 0,
-                                unreadCount: bucketStat?.unreadCount ?? 0,
-                                lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
-                                isSnoozed,
-                                snoozeUntil: snoozeUntil ?? null,
-                                user: bucket.user,
-                                permissions: bucket.permissions,
-                                userPermissions: bucket.userPermissions,
-                                userBucket: bucket.userBucket,
-                                isOrphan: false, // Not orphan
-                            };
-                        });
-                        
-                        // Combine API buckets with orphaned buckets
-                        const allBucketsWithStats = [...bucketsWithStats, ...orphanedBuckets];
-
-                        allBucketsWithStats.sort((a, b) => {
-                            if (a.unreadCount !== b.unreadCount) {
-                                return b.unreadCount - a.unreadCount;
-                            }
-                            const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
-                            const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
-                            if (aTime !== bTime) {
-                                return bTime - aTime;
-                            }
-                            return a.name.localeCompare(b.name);
-                        });
-
-                        console.log(`[useBucketsStats] Processed ${allBucketsWithStats.length} buckets with stats from API (${bucketsWithStats.length} API + ${orphanedBuckets.length} orphaned)`);
-                        return allBucketsWithStats;
-                    }
-
-                    // Use cached buckets
-                    console.log(`[useBucketsStats] Using ${cachedBuckets.length} cached buckets`);
-                    
-                    // Get all bucket IDs from notifications (including orphaned ones)
-                    const allNotificationStats = await getNotificationStats([]);
-                    const allBucketIdsFromNotifications = allNotificationStats.byBucket?.map(s => s.bucketId) ?? [];
-                    
-                    // Find bucket IDs that exist only through notifications (orphaned)
-                    const cachedBucketIds = new Set(cachedBuckets.map(b => b.id));
-                    const orphanedBucketIds = allBucketIdsFromNotifications.filter(id => !cachedBucketIds.has(id));
-                    
-                    console.log(`[useBucketsStats] Found ${orphanedBucketIds.length} orphaned buckets from notifications`);
-                    
-                    // Create orphaned bucket entries
-                    const orphanedBuckets: BucketWithStats[] = orphanedBucketIds.map(bucketId => {
-                        const bucketStat = allNotificationStats.byBucket?.find(s => s.bucketId === bucketId);
-                        return {
-                            id: bucketId,
-                            name: `Orphaned Bucket ${bucketId.slice(0, 8)}`, // Fallback name
-                            description: null,
-                            icon: null,
-                            iconAttachmentUuid: null,
-                            color: null,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
-                            isProtected: false,
-                            isPublic: false,
-                            totalMessages: bucketStat?.totalCount ?? 0,
-                            unreadCount: bucketStat?.unreadCount ?? 0,
-                            lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
-                            isSnoozed: false,
-                            snoozeUntil: null,
-                            user: null,
-                            permissions: [],
-                            userBucket: null,
-                            isOrphan: true, // Mark as orphan
-                        };
-                    });
-                    
-                    const bucketIds = cachedBuckets.map((b) => b.id);
-                    const notificationStats = await getNotificationStats(bucketIds);
-
-                    const bucketsWithStats: BucketWithStats[] = cachedBuckets.map((bucket) => {
-                        const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
-                        const snoozeUntil = bucket.userBucket?.snoozeUntil;
-                        const isSnoozed = snoozeUntil
-                            ? new Date().getTime() < new Date(snoozeUntil).getTime()
-                            : false;
-
-                        return {
-                            id: bucket.id,
-                            name: bucket.name,
-                            description: bucket.description,
-                            icon: bucket.icon,
-                            iconAttachmentUuid: bucket.iconAttachmentUuid,
-                            color: bucket.color,
-                            createdAt: bucket.createdAt,
-                            updatedAt: bucket.updatedAt,
-                            isProtected: bucket.isProtected,
-                            isPublic: bucket.isPublic,
-                            totalMessages: bucketStat?.totalCount ?? 0,
-                            unreadCount: bucketStat?.unreadCount ?? 0,
-                            lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
-                            isSnoozed,
-                            snoozeUntil: snoozeUntil ?? null,
-                            user: bucket.user,
-                            permissions: bucket.permissions,
-                            userBucket: bucket.userBucket,
-                            isOrphan: false, // Not orphan
-                        };
-                    });
-                    
-                    // Combine cached buckets with orphaned buckets
-                    const allBucketsWithStats = [...bucketsWithStats, ...orphanedBuckets];
-
-                    allBucketsWithStats.sort((a, b) => {
-                        if (a.unreadCount !== b.unreadCount) {
-                            return b.unreadCount - a.unreadCount;
-                        }
-                        const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
-                        const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
-                        if (aTime !== bTime) {
-                            return bTime - aTime;
-                        }
-                        return a.name.localeCompare(b.name);
-                    });
-
-                    console.log(`[useBucketsStats] Processed ${allBucketsWithStats.length} buckets with stats from cache (${bucketsWithStats.length} cached + ${orphanedBuckets.length} orphaned)`);
-                    return allBucketsWithStats;
-                }
             } catch (error) {
-                console.error('[useBucketsStats] Error:', error);
+                console.error('[useAppState] Error:', error);
                 throw error;
             }
         },
-        enabled: forceFullDetails, // ✅ Auto-fetch if forceFullDetails, otherwise manual only
+        enabled: true, // ✅ Always enabled - data is essential for the app
         refetchInterval: realtime ? (refetchInterval || 5000) : refetchInterval,
-        staleTime: forceFullDetails ? 0 : Infinity, // ✅ Always fresh if forceFullDetails
+        staleTime: forceFullDetails ? 0 : 30000, // ✅ 30 seconds stale time for normal use
         gcTime: Infinity, // ✅ Keep in cache forever (until app restart)
     });
 
     /**
-     * Refresh buckets from API (GraphQL) and re-calculate stats
-     * Forces a fresh fetch from the server (even with enabled: false)
-     * Updates ALL components using useBucketsStats automatically
+     * Refresh everything from API and re-calculate stats
+     * Forces a fresh fetch from the server
+     * Updates ALL components using useAppState automatically
      */
-    const refreshBucketsStats = async (): Promise<void> => {
+    const refreshAll = async (): Promise<void> => {
         try {
-            console.log('[refreshBucketsStats] Manually fetching bucketsStats from API...');
+            console.log('[refreshAll] Manually fetching complete app state from API...');
 
-            // Force refetch even with enabled: false
-            // This is the ONLY way to populate the cache for bucketsStats
+            // Force refetch
+            // This ensures fresh data from the server
             await queryClient.refetchQueries({
-                queryKey: notificationKeys.bucketsStats(),
+                queryKey: ['app-state'],
                 type: 'active', // Only refetch if query is mounted
             });
 
-            console.log('[refreshBucketsStats] Buckets stats fetched and cached - all components updated');
+            console.log('[refreshAll] Complete app state fetched and cached - all components updated');
         } catch (error) {
-            console.error('[refreshBucketsStats] Error refreshing buckets stats:', error);
+            console.error('[refreshAll] Error refreshing complete app state:', error);
             throw error;
         }
     };
 
     return {
         ...queryResult,
-        refreshBucketsStats,
+        refreshAll,
     };
 }
 
 /**
- * Hook for MANUALLY initializing/refreshing the GLOBAL bucketsStats cache
- * This is used by useCleanup to populate the cache on app startup
- * and by user pull-to-refresh gestures
+ * Hook for fetching all notification IDs matching the given filters
+ * Useful for "select all" functionality
  * 
  * @example
  * ```tsx
- * const { initializeBucketsStats } = useInitializeBucketsStats();
- * await initializeBucketsStats(); // Fetches and caches buckets
- * ```
- */
-export function useInitializeBucketsStats() {
-    const queryClient = useQueryClient();
-    const [fetchBuckets] = useGetBucketsLazyQuery({
-        fetchPolicy: 'network-only',
-    });
-
-    type BucketWithUserData = NonNullable<GetBucketsQuery['buckets']>[number];
-
-    const initializeBucketsStats = async (): Promise<void> => {
-        try {
-            // STEP 1: Load buckets from LOCAL CACHE immediately for instant UI
-            // console.log('[initializeBucketsStats] Loading buckets from local cache...');
-            const initialCachedBuckets = await getAllBuckets();
-
-            if (initialCachedBuckets.length > 0) {
-                // console.log(`[initializeBucketsStats] Found ${initialCachedBuckets.length} cached buckets`);
-
-                // Get bucket IDs from cached buckets
-                const cachedBucketIds = initialCachedBuckets.map((b) => b.id);
-
-                // Get notification stats from local DB
-                const cachedStats = await getNotificationStats(cachedBucketIds);
-
-                // Combine cached bucket metadata with stats
-                const cachedBucketsWithStats: BucketWithStats[] = initialCachedBuckets.map((bucket) => {
-                    const bucketStat = cachedStats.byBucket?.find(s => s.bucketId === bucket.id);
-                    const snoozeUntil = bucket.userBucket?.snoozeUntil;
-                    const isSnoozed = snoozeUntil
-                        ? new Date().getTime() < new Date(snoozeUntil).getTime()
-                        : false;
-
-                    return {
-                        id: bucket.id,
-                        name: bucket.name,
-                        description: bucket.description,
-                        icon: bucket.icon,
-                        iconAttachmentUuid: bucket.iconAttachmentUuid,
-                        color: bucket.color,
-                        createdAt: bucket.createdAt,
-                        updatedAt: bucket.updatedAt,
-                        isProtected: bucket.isProtected,
-                        isPublic: bucket.isPublic,
-                        isAdmin: bucket.isAdmin,
-                        totalMessages: bucketStat?.totalCount ?? 0,
-                        unreadCount: bucketStat?.unreadCount ?? 0,
-                        lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
-                        isSnoozed,
-                        snoozeUntil: snoozeUntil ?? null,
-                        user: bucket.user,
-                        permissions: bucket.permissions,
-                        userPermissions: bucket.userPermissions,
-                        userBucket: bucket.userBucket,
-                        isOrphan: false, // Not orphan
-                    };
-                });
-
-                // Sort cached buckets
-                cachedBucketsWithStats.sort((a, b) => {
-                    if (a.unreadCount !== b.unreadCount) {
-                        return b.unreadCount - a.unreadCount;
-                    }
-                    const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
-                    const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
-                    if (aTime !== bTime) {
-                        return bTime - aTime;
-                    }
-                    return a.name.localeCompare(b.name);
-                });
-
-                // Set cached data in React Query IMMEDIATELY for instant UI
-                queryClient.setQueryData(notificationKeys.bucketsStats(), cachedBucketsWithStats);
-                // console.log(`[initializeBucketsStats] ✅ Cached ${cachedBucketsWithStats.length} buckets loaded instantly`);
-            } else {
-                console.log('[initializeBucketsStats] No cached buckets found');
-            }
-
-            // STEP 2: Fetch fresh buckets from GraphQL API in background
-            // console.log('[initializeBucketsStats] Fetching fresh buckets from GraphQL...');
-
-            const { data } = await fetchBuckets();
-            const buckets = (data?.buckets ?? []) as BucketWithUserData[];
-
-            // console.log(`[initializeBucketsStats] Fetched ${buckets.length} buckets from API`);
-
-            // STEP 3: Clean up orphaned buckets from local DB
-            const localBuckets = await getAllBuckets();
-            const serverBucketIds = new Set(buckets.map(b => b.id));
-            const orphanedBuckets = localBuckets.filter(cb => !serverBucketIds.has(cb.id));
-            
-            if (orphanedBuckets.length > 0) {
-                console.log(`[initializeBucketsStats] Found ${orphanedBuckets.length} orphaned buckets in local DB, deleting...`);
-                for (const orphan of orphanedBuckets) {
-                    await deleteBucket(orphan.id);
-                    await deleteNotificationsByBucketId(orphan.id);
-                    await mediaCache.invalidateBucketIcon(orphan.id);
-                    console.log(`[initializeBucketsStats] Deleted orphaned bucket: ${orphan.name} (${orphan.id})`);
-                }
-            }
-
-            // STEP 4: Save fresh buckets to local DB for next launch
-            if (buckets.length > 0) {
-                const bucketsToSave: BucketData[] = buckets.map(bucket => ({
-                    id: bucket.id,
-                    name: bucket.name,
-                    icon: bucket.icon,
-                    iconAttachmentUuid: bucket.iconAttachmentUuid,
-                    description: bucket.description,
-                    updatedAt: bucket.updatedAt,
-                    // Include all bucket fields for complete caching
-                    color: bucket.color,
-                    createdAt: bucket.createdAt,
-                    isProtected: bucket.isProtected,
-                    isPublic: bucket.isPublic,
-                    isAdmin: bucket.isAdmin,
-                    userBucket: bucket.userBucket,
-                    user: bucket.user,
-                    permissions: bucket.permissions,
-                    userPermissions: bucket.userPermissions,
-                }));
-
-                await saveBuckets(bucketsToSave);
-                // console.log(`[initializeBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
-            }
-
-            // STEP 5: Get all bucket IDs
-            const bucketIds = buckets.map((b) => b.id);
-
-            // STEP 6: Get notification stats from local DB
-            const notificationStats = await getNotificationStats(bucketIds);
-
-            // STEP 7: Combine bucket metadata with stats
-            const bucketsWithStats: BucketWithStats[] = buckets.map((bucket) => {
-                const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
-                const snoozeUntil = bucket.userBucket?.snoozeUntil;
-                const isSnoozed = snoozeUntil
-                    ? new Date().getTime() < new Date(snoozeUntil).getTime()
-                    : false;
-
-                return {
-                    id: bucket.id,
-                    name: bucket.name,
-                    description: bucket.description,
-                    icon: bucket.icon,
-                    iconAttachmentUuid: bucket.iconAttachmentUuid,
-                    color: bucket.color,
-                    createdAt: bucket.createdAt,
-                    updatedAt: bucket.updatedAt,
-                    isProtected: bucket.isProtected,
-                    isPublic: bucket.isPublic,
-                    isAdmin: bucket.isAdmin,
-                    totalMessages: bucketStat?.totalCount ?? 0,
-                    unreadCount: bucketStat?.unreadCount ?? 0,
-                    lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
-                    isSnoozed,
-                    snoozeUntil: snoozeUntil ?? null,
-                    user: bucket.user,
-                    permissions: bucket.permissions,
-                    userPermissions: bucket.userPermissions,
-                    userBucket: bucket.userBucket,
-                    isOrphan: false, // Not orphan
-                };
-            });
-
-            // STEP 8: Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
-            bucketsWithStats.sort((a, b) => {
-                if (a.unreadCount !== b.unreadCount) {
-                    return b.unreadCount - a.unreadCount;
-                }
-                const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
-                const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
-                if (aTime !== bTime) {
-                    return bTime - aTime;
-                }
-                return a.name.localeCompare(b.name);
-            });
-
-            // STEP 9: Update React Query cache with fresh data from backend
-            queryClient.setQueryData(notificationKeys.bucketsStats(), bucketsWithStats);
-
-            console.log(`[initializeBucketsStats] ✅ Updated cache with ${bucketsWithStats.length} fresh buckets from backend`);
-        } catch (error) {
-            console.error('[initializeBucketsStats] Error:', error);
-            throw error;
-        }
-    };
-
-    return { initializeBucketsStats };
-}
-
-/**
- * Hook for loading bucketsStats from LOCAL DB cache (instant display on startup)
- * Loads cached bucket metadata from local DB and combines with fresh notification stats
- * Used on app startup to show buckets immediately before backend sync
- * 
- * @example
- * ```tsx
- * const { loadBucketsFromCache } = useLoadBucketsFromCache();
- * await loadBucketsFromCache(); // Loads from DB and sets in React Query cache
- * ```
- */
-export function useLoadBucketsFromCache() {
-    const queryClient = useQueryClient();
-
-    const loadBucketsFromCache = async (): Promise<void> => {
-        try {
-            console.log('[loadBucketsFromCache] Loading buckets from local DB...');
-
-            // 1. Load buckets from local DB
-            const cachedBuckets = await getAllBuckets();
-
-            if (cachedBuckets.length === 0) {
-                console.log('[loadBucketsFromCache] No cached buckets found in DB');
-                return;
-            }
-
-            // 2. Get all bucket IDs
-            const bucketIds = cachedBuckets.map((b) => b.id);
-
-            // 3. Get fresh notification stats from local DB
-            const notificationStats = await getNotificationStats(bucketIds);
-
-            // 4. Combine cached bucket metadata with fresh stats
-            const bucketsWithStats: BucketWithStats[] = cachedBuckets.map((bucket) => {
-                const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
-                const snoozeUntil = bucket.userBucket?.snoozeUntil;
-                const isSnoozed = snoozeUntil
-                    ? new Date().getTime() < new Date(snoozeUntil).getTime()
-                    : false;
-
-                return {
-                    id: bucket.id,
-                    name: bucket.name,
-                    description: bucket.description,
-                    icon: bucket.icon,
-                    iconAttachmentUuid: bucket.iconAttachmentUuid,
-                    color: bucket.color,
-                    createdAt: bucket.createdAt,
-                    updatedAt: bucket.updatedAt,
-                    isProtected: bucket.isProtected,
-                    isPublic: bucket.isPublic,
-                    totalMessages: bucketStat?.totalCount ?? 0,
-                    unreadCount: bucketStat?.unreadCount ?? 0,
-                    lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
-                    isSnoozed,
-                    snoozeUntil: snoozeUntil ?? null,
-                    user: bucket.user,
-                    permissions: bucket.permissions,
-                    userBucket: bucket.userBucket,
-                };
-            });
-
-            // 5. Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
-            bucketsWithStats.sort((a, b) => {
-                if (a.unreadCount !== b.unreadCount) {
-                    return b.unreadCount - a.unreadCount;
-                }
-                const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
-                const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
-                if (aTime !== bTime) {
-                    return bTime - aTime;
-                }
-                return a.name.localeCompare(b.name);
-            });
-
-            // 6. Set data directly in React Query GLOBAL cache
-            queryClient.setQueryData(notificationKeys.bucketsStats(), bucketsWithStats);
-
-            console.log(`[loadBucketsFromCache] Cached ${bucketsWithStats.length} buckets from DB in React Query`);
-        } catch (error) {
-            console.error('[loadBucketsFromCache] Error:', error);
-            // Don't throw - allow app to continue with backend fetch
-        }
-    };
-
-    return { loadBucketsFromCache };
-}
-
-/**
- * Hook for refreshing bucketsStats from LOCAL DB ONLY (no GraphQL fetch)
- * Updates stats (totalMessages, unreadCount, lastNotificationAt) for existing buckets in cache
- * Used by notification mutations to update stats after mark/delete operations
- * 
- * @example
- * ```tsx
- * const { refreshBucketsStatsFromDB } = useRefreshBucketsStatsFromDB();
- * await refreshBucketsStatsFromDB(); // Recalculates stats from local DB
- * ```
- */
-export function useRefreshBucketsStatsFromDB() {
-    const queryClient = useQueryClient();
-
-    const refreshBucketsStatsFromDB = async (): Promise<void> => {
-        try {
-            // Get current bucketsStats from cache
-            const currentBucketsStats = queryClient.getQueryData<BucketWithStats[]>(
-                notificationKeys.bucketsStats()
-            );
-
-            if (!currentBucketsStats || currentBucketsStats.length === 0) {
-                console.log('[refreshBucketsStatsFromDB] No buckets in cache, skipping');
-                return;
-            }
-
-            console.log(`[refreshBucketsStatsFromDB] Recalculating stats for ${currentBucketsStats.length} buckets from local DB...`);
-
-            // Get all bucket IDs
-            const bucketIds = currentBucketsStats.map((b) => b.id);
-
-            // Get fresh notification stats from local DB
-            const notificationStats = await getNotificationStats(bucketIds);
-
-            // Update only the stats fields, keep all other bucket data unchanged
-            const updatedBucketsStats: BucketWithStats[] = currentBucketsStats.map((bucket) => {
-                const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
-
-                return {
-                    ...bucket, // Keep all existing fields (name, icon, color, isSnoozed, etc.)
-                    totalMessages: bucketStat?.totalCount ?? 0,
-                    unreadCount: bucketStat?.unreadCount ?? 0,
-                    lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
-                };
-            });
-
-            // Re-sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
-            updatedBucketsStats.sort((a, b) => {
-                if (a.unreadCount !== b.unreadCount) {
-                    return b.unreadCount - a.unreadCount;
-                }
-                const aTime = a.lastNotificationAt ? new Date(a.lastNotificationAt).getTime() : 0;
-                const bTime = b.lastNotificationAt ? new Date(b.lastNotificationAt).getTime() : 0;
-                if (aTime !== bTime) {
-                    return bTime - aTime;
-                }
-                return a.name.localeCompare(b.name);
-            });
-
-            // Update React Query GLOBAL cache
-            queryClient.setQueryData(notificationKeys.bucketsStats(), updatedBucketsStats);
-
-            // Invalidate all individual bucket stats queries to trigger re-read from global cache
-            await queryClient.invalidateQueries({
-                queryKey: notificationKeys.bucketStats(),
-                refetchType: 'none', // Don't refetch, just mark as stale so components re-read
-            });
-
-            console.log(`[refreshBucketsStatsFromDB] Updated stats for ${updatedBucketsStats.length} buckets`);
-        } catch (error) {
-            console.error('[refreshBucketsStatsFromDB] Error:', error);
-            throw error;
-        }
-    };
-
-    return { refreshBucketsStatsFromDB };
-}
-
-/**
- * Hook for fetching a single notification by ID
- * Searches local DB first, then falls back to remote API if not found
- * 
- * @example
- * ```tsx
- * const { data: notification, isLoading, error } = useNotificationDetail('notification-id');
- * 
- * // Force fetch from remote
- * const { data, refetch } = useNotificationDetail('id');
- * await refetch(); // This will fetch from remote
- * ```
- */
-export function useNotificationDetail(
-    notificationId: string | undefined
-): UseQueryResult<NotificationFragment> {
-    const [fetchNotification] = useGetNotificationLazyQuery({
-        fetchPolicy: 'network-only', // Don't use Apollo cache
-    });
-
-    return useQuery({
-        queryKey: notificationKeys.detail(notificationId || ''),
-        queryFn: async (): Promise<NotificationFragment> => {
-            if (!notificationId) {
-                throw new Error('Notification ID is required');
-            }
-
-            try {
-                // First, try to get from local DB
-                const localNotification = await getNotificationById(notificationId);
-
-                if (localNotification) {
-                    return localNotification;
-                }
-
-                // If not found locally, fetch from GraphQL API
-                console.log(`[useNotificationDetail] Notification ${notificationId} not found locally, fetching from remote API...`);
-
-                const { data } = await fetchNotification({
-                    variables: { id: notificationId },
-                    fetchPolicy: 'network-only',
-                });
-
-                if (!data?.notification) {
-                    throw new Error(`Notification ${notificationId} not found`);
-                }
-
-                const remoteNotification = data.notification as NotificationFragment;
-
-                // Save to local DB for future use
-                await saveNotificationToCache(remoteNotification);
-
-                return remoteNotification;
-            } catch (error) {
-                console.error('[useNotificationDetail] Error:', error);
-                throw error;
-            }
-        },
-        enabled: !!notificationId,
-        staleTime: 60000, // 1 minute - use cached data for 1 minute
-        gcTime: 5 * 60 * 1000, // 5 minutes - keep in memory for 5 minutes
-        retry: 1, // Retry once on failure
-    });
-}
-
-/**
- * Hook for fetching unread counts by bucket
- * Optimized for performance - only returns unread counts
- * 
- * @example
- * ```tsx
- * const { data: unreadCounts, isLoading } = useUnreadCountsByBucket();
- * // unreadCounts is a Map<string, number> where key is bucketId
- * ```
- */
-export function useUnreadCountsByBucket(): UseQueryResult<Map<string, number>> {
-    return useQuery({
-        queryKey: notificationKeys.unreadCounts(),
-        queryFn: async (): Promise<Map<string, number>> => {
-            try {
-                const counts = await getUnreadCountsByBucket();
-                return counts;
-            } catch (error) {
-                console.error('[useUnreadCountsByBucket] Error:', error);
-                throw error;
-            }
-        },
-        staleTime: 5000, // 5 seconds
-        gcTime: 1 * 60 * 1000, // 1 minute
-        refetchInterval: 10000, // Refresh every 10 seconds
-    });
-}
-
-// ====================
-// INFINITE QUERY HOOKS
-// ====================
-
-/**
- * Hook for infinite scroll notifications with automatic pagination
- * Uses useInfiniteQuery for better UX - never shows empty state during refetch
- * 
- * @example
- * ```tsx
- * const { 
- *   data, 
- *   fetchNextPage, 
- *   hasNextPage, 
- *   isFetchingNextPage 
- * } = useInfiniteNotifications({
- *   filters: { isRead: false },
- *   sort: { field: 'createdAt', direction: 'desc' },
- *   pageSize: 50,
+ * const { data: notificationIds, isLoading } = useAllNotificationIds({
+ *   bucketIds: ['bucket-1', 'bucket-2'],
+ *   unreadOnly: true,
  * });
- * 
- * // Flatten all pages
- * const notifications = data?.pages.flatMap(page => page.notifications) || [];
  * ```
  */
-export function useInfiniteNotifications(
-    options?: UseNotificationsOptions & { pageSize?: number }
-): UseInfiniteQueryResult<InfiniteData<NotificationQueryResult>, Error> {
+export function useAllNotificationIds(
+    options?: UseNotificationsOptions
+): UseQueryResult<string[]> {
     const {
         filters,
-        sort,
-        pageSize = 50,
+        realtime = false,
         refetchInterval = 0,
     } = options || {};
 
-    return useInfiniteQuery({
-        queryKey: notificationKeys.list(filters, sort, { limit: pageSize }),
-        queryFn: async ({ pageParam = 0 }): Promise<NotificationQueryResult> => {
+    return useQuery({
+        queryKey: notificationKeys.allIds(
+            filters?.bucketId ? [filters.bucketId] : undefined,
+            filters?.isRead === false,
+            filters?.hasAttachments
+        ),
+        queryFn: async (): Promise<string[]> => {
             try {
-                const localResult = await queryNotifications({
-                    filters,
-                    sort,
-                    pagination: { limit: pageSize, offset: pageParam },
-                });
-
-                return localResult;
+                const ids = await getAllNotificationIds();
+                console.log(`[useAllNotificationIds] Loaded ${ids.length} notification IDs`);
+                return ids;
             } catch (error) {
-                console.error('[useInfiniteNotifications] Error:', error);
+                console.error('[useAllNotificationIds] Error:', error);
                 throw error;
             }
         },
-        getNextPageParam: (lastPage, allPages) => {
-            const currentOffset = allPages.length * pageSize;
-            const hasMore = lastPage.notifications.length === pageSize;
-            return hasMore ? currentOffset : undefined;
-        },
-        initialPageParam: 0,
-        refetchInterval, // Can still be used for periodic local DB refresh
-        staleTime: 30000,
-        gcTime: 5 * 60 * 1000,
+        refetchInterval: realtime ? (refetchInterval || 5000) : refetchInterval,
+        staleTime: 10000, // 10 seconds
+        gcTime: 2 * 60 * 1000, // 2 minutes
     });
 }
 
-// ====================
-// HELPER FUNCTIONS
-// ====================
-
 /**
- * Helper function to fetch notifications from GraphQL API
- */
-async function fetchNotificationsFromAPI(
-    fetchNotifications: ReturnType<typeof useGetNotificationsLazyQuery>[0]
-): Promise<NotificationFragment[]> {
-    const { data } = await fetchNotifications();
-    return (data?.notifications || []) as NotificationFragment[];
-}
-
-/**
- * Helper function to mark notifications as received on server
- * Uses the most recent notification ID to mark all up to that point as received
- */
-async function updateReceivedNotificationsOnServer(
-    updateReceivedNotifications: ReturnType<typeof useUpdateReceivedNotificationsMutation>[0],
-    notificationIds: string[]
-): Promise<void> {
-    if (notificationIds.length === 0) {
-        return;
-    }
-
-    try {
-        // Use the first notification ID (most recent, since API returns DESC by createdAt)
-        // to mark all older notifications as received
-        const mostRecentNotificationId = notificationIds[0];
-
-        const result = await updateReceivedNotifications({
-            variables: { id: mostRecentNotificationId }
-        });
-
-        if (result.data?.updateReceivedNotifications.success) {
-            console.log(`[updateReceivedNotificationsOnServer] Successfully marked ${result.data.updateReceivedNotifications.updatedCount} notifications as received on server`);
-        }
-    } catch (err) {
-        console.warn(`[updateReceivedNotificationsOnServer] Failed to mark ${notificationIds.length} notifications as received:`, err);
-        throw err;
-    }
-}
-
-// ====================
-// SYNC UTILITIES
-// ====================
-
-/**
- * Helper function to retry deleting notifications with tombstones from server
- * Called during sync to attempt server deletion of locally-deleted notifications
- * Uses mass delete for efficiency - deletes all tombstones in a single API call
- */
-async function retryDeleteTombstones(massDeleteNotificationsMutation: any) {
-    try {
-        // Get all tombstone IDs
-        const deletedIds = await getAllDeletedNotificationIds();
-        
-        if (deletedIds.size === 0) {
-            return;
-        }
-        
-        const idsArray = Array.from(deletedIds);
-        console.log(`[retryDeleteTombstones] Found ${idsArray.length} tombstones, attempting mass deletion from server...`);
-        
-        try {
-            // Attempt mass delete of all tombstones in one call
-            const result = await massDeleteNotificationsMutation({
-                variables: { ids: idsArray },
-            });
-            
-            const deletedCount = result.data?.massDeleteNotifications?.deletedCount ?? 0;
-            const success = result.data?.massDeleteNotifications?.success ?? false;
-            
-            if (success) {
-                // Mass delete succeeded - remove ALL tombstones
-                // Even if some notifications were already deleted (not found), we consider it success
-                for (const notificationId of idsArray) {
-                    await removeDeletedNotificationTombstone(notificationId);
-                }
-                console.log(`[retryDeleteTombstones] Mass delete succeeded: ${deletedCount} notifications deleted, ${idsArray.length} tombstones removed`);
-            } else {
-                // Mass delete reported failure - increment retry for all
-                for (const notificationId of idsArray) {
-                    await incrementDeleteTombstoneRetry(notificationId);
-                }
-                console.warn(`[retryDeleteTombstones] Mass delete failed, incrementing retry counter for ${idsArray.length} tombstones`);
-            }
-        } catch (error: any) {
-            // Network or API error - increment retry counter for all tombstones
-            for (const notificationId of idsArray) {
-                await incrementDeleteTombstoneRetry(notificationId);
-            }
-            console.warn(`[retryDeleteTombstones] Failed to mass delete ${idsArray.length} notifications from server:`, error);
-        }
-    } catch (error) {
-        console.error('[retryDeleteTombstones] Error during tombstone retry:', error);
-    }
-}
-
-/**
- * Hook for syncing notifications from API on app startup
- * Should only be called once during app initialization
+ * Utility function to refresh all notification-related queries
+ * Useful for manual refresh after mutations
  * 
  * @example
  * ```tsx
- * // In App.tsx or root component
- * function App() {
- *   const { syncNotifications } = useSyncNotificationsFromAPI();
- *   
- *   useEffect(() => {
- *     syncNotifications().catch(console.error);
- *   }, []);
- * }
- * ```
- */
-export function useSyncNotificationsFromAPI() {
-    const [fetchNotifications] = useGetNotificationsLazyQuery({
-        fetchPolicy: 'network-only',
-    });
-    const [updateReceivedNotifications] = useUpdateReceivedNotificationsMutation();
-    const [massDeleteNotificationsMutation] = useMassDeleteNotificationsMutation();
-
-    const syncNotifications = async (): Promise<number> => {
-        try {
-            console.log('[syncNotifications] Fetching notifications from server...');
-
-            const apiNotifications = await fetchNotificationsFromAPI(fetchNotifications);
-
-            if (apiNotifications.length > 0) {
-                console.log(`[syncNotifications] Fetched ${apiNotifications.length} notifications`);
-
-                await upsertNotificationsBatch(apiNotifications);
-                console.log(`[syncNotifications] Saved ${apiNotifications.length} to local DB`);
-
-                const notificationIds = apiNotifications.map((n: NotificationFragment) => n.id);
-                await updateReceivedNotificationsOnServer(updateReceivedNotifications, notificationIds);
-                console.log(`[syncNotifications] Marked ${apiNotifications.length} notifications as received on server`);
-
-                // Retry deleting notifications with tombstones
-                await retryDeleteTombstones(massDeleteNotificationsMutation);
-
-                return apiNotifications.length;
-            }
-
-            console.log('[syncNotifications] No new notifications');
-            
-            // Still retry deleting notifications with tombstones even if no new notifications
-            await retryDeleteTombstones(massDeleteNotificationsMutation);
-            
-            return 0;
-        } catch (error) {
-            console.error('[syncNotifications] Sync failed:', error);
-            throw error;
-        }
-    };
-
-    return { syncNotifications };
-}
-
-/**
- * Hook for refreshing notifications with remote sync
- * Combines remote sync + cache invalidation + query refetch
- * Perfect for pull-to-refresh functionality
- * 
- * @example
- * ```tsx
- * function MyComponent() {
- *   const { data, refetch } = useInfiniteNotifications();
- *   const refreshWithSync = useRefreshNotifications();
- *   const [isRefreshing, setIsRefreshing] = useState(false);
- *   
- *   const handleRefresh = async () => {
- *     setIsRefreshing(true);
- *     try {
- *       await refreshWithSync(refetch);
- *     } finally {
- *       setIsRefreshing(false);
- *     }
- *   };
- * }
- * ```
- */
-export function useRefreshNotifications() {
-    const queryClient = useQueryClient();
-    const { syncNotifications } = useSyncNotificationsFromAPI();
-
-    const refreshWithSync = async (refetchFn?: () => Promise<any>): Promise<number> => {
-        // 1. Sync from remote API first (fetch new notifications, save to DB, delete from server)
-        console.log('[useRefreshNotifications] Syncing from remote...');
-        const syncedCount = await syncNotifications();
-        console.log(`[useRefreshNotifications] Synced ${syncedCount} notifications from remote`);
-
-        // 2. Invalidate all queries to refresh UI with new data from local DB
-        await queryClient.invalidateQueries({ queryKey: notificationKeys.all });
-        console.log('[useRefreshNotifications] React Query cache invalidated');
-
-        // 3. Optionally refetch specific query if provided
-        if (refetchFn) {
-            await refetchFn();
-        }
-
-        return syncedCount;
-    };
-
-    return refreshWithSync;
-}
-
-/**
- * Invalidate all notification queries to refresh from local DB
- * Should be called when a push notification is received
- * (notification is already saved in DB by push notification system)
- * 
- * @example
- * ```tsx
- * // When push notification arrives (already saved in DB)
  * await refreshNotificationQueries(queryClient);
- * // All lists will automatically refetch from local DB
  * ```
  */
 export async function refreshNotificationQueries(
@@ -1397,8 +520,13 @@ export async function refreshNotificationQueries(
     try {
         console.log('[refreshNotificationQueries] Invalidating all notification queries...');
 
-        // Invalidate all relevant queries to trigger refetch from local DB
-        await queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+        // Invalidate all notification-related queries
+        await queryClient.invalidateQueries({
+            predicate: (query: any) => {
+                return query.queryKey?.[0] === 'notifications' ||
+                    query.queryKey?.[0] === 'app-state';
+            }
+        });
 
         console.log('[refreshNotificationQueries] Queries invalidated, lists will refresh');
     } catch (error) {
@@ -1406,47 +534,3 @@ export async function refreshNotificationQueries(
         throw error;
     }
 }
-
-// ====================
-// NOTIFICATION IDS QUERY
-// ====================
-
-/**
- * Hook for fetching all notification IDs matching current filters
- * Useful for "select all" functionality with pagination
- * 
- * @example
- * ```tsx
- * const { data: allIds } = useAllNotificationIds({ 
- *   filters: { bucketId: 'bucket-123', isRead: false } 
- * });
- * // allIds contains all notification IDs matching the filters
- * ```
- */
-export function useAllNotificationIds(
-    options?: { filters?: any }
-): UseQueryResult<string[]> {
-    return useQuery({
-        queryKey: [...notificationKeys.all, 'allIds', options?.filters] as const,
-        queryFn: async (): Promise<string[]> => {
-            try {
-                const ids = await getAllNotificationIds(options?.filters);
-                console.log(`[useAllNotificationIds] Loaded ${ids.length} notification IDs`);
-                return ids;
-            } catch (error) {
-                console.error('[useAllNotificationIds] Error:', error);
-                return [];
-            }
-        },
-        staleTime: 5000, // 5 seconds
-        gcTime: 30000, // 30 seconds
-    });
-}
-
-// ====================
-// PREFETCH UTILITIES
-// ====================
-
-
-
-
