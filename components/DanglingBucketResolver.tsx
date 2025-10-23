@@ -10,6 +10,7 @@ import {
   upsertNotificationsBatch,
   deleteNotificationsByBucketId,
 } from "@/services/notifications-repository";
+import { getNotificationStats } from "@/db/repositories/notifications-query-repository";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
@@ -35,7 +36,7 @@ interface DanglingBucketResolverProps {
 export default function DanglingBucketResolver({
   id,
 }: DanglingBucketResolverProps) {
-  const { navigateBack, navigateToHome } = useNavigationUtils();
+  const { navigateToBucketDetail, navigateToHome } = useNavigationUtils();
   const theme = useTheme();
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -97,7 +98,8 @@ export default function DanglingBucketResolver({
   const migrateNotificationsToBucket = async (
     fromBucketId: string,
     toBucketId: string,
-    targetBucketName: string
+    targetBucketName: string,
+    targetBucketData?: any // Optional bucket data to avoid lookup
   ) => {
     // Trova tutte le notifiche collegate al dangling bucket
     const danglingNotifications = notifications.filter(
@@ -109,8 +111,11 @@ export default function DanglingBucketResolver({
       throw new Error("No notifications found for the dangling bucket");
     }
 
-    // Trova il bucket target dai buckets stats
-    const targetBucket = buckets.find((b) => b.id === toBucketId);
+    // Use provided bucket data or find from buckets stats
+    let targetBucket = targetBucketData;
+    if (!targetBucket) {
+      targetBucket = buckets.find((b) => b.id === toBucketId);
+    }
 
     if (!targetBucket) {
       throw new Error("Target bucket not found");
@@ -208,7 +213,7 @@ export default function DanglingBucketResolver({
         })
       );
       setShowSuccessDialog(true);
-      navigateBack();
+      navigateToBucketDetail(selectedBucketId);
     } catch (error) {
       console.error("Migration error:", error);
       setDialogMessage(
@@ -261,7 +266,8 @@ export default function DanglingBucketResolver({
         await migrateNotificationsToBucket(
           currentDanglingBucket.id,
           newBucket.id,
-          newBucket.name
+          newBucket.name,
+          newBucket // Pass the bucket data directly
         );
 
         setDialogMessage(
@@ -271,7 +277,7 @@ export default function DanglingBucketResolver({
           })
         );
         setShowSuccessDialog(true);
-        navigateBack();
+        navigateToBucketDetail(newBucket.id);
       }
     } catch (error) {
       console.error("Create bucket error:", error);
@@ -319,17 +325,10 @@ export default function DanglingBucketResolver({
             notification.message?.bucket?.id !== currentDanglingBucket.id
         );
 
-        // Aggiorna le statistiche
+        // Aggiorna le statistiche (saranno ricaricate dal database)
         const updatedStats = {
           ...oldAppState.stats,
-          totalCount: Math.max(
-            0,
-            oldAppState.stats.totalCount - currentDanglingBucket.totalMessages
-          ),
-          unreadCount: Math.max(
-            0,
-            oldAppState.stats.unreadCount - currentDanglingBucket.unreadCount
-          ),
+          // Le statistiche verranno ricaricate dal database
         };
 
         return {

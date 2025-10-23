@@ -1,22 +1,22 @@
-import { useI18n } from "@/hooks/useI18n";
+import { useAppContext } from "@/contexts/AppContext";
+import { queryBucketNotifications } from "@/db/repositories/notifications-query-repository";
 import {
   useAppState,
   useBatchMarkAsRead,
   useBucket,
 } from "@/hooks/notifications";
-import { queryBucketNotifications } from "@/db/repositories/notifications-query-repository";
-import { useAppContext } from "@/contexts/AppContext";
+import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useEffect } from "react";
+import React from "react";
 import { StyleSheet, View } from "react-native";
 import {
   Badge,
+  Button,
   FAB,
   Icon,
   IconButton,
   Surface,
   Text,
-  Button,
   useTheme,
 } from "react-native-paper";
 import BucketIcon from "./BucketIcon";

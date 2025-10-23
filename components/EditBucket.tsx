@@ -31,7 +31,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
   const { t } = useI18n();
   const theme = useTheme();
   const { userId } = useAppContext();
-  const { navigateToHome } = useNavigationUtils();
+  const { navigateToHome, navigateToBuckets } = useNavigationUtils();
   const { formatDate } = useDateFormat();
   const [refetchTrigger, setRefetchTrigger] = useState(0);
 
@@ -45,16 +45,15 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     setRefetchTrigger((prev) => prev + 1);
   };
 
-  const { deleteBucket, isLoading: deleteLoading } =
-    useDeleteBucketWithNotifications({
-      onSuccess: () => {
-        navigateToHome();
-      },
-      onError: (error) => {
-        console.error("Error deleting bucket:", error);
-        Alert.alert(t("common.error"), t("buckets.delete.error"));
-      },
-    });
+  const { deleteBucket } = useDeleteBucketWithNotifications({
+    onSuccess: () => {
+      navigateToHome();
+    },
+    onError: (error) => {
+      console.error("Error deleting bucket:", error);
+      Alert.alert(t("common.error"), t("buckets.delete.error"));
+    },
+  });
 
   const [unshareBucket] = useUnshareBucketMutation({
     onCompleted: () => {
@@ -119,11 +118,16 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     );
   }
 
+  if (!bucket && !loading) {
+    navigateToBuckets();
+  }
+
   if (error) {
     console.error("Error loading bucket:", error);
   }
 
   if (!bucket) {
+    navigateToBuckets();
     return (
       <Surface style={styles.errorContainer}>
         <Text style={[styles.errorText, { color: theme.colors.error }]}>
@@ -167,8 +171,8 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
           />
           <View style={styles.readonlyContainer} />
 
-          <BucketSharingSection 
-            bucketId={bucketId} 
+          <BucketSharingSection
+            bucketId={bucketId}
             refetchTrigger={refetchTrigger}
           />
 
