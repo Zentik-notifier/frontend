@@ -71,7 +71,7 @@ export const bucketKeys = {
  * 
  * @param bucketId - The bucket ID to fetch
  * @param options - Hook options
- * @param options.autoFetch - If true, automatically fetches full bucket details (with permissions) on mount
+ * @param options.autoFetch - If true, automatically fetches full bucket details (with permissions) ONLY if data is not available in appState
  * @param options.userId - User ID for permission checks (optional, for breaking circular dependencies)
  * 
  * @example
@@ -79,7 +79,7 @@ export const bucketKeys = {
  * // Basic usage - reads from global cache only
  * const { bucket, isSnoozed } = useBucket('bucket-id', { userId });
  * 
- * // Auto-fetch permissions on mount (for EditBucket, etc.)
+ * // Auto-fetch permissions only if not in appState (for EditBucket, etc.)
  * const { bucket, canAdmin, canDelete } = useBucket('bucket-id', { autoFetch: true, userId });
  * ```
  */
@@ -90,7 +90,7 @@ export function useBucket(
     const { autoFetch = false, userId } = options || {};
 
     // Get bucket info from app state (includes orphan status)
-    const { data: appState } = useNotificationsState();
+    const { data: appState, isLoading: appStateLoading } = useNotificationsState();
     const bucketFromGlobal = appState?.buckets.find((b) => b.id === bucketId);
 
     // Use lazy query ONLY for manual refetch (via useRefreshBucket)
@@ -108,7 +108,7 @@ export function useBucket(
             const { data } = await getBucket({ variables: { id: bucketId! } });
             return data?.bucket ?? null;
         },
-        enabled: autoFetch && !!bucketId && bucketFromGlobal?.isOrphan !== true, // ✅ Don't fetch if orphan
+        enabled: autoFetch && !!bucketId && !appStateLoading && !bucketFromGlobal?.isOrphan && !bucketFromGlobal,
         staleTime: Infinity,
         gcTime: Infinity,
     });
@@ -117,17 +117,23 @@ export function useBucket(
     // bucketFromGlobal has: id, name, description, icon, color, isSnoozed, snoozeUntil, etc.
     // bucketDetail has: full BucketFragment with permissions, user, userBucket
     const bucket = bucketDetail ?? (bucketFromGlobal as any) ?? null;
-    
+
     // Loading state logic:
+    // - If appState is loading: loading = true (waiting for initial data)
+    // - If bucket is orphan: never loading (no fetch will happen)
+    // - If bucket data is available in appState: never loading (no fetch needed)
     // - If autoFetch is enabled: loading = true when fetching and no data yet
     // - If autoFetch is disabled: loading = true only when manually fetching and no fallback data
-    // - If bucket is orphan: never loading (no fetch will happen)
-    const loading = bucketFromGlobal?.isOrphan 
-        ? false // Orphan buckets never load
-        : autoFetch 
-            ? loadingDetail && !bucketDetail  // With autoFetch: loading until we have full details
-            : loadingDetail && !bucketFromGlobal; // Without autoFetch: loading only if no global data
-    
+    const loading = appStateLoading
+        ? true // App state is still initializing
+        : bucketFromGlobal?.isOrphan
+            ? false // Orphan buckets never load
+            : bucketFromGlobal
+                ? false // Data available in appState, no loading needed
+                : autoFetch
+                    ? loadingDetail && !bucketDetail  // With autoFetch: loading until we have full details
+                    : loadingDetail && !bucketFromGlobal; // Without autoFetch: loading only if no global data
+
     // Get snooze info from global cache (always up-to-date from bucketsStats)
     const isSnoozedFromGlobal = bucketFromGlobal?.isSnoozed ?? false;
 
@@ -228,9 +234,9 @@ export function useRefreshBucket() {
                 stats: any;
                 lastSync: string;
             }>(['app-state']);
-            
+
             const bucketFromGlobal = appState?.buckets.find((b) => b.id === bucketId);
-            
+
             if (bucketFromGlobal?.isOrphan) {
                 console.log(`[refreshBucket] Skipping fetch for orphan bucket ${bucketId}`);
                 return;
@@ -258,7 +264,7 @@ export function useRefreshBucket() {
                 lastSync: string;
             }>(['app-state'], (oldAppState) => {
                 if (!oldAppState) return oldAppState;
-                
+
                 const updatedBuckets = oldAppState.buckets.map(bucket => {
                     if (bucket.id === bucketId) {
                         console.log(`[refreshBucket] Updating bucket ${bucketId} in appState cache`);
