@@ -44,6 +44,7 @@ export interface BucketWithPermissions extends BucketPermissions {
     isSnoozed: boolean;
     loading: boolean;
     error: any;
+    isOrphan: boolean; // Bucket exists locally but not on remote server
 }
 
 // ====================
@@ -135,6 +136,12 @@ export function useBucket(
                 : false
         );
 
+        // Check if bucket is orphan (exists locally but not on remote server)
+        const isOrphan = bucketFromGlobal && !bucketDetail && error && 
+            (error.message?.includes('Bucket not found') || 
+             error.message?.includes('not found') ||
+             (error as any).graphQLErrors?.some((e: any) => e.message?.includes('not found')));
+
         // If no bucket or userId, return empty permissions
         if (!userId || !bucketId || !bucket) {
             return {
@@ -142,6 +149,7 @@ export function useBucket(
                 isSnoozed,
                 loading,
                 error: error ?? null,
+                isOrphan: isOrphan ?? false,
                 canDelete: false,
                 canAdmin: false,
                 canWrite: false,
@@ -164,6 +172,7 @@ export function useBucket(
                 isSnoozed,
                 loading,
                 error,
+                isOrphan: isOrphan ?? false,
                 canDelete: false,
                 canAdmin: false,
                 canWrite: false,
@@ -180,6 +189,7 @@ export function useBucket(
             isSnoozed,
             loading,
             error,
+            isOrphan: isOrphan ?? false,
             canDelete: bucket.userPermissions.canDelete,
             canAdmin: bucket.userPermissions.canAdmin,
             canWrite: bucket.userPermissions.canWrite,
@@ -189,7 +199,7 @@ export function useBucket(
             sharedCount: bucket.userPermissions.sharedCount,
             allPermissions,
         };
-    }, [userId, bucket, bucketId, loading, error, isSnoozedFromGlobal]);
+    }, [userId, bucket, bucketId, loading, error, isSnoozedFromGlobal, bucketFromGlobal, bucketDetail]);
 }
 
 /**

@@ -323,17 +323,18 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
     };
   }, [styleKey, variantStyle]);
 
-  // Memoize renderersProps to prevent recreation on every render
-  const renderersProps = useMemo(() => ({
+  // Create stable renderersProps to prevent RenderHTML re-renders
+  // Use a ref to maintain the same object reference across renders
+  const renderersPropsRef = React.useRef({
     a: {
       onPress: handleLinkPress,
     },
-  }), [handleLinkPress]);
-
-  // If no content, return null
-  if (!content || content.trim() === "") {
-    return null;
-  }
+  });
+  
+  // Update the onPress function when handleLinkPress changes
+  renderersPropsRef.current.a.onPress = handleLinkPress;
+  
+  const renderersProps = renderersPropsRef.current;
 
   // When maxLines is specified, wrap in a View to enable ellipsis
   // Note: react-native-render-html doesn't support numberOfLines directly,
@@ -349,6 +350,11 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
       overflow: 'hidden' as const,
     };
   }, [maxLines, mergedBaseStyle.lineHeight]);
+
+  // If no content, return null
+  if (!content || content.trim() === "") {
+    return null;
+  }
 
   const renderedHtml = (
     <RenderHTML

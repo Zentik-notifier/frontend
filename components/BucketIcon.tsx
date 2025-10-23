@@ -1,7 +1,5 @@
 import { settingsService } from "@/services/settings-service";
-import {
-  usePublicAppConfigQuery
-} from "@/generated/gql-operations-generated";
+import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useBucket } from "@/hooks/notifications";
 import { mediaCache } from "@/services/media-cache-service";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -35,7 +33,7 @@ export default function BucketIcon({
   const { data: appConfig } = usePublicAppConfigQuery();
   const uploadEnabled = appConfig?.publicAppConfig?.uploadEnabled ?? true;
 
-  const { bucket, error } = useBucket(bucketId, {
+  const { bucket, isOrphan } = useBucket(bucketId, {
     userId: userId ?? undefined,
   });
   const { color, icon, iconAttachmentUuid, name: bucketName } = bucket || {};
@@ -135,8 +133,6 @@ export default function BucketIcon({
     return null;
   }
 
-  const isOrphaned = error && error.message.includes("Bucket not found");
-
   // Default color if none provided
   const bucketColor = color || theme.colors.primary;
 
@@ -144,7 +140,7 @@ export default function BucketIcon({
 
   const handlePress = () => {
     if (bucketId) {
-      if (isOrphaned) {
+      if (isOrphan) {
         navigateToDanglingBucket(bucketId, true);
       } else if (!noRouting) {
         navigateToBucketDetail(bucketId);
@@ -164,7 +160,7 @@ export default function BucketIcon({
       ]}
     >
       {/* Icon container */}
-      {isOrphaned ? (
+      {isOrphan ? (
         // TouchableWithoutFeedback per bucket orfani
         <TouchableWithoutFeedback onPress={handlePress}>
           <View

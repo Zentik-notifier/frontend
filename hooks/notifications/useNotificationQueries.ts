@@ -292,13 +292,49 @@ export function useBucketsStats(
                     console.log(`[useBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
                 }
 
-                // 4. Get all bucket IDs
+                // 4. Get all bucket IDs from notifications (including orphaned ones)
+                const allNotificationStats = await getNotificationStats([]);
+                const allBucketIdsFromNotifications = allNotificationStats.byBucket?.map(s => s.bucketId) ?? [];
+                
+                // Find bucket IDs that exist only through notifications (orphaned)
+                const apiBucketIds = new Set(buckets.map(b => b.id));
+                const orphanedBucketIds = allBucketIdsFromNotifications.filter(id => !apiBucketIds.has(id));
+                
+                console.log(`[useBucketsStats] Found ${orphanedBucketIds.length} orphaned buckets from notifications (forceFullDetails case)`);
+                
+                // Create orphaned bucket entries
+                const orphanedBuckets: BucketWithStats[] = orphanedBucketIds.map(bucketId => {
+                    const bucketStat = allNotificationStats.byBucket?.find(s => s.bucketId === bucketId);
+                    return {
+                        id: bucketId,
+                        name: `Orphaned Bucket ${bucketId.slice(0, 8)}`, // Fallback name
+                        description: null,
+                        icon: null,
+                        iconAttachmentUuid: null,
+                        color: null,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        isProtected: false,
+                        isPublic: false,
+                        totalMessages: bucketStat?.totalCount ?? 0,
+                        unreadCount: bucketStat?.unreadCount ?? 0,
+                        lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                        isSnoozed: false,
+                        snoozeUntil: null,
+                        user: null,
+                        permissions: [],
+                        userBucket: null,
+                        isOrphan: true, // Mark as orphan
+                    };
+                });
+
+                // 5. Get bucket IDs for API buckets
                 const bucketIds = buckets.map((b) => b.id);
 
-                // 5. Get notification stats from local DB
+                // 6. Get notification stats from local DB for API buckets
                 const notificationStats = await getNotificationStats(bucketIds);
 
-                // 6. Combine bucket metadata with stats
+                // 7. Combine bucket metadata with stats
                 const bucketsWithStats: BucketWithStats[] = buckets.map((bucket) => {
                     // Find stats for this bucket
                     const bucketStat = notificationStats.byBucket?.find(s => s.bucketId === bucket.id);
@@ -330,11 +366,15 @@ export function useBucketsStats(
                         permissions: bucket.permissions,
                         userPermissions: bucket.userPermissions,
                         userBucket: bucket.userBucket,
+                        isOrphan: false, // Not orphan
                     };
                 });
+                
+                // 8. Combine API buckets with orphaned buckets
+                const allBucketsWithStats = [...bucketsWithStats, ...orphanedBuckets];
 
-                // 7. Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
-                bucketsWithStats.sort((a, b) => {
+                // 9. Sort by: 1) unreadCount desc, 2) lastNotificationAt desc, 3) name asc
+                allBucketsWithStats.sort((a, b) => {
                     if (a.unreadCount !== b.unreadCount) {
                         return b.unreadCount - a.unreadCount;
                     }
@@ -346,8 +386,8 @@ export function useBucketsStats(
                     return a.name.localeCompare(b.name);
                 });
 
-                    console.log(`[useBucketsStats] Processed ${bucketsWithStats.length} buckets with stats`);
-                    return bucketsWithStats;
+                    console.log(`[useBucketsStats] Processed ${allBucketsWithStats.length} buckets with stats (${bucketsWithStats.length} API + ${orphanedBuckets.length} orphaned)`);
+                    return allBucketsWithStats;
                 } else {
                     // Normal behavior: try cache first, then API if needed
                     console.log('[useBucketsStats] Loading buckets from local cache...');
@@ -388,6 +428,42 @@ export function useBucketsStats(
                             console.log(`[useBucketsStats] Saved ${bucketsToSave.length} buckets to local DB`);
                         }
 
+                        // Get all bucket IDs from notifications (including orphaned ones)
+                        const allNotificationStats = await getNotificationStats([]);
+                        const allBucketIdsFromNotifications = allNotificationStats.byBucket?.map(s => s.bucketId) ?? [];
+                        
+                        // Find bucket IDs that exist only through notifications (orphaned)
+                        const apiBucketIds = new Set(buckets.map(b => b.id));
+                        const orphanedBucketIds = allBucketIdsFromNotifications.filter(id => !apiBucketIds.has(id));
+                        
+                        console.log(`[useBucketsStats] Found ${orphanedBucketIds.length} orphaned buckets from notifications (API case)`);
+                        
+                        // Create orphaned bucket entries
+                        const orphanedBuckets: BucketWithStats[] = orphanedBucketIds.map(bucketId => {
+                            const bucketStat = allNotificationStats.byBucket?.find(s => s.bucketId === bucketId);
+                            return {
+                                id: bucketId,
+                                name: `Orphaned Bucket ${bucketId.slice(0, 8)}`, // Fallback name
+                                description: null,
+                                icon: null,
+                                iconAttachmentUuid: null,
+                                color: null,
+                                createdAt: new Date().toISOString(),
+                                updatedAt: new Date().toISOString(),
+                                isProtected: false,
+                                isPublic: false,
+                                totalMessages: bucketStat?.totalCount ?? 0,
+                                unreadCount: bucketStat?.unreadCount ?? 0,
+                                lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                                isSnoozed: false,
+                                snoozeUntil: null,
+                                user: null,
+                                permissions: [],
+                                userBucket: null,
+                                isOrphan: true, // Mark as orphan
+                            };
+                        });
+
                         // Use API buckets for stats calculation
                         const bucketIds = buckets.map((b) => b.id);
                         const notificationStats = await getNotificationStats(bucketIds);
@@ -420,10 +496,14 @@ export function useBucketsStats(
                                 permissions: bucket.permissions,
                                 userPermissions: bucket.userPermissions,
                                 userBucket: bucket.userBucket,
+                                isOrphan: false, // Not orphan
                             };
                         });
+                        
+                        // Combine API buckets with orphaned buckets
+                        const allBucketsWithStats = [...bucketsWithStats, ...orphanedBuckets];
 
-                        bucketsWithStats.sort((a, b) => {
+                        allBucketsWithStats.sort((a, b) => {
                             if (a.unreadCount !== b.unreadCount) {
                                 return b.unreadCount - a.unreadCount;
                             }
@@ -435,12 +515,48 @@ export function useBucketsStats(
                             return a.name.localeCompare(b.name);
                         });
 
-                        console.log(`[useBucketsStats] Processed ${bucketsWithStats.length} buckets with stats from API`);
-                        return bucketsWithStats;
+                        console.log(`[useBucketsStats] Processed ${allBucketsWithStats.length} buckets with stats from API (${bucketsWithStats.length} API + ${orphanedBuckets.length} orphaned)`);
+                        return allBucketsWithStats;
                     }
 
                     // Use cached buckets
                     console.log(`[useBucketsStats] Using ${cachedBuckets.length} cached buckets`);
+                    
+                    // Get all bucket IDs from notifications (including orphaned ones)
+                    const allNotificationStats = await getNotificationStats([]);
+                    const allBucketIdsFromNotifications = allNotificationStats.byBucket?.map(s => s.bucketId) ?? [];
+                    
+                    // Find bucket IDs that exist only through notifications (orphaned)
+                    const cachedBucketIds = new Set(cachedBuckets.map(b => b.id));
+                    const orphanedBucketIds = allBucketIdsFromNotifications.filter(id => !cachedBucketIds.has(id));
+                    
+                    console.log(`[useBucketsStats] Found ${orphanedBucketIds.length} orphaned buckets from notifications`);
+                    
+                    // Create orphaned bucket entries
+                    const orphanedBuckets: BucketWithStats[] = orphanedBucketIds.map(bucketId => {
+                        const bucketStat = allNotificationStats.byBucket?.find(s => s.bucketId === bucketId);
+                        return {
+                            id: bucketId,
+                            name: `Orphaned Bucket ${bucketId.slice(0, 8)}`, // Fallback name
+                            description: null,
+                            icon: null,
+                            iconAttachmentUuid: null,
+                            color: null,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                            isProtected: false,
+                            isPublic: false,
+                            totalMessages: bucketStat?.totalCount ?? 0,
+                            unreadCount: bucketStat?.unreadCount ?? 0,
+                            lastNotificationAt: bucketStat?.lastNotificationDate ?? null,
+                            isSnoozed: false,
+                            snoozeUntil: null,
+                            user: null,
+                            permissions: [],
+                            userBucket: null,
+                            isOrphan: true, // Mark as orphan
+                        };
+                    });
                     
                     const bucketIds = cachedBuckets.map((b) => b.id);
                     const notificationStats = await getNotificationStats(bucketIds);
@@ -471,10 +587,14 @@ export function useBucketsStats(
                             user: bucket.user,
                             permissions: bucket.permissions,
                             userBucket: bucket.userBucket,
+                            isOrphan: false, // Not orphan
                         };
                     });
+                    
+                    // Combine cached buckets with orphaned buckets
+                    const allBucketsWithStats = [...bucketsWithStats, ...orphanedBuckets];
 
-                    bucketsWithStats.sort((a, b) => {
+                    allBucketsWithStats.sort((a, b) => {
                         if (a.unreadCount !== b.unreadCount) {
                             return b.unreadCount - a.unreadCount;
                         }
@@ -486,8 +606,8 @@ export function useBucketsStats(
                         return a.name.localeCompare(b.name);
                     });
 
-                    console.log(`[useBucketsStats] Processed ${bucketsWithStats.length} buckets with stats from cache`);
-                    return bucketsWithStats;
+                    console.log(`[useBucketsStats] Processed ${allBucketsWithStats.length} buckets with stats from cache (${bucketsWithStats.length} cached + ${orphanedBuckets.length} orphaned)`);
+                    return allBucketsWithStats;
                 }
             } catch (error) {
                 console.error('[useBucketsStats] Error:', error);
@@ -592,6 +712,7 @@ export function useInitializeBucketsStats() {
                         permissions: bucket.permissions,
                         userPermissions: bucket.userPermissions,
                         userBucket: bucket.userBucket,
+                        isOrphan: false, // Not orphan
                     };
                 });
 
@@ -698,6 +819,7 @@ export function useInitializeBucketsStats() {
                     permissions: bucket.permissions,
                     userPermissions: bucket.userPermissions,
                     userBucket: bucket.userBucket,
+                    isOrphan: false, // Not orphan
                 };
             });
 
