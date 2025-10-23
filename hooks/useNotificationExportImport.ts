@@ -25,6 +25,11 @@ export const cleanExportData = (data: any): any => {
         return;
       }
 
+      // Rimuovi executionId dai messaggi (dati interni non necessari per l'export)
+      if (key === 'executionId') {
+        return; // Skip executionId completely
+      }
+
       // Maschera informazioni sensibili nei record del database
       if (key === 'publicKey' || key === 'privateKey' || key === 'deviceToken' ||
         key === 'accessToken' || key === 'refreshToken' || key === 'authToken' ||

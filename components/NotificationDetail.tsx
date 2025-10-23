@@ -568,7 +568,7 @@ export default function NotificationDetail({
               </View>
 
               {/* HTML Rendering Toggle and Payload Button */}
-              <ButtonGroup>
+              <ButtonGroup variant="compact">
                 <TouchableOpacity
                   style={[
                     styles.htmlToggleButtonSmall,
@@ -576,7 +576,6 @@ export default function NotificationDetail({
                       backgroundColor: enableHtmlRendering
                         ? theme.colors.primaryContainer
                         : theme.colors.surfaceVariant,
-                      borderColor: theme.colors.outline,
                     },
                   ]}
                   onPress={() => setEnableHtmlRendering(!enableHtmlRendering)}
@@ -613,7 +612,6 @@ export default function NotificationDetail({
                       styles.payloadButtonContainer,
                       {
                         backgroundColor: theme.colors.surfaceVariant,
-                        borderColor: theme.colors.outline,
                       },
                     ]}
                     onPress={() => setPayloadModalVisible(true)}
@@ -966,8 +964,8 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 4,
     paddingHorizontal: 6,
-    borderRadius: 6,
-    borderWidth: 1,
+    borderRadius: 0, // ✅ Rimuovo border radius per integrazione
+    borderWidth: 0, // ✅ Rimuovo completamente il bordo
   },
   htmlToggleTextSmall: {
     fontSize: 9,
@@ -979,8 +977,8 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 4,
     paddingHorizontal: 6,
-    borderRadius: 6,
-    borderWidth: 1,
+    borderRadius: 0, // ✅ Rimuovo border radius per integrazione
+    borderWidth: 0, // ✅ Rimuovo completamente il bordo
     minWidth: 80,
   },
   payloadButtonText: {
