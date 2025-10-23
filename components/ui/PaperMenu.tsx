@@ -228,6 +228,8 @@ export default function PaperMenu({
                         fontSize: getTextSize(),
                       },
                     ]}
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
                   >
                     {item.label}
                   </Text>

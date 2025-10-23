@@ -278,6 +278,8 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
                 <PaperMenu
                   items={allMenuItems}
                   size={menuSize}
+                  width={200}
+                  menuOffset={50}
                   onMenuItemPress={handleMenuItemPress}
                 />
               </View>

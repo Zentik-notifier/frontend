@@ -251,7 +251,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const filteredActions = useMemo(() => {
     const message = notification.message;
     return (
-      [...(message?.actions || []), message?.tapAction]?.filter(
+      (message?.actions || []).filter(
         (action) =>
           action &&
           [
@@ -287,7 +287,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   }, [filteredActions, getActionTypeIcon, executeAction, notification.id]);
 
   // Memoize style props for SmartTextRenderer to prevent unnecessary re-renders
-  const titleStyle = useMemo(() => [styles.title, !isRead && styles.titleUnread], [isRead]);
+  const titleStyle = useMemo(
+    () => [styles.title, !isRead && styles.titleUnread],
+    [isRead]
+  );
   const subtitleStyle = useMemo(() => styles.subtitle, []);
   const bodyStyle = useMemo(() => styles.body, []);
 
@@ -376,17 +379,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               <Text style={styles.date}>
                 {formatRelativeTime(notification.createdAt)}
               </Text>
-              <IconButton
-                icon="chevron-right"
-                size={16}
-                iconColor={theme.colors.onSurface}
-                style={[
-                  styles.detailButton,
-                  { backgroundColor: theme.colors.surfaceVariant }
-                ]}
-                onPress={() => navigateToNotificationDetail(notification.id)}
-                accessibilityLabel="View notification details"
-              />
             </View>
           </View>
 
@@ -413,7 +405,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           <View
             style={[
               styles.unreadCornerFold,
-              { 
+              {
                 borderTopColor: theme.colors.primary,
                 borderRightColor: theme.colors.primary,
               },
@@ -614,7 +606,7 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 11,
     right: 13,
-    top: -10
+    top: -10,
   },
   detailButton: {
     width: 24,
