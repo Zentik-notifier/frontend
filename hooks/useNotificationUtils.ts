@@ -1,4 +1,4 @@
-import { MediaType, NotificationActionType, NotificationDeliveryType } from "@/generated/gql-operations-generated";
+import { MediaType, NotificationActionType, NotificationDeliveryType, NotificationFragment } from "@/generated/gql-operations-generated";
 import { useI18n } from "./useI18n";
 
 /**
@@ -114,6 +114,22 @@ export const useNotificationUtils = () => {
     }
   };
 
+  const getNotificationActions = (notification: NotificationFragment) => {
+    const message = notification.message;
+    return (
+      (message?.actions || []).filter(
+        (action) =>
+          action &&
+          [
+            NotificationActionType.BackgroundCall,
+            NotificationActionType.Webhook,
+            NotificationActionType.Snooze,
+            NotificationActionType.Navigate,
+          ].includes(action.type)
+      ) || []
+    );
+  }
+
   return {
     getDeliveryTypeIcon,
     getDeliveryTypeColor,
@@ -123,5 +139,6 @@ export const useNotificationUtils = () => {
     getMediaTypeColor,
     getDeliveryTypeFriendlyName,
     getMediaTypeFriendlyName,
+    getNotificationActions,
   };
 };

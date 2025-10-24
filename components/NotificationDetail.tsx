@@ -13,8 +13,10 @@ import {
   useMarkAsRead,
   useNotification,
 } from "@/hooks/notifications";
+import { useNotificationActions } from "@/hooks";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useI18n } from "@/hooks/useI18n";
+import { useNotificationUtils } from "@/hooks/useNotificationUtils";
 import * as Clipboard from "expo-clipboard";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
@@ -23,22 +25,12 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  Icon,
-  IconButton,
-  List,
-  Surface,
-  Text,
-  TouchableRipple,
-  useTheme,
-} from "react-native-paper";
+import { Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
 import { ExecutionExpandedContent } from "./EntityExecutionsSection";
-import { NotificationActionsMenu } from "./NotificationActionsMenu";
 import ButtonGroup from "./ui/ButtonGroup";
 import DetailModal from "./ui/DetailModal";
 import PaperScrollView from "./ui/PaperScrollView";
@@ -55,6 +47,12 @@ export default function NotificationDetail({
   const theme = useTheme();
   const { t } = useI18n();
   const { formatDate } = useDateFormat();
+  const {
+    getNotificationActions,
+    getActionTypeIcon,
+    getActionTypeFriendlyName,
+  } = useNotificationUtils();
+  const { executeAction } = useNotificationActions();
   const [fullScreenImageVisible, setFullScreenImageVisible] = useState(false);
   const [fullScreenIndex, setFullScreenIndex] = useState(0);
   const markAsReadMutation = useMarkAsRead();
@@ -94,6 +92,12 @@ export default function NotificationDetail({
   }, [notification, markAsReadMutation]);
 
   const bucketName = message?.bucket?.name;
+
+  // Get filtered notification actions
+  const notificationActions = useMemo(() => {
+    if (!notification) return [];
+    return getNotificationActions(notification);
+  }, [notification, getNotificationActions]);
 
   // Extract all Navigate actions from actions and tapAction
   const navigationLinks = useMemo(() => {
@@ -325,10 +329,7 @@ export default function NotificationDetail({
 
   return (
     <PaperScrollView
-      style={StyleSheet.flatten([
-        styles.container,
-        { backgroundColor: theme.colors.background },
-      ])}
+      fabGroupIcon={notificationActions.length > 0 ? "play" : undefined}
       customActions={[
         {
           icon: "content-copy",
@@ -342,16 +343,21 @@ export default function NotificationDetail({
         },
         {
           icon: "code-tags",
-          label: enableHtmlRendering 
+          label: enableHtmlRendering
             ? t("notificationDetail.htmlEnabled")
             : t("notificationDetail.htmlDisabled"),
           onPress: () => setEnableHtmlRendering(!enableHtmlRendering),
           style: {
-            backgroundColor: enableHtmlRendering 
-              ? theme.colors.primaryContainer 
+            backgroundColor: enableHtmlRendering
+              ? theme.colors.primaryContainer
               : theme.colors.surfaceVariant,
           },
         },
+        ...notificationActions.map((action, index) => ({
+          icon: getActionTypeIcon(action.type),
+          label: action.title || action.value?.slice(0, 50) || "Action",
+          onPress: () => executeAction(notification.id, action),
+        })),
       ]}
     >
       <View style={styles.notificationContainer}>
@@ -446,35 +452,35 @@ export default function NotificationDetail({
               )}
             </View>
 
-             {/* Execution Payload Button */}
-             {message?.executionId && (
-               <ButtonGroup variant="compact">
-                 <TouchableOpacity
-                   style={[
-                     styles.payloadButtonContainer,
-                     {
-                       backgroundColor: theme.colors.surfaceVariant,
-                     },
-                   ]}
-                   onPress={() => setPayloadModalVisible(true)}
-                   accessibilityLabel="view-payload"
-                 >
-                   <Icon
-                     source="code-braces"
-                     size={12}
-                     color={theme.colors.onSurfaceVariant}
-                   />
-                   <Text
-                     style={[
-                       styles.payloadButtonText,
-                       { color: theme.colors.onSurfaceVariant },
-                     ]}
-                   >
-                     {t("notificationDetail.showPayload")}
-                   </Text>
-                 </TouchableOpacity>
-               </ButtonGroup>
-             )}
+            {/* Execution Payload Button */}
+            {message?.executionId && (
+              <ButtonGroup variant="compact">
+                <TouchableOpacity
+                  style={[
+                    styles.payloadButtonContainer,
+                    {
+                      backgroundColor: theme.colors.surfaceVariant,
+                    },
+                  ]}
+                  onPress={() => setPayloadModalVisible(true)}
+                  accessibilityLabel="view-payload"
+                >
+                  <Icon
+                    source="code-braces"
+                    size={12}
+                    color={theme.colors.onSurfaceVariant}
+                  />
+                  <Text
+                    style={[
+                      styles.payloadButtonText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {t("notificationDetail.showPayload")}
+                  </Text>
+                </TouchableOpacity>
+              </ButtonGroup>
+            )}
           </View>
         </View>
 
@@ -553,13 +559,6 @@ export default function NotificationDetail({
           </View>
         )}
       </View>
-
-      {/* Actions Menu FAB */}
-      <NotificationActionsMenu
-        notification={notification}
-        onlyActions
-        showTextAndIcon={false}
-      />
 
       {/* Full Screen Media Viewer */}
       <FullScreenMediaViewer

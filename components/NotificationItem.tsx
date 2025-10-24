@@ -137,7 +137,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const markAsReadMutation = useMarkAsRead();
   const markAsUnreadMutation = useMarkAsUnread();
   const { executeAction } = useNotificationActions();
-  const { getActionTypeIcon } = useNotificationUtils();
+  const { getActionTypeIcon, getNotificationActions } = useNotificationUtils();
 
   const attachments = useMemo(
     () =>
@@ -249,20 +249,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       };
 
   const filteredActions = useMemo(() => {
-    const message = notification.message;
-    return (
-      (message?.actions || []).filter(
-        (action) =>
-          action &&
-          [
-            NotificationActionType.BackgroundCall,
-            NotificationActionType.Webhook,
-            NotificationActionType.Snooze,
-            NotificationActionType.Navigate,
-          ].includes(action.type)
-      ) || []
-    );
-  }, [notification.message]);
+    return getNotificationActions(notification);
+  }, [notification]);
 
   const menuItems = useMemo((): MenuItem[] => {
     const items: MenuItem[] = [];
