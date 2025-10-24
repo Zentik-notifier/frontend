@@ -227,7 +227,6 @@ export default function NotificationsList({
 
   const filteredNotifications = notifications;
 
-  // Sync all notification IDs to context when they change
   useEffect(() => {
     if (allNotificationIds) {
       console.log(

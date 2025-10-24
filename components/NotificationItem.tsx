@@ -18,7 +18,7 @@ import { useNavigationUtils } from "@/utils/navigation";
 import { useRecyclingState } from "@shopify/flash-list";
 import React, { useEffect, useMemo, useRef } from "react";
 import { useSettings } from "@/hooks/useSettings";
-import { Alert, Pressable, StyleSheet, View, ScrollView } from "react-native";
+import { Alert, Pressable, StyleSheet, TouchableOpacity, View, ScrollView } from "react-native";
 import {
   Icon,
   IconButton,
@@ -193,6 +193,11 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     : null;
 
   const handleVisualPress = (visualUri: string) => {
+    // Navigate to notification detail instead of opening fullscreen
+    navigateToNotificationDetail(notification.id);
+  };
+
+  const handleFullscreenPress = (visualUri: string) => {
     const attachmentIndex = attachments.findIndex(
       (att) => att.url === visualUri
     );
@@ -431,6 +436,18 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                   }}
                 />
               )}
+              {/* Fullscreen button */}
+              <TouchableOpacity
+                style={styles.fullscreenButton}
+                onPress={() => handleFullscreenPress(attachment.url!)}
+                accessibilityLabel="Open fullscreen"
+              >
+                <Icon
+                  source="fullscreen"
+                  size={24}
+                  color="#FFFFFF"
+                />
+              </TouchableOpacity>
             </View>
           </Surface>
         </View>
@@ -626,6 +643,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 0,
     marginBottom: 4,
+  },
+  fullscreenButton: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   unreadCornerFold: {
     position: "absolute",
