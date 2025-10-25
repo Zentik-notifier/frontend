@@ -7,7 +7,11 @@ import {
   usePublicAppConfigQuery,
   useUpdateBucketMutation,
 } from "@/generated/gql-operations-generated";
-import { useBucket, useRefreshBucket, useAppState } from "@/hooks/notifications";
+import {
+  useBucket,
+  useRefreshBucket,
+  useAppState,
+} from "@/hooks/notifications";
 import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
 import { useSettings } from "@/hooks/useSettings";
@@ -23,11 +27,12 @@ import {
   Surface,
   Text,
   TextInput,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import ColorPicker, { ColorPickerRef } from "./ColorPicker";
 import IconEditor from "./IconEditor";
 import SnoozeSchedulesManager from "./SnoozeSchedulesManager";
+import { useNavigationUtils } from "@/utils/navigation";
 
 const defaultColor = "#0a7ea4";
 
@@ -53,17 +58,22 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const [createAccessToken, setCreateAccessToken] = useState(true);
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const isEditing = !!bucketId;
+  const { navigateToBucketDetail } = useNavigationUtils();
 
-  const { bucket, canWrite } = useBucket(bucketId, { autoFetch: isEditing, userId: userId ?? undefined });
+  const { bucket, canWrite } = useBucket(bucketId, {
+    autoFetch: isEditing,
+    userId: userId ?? undefined,
+  });
   const refreshBucket = useRefreshBucket();
   const { refreshAll } = useAppState();
   const { data: appConfig } = usePublicAppConfigQuery();
 
   const isProtectedBucket = bucket?.isProtected;
 
-  const [createAccessTokenForBucketMutation] = useCreateAccessTokenForBucketMutation({
-    refetchQueries: ["GetUserAccessTokens", "GetAccessTokensForBucket"],
-  });
+  const [createAccessTokenForBucketMutation] =
+    useCreateAccessTokenForBucketMutation({
+      refetchQueries: ["GetUserAccessTokens", "GetAccessTokensForBucket"],
+    });
 
   const [createBucketMutation, { loading: creatingBucket }] =
     useCreateBucketMutation({
@@ -71,67 +81,93 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
         if (data?.createBucket) {
           // Update React Query cache with the new bucket
           const newBucket = data.createBucket;
-          console.log('[CreateBucketForm] Adding new bucket to React Query cache:', newBucket.id);
+          console.log(
+            "[CreateBucketForm] Adding new bucket to React Query cache:",
+            newBucket.id
+          );
 
           // Add to bucketsStats cache immediately with initial stats
-          queryClient.setQueryData<any[]>(notificationKeys.bucketsStats(), (old) => {
-            if (!old) {
-              console.log('[CreateBucketForm] No bucketsStats cache found, creating new');
-              return [{
-                ...newBucket,
-                unreadCount: 0,
-                totalCount: 0,
-                isSnoozed: false,
-              }];
+          queryClient.setQueryData<any[]>(
+            notificationKeys.bucketsStats(),
+            (old) => {
+              if (!old) {
+                console.log(
+                  "[CreateBucketForm] No bucketsStats cache found, creating new"
+                );
+                return [
+                  {
+                    ...newBucket,
+                    unreadCount: 0,
+                    totalCount: 0,
+                    isSnoozed: false,
+                  },
+                ];
+              }
+
+              // Check if bucket already exists (shouldn't happen but be safe)
+              const exists = old.some((b) => b.id === newBucket.id);
+              if (exists) {
+                console.log(
+                  "[CreateBucketForm] Bucket already exists in cache"
+                );
+                return old;
+              }
+
+              console.log(
+                "[CreateBucketForm] Adding new bucket to existing cache"
+              );
+              return [
+                ...old,
+                {
+                  ...newBucket,
+                  unreadCount: 0,
+                  totalCount: 0,
+                  isSnoozed: false,
+                },
+              ];
             }
+          );
 
-            // Check if bucket already exists (shouldn't happen but be safe)
-            const exists = old.some(b => b.id === newBucket.id);
-            if (exists) {
-              console.log('[CreateBucketForm] Bucket already exists in cache');
-              return old;
-            }
-
-            console.log('[CreateBucketForm] Adding new bucket to existing cache');
-            return [...old, {
-              ...newBucket,
-              unreadCount: 0,
-              totalCount: 0,
-              isSnoozed: false,
-            }];
-          });
-
-          console.log('[CreateBucketForm] Bucket added to cache successfully');
+          console.log("[CreateBucketForm] Bucket added to cache successfully");
 
           // Create access token if checkbox was checked
           if (createAccessToken) {
             try {
-              console.log('[CreateBucketForm] Creating access token for bucket...');
+              console.log(
+                "[CreateBucketForm] Creating access token for bucket..."
+              );
               await createAccessTokenForBucketMutation({
                 variables: {
                   bucketId: newBucket.id,
                   name: `${newBucket.name} Token`,
                 },
               });
-              console.log('[CreateBucketForm] Access token created successfully');
+              console.log(
+                "[CreateBucketForm] Access token created successfully"
+              );
             } catch (tokenError) {
-              console.error('[CreateBucketForm] Error creating access token:', tokenError);
+              console.error(
+                "[CreateBucketForm] Error creating access token:",
+                tokenError
+              );
               // Don't block bucket creation if token fails
             }
           }
 
           // Refresh app state to get real statistics (in case there are notifications)
-          console.log('[CreateBucketForm] Refreshing app state...');
+          console.log("[CreateBucketForm] Refreshing app state...");
           await refreshAll();
-          console.log('[CreateBucketForm] App state refreshed');
+          console.log("[CreateBucketForm] App state refreshed");
+
+          navigateToBucketDetail(newBucket.id);
+        } else if (isEditing) {
+          // Only go back if we're editing an existing bucket
+          setBucketName("");
+          setBucketColor(defaultColor);
+          setBucketIcon("");
+          setCreateAccessToken(true); // Reset to default true
+          router.back();
         }
-
-        setBucketName("");
-        setBucketColor(defaultColor);
-        setBucketIcon("");
-        setCreateAccessToken(true); // Reset to default true
-
-        router.back();
       },
       onError: (error) => {
         console.error("[CreateBucketForm] Create bucket error:", error);
@@ -191,10 +227,14 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
         name: bucketName.trim(),
         color: bucketColor,
         // Only include icon if it's being created or if it changed during edit
-        ...(!isEditing || bucketIcon !== originalIcon ? { icon: bucketIcon.trim() || undefined } : {}),
+        ...(!isEditing || bucketIcon !== originalIcon
+          ? { icon: bucketIcon.trim() || undefined }
+          : {}),
         // Only send generateIconWithInitials if attachments are enabled
         ...(uploadEnabled && {
-          generateIconWithInitials: userSettings.settings.notificationsPreferences?.generateBucketIconWithInitials ?? true,
+          generateIconWithInitials:
+            userSettings.settings.notificationsPreferences
+              ?.generateBucketIconWithInitials ?? true,
         }),
       };
 
@@ -211,13 +251,6 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
             input: bucketData as CreateBucketDto,
           },
         });
-      }
-
-      if (!isEditing) {
-        // Only reset form for new buckets (handled in mutation callbacks)
-        setBucketName("");
-        setBucketIcon("");
-        setBucketColor(defaultColor);
       }
     } catch (error: any) {
       console.error(
@@ -262,8 +295,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
 
   // Helper to generate initials from bucket name
   const getInitials = (name: string): string => {
-    const words = name.split(' ').filter(w => w.length > 0);
-    
+    const words = name.split(" ").filter((w) => w.length > 0);
+
     if (words.length >= 2) {
       return words[0][0] + words[1][0];
     } else if (words.length === 1 && words[0].length >= 2) {
@@ -271,8 +304,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
     } else if (words.length === 1) {
       return words[0][0];
     }
-    
-    return '?';
+
+    return "?";
   };
 
   return (
@@ -323,15 +356,14 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
             onTouchEnd={() => colorPickerRef.current?.openModal()}
           >
             <View
-              style={[
-                styles.colorPreview,
-                { backgroundColor: bucketColor }
-              ]}
+              style={[styles.colorPreview, { backgroundColor: bucketColor }]}
             />
-            <Text style={[
-              styles.customColorInputText,
-              { color: theme.colors.onSurface }
-            ]}>
+            <Text
+              style={[
+                styles.customColorInputText,
+                { color: theme.colors.onSurface },
+              ]}
+            >
               {bucketColor}
             </Text>
           </Surface>
@@ -397,7 +429,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                 ]}
               >
                 {/* Show initials if enabled in settings and bucket name exists */}
-                {userSettings.settings.notificationsPreferences?.generateBucketIconWithInitials && bucketName ? (
+                {userSettings.settings.notificationsPreferences
+                  ?.generateBucketIconWithInitials && bucketName ? (
                   <Text
                     style={[
                       styles.previewInitials,
@@ -412,7 +445,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
             <Text style={styles.previewText}>
               {bucketIcon
                 ? t("buckets.form.iconPreview")
-                : userSettings.settings.notificationsPreferences?.generateBucketIconWithInitials && bucketName
+                : userSettings.settings.notificationsPreferences
+                    ?.generateBucketIconWithInitials && bucketName
                 ? t("buckets.form.initialsPreview")
                 : t("buckets.form.colorPreview")}
             </Text>
