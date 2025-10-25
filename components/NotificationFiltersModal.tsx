@@ -20,8 +20,6 @@ import BucketSelector from "./BucketSelector";
 import MultiBucketSelector from "./MultiBucketSelector";
 
 export default function NotificationVisualizationModal() {
-  const { data: appState } = useAppState();
-  const bucketsWithStats = appState?.buckets || [];
   const { t } = useI18n();
   const { datePickerLocale } = useDateFormat();
   const {
@@ -174,7 +172,6 @@ export default function NotificationVisualizationModal() {
                 <MultiBucketSelector
                   selectedBucketIds={localFilters.selectedBucketIds}
                   onBucketsChange={onBucketsChange}
-                  buckets={bucketsWithStats as any}
                   searchable
                 />
               </View>

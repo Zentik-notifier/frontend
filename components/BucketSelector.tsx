@@ -1,8 +1,7 @@
-import { BucketFragment } from "@/generated/gql-operations-generated";
+import { useNotificationsState } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
 import Selector, { SelectorOption } from "./ui/Selector";
-import { useNotificationsState } from "@/hooks/notifications/useNotificationQueries";
 
 interface BucketSelectorProps {
   selectedBucketId?: string;
@@ -22,7 +21,7 @@ export default function BucketSelector({
 
   const bucketOptions = useMemo(() => {
     const buckets = (appState?.buckets || []).filter(
-      (bucket) => !bucket.isOrphan
+      (bucket) => !bucket.isOrphan && !bucket.isProtected
     );
     const options: SelectorOption[] = [];
 

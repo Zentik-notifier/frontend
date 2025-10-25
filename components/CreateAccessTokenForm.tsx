@@ -42,8 +42,6 @@ export default function CreateAccessTokenForm({
   const [wasTokenStored, setWasTokenStored] = useState(false);
   const editMode = !!tokenData;
 
-  const { data: bucketsData } = useGetBucketsQuery();
-
   // Initialize form in edit mode
   React.useEffect(() => {
     if (editMode && tokenData) {
@@ -349,7 +347,6 @@ export default function CreateAccessTokenForm({
                 label={t("accessTokens.form.selectBuckets" as any)}
                 selectedBucketIds={selectedBucketIds}
                 onBucketsChange={setSelectedBucketIds}
-                buckets={bucketsData?.buckets || []}
               />
             </View>
           )}

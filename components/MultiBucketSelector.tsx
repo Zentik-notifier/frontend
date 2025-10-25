@@ -1,13 +1,12 @@
-import { BucketFragment } from "@/generated/gql-operations-generated";
+import { useNotificationsState } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useMemo } from "react";
-import Multiselect, { MultiselectOption } from "./ui/Multiselect";
 import BucketIcon from "./BucketIcon";
+import Multiselect, { MultiselectOption } from "./ui/Multiselect";
 
 interface MultiBucketSelectorProps {
   selectedBucketIds?: string[];
   onBucketsChange: (bucketIds: string[]) => void;
-  buckets: BucketFragment[];
   label?: string;
   searchable?: boolean;
 }
@@ -15,13 +14,16 @@ interface MultiBucketSelectorProps {
 export default function MultiBucketSelector({
   selectedBucketIds = [],
   onBucketsChange,
-  buckets,
   label,
   searchable = false,
 }: MultiBucketSelectorProps) {
   const { t } = useI18n();
+  const { data: appState } = useNotificationsState();
 
   const bucketOptions = useMemo(() => {
+    const buckets = (appState?.buckets || []).filter(
+      (bucket) => !bucket.isOrphan && !bucket.isProtected
+    );
     const options: MultiselectOption[] = [];
 
     // Add regular buckets with BucketIcon
@@ -30,18 +32,12 @@ export default function MultiBucketSelector({
         id: bucket.id,
         name: bucket.name,
         description: bucket.description ?? undefined,
-        iconElement: (
-          <BucketIcon
-            size="sm"
-            bucketId={bucket.id}
-            noRouting
-          />
-        ),
+        iconElement: <BucketIcon size="sm" bucketId={bucket.id} noRouting />,
       });
     });
 
     return options;
-  }, [buckets]);
+  }, [appState?.buckets]);
 
   return (
     <Multiselect
