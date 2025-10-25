@@ -4,50 +4,34 @@
  */
 
 import {
-    getBucketStats,
-    getNotificationById,
-    getNotificationStats,
-    getUnreadCountsByBucket,
-    queryNotifications,
-    getAllNotificationIds
-} from '@/db/repositories/notifications-query-repository';
-import {
+    BucketData,
     getAllBuckets,
-    saveBuckets,
-    deleteBucket,
-    BucketData
+    saveBuckets
 } from '@/db/repositories/buckets-repository';
 import {
-    upsertNotificationsBatch,
-    getAllNotificationsFromCache,
-    saveNotificationToCache,
-    deleteNotificationFromCache,
-    deleteNotificationsFromCache,
-    deleteNotificationsByBucketId,
-    getAllDeletedNotificationIds,
-    removeDeletedNotificationTombstone,
-    incrementDeleteTombstoneRetry,
-} from '@/services/notifications-repository';
-import { mediaCache } from '@/services/media-cache-service';
+    getAllNotificationIds,
+    getNotificationById,
+    getNotificationStats,
+    queryNotifications
+} from '@/db/repositories/notifications-query-repository';
 import {
     GetBucketsQuery,
     NotificationFragment,
     useGetBucketsLazyQuery,
-    useGetNotificationLazyQuery,
-    useGetNotificationsLazyQuery,
-    useUpdateReceivedNotificationsMutation,
-    useMassDeleteNotificationsMutation
+    useGetNotificationsLazyQuery
 } from '@/generated/gql-operations-generated';
 import {
-    BucketStats,
+    getAllNotificationsFromCache,
+    upsertNotificationsBatch
+} from '@/services/notifications-repository';
+import {
     BucketWithStats,
     NotificationQueryResult,
     NotificationStats,
     UseBucketsStatsOptions,
-    UseNotificationsOptions,
-    UseNotificationStatsOptions,
+    UseNotificationsOptions
 } from '@/types/notifications';
-import { useQuery, useQueryClient, UseQueryResult, UseQueryOptions, useInfiniteQuery, UseInfiniteQueryResult } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
 
 /**
  * Query keys for notification-related queries
@@ -515,6 +499,58 @@ export async function refreshNotificationQueries(
         console.log('[refreshNotificationQueries] Queries invalidated, lists will refresh');
     } catch (error) {
         console.error('[refreshNotificationQueries] Failed to invalidate queries:', error);
+        throw error;
+    }
+}
+
+/**
+ * Proxy function to clear all notifications from cache with proper query cleanup
+ * This centralizes the cleanup logic in the queries layer rather than the repository
+ * 
+ * @example
+ * ```tsx
+ * import { clearAllNotificationsFromCache } from '@/hooks/notifications/useNotificationQueries';
+ * 
+ * await clearAllNotificationsFromCache(queryClient);
+ * ```
+ */
+export async function clearAllNotificationsFromCache(queryClient?: any): Promise<void> {
+    console.log('[clearAllNotificationsFromCache] Starting notification cache clear with query cleanup...');
+    
+    try {
+        // Import the repository function dynamically to avoid circular dependencies
+        const { clearAllNotificationsFromCache: repositoryClear } = await import('@/services/notifications-repository');
+        
+        // Call the repository function WITHOUT queryClient (no cleanup there)
+        await repositoryClear();
+        
+        // Handle query cleanup here in the queries layer
+        if (queryClient) {
+            console.log('[clearAllNotificationsFromCache] Invalidating notification queries...');
+            await Promise.all([
+                queryClient.invalidateQueries({
+                    queryKey: notificationKeys.stats(),
+                    refetchType: 'none', // Don't refetch immediately
+                }),
+                queryClient.invalidateQueries({
+                    queryKey: notificationKeys.bucketsStats(),
+                    refetchType: 'none',
+                }),
+                queryClient.invalidateQueries({
+                    queryKey: ['app-state'],
+                    refetchType: 'none',
+                }),
+                queryClient.invalidateQueries({
+                    queryKey: notificationKeys.lists(),
+                    refetchType: 'none',
+                }),
+            ]);
+            console.log('[clearAllNotificationsFromCache] Notification queries invalidated');
+        }
+        
+        console.log('[clearAllNotificationsFromCache] Notification cache clear completed successfully');
+    } catch (error) {
+        console.error('[clearAllNotificationsFromCache] Failed to clear notification cache:', error);
         throw error;
     }
 }

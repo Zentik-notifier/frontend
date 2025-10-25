@@ -12,7 +12,6 @@ import Step5 from "./Step5";
 import Step6 from "./Step6";
 
 interface OnboardingModalProps {
-  visible: boolean;
   onClose: () => void;
   push: UsePushNotifications;
 }
@@ -66,12 +65,33 @@ interface NavigationButtonsProps {
 }
 
 const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
-  const { currentStep, goToPreviousStep, goToNextStep, applySettings, isStep4Complete } = useOnboarding();
+  const {
+    currentStep,
+    goToPreviousStep,
+    goToNextStep,
+    applySettings,
+    createStep4Resources,
+    isStep4Complete,
+    resetOnboarding,
+  } = useOnboarding();
   const { completeOnboarding, skipOnboarding } = useSettings();
   const [isApplying, setIsApplying] = React.useState(false);
 
   const handleNext = useCallback(async () => {
-    if (currentStep === 6) {
+    if (currentStep === 4) {
+      // Create bucket and token for Step 4 before proceeding
+      setIsApplying(true);
+      try {
+        await createStep4Resources();
+        console.log("[Onboarding] Step 4 resources created successfully");
+        goToNextStep();
+      } catch (error) {
+        console.error("[Onboarding] Error creating Step 4 resources:", error);
+        // Don't proceed to next step if creation failed
+      } finally {
+        setIsApplying(false);
+      }
+    } else if (currentStep === 6) {
       // Apply all settings before closing
       setIsApplying(true);
       try {
@@ -79,11 +99,13 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
         // Mark onboarding as completed
         await completeOnboarding();
         console.log("[Onboarding] Completed successfully");
+        resetOnboarding(); // Reset to step 1 for next time
         onClose();
       } catch (error) {
         console.error("[Onboarding] Error applying settings:", error);
         // Still close and mark as completed even if there's an error
         await completeOnboarding();
+        resetOnboarding(); // Reset to step 1 for next time
         onClose();
       } finally {
         setIsApplying(false);
@@ -91,10 +113,19 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
     } else {
       goToNextStep();
     }
-  }, [currentStep, goToNextStep, onClose, applySettings, completeOnboarding]);
+  }, [
+    currentStep,
+    goToNextStep,
+    onClose,
+    applySettings,
+    createStep4Resources,
+    completeOnboarding,
+    resetOnboarding,
+  ]);
 
   // Disabilita Next in Step4 se non è completo
-  const isNextDisabled = isApplying || (currentStep === 4 && !isStep4Complete());
+  const isNextDisabled =
+    isApplying || (currentStep === 4 && !isStep4Complete());
 
   return (
     <View style={styles.navigationButtons}>
@@ -108,9 +139,9 @@ const NavigationButtons = memo<NavigationButtonsProps>(({ onClose }) => {
           Back
         </Button>
       )}
-      <Button 
-        mode="contained" 
-        onPress={handleNext} 
+      <Button
+        mode="contained"
+        onPress={handleNext}
         style={styles.navButton}
         loading={isApplying}
         disabled={isNextDisabled}
@@ -153,7 +184,7 @@ StepRenderer.displayName = "StepRenderer";
 
 // Main Modal Component with Content
 const OnboardingModalV2Content: React.FC<OnboardingModalProps> = memo(
-  ({ visible, onClose, push }) => {
+  ({ onClose, push }) => {
     const theme = useTheme();
     const { skipOnboarding } = useSettings();
 
@@ -164,7 +195,7 @@ const OnboardingModalV2Content: React.FC<OnboardingModalProps> = memo(
     }, [onClose, skipOnboarding]);
 
     return (
-      <Modal visible={visible} onDismiss={handleSkip}>
+      <Modal visible onDismiss={handleSkip}>
         <View
           style={[
             styles.modalContent,
@@ -184,19 +215,11 @@ const OnboardingModalV2Content: React.FC<OnboardingModalProps> = memo(
 OnboardingModalV2Content.displayName = "OnboardingModalV2Content";
 
 // Wrapper with Provider and Portal
-const OnboardingModal: React.FC<OnboardingModalProps> = ({
-  visible,
-  onClose,
-  push,
-}) => {
+const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose, push }) => {
   return (
     <Portal>
       <OnboardingProvider push={push}>
-        <OnboardingModalV2Content
-          visible={visible}
-          onClose={onClose}
-          push={push}
-        />
+        <OnboardingModalV2Content onClose={onClose} push={push} />
       </OnboardingProvider>
     </Portal>
   );

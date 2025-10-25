@@ -632,9 +632,9 @@ class SettingsService {
 
   public async setLocale(locale: string): Promise<void> {
     const current = this.settingsSubject.value;
-    current.locale = locale as Locale;
-    this.settingsSubject.next(current);
-    await this.saveSettings(current);
+    const newSettings = { ...current, locale: locale as Locale };
+    this.settingsSubject.next(newSettings);
+    await this.saveSettings(newSettings);
   }
 
   public async setTimezone(timezone: string): Promise<void> {

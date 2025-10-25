@@ -2,8 +2,8 @@ import { useAppContext } from "@/contexts/AppContext";
 import { useI18n } from "@/hooks/useI18n";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { useNotificationExportImport } from "@/hooks/useNotificationExportImport";
+import { useGlobalNotificationStats } from "@/hooks/notifications/useNotificationStats";
 import { mediaCache } from "@/services/media-cache-service";
-import { getAllNotificationsFromCache } from "@/services/notifications-repository";
 import { useSettings } from "@/hooks/useSettings";
 import type { MarkAsReadMode } from "@/services/settings-service";
 import { formatFileSize } from "@/utils";
@@ -81,22 +81,8 @@ export default function UnifiedCacheSettings() {
     settings.notificationsPreferences?.defaultSnoozes || []
   );
 
-  // Notifications from database
-  const [dbNotifications, setDbNotifications] = useState<any[]>([]);
-
-  // Load notifications from database
-  useEffect(() => {
-    const loadNotifications = async () => {
-      try {
-        const notifications = await getAllNotificationsFromCache();
-        setDbNotifications(notifications);
-      } catch (error) {
-        console.error("Error loading notifications from DB:", error);
-      }
-    };
-
-    loadNotifications();
-  }, []);
+  // Get notification stats from React Query (automatically updated)
+  const { totalCount: dbNotificationsCount } = useGlobalNotificationStats();
 
   // Sync when settings change externally
   useEffect(() => {
@@ -149,15 +135,7 @@ export default function UnifiedCacheSettings() {
   } = useAppContext();
 
   const { handleExportNotifications, handleImportNotifications } =
-    useNotificationExportImport((notifications) => {
-      setDbNotifications(notifications);
-    });
-
-  // Notifications count from database
-  const dbNotificationsCount = useMemo(
-    () => dbNotifications.length,
-    [dbNotifications.length]
-  );
+    useNotificationExportImport();
 
   // Calculate total cache size
   const totalCacheSize = useMemo(() => {

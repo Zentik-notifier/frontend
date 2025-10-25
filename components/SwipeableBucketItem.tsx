@@ -1,5 +1,5 @@
+import { useAppContext } from "@/contexts/AppContext";
 import {
-  BucketWithDevicesFragment,
   GetBucketsDocument,
   ResourceType,
   useUnshareBucketMutation,
@@ -10,13 +10,12 @@ import {
   useDeleteBucketWithNotifications,
 } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
-import { useAppContext } from "@/contexts/AppContext";
+import { useNavigationUtils } from "@/utils/navigation";
 import React, { useMemo } from "react";
-import { Alert, StyleSheet, Pressable, View } from "react-native";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { Text, useTheme } from "react-native-paper";
 import BucketIcon from "./BucketIcon";
 import SwipeableItem, { MenuItem } from "./SwipeableItem";
-import { useNavigationUtils } from "@/utils/navigation";
-import { Text, useTheme } from "react-native-paper";
 
 interface SwipeableBucketItemProps {
   bucket: BucketWithStats;
@@ -38,10 +37,13 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
   const { navigateToEditBucket } = useNavigationUtils();
 
   // Use the bucket permissions hook to check permissions
-  const { canDelete, isSharedWithMe, sharedCount } = useBucket(bucket.id, {
+  const { canDelete, isSharedWithMe, allPermissions } = useBucket(bucket.id, {
     userId: userId ?? undefined,
     autoFetch: true,
   });
+  const sharedCount = allPermissions.filter(
+    (permission) => permission.user?.id !== userId
+  ).length;
 
   const { deleteBucket } = useDeleteBucketWithNotifications({
     onSuccess: () => {
@@ -106,12 +108,9 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
     theme,
   ]);
 
-  // Device info removed
-
   const getSharedUsersText = () => {
-    // Always show sharing count if I've shared with someone, regardless of ownership
     if (sharedCount === 0) {
-      return isSharedWithMe ? null : t("buckets.item.notShared");
+      return null;
     } else if (sharedCount === 1) {
       return t("buckets.item.sharedWith", { count: sharedCount });
     } else {
@@ -125,6 +124,7 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
       menuItems={menuItems}
       showMenu={true}
       rightAction={
+        false &&
         !(isOfflineAuth || isBackendUnreachable) &&
         (canDelete || isSharedWithMe)
           ? {
@@ -150,7 +150,12 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
         <View style={styles.itemCard}>
           <View style={styles.itemHeader}>
             <View style={styles.itemInfo}>
-              <BucketIcon noRouting size="lg" bucketId={bucket.id} userId={userId} />
+              <BucketIcon
+                noRouting
+                size="lg"
+                bucketId={bucket.id}
+                userId={userId}
+              />
               <Text variant="titleMedium" style={styles.itemName}>
                 {bucket.name}
               </Text>
@@ -165,7 +170,6 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
               )}
             </View>
           </View>
-          {/* Device info removed */}
           {getSharedUsersText() && (
             <Text variant="bodySmall" style={styles.sharingInfo}>
               👥 {getSharedUsersText()}

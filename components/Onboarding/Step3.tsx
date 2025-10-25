@@ -3,37 +3,7 @@ import { ScrollView, StyleSheet, View } from "react-native";
 import { Card, Chip, Icon, Switch, Text, TextInput, useTheme } from "react-native-paper";
 import { useI18n } from "@/hooks/useI18n";
 import { useOnboarding } from "./OnboardingContext";
-
-// Retention Presets
-type RetentionPreset = "low" | "balanced" | "longer" | "custom";
-
-interface RetentionConfig {
-  maxCacheSizeMB?: number;
-  maxCacheAgeDays?: number;
-  maxNotifications?: number;
-  maxNotificationsDays?: number;
-}
-
-const RETENTION_PRESETS: Record<Exclude<RetentionPreset, "custom">, RetentionConfig> = {
-  low: {
-    maxCacheSizeMB: 100,
-    maxCacheAgeDays: 7,
-    maxNotifications: 100,
-    maxNotificationsDays: 7,
-  },
-  balanced: {
-    maxCacheSizeMB: 500,
-    maxCacheAgeDays: 30,
-    maxNotifications: 500,
-    maxNotificationsDays: 30,
-  },
-  longer: {
-    maxCacheSizeMB: 2000,
-    maxCacheAgeDays: 90,
-    maxNotifications: 2000,
-    maxNotificationsDays: 90,
-  },
-};
+import { RETENTION_PRESETS, RetentionConfig, RetentionPreset } from "./utils";
 
 const Step3 = memo(() => {
   const theme = useTheme();

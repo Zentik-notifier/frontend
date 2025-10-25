@@ -2,7 +2,6 @@ import { useAppContext } from "@/contexts/AppContext";
 import {
   CreateBucketDto,
   UpdateBucketDto,
-  useCreateBucketMutation,
   useCreateAccessTokenForBucketMutation,
   usePublicAppConfigQuery,
   useUpdateBucketMutation,
@@ -11,6 +10,7 @@ import {
   useBucket,
   useRefreshBucket,
   useAppState,
+  useCreateBucket,
 } from "@/hooks/notifications";
 import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
@@ -71,112 +71,49 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const isProtectedBucket = bucket?.isProtected;
 
   const [createAccessTokenForBucketMutation] =
-    useCreateAccessTokenForBucketMutation({
-      refetchQueries: ["GetUserAccessTokens", "GetAccessTokensForBucket"],
-    });
+    useCreateAccessTokenForBucketMutation({});
 
-  const [createBucketMutation, { loading: creatingBucket }] =
-    useCreateBucketMutation({
-      onCompleted: async (data) => {
-        if (data?.createBucket) {
-          // Update React Query cache with the new bucket
-          const newBucket = data.createBucket;
-          console.log(
-            "[CreateBucketForm] Adding new bucket to React Query cache:",
-            newBucket.id
-          );
+  const { createBucket, isLoading: creatingBucket } = useCreateBucket({
+    onSuccess: async (data) => {
+      if (data?.id) {
+        console.log("[CreateBucketForm] Bucket created successfully:", data.id);
 
-          // Add to bucketsStats cache immediately with initial stats
-          queryClient.setQueryData<any[]>(
-            notificationKeys.bucketsStats(),
-            (old) => {
-              if (!old) {
-                console.log(
-                  "[CreateBucketForm] No bucketsStats cache found, creating new"
-                );
-                return [
-                  {
-                    ...newBucket,
-                    unreadCount: 0,
-                    totalCount: 0,
-                    isSnoozed: false,
-                  },
-                ];
-              }
-
-              // Check if bucket already exists (shouldn't happen but be safe)
-              const exists = old.some((b) => b.id === newBucket.id);
-              if (exists) {
-                console.log(
-                  "[CreateBucketForm] Bucket already exists in cache"
-                );
-                return old;
-              }
-
-              console.log(
-                "[CreateBucketForm] Adding new bucket to existing cache"
-              );
-              return [
-                ...old,
-                {
-                  ...newBucket,
-                  unreadCount: 0,
-                  totalCount: 0,
-                  isSnoozed: false,
-                },
-              ];
-            }
-          );
-
-          console.log("[CreateBucketForm] Bucket added to cache successfully");
-
-          // Create access token if checkbox was checked
-          if (createAccessToken) {
-            try {
-              console.log(
-                "[CreateBucketForm] Creating access token for bucket..."
-              );
-              await createAccessTokenForBucketMutation({
-                variables: {
-                  bucketId: newBucket.id,
-                  name: `${newBucket.name} Token`,
-                },
-              });
-              console.log(
-                "[CreateBucketForm] Access token created successfully"
-              );
-            } catch (tokenError) {
-              console.error(
-                "[CreateBucketForm] Error creating access token:",
-                tokenError
-              );
-              // Don't block bucket creation if token fails
-            }
+        // Create access token if checkbox was checked
+        if (createAccessToken) {
+          try {
+            console.log(
+              "[CreateBucketForm] Creating access token for bucket..."
+            );
+            await createAccessTokenForBucketMutation({
+              variables: {
+                bucketId: data.id,
+                name: `${data.name} Token`,
+              },
+            });
+            console.log(
+              "[CreateBucketForm] Access token created successfully"
+            );
+          } catch (tokenError) {
+            console.error(
+              "[CreateBucketForm] Error creating access token:",
+              tokenError
+            );
+            // Don't block bucket creation if token fails
           }
-
-          // Refresh app state to get real statistics (in case there are notifications)
-          console.log("[CreateBucketForm] Refreshing app state...");
-          await refreshAll();
-          console.log("[CreateBucketForm] App state refreshed");
-
-          navigateToBucketDetail(newBucket.id);
-        } else if (isEditing) {
-          // Only go back if we're editing an existing bucket
-          setBucketName("");
-          setBucketColor(defaultColor);
-          setBucketIcon("");
-          setCreateAccessToken(true); // Reset to default true
-          router.back();
         }
-      },
-      onError: (error) => {
-        console.error("[CreateBucketForm] Create bucket error:", error);
-        Alert.alert(
-          t("buckets.form.createErrorTitle"),
-          error.message || t("buckets.form.createErrorMessage")
-        );
-      },
-    });
+
+        // Navigate to bucket detail for new buckets
+        navigateToBucketDetail(data.id);
+      }
+    },
+    onError: (error) => {
+      console.error("[CreateBucketForm] Create bucket error:", error);
+      Alert.alert(
+        t("buckets.form.createErrorTitle"),
+        error.message || t("buckets.form.createErrorMessage")
+      );
+    },
+  });
 
   const [updateBucketMutation, { loading: updatingBucket }] =
     useUpdateBucketMutation({
@@ -246,10 +183,13 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           },
         });
       } else {
-        await createBucketMutation({
-          variables: {
-            input: bucketData as CreateBucketDto,
-          },
+        await createBucket({
+          name: bucketData.name || "",
+          description: bucketData.description || undefined,
+          color: bucketData.color || undefined,
+          icon: bucketData.icon || undefined,
+          isProtected: bucketData.isProtected || undefined,
+          isPublic: bucketData.isPublic || undefined,
         });
       }
     } catch (error: any) {

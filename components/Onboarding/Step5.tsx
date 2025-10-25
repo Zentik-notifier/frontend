@@ -1,4 +1,3 @@
-import { settingsService } from "@/services/settings-service";
 import React, { memo, useState, useCallback } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import {
@@ -15,7 +14,7 @@ import { useI18n } from "@/hooks/useI18n";
 const Step5 = memo(() => {
   const theme = useTheme();
   const { t } = useI18n();
-  const { generatedToken, bucketId } = useOnboarding();
+  const { sendTestNotification } = useOnboarding();
 
   const [title, setTitle] = useState(t("onboardingV2.step5.defaultTitle"));
   const [body, setBody] = useState(t("onboardingV2.step5.defaultBody"));
@@ -25,66 +24,13 @@ const Step5 = memo(() => {
     message: string;
   } | null>(null);
 
-  const sendTestNotification = useCallback(async () => {
-    if (!generatedToken || !bucketId) {
-      setResult({
-        success: false,
-        message: t("onboardingV2.step5.missingTokenOrBucket"),
-      });
-      return;
-    }
-
-    if (!title.trim() || !body.trim()) {
-      setResult({
-        success: false,
-        message: t("onboardingV2.step5.missingFields"),
-      });
-      return;
-    }
-
+  const handleSendTestNotification = useCallback(async () => {
     setSending(true);
     setResult(null);
 
     try {
-      const apiUrl = settingsService.getApiBaseWithPrefix();
-      console.log(apiUrl, generatedToken);
-      const response = await fetch(`${apiUrl}/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${generatedToken}`,
-        },
-        body: JSON.stringify({
-          title: title.trim(),
-          body: body.trim(),
-          bucketId,
-          actions: [],
-          addMarkAsReadAction: false,
-          addDeleteAction: false,
-          addSnoozeAction: false,
-          addOpenAction: false,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("[Step5] Test notification sent successfully:", data.id);
-        setResult({
-          success: true,
-          message: t("onboardingV2.step5.sendSuccess"),
-        });
-      } else {
-        const errorText = await response.text();
-        console.error(
-          "[Step5] Error sending test notification:",
-          response.status,
-          errorText
-        );
-        setResult({
-          success: false,
-          message: t("onboardingV2.step5.sendError"),
-        });
-      }
+      const result = await sendTestNotification(title, body);
+      setResult(result);
     } catch (error) {
       console.error("[Step5] Failed to send test notification:", error);
       setResult({
@@ -94,7 +40,7 @@ const Step5 = memo(() => {
     } finally {
       setSending(false);
     }
-  }, [generatedToken, bucketId, title, body, t]);
+  }, [sendTestNotification, title, body, t]);
 
   return (
     <ScrollView style={styles.stepContainer}>
@@ -131,7 +77,7 @@ const Step5 = memo(() => {
             mode="contained"
             icon="send"
             style={styles.sendButton}
-            onPress={sendTestNotification}
+            onPress={handleSendTestNotification}
             loading={sending}
             disabled={sending || !title.trim() || !body.trim()}
           >

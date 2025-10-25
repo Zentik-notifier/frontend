@@ -1,20 +1,20 @@
 import {
   NotificationFragment,
-  useCreateBucketMutation,
+  useMassDeleteNotificationsMutation,
 } from "@/generated/gql-operations-generated";
-import { useAppState } from "@/hooks/notifications";
+import { useAppState, useCreateBucket } from "@/hooks/notifications";
 import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
 import {
+  deleteBucketNotificationsCompletely,
   getAllNotificationsFromCache,
   upsertNotificationsBatch,
-  deleteNotificationsByBucketId,
 } from "@/services/notifications-repository";
 import { getNotificationStats } from "@/db/repositories/notifications-query-repository";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Button,
@@ -40,6 +40,7 @@ export default function DanglingBucketResolver({
   const theme = useTheme();
   const { t } = useI18n();
   const queryClient = useQueryClient();
+  const [massDeleteNotifications] = useMassDeleteNotificationsMutation();
 
   // Local state for notifications from DB
   const [notifications, setNotifications] = useState<NotificationFragment[]>(
@@ -48,15 +49,9 @@ export default function DanglingBucketResolver({
 
   const [isMigrating, setIsMigrating] = useState(false);
   const [selectedBucketId, setSelectedBucketId] = useState<string>();
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [dialogMessage, setDialogMessage] = useState("");
 
-  const [createBucketMutation, { loading: creatingBucket }] =
-    useCreateBucketMutation({
-      refetchQueries: ["GetBuckets"],
-    });
+  const { createBucket, isLoading: creatingBucket } = useCreateBucket();
   const { data: appState, isLoading: loading, refreshAll } = useAppState();
   const bucketsWithStats = appState?.buckets || [];
   const buckets = bucketsWithStats;
@@ -79,25 +74,23 @@ export default function DanglingBucketResolver({
   }, []);
 
   // Identifica i dangling buckets (bucket orfani con isOrphan: true)
-  const danglingBuckets = useMemo(() => {
-    return buckets.filter((bucket) => bucket.isOrphan === true);
+  const currentDanglingBucket = useMemo(() => {
+    return buckets.find(
+      (bucket) => bucket.isOrphan === true && bucket.id === id
+    );
   }, [buckets]);
 
-  const currentDanglingBucket = danglingBuckets.find(
-    (bucket) => bucket.id === id
-  );
+  // if (!currentDanglingBucket && !loading) {
+  //   navigateToHome();
+  // }
 
-  if (!currentDanglingBucket && !loading) {
-    navigateToHome();
-  }
-
-  if (!currentDanglingBucket) {
-    return (
-      <View style={styles.container}>
-        <Text>{t("buckets.bucketNotFound")}</Text>
-      </View>
-    );
-  }
+  // if (!currentDanglingBucket) {
+  //   return (
+  //     <View style={styles.container}>
+  //       <Text>{t("buckets.bucketNotFound")}</Text>
+  //     </View>
+  //   );
+  // }
 
   const migrateNotificationsToBucket = async (
     fromBucketId: string,
@@ -210,22 +203,27 @@ export default function DanglingBucketResolver({
         targetBucket.name
       );
 
-      setDialogMessage(
+      Alert.alert(
+        t("buckets.migrationSuccess"),
         t("buckets.migrationSuccessMessage", {
           count: currentDanglingBucket.totalMessages,
           bucketName: targetBucket.name,
-        })
+        }),
+        [
+          {
+            text: t("common.ok"),
+            onPress: () => navigateToBucketDetail(selectedBucketId),
+          },
+        ]
       );
-      setShowSuccessDialog(true);
-      navigateToBucketDetail(selectedBucketId);
     } catch (error) {
       console.error("Migration error:", error);
-      setDialogMessage(
+      Alert.alert(
+        t("buckets.migrationError"),
         t("buckets.migrationErrorMessage", {
           error: error instanceof Error ? error.message : "Unknown error",
         })
       );
-      setShowErrorDialog(true);
     } finally {
       setIsMigrating(false);
     }
@@ -253,18 +251,17 @@ export default function DanglingBucketResolver({
         newBucketInput
       );
 
-      const result = await createBucketMutation({
-        variables: { input: newBucketInput },
+      const newBucket = await createBucket({
+        name: newBucketInput.name,
+        description: newBucketInput.description || undefined,
+        color: newBucketInput.color || undefined,
+        icon: newBucketInput.icon || undefined,
+        isProtected: newBucketInput.isProtected,
+        isPublic: newBucketInput.isPublic,
       });
 
-      if (result.data?.createBucket) {
-        const newBucket = result.data.createBucket;
+      if (newBucket?.id) {
         console.log("✅ Created new bucket:", newBucket.id);
-
-        // Refresh buckets from GraphQL to get the new bucket and save it to local DB
-        console.log("🔄 Refreshing buckets from API to include new bucket...");
-        await refreshAll();
-        console.log("✅ Buckets refreshed, new bucket is now available");
 
         // Migra le notifiche al nuovo bucket
         await migrateNotificationsToBucket(
@@ -274,49 +271,78 @@ export default function DanglingBucketResolver({
           newBucket // Pass the bucket data directly
         );
 
-        setDialogMessage(
+        Alert.alert(
+          t("buckets.bucketCreationSuccess"),
           t("buckets.bucketCreationSuccessMessage", {
             count: currentDanglingBucket.totalMessages,
             bucketName: newBucket.name,
-          })
+          }),
+          [
+            {
+              text: t("common.ok"),
+              onPress: () => navigateToBucketDetail(newBucket.id),
+            },
+          ]
         );
-        setShowSuccessDialog(true);
-        navigateToBucketDetail(newBucket.id);
       }
     } catch (error) {
       console.error("Create bucket error:", error);
-      setDialogMessage(
+      Alert.alert(
+        t("buckets.bucketCreationError"),
         t("buckets.bucketCreationErrorMessage", {
           error: error instanceof Error ? error.message : "Unknown error",
         })
       );
-      setShowErrorDialog(true);
     } finally {
       setIsMigrating(false);
     }
   };
 
   const handleDeleteBucket = async () => {
-    if (!currentDanglingBucket) return;
+    if (!currentDanglingBucket) {
+      console.error(
+        "❌ Cannot delete bucket: currentDanglingBucket is null/undefined"
+      );
+      return;
+    }
+
+    console.log(
+      `🗑️ Starting complete deletion of dangling bucket ${currentDanglingBucket.id} with ${currentDanglingBucket.totalMessages} notifications`
+    );
 
     setIsMigrating(true);
     try {
-      console.log(
-        `🗑️ Deleting dangling bucket ${currentDanglingBucket.id} with ${currentDanglingBucket.totalMessages} notifications`
+      // Step 1: Complete deletion from cache, database, and remote server
+      console.log("📝 Step 1: Complete deletion from all sources...");
+      const deletionResult = await deleteBucketNotificationsCompletely(
+        currentDanglingBucket.id,
+        massDeleteNotifications
       );
 
-      // 1. Elimina tutte le notifiche del bucket orfano dal database locale
-      await deleteNotificationsByBucketId(currentDanglingBucket.id);
-      console.log("✅ Deleted notifications from local DB");
+      console.log(
+        `✅ Step 1 completed: Deleted ${deletionResult.localCount} notifications locally and ${deletionResult.remoteCount} from server`
+      );
 
-      // 2. Aggiorna l'appState per rimuovere il bucket orfano
+      // Step 2: Aggiorna l'appState per rimuovere il bucket orfano
+      console.log("📝 Step 2: Updating app state cache...");
+
+      // Prima ricalcola le statistiche dal database
+      console.log("📊 Recalculating stats from database...");
+      const recalculatedStats = await getNotificationStats([]);
+      console.log(
+        `📊 Stats recalculated: ${recalculatedStats.totalCount} total, ${recalculatedStats.unreadCount} unread`
+      );
+
       queryClient.setQueryData<{
         buckets: any[];
         notifications: NotificationFragment[];
         stats: any;
         lastSync: string;
       }>(["app-state"], (oldAppState) => {
-        if (!oldAppState) return oldAppState;
+        if (!oldAppState) {
+          console.warn("⚠️ Old app state is null, skipping cache update");
+          return oldAppState;
+        }
 
         // Rimuovi il bucket orfano dalla lista
         const updatedBuckets = oldAppState.buckets.filter(
@@ -329,42 +355,42 @@ export default function DanglingBucketResolver({
             notification.message?.bucket?.id !== currentDanglingBucket.id
         );
 
-        // Aggiorna le statistiche (saranno ricaricate dal database)
-        const updatedStats = {
-          ...oldAppState.stats,
-          // Le statistiche verranno ricaricate dal database
-        };
+        console.log(
+          `📊 Cache update: ${oldAppState.buckets.length} → ${updatedBuckets.length} buckets, ${oldAppState.notifications.length} → ${updatedNotifications.length} notifications`
+        );
 
         return {
           ...oldAppState,
           buckets: updatedBuckets,
           notifications: updatedNotifications,
-          stats: updatedStats,
+          stats: recalculatedStats,
         };
       });
+      console.log("✅ Step 2 completed: Updated app state cache");
 
-      // 3. Aggiorna anche le notifiche locali
+      // Step 3: Aggiorna anche le notifiche locali
+      console.log("📝 Step 3: Reloading notifications from cache...");
       const allNotifications = await getAllNotificationsFromCache();
       setNotifications(allNotifications);
-
-      setDialogMessage(
-        t("buckets.bucketDeletionSuccessMessage", {
-          count: currentDanglingBucket.totalMessages,
-          bucketName: currentDanglingBucket.name,
-        })
+      console.log(
+        `✅ Step 3 completed: Reloaded ${allNotifications.length} notifications from cache`
       );
-      setShowSuccessDialog(true);
-      setShowDeleteDialog(false);
+
+      // Step 4: Mostra messaggio di successo con Alert
+      console.log("📝 Step 4: Showing success message...");
+
+      console.log("✅ All steps completed successfully!");
       navigateToHome();
     } catch (error) {
-      console.error("Delete bucket error:", error);
-      setDialogMessage(
+      console.error("❌ Delete bucket error:", error);
+      Alert.alert(
+        t("common.error"),
         t("buckets.bucketDeletionErrorMessage", {
           error: error instanceof Error ? error.message : "Unknown error",
         })
       );
-      setShowErrorDialog(true);
     } finally {
+      console.log("🔄 Setting isMigrating to false");
       setIsMigrating(false);
     }
   };
@@ -386,193 +412,198 @@ export default function DanglingBucketResolver({
 
   return (
     <PaperScrollView onRefresh={handleRefresh} loading={loading}>
-      {/* Dangling Bucket Info */}
-      <Card style={styles.bucketInfoCard} elevation={0}>
-        <Card.Content>
-          <View style={styles.danglingBucketInfo}>
-            <View
-              style={[
-                styles.bucketIconContainer,
-                { backgroundColor: theme.colors.surfaceVariant },
-              ]}
-            >
-              <Icon
-                source="folder"
-                size={24}
-                color={theme.colors.onSurfaceVariant}
-              />
-            </View>
-            <View style={styles.bucketInfo}>
-              <Text variant="titleMedium" style={styles.bucketName}>
-                {currentDanglingBucket.name}
-              </Text>
-              <Text
-                variant="bodyMedium"
+      {/* Gestione caso bucket null */}
+      {!currentDanglingBucket ? (
+        <Card style={styles.bucketInfoCard} elevation={0}>
+          <Card.Content>
+            <View style={styles.errorContainer}>
+              <View
                 style={[
-                  styles.bucketCount,
-                  { color: theme.colors.onSurfaceVariant },
+                  styles.bucketIconContainer,
+                  { backgroundColor: theme.colors.errorContainer },
                 ]}
               >
-                {currentDanglingBucket.totalMessages}{" "}
-                {currentDanglingBucket.totalMessages === 1
-                  ? t("buckets.notification")
-                  : t("buckets.notifications")}
+                <Icon
+                  source="alert-circle"
+                  size={24}
+                  color={theme.colors.onErrorContainer}
+                />
+              </View>
+              <View style={styles.bucketInfo}>
+                <Text variant="titleMedium" style={styles.bucketName}>
+                  {t("buckets.bucketNotFound")}
+                </Text>
+                <Text
+                  variant="bodyMedium"
+                  style={[
+                    styles.bucketCount,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  {t("buckets.bucketNotFoundDescription")}
+                </Text>
+              </View>
+            </View>
+          </Card.Content>
+        </Card>
+      ) : (
+        <>
+          {/* Dangling Bucket Info */}
+          <Card style={styles.bucketInfoCard} elevation={0}>
+            <Card.Content>
+              <View style={styles.danglingBucketInfo}>
+                <View
+                  style={[
+                    styles.bucketIconContainer,
+                    { backgroundColor: theme.colors.surfaceVariant },
+                  ]}
+                >
+                  <Icon
+                    source="folder"
+                    size={24}
+                    color={theme.colors.onSurfaceVariant}
+                  />
+                </View>
+                <View style={styles.bucketInfo}>
+                  <Text variant="titleMedium" style={styles.bucketName}>
+                    {currentDanglingBucket.name}
+                  </Text>
+                  <Text
+                    variant="bodyMedium"
+                    style={[
+                      styles.bucketCount,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {currentDanglingBucket.totalMessages}{" "}
+                    {currentDanglingBucket.totalMessages === 1
+                      ? t("buckets.notification")
+                      : t("buckets.notifications")}
+                  </Text>
+                </View>
+              </View>
+            </Card.Content>
+          </Card>
+
+          <Text
+            variant="bodyMedium"
+            style={[
+              styles.description,
+              { color: theme.colors.onSurfaceVariant },
+            ]}
+          >
+            {isMigrating
+              ? creatingBucket
+                ? t("buckets.creatingBucketDescription")
+                : t("buckets.migratingDescription")
+              : t("buckets.danglingBucketActionDescription", {
+                  count: currentDanglingBucket.totalMessages,
+                })}
+          </Text>
+
+          {!isMigrating && (
+            <>
+              <View style={styles.section}>
+                <Text variant="titleMedium" style={styles.sectionTitle}>
+                  {t("buckets.migrateToExisting")}
+                </Text>
+                <BucketSelector
+                  selectedBucketId={selectedBucketId}
+                  onBucketChange={(bucketId) => setSelectedBucketId(bucketId)}
+                  searchable
+                />
+              </View>
+
+              <View style={styles.section}>
+                <Button
+                  mode="outlined"
+                  onPress={handleMigrateToExisting}
+                  style={styles.migrateButton}
+                  disabled={!selectedBucketId}
+                >
+                  {t("buckets.migrateToExisting")}
+                </Button>
+              </View>
+
+              <Divider />
+
+              <View style={styles.section}>
+                <Button
+                  mode="contained"
+                  onPress={handleCreateNewBucket}
+                  icon="plus"
+                  style={styles.createNewButton}
+                >
+                  {t("buckets.createNewBucket")}
+                </Button>
+              </View>
+
+              <Divider />
+
+              <View style={styles.section}>
+                <Button
+                  mode="outlined"
+                  onPress={() => setShowDeleteDialog(true)}
+                  icon="delete"
+                  buttonColor={theme.colors.errorContainer}
+                  textColor={theme.colors.onErrorContainer}
+                  style={styles.deleteButton}
+                >
+                  {t("buckets.deleteBucket")}
+                </Button>
+              </View>
+            </>
+          )}
+
+          {/* Loading overlay */}
+          {isMigrating && (
+            <View
+              style={[
+                styles.loadingOverlay,
+                { backgroundColor: theme.colors.background + "E6" },
+              ]}
+            >
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text variant="bodyLarge" style={styles.loadingText}>
+                {creatingBucket
+                  ? t("buckets.creatingBucket")
+                  : t("buckets.migrating")}
               </Text>
             </View>
-          </View>
-        </Card.Content>
-      </Card>
+          )}
 
-      <Text
-        variant="bodyMedium"
-        style={[styles.description, { color: theme.colors.onSurfaceVariant }]}
-      >
-        {isMigrating
-          ? creatingBucket
-            ? t("buckets.creatingBucketDescription")
-            : t("buckets.migratingDescription")
-          : t("buckets.danglingBucketActionDescription", {
-              count: currentDanglingBucket.totalMessages,
-            })}
-      </Text>
-
-      {!isMigrating && (
-        <>
-          <View style={styles.section}>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              {t("buckets.migrateToExisting")}
-            </Text>
-            <BucketSelector
-              selectedBucketId={selectedBucketId}
-              onBucketChange={(bucketId) => setSelectedBucketId(bucketId)}
-              searchable
-            />
-          </View>
-
-          <View style={styles.section}>
-            <Button
-              mode="outlined"
-              onPress={handleMigrateToExisting}
-              style={styles.migrateButton}
-              disabled={!selectedBucketId}
+          {/* Delete Confirmation Dialog */}
+          <Portal>
+            <Dialog
+              visible={showDeleteDialog}
+              onDismiss={() => setShowDeleteDialog(false)}
             >
-              {t("buckets.migrateToExisting")}
-            </Button>
-          </View>
-
-          <Divider />
-
-          <View style={styles.section}>
-            <Button
-              mode="contained"
-              onPress={handleCreateNewBucket}
-              icon="plus"
-              style={styles.createNewButton}
-            >
-              {t("buckets.createNewBucket")}
-            </Button>
-          </View>
-
-          <Divider />
-
-          <View style={styles.section}>
-            <Button
-              mode="outlined"
-              onPress={() => setShowDeleteDialog(true)}
-              icon="delete"
-              buttonColor={theme.colors.errorContainer}
-              textColor={theme.colors.onErrorContainer}
-              style={styles.deleteButton}
-            >
-              {t("buckets.deleteBucket")}
-            </Button>
-          </View>
+              <Dialog.Title>{t("buckets.deleteBucketTitle")}</Dialog.Title>
+              <Dialog.Content>
+                <Text variant="bodyMedium">
+                  {t("buckets.deleteBucketConfirmation", {
+                    bucketName: currentDanglingBucket?.name,
+                    count: currentDanglingBucket?.totalMessages,
+                  })}
+                </Text>
+              </Dialog.Content>
+              <Dialog.Actions>
+                <Button onPress={() => setShowDeleteDialog(false)}>
+                  {t("common.cancel")}
+                </Button>
+                <Button
+                  mode="contained"
+                  buttonColor={theme.colors.error}
+                  textColor={theme.colors.onError}
+                  onPress={handleDeleteBucket}
+                >
+                  {t("buckets.deleteBucket")}
+                </Button>
+              </Dialog.Actions>
+            </Dialog>
+          </Portal>
         </>
       )}
-
-      {/* Loading overlay */}
-      {isMigrating && (
-        <View
-          style={[
-            styles.loadingOverlay,
-            { backgroundColor: theme.colors.background + "E6" },
-          ]}
-        >
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text variant="bodyLarge" style={styles.loadingText}>
-            {creatingBucket
-              ? t("buckets.creatingBucket")
-              : t("buckets.migrating")}
-          </Text>
-        </View>
-      )}
-
-      {/* Success Dialog */}
-      <Portal>
-        <Dialog
-          visible={showSuccessDialog}
-          onDismiss={() => setShowSuccessDialog(false)}
-        >
-          <Dialog.Title>{t("common.success")}</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{dialogMessage}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowSuccessDialog(false)}>
-              {t("common.ok")}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-
-      {/* Error Dialog */}
-      <Portal>
-        <Dialog
-          visible={showErrorDialog}
-          onDismiss={() => setShowErrorDialog(false)}
-        >
-          <Dialog.Title>{t("common.error")}</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{dialogMessage}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowErrorDialog(false)}>
-              {t("common.ok")}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-
-      {/* Delete Confirmation Dialog */}
-      <Portal>
-        <Dialog
-          visible={showDeleteDialog}
-          onDismiss={() => setShowDeleteDialog(false)}
-        >
-          <Dialog.Title>{t("buckets.deleteBucketTitle")}</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">
-              {t("buckets.deleteBucketConfirmation", {
-                bucketName: currentDanglingBucket?.name,
-                count: currentDanglingBucket?.totalMessages,
-              })}
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowDeleteDialog(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              mode="contained"
-              buttonColor={theme.colors.error}
-              textColor={theme.colors.onError}
-              onPress={handleDeleteBucket}
-            >
-              {t("buckets.deleteBucket")}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
     </PaperScrollView>
   );
 }
@@ -585,6 +616,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   danglingBucketInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  errorContainer: {
     flexDirection: "row",
     alignItems: "center",
   },

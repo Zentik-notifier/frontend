@@ -4,6 +4,7 @@ import {
   SnoozeScheduleInput,
   UnshareBucketMutationVariables,
   UpdateBucketSnoozesMutationVariables,
+  useCreateBucketMutation,
   useDeleteBucketMutation,
   UserRole,
   useSetBucketSnoozeMutation,
@@ -13,7 +14,8 @@ import {
   NotificationFragment
 } from '@/generated/gql-operations-generated';
 import { deleteNotificationsByBucketId } from '@/services/notifications-repository';
-import { deleteBucket } from '@/db/repositories/buckets-repository';
+import { deleteBucket, saveBuckets } from '@/db/repositories/buckets-repository';
+import { getNotificationStats } from '@/db/repositories/notifications-query-repository';
 import { BucketWithStats } from '@/types/notifications';
 import { mediaCache } from '@/services/media-cache-service';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -163,11 +165,31 @@ export function useDeleteBucketWithNotifications(options?: {
       });
       console.log(`[useDeleteBucketWithNotifications] Bucket ${bucketId} force-removed from bucketsStats cache`);
 
+      // Step 5: Update appState with recalculated stats
+      try {
+        const updatedStats = await getNotificationStats([]);
+        console.log(`[useDeleteBucketWithNotifications] Recalculated stats: ${updatedStats.totalCount} total notifications (${updatedStats.unreadCount} unread)`);
+        
+        // Update appState cache with new stats
+        queryClient.setQueryData(['app-state'], (oldAppState: any) => {
+          if (!oldAppState) return oldAppState;
+          
+          return {
+            ...oldAppState,
+            stats: updatedStats,
+            lastSync: new Date().toISOString(),
+          };
+        });
+        console.log('[useDeleteBucketWithNotifications] AppState updated with recalculated stats');
+      } catch (error) {
+        console.error('[useDeleteBucketWithNotifications] Error recalculating stats:', error);
+      }
+
       if (options?.onSuccess) {
         options.onSuccess();
       }
     },
-    onError: (error, variables, context) => {
+    onError: async (error, variables, context) => {
       // Check if error is "Bucket not found" - in this case, don't rollback
       const isBucketNotFound = error.message?.includes('Bucket not found') || 
         (error as any).graphQLErrors?.[0]?.message?.includes('Bucket not found');
@@ -175,6 +197,26 @@ export function useDeleteBucketWithNotifications(options?: {
       if (isBucketNotFound) {
         console.log('[useDeleteBucketWithNotifications] Bucket not found on server, treating as success');
         // Don't rollback - bucket was already deleted
+        // Update appState with recalculated stats
+        try {
+          const updatedStats = await getNotificationStats([]);
+          console.log(`[useDeleteBucketWithNotifications] Recalculated stats after bucket not found: ${updatedStats.totalCount} total notifications (${updatedStats.unreadCount} unread)`);
+          
+          // Update appState cache with new stats
+          queryClient.setQueryData(['app-state'], (oldAppState: any) => {
+            if (!oldAppState) return oldAppState;
+            
+            return {
+              ...oldAppState,
+              stats: updatedStats,
+              lastSync: new Date().toISOString(),
+            };
+          });
+          console.log('[useDeleteBucketWithNotifications] AppState updated with recalculated stats after bucket not found');
+        } catch (error) {
+          console.error('[useDeleteBucketWithNotifications] Error recalculating stats after bucket not found:', error);
+        }
+        
         // Call onSuccess callback
         if (options?.onSuccess) {
           options.onSuccess();
@@ -539,6 +581,37 @@ export function useShareBucket(options?: {
       const previousBucket = queryClient.getQueryData<BucketDetailData>(
         bucketKeys.detail(bucketId)
       );
+      const previousAppState = queryClient.getQueryData(['app-state']);
+
+      // Create optimistic permission with temporary ID
+      const optimisticPermission = {
+        __typename: 'EntityPermission' as const,
+        id: `temp-${Date.now()}`, // Temporary ID
+        resourceId: bucketId,
+        resourceType: String(ResourceType.Bucket),
+        permissions: permissions,
+        expiresAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        inviteCodeId: null,
+        user: {
+          __typename: 'User' as const,
+          id: targetUserId || '',
+          email: '', // Will be filled by server response
+          username: '', // Will be filled by server response
+          firstName: null,
+          lastName: null,
+          avatar: null,
+          hasPassword: true,
+          role: UserRole.User,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          identities: null,
+          buckets: null,
+          devices: null,
+        },
+        grantedBy: null,
+      } as any;
 
       // Optimistically add new permission to the bucket
       queryClient.setQueryData<BucketDetailData>(
@@ -551,36 +624,6 @@ export function useShareBucket(options?: {
 
           console.log(`[useShareBucket] Adding optimistic permission for user ${targetUserId}`);
 
-          // Create optimistic permission with temporary ID
-          const optimisticPermission = {
-            __typename: 'EntityPermission' as const,
-            id: `temp-${Date.now()}`, // Temporary ID
-            resourceId: bucketId,
-            resourceType: String(ResourceType.Bucket),
-            permissions: permissions,
-            expiresAt: null,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            inviteCodeId: null,
-            user: {
-              __typename: 'User' as const,
-              id: targetUserId,
-              email: '', // Will be filled by server response
-              username: '', // Will be filled by server response
-              firstName: null,
-              lastName: null,
-              avatar: null,
-              hasPassword: true,
-              role: UserRole.User,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              identities: null,
-              buckets: null,
-              devices: null,
-            },
-            grantedBy: null,
-          };
-
           return {
             ...old,
             permissions: [...(old.permissions || []), optimisticPermission],
@@ -590,8 +633,30 @@ export function useShareBucket(options?: {
 
       console.log('[useShareBucket] Optimistic permission added to bucket detail cache');
 
+      // Update appState with optimistic permission
+      queryClient.setQueryData(['app-state'], (oldAppState: any) => {
+        if (!oldAppState) return oldAppState;
+        
+        const updatedBuckets = oldAppState.buckets.map((bucket: any) => {
+          if (bucket.id === bucketId) {
+            return {
+              ...bucket,
+              permissions: [...(bucket.permissions || []), optimisticPermission],
+            };
+          }
+          return bucket;
+        });
+        
+        return {
+          ...oldAppState,
+          buckets: updatedBuckets,
+          lastSync: new Date().toISOString(),
+        };
+      });
+      console.log('[useShareBucket] AppState updated with optimistic permission');
+
       // Return context for rollback
-      return { previousBucket, bucketId };
+      return { previousBucket, previousAppState, bucketId };
     },
     onSuccess: async (data, variables, context) => {
       console.log('[useShareBucket] Mutation successful, updating cache with server response...');
@@ -621,6 +686,31 @@ export function useShareBucket(options?: {
 
       console.log('[useShareBucket] Cache updated with server response');
 
+      // Update appState with new permission
+      queryClient.setQueryData(['app-state'], (oldAppState: any) => {
+        if (!oldAppState) return oldAppState;
+        
+        const updatedBuckets = oldAppState.buckets.map((bucket: any) => {
+          if (bucket.id === bucketId) {
+            return {
+              ...bucket,
+              permissions: [
+                ...(bucket.permissions || []).filter((p: any) => !p.id.startsWith('temp-')),
+                newPermission,
+              ],
+            };
+          }
+          return bucket;
+        });
+        
+        return {
+          ...oldAppState,
+          buckets: updatedBuckets,
+          lastSync: new Date().toISOString(),
+        };
+      });
+      console.log('[useShareBucket] AppState updated with new permission');
+
       if (options?.onSuccess) {
         options.onSuccess();
       }
@@ -634,6 +724,11 @@ export function useShareBucket(options?: {
           bucketKeys.detail(context.bucketId),
           context.previousBucket
         );
+      }
+      
+      // Rollback appState
+      if (context?.previousAppState) {
+        queryClient.setQueryData(['app-state'], context.previousAppState);
       }
 
       if (options?.onError) {
@@ -704,6 +799,7 @@ export function useUnshareBucket(options?: {
       const previousBucket = queryClient.getQueryData<BucketDetailData>(
         bucketKeys.detail(bucketId)
       );
+      const previousAppState = queryClient.getQueryData(['app-state']);
 
       // Optimistically remove permission from the bucket
       queryClient.setQueryData<BucketDetailData>(
@@ -725,8 +821,30 @@ export function useUnshareBucket(options?: {
 
       console.log('[useUnshareBucket] Permission removed from bucket detail cache');
 
+      // Update appState with optimistic permission removal
+      queryClient.setQueryData(['app-state'], (oldAppState: any) => {
+        if (!oldAppState) return oldAppState;
+        
+        const updatedBuckets = oldAppState.buckets.map((bucket: any) => {
+          if (bucket.id === bucketId) {
+            return {
+              ...bucket,
+              permissions: (bucket.permissions || []).filter((p: any) => p.user.id !== targetUserId),
+            };
+          }
+          return bucket;
+        });
+        
+        return {
+          ...oldAppState,
+          buckets: updatedBuckets,
+          lastSync: new Date().toISOString(),
+        };
+      });
+      console.log('[useUnshareBucket] AppState updated with permission removal');
+
       // Return context for rollback
-      return { previousBucket, bucketId };
+      return { previousBucket, previousAppState, bucketId };
     },
     onSuccess: async (data, variables, context) => {
       console.log('[useUnshareBucket] Mutation successful');
@@ -748,6 +866,11 @@ export function useUnshareBucket(options?: {
           context.previousBucket
         );
       }
+      
+      // Rollback appState
+      if (context?.previousAppState) {
+        queryClient.setQueryData(['app-state'], context.previousAppState);
+      }
 
       if (options?.onError) {
         options.onError(error as Error);
@@ -757,6 +880,168 @@ export function useUnshareBucket(options?: {
 
   return {
     unshareBucket: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+/**
+ * Hook for creating a bucket with proper cache updates
+ * Updates appState, bucketsStats, and local database
+ * 
+ * @example
+ * ```typescript
+ * import { useCreateBucket } from '@/hooks/notifications';
+ * 
+ * const { createBucket, isLoading } = useCreateBucket({
+ *   onSuccess: (bucket) => console.log('Bucket created:', bucket.id),
+ *   onError: (error) => console.error('Create failed:', error)
+ * });
+ * 
+ * await createBucket({
+ *   name: 'My Bucket',
+ *   description: 'Bucket description',
+ *   color: '#2196F3',
+ *   icon: 'inbox',
+ *   isProtected: false,
+ *   isPublic: false,
+ * });
+ * ```
+ */
+export function useCreateBucket(options?: {
+  onSuccess?: (bucket: any) => void;
+  onError?: (error: Error) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [createBucketMutation] = useCreateBucketMutation();
+
+  const mutation = useMutation({
+    mutationFn: async (input: {
+      name: string;
+      description?: string;
+      color?: string;
+      icon?: string;
+      isProtected?: boolean;
+      isPublic?: boolean;
+    }) => {
+      console.log('[useCreateBucket] Creating bucket:', input.name);
+      
+      const { data } = await createBucketMutation({
+        variables: { input },
+      });
+
+      if (!data?.createBucket) {
+        throw new Error('Failed to create bucket');
+      }
+
+      return data.createBucket;
+    },
+    onMutate: async (input) => {
+      console.log('[useCreateBucket] Optimistic update:', input.name);
+      
+      // Cancel all queries to prevent refetch during creation
+      await queryClient.cancelQueries();
+      console.log('[useCreateBucket] Cancelled all queries');
+    },
+    onSuccess: async (bucket, variables) => {
+      console.log('[useCreateBucket] Bucket created successfully:', bucket.id);
+      
+      // Step 1: Save bucket to local database
+      try {
+        await saveBuckets([{
+          id: bucket.id,
+          name: bucket.name,
+          description: bucket.description,
+          icon: bucket.icon,
+          iconAttachmentUuid: bucket.iconAttachmentUuid,
+          color: bucket.color,
+          createdAt: bucket.createdAt,
+          updatedAt: bucket.updatedAt,
+          isProtected: bucket.isProtected,
+          isPublic: bucket.isPublic,
+          isAdmin: bucket.isAdmin,
+          userBucket: bucket.userBucket,
+          user: bucket.user,
+          permissions: bucket.permissions,
+          userPermissions: bucket.userPermissions,
+        }]);
+        console.log('[useCreateBucket] Bucket saved to local database');
+      } catch (error) {
+        console.error('[useCreateBucket] Error saving bucket to local database:', error);
+      }
+
+      // Step 2: Update appState with new bucket and recalculated stats
+      try {
+        const updatedStats = await getNotificationStats([]);
+        console.log(`[useCreateBucket] Recalculated stats: ${updatedStats.totalCount} total notifications (${updatedStats.unreadCount} unread)`);
+        
+        // Update appState cache with new bucket and stats
+        queryClient.setQueryData(['app-state'], (oldAppState: any) => {
+          if (!oldAppState) return oldAppState;
+          
+          // Add new bucket to buckets list
+          const newBucket: BucketWithStats = {
+            id: bucket.id,
+            name: bucket.name,
+            description: bucket.description,
+            icon: bucket.icon,
+            iconAttachmentUuid: bucket.iconAttachmentUuid,
+            color: bucket.color,
+            createdAt: bucket.createdAt,
+            updatedAt: bucket.updatedAt,
+            isProtected: bucket.isProtected,
+            isPublic: bucket.isPublic,
+            isAdmin: bucket.isAdmin,
+            totalMessages: 0,
+            unreadCount: 0,
+            lastNotificationAt: null,
+            isSnoozed: false,
+            snoozeUntil: null,
+            user: bucket.user,
+            permissions: bucket.permissions,
+            userPermissions: bucket.userPermissions,
+            userBucket: bucket.userBucket,
+            isOrphan: false,
+          };
+          
+          return {
+            ...oldAppState,
+            buckets: [...oldAppState.buckets, newBucket],
+            stats: updatedStats,
+            lastSync: new Date().toISOString(),
+          };
+        });
+        console.log('[useCreateBucket] AppState updated with new bucket and recalculated stats');
+      } catch (error) {
+        console.error('[useCreateBucket] Error updating appState:', error);
+      }
+
+      // Step 3: Invalidate related queries
+      await queryClient.invalidateQueries({
+        queryKey: notificationKeys.bucketsStats(),
+        refetchType: 'none',
+      });
+      await queryClient.invalidateQueries({
+        queryKey: notificationKeys.stats(),
+        refetchType: 'none',
+      });
+      console.log('[useCreateBucket] Related queries invalidated');
+
+      if (options?.onSuccess) {
+        options.onSuccess(bucket);
+      }
+    },
+    onError: (error, variables) => {
+      console.error('[useCreateBucket] Mutation failed:', error);
+      
+      if (options?.onError) {
+        options.onError(error as Error);
+      }
+    },
+  });
+
+  return {
+    createBucket: mutation.mutateAsync,
     isLoading: mutation.isPending,
     error: mutation.error,
   };

@@ -166,8 +166,14 @@ export function useNotificationExportImport(onImportSuccess?: (notifications: an
                   await queryClient.invalidateQueries({ 
                     queryKey: notificationKeys.all 
                   });
+
+                  // Rebuild the complete app state cache to reflect imported data
+                  await queryClient.refetchQueries({
+                    queryKey: ['app-state'],
+                    type: 'active', // Only refetch if query is mounted
+                  });
                   
-                  console.log(`[Import] Imported ${rawNotifications.length} notifications and invalidated React Query cache`);
+                  console.log(`[Import] Imported ${rawNotifications.length} notifications, invalidated React Query cache, and rebuilt app state`);
 
                   Alert.alert(
                     t('appSettings.gqlCache.importExport.importCompleted'),

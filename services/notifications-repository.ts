@@ -1,6 +1,6 @@
 import { NotificationFragment } from '@/generated/gql-operations-generated';
 import { Platform } from 'react-native';
-import { openSharedCacheDb, openWebStorageDb, parseNotificationForDB, parseNotificationFromDB, executeQuery as executeQuerySafe } from './db-setup';
+import { executeQuery as executeQuerySafe, parseNotificationForDB, parseNotificationFromDB } from './db-setup';
 import { settingsService } from './settings-service';
 
 /**
@@ -265,19 +265,70 @@ export async function removeNotificationFromCache(notificationId: string): Promi
 
 /**
  * Clear all notifications from cache
+ * Only handles data deletion, query cleanup is handled by the queries layer
  */
 export async function clearAllNotificationsFromCache(): Promise<void> {
   await executeQuery(async (db) => {
     try {
+      console.log('[clearAllNotificationsFromCache] Starting complete cache clear...');
+      
       if (Platform.OS === 'web') {
-        // IndexedDB
-        await db.clear('notifications');
+        // IndexedDB - get all notification IDs first
+        const tx = db.transaction('notifications', 'readonly');
+        const allNotifications = await tx.store.getAll();
+        await tx.done;
+        
+        const notificationIds = allNotifications.map((n: any) => n.id);
+        console.log(`[clearAllNotificationsFromCache] Found ${notificationIds.length} notifications to clear`);
+        
+        if (notificationIds.length > 0) {
+          // Create tombstones for all notifications
+          const tombstoneTx = db.transaction('deleted_notifications', 'readwrite');
+          const now = Date.now();
+          
+          for (const id of notificationIds) {
+            await tombstoneTx.store.put({
+              id,
+              deleted_at: now,
+              retry_count: 0,
+            }, id);
+          }
+          await tombstoneTx.done;
+          
+          // Then clear the notifications table
+          await db.clear('notifications');
+          
+          console.log(`[clearAllNotificationsFromCache] Created ${notificationIds.length} tombstones and cleared notifications table`);
+        }
       } else {
-        // SQLite
-        await db.runAsync('DELETE FROM notifications');
+        // SQLite - get all notification IDs first
+        const notifications = await db.getAllAsync('SELECT id FROM notifications');
+        const notificationIds = notifications.map((n: any) => n.id);
+        console.log(`[clearAllNotificationsFromCache] Found ${notificationIds.length} notifications to clear`);
+        
+        if (notificationIds.length > 0) {
+          // Create tombstones for all notifications
+          const now = Date.now();
+          for (const id of notificationIds) {
+            await db.runAsync(
+              `INSERT OR REPLACE INTO deleted_notifications (id, deleted_at, retry_count)
+               VALUES (?, ?, 0)`,
+              [id, now]
+            );
+          }
+          
+          // Then clear the notifications table
+          await db.runAsync('DELETE FROM notifications');
+          
+          console.log(`[clearAllNotificationsFromCache] Created ${notificationIds.length} tombstones and cleared notifications table`);
+        }
       }
-    } catch {
-      // Ignore errors
+      
+      console.log('[clearAllNotificationsFromCache] Cache clear completed successfully');
+      
+    } catch (error) {
+      console.error('[clearAllNotificationsFromCache] Failed to clear notifications cache:', error);
+      throw error;
     }
   });
 }
@@ -721,9 +772,11 @@ export async function deleteNotificationsFromCache(notificationIds: string[]): P
  * await deleteNotificationsByBucketId('bucket-id');
  * ```
  */
-export async function deleteNotificationsByBucketId(bucketId: string): Promise<void> {
-  await executeQuery(async (db) => {
+export async function deleteNotificationsByBucketId(bucketId: string): Promise<number> {
+  return await executeQuery(async (db) => {
     try {
+      let deletedCount = 0;
+      
       if (Platform.OS === 'web') {
         // IndexedDB - get all notifications for bucket and delete them
         const tx = db.transaction('notifications', 'readwrite');
@@ -732,21 +785,119 @@ export async function deleteNotificationsByBucketId(bucketId: string): Promise<v
         for (const notification of allNotifications) {
           if (notification.bucket_id === bucketId) {
             await tx.store.delete(notification.id);
+            deletedCount++;
           }
         }
 
         await tx.done;
       } else {
         // SQLite - use single query to delete by bucket_id
-        await db.runAsync('DELETE FROM notifications WHERE bucket_id = ?', [bucketId]);
+        const result = await db.runAsync('DELETE FROM notifications WHERE bucket_id = ?', [bucketId]);
+        deletedCount = result.changes || 0;
       }
 
-      console.log(`[deleteNotificationsByBucketId] Deleted all notifications for bucket ${bucketId} from cache`);
+      console.log(`[deleteNotificationsByBucketId] Deleted ${deletedCount} notifications for bucket ${bucketId} from cache`);
+      return deletedCount;
     } catch (error) {
       console.error('[deleteNotificationsByBucketId] Failed to delete notifications by bucket ID from cache:', error);
       throw error;
     }
   });
+}
+
+/**
+ * Delete all notifications for a bucket from cache, database, and remote server
+ * This is a comprehensive deletion that handles all sources
+ *
+ * @example
+ * ```typescript
+ * import { deleteBucketNotificationsCompletely } from '@/services/notifications-repository';
+ *
+ * const result = await deleteBucketNotificationsCompletely('bucket-id', massDeleteMutation);
+ * console.log(`Deleted ${result.localCount} notifications locally and ${result.remoteCount} from server`);
+ * ```
+ */
+export async function deleteBucketNotificationsCompletely(
+  bucketId: string,
+  massDeleteMutation?: any
+): Promise<{ localCount: number; remoteCount: number; notificationIds: string[] }> {
+  console.log(`[deleteBucketNotificationsCompletely] Starting complete deletion for bucket ${bucketId}`);
+  
+  // Step 1: Get all notification IDs for this bucket before deletion
+  const notificationIds = await executeQuery(async (db) => {
+    try {
+      if (Platform.OS === 'web') {
+        // IndexedDB - get all notification IDs for bucket
+        const tx = db.transaction('notifications', 'readonly');
+        const allNotifications = await tx.store.getAll();
+        await tx.done;
+        
+        return allNotifications
+          .filter((notification: any) => notification.bucket_id === bucketId)
+          .map((notification: any) => notification.id);
+      } else {
+        // SQLite - get notification IDs
+        const result = await db.getAllAsync('SELECT id FROM notifications WHERE bucket_id = ?', [bucketId]);
+        return result.map((row: any) => row.id);
+      }
+    } catch (error) {
+      console.error('[deleteBucketNotificationsCompletely] Failed to get notification IDs:', error);
+      return [];
+    }
+  });
+
+  console.log(`[deleteBucketNotificationsCompletely] Found ${notificationIds.length} notifications to delete`);
+
+  // Step 2: Delete from local cache and database
+  const localCount = await deleteNotificationsByBucketId(bucketId);
+  console.log(`[deleteBucketNotificationsCompletely] Deleted ${localCount} notifications from local cache/DB`);
+
+  // Step 3: Try to delete from remote server (if mutation is provided)
+  let remoteCount = 0;
+  if (massDeleteMutation && notificationIds.length > 0) {
+    try {
+      console.log(`[deleteBucketNotificationsCompletely] Attempting to delete ${notificationIds.length} notifications from remote server`);
+      
+      // Use mass delete mutation for efficiency
+      const { data } = await massDeleteMutation({
+        variables: {
+          ids: notificationIds
+        }
+      });
+
+      if (data?.massDeleteNotifications?.success) {
+        remoteCount = data.massDeleteNotifications.deletedCount || notificationIds.length;
+        console.log(`[deleteBucketNotificationsCompletely] Successfully deleted ${remoteCount} notifications from remote server`);
+      } else {
+        console.warn(`[deleteBucketNotificationsCompletely] Remote deletion returned success: false`);
+      }
+    } catch (error: any) {
+      // Log error but don't fail the entire operation
+      console.error(`[deleteBucketNotificationsCompletely] Failed to delete notifications from remote server:`, error.message);
+      
+      // If it's a network error or server unavailable, that's OK - local deletion succeeded
+      if (error.message?.includes('Network') || 
+          error.message?.includes('fetch') || 
+          error.message?.includes('timeout') ||
+          error.message?.includes('ECONNREFUSED')) {
+        console.log(`[deleteBucketNotificationsCompletely] Remote deletion failed due to network/server issues, but local deletion succeeded`);
+      } else {
+        // For other errors, we might want to retry later or handle differently
+        console.warn(`[deleteBucketNotificationsCompletely] Remote deletion failed with unexpected error:`, error.message);
+      }
+    }
+  } else if (!massDeleteMutation) {
+    console.log(`[deleteBucketNotificationsCompletely] No mutation provided, skipping remote deletion`);
+  }
+
+  const result = {
+    localCount,
+    remoteCount,
+    notificationIds
+  };
+
+  console.log(`[deleteBucketNotificationsCompletely] Complete deletion finished:`, result);
+  return result;
 }
 
 // ====================

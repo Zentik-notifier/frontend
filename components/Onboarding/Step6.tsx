@@ -1,6 +1,14 @@
 import { settingsService } from "@/services/settings-service";
 import React, { memo, useEffect, useState } from "react";
-import { Platform, ScrollView, StyleSheet, View, TouchableOpacity, Alert, Linking } from "react-native";
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  TouchableOpacity,
+  Alert,
+  Linking,
+} from "react-native";
 import { Button, Card, Icon, Text, useTheme } from "react-native-paper";
 import { useOnboarding } from "./OnboardingContext";
 import { useI18n } from "@/hooks/useI18n";
@@ -9,7 +17,7 @@ import * as Clipboard from "expo-clipboard";
 const Step6 = memo(() => {
   const theme = useTheme();
   const { t } = useI18n();
-  const { generatedToken, bucketId } = useOnboarding();
+  const { token, bucketId } = useOnboarding();
   const [apiUrl, setApiUrl] = useState<string>("");
 
   // Carica l'URL API effettivo
@@ -22,7 +30,7 @@ const Step6 = memo(() => {
   }, []);
 
   const curlCommand = `curl -X POST ${apiUrl}/api/v1/messages \\
-  -H "Authorization: Bearer ${generatedToken || "YOUR_TOKEN"}" \\
+  -H "Authorization: Bearer ${token || "YOUR_TOKEN"}" \\
   -H "Content-Type: application/json" \\
   -d '{
     "title": "Test Notification",
@@ -33,7 +41,10 @@ const Step6 = memo(() => {
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await Clipboard.setStringAsync(text);
-      Alert.alert(t("common.success"), t("onboardingV2.step6.copied", { item: label }));
+      Alert.alert(
+        t("common.success"),
+        t("onboardingV2.step6.copied", { item: label })
+      );
     } catch (error) {
       Alert.alert(t("common.error"), t("onboardingV2.step6.copyError"));
     }
@@ -41,7 +52,9 @@ const Step6 = memo(() => {
 
   const openDocumentation = async () => {
     try {
-      await Linking.openURL("https://notifier-docs.zentik.app/docs/notifications");
+      await Linking.openURL(
+        "https://notifier-docs.zentik.app/docs/notifications"
+      );
     } catch (error) {
       Alert.alert(t("common.error"), t("onboardingV2.step6.openDocError"));
     }
@@ -63,7 +76,7 @@ const Step6 = memo(() => {
           <Text variant="titleMedium" style={styles.sectionTitle}>
             {t("onboardingV2.step6.apiConfiguration")}
           </Text>
-          
+
           {/* API URL */}
           <Card style={styles.infoCard} elevation={0}>
             <Card.Content>
@@ -72,19 +85,31 @@ const Step6 = memo(() => {
                   <Text variant="labelSmall" style={styles.infoLabel}>
                     {t("onboardingV2.step6.apiUrl")}
                   </Text>
-                  <Text variant="bodyMedium" style={styles.infoValue} selectable>
+                  <Text
+                    variant="bodyMedium"
+                    style={styles.infoValue}
+                    selectable
+                  >
                     {apiUrl}/api/v1/messages
                   </Text>
                 </View>
-                <TouchableOpacity onPress={() => copyToClipboard(`${apiUrl}/api/v1/messages`, "API URL")}>
-                  <Icon source="content-copy" size={20} color={theme.colors.primary} />
+                <TouchableOpacity
+                  onPress={() =>
+                    copyToClipboard(`${apiUrl}/api/v1/messages`, "API URL")
+                  }
+                >
+                  <Icon
+                    source="content-copy"
+                    size={20}
+                    color={theme.colors.primary}
+                  />
                 </TouchableOpacity>
               </View>
             </Card.Content>
           </Card>
 
           {/* Token */}
-          {generatedToken && (
+          {token && (
             <Card style={styles.infoCard} elevation={0}>
               <Card.Content>
                 <View style={styles.infoRow}>
@@ -92,12 +117,23 @@ const Step6 = memo(() => {
                     <Text variant="labelSmall" style={styles.infoLabel}>
                       {t("onboardingV2.step6.accessToken")}
                     </Text>
-                    <Text variant="bodySmall" style={styles.tokenValue} selectable numberOfLines={2}>
-                      {generatedToken}
+                    <Text
+                      variant="bodySmall"
+                      style={styles.tokenValue}
+                      selectable
+                      numberOfLines={2}
+                    >
+                      {token}
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => copyToClipboard(generatedToken, "Token")}>
-                    <Icon source="content-copy" size={20} color={theme.colors.primary} />
+                  <TouchableOpacity
+                    onPress={() => copyToClipboard(token, "Token")}
+                  >
+                    <Icon
+                      source="content-copy"
+                      size={20}
+                      color={theme.colors.primary}
+                    />
                   </TouchableOpacity>
                 </View>
               </Card.Content>
@@ -113,12 +149,22 @@ const Step6 = memo(() => {
                     <Text variant="labelSmall" style={styles.infoLabel}>
                       {t("onboardingV2.step6.bucketId")}
                     </Text>
-                    <Text variant="bodyMedium" style={styles.infoValue} selectable>
+                    <Text
+                      variant="bodyMedium"
+                      style={styles.infoValue}
+                      selectable
+                    >
                       {bucketId}
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => copyToClipboard(bucketId, "Bucket ID")}>
-                    <Icon source="content-copy" size={20} color={theme.colors.primary} />
+                  <TouchableOpacity
+                    onPress={() => copyToClipboard(bucketId, "Bucket ID")}
+                  >
+                    <Icon
+                      source="content-copy"
+                      size={20}
+                      color={theme.colors.primary}
+                    />
                   </TouchableOpacity>
                 </View>
               </Card.Content>
@@ -150,7 +196,9 @@ const Step6 = memo(() => {
         </View>
 
         {/* Completion Message */}
-        <View style={[styles.completionBox, { borderColor: theme.colors.primary }]}>
+        <View
+          style={[styles.completionBox, { borderColor: theme.colors.primary }]}
+        >
           <Icon source="party-popper" size={48} color={theme.colors.primary} />
           <Text variant="titleLarge" style={styles.completionTitle}>
             {t("onboardingV2.step6.congratulations")}

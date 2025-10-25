@@ -180,7 +180,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     console.debug("🧹 Clearing tokens and setting logout state...");
     await settingsService.clearTokens();
     await settingsService.savePushNotificationsInitialized(false);
-    await settingsService.saveLastUserId('');
+    await settingsService.saveLastUserId("");
     setUserId(null);
     setLastUserId(null);
     console.debug("✅ Logout completed");
@@ -364,7 +364,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           [
             Promise.resolve(settingsService.getAuthData().accessToken),
             Promise.resolve(settingsService.getAuthData().refreshToken),
-            Promise.resolve(settingsService.getAuthData().lastUserId)
+            Promise.resolve(settingsService.getAuthData().lastUserId),
           ]
         );
         console.log(
@@ -508,11 +508,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      <OnboardingModal
-        visible={isOnboardingOpen}
-        onClose={() => setIsOnboardingOpen(false)}
-        push={push}
-      />
+      {isOnboardingOpen && (
+        <OnboardingModal
+          onClose={() => setIsOnboardingOpen(false)}
+          push={push}
+        />
+      )}
     </AppContext.Provider>
   );
 }

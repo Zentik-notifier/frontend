@@ -32,6 +32,7 @@ export {
 
 // Bucket Mutation Hooks
 export {
+  useCreateBucket,
   useDeleteBucketWithNotifications,
   useSetBucketSnooze,
   useUpdateBucketSnoozes,

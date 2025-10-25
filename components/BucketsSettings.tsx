@@ -1,11 +1,9 @@
 import PaperScrollView from "@/components/ui/PaperScrollView";
-import { NotificationFragment } from "@/generated/gql-operations-generated";
 import { useAppState } from "@/hooks/notifications";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
-import { getAllNotificationsFromCache } from "@/services/notifications-repository";
 import { useNavigationUtils } from "@/utils/navigation";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import {
   Card,

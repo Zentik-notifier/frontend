@@ -3,13 +3,15 @@ import { useI18n } from "@/hooks/useI18n";
 import {
   useGetCacheStats
 } from "@/hooks/useMediaCache";
+import { clearAllNotificationsFromCache } from "@/hooks/notifications/useNotificationQueries";
 import { settingsService } from "@/services/settings-service";
 import { useSettings } from "@/hooks/useSettings";
 import { localNotifications } from "@/services/local-notifications";
 import { mediaCache } from "@/services/media-cache-service";
-import { getAllNotificationsFromCache, clearAllNotificationsFromCache } from "@/services/notifications-repository";
+import { getAllNotificationsFromCache } from "@/services/notifications-repository";
 import { deleteAllBuckets } from "@/db/repositories/buckets-repository";
 import { clearAllLogs } from "@/services/logger";
+import { useQueryClient } from "@tanstack/react-query";
 import React, { useState, useEffect } from "react";
 import {
   ScrollView,
@@ -52,6 +54,7 @@ export function CacheResetModal({
 }: CacheResetModalProps) {
   const theme = useTheme();
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const { resetSettings } = useSettings();
   const { cacheStats } = useGetCacheStats();
   const [selectedEntities, setSelectedEntities] = useState<Set<string>>(
@@ -179,7 +182,7 @@ export function CacheResetModal({
       // Reset selected entities
       if (selectedEntities.has("notifications")) {
         await Promise.all([
-          clearAllNotificationsFromCache(),
+          clearAllNotificationsFromCache(queryClient),
           deleteAllBuckets(),
         ]);
       }
