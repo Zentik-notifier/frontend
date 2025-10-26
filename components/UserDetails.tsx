@@ -6,7 +6,7 @@ import {
   useUserNotificationStatsByUserIdQuery,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import React, { useState } from "react";
+import React from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
@@ -17,8 +17,9 @@ import {
   Text,
   useTheme,
 } from "react-native-paper";
-import Selector from "./ui/Selector";
 import PaperScrollView from "./ui/PaperScrollView";
+import Selector from "./ui/Selector";
+import NotificationStats from "./NotificationStats";
 
 interface UserDetailsProps {
   userId: string;
@@ -66,10 +67,6 @@ export default function UserDetails({ userId }: UserDetailsProps) {
 
   const user = userData?.user;
 
-  const onRefresh = async () => {
-    await Promise.all([refetchUser(), refetchStats()]);
-  };
-
   const handleRoleChange = (newRole: string) => {
     if (!userId || !user) return;
 
@@ -115,19 +112,6 @@ export default function UserDetails({ userId }: UserDetailsProps) {
     }
   };
 
-  const getRoleColor = (role: UserRole): string => {
-    switch (role) {
-      case UserRole.Admin:
-        return theme.colors.error;
-      case UserRole.Moderator:
-        return theme.colors.secondary;
-      case UserRole.User:
-        return theme.colors.primary;
-      default:
-        return theme.colors.outline;
-    }
-  };
-
   const roleOptions = [
     {
       id: UserRole.User,
@@ -144,8 +128,7 @@ export default function UserDetails({ userId }: UserDetailsProps) {
   ];
 
   const handleRefresh = async () => {
-    await refetchUser();
-    await refetchStats();
+    await Promise.all([refetchUser(), refetchStats()]);
   };
 
   if (!user && !userLoading) {
@@ -365,82 +348,12 @@ export default function UserDetails({ userId }: UserDetailsProps) {
       </Card>
 
       {/* Notification Statistics Section */}
-      <Card style={styles.section} mode="outlined">
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            {t("administration.userNotificationStats")}
-          </Text>
-
-          {statsLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" animating={true} />
-              <Text variant="bodyMedium" style={styles.loadingText}>
-                {t("administration.loadingStats")}
-              </Text>
-            </View>
-          ) : statsData?.userNotificationStats ? (
-            <View style={styles.statsGrid}>
-              <Surface style={styles.statItem} elevation={1}>
-                <Text variant="headlineSmall" style={styles.statValue}>
-                  {statsData.userNotificationStats.today}
-                </Text>
-                <Text variant="bodySmall" style={styles.statLabel}>
-                  {t("userProfile.today")}
-                </Text>
-              </Surface>
-
-              <Surface style={styles.statItem} elevation={1}>
-                <Text variant="headlineSmall" style={styles.statValue}>
-                  {statsData.userNotificationStats.thisWeek}
-                </Text>
-                <Text variant="bodySmall" style={styles.statLabel}>
-                  {t("userProfile.thisWeek")}
-                </Text>
-              </Surface>
-
-              <Surface style={styles.statItem} elevation={1}>
-                <Text variant="headlineSmall" style={styles.statValue}>
-                  {statsData.userNotificationStats.last7Days}
-                </Text>
-                <Text variant="bodySmall" style={styles.statLabel}>
-                  {t("userProfile.last7Days")}
-                </Text>
-              </Surface>
-
-              <Surface style={styles.statItem} elevation={1}>
-                <Text variant="headlineSmall" style={styles.statValue}>
-                  {statsData.userNotificationStats.thisMonth}
-                </Text>
-                <Text variant="bodySmall" style={styles.statLabel}>
-                  {t("userProfile.thisMonth")}
-                </Text>
-              </Surface>
-
-              <Surface style={styles.statItem} elevation={1}>
-                <Text variant="headlineSmall" style={styles.statValue}>
-                  {statsData.userNotificationStats.last30Days}
-                </Text>
-                <Text variant="bodySmall" style={styles.statLabel}>
-                  {t("userProfile.last30Days")}
-                </Text>
-              </Surface>
-
-              <Surface style={styles.statItem} elevation={1}>
-                <Text variant="headlineSmall" style={styles.statValue}>
-                  {statsData.userNotificationStats.total}
-                </Text>
-                <Text variant="bodySmall" style={styles.statLabel}>
-                  {t("userProfile.total")}
-                </Text>
-              </Surface>
-            </View>
-          ) : (
-            <Text variant="bodyMedium" style={styles.noDataText}>
-              {t("administration.noStatsAvailable")}
-            </Text>
-          )}
-        </Card.Content>
-      </Card>
+      {statsData?.userNotificationStats && (
+        <NotificationStats
+          dateStats={statsData.userNotificationStats}
+          showAcked
+        />
+      )}
     </PaperScrollView>
   );
 }

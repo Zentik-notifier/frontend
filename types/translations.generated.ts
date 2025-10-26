@@ -349,6 +349,7 @@ export interface Translation {
     last7Days: string;
     last30Days: string;
     total: string;
+    acked: string;
   };
   buckets: {
     title: string;

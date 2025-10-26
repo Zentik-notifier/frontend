@@ -345,7 +345,8 @@
     "thisMonth": "This Month",
     "last7Days": "Last 7 Days",
     "last30Days": "Last 30 Days",
-    "total": "Total"
+    "total": "Total",
+    "acked": "Read"
   },
   "buckets": {
     "title": "Buckets",

@@ -1,68 +1,38 @@
 import { useI18n } from "@/hooks/useI18n";
-import { useUserNotificationStatsQuery } from "@/generated/gql-operations-generated";
+import { UserNotificationStatsFragment } from "@/generated/gql-operations-generated";
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import {
-  ActivityIndicator,
   Card,
   Text,
   useTheme,
 } from "react-native-paper";
 
 interface NotificationStatsProps {
-  refreshing?: boolean;
+  dateStats: UserNotificationStatsFragment;
+  showAcked?: boolean;
 }
 
-export default function NotificationStats({ refreshing }: NotificationStatsProps) {
+export default function NotificationStats({ 
+  dateStats,
+  showAcked = false,
+}: NotificationStatsProps) {
   const theme = useTheme();
   const { t } = useI18n();
 
-  const { data, loading, error, refetch } = useUserNotificationStatsQuery({
-    fetchPolicy: 'cache-and-network',
-  });
-
-  React.useEffect(() => {
-    if (refreshing) {
-      refetch();
-    }
-  }, [refreshing, refetch]);
-
-  if (loading && !data) {
-    return (
-      <Card style={styles.container}>
-        <Card.Content style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
-            {t("common.loading")}
-          </Text>
-        </Card.Content>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card style={styles.container}>
-        <Card.Content style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: theme.colors.error }]}>
-            {t("common.error")}
-          </Text>
-        </Card.Content>
-      </Card>
-    );
-  }
-
-  const stats = data?.userNotificationStats;
+  const stats = dateStats;
 
   if (!stats) {
     return null;
   }
 
   const statItems = [
-    { label: t("userProfile.today"), value: stats.today },
-    { label: t("userProfile.thisWeek"), value: stats.thisWeek },
-    { label: t("userProfile.thisMonth"), value: stats.thisMonth },
-    { label: t("userProfile.total"), value: stats.total },
+    { label: t("userProfile.today"), value: stats.today, acked: stats.todayAcked },
+    { label: t("userProfile.thisWeek"), value: stats.thisWeek, acked: stats.thisWeekAcked },
+    { label: t("userProfile.last7Days"), value: stats.last7Days, acked: stats.last7DaysAcked },
+    { label: t("userProfile.thisMonth"), value: stats.thisMonth, acked: stats.thisMonthAcked },
+    { label: t("userProfile.last30Days"), value: stats.last30Days, acked: stats.last30DaysAcked },
+    { label: t("userProfile.total"), value: stats.total, acked: stats.totalAcked },
   ];
 
   return (
@@ -81,6 +51,11 @@ export default function NotificationStats({ refreshing }: NotificationStatsProps
                 <Text variant="headlineSmall" style={[styles.statValue, { color: theme.colors.primary }]}>
                   {item.value}
                 </Text>
+                {showAcked && item.acked !== undefined && (
+                  <Text variant="bodyMedium" style={[styles.ackedValue, { color: theme.colors.secondary }]}>
+                    {t("userProfile.acked")}: {item.acked}
+                  </Text>
+                )}
                 <Text variant="bodySmall" style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>
                   {item.label}
                 </Text>
@@ -96,25 +71,6 @@ export default function NotificationStats({ refreshing }: NotificationStatsProps
 const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
-  },
-  loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 16,
-  },
-  errorContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: "center",
   },
   header: {
     marginBottom: 16,
@@ -135,6 +91,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   statValue: {
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  ackedValue: {
     marginBottom: 4,
     textAlign: "center",
   },

@@ -1,12 +1,7 @@
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useEffect, useState } from "react";
-import {
-  Alert,
-  Image,
-  StyleSheet,
-  View
-} from "react-native";
+import { Alert, Image, StyleSheet, View } from "react-native";
 import {
   Button,
   Card,
@@ -25,6 +20,7 @@ import {
   useGetUserSessionsQuery,
   usePublicAppConfigQuery,
   useUpdateProfileMutation,
+  useUserNotificationStatsQuery,
 } from "../generated/gql-operations-generated";
 import AdminSubscriptions from "./AdminSubscriptions";
 import IdWithCopyButton from "./IdWithCopyButton";
@@ -84,6 +80,11 @@ export default function UserSection() {
   const user = userData?.me;
 
   const { data: sessionsData } = useGetUserSessionsQuery();
+
+  const { data: statsData, refetch: refetchStats } =
+    useUserNotificationStatsQuery({
+      fetchPolicy: "cache-and-network",
+    });
 
   const currentSession = sessionsData?.getUserSessions?.find(
     (session) => session.isCurrent
@@ -167,7 +168,7 @@ export default function UserSection() {
   };
 
   const handleRefresh = async () => {
-    await refetch();
+    await Promise.all([refetch(), refetchStats()]);
   };
 
   if (!user) {
@@ -433,7 +434,9 @@ export default function UserSection() {
         {user.role === "ADMIN" && <AdminSubscriptions />}
 
         {/* Notification Statistics Section */}
-        <NotificationStats refreshing={refreshing} />
+        {statsData?.userNotificationStats && (
+          <NotificationStats dateStats={statsData.userNotificationStats} />
+        )}
 
         {/* Delete Account Section */}
         <Card style={styles.deleteAccountContainer}>

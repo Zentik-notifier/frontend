@@ -345,7 +345,8 @@
     "last7Days": "Ultimi 7 Giorni",
     "thisMonth": "Questo Mese",
     "last30Days": "Ultimi 30 Giorni",
-    "total": "Totale"
+    "total": "Totale",
+    "acked": "Lette"
   },
   "userAttachments": {
     "title": "I Miei Allegati",

@@ -1094,27 +1094,32 @@ query GetEventsPaginated($query: EventsQueryDto!) {
   }
 }
 
+fragment UserNotificationStatsFragment on UserNotificationStats {
+  today
+  todayAcked
+  thisWeek
+  thisWeekAcked
+  last7Days
+  last7DaysAcked
+  thisMonth
+  thisMonthAcked
+  last30Days
+  last30DaysAcked
+  total
+  totalAcked
+}
+
 # User Notification Statistics
 query UserNotificationStats {
   userNotificationStats {
-    today
-    thisWeek
-    last7Days
-    thisMonth
-    last30Days
-    total
+    ...UserNotificationStatsFragment
   }
 }
 
 # Admin: Get user notification statistics by userId
 query UserNotificationStatsByUserId($userId: String!) {
   userNotificationStats(userId: $userId) {
-    today
-    thisWeek
-    last7Days
-    thisMonth
-    last30Days
-    total
+    ...UserNotificationStatsFragment
   }
 }
 
