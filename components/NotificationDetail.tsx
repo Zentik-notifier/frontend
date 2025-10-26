@@ -101,28 +101,15 @@ export default function NotificationDetail({
 
   // Extract all Navigate actions from actions and tapAction
   const navigationLinks = useMemo(() => {
-    const links = [];
-
-    // Check tapAction
-    if (
-      message?.tapAction?.type === NotificationActionType.Navigate &&
-      message.tapAction.value
-    ) {
-      links.push({
-        title: message.tapAction.title || message.tapAction.value,
-        url: message.tapAction.value,
-      });
-    }
-
-    // Check actions
-    message?.actions?.forEach((action) => {
-      if (action.type === NotificationActionType.Navigate && action.value) {
-        links.push({
-          title: action.title || action.value,
-          url: action.value,
-        });
-      }
-    });
+    const links = (message?.actions ?? [])
+      .filter(
+        (action) =>
+          action.type === NotificationActionType.Navigate && action.value
+      )
+      .map((action) => ({
+        title: action.title || action.value?.substring(0, 10),
+        url: action.value!,
+      }));
 
     return links;
   }, [message?.tapAction, message?.actions]);
