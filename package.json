@@ -1,7 +1,7 @@
 {
   "name": "zentik-mobile",
   "main": "index.js",
-  "version": "0.1.74",
+  "version": "0.1.75",
   "dockerVersion": "0.0.61",
   "scripts": {
     "start": "expo start",
