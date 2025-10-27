@@ -512,6 +512,7 @@ const styles = StyleSheet.create({
   },
   customColorInput: {
     width: 120,
+    minHeight: 56, // Same height as outlined TextInput
     borderWidth: 1,
     borderRadius: 8,
     padding: 8,

@@ -1,7 +1,7 @@
 import { useI18n } from "@/hooks/useI18n";
 import * as Clipboard from "expo-clipboard";
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { Button, Surface, Text, useTheme } from "react-native-paper";
 
 interface BucketApiExamplesProps {
@@ -94,15 +94,15 @@ export default function BucketApiExamples({
               </Button>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <Text
+              <TextInput
                 style={[
                   styles.codeText,
                   { color: theme.colors.onSurfaceVariant },
                 ]}
-                selectable
-              >
-                {example.code}
-              </Text>
+                value={example.code}
+                editable={false}
+                multiline
+              />
             </ScrollView>
           </Surface>
         ))}
@@ -149,6 +149,8 @@ const styles = StyleSheet.create({
   codeText: {
     fontFamily: "monospace",
     fontSize: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 0,
   },
   noTokenText: {
     fontSize: 14,

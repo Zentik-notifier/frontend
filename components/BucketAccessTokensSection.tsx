@@ -7,17 +7,13 @@ import {
   GetAccessTokensForBucketDocument,
 } from "@/generated/gql-operations-generated";
 import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet } from "react-native";
-import {
-  Button,
-  Dialog,
-  Portal,
-  useTheme,
-} from "react-native-paper";
+import { Alert, StyleSheet } from "react-native";
+import { useTheme } from "react-native-paper";
 import BucketApiExamples from "./BucketApiExamples";
 import CopyButton from "./ui/CopyButton";
 import DetailItemCard from "./ui/DetailItemCard";
 import DetailSectionCard from "./ui/DetailSectionCard";
+import DetailModal from "./ui/DetailModal";
 
 interface BucketAccessTokensSectionProps {
   bucketId: string;
@@ -184,38 +180,27 @@ export default function BucketAccessTokensSection({
         )}
       />
 
-      {/* API Examples Dialog */}
-      <Portal>
-        <Dialog
-          visible={showExamplesDialog}
-          onDismiss={() => setShowExamplesDialog(false)}
-        >
-          <Dialog.Title>{t("buckets.apiExamples.title" as any)}</Dialog.Title>
-          <Dialog.ScrollArea style={styles.dialogScroll}>
-            <ScrollView>
-              {selectedTokenForExamples && (
-                <BucketApiExamples
-                  bucketId={bucketId}
-                  accessToken={selectedTokenForExamples.token}
-                  apiUrl={apiUrl}
-                />
-              )}
-            </ScrollView>
-          </Dialog.ScrollArea>
-          <Dialog.Actions>
-            <Button onPress={() => setShowExamplesDialog(false)}>
-              {t("common.close")}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      {/* API Examples Modal */}
+      <DetailModal
+        visible={showExamplesDialog}
+        onDismiss={() => setShowExamplesDialog(false)}
+        title={t("buckets.apiExamples.title" as any)}
+        icon="code-tags"
+        actions={{
+          cancel: {
+            label: t("common.close"),
+            onPress: () => setShowExamplesDialog(false),
+          },
+        }}
+      >
+        {selectedTokenForExamples && (
+          <BucketApiExamples
+            bucketId={bucketId}
+            accessToken={selectedTokenForExamples.token}
+            apiUrl={apiUrl}
+          />
+        )}
+      </DetailModal>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  dialogScroll: {
-    maxHeight: 500,
-    paddingHorizontal: 0,
-  },
-});

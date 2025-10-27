@@ -21,7 +21,7 @@ interface DetailModalProps {
       label: string;
       onPress: () => void;
     };
-    confirm: {
+    confirm?: {
       label: string;
       onPress: () => void;
       loading?: boolean;
@@ -80,12 +80,7 @@ export default function DetailModal({
 
         <ScrollView style={styles.body}>{children}</ScrollView>
 
-        <View
-          style={[
-            styles.footer,
-            { borderTopColor: theme.colors.outline },
-          ]}
-        >
+        <View style={[styles.footer, { borderTopColor: theme.colors.outline }]}>
           <Button
             mode="outlined"
             onPress={actions.cancel.onPress}
@@ -93,15 +88,17 @@ export default function DetailModal({
           >
             {actions.cancel.label}
           </Button>
-          <Button
-            mode="contained"
-            onPress={actions.confirm.onPress}
-            loading={actions.confirm.loading}
-            disabled={actions.confirm.disabled || actions.confirm.loading}
-            style={styles.footerButton}
-          >
-            {actions.confirm.label}
-          </Button>
+          {actions.confirm && (
+            <Button
+              mode="contained"
+              onPress={actions.confirm.onPress}
+              loading={actions.confirm.loading}
+              disabled={actions.confirm.disabled || actions.confirm.loading}
+              style={styles.footerButton}
+            >
+              {actions.confirm.label}
+            </Button>
+          )}
         </View>
       </Modal>
     </Portal>
@@ -144,4 +141,3 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-
