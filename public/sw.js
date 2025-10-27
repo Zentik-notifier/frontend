@@ -1,6 +1,6 @@
 async function withIndexedDB(successCallback, mode = 'readonly', storeName = 'keyvalue') {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('zentik-storage', 8);
+    const request = indexedDB.open('zentik-storage', 9);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
@@ -1144,17 +1144,20 @@ async function getStoredData(key) {
 // Get API endpoint and auth token for making authenticated requests
 async function getApiCredentials() {
   try {
-    const apiEndpoint = await getStoredData('api_endpoint');
+    console.log('[Service Worker] 🔍 Looking for API credentials...');
+    
+    const apiEndpoint = await getStoredData('app_setting:auth_apiEndpoint');
     const authToken = await getStoredData('access_token');
-
+    
     if (!apiEndpoint || !authToken) {
-      console.warn('[Service Worker] Missing API credentials');
+      console.warn('[Service Worker] ⚠️ Missing API credentials - apiEndpoint:', !!apiEndpoint, 'authToken:', !!authToken);
       return null;
     }
 
+    console.log('[Service Worker] ✅ API credentials loaded successfully');
     return { apiEndpoint, authToken };
   } catch (error) {
-    console.error('[Service Worker] Failed to get API credentials:', error);
+    console.error('[Service Worker] ❌ Failed to get API credentials:', error);
     return null;
   }
 }
