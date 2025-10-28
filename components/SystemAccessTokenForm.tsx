@@ -251,6 +251,108 @@ export default function SystemAccessTokenForm({
   };
 
   // Handle error state through PaperScrollView props
+  const styles = StyleSheet.create({
+    formContainer: {
+      marginBottom: 16,
+    },
+    tokenInfo: {
+      backgroundColor: theme.colors.surfaceVariant,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 24,
+    },
+    infoTitle: {
+      marginBottom: 8,
+      fontWeight: "600",
+      color: theme.colors.onSurface,
+    },
+    tokenId: {
+      opacity: 0.7,
+      color: theme.colors.onSurfaceVariant,
+      marginBottom: 4,
+    },
+    tokenCalls: {
+      opacity: 0.7,
+      color: theme.colors.onSurfaceVariant,
+    },
+    inputGroup: {
+      marginBottom: 24,
+    },
+    inputLabel: {
+      marginBottom: 8,
+      color: theme.colors.onSurface,
+    },
+    inputHint: {
+      marginTop: 4,
+      opacity: 0.7,
+      color: theme.colors.onSurfaceVariant,
+    },
+    readonlyRequester: {
+      padding: 12,
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 4,
+      borderWidth: 1,
+      borderColor: theme.colors.outlineVariant,
+    },
+    buttonRow: {
+      flexDirection: "row",
+      gap: 12,
+      marginTop: 16,
+    },
+    primaryButton: {
+      flex: 1,
+    },
+    resetButton: {
+      flex: 1,
+    },
+    warningText: {
+      flex: 1,
+      color: "#856404",
+    },
+    tokenModalHeader: {
+      alignItems: "center",
+      marginBottom: 16,
+    },
+    tokenModalSubtitle: {
+      marginTop: 8,
+      textAlign: "center",
+      opacity: 0.7,
+    },
+    tokenContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: 12,
+      borderRadius: 8,
+    },
+    tokenText: {
+      flex: 1,
+      fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    },
+    copyButton: {
+      minWidth: 0,
+    },
+    validationError: {
+      color: theme.colors.error,
+      marginTop: 4,
+    },
+    scopesContainer: {
+      padding: 16,
+      borderRadius: 8,
+      gap: 12,
+    },
+    scopeItem: {
+      gap: 8,
+    },
+    scopeButton: {
+      alignSelf: "flex-start",
+    },
+    scopeDescription: {
+      opacity: 0.7,
+      marginLeft: 8,
+    },
+  });
+
   return (
     <PaperScrollView
       loading={loading}
@@ -446,100 +548,3 @@ export default function SystemAccessTokenForm({
     </PaperScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  formContainer: {
-    marginBottom: 16,
-  },
-  tokenInfo: {
-    backgroundColor: "#f5f5f5",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 24,
-  },
-  infoTitle: {
-    marginBottom: 8,
-    fontWeight: "600",
-  },
-  tokenId: {
-    opacity: 0.7,
-    marginBottom: 4,
-  },
-  tokenCalls: {
-    opacity: 0.7,
-  },
-  inputGroup: {
-    marginBottom: 24,
-  },
-  inputLabel: {
-    marginBottom: 8,
-  },
-  inputHint: {
-    marginTop: 4,
-    opacity: 0.7,
-  },
-  readonlyRequester: {
-    padding: 12,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  buttonRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 16,
-  },
-  primaryButton: {
-    flex: 1,
-  },
-  resetButton: {
-    flex: 1,
-  },
-  warningText: {
-    flex: 1,
-    color: "#856404",
-  },
-  tokenModalHeader: {
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  tokenModalSubtitle: {
-    marginTop: 8,
-    textAlign: "center",
-    opacity: 0.7,
-  },
-  tokenContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 12,
-    borderRadius: 8,
-  },
-  tokenText: {
-    flex: 1,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-  },
-  copyButton: {
-    minWidth: 0,
-  },
-  validationError: {
-    color: "#b00020",
-    marginTop: 4,
-  },
-  scopesContainer: {
-    padding: 16,
-    borderRadius: 8,
-    gap: 12,
-  },
-  scopeItem: {
-    gap: 8,
-  },
-  scopeButton: {
-    alignSelf: "flex-start",
-  },
-  scopeDescription: {
-    opacity: 0.7,
-    marginLeft: 8,
-  },
-});
