@@ -271,13 +271,39 @@ export default function SystemAccessTokenForm({
       color: theme.colors.onSurfaceVariant,
       marginBottom: 4,
     },
-    tokenCalls: {
-      opacity: 0.7,
-      color: theme.colors.onSurfaceVariant,
-    },
-    inputGroup: {
-      marginBottom: 24,
-    },
+  tokenCalls: {
+    opacity: 0.7,
+    color: theme.colors.onSurfaceVariant,
+    marginBottom: 4,
+  },
+  tokenDisplayContainer: {
+    marginTop: 12,
+  },
+  tokenLabel: {
+    marginBottom: 4,
+    fontWeight: "600",
+    color: theme.colors.onSurface,
+  },
+  tokenWithButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: theme.colors.surface,
+    padding: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.outline,
+  },
+  tokenValue: {
+    flex: 1,
+    opacity: 0.8,
+  },
+  copyButtonInline: {
+    marginLeft: 8,
+  },
+  inputGroup: {
+    marginBottom: 24,
+  },
     inputLabel: {
       marginBottom: 8,
       color: theme.colors.onSurface,
@@ -392,6 +418,31 @@ export default function SystemAccessTokenForm({
                 {t("systemAccessTokens.item.calls")}: {tokenToEdit.calls}/
                 {tokenToEdit.maxCalls}
               </Text>
+              {tokenToEdit.token && (
+                <View style={styles.tokenDisplayContainer}>
+                  <Text variant="bodySmall" style={styles.tokenLabel}>
+                    {t("systemAccessTokens.edit.token")}:
+                  </Text>
+                  <View style={styles.tokenWithButton}>
+                    <Text
+                      variant="bodySmall"
+                      style={[styles.tokenValue, { fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }]}
+                      numberOfLines={1}
+                    >
+                      {tokenToEdit.token}
+                    </Text>
+                    <Button
+                      mode="outlined"
+                      compact
+                      onPress={() => copyToClipboard(tokenToEdit.token || "")}
+                      icon="content-copy"
+                      style={styles.copyButtonInline}
+                    >
+                      {t("common.copy")}
+                    </Button>
+                  </View>
+                </View>
+              )}
             </View>
           )}
 

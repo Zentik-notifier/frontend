@@ -679,7 +679,8 @@
       "updateButton": "Update Token",
       "updateSuccess": "System access token updated successfully",
       "updateError": "Failed to update system access token",
-      "tokenNotFound": "System access token not found"
+      "tokenNotFound": "System access token not found",
+      "token": "Token"
     }
     ,
     "requests": {

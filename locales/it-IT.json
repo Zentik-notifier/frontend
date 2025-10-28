@@ -714,7 +714,8 @@
       "updateButton": "Aggiorna Token",
       "updateSuccess": "Token di accesso di sistema aggiornato con successo",
       "updateError": "Impossibile aggiornare il token di accesso di sistema",
-      "tokenNotFound": "Token di accesso di sistema non trovato"
+      "tokenNotFound": "Token di accesso di sistema non trovato",
+      "token": "Token"
     }
     ,
     "requests": {

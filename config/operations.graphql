@@ -975,6 +975,7 @@ fragment SystemAccessTokenFragment on SystemAccessTokenDto {
   }
   description
   scopes
+  token
   createdAt
   updatedAt
 }

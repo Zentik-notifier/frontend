@@ -683,6 +683,7 @@ export interface Translation {
       updateSuccess: string;
       updateError: string;
       tokenNotFound: string;
+      token: string;
     };
     requests: {
       pendingTitle: string;
