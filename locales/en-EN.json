@@ -795,8 +795,8 @@
     "errors": {
       "markAllAsReadFailed": "Failed to mark all notifications as read. Please try again."
     },
-    "unreadAbove": "Unread above",
-    "unreadBelow": "Unread below",
+    "unreadAbove": "Unread",
+    "unreadBelow": "Unread",
     "deleteSelected": {
       "title": "Delete Selected Notifications",
       "message": "Are you sure you want to delete {{count}} selected notifications? This action cannot be undone."

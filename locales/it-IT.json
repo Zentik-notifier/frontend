@@ -837,8 +837,8 @@
     "selectAll": "Seleziona Tutto",
     "deselectAll": "Deseleziona Tutto",
     "endOfList": "Fine della lista",
-    "unreadAbove": "Non lette sopra",
-    "unreadBelow": "Non lette sotto",
+    "unreadAbove": "Non lette",
+    "unreadBelow": "Non lette",
     "titleRequired": "Il titolo è obbligatorio",
     "content": {
       "title": "Titolo",

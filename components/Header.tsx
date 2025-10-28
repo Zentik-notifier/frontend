@@ -169,21 +169,21 @@ export default function Header() {
   const isPublic = segments[0] === "(common)";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Pulsating animations
-  const markAllOpacity = useRef(new Animated.Value(1)).current;
-  const downloadOpacity = useRef(new Animated.Value(1)).current;
+  // Pulsating animations for icons only (not the entire badge)
+  const markAllIconOpacity = useRef(new Animated.Value(1)).current;
+  const downloadIconOpacity = useRef(new Animated.Value(1)).current;
 
   // Animate mark all as read icon
   useEffect(() => {
     if (hasUnreadNotifications && !isMarkingAllAsRead) {
       const animation = Animated.loop(
         Animated.sequence([
-          Animated.timing(markAllOpacity, {
+          Animated.timing(markAllIconOpacity, {
             toValue: 0.3,
             duration: 800,
             useNativeDriver: true,
           }),
-          Animated.timing(markAllOpacity, {
+          Animated.timing(markAllIconOpacity, {
             toValue: 1,
             duration: 800,
             useNativeDriver: true,
@@ -193,21 +193,21 @@ export default function Header() {
       animation.start();
       return () => animation.stop();
     } else {
-      markAllOpacity.setValue(1);
+      markAllIconOpacity.setValue(1);
     }
-  }, [hasUnreadNotifications, isMarkingAllAsRead, markAllOpacity]);
+  }, [hasUnreadNotifications, isMarkingAllAsRead, markAllIconOpacity]);
 
   // Animate download icon
   useEffect(() => {
     if (itemsInQueue > 0) {
       const animation = Animated.loop(
         Animated.sequence([
-          Animated.timing(downloadOpacity, {
+          Animated.timing(downloadIconOpacity, {
             toValue: 0.3,
             duration: 800,
             useNativeDriver: true,
           }),
-          Animated.timing(downloadOpacity, {
+          Animated.timing(downloadIconOpacity, {
             toValue: 1,
             duration: 800,
             useNativeDriver: true,
@@ -217,9 +217,9 @@ export default function Header() {
       animation.start();
       return () => animation.stop();
     } else {
-      downloadOpacity.setValue(1);
+      downloadIconOpacity.setValue(1);
     }
-  }, [itemsInQueue, downloadOpacity]);
+  }, [itemsInQueue, downloadIconOpacity]);
 
   // Determine current route
   const currentRoute = `/${segments.join("/")}`;
@@ -347,7 +347,7 @@ export default function Header() {
               <View style={styles.mainLoadingContainer}>
                 <ActivityIndicator
                   size="small"
-                  color="#fff"
+                  color={theme.colors.primary}
                   style={styles.loadingIcon}
                 />
               </View>
@@ -356,27 +356,33 @@ export default function Header() {
             {/* Mark All as Read Button */}
             {shouldShowStatusBadges && hasUnreadNotifications && (
               <View style={styles.markAllButtonContainer}>
-                <Animated.View style={{ opacity: markAllOpacity }}>
-                  <Surface style={styles.iconButtonSurface} elevation={2}>
-                    <TouchableRipple
-                      onPress={handleMarkAllAsRead}
-                      disabled={!hasUnreadNotifications || isMarkingAllAsRead}
-                      style={styles.iconButtonRipple}
-                      borderless
-                    >
-                      <View style={styles.iconButtonContent}>
-                        {isMarkingAllAsRead ? (
-                          <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                          <Icon source="check-all" size={20} color="#fff" />
-                        )}
-                      </View>
-                    </TouchableRipple>
-                  </Surface>
-                </Animated.View>
+                <Surface 
+                  style={[styles.iconButtonSurface, { backgroundColor: theme.colors.primaryContainer }]} 
+                  elevation={2}
+                >
+                  <TouchableRipple
+                    onPress={handleMarkAllAsRead}
+                    disabled={!hasUnreadNotifications || isMarkingAllAsRead}
+                    style={styles.iconButtonRipple}
+                    borderless
+                  >
+                    <View style={[styles.iconButtonContent, { backgroundColor: theme.colors.primaryContainer }]}>
+                      {isMarkingAllAsRead ? (
+                        <ActivityIndicator size="small" color={theme.colors.onPrimaryContainer} />
+                      ) : (
+                        <Animated.View style={{ opacity: markAllIconOpacity }}>
+                          <Icon source="check-all" size={20} color={theme.colors.onSurface} />
+                        </Animated.View>
+                      )}
+                    </View>
+                  </TouchableRipple>
+                </Surface>
                 {unreadCount > 0 && (
-                  <Surface style={styles.badge} elevation={3}>
-                    <Text variant="labelSmall" style={styles.badgeText}>
+                  <Surface 
+                    style={[styles.badge, { backgroundColor: theme.colors.error }]} 
+                    elevation={3}
+                  >
+                    <Text variant="labelSmall" style={[styles.badgeText, { color: theme.colors.onError }]}>
                       {unreadCount > 99 ? "99+" : unreadCount.toString()}
                     </Text>
                   </Surface>
@@ -387,23 +393,29 @@ export default function Header() {
             {/* Download Queue Progress Icon */}
             {shouldShowStatusBadges && itemsInQueue > 0 && (
               <View style={styles.downloadQueueContainer}>
-                <Animated.View style={{ opacity: downloadOpacity }}>
-                  <Surface style={styles.iconButtonSurface} elevation={2}>
-                    <TouchableRipple
-                      disabled
-                      style={styles.iconButtonRipple}
-                      borderless
-                    >
-                      <View style={styles.iconButtonContent}>
-                        <Icon source="download" size={20} color="#fff" />
-                      </View>
-                    </TouchableRipple>
-                  </Surface>
-                </Animated.View>
-                <Surface style={styles.downloadQueueBadge} elevation={3}>
+                <Surface 
+                  style={[styles.iconButtonSurface, { backgroundColor: theme.colors.secondaryContainer }]} 
+                  elevation={2}
+                >
+                  <TouchableRipple
+                    disabled
+                    style={styles.iconButtonRipple}
+                    borderless
+                  >
+                    <View style={[styles.iconButtonContent, { backgroundColor: theme.colors.secondaryContainer }]}>
+                      <Animated.View style={{ opacity: downloadIconOpacity }}>
+                        <Icon source="download" size={20} color={theme.colors.onSurface} />
+                      </Animated.View>
+                    </View>
+                  </TouchableRipple>
+                </Surface>
+                <Surface 
+                  style={[styles.downloadQueueBadge, { backgroundColor: theme.colors.primary }]} 
+                  elevation={3}
+                >
                   <Text
                     variant="labelSmall"
-                    style={styles.downloadQueueBadgeText}
+                    style={[styles.downloadQueueBadgeText, { color: theme.colors.onPrimary }]}
                   >
                     {itemsInQueue > 99 ? "99+" : itemsInQueue.toString()}
                   </Text>
@@ -638,7 +650,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -4,
     right: -4,
-    backgroundColor: "#ff4444",
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -646,10 +657,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: "#fff",
+    borderColor: "transparent",
   },
   badgeText: {
-    color: "#fff",
     fontWeight: "bold",
     textAlign: "center",
   },
@@ -672,7 +682,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -4,
     right: -4,
-    backgroundColor: "#ffc107",
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -680,10 +689,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: "#fff",
+    borderColor: "transparent",
   },
   downloadQueueBadgeText: {
-    color: "#000",
     fontWeight: "bold",
     textAlign: "center",
   },
