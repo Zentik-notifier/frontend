@@ -19,6 +19,7 @@ import {
   useTheme,
 } from "react-native-paper";
 import SwipeableItem from "./SwipeableItem";
+import SystemAccessTokenRequestsManagement from "./SystemAccessTokenRequests";
 import PaperScrollView from "./ui/PaperScrollView";
 
 export default function SystemAccessTokens() {
@@ -40,10 +41,13 @@ export default function SystemAccessTokens() {
 
   const handleRefresh = async () => {
     await refetch();
+    // nothing else for tokens
   };
 
   const tokens = data?.listSystemTokens || [];
   const sortedTokens = useEntitySorting(tokens, "desc");
+
+  // requests moved to SystemAccessTokenRequests
 
   const deleteToken = async (id: string) => {
     try {
@@ -166,6 +170,10 @@ export default function SystemAccessTokens() {
         loading={loading}
         error={!loading && !!error}
       >
+        <SystemAccessTokenRequestsManagement disabled={disabledActions} />
+        <Text variant="titleLarge" style={styles.sectionTitle}>
+          {t("systemAccessTokens.activeTokens")}
+        </Text>
         {sortedTokens.length === 0 ? (
           <View style={styles.emptyState}>
             <Icon
@@ -285,5 +293,11 @@ const styles = StyleSheet.create({
   expiredDetail: {
     color: "#ff6b6b",
     opacity: 1,
+  },
+  sectionTitle: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    fontWeight: "600",
   },
 });

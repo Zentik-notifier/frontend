@@ -27,6 +27,7 @@ import IdWithCopyButton from "./IdWithCopyButton";
 import NotificationStats from "./NotificationStats";
 import OAuthConnections from "./OAuthConnections";
 import PaperScrollView from "./ui/PaperScrollView";
+import UserSystemAccessTokenRequests from "./UserSystemAccessTokenRequests";
 
 export default function UserSection() {
   const { logout, refreshUserData } = useAppContext();
@@ -430,9 +431,15 @@ export default function UserSection() {
         {/* OAuth Connections Section */}
         <OAuthConnections identities={user.identities} />
 
-        {/* Admin Subscriptions Section - Only for admins */}
-        {user.role === "ADMIN" && <AdminSubscriptions />}
+        {/* User System Access Token Requests */}
+        <View style={styles.section}>
+          <UserSystemAccessTokenRequests />
+        </View>
 
+        {/* Admin Subscriptions Section - Only for admins */}
+        <View style={styles.section}>
+          {user.role === "ADMIN" && <AdminSubscriptions />}
+        </View>
         {/* Notification Statistics Section */}
         {statsData?.userNotificationStats && (
           <NotificationStats dateStats={statsData.userNotificationStats} />

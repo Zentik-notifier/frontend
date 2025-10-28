@@ -629,6 +629,7 @@ export interface Translation {
     noTokensTitle: string;
     noTokensSubtext: string;
     deleteError: string;
+    activeTokens: string;
     item: {
       delete: string;
       deleteTokenTitle: string;
@@ -674,6 +675,23 @@ export interface Translation {
       updateSuccess: string;
       updateError: string;
       tokenNotFound: string;
+    };
+    requests: {
+      pendingTitle: string;
+      deleteRequestTitle: string;
+      deleteRequestMessage: string;
+      deleteRequestConfirm: string;
+      approve: string;
+      decline: string;
+      empty: string;
+    };
+    userRequests: {
+      title: string;
+      maxRequests: string;
+      create: string;
+      status: string;
+      empty: string;
+      noDescription: string;
     };
   };
   accessTokens: {

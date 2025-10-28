@@ -661,6 +661,7 @@
     "noTokensTitle": "Nessun token di accesso di sistema creato ancora",
     "noTokensSubtext": "Crea il tuo primo token di sistema per iniziare",
     "deleteError": "Impossibile eliminare il token di accesso di sistema",
+    "activeTokens": "Token attivi",
     "item": {
       "delete": "Elimina",
       "deleteTokenTitle": "Elimina Token di Sistema",
@@ -706,6 +707,24 @@
       "updateSuccess": "Token di accesso di sistema aggiornato con successo",
       "updateError": "Impossibile aggiornare il token di accesso di sistema",
       "tokenNotFound": "Token di accesso di sistema non trovato"
+    }
+    ,
+    "requests": {
+      "pendingTitle": "Richieste in attesa",
+      "deleteRequestTitle": "Elimina richiesta",
+      "deleteRequestMessage": "Sei sicuro di voler eliminare questa richiesta?",
+      "deleteRequestConfirm": "Elimina",
+      "approve": "Approva",
+      "decline": "Rifiuta",
+      "empty": "Nessuna richiesta"
+    },
+    "userRequests": {
+      "title": "Richieste Token di Sistema",
+      "maxRequests": "Chiamate massime",
+      "create": "Richiedi token",
+      "status": "Stato",
+      "empty": "Nessuna richiesta trovata",
+      "noDescription": "Nessuna descrizione"
     }
   },
   "accessTokens": {

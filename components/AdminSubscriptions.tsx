@@ -1,12 +1,7 @@
 import { useI18n } from "@/hooks/useI18n";
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
-import {
-  Button,
-  Card,
-  Text,
-  useTheme,
-} from "react-native-paper";
+import { Button, Card, Text, useTheme } from "react-native-paper";
 import {
   EventType,
   useGetMyAdminSubscriptions,
@@ -71,11 +66,13 @@ export default function AdminSubscriptions() {
     }
   };
 
-  const hasChanges = JSON.stringify([...selectedEvents].sort()) !== JSON.stringify([...initialEvents].sort());
+  const hasChanges =
+    JSON.stringify([...selectedEvents].sort()) !==
+    JSON.stringify([...initialEvents].sort());
 
   if (loading) {
     return (
-      <Card style={styles.container}>
+      <Card>
         <Card.Content>
           <Text style={{ color: theme.colors.onSurface }}>
             {t("adminSubscriptions.loading")}
@@ -86,7 +83,7 @@ export default function AdminSubscriptions() {
   }
 
   return (
-    <Card style={styles.container}>
+    <Card>
       <Card.Content>
         <View style={styles.header}>
           <Text variant="titleMedium" style={{ color: theme.colors.onSurface }}>
@@ -129,9 +126,9 @@ export default function AdminSubscriptions() {
             variant="bodySmall"
             style={{ color: theme.colors.onSurfaceVariant }}
           >
-            {t("adminSubscriptions.selectedInfo", { 
-              count: selectedEvents.length, 
-              total: eventTypeOptions.length 
+            {t("adminSubscriptions.selectedInfo", {
+              count: selectedEvents.length,
+              total: eventTypeOptions.length,
             })}
           </Text>
         </View>
@@ -141,9 +138,6 @@ export default function AdminSubscriptions() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
   header: {
     marginBottom: 16,
   },

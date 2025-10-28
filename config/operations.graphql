@@ -978,6 +978,59 @@ fragment SystemAccessTokenFragment on SystemAccessTokenDto {
   updatedAt
 }
 
+# System Access Token Requests (Admin)
+fragment SystemAccessTokenRequestFragment on SystemAccessTokenRequest {
+  id
+  userId
+  user {
+    id
+    username
+    email
+  }
+  systemAccessTokenId
+  systemAccessToken {
+    id
+    description
+  }
+  plainTextToken
+  maxRequests
+  status
+  description
+  createdAt
+}
+
+query SystemAccessTokenRequests {
+  systemAccessTokenRequests {
+    ...SystemAccessTokenRequestFragment
+  }
+}
+
+mutation ApproveSystemAccessTokenRequest($id: String!) {
+  approveSystemAccessTokenRequest(id: $id) {
+    ...SystemAccessTokenRequestFragment
+  }
+}
+
+# User: My System Access Token Requests
+query MySystemAccessTokenRequests {
+  mySystemAccessTokenRequests {
+    ...SystemAccessTokenRequestFragment
+  }
+}
+
+# User: Create System Access Token Request
+mutation CreateSystemAccessTokenRequest($input: CreateSystemAccessTokenRequestDto!) {
+  createSystemAccessTokenRequest(input: $input) {
+    ...SystemAccessTokenRequestFragment
+  }
+}
+
+mutation DeclineSystemAccessTokenRequest($id: String!) {
+  declineSystemAccessTokenRequest(id: $id) {
+    ...SystemAccessTokenRequestFragment
+  }
+}
+
 # User operations for system token creation
 query GetAllUsers {
   users {

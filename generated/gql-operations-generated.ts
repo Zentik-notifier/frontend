@@ -2538,6 +2538,39 @@ export type UpdateBucketSnoozesMutation = { __typename?: 'Mutation', updateBucke
 
 export type SystemAccessTokenFragment = { __typename?: 'SystemAccessTokenDto', id: string, maxCalls: number, calls: number, expiresAt: string | null, description: string | null, createdAt: string, updatedAt: string, requester: { __typename?: 'User', id: string, username: string, email: string, firstName: string | null, lastName: string | null } | null };
 
+export type SystemAccessTokenRequestFragment = { __typename?: 'SystemAccessTokenRequest', id: string, userId: string, systemAccessTokenId: string | null, plainTextToken: string | null, maxRequests: number, status: SystemAccessTokenRequestStatus, description: string | null, createdAt: string, user: { __typename?: 'User', id: string, username: string, email: string }, systemAccessToken: { __typename?: 'SystemAccessToken', id: string, description: string | null } | null };
+
+export type SystemAccessTokenRequestsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type SystemAccessTokenRequestsQuery = { __typename?: 'Query', systemAccessTokenRequests: Array<{ __typename?: 'SystemAccessTokenRequest', id: string, userId: string, systemAccessTokenId: string | null, plainTextToken: string | null, maxRequests: number, status: SystemAccessTokenRequestStatus, description: string | null, createdAt: string, user: { __typename?: 'User', id: string, username: string, email: string }, systemAccessToken: { __typename?: 'SystemAccessToken', id: string, description: string | null } | null }> };
+
+export type ApproveSystemAccessTokenRequestMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type ApproveSystemAccessTokenRequestMutation = { __typename?: 'Mutation', approveSystemAccessTokenRequest: { __typename?: 'SystemAccessTokenRequest', id: string, userId: string, systemAccessTokenId: string | null, plainTextToken: string | null, maxRequests: number, status: SystemAccessTokenRequestStatus, description: string | null, createdAt: string, user: { __typename?: 'User', id: string, username: string, email: string }, systemAccessToken: { __typename?: 'SystemAccessToken', id: string, description: string | null } | null } };
+
+export type MySystemAccessTokenRequestsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MySystemAccessTokenRequestsQuery = { __typename?: 'Query', mySystemAccessTokenRequests: Array<{ __typename?: 'SystemAccessTokenRequest', id: string, userId: string, systemAccessTokenId: string | null, plainTextToken: string | null, maxRequests: number, status: SystemAccessTokenRequestStatus, description: string | null, createdAt: string, user: { __typename?: 'User', id: string, username: string, email: string }, systemAccessToken: { __typename?: 'SystemAccessToken', id: string, description: string | null } | null }> };
+
+export type CreateSystemAccessTokenRequestMutationVariables = Exact<{
+  input: CreateSystemAccessTokenRequestDto;
+}>;
+
+
+export type CreateSystemAccessTokenRequestMutation = { __typename?: 'Mutation', createSystemAccessTokenRequest: { __typename?: 'SystemAccessTokenRequest', id: string, userId: string, systemAccessTokenId: string | null, plainTextToken: string | null, maxRequests: number, status: SystemAccessTokenRequestStatus, description: string | null, createdAt: string, user: { __typename?: 'User', id: string, username: string, email: string }, systemAccessToken: { __typename?: 'SystemAccessToken', id: string, description: string | null } | null } };
+
+export type DeclineSystemAccessTokenRequestMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type DeclineSystemAccessTokenRequestMutation = { __typename?: 'Mutation', declineSystemAccessTokenRequest: { __typename?: 'SystemAccessTokenRequest', id: string, userId: string, systemAccessTokenId: string | null, plainTextToken: string | null, maxRequests: number, status: SystemAccessTokenRequestStatus, description: string | null, createdAt: string, user: { __typename?: 'User', id: string, username: string, email: string }, systemAccessToken: { __typename?: 'SystemAccessToken', id: string, description: string | null } | null } };
+
 export type GetAllUsersQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -2809,6 +2842,7 @@ export const OAuthProviderPublicFragmentDoc = {"kind":"Document","definitions":[
 export const OAuthProviderFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"OAuthProviderFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"OAuthProvider"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"providerId"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"clientId"}},{"kind":"Field","name":{"kind":"Name","value":"clientSecret"}},{"kind":"Field","name":{"kind":"Name","value":"scopes"}},{"kind":"Field","name":{"kind":"Name","value":"iconUrl"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"textColor"}},{"kind":"Field","name":{"kind":"Name","value":"isEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"authorizationUrl"}},{"kind":"Field","name":{"kind":"Name","value":"tokenUrl"}},{"kind":"Field","name":{"kind":"Name","value":"userInfoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"profileFields"}},{"kind":"Field","name":{"kind":"Name","value":"additionalConfig"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 export const NotificationServiceInfoFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"NotificationServiceInfoFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"NotificationServiceInfo"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"devicePlatform"}},{"kind":"Field","name":{"kind":"Name","value":"service"}}]}}]} as unknown as DocumentNode;
 export const SystemAccessTokenFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SystemAccessTokenFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SystemAccessTokenDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"maxCalls"}},{"kind":"Field","name":{"kind":"Name","value":"calls"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"requester"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}}]}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
+export const SystemAccessTokenRequestFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SystemAccessTokenRequestFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SystemAccessTokenRequest"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"email"}}]}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessTokenId"}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessToken"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}},{"kind":"Field","name":{"kind":"Name","value":"plainTextToken"}},{"kind":"Field","name":{"kind":"Name","value":"maxRequests"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode;
 export const EventFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EventFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Event"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"objectId"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"targetId"}}]}}]} as unknown as DocumentNode;
 export const UserNotificationStatsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserNotificationStatsFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserNotificationStats"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"today"}},{"kind":"Field","name":{"kind":"Name","value":"todayAcked"}},{"kind":"Field","name":{"kind":"Name","value":"thisWeek"}},{"kind":"Field","name":{"kind":"Name","value":"thisWeekAcked"}},{"kind":"Field","name":{"kind":"Name","value":"last7Days"}},{"kind":"Field","name":{"kind":"Name","value":"last7DaysAcked"}},{"kind":"Field","name":{"kind":"Name","value":"thisMonth"}},{"kind":"Field","name":{"kind":"Name","value":"thisMonthAcked"}},{"kind":"Field","name":{"kind":"Name","value":"last30Days"}},{"kind":"Field","name":{"kind":"Name","value":"last30DaysAcked"}},{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"totalAcked"}}]}}]} as unknown as DocumentNode;
 export const PayloadMapperFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PayloadMapperFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"PayloadMapper"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"jsEvalFn"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"builtInName"}},{"kind":"Field","name":{"kind":"Name","value":"requiredUserSettings"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"avatar"}},{"kind":"Field","name":{"kind":"Name","value":"hasPassword"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"identities"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"provider"}},{"kind":"Field","name":{"kind":"Name","value":"providerId"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"avatarUrl"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"buckets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"devices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"deviceModel"}},{"kind":"Field","name":{"kind":"Name","value":"osVersion"}},{"kind":"Field","name":{"kind":"Name","value":"onlyLocal"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsed"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
@@ -5276,6 +5310,153 @@ export function useUpdateBucketSnoozesMutation(baseOptions?: ApolloReactHooks.Mu
 export type UpdateBucketSnoozesMutationHookResult = ReturnType<typeof useUpdateBucketSnoozesMutation>;
 export type UpdateBucketSnoozesMutationResult = Apollo.MutationResult<UpdateBucketSnoozesMutation>;
 export type UpdateBucketSnoozesMutationOptions = Apollo.BaseMutationOptions<UpdateBucketSnoozesMutation, UpdateBucketSnoozesMutationVariables>;
+export const SystemAccessTokenRequestsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"SystemAccessTokenRequests"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"systemAccessTokenRequests"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SystemAccessTokenRequestFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SystemAccessTokenRequestFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SystemAccessTokenRequest"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"email"}}]}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessTokenId"}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessToken"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}},{"kind":"Field","name":{"kind":"Name","value":"plainTextToken"}},{"kind":"Field","name":{"kind":"Name","value":"maxRequests"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useSystemAccessTokenRequestsQuery__
+ *
+ * To run a query within a React component, call `useSystemAccessTokenRequestsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useSystemAccessTokenRequestsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useSystemAccessTokenRequestsQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useSystemAccessTokenRequestsQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<SystemAccessTokenRequestsQuery, SystemAccessTokenRequestsQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<SystemAccessTokenRequestsQuery, SystemAccessTokenRequestsQueryVariables>(SystemAccessTokenRequestsDocument, options);
+      }
+export function useSystemAccessTokenRequestsLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<SystemAccessTokenRequestsQuery, SystemAccessTokenRequestsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<SystemAccessTokenRequestsQuery, SystemAccessTokenRequestsQueryVariables>(SystemAccessTokenRequestsDocument, options);
+        }
+export function useSystemAccessTokenRequestsSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<SystemAccessTokenRequestsQuery, SystemAccessTokenRequestsQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<SystemAccessTokenRequestsQuery, SystemAccessTokenRequestsQueryVariables>(SystemAccessTokenRequestsDocument, options);
+        }
+export type SystemAccessTokenRequestsQueryHookResult = ReturnType<typeof useSystemAccessTokenRequestsQuery>;
+export type SystemAccessTokenRequestsLazyQueryHookResult = ReturnType<typeof useSystemAccessTokenRequestsLazyQuery>;
+export type SystemAccessTokenRequestsSuspenseQueryHookResult = ReturnType<typeof useSystemAccessTokenRequestsSuspenseQuery>;
+export type SystemAccessTokenRequestsQueryResult = Apollo.QueryResult<SystemAccessTokenRequestsQuery, SystemAccessTokenRequestsQueryVariables>;
+export const ApproveSystemAccessTokenRequestDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApproveSystemAccessTokenRequest"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"approveSystemAccessTokenRequest"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SystemAccessTokenRequestFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SystemAccessTokenRequestFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SystemAccessTokenRequest"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"email"}}]}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessTokenId"}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessToken"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}},{"kind":"Field","name":{"kind":"Name","value":"plainTextToken"}},{"kind":"Field","name":{"kind":"Name","value":"maxRequests"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode;
+export type ApproveSystemAccessTokenRequestMutationFn = Apollo.MutationFunction<ApproveSystemAccessTokenRequestMutation, ApproveSystemAccessTokenRequestMutationVariables>;
+
+/**
+ * __useApproveSystemAccessTokenRequestMutation__
+ *
+ * To run a mutation, you first call `useApproveSystemAccessTokenRequestMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useApproveSystemAccessTokenRequestMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [approveSystemAccessTokenRequestMutation, { data, loading, error }] = useApproveSystemAccessTokenRequestMutation({
+ *   variables: {
+ *      id: // value for 'id'
+ *   },
+ * });
+ */
+export function useApproveSystemAccessTokenRequestMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<ApproveSystemAccessTokenRequestMutation, ApproveSystemAccessTokenRequestMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<ApproveSystemAccessTokenRequestMutation, ApproveSystemAccessTokenRequestMutationVariables>(ApproveSystemAccessTokenRequestDocument, options);
+      }
+export type ApproveSystemAccessTokenRequestMutationHookResult = ReturnType<typeof useApproveSystemAccessTokenRequestMutation>;
+export type ApproveSystemAccessTokenRequestMutationResult = Apollo.MutationResult<ApproveSystemAccessTokenRequestMutation>;
+export type ApproveSystemAccessTokenRequestMutationOptions = Apollo.BaseMutationOptions<ApproveSystemAccessTokenRequestMutation, ApproveSystemAccessTokenRequestMutationVariables>;
+export const MySystemAccessTokenRequestsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MySystemAccessTokenRequests"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mySystemAccessTokenRequests"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SystemAccessTokenRequestFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SystemAccessTokenRequestFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SystemAccessTokenRequest"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"email"}}]}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessTokenId"}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessToken"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}},{"kind":"Field","name":{"kind":"Name","value":"plainTextToken"}},{"kind":"Field","name":{"kind":"Name","value":"maxRequests"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useMySystemAccessTokenRequestsQuery__
+ *
+ * To run a query within a React component, call `useMySystemAccessTokenRequestsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useMySystemAccessTokenRequestsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useMySystemAccessTokenRequestsQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useMySystemAccessTokenRequestsQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<MySystemAccessTokenRequestsQuery, MySystemAccessTokenRequestsQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<MySystemAccessTokenRequestsQuery, MySystemAccessTokenRequestsQueryVariables>(MySystemAccessTokenRequestsDocument, options);
+      }
+export function useMySystemAccessTokenRequestsLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<MySystemAccessTokenRequestsQuery, MySystemAccessTokenRequestsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<MySystemAccessTokenRequestsQuery, MySystemAccessTokenRequestsQueryVariables>(MySystemAccessTokenRequestsDocument, options);
+        }
+export function useMySystemAccessTokenRequestsSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<MySystemAccessTokenRequestsQuery, MySystemAccessTokenRequestsQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<MySystemAccessTokenRequestsQuery, MySystemAccessTokenRequestsQueryVariables>(MySystemAccessTokenRequestsDocument, options);
+        }
+export type MySystemAccessTokenRequestsQueryHookResult = ReturnType<typeof useMySystemAccessTokenRequestsQuery>;
+export type MySystemAccessTokenRequestsLazyQueryHookResult = ReturnType<typeof useMySystemAccessTokenRequestsLazyQuery>;
+export type MySystemAccessTokenRequestsSuspenseQueryHookResult = ReturnType<typeof useMySystemAccessTokenRequestsSuspenseQuery>;
+export type MySystemAccessTokenRequestsQueryResult = Apollo.QueryResult<MySystemAccessTokenRequestsQuery, MySystemAccessTokenRequestsQueryVariables>;
+export const CreateSystemAccessTokenRequestDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateSystemAccessTokenRequest"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateSystemAccessTokenRequestDto"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createSystemAccessTokenRequest"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SystemAccessTokenRequestFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SystemAccessTokenRequestFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SystemAccessTokenRequest"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"email"}}]}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessTokenId"}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessToken"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}},{"kind":"Field","name":{"kind":"Name","value":"plainTextToken"}},{"kind":"Field","name":{"kind":"Name","value":"maxRequests"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode;
+export type CreateSystemAccessTokenRequestMutationFn = Apollo.MutationFunction<CreateSystemAccessTokenRequestMutation, CreateSystemAccessTokenRequestMutationVariables>;
+
+/**
+ * __useCreateSystemAccessTokenRequestMutation__
+ *
+ * To run a mutation, you first call `useCreateSystemAccessTokenRequestMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useCreateSystemAccessTokenRequestMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [createSystemAccessTokenRequestMutation, { data, loading, error }] = useCreateSystemAccessTokenRequestMutation({
+ *   variables: {
+ *      input: // value for 'input'
+ *   },
+ * });
+ */
+export function useCreateSystemAccessTokenRequestMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<CreateSystemAccessTokenRequestMutation, CreateSystemAccessTokenRequestMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<CreateSystemAccessTokenRequestMutation, CreateSystemAccessTokenRequestMutationVariables>(CreateSystemAccessTokenRequestDocument, options);
+      }
+export type CreateSystemAccessTokenRequestMutationHookResult = ReturnType<typeof useCreateSystemAccessTokenRequestMutation>;
+export type CreateSystemAccessTokenRequestMutationResult = Apollo.MutationResult<CreateSystemAccessTokenRequestMutation>;
+export type CreateSystemAccessTokenRequestMutationOptions = Apollo.BaseMutationOptions<CreateSystemAccessTokenRequestMutation, CreateSystemAccessTokenRequestMutationVariables>;
+export const DeclineSystemAccessTokenRequestDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeclineSystemAccessTokenRequest"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"declineSystemAccessTokenRequest"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SystemAccessTokenRequestFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SystemAccessTokenRequestFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SystemAccessTokenRequest"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"email"}}]}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessTokenId"}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessToken"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}},{"kind":"Field","name":{"kind":"Name","value":"plainTextToken"}},{"kind":"Field","name":{"kind":"Name","value":"maxRequests"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode;
+export type DeclineSystemAccessTokenRequestMutationFn = Apollo.MutationFunction<DeclineSystemAccessTokenRequestMutation, DeclineSystemAccessTokenRequestMutationVariables>;
+
+/**
+ * __useDeclineSystemAccessTokenRequestMutation__
+ *
+ * To run a mutation, you first call `useDeclineSystemAccessTokenRequestMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useDeclineSystemAccessTokenRequestMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [declineSystemAccessTokenRequestMutation, { data, loading, error }] = useDeclineSystemAccessTokenRequestMutation({
+ *   variables: {
+ *      id: // value for 'id'
+ *   },
+ * });
+ */
+export function useDeclineSystemAccessTokenRequestMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<DeclineSystemAccessTokenRequestMutation, DeclineSystemAccessTokenRequestMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<DeclineSystemAccessTokenRequestMutation, DeclineSystemAccessTokenRequestMutationVariables>(DeclineSystemAccessTokenRequestDocument, options);
+      }
+export type DeclineSystemAccessTokenRequestMutationHookResult = ReturnType<typeof useDeclineSystemAccessTokenRequestMutation>;
+export type DeclineSystemAccessTokenRequestMutationResult = Apollo.MutationResult<DeclineSystemAccessTokenRequestMutation>;
+export type DeclineSystemAccessTokenRequestMutationOptions = Apollo.BaseMutationOptions<DeclineSystemAccessTokenRequestMutation, DeclineSystemAccessTokenRequestMutationVariables>;
 export const GetAllUsersDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetAllUsers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"users"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"avatar"}},{"kind":"Field","name":{"kind":"Name","value":"hasPassword"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"identities"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"provider"}},{"kind":"Field","name":{"kind":"Name","value":"providerId"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"avatarUrl"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"buckets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"devices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"deviceModel"}},{"kind":"Field","name":{"kind":"Name","value":"osVersion"}},{"kind":"Field","name":{"kind":"Name","value":"onlyLocal"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsed"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 
 /**

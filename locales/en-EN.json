@@ -626,6 +626,7 @@
     "noTokensTitle": "No system access tokens created yet",
     "noTokensSubtext": "Create your first system token to get started",
     "deleteError": "Failed to delete system access token",
+    "activeTokens": "Active Tokens",
     "item": {
       "delete": "Delete",
       "deleteTokenTitle": "Delete System Token",
@@ -671,6 +672,24 @@
       "updateSuccess": "System access token updated successfully",
       "updateError": "Failed to update system access token",
       "tokenNotFound": "System access token not found"
+    }
+    ,
+    "requests": {
+      "pendingTitle": "Pending Requests",
+      "deleteRequestTitle": "Delete Request",
+      "deleteRequestMessage": "Are you sure you want to delete this request?",
+      "deleteRequestConfirm": "Delete",
+      "approve": "Approve",
+      "decline": "Decline",
+      "empty": "No requests"
+    },
+    "userRequests": {
+      "title": "System Token Requests",
+      "maxRequests": "Max Requests",
+      "create": "Request token",
+      "status": "Status",
+      "empty": "No requests found",
+      "noDescription": "No description"
     }
   },
   "accessTokens": {
