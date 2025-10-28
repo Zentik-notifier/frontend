@@ -143,6 +143,12 @@ export default function SystemAccessTokens() {
               </Text>
             ) : null}
 
+            {item.scopes && item.scopes.length > 0 ? (
+              <Text variant="bodySmall" style={styles.tokenDetail}>
+                {t("systemAccessTokens.item.scopes")}: {item.scopes.join(", ")}
+              </Text>
+            ) : null}
+
             {item.expiresAt && (
               <Text
                 variant="bodySmall"

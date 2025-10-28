@@ -641,6 +641,7 @@ export interface Translation {
       expires: string;
       requester: string;
       description: string;
+      scopes: string;
     };
     form: {
       title: string;
@@ -656,6 +657,7 @@ export interface Translation {
       selectUser: string;
       noUsers: string;
       descriptionPlaceholder: string;
+      descriptionRequired: string;
       creating: string;
       createButton: string;
       maxCallsRequired: string;
@@ -666,6 +668,12 @@ export interface Translation {
       copied: string;
       tokenCopied: string;
       done: string;
+      scopes: string;
+      scopesHint: string;
+      scope: {
+        passthrough: string;
+        prometheus: string;
+      };
     };
     edit: {
       title: string;

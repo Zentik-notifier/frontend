@@ -974,6 +974,7 @@ fragment SystemAccessTokenFragment on SystemAccessTokenDto {
     lastName
   }
   description
+  scopes
   createdAt
   updatedAt
 }
@@ -1062,12 +1063,14 @@ mutation CreateSystemAccessToken(
   $expiresAt: String
   $requesterId: String
   $description: String
+  $scopes: [String!]
 ) {
   createSystemToken(
     maxCalls: $maxCalls
     expiresAt: $expiresAt
     requesterId: $requesterId
     description: $description
+    scopes: $scopes
   ) {
     ...SystemAccessTokenFragment
     rawToken
@@ -1080,6 +1083,7 @@ mutation UpdateSystemAccessToken(
   $expiresAt: String
   $requesterId: String
   $description: String
+  $scopes: [String!]
 ) {
   updateSystemToken(
     id: $id
@@ -1087,6 +1091,7 @@ mutation UpdateSystemAccessToken(
     expiresAt: $expiresAt
     requesterId: $requesterId
     description: $description
+    scopes: $scopes
   ) {
     ...SystemAccessTokenFragment
   }

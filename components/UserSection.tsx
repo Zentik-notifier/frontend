@@ -432,9 +432,9 @@ export default function UserSection() {
         <OAuthConnections identities={user.identities} />
 
         {/* User System Access Token Requests */}
-        <View style={styles.section}>
+        {/* <View style={styles.section}>
           <UserSystemAccessTokenRequests />
-        </View>
+        </View> */}
 
         {/* Admin Subscriptions Section - Only for admins */}
         <View style={styles.section}>

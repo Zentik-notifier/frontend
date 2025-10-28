@@ -2,6 +2,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
+import { Platform } from "react-native";
 
 export default function OAuthCallbackPage() {
   const { refreshUserData, completeAuth, setUserId } = useAppContext();
@@ -14,11 +15,24 @@ export default function OAuthCallbackPage() {
       setProcessing(true);
 
       try {
-        // Extract parameters from route params (passed by deep link handler)
-        const accessToken = searchParams.accessToken as string;
-        const refreshToken = searchParams.refreshToken as string;
-        const connected = searchParams.connected as string;
-        const provider = searchParams.provider as string;
+        // Extract parameters from route params (native) or URL hash (web)
+        let accessToken = searchParams.accessToken as string;
+        let refreshToken = searchParams.refreshToken as string;
+        let connected = searchParams.connected as string;
+        let provider = searchParams.provider as string;
+
+        if (Platform.OS === "web") {
+          try {
+            const hash = typeof window !== "undefined" ? window.location.hash : "";
+            if (hash && hash.startsWith("#")) {
+              const params = new URLSearchParams(hash.substring(1));
+              accessToken = accessToken || (params.get("accessToken") as string);
+              refreshToken = refreshToken || (params.get("refreshToken") as string);
+              connected = connected || (params.get("connected") as string);
+              provider = provider || (params.get("provider") as string);
+            }
+          } catch {}
+        }
 
         // Only proceed if we have valid OAuth parameters
         if (!connected && !accessToken) {
@@ -26,25 +40,21 @@ export default function OAuthCallbackPage() {
         }
         console.log("🔗 OAuth callback page loaded with params:", searchParams);
 
-        // FORCE browser dismissal immediately and aggressively
-        try {
-          console.log("🔗 FORCING browser dismissal");
-          // Try multiple times to ensure the browser is closed
-          await WebBrowser.dismissBrowser();
-          await WebBrowser.maybeCompleteAuthSession();
-
-          // Force close any remaining sessions
-          setTimeout(async () => {
-            try {
-              await WebBrowser.dismissBrowser();
-            } catch (e) {
-              // Ignore errors on second attempt
-            }
-          }, 50);
-
-          console.log("🔗 Browser forcefully dismissed");
-        } catch (e) {
-          console.log("🔗 Browser dismiss error (continuing anyway):", e);
+        // FORCE browser dismissal only on native (not needed on web)
+        if (Platform.OS !== "web") {
+          try {
+            console.log("🔗 FORCING browser dismissal");
+            await WebBrowser.dismissBrowser();
+            await WebBrowser.maybeCompleteAuthSession();
+            setTimeout(async () => {
+              try {
+                await WebBrowser.dismissBrowser();
+              } catch {}
+            }, 50);
+            console.log("🔗 Browser forcefully dismissed");
+          } catch (e) {
+            console.log("🔗 Browser dismiss error (continuing anyway):", e);
+          }
         }
 
         if (connected === "true" && provider) {

@@ -672,7 +672,8 @@
       "calls": "Chiamate",
       "expires": "Scade",
       "requester": "Richiedente",
-      "description": "Descrizione"
+      "description": "Descrizione",
+      "scopes": "Scope"
     },
     "form": {
       "title": "Crea Token di Sistema",
@@ -688,6 +689,7 @@
       "selectUser": "Seleziona Utente",
       "noUsers": "Nessun utente trovato",
       "descriptionPlaceholder": "Descrizione opzionale dello scopo del token",
+      "descriptionRequired": "La descrizione è obbligatoria",
       "creating": "Creazione...",
       "createButton": "Crea Token di Sistema",
       "maxCallsRequired": "Inserisci il numero massimo di chiamate",
@@ -697,7 +699,13 @@
       "copy": "Copia",
       "copied": "Copiato",
       "tokenCopied": "Token copiato negli appunti",
-      "done": "Fatto"
+      "done": "Fatto",
+      "scopes": "Scope",
+      "scopesHint": "Seleziona gli scope per limitare i permessi del token. Nessuno scope significa accesso completo.",
+      "scope": {
+        "passthrough": "Permette di inviare notifiche tramite l'endpoint passthrough",
+        "prometheus": "Permette l'accesso alle metriche Prometheus"
+      }
     },
     "edit": {
       "title": "Modifica Token di Accesso di Sistema",

@@ -637,7 +637,8 @@
       "calls": "Calls",
       "expires": "Expires",
       "requester": "Requester",
-      "description": "Description"
+      "description": "Description",
+      "scopes": "Scopes"
     },
     "form": {
       "title": "Create System Access Token",
@@ -653,6 +654,7 @@
       "selectUser": "Select User",
       "noUsers": "No users found",
       "descriptionPlaceholder": "Optional description of the token's purpose",
+      "descriptionRequired": "Description is required",
       "creating": "Creating...",
       "createButton": "Create System Token",
       "maxCallsRequired": "Please enter maximum calls",
@@ -662,7 +664,13 @@
       "copy": "Copy",
       "copied": "Copied",
       "tokenCopied": "Token copied to clipboard",
-      "done": "Done"
+      "done": "Done",
+      "scopes": "Scopes",
+      "scopesHint": "Select scopes to limit token permissions. No scopes means full access.",
+      "scope": {
+        "passthrough": "Allows sending notifications via the passthrough endpoint",
+        "prometheus": "Allows access to Prometheus metrics"
+      }
     },
     "edit": {
       "title": "Edit System Access Token",

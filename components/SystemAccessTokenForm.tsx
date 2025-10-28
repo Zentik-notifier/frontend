@@ -25,6 +25,7 @@ import {
 } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
 import Selector from "./ui/Selector";
+import Multiselect, { MultiselectOption } from "./ui/Multiselect";
 
 interface SystemAccessTokenFormProps {
   id?: string;
@@ -45,6 +46,7 @@ export default function SystemAccessTokenForm({
   const [expirationDays, setExpirationDays] = useState("");
   const [requesterId, setRequesterId] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
 
   const [createSystemToken] = useCreateSystemAccessTokenMutation({
     update: (cache, { data }) => {
@@ -106,6 +108,7 @@ export default function SystemAccessTokenForm({
       }
       setRequesterId(tokenToEdit.requester?.id || "");
       setDescription(tokenToEdit.description || "");
+      setSelectedScopes(tokenToEdit.scopes || []);
     }
   }, [isEdit, tokenToEdit]);
 
@@ -115,6 +118,19 @@ export default function SystemAccessTokenForm({
       id: user.id,
       name: user.username || user.email || user.id,
     })),
+  ];
+
+  const scopeOptions: MultiselectOption[] = [
+    {
+      id: "passthrough",
+      name: "passthrough",
+      description: t("systemAccessTokens.form.scope.passthrough"),
+    },
+    {
+      id: "prometheus",
+      name: "prometheus",
+      description: t("systemAccessTokens.form.scope.prometheus"),
+    },
   ];
 
   const handleSubmit = async () => {
@@ -148,6 +164,7 @@ export default function SystemAccessTokenForm({
             maxCalls: parsedMax,
             expiresAt,
             description: description || null,
+            scopes: selectedScopes.length > 0 ? selectedScopes : null,
           },
         });
 
@@ -160,6 +177,7 @@ export default function SystemAccessTokenForm({
             expiresAt,
             requesterId: requesterId || null,
             description: description || null,
+            scopes: selectedScopes.length > 0 ? selectedScopes : null,
           },
         });
 
@@ -173,6 +191,7 @@ export default function SystemAccessTokenForm({
           setExpirationDays("");
           setRequesterId("");
           setDescription("");
+          setSelectedScopes([]);
         }
       }
     } catch (error) {
@@ -210,15 +229,17 @@ export default function SystemAccessTokenForm({
       }
       setRequesterId(tokenToEdit.requester?.id || "");
       setDescription(tokenToEdit.description || "");
+      setSelectedScopes(tokenToEdit.scopes || []);
     } else {
       setMaxCalls("0");
       setExpirationDays("");
       setRequesterId("");
       setDescription("");
+      setSelectedScopes([]);
     }
   };
 
-  const isFormValid = !isNaN(parseFloat(maxCalls || "0"));
+  const isFormValid = !isNaN(parseFloat(maxCalls || "0")) && description.trim().length > 0;
   const loading = usersLoading || (isEdit ? singleTokenLoading : false);
 
   const handlerRefetch = async () => {
@@ -230,18 +251,32 @@ export default function SystemAccessTokenForm({
   };
 
   // Handle error state through PaperScrollView props
-  const showError = isEdit && !tokenToEdit;
-
   return (
     <PaperScrollView
       loading={loading}
       onRefresh={handlerRefetch}
-      error={showError}
+      error={isEdit && !tokenToEdit && !loading}
       errorTitle={t("systemAccessTokens.edit.tokenNotFound")}
       onRetry={handlerRefetch}
     >
       <Card style={styles.formContainer} mode="outlined">
         <Card.Content>
+          <View style={styles.inputGroup}>
+            <Text variant="titleMedium" style={styles.inputLabel}>
+              {t("systemAccessTokens.form.description")} *
+            </Text>
+            <TextInput
+              mode="outlined"
+              value={description}
+              onChangeText={setDescription}
+              placeholder={t("systemAccessTokens.form.descriptionPlaceholder")}
+            />
+            {description.trim().length === 0 && (
+              <Text variant="bodySmall" style={styles.validationError}>
+                {t("systemAccessTokens.form.descriptionRequired")}
+              </Text>
+            )}
+          </View>
           {/* Token Info (only in edit mode) */}
           {isEdit && tokenToEdit && (
             <View style={styles.tokenInfo}>
@@ -318,15 +353,18 @@ export default function SystemAccessTokenForm({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text variant="titleMedium" style={styles.inputLabel}>
-              {t("systemAccessTokens.form.description")}
-            </Text>
-            <TextInput
-              mode="outlined"
-              value={description}
-              onChangeText={setDescription}
-              placeholder={t("systemAccessTokens.form.descriptionPlaceholder")}
+            <Multiselect
+              label={t("systemAccessTokens.form.scopes")}
+              placeholder={t("common.selectOptions")}
+              options={scopeOptions}
+              selectedValues={selectedScopes}
+              onValuesChange={setSelectedScopes}
+              isSearchable={false}
+              mode="inline"
             />
+            <Text variant="bodySmall" style={styles.inputHint}>
+              {t("systemAccessTokens.form.scopesHint")}
+            </Text>
           </View>
 
           <View style={styles.buttonRow}>
@@ -484,5 +522,24 @@ const styles = StyleSheet.create({
   },
   copyButton: {
     minWidth: 0,
+  },
+  validationError: {
+    color: "#b00020",
+    marginTop: 4,
+  },
+  scopesContainer: {
+    padding: 16,
+    borderRadius: 8,
+    gap: 12,
+  },
+  scopeItem: {
+    gap: 8,
+  },
+  scopeButton: {
+    alignSelf: "flex-start",
+  },
+  scopeDescription: {
+    opacity: 0.7,
+    marginLeft: 8,
   },
 });

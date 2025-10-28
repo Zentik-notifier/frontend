@@ -1,4 +1,4 @@
-import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 const PWA_DOMAIN = 'https://notifier.zentik.app';
 const isDev = process.env.EXPO_PUBLIC_APP_VARIANT === "development";
@@ -27,6 +27,16 @@ export const createInviteLink = (code: string): string => {
  */
 export const createOAuthRedirectLink = (): string => {
   const scheme = getCustomScheme();
+  if (Platform.OS === 'web') {
+    try {
+      // Use current origin to support dev and prod seamlessly
+      const origin = typeof window !== 'undefined' && window.location ? window.location.origin : PWA_DOMAIN;
+      return `${origin}/oauth`;
+    } catch {
+      // Fallback to PWA domain if window is not available
+      return `${PWA_DOMAIN}/oauth`;
+    }
+  }
   return `${scheme}:///oauth`;
 
 };

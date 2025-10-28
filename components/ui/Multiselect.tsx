@@ -1,23 +1,23 @@
 import { useI18n } from "@/hooks/useI18n";
+import { Image } from "expo-image";
 import React, {
-  useState,
+  useCallback,
   useMemo,
   useRef,
-  useCallback,
+  useState,
 } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  TextInput,
   Dimensions,
+  FlatList,
   StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
-import { useTheme, Icon, Portal, Chip } from "react-native-paper";
-import { Image } from "expo-image";
-import ThemedBottomSheet, { ThemedBottomSheetRef } from "./ThemedBottomSheet";
+import { Chip, Icon, Portal, useTheme } from "react-native-paper";
 import { IconSource } from "react-native-paper/lib/typescript/components/Icon";
+import ThemedBottomSheet, { ThemedBottomSheetRef } from "./ThemedBottomSheet";
 
 export interface MultiselectOption {
   id: any;
@@ -94,25 +94,53 @@ export default function Multiselect({
   const toggleInlineDropdown = () => {
     if (!isInlineDropdownOpen) {
       // Calculate the position of the dropdown
-      containerRef.current?.measure((x, y, width, height, pageX, pageY) => {
-        const screenHeight = Dimensions.get('window').height;
-        const spaceBelow = screenHeight - (pageY + height);
-        const spaceAbove = pageY;
+      (containerRef.current as any)?.measureInWindow?.((pageX: number, pageY: number, width: number, height: number) => {
+        const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+        // Safe area bounds (for notches/status bars on mobile)
+        const verticalMargin = 8;
+        const horizontalMargin = 8;
+
+        const spaceBelow = (screenHeight - verticalMargin) - (pageY + height);
+        const spaceAbove = (pageY - verticalMargin);
         const maxDropdownHeight = 350;
-        
-        // Open upward if there's not enough space below and more space above
-        const shouldOpenUpward = spaceBelow < 200 && spaceAbove > spaceBelow;
-        
-        // Calculate available height
-        const availableHeight = shouldOpenUpward 
-          ? Math.min(maxDropdownHeight, spaceAbove - 20) 
-          : Math.min(maxDropdownHeight, spaceBelow - 20);
-        
+        const minDropdownHeight = 120;
+
+        // Estimate dropdown content height (actions/search + items)
+        const estimatedHeader = (showSelectAll ? 48 : 0) + (isSearchable ? 56 : 0);
+        const estimatedItemHeight = 48;
+        const estimatedItems = Math.max(1, Math.min(options.length, 7)); // cap estimate to avoid huge sizes
+        const estimatedHeight = estimatedHeader + estimatedItems * estimatedItemHeight + 8;
+
+        // Prefer open down; open up only if not enough space below
+        const shouldOpenUpward = spaceBelow < minDropdownHeight && spaceAbove > spaceBelow;
+
+        const availableHeightRaw = shouldOpenUpward ? spaceAbove : spaceBelow;
+        const availableHeight = Math.max(minDropdownHeight, Math.min(maxDropdownHeight, availableHeightRaw));
+
+        // Desired height considering content estimate
+        const desiredHeight = Math.min(availableHeight, Math.max(minDropdownHeight, Math.min(maxDropdownHeight, estimatedHeight)));
+
+        // Compute top target edge aligned to the field
+        let top = shouldOpenUpward ? (pageY - desiredHeight) : (pageY + height);
+
+        // Clamp within screen
+        const topMin = verticalMargin;
+        const topMax = screenHeight - verticalMargin - minDropdownHeight;
+        top = Math.max(topMin, Math.min(top, topMax));
+
+        let left = Math.min(
+          Math.max(horizontalMargin, pageX),
+          Math.max(horizontalMargin, screenWidth - horizontalMargin - width)
+        );
+
+        // Do not add scroll offsets; measureInWindow returns viewport-relative coords across platforms
+
         setDropdownPosition({
-          top: shouldOpenUpward ? pageY - availableHeight : pageY + height,
-          left: pageX,
-          width: width,
-          maxHeight: availableHeight,
+          top,
+          left,
+          width,
+          maxHeight: desiredHeight,
         });
       });
     }
@@ -231,7 +259,7 @@ export default function Multiselect({
       },
       shadowOpacity: 0.3,
       shadowRadius: 4.65,
-      overflow: "hidden", // ← Previene che il contenuto vada oltre
+      overflow: "hidden",
     },
     inlineSearchContainer: {
       paddingHorizontal: 16,
@@ -250,7 +278,7 @@ export default function Multiselect({
       color: theme.colors.onSurface,
     },
     inlineOptionsList: {
-      maxHeight: Math.max(150, dropdownPosition.maxHeight - 120), // Dynamic max height minus space for actions/search
+      maxHeight: Math.max(100, dropdownPosition.maxHeight - ((showSelectAll ? 48 : 0) + (isSearchable ? 56 : 0) + 24)),
     },
     inlineOptionItem: {
       flexDirection: "row",
