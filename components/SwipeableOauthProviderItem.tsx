@@ -100,9 +100,10 @@ const SwipeableOauthProviderItem: React.FC<SwipeableOauthProviderItemProps> = ({
     onPress: handleTogglePress,
   };
 
+
   // Only show delete action for custom providers (not built-in like GITHUB, GOOGLE)
   const rightAction =
-    provider.type === OAuthProviderType.CUSTOM
+    provider.type === OAuthProviderType.Custom
       ? {
           icon: "delete",
           label: t("administration.oauthProviderForm.deleteProvider"),
