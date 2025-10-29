@@ -1035,6 +1035,7 @@ type SystemAccessToken {
   description: String
   expiresAt: DateTime
   id: String!
+  lastResetAt: DateTime
   maxCalls: Float!
   requester: User
   requesterId: String
@@ -1042,6 +1043,7 @@ type SystemAccessToken {
   scopes: [String!]
   token: String
   tokenHash: String!
+  totalCalls: Float!
   updatedAt: DateTime!
 }
 
@@ -1051,11 +1053,13 @@ type SystemAccessTokenDto {
   description: String
   expiresAt: DateTime
   id: String!
+  lastResetAt: DateTime
   maxCalls: Float!
   rawToken: String
   requester: User
   scopes: [String!]
   token: String
+  totalCalls: Float!
   updatedAt: DateTime!
 }
 

@@ -965,7 +965,9 @@ fragment SystemAccessTokenFragment on SystemAccessTokenDto {
   id
   maxCalls
   calls
+  totalCalls
   expiresAt
+  lastResetAt
   requester {
     id
     username

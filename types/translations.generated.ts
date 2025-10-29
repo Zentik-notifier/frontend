@@ -652,6 +652,9 @@ export interface Translation {
       expired: string;
       created: string;
       calls: string;
+      monthly: string;
+      totalCalls: string;
+      lastReset: string;
       expires: string;
       requester: string;
       description: string;

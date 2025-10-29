@@ -125,8 +125,19 @@ export default function SystemAccessTokens() {
 
             <Text variant="bodySmall" style={styles.tokenDetail}>
               {t("systemAccessTokens.item.calls")}: {item.calls}/
-              {item.maxCalls || "-"}
+              {item.maxCalls || "-"} {t("systemAccessTokens.item.monthly")}
             </Text>
+
+            <Text variant="bodySmall" style={styles.tokenDetail}>
+              {t("systemAccessTokens.item.totalCalls")}: {item.totalCalls || 0}
+            </Text>
+
+            {item.lastResetAt && (
+              <Text variant="bodySmall" style={styles.tokenDetail}>
+                {t("systemAccessTokens.item.lastReset")}:{" "}
+                {formatTokenDate(item.lastResetAt)}
+              </Text>
+            )}
 
             {item.requester ? (
               <Text variant="bodySmall" style={styles.tokenDetail}>
