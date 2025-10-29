@@ -62,7 +62,23 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
   const theme = useTheme();
   const { t } = useI18n();
 
-  const withActions = Platform.OS !== "web";
+  // Enable swipe actions only on touch devices
+  // On web, detect touch capability using media queries
+  const withActions = React.useMemo(() => {
+    if (Platform.OS === "macos") {
+      return false; // Never enable on macOS
+    }
+    if (Platform.OS === "ios" || Platform.OS === "android") {
+      return true; // Always enable on native mobile platforms
+    }
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      // Check if device has touch capability
+      return window.matchMedia("(pointer: coarse)").matches || 
+             "ontouchstart" in window || 
+             navigator.maxTouchPoints > 0;
+    }
+    return false;
+  }, []);
 
   const finalBorderColor = borderColor ?? theme.colors.outlineVariant;
 
