@@ -243,17 +243,55 @@ export function useNotificationsState(
                 let apiSuccess = false;
 
                 try {
-                    const { data } = await fetchBuckets();
-                    apiBuckets = (data?.buckets ?? []) as BucketWithUserData[];
+                    const result = await fetchBuckets();
+                    // Check for Apollo errors (can be in result.error or result.error.networkError)
+                    if (result.error) {
+                        const apolloError = result.error;
+                        // Network errors indicate API is unreachable
+                        if (apolloError.networkError || apolloError.message?.includes('Network request failed')) {
+                            throw new Error('Network request failed');
+                        }
+                        // For other GraphQL errors, still throw but they might be different issues
+                        throw apolloError;
+                    }
+                    // If data is null/undefined, treat it as failure (network error)
+                    if (!result.data) {
+                        throw new Error('No data returned from API');
+                    }
+                    apiBuckets = (result.data.buckets ?? []) as BucketWithUserData[];
+                    
+                    // Heuristic: If API returns 0 buckets but we have cached buckets,
+                    // it's likely the API is offline and returning empty/default response
+                    // Check cache to decide if this is a real empty result or API failure
+                    const cachedBuckets = await getAllBuckets();
+                    if (apiBuckets.length === 0 && cachedBuckets.length > 0) {
+                        console.warn('[useNotificationsState] API returned 0 buckets but cache has buckets - treating as API offline');
+                        throw new Error('API likely offline (empty response but cache has data)');
+                    }
+                    
                     apiSuccess = true;
-                } catch (error) {
-                    console.warn('[useNotificationsState] Failed to sync buckets from API, using cache:', error);
+                    console.log(`[useNotificationsState] Successfully fetched ${apiBuckets.length} buckets from API`);
+                } catch (error: any) {
+                    // Network errors or GraphQL errors mean API is unreachable
+                    const isNetworkError = error?.networkError || 
+                                          error?.message?.includes('Network request failed') ||
+                                          error?.message?.includes('fetch') ||
+                                          error?.message?.includes('API likely offline') ||
+                                          error?.code === 'NETWORK_ERROR';
+                    
+                    if (isNetworkError) {
+                        console.warn('[useNotificationsState] Network error fetching buckets from API, attempting to use cache');
+                    } else {
+                        console.warn('[useNotificationsState] Failed to sync buckets from API, attempting to use cache:', error);
+                    }
+                    apiSuccess = false;
                 }
 
                 // STEP 4: If API failed, try to get buckets from cache
                 if (!apiSuccess) {
                     const cachedBuckets = await getAllBuckets();
                     if (cachedBuckets.length > 0) {
+                        console.log(`[useNotificationsState] Using ${cachedBuckets.length} buckets from cache (API offline)`);
                         // Convert cached buckets to API format
                         apiBuckets = cachedBuckets.map(bucket => ({
                             id: bucket.id,
@@ -272,6 +310,8 @@ export function useNotificationsState(
                             permissions: bucket.permissions,
                             userPermissions: bucket.userPermissions,
                         })) as BucketWithUserData[];
+                    } else {
+                        console.warn('[useNotificationsState] No cached buckets found, bucket list will be empty');
                     }
                 }
 
@@ -299,8 +339,17 @@ export function useNotificationsState(
                 }
 
                 // STEP 6: Identify orphaned buckets (exist in notifications but not in API/cache)
+                // IMPORTANT: When backend is unreachable and we relied entirely on cache (apiSuccess === false),
+                // we do NOT mark any buckets as orphan/dangling to prevent confusing UX while offline.
+                // Orphaned buckets are only detected when we have a successful API response to compare against.
                 const apiBucketIds = new Set(apiBuckets.map(b => b.id));
-                const orphanedFullBuckets = allBucketFromNotifications.filter(bucket => !apiBucketIds.has(bucket.bucketId));
+                const orphanedFullBuckets = apiSuccess
+                    ? allBucketFromNotifications.filter(bucket => !apiBucketIds.has(bucket.bucketId))
+                    : [];
+
+                if (!apiSuccess && orphanedFullBuckets.length > 0) {
+                    console.warn(`[useNotificationsState] Skipping ${orphanedFullBuckets.length} potential orphaned buckets (API offline, using cache)`);
+                }
 
 
                 // STEP 7: Create orphaned bucket entries

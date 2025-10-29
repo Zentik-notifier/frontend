@@ -34,7 +34,13 @@ export function useConnectionStatus(push: UsePushNotifications) {
   const errorCountRef = useRef(0);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isPollingRef = useRef(false);
+  const isOnlineRef = useRef(isOnline);
   const { data: userData, loading } = useGetMeQuery();
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    isOnlineRef.current = isOnline;
+  }, [isOnline]);
 
   // Check filesystem permissions (mobile only)
   useEffect(() => {
@@ -86,14 +92,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
   useEffect(() => {
     let newStatus: ConnectionStatus | undefined;
 
-    if (isOfflineAuth) {
-      newStatus = {
-        type: 'offline',
-        icon: 'cloud-off',
-        action: null, // Si aprirà il modal di login
-        color: '#FF3B30'
-      };
-    } else if (!hasFilesystemPermission) {
+    if (!hasFilesystemPermission) {
       newStatus = {
         type: 'filesystem-permission',
         icon: 'folder-lock',
@@ -142,6 +141,13 @@ export function useConnectionStatus(push: UsePushNotifications) {
         action: null,
         color: '#FF3B30'
       };
+    } else if (isOfflineAuth) {
+      newStatus = {
+        type: 'offline',
+        icon: 'cloud-off',
+        action: null,
+        color: '#FF3B30'
+      };
     }
 
     setStatus(newStatus);
@@ -152,8 +158,14 @@ export function useConnectionStatus(push: UsePushNotifications) {
   }, []);
 
   useEffect(() => {
-    setIsOfflineAuth(!userData?.me && !loading);
-  }, [userData, loading])
+    // Only set offline auth if:
+    // 1. Network is online (otherwise it's a network issue)
+    // 2. Backend is reachable (otherwise it's a backend issue)
+    // 3. No user data and not loading
+    // This prevents showing "offline" when the backend comes back online but userData hasn't loaded yet
+    const shouldShowOfflineAuth = !userData?.me && !loading && isOnline && !isBackendUnreachable;
+    setIsOfflineAuth(shouldShowOfflineAuth);
+  }, [userData, loading, isOnline, isBackendUnreachable])
 
   // Server health polling
   const checkServerHealth = async () => {
@@ -169,11 +181,18 @@ export function useConnectionStatus(push: UsePushNotifications) {
           err.extensions?.code === 'UNAUTHENTICATED' ||
           err.message.includes('401')
         )) {
-          errorCountRef.current = 0; // Reset error count for auth errors
+          // Auth errors don't count as backend unreachable
+          errorCountRef.current = 0;
+          // Only set backend unreachable if network is actually online
+          // (if offline, it's a network issue, not backend)
+          if (isOnlineRef.current) {
+            setIsBackendUnreachable(false);
+          }
         } else {
           // Other errors - increment counter
           errorCountRef.current++;
-          if (errorCountRef.current >= 3) {
+          // Consistent threshold: require 2 consecutive failures before marking as unreachable
+          if (errorCountRef.current >= 2 && isOnlineRef.current) {
             setIsBackendUnreachable(true);
           }
         }
@@ -185,7 +204,9 @@ export function useConnectionStatus(push: UsePushNotifications) {
     } catch (error: any) {
       // Network or other errors
       errorCountRef.current++;
-      if (errorCountRef.current >= 3) {
+      // Consistent threshold: require 2 consecutive failures
+      // Only mark as unreachable if network is online (otherwise it's a network issue)
+      if (errorCountRef.current >= 2 && isOnlineRef.current) {
         setIsBackendUnreachable(true);
       }
     } finally {
@@ -193,18 +214,21 @@ export function useConnectionStatus(push: UsePushNotifications) {
     }
   };
 
-  // Start polling when component mounts
+  // Start polling when component mounts and adjust interval based on backend status
   useEffect(() => {
-    const startPolling = () => {
-      if (pollingIntervalRef.current) return;
+    // Clear existing interval when status changes
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
 
-      // Initial check
-      checkServerHealth();
+    // Initial check
+    checkServerHealth();
 
-      pollingIntervalRef.current = setInterval(checkServerHealth, 30000);
-    };
-
-    startPolling();
+    // Poll every 30 seconds normally, but every 10 seconds when backend is unreachable
+    // to detect recovery faster
+    const pollInterval = isBackendUnreachable ? 10000 : 30000;
+    pollingIntervalRef.current = setInterval(checkServerHealth, pollInterval);
 
     return () => {
       if (pollingIntervalRef.current) {
@@ -212,7 +236,7 @@ export function useConnectionStatus(push: UsePushNotifications) {
         pollingIntervalRef.current = null;
       }
     };
-  }, []);
+  }, [isBackendUnreachable]);
 
   // Network connectivity monitoring
   useEffect(() => {
@@ -224,12 +248,17 @@ export function useConnectionStatus(push: UsePushNotifications) {
       setIsOnline(newOnlineState);
       setIsWifi(newIsWifi);
 
-      // If network comes back online, reset backend unreachable flag
       if (!wasOnline && newOnlineState) {
+        // Network just came back online
+        // Reset error count and trigger immediate health check
+        // Don't reset isBackendUnreachable yet - let health check determine this
+        errorCountRef.current = 0;
+        checkServerHealth();
+      } else if (wasOnline && !newOnlineState) {
+        // Network just went offline
+        // Clear backend unreachable flag since it's now a network issue
         setIsBackendUnreachable(false);
         errorCountRef.current = 0;
-        // Trigger immediate health check
-        checkServerHealth();
       }
     });
 
