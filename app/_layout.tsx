@@ -42,6 +42,8 @@ function DeepLinkHandler() {
           const provider = params.get("provider");
           const code = params.get("code");
           const sessionId = params.get("sessionId");
+          const error = params.get("error");
+          const errorDescription = params.get("error_description");
           const oauthParams = new URLSearchParams();
           if (accessToken) oauthParams.set("accessToken", accessToken);
           if (refreshToken) oauthParams.set("refreshToken", refreshToken);
@@ -49,6 +51,8 @@ function DeepLinkHandler() {
           if (provider) oauthParams.set("provider", provider);
           if (code) oauthParams.set("code", code);
           if (sessionId) oauthParams.set("sessionId", sessionId);
+          if (error) oauthParams.set("error", error);
+          if (errorDescription) oauthParams.set("error_description", errorDescription);
           navigateToOAuth(oauthParams.toString());
           return;
         }

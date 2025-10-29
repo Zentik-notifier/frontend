@@ -4,6 +4,20 @@ import { Platform } from 'react-native';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { NotificationFragment } from '@/generated/gql-operations-generated';
 
+// Wait until IndexedDB is exposed by the environment (some browsers expose it after a tick)
+async function waitForIndexedDB(timeoutMs = 10000, intervalMs = 50): Promise<void> {
+  const start = Date.now();
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const available = (typeof indexedDB !== 'undefined') || (typeof window !== 'undefined' && (window as any).indexedDB);
+    if (available) return;
+    if (Date.now() - start >= timeoutMs) {
+      throw new Error('IndexedDB not ready');
+    }
+    await new Promise(resolve => setTimeout(resolve, intervalMs));
+  }
+}
+
 // IndexedDB schema for web storage
 export interface WebStorageDB extends DBSchema {
   keyvalue: {

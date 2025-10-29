@@ -2,6 +2,15 @@
 // Run 'npm run generate:i18n-types' to regenerate.
 
 export interface Translation {
+  oauth: {
+    signInTitleWithProvider: string;
+    genericSignInTitle: string;
+    accessDeniedMessage: string;
+    successTitle: string;
+    successMessage: string;
+    back: string;
+    goHome: string;
+  };
   appSettings: {
     title: string;
     description: string;

@@ -1,4 +1,13 @@
 {
+  "oauth": {
+    "signInTitleWithProvider": "Accesso con {{provider}}",
+    "genericSignInTitle": "Accesso",
+    "accessDeniedMessage": "L'autorizzazione è stata negata dal provider.",
+    "successTitle": "Accesso effettuato",
+    "successMessage": "Verrai reindirizzato alla home. Se non accade, premi il pulsante qui sotto.",
+    "back": "Indietro",
+    "goHome": "Vai alla Home"
+  },
   "appSettings": {
     "title": "Impostazioni App",
     "description": "Configura le preferenze dell'applicazione e le impostazioni della lingua",

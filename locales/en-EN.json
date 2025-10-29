@@ -1,4 +1,13 @@
 {
+  "oauth": {
+    "signInTitleWithProvider": "{{provider}} sign-in",
+    "genericSignInTitle": "Sign-in",
+    "accessDeniedMessage": "Authorization was denied by the provider.",
+    "successTitle": "Signed in",
+    "successMessage": "You are being redirected to your home. If not, press the button below.",
+    "back": "Back",
+    "goHome": "Go to Home"
+  },
   "appSettings": {
     "title": "App Settings",
     "description": "Configure application preferences and language settings",

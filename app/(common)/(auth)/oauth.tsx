@@ -1,16 +1,24 @@
 import { settingsService } from "@/services/settings-service";
+import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
-import { Platform } from "react-native";
+import { Platform, View, StyleSheet } from "react-native";
+import { Text, Button, useTheme } from "react-native-paper";
 
 export default function OAuthCallbackPage() {
   const { refreshUserData, completeAuth, setUserId } = useAppContext();
   const { navigateToHome } = useNavigationUtils();
+  const { t } = useI18n();
   const searchParams = useLocalSearchParams();
   const [processing, setProcessing] = useState(false);
+  const [errorTitle, setErrorTitle] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successTitle, setSuccessTitle] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const theme = useTheme();
 
   useEffect(() => {
     const handleOAuthCallback = async () => {
@@ -23,6 +31,8 @@ export default function OAuthCallbackPage() {
         let refreshToken = searchParams.refreshToken as string;
         let connected = searchParams.connected as string;
         let provider = searchParams.provider as string;
+        let errorParam = searchParams.error as string;
+        let errorDescriptionParam = searchParams.error_description as string;
         let codeParam = searchParams.code as string;
         let sessionIdParam = searchParams.sessionId as string;
 
@@ -35,6 +45,8 @@ export default function OAuthCallbackPage() {
               refreshToken = refreshToken || (params.get("refreshToken") as string);
               connected = connected || (params.get("connected") as string);
               provider = provider || (params.get("provider") as string);
+              errorParam = errorParam || (params.get("error") as string);
+              errorDescriptionParam = errorDescriptionParam || (params.get("error_description") as string);
               
               // Check for exchange code
               const code = params.get("code");
@@ -70,11 +82,28 @@ export default function OAuthCallbackPage() {
             }
           } catch {}
           
-          if (!accessToken && !refreshToken && !connected) {
+          if (!accessToken && !refreshToken && !connected && !errorParam) {
             console.log("🔗 No tokens or code in URL");
             router.replace("/(common)/(auth)/login");
             return;
           }
+        }
+
+        // Handle OAuth errors (both web and native)
+        if (errorParam) {
+          const title = provider
+            ? t('oauth.signInTitleWithProvider', { provider })
+            : t('oauth.genericSignInTitle');
+          const message = errorDescriptionParam || t('oauth.accessDeniedMessage');
+          try {
+            if (Platform.OS !== 'web') {
+              await WebBrowser.dismissBrowser();
+              await WebBrowser.maybeCompleteAuthSession();
+            }
+          } catch {}
+          setErrorTitle(title);
+          setErrorMessage(message);
+          return;
         }
 
         // On native: exchange code if provided via deep link
@@ -141,6 +170,8 @@ export default function OAuthCallbackPage() {
           return;
         } else if (accessToken && refreshToken) {
           console.log("🔗 Saving tokens and fetching user data");
+          setSuccessTitle(t('oauth.successTitle'));
+          setSuccessMessage(t('oauth.successMessage'));
           completeAuth(accessToken, refreshToken);
         } else {
           console.error("🔗 Missing tokens in OAuth callback");
@@ -155,5 +186,63 @@ export default function OAuthCallbackPage() {
     handleOAuthCallback();
   }, [searchParams, refreshUserData, setUserId]);
 
+  if (errorTitle) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+          <View style={styles.card}>
+            <Text variant="titleMedium" style={{ color: theme.colors.error, marginBottom: 8 }}>
+              {errorTitle}
+            </Text>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onBackground, marginBottom: 16 }}>
+              {errorMessage}
+            </Text>
+            <Button mode="contained" onPress={() => navigateToHome()}>
+              {t('oauth.back')}
+            </Button>
+          </View>
+        </View>
+      </>
+    );
+  }
+
+  if (successTitle) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+          <View style={styles.card}>
+            <Text variant="titleMedium" style={{ color: theme.colors.primary, marginBottom: 8 }}>
+              {successTitle}
+            </Text>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onBackground, marginBottom: 16 }}>
+              {successMessage}
+            </Text>
+            <Button mode="contained" onPress={() => navigateToHome()}>
+              {t('oauth.goHome')}
+            </Button>
+          </View>
+        </View>
+      </>
+    );
+  }
+
   return <Stack.Screen options={{ headerShown: false }} />;
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  card: {
+    maxWidth: 480,
+    width: '100%',
+    borderRadius: 12,
+    padding: 16,
+    gap: 8,
+  },
+});
