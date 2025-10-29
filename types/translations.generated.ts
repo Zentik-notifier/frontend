@@ -1940,6 +1940,9 @@ export interface Translation {
     DEVICE_REGISTER: string;
     DEVICE_UNREGISTER: string;
     ACCOUNT_DELETE: string;
+    SYSTEM_TOKEN_REQUEST_CREATED: string;
+    SYSTEM_TOKEN_REQUEST_APPROVED: string;
+    SYSTEM_TOKEN_REQUEST_DECLINED: string;
   };
   adminSubscriptions: {
     title: string;
@@ -1985,6 +1988,7 @@ export interface Translation {
       logging: string;
       logStorage: string;
       prometheus: string;
+      systemAccessTokens: string;
     };
     authentication: string;
     apnPush: string;
@@ -2000,6 +2004,7 @@ export interface Translation {
     logging: string;
     logStorage: string;
     prometheus: string;
+    systemAccessTokens: string;
     fields: {
       JwtAccessTokenExpiration: string;
       JwtRefreshTokenExpiration: string;
@@ -2055,6 +2060,7 @@ export interface Translation {
       LogStorageEnabled: string;
       LogRetentionDays: string;
       PrometheusEnabled: string;
+      EnableSystemTokenRequests: string;
     };
     JwtAccessTokenExpiration: string;
     JwtRefreshTokenExpiration: string;

@@ -1083,7 +1083,10 @@
     "BUCKET_UNSHARING": "Rimozione Condivisione",
     "DEVICE_REGISTER": "Registrazione Dispositivo",
     "DEVICE_UNREGISTER": "Rimozione Dispositivo",
-    "ACCOUNT_DELETE": "Eliminazione Account"
+    "ACCOUNT_DELETE": "Eliminazione Account",
+    "SYSTEM_TOKEN_REQUEST_CREATED": "Richiesta Token di Sistema Creata",
+    "SYSTEM_TOKEN_REQUEST_APPROVED": "Richiesta Token di Sistema Approvata",
+    "SYSTEM_TOKEN_REQUEST_DECLINED": "Richiesta Token di Sistema Rifiutata"
   },
   "adminSubscriptions": {
     "title": "Sottoscrizioni Eventi Admin",

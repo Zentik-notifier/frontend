@@ -1937,7 +1937,10 @@
     "BUCKET_UNSHARING": "Bucket Unsharing",
     "DEVICE_REGISTER": "Device Register",
     "DEVICE_UNREGISTER": "Device Unregister",
-    "ACCOUNT_DELETE": "Account Delete"
+    "ACCOUNT_DELETE": "Account Delete",
+    "SYSTEM_TOKEN_REQUEST_CREATED": "System Token Request Created",
+    "SYSTEM_TOKEN_REQUEST_APPROVED": "System Token Request Approved",
+    "SYSTEM_TOKEN_REQUEST_DECLINED": "System Token Request Declined"
   },
   "adminSubscriptions": {
     "title": "Admin Subscriptions",

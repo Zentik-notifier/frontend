@@ -311,7 +311,10 @@ export enum EventType {
   Notification = 'NOTIFICATION',
   NotificationAck = 'NOTIFICATION_ACK',
   PushPassthrough = 'PUSH_PASSTHROUGH',
-  Register = 'REGISTER'
+  Register = 'REGISTER',
+  SystemTokenRequestApproved = 'SYSTEM_TOKEN_REQUEST_APPROVED',
+  SystemTokenRequestCreated = 'SYSTEM_TOKEN_REQUEST_CREATED',
+  SystemTokenRequestDeclined = 'SYSTEM_TOKEN_REQUEST_DECLINED'
 }
 
 export type EventsQueryDto = {
@@ -1493,6 +1496,7 @@ export enum ServerSettingType {
   EmailSecure = 'EmailSecure',
   EmailType = 'EmailType',
   EmailUser = 'EmailUser',
+  EnableSystemTokenRequests = 'EnableSystemTokenRequests',
   FirebaseClientEmail = 'FirebaseClientEmail',
   FirebasePrivateKey = 'FirebasePrivateKey',
   FirebaseProjectId = 'FirebaseProjectId',
@@ -1853,6 +1857,8 @@ export type UserSession = {
   browser: Maybe<Scalars['String']['output']>;
   createdAt: Scalars['DateTime']['output'];
   deviceName: Maybe<Scalars['String']['output']>;
+  exchangeCode: Maybe<Scalars['String']['output']>;
+  exchangeCodeRequestedAt: Maybe<Scalars['DateTime']['output']>;
   expiresAt: Scalars['DateTime']['output'];
   id: Scalars['ID']['output'];
   ipAddress: Maybe<Scalars['String']['output']>;
