@@ -22,6 +22,8 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     const isPublic = segments[0] === "(common)";
     const isPrivate = !isPublic;
     const isHome = segments[1] === "(home)";
+    const isOAuthCallback =
+      isPublic && segments[1] === "(auth)" && segments[2] === "oauth";
     const isTerms = isPublic && segments[1] === "terms-acceptance";
 
     // Wait for user settings to be loaded from storage to avoid race condition
@@ -52,7 +54,8 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     }
 
     // 3) If logged in and currently in public routes (not home), go home
-    if (showPrivateRoutes && isPublic && !isHome) {
+    //    Skip when we're on OAuth callback to allow custom back behavior
+    if (showPrivateRoutes && isPublic && !isHome && !isOAuthCallback) {
       navigateToHome();
       return;
     }

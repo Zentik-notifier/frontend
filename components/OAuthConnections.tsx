@@ -157,8 +157,16 @@ export default function OAuthConnections({
             providerName
           ),
           [
-            { text: t("common.cancel"), style: "cancel", onPress: () => resolve(false) },
-            { text: t("common.ok"), style: "destructive", onPress: () => resolve(true) },
+            {
+              text: t("common.cancel"),
+              style: "cancel",
+              onPress: () => resolve(false),
+            },
+            {
+              text: t("common.ok"),
+              style: "destructive",
+              onPress: () => resolve(true),
+            },
           ]
         );
       });
@@ -181,7 +189,10 @@ export default function OAuthConnections({
         throw new Error(text || "Request failed");
       }
 
-      Alert.alert(t("common.success"), t("userProfile.oauthConnections.disconnectSuccess"));
+      Alert.alert(
+        t("common.success"),
+        t("userProfile.oauthConnections.disconnectSuccess")
+      );
 
       // Ask the app to refresh user data to update identities list
       try {
@@ -189,13 +200,16 @@ export default function OAuthConnections({
       } catch {}
     } catch (e) {
       console.error("🔗 Failed to disconnect identity", e);
-      Alert.alert(t("common.error"), t("userProfile.oauthConnections.disconnectError"));
+      Alert.alert(
+        t("common.error"),
+        t("userProfile.oauthConnections.disconnectError")
+      );
     }
   };
 
   if (providersLoading) {
     return (
-      <Card style={styles.container}>
+      <Card>
         <Card.Content style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={theme.colors.primary} />
           <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
@@ -208,7 +222,7 @@ export default function OAuthConnections({
 
   if (availableProviders.length === 0 && sortedOAuthIdentities.length === 0) {
     return (
-      <Card style={styles.container}>
+      <Card>
         <Card.Content style={styles.emptyState}>
           <Icon
             source="link-off"
@@ -226,7 +240,7 @@ export default function OAuthConnections({
   }
 
   return (
-    <Card style={styles.container}>
+    <Card>
       <Card.Content>
         <View style={styles.header}>
           <Icon source="link" size={24} color={theme.colors.primary} />
@@ -274,11 +288,19 @@ export default function OAuthConnections({
                 right={() => (
                   <View style={styles.rightContent}>
                     {isConnected ? (
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
                         <Chip
                           mode="flat"
                           textStyle={{ color: theme.colors.primary }}
-                          style={{ backgroundColor: theme.colors.primaryContainer }}
+                          style={{
+                            backgroundColor: theme.colors.primaryContainer,
+                          }}
                         >
                           {t("userProfile.oauthConnections.connected")}
                         </Chip>
@@ -324,9 +346,6 @@ export default function OAuthConnections({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
   loadingContainer: {
     flexDirection: "row",
     alignItems: "center",

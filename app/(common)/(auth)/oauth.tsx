@@ -10,7 +10,7 @@ import { Text, Button, useTheme } from "react-native-paper";
 
 export default function OAuthCallbackPage() {
   const { refreshUserData, completeAuth, setUserId } = useAppContext();
-  const { navigateToHome } = useNavigationUtils();
+  const { navigateToHome, navigateToUserProfile } = useNavigationUtils();
   const { t } = useI18n();
   const searchParams = useLocalSearchParams();
   const [processing, setProcessing] = useState(false);
@@ -38,30 +38,40 @@ export default function OAuthCallbackPage() {
 
         if (Platform.OS === "web") {
           try {
-            const hash = typeof window !== "undefined" ? window.location.hash : "";
+            const hash =
+              typeof window !== "undefined" ? window.location.hash : "";
             if (hash && hash.startsWith("#")) {
               const params = new URLSearchParams(hash.substring(1));
-              accessToken = accessToken || (params.get("accessToken") as string);
-              refreshToken = refreshToken || (params.get("refreshToken") as string);
+              accessToken =
+                accessToken || (params.get("accessToken") as string);
+              refreshToken =
+                refreshToken || (params.get("refreshToken") as string);
               connected = connected || (params.get("connected") as string);
               provider = provider || (params.get("provider") as string);
               errorParam = errorParam || (params.get("error") as string);
-              errorDescriptionParam = errorDescriptionParam || (params.get("error_description") as string);
-              
+              errorDescriptionParam =
+                errorDescriptionParam ||
+                (params.get("error_description") as string);
+
               // Check for exchange code
               const code = params.get("code");
               if (code && !accessToken && !refreshToken) {
-                console.log("🔗 Exchange code received, exchanging for tokens...");
+                console.log(
+                  "🔗 Exchange code received, exchanging for tokens..."
+                );
                 try {
                   const baseUrl = settingsService.getApiBaseWithPrefix();
-                  const response = await fetch(`${baseUrl}/auth/exchange-code`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ code }),
-                  });
-                  
+                  const response = await fetch(
+                    `${baseUrl}/auth/exchange-code`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({ code }),
+                    }
+                  );
+
                   if (response.ok) {
                     const data = await response.json();
                     console.log("🔗 Tokens received from exchange");
@@ -81,7 +91,7 @@ export default function OAuthCallbackPage() {
               }
             }
           } catch {}
-          
+
           if (!accessToken && !refreshToken && !connected && !errorParam) {
             console.log("🔗 No tokens or code in URL");
             router.replace("/(common)/(auth)/login");
@@ -92,11 +102,12 @@ export default function OAuthCallbackPage() {
         // Handle OAuth errors (both web and native)
         if (errorParam) {
           const title = provider
-            ? t('oauth.signInTitleWithProvider', { provider })
-            : t('oauth.genericSignInTitle');
-          const message = errorDescriptionParam || t('oauth.accessDeniedMessage');
+            ? t("oauth.signInTitleWithProvider", { provider })
+            : t("oauth.genericSignInTitle");
+          const message =
+            errorDescriptionParam || t("oauth.accessDeniedMessage");
           try {
-            if (Platform.OS !== 'web') {
+            if (Platform.OS !== "web") {
               await WebBrowser.dismissBrowser();
               await WebBrowser.maybeCompleteAuthSession();
             }
@@ -107,23 +118,34 @@ export default function OAuthCallbackPage() {
         }
 
         // On native: exchange code if provided via deep link
-        if (Platform.OS !== "web" && !accessToken && !refreshToken && codeParam) {
+        if (
+          Platform.OS !== "web" &&
+          !accessToken &&
+          !refreshToken &&
+          codeParam
+        ) {
           try {
             const baseUrl = settingsService.getApiBaseWithPrefix();
             const response = await fetch(`${baseUrl}/auth/exchange-code`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ code: codeParam, sessionId: sessionIdParam }),
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                code: codeParam,
+                sessionId: sessionIdParam,
+              }),
             });
             if (response.ok) {
               const data = await response.json();
               accessToken = data.accessToken;
               refreshToken = data.refreshToken;
             } else {
-              console.error('🔗 Native code exchange failed with status', response.status);
+              console.error(
+                "🔗 Native code exchange failed with status",
+                response.status
+              );
             }
           } catch (e) {
-            console.error('🔗 Native code exchange error', e);
+            console.error("🔗 Native code exchange error", e);
           }
         }
 
@@ -165,13 +187,14 @@ export default function OAuthCallbackPage() {
             );
           }
 
-          // Navigate back to the previous page (likely user profile/settings)
-          router.back();
+          // Always navigate explicitly to the User Profile after connecting a provider
+          // This avoids unintended redirects to Home or incorrect back stack behavior
+          navigateToUserProfile();
           return;
         } else if (accessToken && refreshToken) {
           console.log("🔗 Saving tokens and fetching user data");
-          setSuccessTitle(t('oauth.successTitle'));
-          setSuccessMessage(t('oauth.successMessage'));
+          setSuccessTitle(t("oauth.successTitle"));
+          setSuccessMessage(t("oauth.successMessage"));
           completeAuth(accessToken, refreshToken);
         } else {
           console.error("🔗 Missing tokens in OAuth callback");
@@ -190,16 +213,27 @@ export default function OAuthCallbackPage() {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
-        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
           <View style={styles.card}>
-            <Text variant="titleMedium" style={{ color: theme.colors.error, marginBottom: 8 }}>
+            <Text
+              variant="titleMedium"
+              style={{ color: theme.colors.error, marginBottom: 8 }}
+            >
               {errorTitle}
             </Text>
-            <Text variant="bodyMedium" style={{ color: theme.colors.onBackground, marginBottom: 16 }}>
+            <Text
+              variant="bodyMedium"
+              style={{ color: theme.colors.onBackground, marginBottom: 16 }}
+            >
               {errorMessage}
             </Text>
             <Button mode="contained" onPress={() => navigateToHome()}>
-              {t('oauth.back')}
+              {t("oauth.back")}
             </Button>
           </View>
         </View>
@@ -211,16 +245,27 @@ export default function OAuthCallbackPage() {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
-        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
           <View style={styles.card}>
-            <Text variant="titleMedium" style={{ color: theme.colors.primary, marginBottom: 8 }}>
+            <Text
+              variant="titleMedium"
+              style={{ color: theme.colors.primary, marginBottom: 8 }}
+            >
               {successTitle}
             </Text>
-            <Text variant="bodyMedium" style={{ color: theme.colors.onBackground, marginBottom: 16 }}>
+            <Text
+              variant="bodyMedium"
+              style={{ color: theme.colors.onBackground, marginBottom: 16 }}
+            >
               {successMessage}
             </Text>
             <Button mode="contained" onPress={() => navigateToHome()}>
-              {t('oauth.goHome')}
+              {t("oauth.goHome")}
             </Button>
           </View>
         </View>
@@ -234,13 +279,13 @@ export default function OAuthCallbackPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 24,
   },
   card: {
     maxWidth: 480,
-    width: '100%',
+    width: "100%",
     borderRadius: 12,
     padding: 16,
     gap: 8,

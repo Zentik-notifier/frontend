@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import { Alert, Image, StyleSheet, View } from "react-native";
 import {
   Button,
-  Card,
   Divider,
   IconButton,
   List,
@@ -27,7 +26,8 @@ import IdWithCopyButton from "./IdWithCopyButton";
 import NotificationStats from "./NotificationStats";
 import OAuthConnections from "./OAuthConnections";
 import PaperScrollView from "./ui/PaperScrollView";
-import UserSystemAccessTokenRequests from "./UserSystemAccessTokenRequests";
+import DetailSectionCard from "./ui/DetailSectionCard";
+// import UserSystemAccessTokenRequests from "./UserSystemAccessTokenRequests";
 
 export default function UserSection() {
   const { logout, refreshUserData } = useAppContext();
@@ -190,244 +190,244 @@ export default function UserSection() {
     >
       <View style={styles.section}>
         {/* Profile Section with Avatar and Form */}
-        <Card style={styles.profileContainer}>
-          <Card.Content>
-            <View style={styles.profileHeader}>
-              <Text
-                variant="titleMedium"
-                style={{ color: theme.colors.onSurface }}
-              >
-                {t("userProfile.editProfile")}
-              </Text>
-              <IconButton
-                icon={editing ? "close" : "pencil"}
-                onPress={() => setEditing(!editing)}
-                iconColor={theme.colors.primary}
-              />
-            </View>
+        <DetailSectionCard
+          title={t("userProfile.editProfile")}
+          actionButton={{
+            icon: "pencil",
+            onPress: () => setEditing(!editing),
+          }}
+          items={[{ key: "profile" }]}
+          renderItem={() => (
+            <View>
+              {editing ? (
+                <List.Item
+                  title={t("userProfile.avatar")}
+                  description={
+                    <TextInput
+                      mode="outlined"
+                      value={avatar}
+                      onChangeText={setAvatar}
+                      placeholder={t("userProfile.avatarPlaceholder")}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="url"
+                      style={styles.inlineInput}
+                      multiline
+                    />
+                  }
+                  left={(props) => (
+                    <View style={styles.avatarIconContainer}>
+                      {user.avatar ? (
+                        <Image
+                          source={{ uri: user.avatar }}
+                          style={styles.avatarIcon}
+                          onError={() =>
+                            console.warn("Failed to load avatar image")
+                          }
+                        />
+                      ) : (
+                        <List.Icon {...props} icon="account-circle" />
+                      )}
+                    </View>
+                  )}
+                />
+              ) : (
+                <View style={styles.avatarSection}>
+                  <Text
+                    variant="bodyMedium"
+                    style={{ color: theme.colors.onSurface, marginBottom: 8 }}
+                  >
+                    {t("userProfile.avatar")}
+                  </Text>
 
-            {/* Avatar Section */}
-            {editing ? (
-              <List.Item
-                title={t("userProfile.avatar")}
-                description={
-                  <TextInput
-                    mode="outlined"
-                    value={avatar}
-                    onChangeText={setAvatar}
-                    placeholder={t("userProfile.avatarPlaceholder")}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="url"
-                    style={styles.inlineInput}
-                    multiline
-                  />
-                }
-                left={(props) => (
-                  <View style={styles.avatarIconContainer}>
+                  <View style={styles.avatarPreviewContainer}>
                     {user.avatar ? (
-                      <Image
-                        source={{ uri: user.avatar }}
-                        style={styles.avatarIcon}
-                        onError={() =>
-                          console.warn("Failed to load avatar image")
-                        }
-                      />
+                      <View style={styles.avatarPreview}>
+                        <Image
+                          source={{ uri: user.avatar }}
+                          style={styles.avatarPreviewImage}
+                          onError={() =>
+                            console.warn("Failed to load avatar image")
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.avatarUrl,
+                            { color: theme.colors.onSurfaceVariant },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {user.avatar}
+                        </Text>
+                      </View>
                     ) : (
-                      <List.Icon {...props} icon="account-circle" />
-                    )}
-                  </View>
-                )}
-              />
-            ) : (
-              <View style={styles.avatarSection}>
-                <Text
-                  variant="bodyMedium"
-                  style={{ color: theme.colors.onSurface, marginBottom: 8 }}
-                >
-                  {t("userProfile.avatar")}
-                </Text>
-
-                <View style={styles.avatarPreviewContainer}>
-                  {user.avatar ? (
-                    <View style={styles.avatarPreview}>
-                      <Image
-                        source={{ uri: user.avatar }}
-                        style={styles.avatarPreviewImage}
-                        onError={() =>
-                          console.warn("Failed to load avatar image")
-                        }
-                      />
                       <Text
                         style={[
-                          styles.avatarUrl,
+                          styles.value,
                           { color: theme.colors.onSurfaceVariant },
                         ]}
-                        numberOfLines={1}
                       >
-                        {user.avatar}
+                        {t("userProfile.notSet")}
                       </Text>
-                    </View>
-                  ) : (
-                    <Text
-                      style={[
-                        styles.value,
-                        { color: theme.colors.onSurfaceVariant },
-                      ]}
-                    >
-                      {t("userProfile.notSet")}
-                    </Text>
-                  )}
+                    )}
+                  </View>
                 </View>
+              )}
+
+              <View style={styles.profileInfo}>
+                <List.Item
+                  title={t("userProfile.username")}
+                  description={user.username || t("userProfile.notAvailable")}
+                  left={(props) => <List.Icon {...props} icon="account" />}
+                />
+                <Divider />
+
+                <List.Item
+                  title={t("userProfile.email")}
+                  description={user.email || t("userProfile.notAvailable")}
+                  left={(props) => <List.Icon {...props} icon="email" />}
+                />
+                <Divider />
+
+                <List.Item
+                  title={t("userProfile.firstName")}
+                  description={
+                    editing ? (
+                      <TextInput
+                        mode="outlined"
+                        value={firstName}
+                        onChangeText={setFirstName}
+                        placeholder={t("userProfile.firstNamePlaceholder")}
+                        style={styles.inlineInput}
+                      />
+                    ) : (
+                      user.firstName || t("userProfile.notAvailable")
+                    )
+                  }
+                  left={(props) => (
+                    <List.Icon {...props} icon="account-details" />
+                  )}
+                />
+                <Divider />
+
+                <List.Item
+                  title={t("userProfile.lastName")}
+                  description={
+                    editing ? (
+                      <TextInput
+                        mode="outlined"
+                        value={lastName}
+                        onChangeText={setLastName}
+                        placeholder={t("userProfile.lastNamePlaceholder")}
+                        style={styles.inlineInput}
+                      />
+                    ) : (
+                      user.lastName || t("userProfile.notAvailable")
+                    )
+                  }
+                  left={(props) => (
+                    <List.Icon {...props} icon="account-details" />
+                  )}
+                />
               </View>
-            )}
 
-            {/* Profile Info */}
-            <View style={styles.profileInfo}>
-              <List.Item
-                title={t("userProfile.username")}
-                description={user.username || t("userProfile.notAvailable")}
-                left={(props) => <List.Icon {...props} icon="account" />}
-              />
-              <Divider />
-
-              <List.Item
-                title={t("userProfile.email")}
-                description={user.email || t("userProfile.notAvailable")}
-                left={(props) => <List.Icon {...props} icon="email" />}
-              />
-              <Divider />
-
-              <List.Item
-                title={t("userProfile.firstName")}
-                description={
-                  editing ? (
-                    <TextInput
-                      mode="outlined"
-                      value={firstName}
-                      onChangeText={setFirstName}
-                      placeholder={t("userProfile.firstNamePlaceholder")}
-                      style={styles.inlineInput}
-                    />
-                  ) : (
-                    user.firstName || t("userProfile.notAvailable")
-                  )
-                }
-                left={(props) => (
-                  <List.Icon {...props} icon="account-details" />
-                )}
-              />
-              <Divider />
-
-              <List.Item
-                title={t("userProfile.lastName")}
-                description={
-                  editing ? (
-                    <TextInput
-                      mode="outlined"
-                      value={lastName}
-                      onChangeText={setLastName}
-                      placeholder={t("userProfile.lastNamePlaceholder")}
-                      style={styles.inlineInput}
-                    />
-                  ) : (
-                    user.lastName || t("userProfile.notAvailable")
-                  )
-                }
-                left={(props) => (
-                  <List.Icon {...props} icon="account-details" />
-                )}
-              />
+              {editing && (
+                <View style={styles.editActions}>
+                  <Button
+                    mode="outlined"
+                    onPress={() => setEditing(false)}
+                    style={styles.editButton}
+                  >
+                    {t("common.cancel")}
+                  </Button>
+                  <Button
+                    mode="contained"
+                    onPress={handleSave}
+                    disabled={savingProfile}
+                    loading={savingProfile}
+                    style={styles.editButton}
+                  >
+                    {savingProfile ? t("common.saving") : t("common.save")}
+                  </Button>
+                </View>
+              )}
             </View>
-
-            {/* Edit Actions */}
-            {editing && (
-              <View style={styles.editActions}>
-                <Button
-                  mode="outlined"
-                  onPress={() => setEditing(false)}
-                  style={styles.editButton}
-                >
-                  {t("common.cancel")}
-                </Button>
-                <Button
-                  mode="contained"
-                  onPress={handleSave}
-                  disabled={savingProfile}
-                  loading={savingProfile}
-                  style={styles.editButton}
-                >
-                  {savingProfile ? t("common.saving") : t("common.save")}
-                </Button>
-              </View>
-            )}
-          </Card.Content>
-        </Card>
+          )}
+        />
 
         {/* Session Provider Info */}
-        {currentSession?.loginProvider && (
-          <Card style={styles.providerContainer}>
-            <Card.Content>
-              <List.Item
-                title={t("userProfile.currentSessionProvider")}
-                description={
-                  provider ? provider.name : t("userProfile.localUser")
-                }
-                left={(props) => (
-                  <List.Icon
-                    {...props}
-                    icon="account-network"
-                    color={theme.colors.primary}
-                  />
-                )}
-                right={() =>
-                  provider && (
-                    <Image
-                      source={{ uri: provider?.iconUrl! }}
-                      style={styles.providerIconImage}
+        {/* {currentSession?.loginProvider && (
+          <DetailSectionCard
+            title={t("userProfile.currentSessionProvider")}
+            description={provider ? provider.name : t("userProfile.localUser")}
+            items={[{ key: "provider" }]}
+            renderItem={() => (
+              <View>
+                <List.Item
+                  title={t("userProfile.currentSessionProvider")}
+                  description={
+                    provider ? provider.name : t("userProfile.localUser")
+                  }
+                  left={(props) => (
+                    <List.Icon
+                      {...props}
+                      icon="account-network"
+                      color={theme.colors.primary}
                     />
-                  )
-                }
-              />
-              <Divider style={{ marginVertical: 8 }} />
-              <IdWithCopyButton
-                id={user.id}
-                label={t("userProfile.userId")}
-                copyMessage={t("userProfile.userIdCopied")}
-              />
-            </Card.Content>
-          </Card>
-        )}
+                  )}
+                  right={() =>
+                    provider && (
+                      <Image
+                        source={{ uri: provider?.iconUrl! }}
+                        style={styles.providerIconImage}
+                      />
+                    )
+                  }
+                />
+                <Divider style={{ marginVertical: 8 }} />
+                <IdWithCopyButton
+                  id={user.id}
+                  label={t("userProfile.userId")}
+                  copyMessage={t("userProfile.userIdCopied")}
+                />
+              </View>
+            )}
+          />
+        )} */}
 
         {/* Action Buttons */}
-        <Card style={styles.actionsContainer}>
-          <Card.Content>
-            <View style={styles.actionButtonsRow}>
-              <Button
-                mode="outlined"
-                onPress={navigateToChangePassword}
-                icon="lock"
-                style={styles.halfWidthButton}
-              >
-                {t("userProfile.changePassword")}
-              </Button>
-
-              <Button
-                mode="outlined"
-                onPress={logout}
-                icon="logout"
-                style={styles.halfWidthButton}
-                buttonColor={theme.colors.errorContainer}
-                textColor={theme.colors.onErrorContainer}
-              >
-                {t("userProfile.logout")}
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
+        <View style={styles.section}>
+          <DetailSectionCard
+            items={[{ key: "actions" }]}
+            renderItem={() => (
+              <View style={styles.actionButtonsRow}>
+                <Button
+                  mode="outlined"
+                  onPress={navigateToChangePassword}
+                  icon="lock"
+                  style={styles.halfWidthButton}
+                >
+                  {t("userProfile.changePassword")}
+                </Button>
+                <Button
+                  mode="outlined"
+                  onPress={logout}
+                  icon="logout"
+                  style={styles.halfWidthButton}
+                  buttonColor={theme.colors.errorContainer}
+                  textColor={theme.colors.onErrorContainer}
+                >
+                  {t("userProfile.logout")}
+                </Button>
+              </View>
+            )}
+          />
+        </View>
 
         {/* OAuth Connections Section */}
-        <OAuthConnections identities={user.identities} />
+        <View style={styles.section}>
+          <OAuthConnections identities={user.identities} />
+        </View>
 
         {/* User System Access Token Requests */}
         {/* <View style={styles.section}>
@@ -444,8 +444,11 @@ export default function UserSection() {
         )}
 
         {/* Delete Account Section */}
-        <Card style={styles.deleteAccountContainer}>
-          <Card.Content>
+        <DetailSectionCard
+          title={t("userProfile.deleteAccount")}
+          description={t("userProfile.deleteAccountWarning")}
+          items={[{ key: "delete" }]}
+          renderItem={() => (
             <View style={styles.deleteAccountContent}>
               <View style={styles.deleteAccountInfo}>
                 <Text
@@ -476,8 +479,8 @@ export default function UserSection() {
                   : t("userProfile.deleteAccount")}
               </Button>
             </View>
-          </Card.Content>
-        </Card>
+          )}
+        />
       </View>
     </PaperScrollView>
   );
@@ -498,12 +501,6 @@ const styles = StyleSheet.create({
   },
   profileContainer: {
     marginBottom: 16,
-  },
-  profileHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 20,
   },
   avatarSection: {
     marginBottom: 20,

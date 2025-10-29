@@ -5,15 +5,16 @@ import {
   Button,
   Card,
   Icon,
+  IconButton,
   Text,
   useTheme,
 } from "react-native-paper";
 
 interface DetailSectionCardProps<T> {
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
   actionButton?: {
-    label: string;
+    label?: string;
     icon: string;
     onPress: () => void;
     loading?: boolean;
@@ -44,31 +45,51 @@ export default function DetailSectionCard<T>({
   return (
     <Card style={styles.container}>
       <Card.Content>
-        <View style={styles.header}>
-          <View style={styles.headerText}>
-            <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-              {title}
-            </Text>
-            <Text
-              style={[
-                styles.description,
-                { color: theme.colors.onSurfaceVariant },
-              ]}
-            >
-              {description}
-            </Text>
-          </View>
+        <View style={[styles.header, !description && styles.headerNoDesc]}>
+          {(title || description) ? (
+            <View style={styles.headerText}>
+              {title ? (
+                <Text
+                  style={[
+                    styles.title,
+                    { color: theme.colors.onSurface, marginBottom: description ? 4 : 0 },
+                  ]}
+                >
+                  {title}
+                </Text>
+              ) : null}
+              {description ? (
+                <Text
+                  style={[
+                    styles.description,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  {description}
+                </Text>
+              ) : null}
+            </View>
+          ) : <View style={{ flex: 1 }} />}
           {actionButton && (
-            <Button
-              mode="contained-tonal"
-              compact
-              icon={actionButton.icon}
-              onPress={actionButton.onPress}
-              loading={actionButton.loading}
-              disabled={actionButton.disabled || actionButton.loading}
-            >
-              {actionButton.label}
-            </Button>
+            actionButton.label ? (
+              <Button
+                mode="contained-tonal"
+                compact
+                icon={actionButton.icon}
+                onPress={actionButton.onPress}
+                loading={actionButton.loading}
+                disabled={actionButton.disabled || actionButton.loading}
+              >
+                {actionButton.label}
+              </Button>
+            ) : (
+              <IconButton
+                icon={actionButton.icon}
+                size={20}
+                onPress={actionButton.onPress}
+                disabled={actionButton.disabled || actionButton.loading}
+              />
+            )
           )}
         </View>
 
@@ -121,6 +142,9 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 16,
     gap: 12,
+  },
+  headerNoDesc: {
+    alignItems: "center",
   },
   headerText: {
     flex: 1,
