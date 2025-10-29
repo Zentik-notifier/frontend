@@ -33,6 +33,12 @@ function mappedObjectIdPlaceholder(type: EventType): string {
     case EventType.DeviceRegister:
     case EventType.DeviceUnregister:
       return "-";
+    // New system token request events
+    case (EventType as any).SystemTokenRequestCreated:
+    case (EventType as any).SystemTokenRequestDeclined:
+      return "requestId";
+    case (EventType as any).SystemTokenRequestApproved:
+      return "requestId";
     default:
       return "-";
   }
@@ -178,6 +184,9 @@ export default function EventsReview() {
       case EventType.DeviceRegister:
       case EventType.DeviceUnregister:
         return "device:";
+      // Approved: target is token
+      case (EventType as any).SystemTokenRequestApproved:
+        return "token:";
       default:
         return "targetId:";
     }
@@ -190,6 +199,11 @@ export default function EventsReview() {
         return "bucket:";
       case EventType.PushPassthrough:
         return "token:";
+      // System token request events
+      case (EventType as any).SystemTokenRequestCreated:
+      case (EventType as any).SystemTokenRequestDeclined:
+      case (EventType as any).SystemTokenRequestApproved:
+        return "request:";
       default:
         return "objectId:";
     }
