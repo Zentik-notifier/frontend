@@ -340,7 +340,12 @@
       "connected": "Connesso",
       "connect": "Connetti",
       "connectionError": "Connessione fallita. Riprova.",
-      "availableToConnect": "Disponibile per la connessione"
+      "availableToConnect": "Disponibile per la connessione",
+      "disconnect": "Disconnetti",
+      "disconnectConfirmTitle": "Disconnetti account",
+      "disconnectConfirmMessage": "Sei sicuro di voler disconnettere {provider}?",
+      "disconnectSuccess": "Account disconnesso con successo",
+      "disconnectError": "Impossibile disconnettere l'account. Riprova."
     },
     "continue": "Continua",
     "deleteAccountConfirm": "Elimina Definitivamente",

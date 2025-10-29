@@ -32,6 +32,7 @@ export default function OAuthConnections({
   const theme = useTheme();
   const {
     connectionStatus: { isOfflineAuth, isBackendUnreachable },
+    refreshUserData,
   } = useAppContext();
   const [connectingProvider, setConnectingProvider] = useState<string | null>(
     null
@@ -146,6 +147,52 @@ export default function OAuthConnections({
     }
   };
 
+  const handleDisconnect = async (identityId: string, providerName: string) => {
+    try {
+      const confirmed = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          t("userProfile.oauthConnections.disconnectConfirmTitle"),
+          t("userProfile.oauthConnections.disconnectConfirmMessage").replace(
+            "{provider}",
+            providerName
+          ),
+          [
+            { text: t("common.cancel"), style: "cancel", onPress: () => resolve(false) },
+            { text: t("common.ok"), style: "destructive", onPress: () => resolve(true) },
+          ]
+        );
+      });
+      if (!confirmed) return;
+
+      const baseWithPrefix = settingsService.getApiBaseWithPrefix();
+      const token = settingsService.getAuthData().accessToken;
+      const response = await fetch(
+        `${baseWithPrefix}/auth/identities/${identityId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(text || "Request failed");
+      }
+
+      Alert.alert(t("common.success"), t("userProfile.oauthConnections.disconnectSuccess"));
+
+      // Ask the app to refresh user data to update identities list
+      try {
+        await refreshUserData();
+      } catch {}
+    } catch (e) {
+      console.error("🔗 Failed to disconnect identity", e);
+      Alert.alert(t("common.error"), t("userProfile.oauthConnections.disconnectError"));
+    }
+  };
+
   if (providersLoading) {
     return (
       <Card style={styles.container}>
@@ -227,15 +274,28 @@ export default function OAuthConnections({
                 right={() => (
                   <View style={styles.rightContent}>
                     {isConnected ? (
-                      <Chip
-                        mode="flat"
-                        textStyle={{ color: theme.colors.primary }}
-                        style={{
-                          backgroundColor: theme.colors.primaryContainer,
-                        }}
-                      >
-                        {t("userProfile.oauthConnections.connected")}
-                      </Chip>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <Chip
+                          mode="flat"
+                          textStyle={{ color: theme.colors.primary }}
+                          style={{ backgroundColor: theme.colors.primaryContainer }}
+                        >
+                          {t("userProfile.oauthConnections.connected")}
+                        </Chip>
+                        <Button
+                          mode="text"
+                          compact
+                          onPress={() =>
+                            handleDisconnect(
+                              connectedIdentity.id,
+                              provider.name || provider.providerId
+                            )
+                          }
+                          disabled={isOfflineAuth || isBackendUnreachable}
+                        >
+                          {t("userProfile.oauthConnections.disconnect")}
+                        </Button>
+                      </View>
                     ) : (
                       <Button
                         mode="outlined"

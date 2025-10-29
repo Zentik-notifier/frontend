@@ -340,7 +340,12 @@
       "connected": "Connected",
       "connect": "Connect",
       "connectionError": "Failed to connect. Please try again.",
-      "availableToConnect": "Available to connect"
+      "availableToConnect": "Available to connect",
+      "disconnect": "Disconnect",
+      "disconnectConfirmTitle": "Disconnect account",
+      "disconnectConfirmMessage": "Are you sure you want to disconnect {provider}?",
+      "disconnectSuccess": "Account disconnected successfully",
+      "disconnectError": "Failed to disconnect account. Please try again."
     },
     "continue": "Continue",
     "deleteAccountConfirm": "Delete Permanently",

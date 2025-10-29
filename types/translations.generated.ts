@@ -344,6 +344,11 @@ export interface Translation {
       connect: string;
       connectionError: string;
       availableToConnect: string;
+      disconnect: string;
+      disconnectConfirmTitle: string;
+      disconnectConfirmMessage: string;
+      disconnectSuccess: string;
+      disconnectError: string;
     };
     continue: string;
     deleteAccountConfirm: string;
