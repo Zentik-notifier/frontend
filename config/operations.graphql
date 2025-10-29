@@ -1122,6 +1122,7 @@ query PublicAppConfig {
   publicAppConfig {
     emailEnabled
     uploadEnabled
+    systemTokenRequestsEnabled
     oauthProviders {
       ...OAuthProviderPublicFragment
     }

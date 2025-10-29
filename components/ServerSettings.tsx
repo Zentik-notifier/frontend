@@ -281,6 +281,11 @@ const settingSections: Record<string, SectionConfig> = {
     icon: "chart-line" as const,
     settings: ["PrometheusEnabled"],
   },
+  systemAccessTokens: {
+    title: "System Access Tokens",
+    icon: "key-variant" as const,
+    settings: ["EnableSystemTokenRequests"],
+  },
 };
 
 // Helper function to get field type

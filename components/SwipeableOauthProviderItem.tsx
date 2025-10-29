@@ -1,5 +1,6 @@
 import {
   OAuthProviderFragment,
+  OAuthProviderType,
   useToggleOAuthProviderMutation,
   useDeleteOAuthProviderMutation,
 } from "@/generated/gql-operations-generated";
@@ -99,23 +100,27 @@ const SwipeableOauthProviderItem: React.FC<SwipeableOauthProviderItemProps> = ({
     onPress: handleTogglePress,
   };
 
-  const rightAction = {
-    icon: "delete",
-    label: t("administration.oauthProviderForm.deleteProvider"),
-    destructive: true,
-    onPress: handleDeletePress,
-    showAlert: {
-      title: t("administration.oauthProviderForm.confirmDeleteProviderTitle"),
-      message: t(
-        "administration.oauthProviderForm.confirmDeleteProviderMessage",
-        {
-          providerName: provider.name,
+  // Only show delete action for custom providers (not built-in like GITHUB, GOOGLE)
+  const rightAction =
+    provider.type === OAuthProviderType.CUSTOM
+      ? {
+          icon: "delete",
+          label: t("administration.oauthProviderForm.deleteProvider"),
+          destructive: true,
+          onPress: handleDeletePress,
+          showAlert: {
+            title: t("administration.oauthProviderForm.confirmDeleteProviderTitle"),
+            message: t(
+              "administration.oauthProviderForm.confirmDeleteProviderMessage",
+              {
+                providerName: provider.name,
+              }
+            ),
+            confirmText: t("common.delete"),
+            cancelText: t("common.cancel"),
+          },
         }
-      ),
-      confirmText: t("common.delete"),
-      cancelText: t("common.cancel"),
-    },
-  };
+      : undefined;
 
   return (
     <SwipeableItem

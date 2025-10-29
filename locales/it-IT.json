@@ -1946,7 +1946,8 @@
       "cors": "CORS & Sicurezza",
       "logging": "Logging",
       "logStorage": "Archiviazione Log",
-      "prometheus": "Metriche Prometheus"
+      "prometheus": "Metriche Prometheus",
+      "systemAccessTokens": "Token di Accesso di Sistema"
     },
     "fields": {
       "JwtAccessTokenExpiration": "Scadenza Token di Accesso JWT (minuti)",
@@ -2002,7 +2003,8 @@
       "LogLevel": "Livello di Log",
       "LogStorageEnabled": "Abilita Archiviazione Log nel Database",
       "LogRetentionDays": "Conservazione Log (giorni)",
-      "PrometheusEnabled": "Abilita Metriche Prometheus"
+      "PrometheusEnabled": "Abilita Metriche Prometheus",
+      "EnableSystemTokenRequests": "Abilita Richieste Token di Sistema"
     },
     "authentication": "Authentication & JWT",
     "apnPush": "Apple Push Notifications (APN)",
@@ -2016,8 +2018,9 @@
     "rateLimit": "Rate Limiting",
     "cors": "CORS & Security",
     "logging": "Logging",
-    "logStorage": "Log Storage",
-    "prometheus": "Prometheus Metrics",
+    "logStorage": "Archiviazione Log",
+    "prometheus": "Metriche Prometheus",
+    "systemAccessTokens": "Token di Accesso di Sistema",
     "JwtAccessTokenExpiration": "JWT Access Token Expiration (minutes)",
     "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration (minutes)",
     "JwtSecret": "JWT Secret",

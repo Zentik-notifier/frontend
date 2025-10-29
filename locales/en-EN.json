@@ -1982,7 +1982,8 @@
       "cors": "CORS & Security",
       "logging": "Logging",
       "logStorage": "Log Storage",
-      "prometheus": "Prometheus Metrics"
+      "prometheus": "Prometheus Metrics",
+      "systemAccessTokens": "System Access Tokens"
     },
     "authentication": "Authentication & JWT",
     "apnPush": "Apple Push Notifications (APN)",
@@ -1998,6 +1999,7 @@
     "logging": "Logging",
     "logStorage": "Log Storage",
     "prometheus": "Prometheus Metrics",
+    "systemAccessTokens": "System Access Tokens",
     "fields": {
       "JwtAccessTokenExpiration": "JWT Access Token Expiration (minutes)",
       "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration (minutes)",
@@ -2052,7 +2054,8 @@
       "LogLevel": "Log Level",
       "LogStorageEnabled": "Enable Database Log Storage",
       "LogRetentionDays": "Log Retention (days)",
-      "PrometheusEnabled": "Enable Prometheus Metrics"
+      "PrometheusEnabled": "Enable Prometheus Metrics",
+      "EnableSystemTokenRequests": "Enable System Token Requests"
     },
     "JwtAccessTokenExpiration": "JWT Access Token Expiration (minutes)",
     "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration (minutes)",

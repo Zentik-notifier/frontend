@@ -773,6 +773,7 @@ type PostponeResponseDto {
 type PublicAppConfig {
   emailEnabled: Boolean!
   oauthProviders: [OAuthProviderPublicDto!]!
+  systemTokenRequestsEnabled: Boolean!
   uploadEnabled: Boolean!
 }
 

@@ -1,5 +1,5 @@
 import { useAppContext } from "@/contexts/AppContext";
-import { UserRole, useGetMeQuery } from "@/generated/gql-operations-generated";
+import { UserRole, useGetMeQuery, usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppTheme } from "@/hooks/useTheme";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -32,6 +32,7 @@ export default function UserDropdown({
   const { navigateToSettings, navigateToAdmin, navigateToSelfService, navigateToHome } = useNavigationUtils();
 
   const { data: userData } = useGetMeQuery();
+  const { data: providersData } = usePublicAppConfigQuery();
   const user = userData?.me;
 
   useEffect(() => {
@@ -259,27 +260,29 @@ export default function UserDropdown({
             </View>
           </MenuOption>
 
-          {/* Self-service */}
-          <MenuOption
-            onSelect={() => {
-              navigateToSelfService();
-              closeMenu();
-            }}
-          >
-            <View
-              style={[
-                styles.menuItem,
-                { backgroundColor: theme.colors.surface },
-              ]}
+          {/* Self-service - Only show if enabled in server settings */}
+          {providersData?.publicAppConfig?.systemTokenRequestsEnabled && (
+            <MenuOption
+              onSelect={() => {
+                navigateToSelfService();
+                closeMenu();
+              }}
             >
-              <Icon source="tools" size={20} color={theme.colors.onSurface} />
-              <Text
-                style={[styles.menuItemText, { color: theme.colors.onSurface }]}
+              <View
+                style={[
+                  styles.menuItem,
+                  { backgroundColor: theme.colors.surface },
+                ]}
               >
-                Self Service
-              </Text>
-            </View>
-          </MenuOption>
+                <Icon source="tools" size={20} color={theme.colors.onSurface} />
+                <Text
+                  style={[styles.menuItemText, { color: theme.colors.onSurface }]}
+                >
+                  Self Service
+                </Text>
+              </View>
+            </MenuOption>
+          )}
 
           {/* Administration (Admin only) */}
           {user?.role === UserRole.Admin && (
