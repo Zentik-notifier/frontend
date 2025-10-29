@@ -109,8 +109,7 @@ export const initApolloClient = async () => {
       watchQuery: {
         errorPolicy: 'all',
         refetchWritePolicy: 'merge',
-        fetchPolicy: "cache-first",
-        // fetchPolicy: "cache-and-network",
+        fetchPolicy: "cache-and-network",
       },
       query: {
         errorPolicy: 'all',

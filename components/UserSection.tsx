@@ -83,9 +83,7 @@ export default function UserSection() {
   const { data: sessionsData } = useGetUserSessionsQuery();
 
   const { data: statsData, refetch: refetchStats } =
-    useUserNotificationStatsQuery({
-      fetchPolicy: "cache-and-network",
-    });
+    useUserNotificationStatsQuery();
 
   const currentSession = sessionsData?.getUserSessions?.find(
     (session) => session.isCurrent

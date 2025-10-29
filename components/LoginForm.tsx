@@ -1,20 +1,18 @@
-import { settingsService } from "@/services/settings-service";
-import { OAuthSelector } from "@/components/OAuthSelector";
+import { useAppContext } from "@/contexts/AppContext";
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { useLanguageSync } from "@/hooks/useLanguageSync";
-import { useAppContext } from "@/contexts/AppContext";
+import { settingsService } from "@/services/settings-service";
 import { useNavigationUtils } from "@/utils/navigation";
-import { router } from "expo-router";
-import React, { useState } from "react";
-import {
-  Alert,
-  Platform,
-  StyleSheet,
-  View,
-} from "react-native";
-import { Button, TextInput, HelperText } from "react-native-paper";
 import { createOAuthRedirectLink } from "@/utils/universal-links";
+import React, { useState } from "react";
+import { Alert, Platform, StyleSheet, View } from "react-native";
+import {
+  Button,
+  HelperText,
+  TextInput,
+  useTheme,
+} from "react-native-paper";
+import { OAuthSelector } from "@/components/OAuthSelector";
 
 type Props = {
   onSuccess?: () => void;
@@ -28,7 +26,8 @@ export default function LoginForm({
   initialEmail,
 }: Props) {
   const { t } = useI18n();
-  const { currentLocale } = useLanguageSync();
+  const { locale } = useI18n();
+  const theme = useTheme();
   const [emailOrUsername, setEmailOrUsername] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -39,6 +38,12 @@ export default function LoginForm({
   }>({});
   const { login } = useAppContext();
   const { navigateToEmailConfirmation } = useNavigationUtils();
+  const { data: providersData } = usePublicAppConfigQuery({
+    fetchPolicy: "network-only",
+  });
+  const providers = providersData?.publicAppConfig.oauthProviders || [];
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [anchorWidth, setAnchorWidth] = useState<number>(0);
 
   const validateForm = () => {
     const newErrors: { emailOrUsername?: string; password?: string } = {};
@@ -85,24 +90,24 @@ export default function LoginForm({
       const redirect = createOAuthRedirectLink();
       const url = `${baseWithPrefix}/auth/${provider}?redirect=${encodeURIComponent(
         redirect
-      )}&locale=${encodeURIComponent(currentLocale)}`;
-      
+      )}&locale=${encodeURIComponent(locale)}`;
+
       if (Platform.OS === "web") {
         // On web, use direct redirect instead of popup
         window.location.href = url;
         return;
       }
-      
+
       const { openBrowserAsync, maybeCompleteAuthSession } = await import(
         "expo-web-browser"
       );
-      
+
       const result = await openBrowserAsync(url, {
         showInRecents: false,
         createTask: false,
       });
       maybeCompleteAuthSession();
-      
+
       if (result.type === "cancel") {
         Alert.alert(t("common.info"), t("login.providers.cancelled"));
       }
@@ -125,7 +130,11 @@ export default function LoginForm({
         error={!!errors.emailOrUsername}
         style={styles.input}
       />
-      <HelperText type="error" visible={!!errors.emailOrUsername} style={styles.errorText}>
+      <HelperText
+        type="error"
+        visible={!!errors.emailOrUsername}
+        style={styles.errorText}
+      >
         {errors.emailOrUsername}
       </HelperText>
 
@@ -149,31 +158,33 @@ export default function LoginForm({
           />
         }
       />
-      <HelperText type="error" visible={!!errors.password} style={styles.errorText}>
+      <HelperText
+        type="error"
+        visible={!!errors.password}
+        style={styles.errorText}
+      >
         {errors.password}
       </HelperText>
 
-      <Button
-        mode="contained"
-        onPress={handleLogin}
-        loading={isLoading}
-        disabled={isLoading}
-        style={styles.loginButton}
-      >
-        {isLoading ? t("login.loggingIn") : t("login.loginButton")}
-      </Button>
+      <View style={styles.actionsRow}>
+        <View style={styles.half}>
+          <Button
+            mode="contained"
+            onPress={handleLogin}
+            loading={isLoading}
+            disabled={isLoading}
+            style={styles.fullWidth}
+          >
+            {isLoading ? t("login.loggingIn") : t("login.loginButton")}
+          </Button>
+        </View>
+        <View style={styles.half}>
+          <OAuthSelector onProviderSelect={openProviderLogin} disabled={isLoading} />
+        </View>
+      </View>
 
-      <OAuthSelector
-        onProviderSelect={openProviderLogin}
-        disabled={isLoading}
-      />
-      
       {onCancel && (
-        <Button
-          mode="text"
-          onPress={onCancel}
-          style={styles.cancelBtn}
-        >
+        <Button mode="text" onPress={onCancel} style={styles.cancelBtn}>
           {t("common.cancel")}
         </Button>
       )}
@@ -194,9 +205,16 @@ const styles = StyleSheet.create({
     width: "100%",
     textAlign: "left",
   },
-  loginButton: {
-    width: "100%",
+  actionsRow: {
+    flexDirection: "row",
+    gap: 12,
     marginTop: 16,
+  },
+  half: {
+    flex: 1,
+  },
+  fullWidth: {
+    width: "100%",
   },
   oauthButton: {
     flex: 1,
@@ -204,5 +222,22 @@ const styles = StyleSheet.create({
   cancelBtn: {
     width: "100%",
     marginTop: 12,
+  },
+  menuContent: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  oauthMenuButton: {
+    width: '100%',
+    borderRadius: 0,
+    marginVertical: 0,
+  },
+  oauthMenuButtonContent: {
+    height: 48,
+    paddingVertical: 0,
+  },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#00000022',
   },
 });

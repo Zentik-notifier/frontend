@@ -1,66 +1,68 @@
+import React, { useState } from "react";
+import { View, StyleSheet } from "react-native";
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { Button, Menu, useTheme, Divider } from "react-native-paper";
 import { Image } from "expo-image";
-import React, { useMemo } from "react";
-import { StyleSheet, View } from "react-native";
-import { Button, Text, useTheme } from "react-native-paper";
 
-interface OAuthSelectorProps {
+type Props = {
   onProviderSelect: (providerId: string) => void;
   disabled?: boolean;
-}
+};
 
-export function OAuthSelector({
-  onProviderSelect,
-  disabled: disabledParent,
-}: OAuthSelectorProps) {
-  const { data: providersData, loading: providersLoading } =
-    usePublicAppConfigQuery({ fetchPolicy: "network-only" });
-  const providers = providersData?.publicAppConfig.oauthProviders || [];
-  const disabled = disabledParent || providersLoading;
-  const theme = useTheme();
-
+export function OAuthSelector({ onProviderSelect, disabled }: Props) {
   const { t } = useI18n();
-
-  if (providers.length === 0) return null;
+  const theme = useTheme();
+  const { data } = usePublicAppConfigQuery({ fetchPolicy: "network-only" });
+  const providers = data?.publicAppConfig.oauthProviders || [];
+  const [visible, setVisible] = useState(false);
+  const [anchorWidth, setAnchorWidth] = useState(0);
 
   return (
-    <View style={[styles.container]}>
-      <Text style={[styles.orText, { color: theme.colors.onSurfaceVariant }]}>
-        {t("login.orContinueWith")}
-      </Text>
-      <View style={styles.providersContainer}>
-        {providers.map((provider) => (
+    <View style={styles.container} onLayout={(e) => setAnchorWidth(e.nativeEvent.layout.width)}>
+      <Menu
+        visible={visible}
+        onDismiss={() => setVisible(false)}
+        anchor={
           <Button
-            key={provider.id}
-            mode="contained"
-            disabled={disabled}
-            onPress={() => onProviderSelect(provider.providerId)}
-            style={[
-              styles.providerButton,
-              {
-                backgroundColor: provider.color || theme.colors.primary,
-              }
-            ]}
-            labelStyle={[
-              styles.providerLabel,
-              {
-                color: provider.textColor || theme.colors.onPrimary,
-              }
-            ]}
-            icon={() => 
-              provider.iconUrl ? (
-                <Image
-                  source={{ uri: provider.iconUrl }}
-                  style={styles.providerIcon}
-                />
-              ) : null
-            }
+            mode="outlined"
+            onPress={() => setVisible(true)}
+            disabled={disabled || providers.length === 0}
+            style={styles.fullWidth}
           >
-            {provider.name}
+            {t("login.orContinueWith")}
           </Button>
-        ))}
-      </View>
+        }
+        anchorPosition="bottom"
+        contentStyle={{ width: anchorWidth || undefined, paddingVertical: 0, paddingHorizontal: 0, borderRadius: 0 }}
+      >
+        <View style={styles.menuContent}>
+          {providers.map((p: any, idx: number) => (
+            <React.Fragment key={p.id}>
+              <Button
+                mode="contained"
+                onPress={() => {
+                  setVisible(false);
+                  onProviderSelect(p.providerId);
+                }}
+                style={[styles.oauthMenuButton, { backgroundColor: p.color || theme.colors.primary }]}
+                contentStyle={styles.oauthMenuButtonContent}
+                labelStyle={{ color: p.textColor || theme.colors.onPrimary }}
+                icon={p.iconUrl ? () => (
+                  <Image
+                    cachePolicy="memory-disk"
+                    source={{ uri: p.iconUrl }}
+                    style={{ width: 20, height: 20, marginRight: 8 }}
+                  />
+                ) : undefined}
+              >
+                {p.name}
+              </Button>
+              {idx < providers.length - 1 && <Divider style={styles.menuDivider} />}
+            </React.Fragment>
+          ))}
+        </View>
+      </Menu>
     </View>
   );
 }
@@ -68,27 +70,25 @@ export function OAuthSelector({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    marginTop: 16,
   },
-  orText: {
-    textAlign: "center",
-    marginBottom: 16,
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  providersContainer: {
-    flexDirection: "column",
-    gap: 12,
-  },
-  providerButton: {
+  fullWidth: {
     width: "100%",
   },
-  providerLabel: {
-    fontWeight: "500",
+  menuContent: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
-  providerIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 8,
+  oauthMenuButton: {
+    width: "100%",
+    borderRadius: 0,
+    marginVertical: 0,
+  },
+  oauthMenuButtonContent: {
+    height: 48,
+    paddingVertical: 0,
+  },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "#00000022",
   },
 });
