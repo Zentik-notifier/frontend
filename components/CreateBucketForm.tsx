@@ -580,7 +580,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    overflow: "hidden",
     backgroundColor: "transparent",
     zIndex: 1,
   },

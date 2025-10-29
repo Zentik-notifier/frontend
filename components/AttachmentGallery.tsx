@@ -214,7 +214,6 @@ const styles = StyleSheet.create({
   mediaContainer: {
     width: "100%",
     borderRadius: 12,
-    overflow: "hidden",
   },
   media: {
     width: "100%",

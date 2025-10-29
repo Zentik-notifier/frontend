@@ -1,4 +1,6 @@
+import { settingsService } from "@/services/settings-service";
 import { useAppContext } from "@/contexts/AppContext";
+import { useNavigationUtils } from "@/utils/navigation";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
@@ -6,6 +8,7 @@ import { Platform } from "react-native";
 
 export default function OAuthCallbackPage() {
   const { refreshUserData, completeAuth, setUserId } = useAppContext();
+  const { navigateToHome } = useNavigationUtils();
   const searchParams = useLocalSearchParams();
   const [processing, setProcessing] = useState(false);
 
@@ -20,6 +23,8 @@ export default function OAuthCallbackPage() {
         let refreshToken = searchParams.refreshToken as string;
         let connected = searchParams.connected as string;
         let provider = searchParams.provider as string;
+        let codeParam = searchParams.code as string;
+        let sessionIdParam = searchParams.sessionId as string;
 
         if (Platform.OS === "web") {
           try {
@@ -30,8 +35,67 @@ export default function OAuthCallbackPage() {
               refreshToken = refreshToken || (params.get("refreshToken") as string);
               connected = connected || (params.get("connected") as string);
               provider = provider || (params.get("provider") as string);
+              
+              // Check for exchange code
+              const code = params.get("code");
+              if (code && !accessToken && !refreshToken) {
+                console.log("🔗 Exchange code received, exchanging for tokens...");
+                try {
+                  const baseUrl = settingsService.getApiBaseWithPrefix();
+                  const response = await fetch(`${baseUrl}/auth/exchange-code`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code }),
+                  });
+                  
+                  if (response.ok) {
+                    const data = await response.json();
+                    console.log("🔗 Tokens received from exchange");
+                    accessToken = data.accessToken;
+                    refreshToken = data.refreshToken;
+                  } else {
+                    const errorData = await response.json();
+                    console.error("🔗 Code exchange failed:", errorData);
+                    router.replace("/(common)/(auth)/login");
+                    return;
+                  }
+                } catch (error) {
+                  console.error("🔗 Error exchanging code:", error);
+                  router.replace("/(common)/(auth)/login");
+                  return;
+                }
+              }
             }
           } catch {}
+          
+          if (!accessToken && !refreshToken && !connected) {
+            console.log("🔗 No tokens or code in URL");
+            router.replace("/(common)/(auth)/login");
+            return;
+          }
+        }
+
+        // On native: exchange code if provided via deep link
+        if (Platform.OS !== "web" && !accessToken && !refreshToken && codeParam) {
+          try {
+            const baseUrl = settingsService.getApiBaseWithPrefix();
+            const response = await fetch(`${baseUrl}/auth/exchange-code`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code: codeParam, sessionId: sessionIdParam }),
+            });
+            if (response.ok) {
+              const data = await response.json();
+              accessToken = data.accessToken;
+              refreshToken = data.refreshToken;
+            } else {
+              console.error('🔗 Native code exchange failed with status', response.status);
+            }
+          } catch (e) {
+            console.error('🔗 Native code exchange error', e);
+          }
         }
 
         // Only proceed if we have valid OAuth parameters

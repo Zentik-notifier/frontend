@@ -723,7 +723,6 @@ const styles = StyleSheet.create({
   },
   iconButtonSurface: {
     borderRadius: 18,
-    overflow: "hidden",
   },
   iconButtonRipple: {
     borderRadius: 18,

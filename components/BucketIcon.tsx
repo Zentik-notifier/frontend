@@ -203,7 +203,6 @@ export default function BucketIcon({
                   width: currentSize.icon,
                   height: currentSize.icon,
                   borderRadius: currentSize.icon / 2,
-                  overflow: "hidden",
                 }}
                 contentFit="cover"
                 cachePolicy="memory-disk"
@@ -238,7 +237,6 @@ export default function BucketIcon({
                   width: currentSize.icon,
                   height: currentSize.icon,
                   borderRadius: currentSize.icon / 2,
-                  overflow: "hidden",
                 }}
                 contentFit="cover"
                 cachePolicy="memory-disk"

@@ -17,47 +17,50 @@ import { useI18n } from "@/hooks/useI18n";
 // Pure helper functions - moved outside component to prevent recreation
 const autoLinkText = (text: string): string => {
   let processed = text;
-  
+
   // Regex patterns (migliorati per supportare trattini e caratteri speciali)
   const urlRegex = /(?<!href=["'])(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/gi;
   const emailRegex = /\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})\b/g;
   const phoneRegex = /\b(\+?[\d\s\-()]{10,})\b/g;
-  
+
   // Auto-link URLs (skip already in href attributes)
   processed = processed.replace(urlRegex, '<a href="$1">$1</a>');
-  
+
   // Auto-link emails
   processed = processed.replace(emailRegex, '<a href="mailto:$1">$1</a>');
-  
+
   // Auto-link phone numbers (Italian format priority)
   processed = processed.replace(phoneRegex, (match) => {
-    const cleaned = match.replace(/\s/g, '');
+    const cleaned = match.replace(/\s/g, "");
     if (cleaned.match(/^\+?[\d\-()]{10,}$/)) {
       return `<a href="tel:${cleaned}">${match}</a>`;
     }
     return match;
   });
-  
+
   return processed;
 };
 
 // Convert Markdown to HTML
 const convertMarkdownToHtml = (text: string): string => {
   let processed = text;
-  
+
   // Convert [text](url) to <a href="url">text</a>
-  processed = processed.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-  
+  processed = processed.replace(
+    /\[([^\]]+)\]\(([^)]+)\)/g,
+    '<a href="$2">$1</a>'
+  );
+
   // Convert **text** to <strong>text</strong>
-  processed = processed.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
-  
+  processed = processed.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
+
   // Convert *text* or _text_ to <em>text</em>
-  processed = processed.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
-  processed = processed.replace(/_([^_]+)_/g, '<em>$1</em>');
-  
+  processed = processed.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
+  processed = processed.replace(/_([^_]+)_/g, "<em>$1</em>");
+
   // Convert `code` to <code>code</code>
-  processed = processed.replace(/`([^`]+)`/g, '<code>$1</code>');
-  
+  processed = processed.replace(/`([^`]+)`/g, "<code>$1</code>");
+
   return processed;
 };
 
@@ -81,21 +84,24 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
   const { t } = useI18n();
 
   // Extract only the theme colors we need to prevent unnecessary rerenders
-  const themeColors = useMemo(() => ({
-    onSurface: theme.colors.onSurface,
-    onSurfaceVariant: theme.colors.onSurfaceVariant,
-    outline: theme.colors.outline,
-    error: theme.colors.error,
-    primary: theme.colors.primary,
-    surfaceVariant: theme.colors.surfaceVariant,
-  }), [
-    theme.colors.onSurface,
-    theme.colors.onSurfaceVariant,
-    theme.colors.outline,
-    theme.colors.error,
-    theme.colors.primary,
-    theme.colors.surfaceVariant,
-  ]);
+  const themeColors = useMemo(
+    () => ({
+      onSurface: theme.colors.onSurface,
+      onSurfaceVariant: theme.colors.onSurfaceVariant,
+      outline: theme.colors.outline,
+      error: theme.colors.error,
+      primary: theme.colors.primary,
+      surfaceVariant: theme.colors.surfaceVariant,
+    }),
+    [
+      theme.colors.onSurface,
+      theme.colors.onSurfaceVariant,
+      theme.colors.outline,
+      theme.colors.error,
+      theme.colors.primary,
+      theme.colors.surfaceVariant,
+    ]
+  );
 
   // Get text color based on color prop
   const textColor = useMemo(() => {
@@ -158,164 +164,167 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
   }, [variant, textColor]);
 
   // Handle link presses - memoized to prevent renderersProps recreation
-  const handleLinkPress = useCallback((evt: any, href: string) => {
-    if (href.startsWith('mailto:')) {
-      const email = href.replace('mailto:', '');
-      Alert.alert(
-        t('common.sendEmail'),
-        t('common.sendEmailConfirm', { email }),
-        [
-          { text: t('common.cancel'), style: "cancel" },
+  const handleLinkPress = useCallback(
+    (evt: any, href: string) => {
+      if (href.startsWith("mailto:")) {
+        const email = href.replace("mailto:", "");
+        Alert.alert(
+          t("common.sendEmail"),
+          t("common.sendEmailConfirm", { email }),
+          [
+            { text: t("common.cancel"), style: "cancel" },
+            {
+              text: t("common.send"),
+              onPress: () => {
+                Linking.openURL(href).catch(() => {
+                  Alert.alert(t("common.error"), t("common.cannotOpenEmail"));
+                });
+              },
+            },
+          ]
+        );
+      } else if (href.startsWith("tel:")) {
+        const phone = href.replace("tel:", "");
+        Alert.alert(t("common.call"), t("common.callConfirm", { phone }), [
+          { text: t("common.cancel"), style: "cancel" },
           {
-            text: t('common.send'),
+            text: t("common.call"),
             onPress: () => {
               Linking.openURL(href).catch(() => {
-                Alert.alert(t('common.error'), t('common.cannotOpenEmail'));
+                Alert.alert(t("common.error"), t("common.cannotMakeCall"));
               });
             },
           },
-        ]
-      );
-    } else if (href.startsWith('tel:')) {
-      const phone = href.replace('tel:', '');
-      Alert.alert(
-        t('common.call'),
-        t('common.callConfirm', { phone }),
-        [
-          { text: t('common.cancel'), style: "cancel" },
-          {
-            text: t('common.call'),
-            onPress: () => {
-              Linking.openURL(href).catch(() => {
-                Alert.alert(t('common.error'), t('common.cannotMakeCall'));
-              });
+        ]);
+      } else {
+        Alert.alert(
+          t("common.openLink"),
+          t("common.openLinkConfirm", { url: href }),
+          [
+            { text: t("common.cancel"), style: "cancel" },
+            {
+              text: t("common.open"),
+              onPress: () => {
+                Linking.openURL(href).catch(() => {
+                  Alert.alert(t("common.error"), t("common.cannotOpenLink"));
+                });
+              },
             },
-          },
-        ]
-      );
-    } else {
-      Alert.alert(
-        t('common.openLink'),
-        t('common.openLinkConfirm', { url: href }),
-        [
-          { text: t('common.cancel'), style: "cancel" },
-          {
-            text: t('common.open'),
-            onPress: () => {
-              Linking.openURL(href).catch(() => {
-                Alert.alert(t('common.error'), t('common.cannotOpenLink'));
-              });
-            },
-          },
-        ]
-      );
-    }
-  }, [t]);
+          ]
+        );
+      }
+    },
+    [t]
+  );
 
   // Process content: convert Markdown to HTML, auto-link, and handle newlines
   const processedContent = useMemo(() => {
     let processed = content;
-    
+
     // First, convert Markdown syntax to HTML
     processed = convertMarkdownToHtml(processed);
-    
+
     // Only auto-link if content doesn't already contain HTML anchor tags
     // This prevents interfering with existing <a href="..."> tags
     if (!/<a\s+[^>]*href\s*=/i.test(processed)) {
       processed = autoLinkText(processed);
     }
-    
+
     // Convert newlines to <br> tags
-    processed = processed.replace(/\n/g, '<br/>');
-    
+    processed = processed.replace(/\n/g, "<br/>");
+
     // Wrap in a div to ensure proper rendering
     return `<div>${processed}</div>`;
   }, [content]);
 
   // Custom tags styles for react-native-render-html
-  const tagsStyles = useMemo(() => ({
-    body: {
-      // Don't set styles on body tag - let baseStyle handle it
-      // This prevents overriding parent styles
-    },
-    div: {
-      // Don't set color here either - baseStyle handles it
-    },
-    a: {
-      color: linkColor,
-      textDecorationLine: "underline" as const,
-    },
-    strong: {
-      fontWeight: "700",
-    },
-    b: {
-      fontWeight: "700",
-    },
-    em: {
-      fontStyle: "italic",
-    },
-    i: {
-      fontStyle: "italic",
-    },
-    h1: {
-      fontSize: 28,
-      fontWeight: "700",
-      marginVertical: 8,
-    },
-    h2: {
-      fontSize: 24,
-      fontWeight: "600",
-      marginVertical: 6,
-    },
-    h3: {
-      fontSize: 20,
-      fontWeight: "600",
-      marginVertical: 4,
-    },
-    p: {
-      marginVertical: 4,
-    },
-    ul: {
-      marginVertical: 4,
-    },
-    ol: {
-      marginVertical: 4,
-    },
-    li: {
-      marginVertical: 2,
-    },
-    blockquote: {
-      borderLeftWidth: 4,
-      borderLeftColor: textColor,
-      paddingLeft: 12,
-      marginVertical: 8,
-      fontStyle: "italic",
-    },
-    code: {
-      backgroundColor: themeColors.surfaceVariant,
-      paddingHorizontal: 4,
-      paddingVertical: 2,
-      borderRadius: 4,
-      fontFamily: "monospace",
-    },
-    pre: {
-      backgroundColor: themeColors.surfaceVariant,
-      padding: 12,
-      borderRadius: 8,
-      marginVertical: 8,
-    },
-  }), [textColor, linkColor, variantStyle, themeColors]);
+  const tagsStyles = useMemo(
+    () => ({
+      body: {
+        // Don't set styles on body tag - let baseStyle handle it
+        // This prevents overriding parent styles
+      },
+      div: {
+        // Don't set color here either - baseStyle handles it
+      },
+      a: {
+        color: linkColor,
+        textDecorationLine: "underline" as const,
+      },
+      strong: {
+        fontWeight: "700",
+      },
+      b: {
+        fontWeight: "700",
+      },
+      em: {
+        fontStyle: "italic",
+      },
+      i: {
+        fontStyle: "italic",
+      },
+      h1: {
+        fontSize: 28,
+        fontWeight: "700",
+        marginVertical: 8,
+      },
+      h2: {
+        fontSize: 24,
+        fontWeight: "600",
+        marginVertical: 6,
+      },
+      h3: {
+        fontSize: 20,
+        fontWeight: "600",
+        marginVertical: 4,
+      },
+      p: {
+        marginVertical: 4,
+      },
+      ul: {
+        marginVertical: 4,
+      },
+      ol: {
+        marginVertical: 4,
+      },
+      li: {
+        marginVertical: 2,
+      },
+      blockquote: {
+        borderLeftWidth: 4,
+        borderLeftColor: textColor,
+        paddingLeft: 12,
+        marginVertical: 8,
+        fontStyle: "italic",
+      },
+      code: {
+        backgroundColor: themeColors.surfaceVariant,
+        paddingHorizontal: 4,
+        paddingVertical: 2,
+        borderRadius: 4,
+        fontFamily: "monospace",
+      },
+      pre: {
+        backgroundColor: themeColors.surfaceVariant,
+        padding: 12,
+        borderRadius: 8,
+        marginVertical: 8,
+      },
+    }),
+    [textColor, linkColor, variantStyle, themeColors]
+  );
 
   // Merge external styles with variant styles
   // IMPORTANT: Parent styles have priority over variant styles
   // Use JSON.stringify for stable comparison of style object
-  const styleKey = useMemo(() => 
-    JSON.stringify(StyleSheet.flatten(style) || {})
-  , [style]);
-  
+  const styleKey = useMemo(
+    () => JSON.stringify(StyleSheet.flatten(style) || {}),
+    [style]
+  );
+
   const mergedBaseStyle = useMemo(() => {
     const flattenedExternalStyle = JSON.parse(styleKey);
-    
+
     // Parent styles override variant styles for proper inheritance
     return {
       ...variantStyle,
@@ -330,10 +339,10 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
       onPress: handleLinkPress,
     },
   });
-  
+
   // Update the onPress function when handleLinkPress changes
   renderersPropsRef.current.a.onPress = handleLinkPress;
-  
+
   const renderersProps = renderersPropsRef.current;
 
   // When maxLines is specified, wrap in a View to enable ellipsis
@@ -341,13 +350,12 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
   // but we can limit the container height as a workaround
   const containerStyle = useMemo(() => {
     if (!maxLines) return undefined;
-    
+
     const lineHeight = mergedBaseStyle.lineHeight || 22;
     const maxHeight = lineHeight * maxLines;
-    
+
     return {
       maxHeight,
-      overflow: 'hidden' as const,
     };
   }, [maxLines, mergedBaseStyle.lineHeight]);
 
@@ -375,13 +383,17 @@ const HtmlTextRendererComponent: React.FC<HtmlTextRendererProps> = ({
 };
 
 // Memoize the entire component to prevent unnecessary rerenders
-export const HtmlTextRenderer = React.memo(HtmlTextRendererComponent, (prevProps, nextProps) => {
-  // Custom comparison: only rerender if these props actually changed
-  return (
-    prevProps.content === nextProps.content &&
-    prevProps.variant === nextProps.variant &&
-    prevProps.color === nextProps.color &&
-    prevProps.maxLines === nextProps.maxLines &&
-    JSON.stringify(StyleSheet.flatten(prevProps.style)) === JSON.stringify(StyleSheet.flatten(nextProps.style))
-  );
-});
+export const HtmlTextRenderer = React.memo(
+  HtmlTextRendererComponent,
+  (prevProps, nextProps) => {
+    // Custom comparison: only rerender if these props actually changed
+    return (
+      prevProps.content === nextProps.content &&
+      prevProps.variant === nextProps.variant &&
+      prevProps.color === nextProps.color &&
+      prevProps.maxLines === nextProps.maxLines &&
+      JSON.stringify(StyleSheet.flatten(prevProps.style)) ===
+        JSON.stringify(StyleSheet.flatten(nextProps.style))
+    );
+  }
+);

@@ -9,6 +9,7 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
+  Platform,
   StyleSheet,
   View,
 } from "react-native";
@@ -85,14 +86,23 @@ export default function LoginForm({
       const url = `${baseWithPrefix}/auth/${provider}?redirect=${encodeURIComponent(
         redirect
       )}&locale=${encodeURIComponent(currentLocale)}`;
+      
+      if (Platform.OS === "web") {
+        // On web, use direct redirect instead of popup
+        window.location.href = url;
+        return;
+      }
+      
       const { openBrowserAsync, maybeCompleteAuthSession } = await import(
         "expo-web-browser"
       );
+      
       const result = await openBrowserAsync(url, {
         showInRecents: false,
         createTask: false,
       });
       maybeCompleteAuthSession();
+      
       if (result.type === "cancel") {
         Alert.alert(t("common.info"), t("login.providers.cancelled"));
       }

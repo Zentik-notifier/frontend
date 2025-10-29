@@ -40,11 +40,15 @@ function DeepLinkHandler() {
           const refreshToken = params.get("refreshToken");
           const connected = params.get("connected");
           const provider = params.get("provider");
+          const code = params.get("code");
+          const sessionId = params.get("sessionId");
           const oauthParams = new URLSearchParams();
           if (accessToken) oauthParams.set("accessToken", accessToken);
           if (refreshToken) oauthParams.set("refreshToken", refreshToken);
           if (connected) oauthParams.set("connected", connected);
           if (provider) oauthParams.set("provider", provider);
+          if (code) oauthParams.set("code", code);
+          if (sessionId) oauthParams.set("sessionId", sessionId);
           navigateToOAuth(oauthParams.toString());
           return;
         }

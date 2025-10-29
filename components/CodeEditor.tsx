@@ -283,7 +283,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e5e7eb",
     borderRadius: 8,
-    overflow: "hidden",
   },
   codeInput: {
     fontFamily: "monospace",

@@ -583,7 +583,6 @@ export default function IconEditor({
               width: PREVIEW_SIZE,
               height: PREVIEW_SIZE,
               borderRadius: PREVIEW_SIZE / 2,
-              overflow: 'hidden',
               zIndex: 1,
             }}
           >
@@ -625,7 +624,6 @@ export default function IconEditor({
               height: 64,
               borderRadius: 32,
               backgroundColor: finalBucketColor,
-              overflow: 'hidden',
               justifyContent: 'center',
               alignItems: 'center',
               borderWidth: 1,

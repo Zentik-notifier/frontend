@@ -67,7 +67,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     paddingHorizontal: 3,
     borderRadius: 8,
-    overflow: "hidden",
   },
   divider: {
     width: 1,

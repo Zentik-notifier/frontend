@@ -1,11 +1,6 @@
 import { useI18n } from "@/hooks/useI18n";
 import { Image } from "expo-image";
-import React, {
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -13,7 +8,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { Chip, Icon, Portal, useTheme } from "react-native-paper";
 import { IconSource } from "react-native-paper/lib/typescript/components/Icon";
@@ -94,55 +89,70 @@ export default function Multiselect({
   const toggleInlineDropdown = () => {
     if (!isInlineDropdownOpen) {
       // Calculate the position of the dropdown
-      (containerRef.current as any)?.measureInWindow?.((pageX: number, pageY: number, width: number, height: number) => {
-        const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+      (containerRef.current as any)?.measureInWindow?.(
+        (pageX: number, pageY: number, width: number, height: number) => {
+          const { width: screenWidth, height: screenHeight } =
+            Dimensions.get("window");
 
-        // Safe area bounds (for notches/status bars on mobile)
-        const verticalMargin = 8;
-        const horizontalMargin = 8;
+          // Safe area bounds (for notches/status bars on mobile)
+          const verticalMargin = 8;
+          const horizontalMargin = 8;
 
-        const spaceBelow = (screenHeight - verticalMargin) - (pageY + height);
-        const spaceAbove = (pageY - verticalMargin);
-        const maxDropdownHeight = 350;
-        const minDropdownHeight = 120;
+          const spaceBelow = screenHeight - verticalMargin - (pageY + height);
+          const spaceAbove = pageY - verticalMargin;
+          const maxDropdownHeight = 350;
+          const minDropdownHeight = 120;
 
-        // Estimate dropdown content height (actions/search + items)
-        const estimatedHeader = (showSelectAll ? 48 : 0) + (isSearchable ? 56 : 0);
-        const estimatedItemHeight = 48;
-        const estimatedItems = Math.max(1, Math.min(options.length, 7)); // cap estimate to avoid huge sizes
-        const estimatedHeight = estimatedHeader + estimatedItems * estimatedItemHeight + 8;
+          // Estimate dropdown content height (actions/search + items)
+          const estimatedHeader =
+            (showSelectAll ? 48 : 0) + (isSearchable ? 56 : 0);
+          const estimatedItemHeight = 48;
+          const estimatedItems = Math.max(1, Math.min(options.length, 7)); // cap estimate to avoid huge sizes
+          const estimatedHeight =
+            estimatedHeader + estimatedItems * estimatedItemHeight + 8;
 
-        // Prefer open down; open up only if not enough space below
-        const shouldOpenUpward = spaceBelow < minDropdownHeight && spaceAbove > spaceBelow;
+          // Prefer open down; open up only if not enough space below
+          const shouldOpenUpward =
+            spaceBelow < minDropdownHeight && spaceAbove > spaceBelow;
 
-        const availableHeightRaw = shouldOpenUpward ? spaceAbove : spaceBelow;
-        const availableHeight = Math.max(minDropdownHeight, Math.min(maxDropdownHeight, availableHeightRaw));
+          const availableHeightRaw = shouldOpenUpward ? spaceAbove : spaceBelow;
+          const availableHeight = Math.max(
+            minDropdownHeight,
+            Math.min(maxDropdownHeight, availableHeightRaw)
+          );
 
-        // Desired height considering content estimate
-        const desiredHeight = Math.min(availableHeight, Math.max(minDropdownHeight, Math.min(maxDropdownHeight, estimatedHeight)));
+          // Desired height considering content estimate
+          const desiredHeight = Math.min(
+            availableHeight,
+            Math.max(
+              minDropdownHeight,
+              Math.min(maxDropdownHeight, estimatedHeight)
+            )
+          );
 
-        // Compute top target edge aligned to the field
-        let top = shouldOpenUpward ? (pageY - desiredHeight) : (pageY + height);
+          // Compute top target edge aligned to the field
+          let top = shouldOpenUpward ? pageY - desiredHeight : pageY + height;
 
-        // Clamp within screen
-        const topMin = verticalMargin;
-        const topMax = screenHeight - verticalMargin - minDropdownHeight;
-        top = Math.max(topMin, Math.min(top, topMax));
+          // Clamp within screen
+          const topMin = verticalMargin;
+          const topMax = screenHeight - verticalMargin - minDropdownHeight;
+          top = Math.max(topMin, Math.min(top, topMax));
 
-        let left = Math.min(
-          Math.max(horizontalMargin, pageX),
-          Math.max(horizontalMargin, screenWidth - horizontalMargin - width)
-        );
+          let left = Math.min(
+            Math.max(horizontalMargin, pageX),
+            Math.max(horizontalMargin, screenWidth - horizontalMargin - width)
+          );
 
-        // Do not add scroll offsets; measureInWindow returns viewport-relative coords across platforms
+          // Do not add scroll offsets; measureInWindow returns viewport-relative coords across platforms
 
-        setDropdownPosition({
-          top,
-          left,
-          width,
-          maxHeight: desiredHeight,
-        });
-      });
+          setDropdownPosition({
+            top,
+            left,
+            width,
+            maxHeight: desiredHeight,
+          });
+        }
+      );
     }
     setIsInlineDropdownOpen(!isInlineDropdownOpen);
     if (!isInlineDropdownOpen) {
@@ -259,7 +269,6 @@ export default function Multiselect({
       },
       shadowOpacity: 0.3,
       shadowRadius: 4.65,
-      overflow: "hidden",
     },
     inlineSearchContainer: {
       paddingHorizontal: 16,
@@ -278,7 +287,11 @@ export default function Multiselect({
       color: theme.colors.onSurface,
     },
     inlineOptionsList: {
-      maxHeight: Math.max(100, dropdownPosition.maxHeight - ((showSelectAll ? 48 : 0) + (isSearchable ? 56 : 0) + 24)),
+      maxHeight: Math.max(
+        100,
+        dropdownPosition.maxHeight -
+          ((showSelectAll ? 48 : 0) + (isSearchable ? 56 : 0) + 24)
+      ),
     },
     inlineOptionItem: {
       flexDirection: "row",
@@ -450,7 +463,11 @@ export default function Multiselect({
 
   const renderSelectedChips = () => {
     if (selectedOptions.length === 0) {
-      return <Text style={styles.placeholder}>{placeholder || t("common.selectOptions")}</Text>;
+      return (
+        <Text style={styles.placeholder}>
+          {placeholder || t("common.selectOptions")}
+        </Text>
+      );
     }
 
     const visibleChips = selectedOptions.slice(0, maxChipsToShow);
@@ -500,10 +517,7 @@ export default function Multiselect({
         ) : null}
         <View style={{ flex: 1 }}>
           <Text
-            style={[
-              styles.optionText,
-              isSelected && styles.selectedOptionText,
-            ]}
+            style={[styles.optionText, isSelected && styles.selectedOptionText]}
             numberOfLines={1}
           >
             {item.name}
@@ -531,9 +545,7 @@ export default function Multiselect({
         onPress={toggleInlineDropdown}
         disabled={disabled}
       >
-        <View style={styles.valueContainer}>
-          {renderSelectedChips()}
-        </View>
+        <View style={styles.valueContainer}>{renderSelectedChips()}</View>
         <Icon
           source={isInlineDropdownOpen ? "chevron-up" : "chevron-down"}
           size={20}
@@ -565,7 +577,9 @@ export default function Multiselect({
                   onPress={handleSelectAll}
                 >
                   <Text style={styles.inlineActionButtonText}>
-                    {allSelected ? t("common.deselectAll") : t("common.selectAll")}
+                    {allSelected
+                      ? t("common.deselectAll")
+                      : t("common.selectAll")}
                   </Text>
                 </TouchableOpacity>
                 {someSelected && (
@@ -611,9 +625,17 @@ export default function Multiselect({
                   >
                     {renderOptionItem(item)}
                     <Icon
-                      source={isSelected ? "checkbox-marked" : "checkbox-blank-outline"}
+                      source={
+                        isSelected
+                          ? "checkbox-marked"
+                          : "checkbox-blank-outline"
+                      }
                       size={24}
-                      color={isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                      color={
+                        isSelected
+                          ? theme.colors.primary
+                          : theme.colors.onSurfaceVariant
+                      }
                     />
                   </TouchableOpacity>
                 );
@@ -648,9 +670,7 @@ export default function Multiselect({
           onPress={show}
           disabled={disabled}
         >
-          <View style={styles.valueContainer}>
-            {renderSelectedChips()}
-          </View>
+          <View style={styles.valueContainer}>{renderSelectedChips()}</View>
           <Icon
             source="chevron-down"
             size={20}
@@ -691,9 +711,7 @@ export default function Multiselect({
                 style={styles.actionButton}
                 onPress={handleClearSelection}
               >
-                <Text style={styles.actionButtonText}>
-                  {t("common.clear")}
-                </Text>
+                <Text style={styles.actionButtonText}>{t("common.clear")}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -724,9 +742,15 @@ export default function Multiselect({
               >
                 {renderOptionItem(item)}
                 <Icon
-                  source={isSelected ? "checkbox-marked" : "checkbox-blank-outline"}
+                  source={
+                    isSelected ? "checkbox-marked" : "checkbox-blank-outline"
+                  }
                   size={24}
-                  color={isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                  color={
+                    isSelected
+                      ? theme.colors.primary
+                      : theme.colors.onSurfaceVariant
+                  }
                 />
               </TouchableOpacity>
             );

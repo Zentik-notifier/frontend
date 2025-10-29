@@ -555,7 +555,6 @@ const styles = StyleSheet.create({
     maxWidth: 600,
     maxHeight: "80%",
     borderRadius: 16,
-    overflow: "hidden",
   },
   dialogHeader: {
     flexDirection: "row",
