@@ -19,6 +19,35 @@ const MAX_LOGS = 3000; // Keep max 1000 logs
 const BATCH_SIZE = 20; // Write to file after 20 logs
 const BATCH_TIMEOUT_MS = 5000; // Write to file after 5 seconds
 
+function extractCaller(): string | undefined {
+  try {
+    const err = new Error();
+    const stack = (err.stack || '').split('\n')
+      .map(s => s.trim())
+      // remove the first line (error message) and any frames inside logger.ts
+      .filter((s, idx) => idx > 0 && !/services\/logger\.ts/.test(s));
+
+    // Find first meaningful frame
+    const frame = stack.find(s => /\((.*):(\d+):(\d+)\)/.test(s) || /(at\s+.*:\d+:\d+)/.test(s)) || stack[0];
+    if (!frame) return undefined;
+
+    // Try to extract file:line:col
+    const matchParen = frame.match(/\((.*):(\d+):(\d+)\)/);
+    if (matchParen) {
+      const [, file, line, col] = matchParen;
+      return `${file}:${line}:${col}`;
+    }
+    const matchPlain = frame.match(/(\S+):(\d+):(\d+)/);
+    if (matchPlain) {
+      const [full] = matchPlain;
+      return full;
+    }
+    return frame;
+  } catch {
+    return undefined;
+  }
+}
+
 class JsonFileLogger {
   private logBuffer: AppLog[] = [];
   private flushTimeout: NodeJS.Timeout | null = null;
@@ -144,12 +173,13 @@ class JsonFileLogger {
 
   private async write(level: LogLevel, tag: string | undefined, message: string, meta?: any) {
     try {
+      const origin = extractCaller();
       const log: AppLog = {
         id: this.generateUUID(),
         level,
         tag,
         message,
-        metadata: this.convertMetadataToStrings(meta),
+        metadata: this.convertMetadataToStrings({ ...meta, origin }),
         timestamp: Date.now(),
         source: 'React',
       };
@@ -295,12 +325,13 @@ class WebJsonFileLogger {
 
   private async write(level: LogLevel, tag: string | undefined, message: string, meta?: any) {
     try {
+      const origin = extractCaller();
       const log: AppLog = {
         id: this.generateUUID(),
         level,
         tag,
         message,
-        metadata: this.convertMetadataToStrings(meta),
+        metadata: this.convertMetadataToStrings({ ...meta, origin }),
         timestamp: Date.now(),
         source: 'Web',
       };
