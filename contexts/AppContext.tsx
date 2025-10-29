@@ -32,6 +32,7 @@ import React, {
 import { Alert, AppState } from "react-native";
 import { registerTranslation } from "react-native-paper-dates";
 import { settingsService } from "../services/settings-service";
+import { settingsRepository } from "../services/settings-repository";
 import { useSettings, useAuthData } from "../hooks/useSettings";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
@@ -179,6 +180,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     console.debug("🧹 Clearing tokens and setting logout state...");
     await settingsService.clearTokens();
+    // Clear any stored redirect intent
+    try { await settingsRepository.removeSetting('auth_redirectAfterLogin'); } catch {}
     await settingsService.savePushNotificationsInitialized(false);
     await settingsService.saveLastUserId("");
     setUserId(null);

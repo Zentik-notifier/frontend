@@ -1,9 +1,10 @@
 import { useNavigationUtils } from "@/utils/navigation";
-import { useSegments } from "expo-router";
+import { usePathname, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { useAppContext } from "../contexts/AppContext";
 import { useSettings } from "@/hooks/useSettings";
 import { CURRENT_TERMS_VERSION } from "./settings-service";
+import { settingsRepository } from "./settings-repository";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { lastUserId, isInitializing } = useAppContext();
@@ -11,6 +12,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const showPrivateRoutes = !!lastUserId;
   const { navigateToHome, navigateToLogin, navigateToTerms } =
     useNavigationUtils();
+  const pathname = usePathname();
   const {
     isInitialized,
     settings: {
@@ -48,6 +50,11 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     // 2) If not logged in, send to login (avoid loop when already in public routes)
     if (!isInitializing && !showPrivateRoutes) {
       if (isPrivate) {
+        // Save redirect path to return after login
+        try {
+          const redirectPath = pathname || '/';
+          settingsRepository.setSetting('auth_redirectAfterLogin', redirectPath).catch(() => {});
+        } catch {}
         navigateToLogin();
       }
       return;

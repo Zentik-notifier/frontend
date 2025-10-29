@@ -88,9 +88,12 @@ export default function UserSection() {
   const currentSession = sessionsData?.getUserSessions?.find(
     (session) => session.isCurrent
   );
-  const provider = currentSession?.loginProvider
+  const providerIdLc = currentSession?.loginProvider
+    ? String(currentSession.loginProvider).toLowerCase()
+    : undefined;
+  const provider = providerIdLc
     ? providersData?.publicAppConfig.oauthProviders.find(
-        (el) => el.providerId === currentSession.loginProvider
+        (el) => el.providerId.toLowerCase() === providerIdLc
       )
     : undefined;
 

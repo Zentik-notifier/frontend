@@ -20,7 +20,7 @@ export default function Root({ children }: PropsWithChildren) {
         <script dangerouslySetInnerHTML={{ __html: sw }} />
 
         {/* On hard refresh, always start from index (/) to let app route appropriately */}
-        <script dangerouslySetInnerHTML={{ __html: forceIndexOnReload }} />
+        {/* <script dangerouslySetInnerHTML={{ __html: forceIndexOnReload }} /> */}
         <style>{`
           html, body, #root { height: 100%; }
           body { overflow: auto; }

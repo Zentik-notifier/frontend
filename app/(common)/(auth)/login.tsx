@@ -2,7 +2,7 @@ import LoginForm from "@/components/LoginForm";
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import {
   Image,
@@ -14,17 +14,33 @@ import {
 } from "react-native";
 import { Button, Text, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { settingsRepository } from "@/services/settings-repository";
 
 export default function LoginScreen() {
   const { t } = useI18n();
   const theme = useTheme();
+  const router = useRouter();
   const { data } = usePublicAppConfigQuery();
   const emailEnabled = data?.publicAppConfig.emailEnabled;
   const { email } = useLocalSearchParams<{ email?: string }>();
   const { navigateToRegister, navigateToHome, navigateToForgotPassword } =
     useNavigationUtils();
 
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = async () => {
+    // Check for redirect path after login
+    try {
+      const redirectPath = await settingsRepository.getSetting('auth_redirectAfterLogin');
+      if (redirectPath && redirectPath !== '/') {
+        // Remove redirect path immediately
+        await settingsRepository.removeSetting('auth_redirectAfterLogin');
+        // Navigate to the saved path
+        router.replace(redirectPath as any);
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking redirect after login:', error);
+    }
+    // Default navigation to home
     navigateToHome();
   };
 

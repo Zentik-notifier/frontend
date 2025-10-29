@@ -15,12 +15,13 @@ import {
   Surface,
   Text,
   TouchableRipple,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LoginModal } from "./LoginModal";
 import StatusBadge from "./StatusBadge";
 import UserDropdown from "./UserDropdown";
+import { is } from "date-fns/locale";
 
 const ROUTES_WITH_HOME_BUTTON: string[] = [
   "/(mobile)/(settings)",
@@ -156,17 +157,24 @@ export default function Header() {
     unreadCount,
     isMarkingAllAsRead,
   } = useBadgeSync();
-  const { isLoginModalOpen, closeLoginModal, isMainLoading } = useAppContext();
+  const { isLoginModalOpen, closeLoginModal, isMainLoading, logout } =
+    useAppContext();
   const { itemsInQueue } = useDownloadQueue();
   const { t } = useI18n();
-  const { navigateToHome, navigateBack, navigateToAppSettings } =
-    useNavigationUtils();
+  const {
+    navigateToHome,
+    navigateBack,
+    navigateToAppSettings,
+    navigateToRegister,
+    navigateToForgotPassword,
+  } = useNavigationUtils();
   const segments = useSegments() as string[];
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { themeMode, setThemeMode } = useAppTheme();
   const { isMobile } = useDeviceType();
   const isPublic = segments[0] === "(common)";
+  const isSelfService = segments[0] === "self-service";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Pulsating animations for icons only (not the entire badge)
@@ -356,8 +364,11 @@ export default function Header() {
             {/* Mark All as Read Button */}
             {shouldShowStatusBadges && hasUnreadNotifications && (
               <View style={styles.markAllButtonContainer}>
-                <Surface 
-                  style={[styles.iconButtonSurface, { backgroundColor: theme.colors.primaryContainer }]} 
+                <Surface
+                  style={[
+                    styles.iconButtonSurface,
+                    { backgroundColor: theme.colors.primaryContainer },
+                  ]}
                   elevation={2}
                 >
                   <TouchableRipple
@@ -366,23 +377,44 @@ export default function Header() {
                     style={styles.iconButtonRipple}
                     borderless
                   >
-                    <View style={[styles.iconButtonContent, { backgroundColor: theme.colors.primaryContainer }]}>
+                    <View
+                      style={[
+                        styles.iconButtonContent,
+                        { backgroundColor: theme.colors.primaryContainer },
+                      ]}
+                    >
                       {isMarkingAllAsRead ? (
-                        <ActivityIndicator size="small" color={theme.colors.onPrimaryContainer} />
+                        <ActivityIndicator
+                          size="small"
+                          color={theme.colors.onPrimaryContainer}
+                        />
                       ) : (
                         <Animated.View style={{ opacity: markAllIconOpacity }}>
-                          <Icon source="check-all" size={20} color={theme.colors.onSurface} />
+                          <Icon
+                            source="check-all"
+                            size={20}
+                            color={theme.colors.onSurface}
+                          />
                         </Animated.View>
                       )}
                     </View>
                   </TouchableRipple>
                 </Surface>
                 {unreadCount > 0 && (
-                  <Surface 
-                    style={[styles.badge, { backgroundColor: theme.colors.error }]} 
+                  <Surface
+                    style={[
+                      styles.badge,
+                      { backgroundColor: theme.colors.error },
+                    ]}
                     elevation={3}
                   >
-                    <Text variant="labelSmall" style={[styles.badgeText, { color: theme.colors.onError }]}>
+                    <Text
+                      variant="labelSmall"
+                      style={[
+                        styles.badgeText,
+                        { color: theme.colors.onError },
+                      ]}
+                    >
                       {unreadCount > 99 ? "99+" : unreadCount.toString()}
                     </Text>
                   </Surface>
@@ -393,8 +425,11 @@ export default function Header() {
             {/* Download Queue Progress Icon */}
             {shouldShowStatusBadges && itemsInQueue > 0 && (
               <View style={styles.downloadQueueContainer}>
-                <Surface 
-                  style={[styles.iconButtonSurface, { backgroundColor: theme.colors.secondaryContainer }]} 
+                <Surface
+                  style={[
+                    styles.iconButtonSurface,
+                    { backgroundColor: theme.colors.secondaryContainer },
+                  ]}
                   elevation={2}
                 >
                   <TouchableRipple
@@ -402,20 +437,35 @@ export default function Header() {
                     style={styles.iconButtonRipple}
                     borderless
                   >
-                    <View style={[styles.iconButtonContent, { backgroundColor: theme.colors.secondaryContainer }]}>
+                    <View
+                      style={[
+                        styles.iconButtonContent,
+                        { backgroundColor: theme.colors.secondaryContainer },
+                      ]}
+                    >
                       <Animated.View style={{ opacity: downloadIconOpacity }}>
-                        <Icon source="download" size={20} color={theme.colors.onSurface} />
+                        <Icon
+                          source="download"
+                          size={20}
+                          color={theme.colors.onSurface}
+                        />
                       </Animated.View>
                     </View>
                   </TouchableRipple>
                 </Surface>
-                <Surface 
-                  style={[styles.downloadQueueBadge, { backgroundColor: theme.colors.primary }]} 
+                <Surface
+                  style={[
+                    styles.downloadQueueBadge,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
                   elevation={3}
                 >
                   <Text
                     variant="labelSmall"
-                    style={[styles.downloadQueueBadgeText, { color: theme.colors.onPrimary }]}
+                    style={[
+                      styles.downloadQueueBadgeText,
+                      { color: theme.colors.onPrimary },
+                    ]}
                   >
                     {itemsInQueue > 99 ? "99+" : itemsInQueue.toString()}
                   </Text>
@@ -442,7 +492,7 @@ export default function Header() {
 
           {/* SEZIONE DESTRA: User Profile */}
           <View style={styles.rightSection}>
-            {isPublic ? (
+            {isPublic || isSelfService ? (
               segments[1] !== "terms-acceptance" && (
                 <View style={styles.publicButtonsContainer}>
                   {/* Theme Toggle Button */}
@@ -468,26 +518,76 @@ export default function Header() {
                   </Surface>
 
                   {/* Settings Button */}
-                  <Surface style={styles.unauthButtonWrapper} elevation={2}>
-                    <TouchableRipple
-                      style={[
-                        styles.unauthSettingsButton,
-                        {
-                          backgroundColor: theme.colors.surfaceVariant,
-                          borderColor: theme.colors.outline,
-                        },
-                      ]}
-                      onPress={() => navigateToAppSettings(false)}
-                      accessibilityLabel={t("common.settings")}
-                      accessibilityRole="button"
-                    >
-                      <Icon
-                        source="cog"
-                        size={20}
-                        color={theme.colors.onSurfaceVariant}
-                      />
-                    </TouchableRipple>
-                  </Surface>
+                  {isPublic && (
+                    <Surface style={styles.unauthButtonWrapper} elevation={2}>
+                      <TouchableRipple
+                        style={[
+                          styles.unauthSettingsButton,
+                          {
+                            backgroundColor: theme.colors.surfaceVariant,
+                            borderColor: theme.colors.outline,
+                          },
+                        ]}
+                        onPress={() => navigateToAppSettings(false)}
+                        accessibilityLabel={t("common.settings")}
+                        accessibilityRole="button"
+                      >
+                        <Icon
+                          source="cog"
+                          size={20}
+                          color={theme.colors.onSurfaceVariant}
+                        />
+                      </TouchableRipple>
+                    </Surface>
+                  )}
+
+                  {/* Self-service: Home shortcut */}
+                  {isSelfService && (
+                    <Surface style={styles.unauthButtonWrapper} elevation={2}>
+                      <TouchableRipple
+                        style={[
+                          styles.unauthSettingsButton,
+                          {
+                            backgroundColor: theme.colors.surfaceVariant,
+                            borderColor: theme.colors.outline,
+                          },
+                        ]}
+                        onPress={navigateToHome}
+                        accessibilityLabel={t("common.home")}
+                        accessibilityRole="button"
+                      >
+                        <Icon
+                          source="home"
+                          size={20}
+                          color={theme.colors.onSurfaceVariant}
+                        />
+                      </TouchableRipple>
+                    </Surface>
+                  )}
+
+                  {/* Self-service: add Logout as third button */}
+                  {isSelfService && (
+                    <Surface style={styles.unauthButtonWrapper} elevation={2}>
+                      <TouchableRipple
+                        style={[
+                          styles.unauthSettingsButton,
+                          {
+                            backgroundColor: theme.colors.surfaceVariant,
+                            borderColor: theme.colors.outline,
+                          },
+                        ]}
+                        onPress={logout}
+                        accessibilityLabel={t("userProfile.logout")}
+                        accessibilityRole="button"
+                      >
+                        <Icon
+                          source="logout"
+                          size={20}
+                          color={theme.colors.onSurfaceVariant}
+                        />
+                      </TouchableRipple>
+                    </Surface>
+                  )}
                 </View>
               )
             ) : (

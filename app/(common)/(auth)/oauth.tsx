@@ -1,4 +1,5 @@
 import { settingsService } from "@/services/settings-service";
+import { settingsRepository } from "@/services/settings-repository";
 import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -6,7 +7,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
 import { Platform, View, StyleSheet } from "react-native";
-import { Text, Button, useTheme } from "react-native-paper";
+import { Text, Button, useTheme, ActivityIndicator } from "react-native-paper";
 
 export default function OAuthCallbackPage() {
   const { refreshUserData, completeAuth, setUserId } = useAppContext();
@@ -195,7 +196,23 @@ export default function OAuthCallbackPage() {
           console.log("🔗 Saving tokens and fetching user data");
           setSuccessTitle(t("oauth.successTitle"));
           setSuccessMessage(t("oauth.successMessage"));
-          completeAuth(accessToken, refreshToken);
+          const ok = await completeAuth(accessToken, refreshToken);
+
+          // After OAuth login, check for redirect-after-login and navigate there, then remove it
+          try {
+            const redirectPath = await settingsRepository.getSetting(
+              "auth_redirectAfterLogin"
+            );
+            if (redirectPath && redirectPath !== "/") {
+              await settingsRepository.removeSetting("auth_redirectAfterLogin");
+              router.replace(redirectPath as any);
+              return;
+            }
+          } catch (e) {
+            console.error("🔗 Error checking redirect after OAuth login:", e);
+          }
+
+          // Fallback: navigate home via button or RequireAuth will handle
         } else {
           console.error("🔗 Missing tokens in OAuth callback");
           router.back();
@@ -258,12 +275,15 @@ export default function OAuthCallbackPage() {
             >
               {successTitle}
             </Text>
-            <Text
-              variant="bodyMedium"
-              style={{ color: theme.colors.onBackground, marginBottom: 16 }}
-            >
-              {successMessage}
-            </Text>
+            <View style={{ alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text
+                variant="bodyMedium"
+                style={{ color: theme.colors.onBackground, textAlign: "center" }}
+              >
+                {successMessage}
+              </Text>
+            </View>
             <Button mode="contained" onPress={() => navigateToHome()}>
               {t("oauth.goHome")}
             </Button>

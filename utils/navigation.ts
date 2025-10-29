@@ -357,6 +357,10 @@ export function useNavigationUtils() {
             router.push(`/(common)/(auth)/oauth?${params}`);
         },
 
+        navigateToSelfService: () => {
+            router.push(`/self-service/token-requests`);
+        },
+
         navigateToChangePassword: () => {
             if (isMobile) {
                 router.push("/(mobile)/(settings)/user/change-password");

@@ -29,7 +29,7 @@ export default function UserDropdown({
   const theme = useTheme();
   const { themeMode, setThemeMode } = useAppTheme();
   const { t } = useI18n();
-  const { navigateToSettings, navigateToAdmin } = useNavigationUtils();
+  const { navigateToSettings, navigateToAdmin, navigateToSelfService, navigateToHome } = useNavigationUtils();
 
   const { data: userData } = useGetMeQuery();
   const user = userData?.me;
@@ -255,6 +255,28 @@ export default function UserDropdown({
                 style={[styles.menuItemText, { color: theme.colors.onSurface }]}
               >
                 {t("userDropdown.settings")}
+              </Text>
+            </View>
+          </MenuOption>
+
+          {/* Self-service */}
+          <MenuOption
+            onSelect={() => {
+              navigateToSelfService();
+              closeMenu();
+            }}
+          >
+            <View
+              style={[
+                styles.menuItem,
+                { backgroundColor: theme.colors.surface },
+              ]}
+            >
+              <Icon source="tools" size={20} color={theme.colors.onSurface} />
+              <Text
+                style={[styles.menuItemText, { color: theme.colors.onSurface }]}
+              >
+                Self Service
               </Text>
             </View>
           </MenuOption>

@@ -715,6 +715,16 @@ export interface Translation {
       status: string;
       empty: string;
       noDescription: string;
+      descriptionRequired: string;
+      pendingRequestExists: string;
+      invalidMaxRequests: string;
+      pendingRequestWarning: string;
+      copyToken: string;
+      tokenCopied: string;
+      tokenId: string;
+      userId: string;
+      username: string;
+      email: string;
     };
   };
   accessTokens: {

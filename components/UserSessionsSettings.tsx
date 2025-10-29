@@ -140,9 +140,12 @@ export function UserSessionsSettings() {
 
   const renderSessionItem = (item: SessionInfoDto) => {
     const isExpired = item.expiresAt && new Date(item.expiresAt) < new Date();
-    const provider = item.loginProvider
+    const providerIdLc = item.loginProvider
+      ? String(item.loginProvider).toLowerCase()
+      : undefined;
+    const provider = providerIdLc
       ? providersData?.publicAppConfig.oauthProviders.find(
-          (el) => el.providerId === item.loginProvider
+          (el) => el.providerId.toLowerCase() === providerIdLc
         )
       : undefined;
 

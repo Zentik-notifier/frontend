@@ -747,7 +747,17 @@
       "create": "Richiedi token",
       "status": "Stato",
       "empty": "Nessuna richiesta trovata",
-      "noDescription": "Nessuna descrizione"
+      "noDescription": "Nessuna descrizione",
+      "descriptionRequired": "La descrizione è obbligatoria",
+      "pendingRequestExists": "Esiste già una richiesta in attesa. Attendi che venga elaborata.",
+      "invalidMaxRequests": "Inserisci un numero valido di chiamate massime (maggiore di 0)",
+      "pendingRequestWarning": "Hai una richiesta in attesa. Attendi che venga elaborata prima di crearne una nuova.",
+      "copyToken": "Copia Token",
+      "tokenCopied": "Copiato!",
+      "tokenId": "ID Token",
+      "userId": "ID Utente",
+      "username": "Nome utente",
+      "email": "Email"
     }
   },
   "accessTokens": {

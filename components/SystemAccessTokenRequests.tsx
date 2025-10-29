@@ -94,10 +94,17 @@ export default function SystemAccessTokenRequestsManagement({
             {formatDate(request.createdAt)}
           </Text>
           {request.user && (
-            <Text variant="bodySmall" style={styles.detail}>
-              {t("systemAccessTokens.item.requester")}:{" "}
-              {request.user.username || request.user.email || request.user.id}
-            </Text>
+            <>
+              <Text variant="bodySmall" style={styles.detail}>
+                {t("systemAccessTokens.userRequests.userId" as any)}: {request.user.id}
+              </Text>
+              <Text variant="bodySmall" style={styles.detail}>
+                {t("systemAccessTokens.userRequests.username" as any)}: {request.user.username}
+              </Text>
+              <Text variant="bodySmall" style={styles.detail}>
+                {t("systemAccessTokens.userRequests.email" as any)}: {request.user.email}
+              </Text>
+            </>
           )}
           <Text variant="bodySmall" style={styles.detail}>
             Max Requests: {request.maxRequests}
