@@ -8,7 +8,7 @@ import {
   List,
   Text,
   TextInput,
-  useTheme
+  useTheme,
 } from "react-native-paper";
 import { useAppContext } from "../contexts/AppContext";
 import {
@@ -35,8 +35,6 @@ export default function UserProfile() {
   const [lastName, setLastName] = useState("");
   const [avatar, setAvatar] = useState("");
   const { navigateToChangePassword } = useNavigationUtils();
-
-  const [refreshing, setRefreshing] = useState(false);
 
   const [updateProfileMutation, { loading: savingProfile }] =
     useUpdateProfileMutation({
