@@ -8,10 +8,11 @@ import { useI18n } from "@/hooks/useI18n";
 import { useAppContext } from "@/contexts/AppContext";
 import React, { useMemo } from "react";
 import { Alert, StyleSheet, Pressable, View } from "react-native";
-import { Text, useTheme } from "react-native-paper";
+import { Icon, Text, useTheme } from "react-native-paper";
 import SwipeableItem, { MenuItem } from "./SwipeableItem";
 import { Image } from "expo-image";
 import { useNavigationUtils } from "@/utils/navigation";
+import OAuthProviderIcon from "./OAuthProviderIcon";
 
 interface SwipeableOauthProviderItemProps {
   provider: OAuthProviderFragment;
@@ -100,7 +101,6 @@ const SwipeableOauthProviderItem: React.FC<SwipeableOauthProviderItemProps> = ({
     onPress: handleTogglePress,
   };
 
-
   // Only show delete action for custom providers (not built-in like GITHUB, GOOGLE)
   const rightAction =
     provider.type === OAuthProviderType.Custom
@@ -110,7 +110,9 @@ const SwipeableOauthProviderItem: React.FC<SwipeableOauthProviderItemProps> = ({
           destructive: true,
           onPress: handleDeletePress,
           showAlert: {
-            title: t("administration.oauthProviderForm.confirmDeleteProviderTitle"),
+            title: t(
+              "administration.oauthProviderForm.confirmDeleteProviderTitle"
+            ),
             message: t(
               "administration.oauthProviderForm.confirmDeleteProviderMessage",
               {
@@ -151,22 +153,13 @@ const SwipeableOauthProviderItem: React.FC<SwipeableOauthProviderItemProps> = ({
           ]}
         >
           <View style={styles.providerInfo}>
-            <View
-              style={[
-                styles.providerIcon,
-                {
-                  backgroundColor: `${provider.color}15`,
-                },
-              ]}
-            >
-              {provider.iconUrl && (
-                <Image
-                  source={{ uri: provider.iconUrl }}
-                  style={{ width: 24, height: 24 }}
-                  resizeMode="contain"
-                />
-              )}
-            </View>
+            <OAuthProviderIcon
+              iconUrl={provider.iconUrl}
+              backgroundColor={provider.color!}
+              size={40}
+              iconSize={30}
+              style={styles.iconContainer}
+            />
             <View style={styles.providerDetails}>
               <Text variant="titleMedium" style={styles.providerName}>
                 {provider.name}
@@ -187,10 +180,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  providerIcon: {
+  iconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  providerIcon: {
+    width: 30,
+    height: 30,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,

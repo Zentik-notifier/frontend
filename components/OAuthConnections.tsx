@@ -1,4 +1,3 @@
-import { settingsService } from "@/services/settings-service";
 import { useAppContext } from "@/contexts/AppContext";
 import {
   UserFragment,
@@ -6,20 +5,22 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
+import { settingsService } from "@/services/settings-service";
+import { createOAuthRedirectLink } from "@/utils/universal-links";
 import React, { useState } from "react";
-import { Alert, Image, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
+import { Image } from "expo-image";
+import OAuthProviderIcon from "./OAuthProviderIcon";
 import {
   ActivityIndicator,
   Button,
   Card,
-  Chip,
   Divider,
   Icon,
   List,
   Text,
   useTheme,
 } from "react-native-paper";
-import { createOAuthRedirectLink } from "@/utils/universal-links";
 
 interface OAuthConnectionsProps {
   identities: UserFragment["identities"];
@@ -262,28 +263,17 @@ export default function OAuthConnections({
                 title={provider.name}
                 description={
                   isConnected
-                    ? t("userProfile.oauthConnections.connectedAs", {
-                        providerId: connectedIdentity.providerId,
-                      })
+                    ? t("userProfile.oauthConnections.connected")
                     : t("userProfile.oauthConnections.availableToConnect")
                 }
                 left={(props) => (
-                  <View
-                    style={[
-                      styles.iconContainer,
-                      { backgroundColor: providerColor + "15" },
-                    ]}
-                  >
-                    {provider.iconUrl ? (
-                      <Image
-                        source={{ uri: provider.iconUrl }}
-                        style={styles.providerIcon}
-                        resizeMode="contain"
-                      />
-                    ) : (
-                      <Icon source="link" size={20} color={providerColor} />
-                    )}
-                  </View>
+                  <OAuthProviderIcon
+                    iconUrl={provider.iconUrl}
+                    backgroundColor={providerColor}
+                    size={40}
+                    iconSize={30}
+                    style={styles.iconContainer}
+                  />
                 )}
                 right={() => (
                   <View style={styles.rightContent}>
@@ -295,15 +285,6 @@ export default function OAuthConnections({
                           gap: 8,
                         }}
                       >
-                        <Chip
-                          mode="flat"
-                          textStyle={{ color: theme.colors.primary }}
-                          style={{
-                            backgroundColor: theme.colors.primaryContainer,
-                          }}
-                        >
-                          {t("userProfile.oauthConnections.connected")}
-                        </Chip>
                         <Button
                           mode="text"
                           compact
@@ -385,7 +366,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   providerIcon: {
-    width: 20,
-    height: 20,
+    width: 30,
+    height: 30,
   },
 });

@@ -53,6 +53,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             bundleIdentifier,
             appleTeamId: "C3F24V5NS5",
             buildNumber: "53",
+            usesAppleSignIn: true,
             associatedDomains: [
                 "applinks:notifier.zentik.app"
             ],
@@ -140,6 +141,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             "expo-web-browser",
             "expo-router",
             "expo-localization",
+            "expo-apple-authentication",
             "expo-background-task",
             [
                 "expo-share-extension",

@@ -1,9 +1,9 @@
-import React, { useState } from "react";
-import { View, StyleSheet } from "react-native";
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
-import { Button, Menu, useTheme, Divider } from "react-native-paper";
 import { Image } from "expo-image";
+import React, { useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { Button, Divider, Menu, useTheme } from "react-native-paper";
 
 type Props = {
   onProviderSelect: (providerId: string) => void;
@@ -19,7 +19,10 @@ export function OAuthSelector({ onProviderSelect, disabled }: Props) {
   const [anchorWidth, setAnchorWidth] = useState(0);
 
   return (
-    <View style={styles.container} onLayout={(e) => setAnchorWidth(e.nativeEvent.layout.width)}>
+    <View
+      style={styles.container}
+      onLayout={(e) => setAnchorWidth(e.nativeEvent.layout.width)}
+    >
       <Menu
         visible={visible}
         onDismiss={() => setVisible(false)}
@@ -34,7 +37,12 @@ export function OAuthSelector({ onProviderSelect, disabled }: Props) {
           </Button>
         }
         anchorPosition="bottom"
-        contentStyle={{ width: anchorWidth || undefined, paddingVertical: 0, paddingHorizontal: 0, borderRadius: 0 }}
+        contentStyle={{
+          width: anchorWidth || undefined,
+          paddingVertical: 0,
+          paddingHorizontal: 0,
+          borderRadius: 0,
+        }}
       >
         <View style={styles.menuContent}>
           {providers.map((p: any, idx: number) => (
@@ -45,20 +53,29 @@ export function OAuthSelector({ onProviderSelect, disabled }: Props) {
                   setVisible(false);
                   onProviderSelect(p.providerId);
                 }}
-                style={[styles.oauthMenuButton, { backgroundColor: p.color || theme.colors.primary }]}
+                style={[
+                  styles.oauthMenuButton,
+                  { backgroundColor: p.color || theme.colors.primary },
+                ]}
                 contentStyle={styles.oauthMenuButtonContent}
                 labelStyle={{ color: p.textColor || theme.colors.onPrimary }}
-                icon={p.iconUrl ? () => (
-                  <Image
-                    cachePolicy="memory-disk"
-                    source={{ uri: p.iconUrl }}
-                    style={{ width: 20, height: 20, marginRight: 8 }}
-                  />
-                ) : undefined}
+                icon={
+                  p.iconUrl
+                    ? () => (
+                        <Image
+                          cachePolicy="memory-disk"
+                          source={{ uri: p.iconUrl }}
+                          style={{ width: 20, height: 20, marginRight: 8 }}
+                        />
+                      )
+                    : undefined
+                }
               >
                 {p.name}
               </Button>
-              {idx < providers.length - 1 && <Divider style={styles.menuDivider} />}
+              {idx < providers.length - 1 && (
+                <Divider style={styles.menuDivider} />
+              )}
             </React.Fragment>
           ))}
         </View>

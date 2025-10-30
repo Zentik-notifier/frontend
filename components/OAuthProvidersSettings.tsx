@@ -6,7 +6,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { Icon, Surface, Text, useTheme } from "react-native-paper";
+import { Icon, Text, useTheme } from "react-native-paper";
 import SwipeableOauthProviderItem from "./SwipeableOauthProviderItem";
 import PaperScrollView from "./ui/PaperScrollView";
 
