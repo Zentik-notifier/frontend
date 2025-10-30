@@ -1,5 +1,6 @@
 import { useAppContext } from "@/contexts/AppContext";
 import {
+  OAuthProviderFragment,
   OAuthProviderType,
   useGetMyIdentitiesQuery,
   usePublicAppConfigQuery,
@@ -52,7 +53,9 @@ export default function OAuthConnections() {
 
   // Dynamically include Apple Sign In on iOS if available (not returned by backend providers)
   const providersWithApple = (() => {
-    const list = [...availableProviders];
+    const list: OAuthProviderFragment[] = [
+      ...availableProviders,
+    ] as OAuthProviderFragment[];
     const hasAppleSignin = list.some(
       (p: any) => p.type === OAuthProviderType.AppleSignin
     );
@@ -64,7 +67,7 @@ export default function OAuthConnections() {
         iconUrl: null,
         textColor: "#000000",
         type: OAuthProviderType.AppleSignin,
-      });
+      } as OAuthProviderFragment);
     }
     return list;
   })();
@@ -100,7 +103,7 @@ export default function OAuthConnections() {
     try {
       setConnectingProvider(providerType);
 
-      console.log("🔗 Starting OAuth connection for provider:", providerType);
+      console.log(`🔗 Starting OAuth connection for provider: ${providerType}`);
 
       // Get the current access token to pass for authentication
       const accessToken = settingsService.getAuthData().accessToken;
@@ -169,21 +172,25 @@ export default function OAuthConnections() {
         .replace(/\//g, "_")
         .replace(/=/g, "");
 
-      // Build redirect back to settings (full-page redirect on web)
-      const settingsReturnUrl = `${window.location.origin}/(tablet)/(settings)/user/profile`;
-      const url = `${baseWithPrefix}/auth/${providerType.toLowerCase()}?state=${encodeURIComponent(
-        state
-      )}&redirect=${encodeURIComponent(settingsReturnUrl)}`;
-
-      console.log("🔗 OAuth connection URL:", url);
       console.log("🔗 Redirect URI:", redirect);
       console.log("🔗 State with connection context:", stateData);
 
       if (Platform.OS === "web") {
+        // Build redirect back to settings (full-page redirect on web)
+        const settingsReturnUrl = `${window.location.origin}/(tablet)/(settings)/user/profile`;
+        const url = `${baseWithPrefix}/auth/${providerType}?state=${encodeURIComponent(
+          state
+        )}&redirect=${encodeURIComponent(settingsReturnUrl)}`;
+        console.log("🔗 OAuth connection URL:", url);
         // Full redirect on web to complete flow and land on settings
         window.location.assign(url);
         return;
       } else {
+        // Mobile: use the redirect from stateData
+        const url = `${baseWithPrefix}/auth/${providerType}?state=${encodeURIComponent(
+          state
+        )}`;
+        console.log("🔗 OAuth connection URL:", url);
         const result = await openBrowserAsync(url, {
           showInRecents: false,
           createTask: false,
@@ -320,6 +327,7 @@ export default function OAuthConnections() {
                 left={(props) => (
                   <OAuthProviderIcon
                     providerType={provider.type}
+                    provider={provider}
                     backgroundColor={providerColor}
                     size={40}
                     iconSize={30}

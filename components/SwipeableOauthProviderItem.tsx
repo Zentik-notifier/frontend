@@ -154,7 +154,7 @@ const SwipeableOauthProviderItem: React.FC<SwipeableOauthProviderItemProps> = ({
           <View style={styles.providerInfo}>
             <OAuthProviderIcon
               providerType={provider.type}
-              backgroundColor={provider.color || undefined}
+              provider={provider}
               size={40}
               iconSize={30}
             />

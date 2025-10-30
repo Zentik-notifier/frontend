@@ -1,4 +1,5 @@
 import {
+  OAuthProviderFragment,
   OAuthProviderType,
   useAllOAuthProvidersQuery,
 } from "@/generated/gql-operations-generated";
@@ -9,6 +10,7 @@ import { Icon } from "react-native-paper";
 
 type Props = {
   providerType: OAuthProviderType;
+  provider?: OAuthProviderFragment;
   size?: number; // outer container size (square)
   iconSize?: number; // inner icon size
   backgroundColor?: string;
@@ -19,6 +21,7 @@ type Props = {
 
 export default function OAuthProviderIcon({
   providerType,
+  provider: providerParent,
   size = 28,
   iconSize = 18,
   backgroundColor,
@@ -26,10 +29,11 @@ export default function OAuthProviderIcon({
   circular = true,
   marginRight = 12,
 }: Props) {
-  const { data } = useAllOAuthProvidersQuery({});
+  const { data } = useAllOAuthProvidersQuery({ skip: !!providerParent });
   const providers = data?.allOAuthProviders || [];
 
-  const provider = providers.find((p) => p.type === providerType);
+  const provider =
+    providerParent ?? providers.find((p) => p.type === providerType);
 
   const containerStyle: ViewStyle = {
     width: size,

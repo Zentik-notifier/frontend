@@ -188,6 +188,7 @@ export function OAuthSelector({ onProviderSelect, disabled }: Props) {
                   >
                     <OAuthProviderIcon
                       providerType={p.type}
+                      provider={p}
                       size={28}
                       iconSize={18}
                       backgroundColor={p.color || theme.colors.primary}
