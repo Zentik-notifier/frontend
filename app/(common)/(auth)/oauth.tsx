@@ -25,11 +25,16 @@ export default function OAuthCallbackPage() {
     const handleOAuthCallback = async () => {
       if (processing) return;
       setProcessing(true);
+      console.log("🔎 [OAuth] Raw searchParams:", searchParams);
 
       try {
         // Extract parameters from route params (native) or URL hash (web)
-        let accessToken = searchParams.accessToken as string;
-        let refreshToken = searchParams.refreshToken as string;
+        try {
+          // Help Expo WebBrowser close the auth window on web even if redirect URL check fails in dev
+          WebBrowser.maybeCompleteAuthSession({ skipRedirectCheck: true });
+        } catch {}
+        let exchangedAccessToken: string | undefined;
+        let exchangedRefreshToken: string | undefined;
         let connected = searchParams.connected as string;
         let provider = searchParams.provider as string;
         let errorParam = searchParams.error as string;
@@ -43,57 +48,20 @@ export default function OAuthCallbackPage() {
               typeof window !== "undefined" ? window.location.hash : "";
             if (hash && hash.startsWith("#")) {
               const params = new URLSearchParams(hash.substring(1));
-              accessToken =
-                accessToken || (params.get("accessToken") as string);
-              refreshToken =
-                refreshToken || (params.get("refreshToken") as string);
               connected = connected || (params.get("connected") as string);
               provider = provider || (params.get("provider") as string);
               errorParam = errorParam || (params.get("error") as string);
               errorDescriptionParam =
                 errorDescriptionParam ||
                 (params.get("error_description") as string);
-
-              // Check for exchange code
               const code = params.get("code");
-              if (code && !accessToken && !refreshToken) {
-                console.log(
-                  "🔗 Exchange code received, exchanging for tokens..."
-                );
-                try {
-                  const baseUrl = settingsService.getApiBaseWithPrefix();
-                  const response = await fetch(
-                    `${baseUrl}/auth/exchange-code`,
-                    {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({ code }),
-                    }
-                  );
-
-                  if (response.ok) {
-                    const data = await response.json();
-                    console.log("🔗 Tokens received from exchange");
-                    accessToken = data.accessToken;
-                    refreshToken = data.refreshToken;
-                  } else {
-                    const errorData = await response.json();
-                    console.error("🔗 Code exchange failed:", errorData);
-                    router.replace("/(common)/(auth)/login");
-                    return;
-                  }
-                } catch (error) {
-                  console.error("🔗 Error exchanging code:", error);
-                  router.replace("/(common)/(auth)/login");
-                  return;
-                }
+              if (code) {
+                codeParam = code as string;
               }
             }
           } catch {}
 
-          if (!accessToken && !refreshToken && !connected && !errorParam) {
+          if (!connected && !errorParam && !codeParam) {
             console.log("🔗 No tokens or code in URL");
             router.replace("/(common)/(auth)/login");
             return;
@@ -118,13 +86,8 @@ export default function OAuthCallbackPage() {
           return;
         }
 
-        // On native: exchange code if provided via deep link
-        if (
-          Platform.OS !== "web" &&
-          !accessToken &&
-          !refreshToken &&
-          codeParam
-        ) {
+        // Exchange code (any platform) if no tokens present
+        if (!exchangedAccessToken && !exchangedRefreshToken && codeParam) {
           try {
             const baseUrl = settingsService.getApiBaseWithPrefix();
             const response = await fetch(`${baseUrl}/auth/exchange-code`, {
@@ -137,8 +100,8 @@ export default function OAuthCallbackPage() {
             });
             if (response.ok) {
               const data = await response.json();
-              accessToken = data.accessToken;
-              refreshToken = data.refreshToken;
+              exchangedAccessToken = data.accessToken;
+              exchangedRefreshToken = data.refreshToken;
             } else {
               console.error(
                 "🔗 Native code exchange failed with status",
@@ -151,7 +114,14 @@ export default function OAuthCallbackPage() {
         }
 
         // Only proceed if we have valid OAuth parameters
-        if (!connected && !accessToken) {
+        const hasTokens = !!exchangedAccessToken && !!exchangedRefreshToken;
+        console.log("🔎 [OAuth] Gate check:", {
+          connected,
+          provider,
+          hasTokens,
+          hasCode: !!codeParam,
+        });
+        if (!connected && !hasTokens) {
           return;
         }
         console.log("🔗 OAuth callback page loaded with params:", searchParams);
@@ -188,23 +158,50 @@ export default function OAuthCallbackPage() {
             );
           }
 
-          // Always navigate explicitly to the User Profile after connecting a provider
-          // This avoids unintended redirects to Home or incorrect back stack behavior
+          // On web: notify opener (settings page) and close the popup
+          if (Platform.OS === 'web') {
+            try {
+              if (typeof window !== 'undefined' && window.opener) {
+                window.opener.postMessage({ type: 'oauth-connected', provider }, '*');
+                window.close();
+                return;
+              }
+            } catch (e) {
+              console.warn('🔗 Unable to postMessage to opener:', e);
+            }
+          }
+
+          // Fallback (native or no opener): navigate to User Profile
           navigateToUserProfile();
           return;
-        } else if (accessToken && refreshToken) {
+        } else if (hasTokens) {
           console.log("🔗 Saving tokens and fetching user data");
           setSuccessTitle(t("oauth.successTitle"));
           setSuccessMessage(t("oauth.successMessage"));
-          const ok = await completeAuth(accessToken, refreshToken);
+          await completeAuth(exchangedAccessToken!, exchangedRefreshToken!);
 
-          // After OAuth login, check for redirect-after-login and navigate there, then remove it
+          // After OAuth login, check for redirect-after-login and navigate there
           try {
             const redirectPath = await settingsRepository.getSetting(
               "auth_redirectAfterLogin"
             );
-            if (redirectPath && redirectPath !== "/") {
+            // Remove redirect intent immediately to avoid later side-effects
+            try {
               await settingsRepository.removeSetting("auth_redirectAfterLogin");
+            } catch {}
+            // Avoid forcing users to Settings after a plain login flow
+            const isSettingsRoute =
+              typeof redirectPath === "string" &&
+              (redirectPath.includes("/(mobile)/(settings)") ||
+                redirectPath.includes("/(tablet)/(settings)") ||
+                redirectPath === "/user/profile");
+            console.log(
+              "🔎 [OAuth] redirectAfterLogin:",
+              redirectPath,
+              "isSettingsRoute=",
+              isSettingsRoute
+            );
+            if (redirectPath && redirectPath !== "/" && !isSettingsRoute) {
               router.replace(redirectPath as any);
               return;
             }
@@ -212,7 +209,9 @@ export default function OAuthCallbackPage() {
             console.error("🔗 Error checking redirect after OAuth login:", e);
           }
 
-          // Fallback: navigate home via button or RequireAuth will handle
+          // Fallback: go Home directly
+          console.log("🔎 [OAuth] Navigating Home (no redirectAfterLogin)");
+          navigateToHome();
         } else {
           console.error("🔗 Missing tokens in OAuth callback");
           router.back();
@@ -279,7 +278,10 @@ export default function OAuthCallbackPage() {
               <ActivityIndicator size="small" color={theme.colors.primary} />
               <Text
                 variant="bodyMedium"
-                style={{ color: theme.colors.onBackground, textAlign: "center" }}
+                style={{
+                  color: theme.colors.onBackground,
+                  textAlign: "center",
+                }}
               >
                 {successMessage}
               </Text>

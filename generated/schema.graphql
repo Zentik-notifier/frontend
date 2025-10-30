@@ -174,7 +174,6 @@ input CreateOAuthProviderDto {
   isEnabled: Boolean
   name: String!
   profileFields: [String!]
-  providerId: String!
   scopes: [String!]!
   textColor: String
   tokenUrl: String
@@ -502,7 +501,18 @@ type MessageAttachment {
   url: String
 }
 
+input MobileAppleAuthDto {
+  browser: String
+  deviceName: String
+  identityToken: String!
+  osVersion: String
+  payload: String!
+  platform: String
+}
+
 type Mutation {
+  appleConnectMobile(input: MobileAppleAuthDto!): Boolean!
+  appleLoginMobile(input: MobileAppleAuthDto!): LoginResponse!
   approveSystemAccessTokenRequest(id: String!, input: ApproveSystemAccessTokenRequestDto): SystemAccessTokenRequest!
   """Batch update multiple server settings"""
   batchUpdateServerSettings(settings: [BatchUpdateSettingInput!]!): [ServerSetting!]!
@@ -690,7 +700,6 @@ type OAuthProvider {
   isEnabled: Boolean!
   name: String!
   profileFields: [String!]
-  providerId: String!
   scopes: [String!]!
   textColor: String
   tokenUrl: String
@@ -704,16 +713,19 @@ type OAuthProviderPublicDto {
   iconUrl: String
   id: String!
   name: String!
-  providerId: String!
   textColor: String
   type: OAuthProviderType!
 }
 
-"""Type of OAuth provider (GitHub, Google, or custom)"""
+"""Type of OAuth provider (GitHub, Google, Discord, Apple, or custom)"""
 enum OAuthProviderType {
+  APPLE
+  APPLE_SIGNIN
   CUSTOM
+  DISCORD
   GITHUB
   GOOGLE
+  LOCAL
 }
 
 type PaginatedLogs {
@@ -979,6 +991,7 @@ enum ServerSettingType {
   RateLimitTtlMs
   ResendApiKey
   ServerStableIdentifier
+  SystemTokenUsageStats
   VapidSubject
   WebPush
 }
@@ -994,7 +1007,7 @@ type SessionInfoDto {
   isCurrent: Boolean!
   lastActivity: DateTime!
   location: String
-  loginProvider: String
+  loginProvider: OAuthProviderType
   operatingSystem: String
 }
 
@@ -1127,7 +1140,6 @@ input UpdateOAuthProviderDto {
   isEnabled: Boolean
   name: String
   profileFields: [String!]
-  providerId: String
   scopes: [String!]
   textColor: String
   tokenUrl: String
@@ -1261,8 +1273,8 @@ type UserIdentity {
   createdAt: DateTime!
   email: String
   id: ID!
-  provider: String!
-  providerId: String!
+  metadata: String
+  providerType: OAuthProviderType
   updatedAt: DateTime!
   user: User!
   userId: String!
@@ -1301,7 +1313,7 @@ type UserSession {
   ipAddress: String
   isActive: Boolean!
   lastActivity: DateTime
-  loginProvider: String
+  loginProvider: OAuthProviderType
   operatingSystem: String
   tokenId: String!
   updatedAt: DateTime!

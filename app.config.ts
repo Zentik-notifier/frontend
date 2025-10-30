@@ -143,6 +143,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             "expo-localization",
             "expo-apple-authentication",
             "expo-background-task",
+            "expo-asset",
             [
                 "expo-share-extension",
                 {

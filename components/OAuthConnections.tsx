@@ -1,16 +1,17 @@
 import { useAppContext } from "@/contexts/AppContext";
 import {
-  UserFragment,
+  OAuthProviderType,
+  useGetMyIdentitiesQuery,
   usePublicAppConfigQuery,
 } from "@/generated/gql-operations-generated";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import { settingsService } from "@/services/settings-service";
 import { createOAuthRedirectLink } from "@/utils/universal-links";
+import { maybeCompleteAuthSession, openBrowserAsync } from "expo-web-browser";
 import React, { useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
-import { Image } from "expo-image";
-import OAuthProviderIcon from "./OAuthProviderIcon";
+import { Alert, Platform, StyleSheet, View } from "react-native";
+import * as AppleAuthentication from "expo-apple-authentication";
 import {
   ActivityIndicator,
   Button,
@@ -21,14 +22,9 @@ import {
   Text,
   useTheme,
 } from "react-native-paper";
+import OAuthProviderIcon from "./OAuthProviderIcon";
 
-interface OAuthConnectionsProps {
-  identities: UserFragment["identities"];
-}
-
-export default function OAuthConnections({
-  identities,
-}: OAuthConnectionsProps) {
+export default function OAuthConnections() {
   const { t } = useI18n();
   const theme = useTheme();
   const {
@@ -38,39 +34,73 @@ export default function OAuthConnections({
   const [connectingProvider, setConnectingProvider] = useState<string | null>(
     null
   );
+  const [appleAvailable, setAppleAvailable] = useState(false);
 
+  const { data: providersData, loading: providersLoading } =
+    usePublicAppConfigQuery();
   const {
-    data: providersData,
-    loading: providersLoading,
-    error,
-  } = usePublicAppConfigQuery();
+    data: identitiesData,
+    loading: identitiesLoading,
+    refetch: refetchIdentities,
+  } = useGetMyIdentitiesQuery();
 
-  // Filter out any custom providers (those that might not be standard OAuth providers)
-  const oauthIdentities =
-    identities?.filter(
-      (identity) =>
-        !identity.provider.includes("custom") &&
-        identity.provider !== "email" &&
-        identity.provider !== "password"
-    ) || [];
-
-  const sortedOAuthIdentities = useEntitySorting(oauthIdentities, "desc");
+  const identities = identitiesData?.me?.identities || [];
+  const sortedOAuthIdentities = useEntitySorting(identities, "desc");
 
   const availableProviders =
     providersData?.publicAppConfig.oauthProviders || [];
 
-  // Determine which providers are connected
-  const getProviderConnectionStatus = (providerId: string) => {
-    return sortedOAuthIdentities.find(
-      (identity) => identity.provider === providerId
+  // Dynamically include Apple Sign In on iOS if available (not returned by backend providers)
+  const providersWithApple = (() => {
+    const list = [...availableProviders];
+    const hasAppleSignin = list.some(
+      (p: any) => p.type === OAuthProviderType.AppleSignin
+    );
+    if (Platform.OS === "ios" && appleAvailable && !hasAppleSignin) {
+      list.push({
+        id: "apple_signin",
+        name: "Apple",
+        color: "#ffffff",
+        iconUrl: null,
+        textColor: "#000000",
+        type: OAuthProviderType.AppleSignin,
+      });
+    }
+    return list;
+  })();
+
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const ok =
+          Platform.OS === "ios"
+            ? await AppleAuthentication.isAvailableAsync()
+            : false;
+        if (mounted) setAppleAvailable(ok);
+      } catch {
+        if (mounted) setAppleAvailable(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Determine which providers are connected (match by enum providerType only)
+  const getProviderConnectionStatus = (providerType: OAuthProviderType) => {
+    return (
+      sortedOAuthIdentities.find(
+        (identity) => identity.providerType === providerType
+      ) || null
     );
   };
 
-  const handleConnect = async (providerId: string) => {
+  const handleConnect = async (providerType: OAuthProviderType) => {
     try {
-      setConnectingProvider(providerId);
+      setConnectingProvider(providerType);
 
-      console.log("🔗 Starting OAuth connection for provider:", providerId);
+      console.log("🔗 Starting OAuth connection for provider:", providerType);
 
       // Get the current access token to pass for authentication
       const accessToken = settingsService.getAuthData().accessToken;
@@ -85,6 +115,49 @@ export default function OAuthConnections({
       const baseWithPrefix = settingsService.getApiBaseWithPrefix();
       const redirect = createOAuthRedirectLink();
 
+      // Native Apple Sign In connect flow (no login): do not open browser
+      if (providerType === OAuthProviderType.AppleSignin) {
+        if (Platform.OS !== "ios" || !appleAvailable) {
+          Alert.alert(
+            t("common.error"),
+            "Apple Sign In non disponibile su questo dispositivo"
+          );
+          return;
+        }
+
+        const credential = await AppleAuthentication.signInAsync({
+          requestedScopes: [
+            AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+            AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          ],
+        });
+        const { identityToken, ...rest } = credential as any;
+        if (!identityToken) {
+          throw new Error("Missing identityToken");
+        }
+
+        const body = {
+          identityToken,
+          payload: JSON.stringify(rest),
+        } as any;
+
+        const response = await fetch(`${baseWithPrefix}/auth/apple/connect`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          const text = await response.text().catch(() => "");
+          throw new Error(text || "Apple connect failed");
+        }
+        await Promise.all([refreshUserData(), refetchIdentities()]);
+        // Alert.alert(t('common.info'), t('userProfile.oauthConnections.connected'));
+        return;
+      }
+
       // Create state with connection context and access token
       const stateData = {
         redirect: redirect,
@@ -96,46 +169,31 @@ export default function OAuthConnections({
         .replace(/\//g, "_")
         .replace(/=/g, "");
 
-      const url = `${baseWithPrefix}/auth/${providerId}?state=${encodeURIComponent(
+      // Build redirect back to settings (full-page redirect on web)
+      const settingsReturnUrl = `${window.location.origin}/(tablet)/(settings)/user/profile`;
+      const url = `${baseWithPrefix}/auth/${providerType.toLowerCase()}?state=${encodeURIComponent(
         state
-      )}`;
+      )}&redirect=${encodeURIComponent(settingsReturnUrl)}`;
 
       console.log("🔗 OAuth connection URL:", url);
       console.log("🔗 Redirect URI:", redirect);
       console.log("🔗 State with connection context:", stateData);
 
-      // Use in-app browser with proper session management (same as login)
-      const { openBrowserAsync, maybeCompleteAuthSession } = await import(
-        "expo-web-browser"
-      );
-
-      // Start the OAuth session
-      const result = await openBrowserAsync(url, {
-        showInRecents: false,
-        createTask: false,
-      });
-
-      console.log("🔗 Browser result:", result);
-
-      // Complete the auth session
-      maybeCompleteAuthSession();
-
-      // Check if the browser was closed without completing OAuth
-      if (result.type === "cancel") {
-        console.log("🔗 OAuth connection was cancelled by user");
-        Alert.alert(t("common.info"), t("login.providers.cancelled"));
-      } else if (result.type === "dismiss") {
-        console.log(
-          "🔗 OAuth connection completed via deep link (browser dismissed)"
-        );
-        // For OAuth connections, "dismiss" is actually expected when the deep link
-        // redirects back to the app and the browser is automatically closed
+      if (Platform.OS === "web") {
+        // Full redirect on web to complete flow and land on settings
+        window.location.assign(url);
+        return;
       } else {
-        console.log(
-          "🔗 OAuth connection completed with result type:",
-          result.type
-        );
-        // Note: The actual connection handling will be done by the deep link handler in _layout.tsx
+        const result = await openBrowserAsync(url, {
+          showInRecents: false,
+          createTask: false,
+        });
+        console.log("🔗 Browser result:", result);
+        maybeCompleteAuthSession();
+        if (result.type === "cancel") {
+          console.log("🔗 OAuth connection was cancelled by user");
+          Alert.alert(t("common.info"), t("login.providers.cancelled"));
+        }
       }
     } catch (error) {
       console.error("🔗 Failed to open OAuth connection:", error);
@@ -190,14 +248,9 @@ export default function OAuthConnections({
         throw new Error(text || "Request failed");
       }
 
-      Alert.alert(
-        t("common.success"),
-        t("userProfile.oauthConnections.disconnectSuccess")
-      );
-
       // Ask the app to refresh user data to update identities list
       try {
-        await refreshUserData();
+        await Promise.all([refreshUserData(), refetchIdentities()]);
       } catch {}
     } catch (e) {
       console.error("🔗 Failed to disconnect identity", e);
@@ -208,7 +261,7 @@ export default function OAuthConnections({
     }
   };
 
-  if (providersLoading) {
+  if (providersLoading || identitiesLoading) {
     return (
       <Card>
         <Card.Content style={styles.loadingContainer}>
@@ -221,7 +274,7 @@ export default function OAuthConnections({
     );
   }
 
-  if (availableProviders.length === 0 && sortedOAuthIdentities.length === 0) {
+  if (providersWithApple.length === 0 && sortedOAuthIdentities.length === 0) {
     return (
       <Card>
         <Card.Content style={styles.emptyState}>
@@ -250,10 +303,8 @@ export default function OAuthConnections({
           </Text>
         </View>
 
-        {availableProviders.map((provider, index) => {
-          const connectedIdentity = getProviderConnectionStatus(
-            provider.providerId
-          );
+        {providersWithApple.map((provider, index) => {
+          const connectedIdentity = getProviderConnectionStatus(provider.type);
           const isConnected = !!connectedIdentity;
           const providerColor = provider.color || "#666666";
 
@@ -268,11 +319,10 @@ export default function OAuthConnections({
                 }
                 left={(props) => (
                   <OAuthProviderIcon
-                    iconUrl={provider.iconUrl}
+                    providerType={provider.type}
                     backgroundColor={providerColor}
                     size={40}
                     iconSize={30}
-                    style={styles.iconContainer}
                   />
                 )}
                 right={() => (
@@ -291,7 +341,7 @@ export default function OAuthConnections({
                           onPress={() =>
                             handleDisconnect(
                               connectedIdentity.id,
-                              provider.name || provider.providerId
+                              provider.name || provider.type
                             )
                           }
                           disabled={isOfflineAuth || isBackendUnreachable}
@@ -303,13 +353,13 @@ export default function OAuthConnections({
                       <Button
                         mode="outlined"
                         compact
-                        onPress={() => handleConnect(provider.providerId)}
+                        onPress={() => handleConnect(provider.type)}
                         disabled={
-                          connectingProvider === provider.providerId ||
+                          connectingProvider === provider.type ||
                           isOfflineAuth ||
                           isBackendUnreachable
                         }
-                        loading={connectingProvider === provider.providerId}
+                        loading={connectingProvider === provider.type}
                       >
                         {t("userProfile.oauthConnections.connect")}
                       </Button>
@@ -317,7 +367,7 @@ export default function OAuthConnections({
                   </View>
                 )}
               />
-              {index < availableProviders.length - 1 && <Divider />}
+              {index < providersWithApple.length - 1 && <Divider />}
             </View>
           );
         })}
@@ -343,14 +393,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     gap: 12,
   },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
   rightContent: {
     alignItems: "center",
     justifyContent: "center",
@@ -364,9 +406,5 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     textAlign: "center",
-  },
-  providerIcon: {
-    width: 30,
-    height: 30,
   },
 });

@@ -193,15 +193,6 @@ fragment UserFragment on User {
   avatar
   hasPassword
   role
-  identities {
-    id
-    provider
-    providerId
-    email
-    avatarUrl
-    createdAt
-    updatedAt
-  }
   buckets {
     id
     name
@@ -224,6 +215,25 @@ fragment UserFragment on User {
   }
   createdAt
   updatedAt
+}
+
+# Lightweight fragment and query for identities only
+fragment UserIdentityFragment on UserIdentity {
+  id
+  providerType
+  email
+  avatarUrl
+  createdAt
+  updatedAt
+}
+
+query GetMyIdentities {
+  me {
+    id
+    identities {
+      ...UserIdentityFragment
+    }
+  }
 }
 
 fragment UserDeviceFragment on UserDevice {
@@ -498,6 +508,21 @@ mutation UpsertUserSetting($input: UpsertUserSettingInput!) {
 }
 
 # User mutations
+mutation AppleLoginMobile($input: MobileAppleAuthDto!) {
+  appleLoginMobile(input: $input) {
+    accessToken
+    refreshToken
+    user {
+      id
+      email
+      username
+      firstName
+      lastName
+      avatar
+    }
+  }
+}
+
 mutation Login($input: LoginDto!) {
   login(input: $input) {
     accessToken
@@ -810,7 +835,6 @@ fragment EntityPermissionFragment on EntityPermission {
 fragment OAuthProviderPublicFragment on OAuthProviderPublicDto {
   id
   name
-  providerId
   type
   iconUrl
   color
@@ -820,7 +844,6 @@ fragment OAuthProviderPublicFragment on OAuthProviderPublicDto {
 fragment OAuthProviderFragment on OAuthProvider {
   id
   name
-  providerId
   type
   clientId
   clientSecret

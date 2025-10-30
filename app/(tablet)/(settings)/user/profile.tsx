@@ -1,10 +1,10 @@
-import UserSection from "@/components/UserSection";
+import UserProfile from "@/components/UserProfile";
 import React from "react";
 
 export default function UserProfileScreen() {
   return (
     <>
-      <UserSection />
+      <UserProfile />
     </>
   );
 }

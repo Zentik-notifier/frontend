@@ -5,11 +5,10 @@ import { Alert, Image, StyleSheet, View } from "react-native";
 import {
   Button,
   Divider,
-  IconButton,
   List,
   Text,
   TextInput,
-  useTheme,
+  useTheme
 } from "react-native-paper";
 import { useAppContext } from "../contexts/AppContext";
 import {
@@ -22,14 +21,12 @@ import {
   useUserNotificationStatsQuery,
 } from "../generated/gql-operations-generated";
 import AdminSubscriptions from "./AdminSubscriptions";
-import IdWithCopyButton from "./IdWithCopyButton";
 import NotificationStats from "./NotificationStats";
 import OAuthConnections from "./OAuthConnections";
-import PaperScrollView from "./ui/PaperScrollView";
 import DetailSectionCard from "./ui/DetailSectionCard";
-// import UserSystemAccessTokenRequests from "./UserSystemAccessTokenRequests";
+import PaperScrollView from "./ui/PaperScrollView";
 
-export default function UserSection() {
+export default function UserProfile() {
   const { logout, refreshUserData } = useAppContext();
   const theme = useTheme();
   const { t } = useI18n();
@@ -84,18 +81,6 @@ export default function UserSection() {
 
   const { data: statsData, refetch: refetchStats } =
     useUserNotificationStatsQuery();
-
-  const currentSession = sessionsData?.getUserSessions?.find(
-    (session) => session.isCurrent
-  );
-  const providerIdLc = currentSession?.loginProvider
-    ? String(currentSession.loginProvider).toLowerCase()
-    : undefined;
-  const provider = providerIdLc
-    ? providersData?.publicAppConfig.oauthProviders.find(
-        (el) => el.providerId.toLowerCase() === providerIdLc
-      )
-    : undefined;
 
   useEffect(() => {
     if (user) {
@@ -429,7 +414,7 @@ export default function UserSection() {
 
         {/* OAuth Connections Section */}
         <View style={styles.section}>
-          <OAuthConnections identities={user.identities} />
+          <OAuthConnections />
         </View>
 
         {/* User System Access Token Requests */}

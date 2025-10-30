@@ -20,6 +20,7 @@ import {
   Text,
   useTheme,
 } from "react-native-paper";
+import OAuthProviderIcon from "./OAuthProviderIcon";
 import SwipeableItem from "./SwipeableItem";
 
 export function UserSessionsSettings() {
@@ -143,17 +144,12 @@ export function UserSessionsSettings() {
     const providerIdLc = item.loginProvider
       ? String(item.loginProvider).toLowerCase()
       : undefined;
-    const provider = providerIdLc
-      ? providersData?.publicAppConfig.oauthProviders.find(
-          (el) => el.providerId.toLowerCase() === providerIdLc
-        )
-      : undefined;
 
     return (
       <SwipeableItem
         key={item.id}
         rightAction={
-          !(isOfflineAuth || isBackendUnreachable)
+          !(isOfflineAuth || isBackendUnreachable) && !item.isCurrent
             ? {
                 icon: "logout",
                 label: t("userSessions.item.revoke") as string,
@@ -203,26 +199,11 @@ export function UserSessionsSettings() {
               {/* Show login provider icon */}
               {item.loginProvider && (
                 <View style={styles.providerInfo}>
-                  {provider?.iconUrl ? (
-                    <Image
-                      source={{ uri: provider.iconUrl }}
-                      style={[styles.providerIconImage]}
-                    />
-                  ) : (
-                    <Icon
-                      source={
-                        item.loginProvider === "github"
-                          ? "github"
-                          : item.loginProvider === "google"
-                          ? "google"
-                          : item.loginProvider === "local"
-                          ? "account"
-                          : "key"
-                      }
-                      size={18}
-                      color={theme.colors.onSurface}
-                    />
-                  )}
+                  <OAuthProviderIcon
+                    providerType={item.loginProvider}
+                    size={40}
+                    iconSize={30}
+                  />
                 </View>
               )}
 

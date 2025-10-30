@@ -77,7 +77,7 @@ export default function CreateOAuthProviderForm({
     if (provider && isEditing) {
       setFormData({
         name: provider.name || "",
-        providerId: provider.providerId || "",
+        providerId: "",
         clientId: provider.clientId || "",
         clientSecret: provider.clientSecret || "",
         scopes: provider.scopes?.join(", ") || "",
@@ -101,9 +101,10 @@ export default function CreateOAuthProviderForm({
       return;
     }
 
-    // Per i provider custom sono richiesti anche name e providerId
+    // Per i provider custom, in creazione richiediamo name e providerId (slug)
     if (
       isCustomProvider &&
+      !isEditing &&
       (!formData.name.trim() || !formData.providerId.trim())
     ) {
       Alert.alert(
@@ -120,7 +121,6 @@ export default function CreateOAuthProviderForm({
 
     const input: UpdateOAuthProviderDto | CreateOAuthProviderDto = {
       name: formData.name,
-      providerId: formData.providerId,
       clientId: formData.clientId,
       clientSecret: formData.clientSecret,
       scopes: scopesArray,

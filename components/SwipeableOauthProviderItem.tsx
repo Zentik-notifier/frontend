@@ -10,7 +10,6 @@ import React, { useMemo } from "react";
 import { Alert, StyleSheet, Pressable, View } from "react-native";
 import { Icon, Text, useTheme } from "react-native-paper";
 import SwipeableItem, { MenuItem } from "./SwipeableItem";
-import { Image } from "expo-image";
 import { useNavigationUtils } from "@/utils/navigation";
 import OAuthProviderIcon from "./OAuthProviderIcon";
 
@@ -154,11 +153,10 @@ const SwipeableOauthProviderItem: React.FC<SwipeableOauthProviderItemProps> = ({
         >
           <View style={styles.providerInfo}>
             <OAuthProviderIcon
-              iconUrl={provider.iconUrl}
-              backgroundColor={provider.color!}
+              providerType={provider.type as any}
+              backgroundColor={provider.color || undefined}
               size={40}
               iconSize={30}
-              style={styles.iconContainer}
             />
             <View style={styles.providerDetails}>
               <Text variant="titleMedium" style={styles.providerName}>
@@ -180,21 +178,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  providerIcon: {
-    width: 30,
-    height: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
+  providerIcon: {},
   providerDetails: {
     flex: 1,
   },
