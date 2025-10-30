@@ -119,37 +119,45 @@ export default function CreateOAuthProviderForm({
       .map((s: string) => s.trim())
       .filter((s: string) => s.length > 0);
 
-    const input: UpdateOAuthProviderDto | CreateOAuthProviderDto = {
-      name: formData.name,
-      clientId: formData.clientId,
-      clientSecret: formData.clientSecret,
-      scopes: scopesArray,
-      iconUrl: formData.iconUrl || null,
-      color: formData.color || null,
-      textColor: formData.textColor || null,
-      authorizationUrl: formData.authorizationUrl || null,
-      tokenUrl: formData.tokenUrl || null,
-      userInfoUrl: formData.userInfoUrl || null,
-      isEnabled: formData.isEnabled,
-      type: OAuthProviderType.Custom,
-    };
+    let baseInput: UpdateOAuthProviderDto | CreateOAuthProviderDto = {};
+    if (isEditing && provider) {
+      const { __typename, id, createdAt, updatedAt, ...rest } = provider;
+      baseInput = {
+        ...rest,
+      };
+    }
+
+    if (isCustomProvider) {
+      // For custom providers, include all fields
+      baseInput.name = formData.name;
+      baseInput.clientId = formData.clientId;
+      baseInput.clientSecret = formData.clientSecret;
+      baseInput.scopes = scopesArray;
+      baseInput.iconUrl = formData.iconUrl || null;
+      baseInput.color = formData.color || null;
+      baseInput.textColor = formData.textColor || null;
+      baseInput.authorizationUrl = formData.authorizationUrl || null;
+      baseInput.tokenUrl = formData.tokenUrl || null;
+      baseInput.userInfoUrl = formData.userInfoUrl || null;
+      baseInput.isEnabled = formData.isEnabled;
+    } else {
+      baseInput.clientId = formData.clientId;
+      baseInput.clientSecret = formData.clientSecret;
+    }
 
     try {
       if (isEditing && provider) {
-        // Update existing provider
-        console.log("Updating provider", input);
         await updateOAuthProvider({
           variables: {
             id: provider.id,
-            input,
+            input: baseInput as UpdateOAuthProviderDto,
           },
         });
 
         router.back();
       } else {
-        // Create new provider
         await createOAuthProvider({
-          variables: { input: input as CreateOAuthProviderDto },
+          variables: { input: baseInput as CreateOAuthProviderDto },
           update: (cache, { data }) => {
             if (data?.createOAuthProvider) {
               const existingProviders = cache.readQuery<AllOAuthProvidersQuery>(
@@ -175,7 +183,6 @@ export default function CreateOAuthProviderForm({
         router.back();
       }
     } catch (error) {
-      console.error("Error saving OAuth provider:", error);
       Alert.alert(
         t("administration.oauthProviderForm.validation.error"),
         "Failed to save OAuth provider. Please try again."

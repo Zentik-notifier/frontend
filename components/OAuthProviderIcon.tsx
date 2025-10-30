@@ -1,13 +1,11 @@
+import {
+  OAuthProviderType,
+  useAllOAuthProvidersQuery,
+} from "@/generated/gql-operations-generated";
+import { Image } from "expo-image";
 import React from "react";
 import { View, ViewStyle } from "react-native";
 import { Icon } from "react-native-paper";
-import { Image } from "expo-image";
-import * as AppleAuthentication from "expo-apple-authentication";
-import { Platform } from "react-native";
-import {
-  OAuthProviderType,
-  usePublicAppConfigQuery,
-} from "@/generated/gql-operations-generated";
 
 type Props = {
   providerType: OAuthProviderType;
@@ -28,18 +26,10 @@ export default function OAuthProviderIcon({
   circular = true,
   marginRight = 12,
 }: Props) {
-  const { data } = usePublicAppConfigQuery({ fetchPolicy: "cache-first" });
-  const providers = data?.publicAppConfig.oauthProviders || [];
+  const { data } = useAllOAuthProvidersQuery({});
+  const providers = data?.allOAuthProviders || [];
 
-  let provider = providers.find((p) => p.type === providerType);
-
-  if (!provider && providerType === OAuthProviderType.AppleSignin) {
-    provider = providers.find((p) => p.type === OAuthProviderType.Apple);
-  }
-
-  const isAppleLike =
-    providerType === OAuthProviderType.Apple ||
-    providerType === OAuthProviderType.AppleSignin;
+  const provider = providers.find((p) => p.type === providerType);
 
   const containerStyle: ViewStyle = {
     width: size,
@@ -52,7 +42,6 @@ export default function OAuthProviderIcon({
     ...(style || {}),
   };
 
-  // For Apple Sign In, force specific icon with white background as requested
   if (providerType === OAuthProviderType.AppleSignin) {
     return (
       <View style={{ ...containerStyle, backgroundColor: "#FFFFFF" }}>
@@ -77,51 +66,9 @@ export default function OAuthProviderIcon({
     );
   }
 
-  // Special handling for Apple
-  if (isAppleLike) {
-    if (Platform.OS === "ios") {
-      return (
-        <View style={containerStyle}>
-          <AppleAuthentication.AppleAuthenticationButton
-            buttonType={
-              AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
-            }
-            buttonStyle={
-              AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-            }
-            cornerRadius={Math.max(3, Math.round(size / 10))}
-            style={{ width: iconSize, height: iconSize }}
-            onPress={() => {}}
-          />
-        </View>
-      );
-    }
-    return (
-      <View style={containerStyle}>
-        <Icon source="apple" size={iconSize} />
-      </View>
-    );
-  }
-
-  const name = getFallbackIconName(providerType);
   return (
     <View style={containerStyle}>
-      <Icon source={name} size={iconSize} />
+      <Icon source={"key"} size={iconSize} />
     </View>
   );
-}
-
-function getFallbackIconName(type: OAuthProviderType): string {
-  switch (type) {
-    case OAuthProviderType.Github:
-      return "github";
-    case OAuthProviderType.Google:
-      return "google";
-    case OAuthProviderType.Discord:
-      return "discord";
-    case OAuthProviderType.Local:
-      return "account";
-    default:
-      return "key";
-  }
 }
