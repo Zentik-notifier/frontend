@@ -1405,16 +1405,17 @@ fragment ServerFileFragment on FileInfoDto {
   name
   size
   mtime
+  isDir
 }
 
-query ServerFiles {
-  serverFiles {
+query ServerFiles($path: String) {
+  serverFiles(path: $path) {
     ...ServerFileFragment
   }
 }
 
-mutation DeleteServerFile($name: String!) {
-  deleteServerFile(name: $name)
+mutation DeleteServerFile($name: String!, $path: String) {
+  deleteServerFile(name: $name, path: $path)
 }
 
 # Admin Subscriptions Operations

@@ -189,7 +189,11 @@ export default function PaperScrollView({
               icon={actionLoading ? "loading" : fabActions[0].icon}
               visible
               disabled={fabActions[0].disabled}
-              onPress={() => !actionLoading && !fabActions[0].disabled && handleActionPress(fabActions[0])}
+              onPress={() =>
+                !actionLoading &&
+                !fabActions[0].disabled &&
+                handleActionPress(fabActions[0])
+              }
               style={styles.fabSingle}
               loading={actionLoading}
             />

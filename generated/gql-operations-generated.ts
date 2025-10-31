@@ -352,6 +352,7 @@ export enum ExecutionType {
 
 export type FileInfoDto = {
   __typename?: 'FileInfoDto';
+  isDir: Scalars['Boolean']['output'];
   mtime: Scalars['DateTime']['output'];
   name: Scalars['String']['output'];
   size: Scalars['Float']['output'];
@@ -775,6 +776,7 @@ export type MutationDeletePayloadMapperArgs = {
 
 export type MutationDeleteServerFileArgs = {
   name: Scalars['String']['input'];
+  path?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -1386,6 +1388,11 @@ export type QueryOauthProviderArgs = {
 
 export type QueryPayloadMapperArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type QueryServerFilesArgs = {
+  path?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -2874,15 +2881,18 @@ export type TriggerLogCleanupMutationVariables = Exact<{ [key: string]: never; }
 
 export type TriggerLogCleanupMutation = { __typename?: 'Mutation', triggerLogCleanup: boolean };
 
-export type ServerFileFragment = { __typename?: 'FileInfoDto', name: string, size: number, mtime: string };
+export type ServerFileFragment = { __typename?: 'FileInfoDto', name: string, size: number, mtime: string, isDir: boolean };
 
-export type ServerFilesQueryVariables = Exact<{ [key: string]: never; }>;
+export type ServerFilesQueryVariables = Exact<{
+  path?: InputMaybe<Scalars['String']['input']>;
+}>;
 
 
-export type ServerFilesQuery = { __typename?: 'Query', serverFiles: Array<{ __typename?: 'FileInfoDto', name: string, size: number, mtime: string }> };
+export type ServerFilesQuery = { __typename?: 'Query', serverFiles: Array<{ __typename?: 'FileInfoDto', name: string, size: number, mtime: string, isDir: boolean }> };
 
 export type DeleteServerFileMutationVariables = Exact<{
   name: Scalars['String']['input'];
+  path?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
@@ -2937,7 +2947,7 @@ export const UserNotificationStatsFragmentDoc = {"kind":"Document","definitions"
 export const PayloadMapperFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PayloadMapperFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"PayloadMapper"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"jsEvalFn"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"builtInName"}},{"kind":"Field","name":{"kind":"Name","value":"requiredUserSettings"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"avatar"}},{"kind":"Field","name":{"kind":"Name","value":"hasPassword"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"buckets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"devices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"deviceModel"}},{"kind":"Field","name":{"kind":"Name","value":"osVersion"}},{"kind":"Field","name":{"kind":"Name","value":"onlyLocal"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsed"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 export const EntityExecutionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EntityExecutionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EntityExecution"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"entityName"}},{"kind":"Field","name":{"kind":"Name","value":"entityId"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"input"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"errors"}},{"kind":"Field","name":{"kind":"Name","value":"durationMs"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 export const ServerSettingFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerSettingFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ServerSetting"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"configType"}},{"kind":"Field","name":{"kind":"Name","value":"valueText"}},{"kind":"Field","name":{"kind":"Name","value":"valueBool"}},{"kind":"Field","name":{"kind":"Name","value":"valueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"possibleValues"}}]}}]} as unknown as DocumentNode;
-export const ServerFileFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerFileFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"FileInfoDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"size"}},{"kind":"Field","name":{"kind":"Name","value":"mtime"}}]}}]} as unknown as DocumentNode;
+export const ServerFileFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerFileFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"FileInfoDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"size"}},{"kind":"Field","name":{"kind":"Name","value":"mtime"}},{"kind":"Field","name":{"kind":"Name","value":"isDir"}}]}}]} as unknown as DocumentNode;
 export const RequestPasswordResetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RequestPasswordReset"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RequestPasswordResetDto"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"requestPasswordReset"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode;
 export type RequestPasswordResetMutationFn = Apollo.MutationFunction<RequestPasswordResetMutation, RequestPasswordResetMutationVariables>;
 
@@ -6618,7 +6628,7 @@ export function useTriggerLogCleanupMutation(baseOptions?: ApolloReactHooks.Muta
 export type TriggerLogCleanupMutationHookResult = ReturnType<typeof useTriggerLogCleanupMutation>;
 export type TriggerLogCleanupMutationResult = Apollo.MutationResult<TriggerLogCleanupMutation>;
 export type TriggerLogCleanupMutationOptions = Apollo.BaseMutationOptions<TriggerLogCleanupMutation, TriggerLogCleanupMutationVariables>;
-export const ServerFilesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ServerFiles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"serverFiles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ServerFileFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerFileFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"FileInfoDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"size"}},{"kind":"Field","name":{"kind":"Name","value":"mtime"}}]}}]} as unknown as DocumentNode;
+export const ServerFilesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ServerFiles"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"path"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"serverFiles"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"path"},"value":{"kind":"Variable","name":{"kind":"Name","value":"path"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ServerFileFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerFileFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"FileInfoDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"size"}},{"kind":"Field","name":{"kind":"Name","value":"mtime"}},{"kind":"Field","name":{"kind":"Name","value":"isDir"}}]}}]} as unknown as DocumentNode;
 
 /**
  * __useServerFilesQuery__
@@ -6632,6 +6642,7 @@ export const ServerFilesDocument = {"kind":"Document","definitions":[{"kind":"Op
  * @example
  * const { data, loading, error } = useServerFilesQuery({
  *   variables: {
+ *      path: // value for 'path'
  *   },
  * });
  */
@@ -6651,7 +6662,7 @@ export type ServerFilesQueryHookResult = ReturnType<typeof useServerFilesQuery>;
 export type ServerFilesLazyQueryHookResult = ReturnType<typeof useServerFilesLazyQuery>;
 export type ServerFilesSuspenseQueryHookResult = ReturnType<typeof useServerFilesSuspenseQuery>;
 export type ServerFilesQueryResult = Apollo.QueryResult<ServerFilesQuery, ServerFilesQueryVariables>;
-export const DeleteServerFileDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteServerFile"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteServerFile"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}}]}]}}]} as unknown as DocumentNode;
+export const DeleteServerFileDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteServerFile"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"path"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteServerFile"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}},{"kind":"Argument","name":{"kind":"Name","value":"path"},"value":{"kind":"Variable","name":{"kind":"Name","value":"path"}}}]}]}}]} as unknown as DocumentNode;
 export type DeleteServerFileMutationFn = Apollo.MutationFunction<DeleteServerFileMutation, DeleteServerFileMutationVariables>;
 
 /**
@@ -6668,6 +6679,7 @@ export type DeleteServerFileMutationFn = Apollo.MutationFunction<DeleteServerFil
  * const [deleteServerFileMutation, { data, loading, error }] = useDeleteServerFileMutation({
  *   variables: {
  *      name: // value for 'name'
+ *      path: // value for 'path'
  *   },
  * });
  */

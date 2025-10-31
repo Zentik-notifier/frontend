@@ -1132,12 +1132,12 @@
     "pushNeedsPwaDetails": "To receive push notifications on the web, install Zentik as an app (PWA) and then reopen it.\n\nHow to install:\n- Chrome/Edge (Windows/Linux): Menu > Install Zentik (or 'Install app').\n- Chrome (Android): Menu ••• > Add to Home screen.\n- Safari (iOS/iPadOS): Share button > Add to Home Screen.\n- Safari (macOS): File > Add to Dock.\n\nAfter installation, open Zentik from the new icon and sign in if requested.",
     "filesystemPermissionDenied": "Storage access limited",
     "filesystemPermissionDetails": "The app cannot access device storage. Media thumbnails and bucket icons will not be generated. Please check app permissions in your device settings and restart the app.",
-    "selectOptions": "Seleziona opzioni",
-    "refresh": "Aggiorna",
-    "download": "Scarica",
-    "actions": "Azioni",
-    "selectAll": "Seleziona Tutto",
-    "deselectAll": "Deseleziona Tutto"
+    "selectOptions": "Select options",
+    "refresh": "Refresh",
+    "download": "Download",
+    "actions": "Actions",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All"
   },
   "notificationDetail": {
     "loading": "Loading notification...",
