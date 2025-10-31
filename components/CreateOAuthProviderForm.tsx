@@ -70,6 +70,10 @@ export default function CreateOAuthProviderForm({
     tokenUrl: "",
     userInfoUrl: "",
     isEnabled: true,
+    // Apple additional config
+    applePrivateKeyPath: "",
+    appleTeamId: "",
+    appleKeyIdentifier: "",
   });
 
   // Load provider data when editing
@@ -88,12 +92,36 @@ export default function CreateOAuthProviderForm({
         tokenUrl: provider.tokenUrl || "",
         userInfoUrl: provider.userInfoUrl || "",
         isEnabled: provider.isEnabled ?? true,
+        applePrivateKeyPath: (() => {
+          try {
+            const cfg = provider.additionalConfig ? JSON.parse(provider.additionalConfig) : undefined;
+            return cfg?.privateKeyPath || "";
+          } catch {
+            return "";
+          }
+        })(),
+        appleTeamId: (() => {
+          try {
+            const cfg = provider.additionalConfig ? JSON.parse(provider.additionalConfig) : undefined;
+            return cfg?.teamId || "";
+          } catch {
+            return "";
+          }
+        })(),
+        appleKeyIdentifier: (() => {
+          try {
+            const cfg = provider.additionalConfig ? JSON.parse(provider.additionalConfig) : undefined;
+            return cfg?.keyIdentifier || "";
+          } catch {
+            return "";
+          }
+        })(),
       });
     }
   }, [provider, isEditing]);
 
   const handleSave = async () => {
-    if (!formData.clientId.trim() || !formData.clientSecret.trim()) {
+    if (!formData.clientId.trim() || (!isAppleProvider && !formData.clientSecret.trim())) {
       Alert.alert(
         t("administration.oauthProviderForm.validation.error"),
         t("administration.oauthProviderForm.validation.fillRequiredFields")
@@ -142,7 +170,18 @@ export default function CreateOAuthProviderForm({
       baseInput.isEnabled = formData.isEnabled;
     } else {
       baseInput.clientId = formData.clientId;
-      baseInput.clientSecret = formData.clientSecret;
+      if (!isAppleProvider) {
+        baseInput.clientSecret = formData.clientSecret;
+      }
+      // For APPLE providers, include additionalConfig built from the 3 inputs
+      if (isAppleProvider) {
+        const additional = {
+          privateKeyPath: formData.applePrivateKeyPath || "",
+          teamId: formData.appleTeamId || "",
+          keyIdentifier: formData.appleKeyIdentifier || "",
+        } as const;
+        baseInput.additionalConfig = JSON.stringify(additional);
+      }
     }
 
     try {
@@ -192,6 +231,7 @@ export default function CreateOAuthProviderForm({
 
   const isCustomProvider =
     !provider || provider?.type === OAuthProviderType.Custom;
+  const isAppleProvider = provider?.type === OAuthProviderType.Apple;
 
   const handleRefresh = async () => {
     await refetch();
@@ -281,30 +321,32 @@ export default function CreateOAuthProviderForm({
               />
             </View>
 
-            <View style={styles.formGroup}>
-              <Text variant="titleMedium" style={styles.label}>
-                {t("administration.oauthProviderForm.clientSecretRequired")}
-              </Text>
-              <TextInput
-                mode="outlined"
-                value={formData.clientSecret}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, clientSecret: text })
-                }
-                placeholder={t(
-                  "administration.oauthProviderForm.clientSecretPlaceholder"
-                )}
-                multiline={showClientSecret}
-                secureTextEntry={!showClientSecret}
-                autoCapitalize="none"
-                right={
-                  <TextInput.Icon
-                    icon={showClientSecret ? "eye-off" : "eye"}
-                    onPress={() => setShowClientSecret(!showClientSecret)}
-                  />
-                }
-              />
-            </View>
+            {!isAppleProvider && (
+              <View style={styles.formGroup}>
+                <Text variant="titleMedium" style={styles.label}>
+                  {t("administration.oauthProviderForm.clientSecretRequired")}
+                </Text>
+                <TextInput
+                  mode="outlined"
+                  value={formData.clientSecret}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, clientSecret: text })
+                  }
+                  placeholder={t(
+                    "administration.oauthProviderForm.clientSecretPlaceholder"
+                  )}
+                  multiline={showClientSecret}
+                  secureTextEntry={!showClientSecret}
+                  autoCapitalize="none"
+                  right={
+                    <TextInput.Icon
+                      icon={showClientSecret ? "eye-off" : "eye"}
+                      onPress={() => setShowClientSecret(!showClientSecret)}
+                    />
+                  }
+                />
+              </View>
+            )}
 
             {isCustomProvider && (
               <View style={styles.formGroup}>
@@ -326,6 +368,56 @@ export default function CreateOAuthProviderForm({
             )}
           </Card.Content>
         </Card>
+
+      {/* Apple additional config fields (only when provider type is APPLE) */}
+      {provider?.type === OAuthProviderType.Apple && (
+        <Card style={styles.section} mode="outlined">
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              {(t as any)("administration.oauthProviderForm.appleAdditionalConfig")}
+            </Text>
+
+            <View style={styles.formGroup}>
+              <Text variant="titleMedium" style={styles.label}>{(t as any)("administration.oauthProviderForm.applePrivateKeyPath")}</Text>
+              <TextInput
+                mode="outlined"
+                value={formData.applePrivateKeyPath}
+                onChangeText={(text) =>
+                  setFormData({ ...formData, applePrivateKeyPath: text })
+                }
+                placeholder={(t as any)("administration.oauthProviderForm.applePrivateKeyPathPlaceholder")}
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text variant="titleMedium" style={styles.label}>{(t as any)("administration.oauthProviderForm.appleTeamId")}</Text>
+              <TextInput
+                mode="outlined"
+                value={formData.appleTeamId}
+                onChangeText={(text) =>
+                  setFormData({ ...formData, appleTeamId: text })
+                }
+                placeholder={(t as any)("administration.oauthProviderForm.appleTeamIdPlaceholder")}
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text variant="titleMedium" style={styles.label}>{(t as any)("administration.oauthProviderForm.appleKeyIdentifier")}</Text>
+              <TextInput
+                mode="outlined"
+                value={formData.appleKeyIdentifier}
+                onChangeText={(text) =>
+                  setFormData({ ...formData, appleKeyIdentifier: text })
+                }
+                placeholder={(t as any)("administration.oauthProviderForm.appleKeyIdentifierPlaceholder")}
+                autoCapitalize="none"
+              />
+            </View>
+          </Card.Content>
+        </Card>
+      )}
 
         {isCustomProvider && (
           <Card style={styles.section} mode="outlined">

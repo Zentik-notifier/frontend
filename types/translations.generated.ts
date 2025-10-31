@@ -1641,6 +1641,13 @@ export interface Translation {
       createTitle: string;
       editTitle: string;
       save: string;
+      appleAdditionalConfig: string;
+      applePrivateKeyPath: string;
+      applePrivateKeyPathPlaceholder: string;
+      appleTeamId: string;
+      appleTeamIdPlaceholder: string;
+      appleKeyIdentifier: string;
+      appleKeyIdentifierPlaceholder: string;
       basicInformation: string;
       nameRequired: string;
       namePlaceholder: string;
