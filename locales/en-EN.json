@@ -2042,6 +2042,7 @@
       "VapidSubject": "VAPID Subject",
       "PushNotificationsPassthroughServer": "Push Passthrough Server URL",
       "PushPassthroughToken": "Push Passthrough Token",
+      "SystemTokenUsageStats": "System Token Usage Statistics",
       "EmailEnabled": "Email Enabled",
       "EmailType": "Email Service Type",
       "EmailHost": "SMTP Host",

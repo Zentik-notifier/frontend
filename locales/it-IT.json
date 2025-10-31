@@ -1990,6 +1990,7 @@
       "VapidSubject": "Soggetto VAPID",
       "PushNotificationsPassthroughServer": "URL Server Passthrough Push",
       "PushPassthroughToken": "Token Passthrough Push",
+      "SystemTokenUsageStats": "Statistiche Utilizzo Token Sistema",
       "EmailEnabled": "Email Abilitata",
       "EmailType": "Tipo di Servizio Email",
       "EmailHost": "Host SMTP",
