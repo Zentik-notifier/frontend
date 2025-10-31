@@ -327,6 +327,12 @@ enum ExecutionType {
   WEBHOOK
 }
 
+type FileInfoDto {
+  mtime: DateTime!
+  name: String!
+  size: Float!
+}
+
 input GetEntityExecutionsInput {
   entityId: String
   entityName: String
@@ -544,6 +550,7 @@ type Mutation {
   deleteNotification(id: String!): Boolean!
   deleteOAuthProvider(id: String!): Boolean!
   deletePayloadMapper(id: String!): Boolean!
+  deleteServerFile(name: String!): Boolean!
   deleteWebhook(id: ID!): Boolean!
   deviceReportNotificationReceived(id: String!): Notification!
   executeWebhook(id: ID!): Boolean!
@@ -717,15 +724,19 @@ type OAuthProviderPublicDto {
   type: OAuthProviderType!
 }
 
-"""Type of OAuth provider (GitHub, Google, Discord, Apple, or custom)"""
+"""
+Type of OAuth provider (GitHub, Google, Discord, Apple, Facebook, Microsoft, or custom)
+"""
 enum OAuthProviderType {
   APPLE
   APPLE_SIGNIN
   CUSTOM
   DISCORD
+  FACEBOOK
   GITHUB
   GOOGLE
   LOCAL
+  MICROSOFT
 }
 
 type PaginatedLogs {
@@ -834,6 +845,7 @@ type Query {
   payloadMappers: [PayloadMapper!]!
   pendingPostpones: [NotificationPostpone!]!
   publicAppConfig: PublicAppConfig!
+  serverFiles: [FileInfoDto!]!
   """Get a specific server setting by type"""
   serverSetting(configType: ServerSettingType!): ServerSetting
   """Get all server settings"""

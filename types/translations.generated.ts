@@ -1707,6 +1707,16 @@ export interface Translation {
       notFound: string;
       noIdProvided: string;
     };
+    serverFiles: {
+      title: string;
+      description: string;
+      refresh: string;
+      upload: string;
+      confirmDeleteTitle: string;
+      confirmDeleteMessage: string;
+      uploadSuccess: string;
+      uploadError: string;
+    };
     serverStatus: string;
     logs: string;
     roles: {

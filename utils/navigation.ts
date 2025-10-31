@@ -276,6 +276,14 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToServerFiles: () => {
+            if (isMobile) {
+                router.push(`/(mobile)/(admin)/server-files`);
+            } else {
+                router.push(`/(tablet)/(admin)/server-files`);
+            }
+        },
+
         navigateToCreateOAuthProvider: () => {
             if (isMobile) {
                 router.push(`/(mobile)/(admin)/oauth-providers/create`);

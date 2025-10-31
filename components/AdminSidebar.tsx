@@ -55,7 +55,9 @@ export default function AdminSidebar() {
     {
       id: "system-access-tokens",
       title: t("administration.systemTokensTitle"),
-      description: t("administration.systemTokensDescription") || "Manage system API tokens",
+      description:
+        t("administration.systemTokensDescription") ||
+        "Manage system API tokens",
       icon: "key",
       iconColor: "#06b6d4", // Cyan
       onPress: nav.navigateToSystemAccessTokens,
@@ -87,6 +89,15 @@ export default function AdminSidebar() {
       iconColor: "#f59e0b", // Amber
       onPress: nav.navigateToServerLogs,
       selectionSegment: "server-logs",
+    },
+    {
+      id: "server-files",
+      title: t("administration.serverFiles.title"),
+      description: t("administration.serverFiles.description"),
+      icon: "folder",
+      iconColor: "#2563eb", // Blue
+      onPress: (nav as any).navigateToServerFiles,
+      selectionSegment: "server-files",
     },
   ];
 

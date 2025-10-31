@@ -1705,6 +1705,16 @@
       "notFound": "OAuth provider not found",
       "noIdProvided": "No OAuth provider ID provided"
     },
+    "serverFiles": {
+      "title": "Server Files",
+      "description": "Upload, manage and delete server-side files",
+      "refresh": "Refresh",
+      "upload": "Upload",
+      "confirmDeleteTitle": "Confirm",
+      "confirmDeleteMessage": "Delete file \"{name}\"?",
+      "uploadSuccess": "File uploaded successfully",
+      "uploadError": "Failed to upload file"
+    },
     "serverStatus": "Server Status",
     "logs": "System Logs",
     "roles": {

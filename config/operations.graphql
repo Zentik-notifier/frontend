@@ -1400,6 +1400,23 @@ mutation TriggerLogCleanup {
   triggerLogCleanup
 }
 
+# Server Files (Admin)
+fragment ServerFileFragment on FileInfoDto {
+  name
+  size
+  mtime
+}
+
+query ServerFiles {
+  serverFiles {
+    ...ServerFileFragment
+  }
+}
+
+mutation DeleteServerFile($name: String!) {
+  deleteServerFile(name: $name)
+}
+
 # Admin Subscriptions Operations
 query GetMyAdminSubscriptions {
   myAdminSubscription

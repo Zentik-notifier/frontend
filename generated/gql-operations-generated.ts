@@ -350,6 +350,13 @@ export enum ExecutionType {
   Webhook = 'WEBHOOK'
 }
 
+export type FileInfoDto = {
+  __typename?: 'FileInfoDto';
+  mtime: Scalars['DateTime']['output'];
+  name: Scalars['String']['output'];
+  size: Scalars['Float']['output'];
+};
+
 export type GetEntityExecutionsInput = {
   entityId?: InputMaybe<Scalars['String']['input']>;
   entityName?: InputMaybe<Scalars['String']['input']>;
@@ -572,6 +579,7 @@ export type Mutation = {
   deleteNotification: Scalars['Boolean']['output'];
   deleteOAuthProvider: Scalars['Boolean']['output'];
   deletePayloadMapper: Scalars['Boolean']['output'];
+  deleteServerFile: Scalars['Boolean']['output'];
   deleteWebhook: Scalars['Boolean']['output'];
   deviceReportNotificationReceived: Notification;
   executeWebhook: Scalars['Boolean']['output'];
@@ -762,6 +770,11 @@ export type MutationDeleteOAuthProviderArgs = {
 
 export type MutationDeletePayloadMapperArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteServerFileArgs = {
+  name: Scalars['String']['input'];
 };
 
 
@@ -1135,15 +1148,17 @@ export type OAuthProviderPublicDto = {
   type: OAuthProviderType;
 };
 
-/** Type of OAuth provider (GitHub, Google, Discord, Apple, or custom) */
+/** Type of OAuth provider (GitHub, Google, Discord, Apple, Facebook, Microsoft, or custom) */
 export enum OAuthProviderType {
   Apple = 'APPLE',
   AppleSignin = 'APPLE_SIGNIN',
   Custom = 'CUSTOM',
   Discord = 'DISCORD',
+  Facebook = 'FACEBOOK',
   Github = 'GITHUB',
   Google = 'GOOGLE',
-  Local = 'LOCAL'
+  Local = 'LOCAL',
+  Microsoft = 'MICROSOFT'
 }
 
 export type PaginatedLogs = {
@@ -1258,6 +1273,7 @@ export type Query = {
   payloadMappers: Array<PayloadMapper>;
   pendingPostpones: Array<NotificationPostpone>;
   publicAppConfig: PublicAppConfig;
+  serverFiles: Array<FileInfoDto>;
   /** Get a specific server setting by type */
   serverSetting: Maybe<ServerSetting>;
   /** Get all server settings */
@@ -2858,6 +2874,20 @@ export type TriggerLogCleanupMutationVariables = Exact<{ [key: string]: never; }
 
 export type TriggerLogCleanupMutation = { __typename?: 'Mutation', triggerLogCleanup: boolean };
 
+export type ServerFileFragment = { __typename?: 'FileInfoDto', name: string, size: number, mtime: string };
+
+export type ServerFilesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ServerFilesQuery = { __typename?: 'Query', serverFiles: Array<{ __typename?: 'FileInfoDto', name: string, size: number, mtime: string }> };
+
+export type DeleteServerFileMutationVariables = Exact<{
+  name: Scalars['String']['input'];
+}>;
+
+
+export type DeleteServerFileMutation = { __typename?: 'Mutation', deleteServerFile: boolean };
+
 export type GetMyAdminSubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -2907,6 +2937,7 @@ export const UserNotificationStatsFragmentDoc = {"kind":"Document","definitions"
 export const PayloadMapperFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PayloadMapperFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"PayloadMapper"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"jsEvalFn"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"builtInName"}},{"kind":"Field","name":{"kind":"Name","value":"requiredUserSettings"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"avatar"}},{"kind":"Field","name":{"kind":"Name","value":"hasPassword"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"buckets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"devices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"deviceModel"}},{"kind":"Field","name":{"kind":"Name","value":"osVersion"}},{"kind":"Field","name":{"kind":"Name","value":"onlyLocal"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsed"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 export const EntityExecutionFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EntityExecutionFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EntityExecution"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"entityName"}},{"kind":"Field","name":{"kind":"Name","value":"entityId"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"input"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"errors"}},{"kind":"Field","name":{"kind":"Name","value":"durationMs"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode;
 export const ServerSettingFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerSettingFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ServerSetting"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"configType"}},{"kind":"Field","name":{"kind":"Name","value":"valueText"}},{"kind":"Field","name":{"kind":"Name","value":"valueBool"}},{"kind":"Field","name":{"kind":"Name","value":"valueNumber"}},{"kind":"Field","name":{"kind":"Name","value":"possibleValues"}}]}}]} as unknown as DocumentNode;
+export const ServerFileFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerFileFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"FileInfoDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"size"}},{"kind":"Field","name":{"kind":"Name","value":"mtime"}}]}}]} as unknown as DocumentNode;
 export const RequestPasswordResetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RequestPasswordReset"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RequestPasswordResetDto"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"requestPasswordReset"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode;
 export type RequestPasswordResetMutationFn = Apollo.MutationFunction<RequestPasswordResetMutation, RequestPasswordResetMutationVariables>;
 
@@ -6587,6 +6618,66 @@ export function useTriggerLogCleanupMutation(baseOptions?: ApolloReactHooks.Muta
 export type TriggerLogCleanupMutationHookResult = ReturnType<typeof useTriggerLogCleanupMutation>;
 export type TriggerLogCleanupMutationResult = Apollo.MutationResult<TriggerLogCleanupMutation>;
 export type TriggerLogCleanupMutationOptions = Apollo.BaseMutationOptions<TriggerLogCleanupMutation, TriggerLogCleanupMutationVariables>;
+export const ServerFilesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ServerFiles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"serverFiles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ServerFileFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ServerFileFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"FileInfoDto"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"size"}},{"kind":"Field","name":{"kind":"Name","value":"mtime"}}]}}]} as unknown as DocumentNode;
+
+/**
+ * __useServerFilesQuery__
+ *
+ * To run a query within a React component, call `useServerFilesQuery` and pass it any options that fit your needs.
+ * When your component renders, `useServerFilesQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useServerFilesQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useServerFilesQuery(baseOptions?: ApolloReactHooks.QueryHookOptions<ServerFilesQuery, ServerFilesQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useQuery<ServerFilesQuery, ServerFilesQueryVariables>(ServerFilesDocument, options);
+      }
+export function useServerFilesLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHookOptions<ServerFilesQuery, ServerFilesQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useLazyQuery<ServerFilesQuery, ServerFilesQueryVariables>(ServerFilesDocument, options);
+        }
+export function useServerFilesSuspenseQuery(baseOptions?: ApolloReactHooks.SkipToken | ApolloReactHooks.SuspenseQueryHookOptions<ServerFilesQuery, ServerFilesQueryVariables>) {
+          const options = baseOptions === ApolloReactHooks.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return ApolloReactHooks.useSuspenseQuery<ServerFilesQuery, ServerFilesQueryVariables>(ServerFilesDocument, options);
+        }
+export type ServerFilesQueryHookResult = ReturnType<typeof useServerFilesQuery>;
+export type ServerFilesLazyQueryHookResult = ReturnType<typeof useServerFilesLazyQuery>;
+export type ServerFilesSuspenseQueryHookResult = ReturnType<typeof useServerFilesSuspenseQuery>;
+export type ServerFilesQueryResult = Apollo.QueryResult<ServerFilesQuery, ServerFilesQueryVariables>;
+export const DeleteServerFileDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteServerFile"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteServerFile"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}}]}]}}]} as unknown as DocumentNode;
+export type DeleteServerFileMutationFn = Apollo.MutationFunction<DeleteServerFileMutation, DeleteServerFileMutationVariables>;
+
+/**
+ * __useDeleteServerFileMutation__
+ *
+ * To run a mutation, you first call `useDeleteServerFileMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useDeleteServerFileMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [deleteServerFileMutation, { data, loading, error }] = useDeleteServerFileMutation({
+ *   variables: {
+ *      name: // value for 'name'
+ *   },
+ * });
+ */
+export function useDeleteServerFileMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<DeleteServerFileMutation, DeleteServerFileMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<DeleteServerFileMutation, DeleteServerFileMutationVariables>(DeleteServerFileDocument, options);
+      }
+export type DeleteServerFileMutationHookResult = ReturnType<typeof useDeleteServerFileMutation>;
+export type DeleteServerFileMutationResult = Apollo.MutationResult<DeleteServerFileMutation>;
+export type DeleteServerFileMutationOptions = Apollo.BaseMutationOptions<DeleteServerFileMutation, DeleteServerFileMutationVariables>;
 export const GetMyAdminSubscriptionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetMyAdminSubscriptions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myAdminSubscription"}}]}}]} as unknown as DocumentNode;
 
 /**
