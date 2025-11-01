@@ -449,7 +449,13 @@
       "readOnlyMode": "Read Only",
       "readOnlyWarning": "You have read-only access to this bucket. You cannot modify its settings.",
       "createAccessToken": "Create access token for this bucket",
-      "createAccessTokenHint": "Automatically create an access token with permission to send messages to this bucket"
+      "createAccessTokenHint": "Automatically create an access token with permission to send messages to this bucket",
+      "magicCode": "Magic Code",
+      "magicCodeLabel": "Magic Code",
+      "magicCodeCopied": "Magic code copied to clipboard",
+      "magicCodeRegenerated": "Magic code regenerated successfully",
+      "magicCodeRegenerateError": "Failed to regenerate magic code",
+      "magicCodeWarning": "Keep this code secure. It bypasses authentication and allows anyone to create messages in this bucket."
     },
     "apiExamples": {
       "title": "API Examples",

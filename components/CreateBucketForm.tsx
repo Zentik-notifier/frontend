@@ -8,14 +8,11 @@ import {
 } from "@/generated/gql-operations-generated";
 import {
   useBucket,
-  useRefreshBucket,
-  useAppState,
   useCreateBucket,
+  useRefreshBucket,
 } from "@/hooks/notifications";
-import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
-import { useSettings } from "@/hooks/useSettings";
-import { useQueryClient } from "@tanstack/react-query";
+import { useNavigationUtils } from "@/utils/navigation";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -31,8 +28,6 @@ import {
 } from "react-native-paper";
 import ColorPicker, { ColorPickerRef } from "./ColorPicker";
 import IconEditor from "./IconEditor";
-import SnoozeSchedulesManager from "./SnoozeSchedulesManager";
-import { useNavigationUtils } from "@/utils/navigation";
 
 const defaultColor = "#0a7ea4";
 
@@ -44,7 +39,6 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const router = useRouter();
   const theme = useTheme();
   const { t } = useI18n();
-  const queryClient = useQueryClient();
   const {
     userId,
     userSettings,
@@ -65,7 +59,6 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
     userId: userId ?? undefined,
   });
   const refreshBucket = useRefreshBucket();
-  const { refreshAll } = useAppState();
   const { data: appConfig } = usePublicAppConfigQuery();
 
   const isProtectedBucket = bucket?.isProtected;
@@ -90,9 +83,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                 name: `${data.name} Token`,
               },
             });
-            console.log(
-              "[CreateBucketForm] Access token created successfully"
-            );
+            console.log("[CreateBucketForm] Access token created successfully");
           } catch (tokenError) {
             console.error(
               "[CreateBucketForm] Error creating access token:",
@@ -473,11 +464,6 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
             {t("common.reset")}
           </Button>
         </View>
-      )}
-
-      {/* Snooze Schedules Manager - Only show in edit mode */}
-      {isEditing && (
-        <SnoozeSchedulesManager bucketId={bucketId} disabled={offline} />
       )}
 
       {/* Icon Editor Modal */}

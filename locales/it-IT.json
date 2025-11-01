@@ -462,7 +462,13 @@
       "readOnlyMode": "Sola Lettura",
       "readOnlyWarning": "Hai accesso in sola lettura a questo bucket. Non puoi modificare le sue impostazioni.",
       "createAccessToken": "Crea access token per questo bucket",
-      "createAccessTokenHint": "Crea automaticamente un access token con permesso di inviare messaggi a questo bucket"
+      "createAccessTokenHint": "Crea automaticamente un access token con permesso di inviare messaggi a questo bucket",
+      "magicCode": "Codice Magico",
+      "magicCodeLabel": "Codice Magico",
+      "magicCodeCopied": "Codice magico copiato negli appunti",
+      "magicCodeRegenerated": "Codice magico rigenerato con successo",
+      "magicCodeRegenerateError": "Impossibile rigenerare il codice magico",
+      "magicCodeWarning": "Mantieni questo codice al sicuro. Bypassa l'autenticazione e consente a chiunque di creare messaggi in questo bucket."
     },
     "apiExamples": {
       "title": "Esempi API",

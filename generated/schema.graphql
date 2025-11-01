@@ -569,6 +569,7 @@ type Mutation {
   """Redeem an invite code to gain access"""
   redeemInviteCode(input: RedeemInviteCodeInput!): InviteCodeRedemptionResult!
   refreshAccessToken(refreshToken: String!): RefreshTokenResponse!
+  regenerateMagicCode(bucketId: String!): UserBucket!
   register(input: RegisterDto!): RegisterResponse!
   registerDevice(input: RegisterDeviceDto!): UserDevice!
   removeDevice(deviceId: String!): Boolean!
@@ -1257,6 +1258,7 @@ type UserBucket {
   bucketId: String!
   createdAt: DateTime!
   id: ID!
+  magicCode: String
   snoozeUntil: DateTime
   snoozes: [SnoozeSchedule!]
   updatedAt: DateTime!

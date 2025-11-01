@@ -45,7 +45,8 @@ export default function CopyButton({
   if (label) {
     return (
       <Button
-        mode="contained"
+        mode="outlined"
+        compact
         icon={showSuccess ? "check" : "content-copy"}
         onPress={handleCopy}
         style={style}

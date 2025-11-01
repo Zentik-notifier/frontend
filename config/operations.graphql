@@ -951,6 +951,7 @@ fragment UserBucketFragment on UserBucket {
   id
   userId
   bucketId
+  magicCode
   snoozeUntil
   snoozes {
     days
@@ -979,6 +980,12 @@ mutation UpdateBucketSnoozes(
   $snoozes: [SnoozeScheduleInput!]!
 ) {
   updateBucketSnoozes(bucketId: $bucketId, snoozes: $snoozes) {
+    ...UserBucketFragment
+  }
+}
+
+mutation RegenerateMagicCode($bucketId: String!) {
+  regenerateMagicCode(bucketId: $bucketId) {
     ...UserBucketFragment
   }
 }

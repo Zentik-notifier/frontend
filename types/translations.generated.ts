@@ -453,6 +453,12 @@ export interface Translation {
       readOnlyWarning: string;
       createAccessToken: string;
       createAccessTokenHint: string;
+      magicCode: string;
+      magicCodeLabel: string;
+      magicCodeCopied: string;
+      magicCodeRegenerated: string;
+      magicCodeRegenerateError: string;
+      magicCodeWarning: string;
     };
     apiExamples: {
       title: string;
