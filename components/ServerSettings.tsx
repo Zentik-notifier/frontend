@@ -229,6 +229,11 @@ const settingSections: Record<string, SectionConfig> = {
       },
     ],
   },
+  serverFiles: {
+    title: "Server Files",
+    icon: "file-outline" as const,
+    settings: [ServerSettingType.ServerFilesDirectory],
+  },
   messages: {
     title: "Messages Retention",
     icon: "message-text-clock" as const,

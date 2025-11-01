@@ -2002,6 +2002,7 @@ export interface Translation {
       email: string;
       attachments: string;
       backup: string;
+      serverFiles: string;
       messages: string;
       rateLimit: string;
       cors: string;
@@ -2018,6 +2019,7 @@ export interface Translation {
     email: string;
     attachments: string;
     backup: string;
+    serverFiles: string;
     messages: string;
     rateLimit: string;
     cors: string;
@@ -2044,6 +2046,7 @@ export interface Translation {
       VapidSubject: string;
       PushNotificationsPassthroughServer: string;
       PushPassthroughToken: string;
+      SystemTokenUsageStats: string;
       EmailEnabled: string;
       EmailType: string;
       EmailHost: string;
@@ -2065,6 +2068,7 @@ export interface Translation {
       BackupStoragePath: string;
       BackupMaxToKeep: string;
       BackupCronJob: string;
+      ServerFilesDirectory: string;
       MessagesMaxAge: string;
       MessagesDeleteJobEnabled: string;
       RateLimitTrustProxyEnabled: string;

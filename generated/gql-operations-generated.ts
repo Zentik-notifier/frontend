@@ -1566,6 +1566,7 @@ export enum ServerSettingType {
   RateLimitTrustProxyEnabled = 'RateLimitTrustProxyEnabled',
   RateLimitTtlMs = 'RateLimitTtlMs',
   ResendApiKey = 'ResendApiKey',
+  ServerFilesDirectory = 'ServerFilesDirectory',
   ServerStableIdentifier = 'ServerStableIdentifier',
   SystemTokenUsageStats = 'SystemTokenUsageStats',
   VapidSubject = 'VapidSubject',
