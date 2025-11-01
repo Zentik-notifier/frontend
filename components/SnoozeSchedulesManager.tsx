@@ -8,23 +8,22 @@ import { useAppContext } from "@/contexts/AppContext";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
-  Dimensions,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
 import {
-  Button,
-  Card,
   Icon,
-  Modal,
+  IconButton,
   Portal,
   Text,
   TouchableRipple,
   useTheme,
 } from "react-native-paper";
 import { TimePickerModal } from "react-native-paper-dates";
+import DetailSectionCard from "./ui/DetailSectionCard";
+import DetailItemCard from "./ui/DetailItemCard";
+import DetailModal from "./ui/DetailModal";
 
 interface SnoozeSchedulesManagerProps {
   bucketId: string;
@@ -209,15 +208,6 @@ export default function SnoozeSchedulesManager({
     handleSchedulesChange(newSchedules);
   };
 
-  const toggleScheduleEnabled = (index: number) => {
-    const newSchedules = [...schedules];
-    newSchedules[index] = {
-      ...newSchedules[index],
-      isEnabled: !newSchedules[index].isEnabled,
-    };
-    handleSchedulesChange(newSchedules);
-  };
-
   const formatDays = (days: string[]) => {
     if (days.length === 0) return t("recurringSnooze.formats.noDaysSelected");
     if (days.length === 7) return t("recurringSnooze.formats.everyDay");
@@ -241,332 +231,213 @@ export default function SnoozeSchedulesManager({
       .join(", ");
   };
 
-  const deviceHeight = Dimensions.get("window").height;
-  const containerStyle = {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 12,
-    marginHorizontal: 16,
-    marginVertical: 24,
-    maxHeight: deviceHeight * 0.8,
-  } as const;
-
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Button
-          mode="contained"
-          onPress={openAddModal}
-          disabled={disabled}
-          icon="plus"
-          style={styles.addButton}
-        >
-          {t("recurringSnooze.addSchedule")}
-        </Button>
-      </View>
-
-      {schedules.length === 0 ? (
-        <Card style={styles.emptyState}>
-          <Card.Content style={styles.emptyStateContent}>
-            <Icon
-              source="clock-outline"
-              size={48}
-              color={theme.colors.onSurfaceVariant}
-            />
-            <Text variant="titleMedium" style={styles.emptyStateText}>
-              {t("recurringSnooze.noSchedules")}
-            </Text>
-            <Text
-              variant="bodyMedium"
-              style={[
-                styles.emptyStateSubtext,
-                { color: theme.colors.onSurfaceVariant },
-              ]}
-            >
-              {t("recurringSnooze.noSchedulesDescription")}
-            </Text>
-          </Card.Content>
-        </Card>
-      ) : (
-        <ScrollView
-          style={styles.schedulesList}
-          showsVerticalScrollIndicator={false}
-        >
-          {schedules.map((schedule, index) => (
-            <Card
-              key={index}
-              style={[
-                styles.scheduleCard,
-                !schedule.isEnabled && styles.disabledSchedule,
-              ]}
-            >
-              <Card.Content>
-                <View style={styles.scheduleHeader}>
-                  <TouchableOpacity
-                    style={styles.enableToggle}
-                    onPress={() => toggleScheduleEnabled(index)}
-                    disabled={disabled}
-                  >
-                    <Icon
-                      source={
-                        schedule.isEnabled ? "check-circle" : "circle-outline"
-                      }
-                      size={24}
-                      color={
-                        schedule.isEnabled
-                          ? theme.colors.primary
-                          : theme.colors.onSurfaceVariant
-                      }
-                    />
-                  </TouchableOpacity>
-                  <View style={styles.scheduleInfo}>
-                    <Text variant="titleSmall" style={styles.scheduleDays}>
-                      {formatDays(schedule.days)}
-                    </Text>
-                    <Text
-                      variant="bodyMedium"
-                      style={{ color: theme.colors.onSurfaceVariant }}
-                    >
-                      {schedule.timeFrom} - {schedule.timeTill}
-                    </Text>
-                  </View>
-                  <View style={styles.scheduleActions}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => openEditModal(index)}
-                      disabled={disabled}
-                    >
-                      <Icon
-                        source="pencil"
-                        size={20}
-                        color={theme.colors.primary}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => deleteSchedule(index)}
-                      disabled={disabled}
-                    >
-                      <Icon
-                        source="delete"
-                        size={20}
-                        color={theme.colors.error}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </Card.Content>
-            </Card>
-          ))}
-        </ScrollView>
-      )}
-
-      <Portal>
-        <Modal
-          visible={showAddModal}
-          onDismiss={closeModal}
-          contentContainerStyle={containerStyle}
-          dismissableBackButton
-        >
-          <View
-            style={[
-              styles.modalHeader,
+    <>
+      <DetailSectionCard
+        title={t("recurringSnooze.title")}
+        description={t("recurringSnooze.description")}
+        actionButton={{
+          label: t("recurringSnooze.addSchedule"),
+          icon: "plus",
+          onPress: openAddModal,
+          disabled,
+        }}
+        emptyState={{
+          icon: "clock-outline",
+          text: t("recurringSnooze.noSchedules"),
+        }}
+        items={schedules}
+        renderItem={(schedule, index) => (
+          <DetailItemCard
+            icon={schedule.isEnabled ? "check-circle" : "circle-outline"}
+            title={formatDays(schedule.days)}
+            details={[`${schedule.timeFrom} - ${schedule.timeTill}`]}
+            actions={[
               {
-                borderBottomColor: theme.colors.outline,
-                backgroundColor: "transparent",
+                icon: "pencil",
+                onPress: () => openEditModal(index),
+                disabled,
+              },
+              {
+                icon: "delete",
+                onPress: () => deleteSchedule(index),
+                color: theme.colors.error,
+                disabled,
               },
             ]}
-          >
-            <View style={styles.headerLeft}>
-              <Icon
-                source="clock-outline"
-                size={24}
-                color={theme.colors.primary}
-              />
-              <Text style={styles.modalTitle}>
-                {editingIndex !== null
-                  ? t("recurringSnooze.editSchedule")
-                  : t("recurringSnooze.addScheduleTitle")}
-              </Text>
-            </View>
-            <View style={styles.headerActions}>
-              <TouchableRipple
-                style={styles.headerButton}
-                onPress={closeModal}
-                borderless
+            opacity={schedule.isEnabled ? 1 : 0.6}
+          />
+        )}
+        maxHeight={300}
+      />
+
+      <DetailModal
+        visible={showAddModal}
+        onDismiss={closeModal}
+        title={
+          editingIndex !== null
+            ? t("recurringSnooze.editSchedule")
+            : t("recurringSnooze.addScheduleTitle")
+        }
+        icon="clock-outline"
+        actions={{
+          cancel: {
+            label: t("recurringSnooze.cancel"),
+            onPress: closeModal,
+          },
+          confirm: {
+            label:
+              editingIndex !== null
+                ? t("recurringSnooze.update")
+                : t("recurringSnooze.add"),
+            onPress: saveSchedule,
+          },
+        }}
+      >
+        <View style={styles.section}>
+          <Text variant="titleSmall" style={styles.sectionTitle}>
+            {t("recurringSnooze.daysOfWeek")}
+          </Text>
+          <View style={styles.daysGrid}>
+            {DAYS_OF_WEEK.map(({ value, label }) => (
+              <TouchableOpacity
+                key={value}
+                style={[
+                  styles.dayButton,
+                  { borderColor: theme.colors.outline },
+                  currentSchedule.days.includes(value) && {
+                    backgroundColor: theme.colors.primary,
+                    borderColor: theme.colors.primary,
+                  },
+                ]}
+                onPress={() => toggleDay(value)}
               >
-                <Icon source="close" size={20} color={theme.colors.onSurface} />
+                <Text
+                  style={[
+                    styles.dayButtonText,
+                    {
+                      color: currentSchedule.days.includes(value)
+                        ? theme.colors.onPrimary
+                        : theme.colors.onSurface,
+                    },
+                  ]}
+                >
+                  {String(t(label)).slice(0, 3)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text variant="titleSmall" style={styles.sectionTitle}>
+            {t("recurringSnooze.timeRange")}
+          </Text>
+          <View style={styles.timeRow}>
+            <View style={styles.timePicker}>
+              <Text
+                variant="bodySmall"
+                style={[
+                  styles.timeLabel,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                {t("recurringSnooze.from")}
+              </Text>
+              <TouchableRipple
+                onPress={() => setShowTimeFromPicker(true)}
+                style={[
+                  styles.timeButton,
+                  {
+                    borderColor: theme.colors.outline,
+                    backgroundColor: theme.colors.surface,
+                  },
+                ]}
+              >
+                <View style={styles.timeButtonContent}>
+                  <Icon
+                    source="clock-outline"
+                    size={20}
+                    color={theme.colors.onSurface}
+                  />
+                  <Text style={styles.timeButtonText}>
+                    {currentSchedule.timeFrom}
+                  </Text>
+                </View>
+              </TouchableRipple>
+            </View>
+            <View style={styles.timePicker}>
+              <Text
+                variant="bodySmall"
+                style={[
+                  styles.timeLabel,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                {t("recurringSnooze.to")}
+              </Text>
+              <TouchableRipple
+                onPress={() => setShowTimeTillPicker(true)}
+                style={[
+                  styles.timeButton,
+                  {
+                    borderColor: theme.colors.outline,
+                    backgroundColor: theme.colors.surface,
+                  },
+                ]}
+              >
+                <View style={styles.timeButtonContent}>
+                  <Icon
+                    source="clock-outline"
+                    size={20}
+                    color={theme.colors.onSurface}
+                  />
+                  <Text style={styles.timeButtonText}>
+                    {currentSchedule.timeTill}
+                  </Text>
+                </View>
               </TouchableRipple>
             </View>
           </View>
+        </View>
 
-          <ScrollView
-            contentContainerStyle={{
-              padding: 20,
-            }}
-          >
-            <View style={styles.section}>
-              <Text variant="titleSmall" style={styles.sectionTitle}>
-                {t("recurringSnooze.daysOfWeek")}
-              </Text>
-              <View style={styles.daysGrid}>
-                {DAYS_OF_WEEK.map(({ value, label }) => (
-                  <TouchableOpacity
-                    key={value}
-                    style={[
-                      styles.dayButton,
-                      { borderColor: theme.colors.outline },
-                      currentSchedule.days.includes(value) && {
-                        backgroundColor: theme.colors.primary,
-                        borderColor: theme.colors.primary,
-                      },
-                    ]}
-                    onPress={() => toggleDay(value)}
-                  >
-                    <Text
-                      style={[
-                        styles.dayButtonText,
-                        {
-                          color: currentSchedule.days.includes(value)
-                            ? theme.colors.onPrimary
-                            : theme.colors.onSurface,
-                        },
-                      ]}
-                    >
-                      {String(t(label)).slice(0, 3)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <Text variant="titleSmall" style={styles.sectionTitle}>
-                {t("recurringSnooze.timeRange")}
-              </Text>
-              <View style={styles.timeRow}>
-                <View style={styles.timePicker}>
-                  <Text
-                    variant="bodySmall"
-                    style={[
-                      styles.timeLabel,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
-                  >
-                    {t("recurringSnooze.from")}
-                  </Text>
-                  <TouchableRipple
-                    onPress={() => setShowTimeFromPicker(true)}
-                    style={[
-                      styles.timeButton,
-                      {
-                        borderColor: theme.colors.outline,
-                        backgroundColor: theme.colors.surface,
-                      },
-                    ]}
-                  >
-                    <View style={styles.timeButtonContent}>
-                      <Icon
-                        source="clock-outline"
-                        size={20}
-                        color={theme.colors.onSurface}
-                      />
-                      <Text style={styles.timeButtonText}>
-                        {currentSchedule.timeFrom}
-                      </Text>
-                    </View>
-                  </TouchableRipple>
-                </View>
-                <View style={styles.timePicker}>
-                  <Text
-                    variant="bodySmall"
-                    style={[
-                      styles.timeLabel,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
-                  >
-                    {t("recurringSnooze.to")}
-                  </Text>
-                  <TouchableRipple
-                    onPress={() => setShowTimeTillPicker(true)}
-                    style={[
-                      styles.timeButton,
-                      {
-                        borderColor: theme.colors.outline,
-                        backgroundColor: theme.colors.surface,
-                      },
-                    ]}
-                  >
-                    <View style={styles.timeButtonContent}>
-                      <Icon
-                        source="clock-outline"
-                        size={20}
-                        color={theme.colors.onSurface}
-                      />
-                      <Text style={styles.timeButtonText}>
-                        {currentSchedule.timeTill}
-                      </Text>
-                    </View>
-                  </TouchableRipple>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <View style={styles.enableRow}>
-                <Text variant="titleSmall" style={styles.sectionTitle}>
-                  {t("recurringSnooze.enableSchedule")}
-                </Text>
-                <TouchableOpacity
-                  style={[
-                    styles.enableSwitch,
-                    {
-                      backgroundColor: currentSchedule.isEnabled
-                        ? theme.colors.primary
-                        : theme.colors.outline,
-                    },
-                  ]}
-                  onPress={() =>
-                    setCurrentSchedule((prev) => ({
-                      ...prev,
-                      isEnabled: !prev.isEnabled,
-                    }))
-                  }
-                >
-                  <View
-                    style={[
-                      styles.enableThumb,
-                      {
-                        transform: [
-                          { translateX: currentSchedule.isEnabled ? 20 : 0 },
-                        ],
-                      },
-                    ]}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <Button
-              mode="outlined"
-              onPress={closeModal}
-              style={styles.footerButton}
+        <View style={styles.section}>
+          <View style={styles.enableRow}>
+            <Text variant="titleSmall" style={styles.sectionTitle}>
+              {t("recurringSnooze.enableSchedule")}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.enableSwitch,
+                {
+                  backgroundColor: currentSchedule.isEnabled
+                    ? theme.colors.primary
+                    : theme.colors.outline,
+                },
+              ]}
+              onPress={() =>
+                setCurrentSchedule((prev) => ({
+                  ...prev,
+                  isEnabled: !prev.isEnabled,
+                }))
+              }
             >
-              {t("recurringSnooze.cancel")}
-            </Button>
-            <Button
-              mode="contained"
-              onPress={saveSchedule}
-              style={styles.footerButton}
-            >
-              {editingIndex !== null
-                ? t("recurringSnooze.update")
-                : t("recurringSnooze.add")}
-            </Button>
+              <View
+                style={[
+                  styles.enableThumb,
+                  {
+                    transform: [
+                      { translateX: currentSchedule.isEnabled ? 20 : 0 },
+                    ],
+                  },
+                ]}
+              />
+            </TouchableOpacity>
           </View>
-        </Modal>
+        </View>
+      </DetailModal>
 
+      <Portal>
         <TimePickerModal
           visible={showTimeFromPicker}
           onDismiss={() => setShowTimeFromPicker(false)}
@@ -593,96 +464,11 @@ export default function SnoozeSchedulesManager({
           locale={datePickerLocale}
         />
       </Portal>
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginVertical: 16,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  addButton: {
-    margin: 0,
-  },
-  emptyState: {
-    marginBottom: 16,
-  },
-  emptyStateContent: {
-    alignItems: "center",
-    padding: 32,
-  },
-  emptyStateText: {
-    marginTop: 16,
-    textAlign: "center",
-  },
-  emptyStateSubtext: {
-    marginTop: 8,
-    textAlign: "center",
-  },
-  schedulesList: {
-    maxHeight: 300,
-  },
-  scheduleCard: {
-    marginBottom: 12,
-  },
-  disabledSchedule: {
-    opacity: 0.6,
-  },
-  scheduleHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  enableToggle: {
-    padding: 4,
-  },
-  scheduleInfo: {
-    flex: 1,
-  },
-  scheduleDays: {
-    marginBottom: 4,
-  },
-  scheduleActions: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  actionButton: {
-    padding: 8,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    height: 60,
-    borderBottomWidth: 1,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-  },
-  headerActions: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  headerButton: {
-    padding: 8,
-  },
   section: {
     marginVertical: 16,
   },
@@ -752,15 +538,5 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     backgroundColor: "white",
-  },
-  modalFooter: {
-    flexDirection: "row",
-    gap: 12,
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#ccc",
-  },
-  footerButton: {
-    flex: 1,
   },
 });

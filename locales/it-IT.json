@@ -465,10 +465,17 @@
       "createAccessTokenHint": "Crea automaticamente un access token con permesso di inviare messaggi a questo bucket",
       "magicCode": "Codice Magico",
       "magicCodeLabel": "Codice Magico",
+      "magicCodeDescription": "Usa questo codice per inviare messaggi senza autenticazione",
+      "noMagicCode": "Nessun codice magico generato",
       "magicCodeCopied": "Codice magico copiato negli appunti",
       "magicCodeRegenerated": "Codice magico rigenerato con successo",
       "magicCodeRegenerateError": "Impossibile rigenerare il codice magico",
       "magicCodeWarning": "Mantieni questo codice al sicuro. Bypassa l'autenticazione e consente a chiunque di creare messaggi in questo bucket."
+    },
+    "info": {
+      "title": "Informazioni",
+      "description": "Metadati e identificatori del bucket",
+      "noInfo": "Nessuna informazione disponibile"
     },
     "apiExamples": {
       "title": "Esempi API",
@@ -1255,6 +1262,8 @@
     }
   },
   "recurringSnooze": {
+    "title": "Sospensione Ricorrente",
+    "description": "Silenzia automaticamente le notifiche in orari specifici",
     "addSchedule": "Aggiungi sospensione",
     "editSchedule": "Modifica programma di sospensione",
     "addScheduleTitle": "Aggiungi programma di sospensione",

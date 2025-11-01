@@ -455,10 +455,17 @@ export interface Translation {
       createAccessTokenHint: string;
       magicCode: string;
       magicCodeLabel: string;
+      magicCodeDescription: string;
+      noMagicCode: string;
       magicCodeCopied: string;
       magicCodeRegenerated: string;
       magicCodeRegenerateError: string;
       magicCodeWarning: string;
+    };
+    info: {
+      title: string;
+      description: string;
+      noInfo: string;
     };
     apiExamples: {
       title: string;
@@ -1208,6 +1215,8 @@ export interface Translation {
     };
   };
   recurringSnooze: {
+    title: string;
+    description: string;
     addSchedule: string;
     editSchedule: string;
     addScheduleTitle: string;

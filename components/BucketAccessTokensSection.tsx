@@ -1,19 +1,18 @@
-import { settingsService } from "@/services/settings-service";
-import { useI18n } from "@/hooks/useI18n";
 import {
-  useGetAccessTokensForBucketQuery,
-  useCreateAccessTokenForBucketMutation,
-  useRevokeAccessTokenMutation,
   GetAccessTokensForBucketDocument,
+  useCreateAccessTokenForBucketMutation,
+  useGetAccessTokensForBucketQuery,
+  useRevokeAccessTokenMutation,
 } from "@/generated/gql-operations-generated";
+import { useI18n } from "@/hooks/useI18n";
 import React, { useEffect, useState } from "react";
-import { Alert, StyleSheet } from "react-native";
+import { Alert } from "react-native";
 import { useTheme } from "react-native-paper";
 import BucketApiExamples from "./BucketApiExamples";
 import CopyButton from "./ui/CopyButton";
 import DetailItemCard from "./ui/DetailItemCard";
-import DetailSectionCard from "./ui/DetailSectionCard";
 import DetailModal from "./ui/DetailModal";
+import DetailSectionCard from "./ui/DetailSectionCard";
 
 interface BucketAccessTokensSectionProps {
   bucketId: string;
@@ -29,7 +28,6 @@ export default function BucketAccessTokensSection({
   const theme = useTheme();
   const { t } = useI18n();
   const [isCreating, setIsCreating] = useState(false);
-  const [apiUrl, setApiUrl] = useState("https://your-server.com");
   const [showExamplesDialog, setShowExamplesDialog] = useState(false);
   const [selectedTokenForExamples, setSelectedTokenForExamples] =
     useState<any>(null);
@@ -62,25 +60,12 @@ export default function BucketAccessTokensSection({
 
   const accessTokens = data?.getAccessTokensForBucket || [];
 
-  useEffect(() => {
-    loadApiUrl();
-  }, []);
-
   // Refetch when refetchTrigger changes
   useEffect(() => {
     if (refetchTrigger && bucketId) {
       refetch();
     }
   }, [refetchTrigger, bucketId, refetch]);
-
-  const loadApiUrl = async () => {
-    try {
-      const customUrl = await settingsService.getCustomApiUrl();
-      setApiUrl(customUrl || "https://your-server.com");
-    } catch (error) {
-      console.error("Failed to load API URL:", error);
-    }
-  };
 
   const handleCreateToken = async () => {
     const tokenName = `${bucketName} Token`;
@@ -197,7 +182,6 @@ export default function BucketAccessTokensSection({
           <BucketApiExamples
             bucketId={bucketId}
             accessToken={selectedTokenForExamples.token}
-            apiUrl={apiUrl}
           />
         )}
       </DetailModal>

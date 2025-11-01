@@ -452,10 +452,17 @@
       "createAccessTokenHint": "Automatically create an access token with permission to send messages to this bucket",
       "magicCode": "Magic Code",
       "magicCodeLabel": "Magic Code",
+      "magicCodeDescription": "Use this code to send messages without authentication",
+      "noMagicCode": "No magic code generated",
       "magicCodeCopied": "Magic code copied to clipboard",
       "magicCodeRegenerated": "Magic code regenerated successfully",
       "magicCodeRegenerateError": "Failed to regenerate magic code",
       "magicCodeWarning": "Keep this code secure. It bypasses authentication and allows anyone to create messages in this bucket."
+    },
+    "info": {
+      "title": "Information",
+      "description": "Bucket metadata and identifiers",
+      "noInfo": "No information available"
     },
     "apiExamples": {
       "title": "API Examples",
@@ -1206,6 +1213,8 @@
     }
   },
   "recurringSnooze": {
+    "title": "Recurring Snooze",
+    "description": "Automatically silence notifications during specific times",
     "addSchedule": "Add Snooze",
     "editSchedule": "Edit Snooze Schedule",
     "addScheduleTitle": "Add Snooze Schedule",

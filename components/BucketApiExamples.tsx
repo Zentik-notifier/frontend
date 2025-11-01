@@ -1,4 +1,5 @@
 import { useI18n } from "@/hooks/useI18n";
+import { settingsService } from "@/services/settings-service";
 import * as Clipboard from "expo-clipboard";
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, TextInput, View } from "react-native";
@@ -7,52 +8,89 @@ import { Button, Surface, Text, useTheme } from "react-native-paper";
 interface BucketApiExamplesProps {
   bucketId: string;
   accessToken?: string;
-  apiUrl?: string;
+  magicCode?: string;
 }
 
 export default function BucketApiExamples({
   bucketId,
   accessToken: accessTokenParent,
-  apiUrl = "https://your-server.com",
+  magicCode,
 }: BucketApiExamplesProps) {
   const theme = useTheme();
   const { t } = useI18n();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const accessToken = accessTokenParent ?? "zat_<TOKEN>";
-  const examples = [
-    {
-      title: t("buckets.apiExamples.getRequest" as any),
-      code: `curl "${apiUrl}/messages?token=${accessToken}&bucketId=${bucketId}&title=Hello&body=Test message"`,
-    },
-    {
-      title: t("buckets.apiExamples.postJson" as any),
-      code: `curl -X POST "${apiUrl}/messages" \\
-  -H "Authorization: Bearer ${accessToken}" \\
+  
+  // Use magic code if provided, otherwise use access token
+  const isUsingMagicCode = !!magicCode;
+  const identifier = magicCode || accessTokenParent || "zat_<TOKEN>";
+  const apiUrl = settingsService.getApiUrl();
+  
+  const examples = isUsingMagicCode
+    ? [
+        {
+          title: t("buckets.apiExamples.getRequest" as any),
+          code: `curl "${apiUrl}/messages?bucketId=${magicCode}&title=Hello&body=Test message"`,
+        },
+        {
+          title: t("buckets.apiExamples.postJson" as any),
+          code: `curl -X POST "${apiUrl}/messages" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "bucketId": "${magicCode}",
+    "title": "Hello",
+    "body": "Test message"
+  }'`,
+        },
+        {
+          title: t("buckets.apiExamples.postForm" as any),
+          code: `curl -X POST "${apiUrl}/messages" \\
+  -H "Content-Type: application/x-www-form-urlencoded" \\
+  -d "bucketId=${magicCode}" \\
+  -d "title=Hello" \\
+  -d "body=Test message"`,
+        },
+        {
+          title: t("buckets.apiExamples.withHeaders" as any),
+          code: `curl -X POST "${apiUrl}/messages" \\
+  -H "x-message-bucketId: ${magicCode}" \\
+  -H "x-message-title: Hello" \\
+  -H "x-message-body: Test message"`,
+        },
+      ]
+    : [
+        {
+          title: t("buckets.apiExamples.getRequest" as any),
+          code: `curl "${apiUrl}/messages?token=${identifier}&bucketId=${bucketId}&title=Hello&body=Test message"`,
+        },
+        {
+          title: t("buckets.apiExamples.postJson" as any),
+          code: `curl -X POST "${apiUrl}/messages" \\
+  -H "Authorization: Bearer ${identifier}" \\
   -H "Content-Type: application/json" \\
   -d '{
     "bucketId": "${bucketId}",
     "title": "Hello",
     "body": "Test message"
   }'`,
-    },
-    {
-      title: t("buckets.apiExamples.postForm" as any),
-      code: `curl -X POST "${apiUrl}/messages" \\
-  -H "Authorization: Bearer ${accessToken}" \\
+        },
+        {
+          title: t("buckets.apiExamples.postForm" as any),
+          code: `curl -X POST "${apiUrl}/messages" \\
+  -H "Authorization: Bearer ${identifier}" \\
   -H "Content-Type: application/x-www-form-urlencoded" \\
   -d "bucketId=${bucketId}" \\
   -d "title=Hello" \\
   -d "body=Test message"`,
-    },
-    {
-      title: t("buckets.apiExamples.withHeaders" as any),
-      code: `curl -X POST "${apiUrl}/messages" \\
-  -H "Authorization: Bearer ${accessToken}" \\
+        },
+        {
+          title: t("buckets.apiExamples.withHeaders" as any),
+          code: `curl -X POST "${apiUrl}/messages" \\
+  -H "Authorization: Bearer ${identifier}" \\
   -H "x-message-bucketId: ${bucketId}" \\
   -H "x-message-title: Hello" \\
   -H "x-message-body: Test message"`,
-    },
-  ];
+        },
+      ];
 
   const handleCopy = async (code: string, index: number) => {
     try {
@@ -113,7 +151,7 @@ export default function BucketApiExamples({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 16,
+    // No margin - DetailModal provides padding
   },
   title: {
     fontSize: 18,
