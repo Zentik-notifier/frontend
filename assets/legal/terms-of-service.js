@@ -1,4 +1,4 @@
-export default `# Terms of Service
+export default `# Terms of Service (NOT YET FINALIZED)
 
 **Effective Date:** [DATE]
 

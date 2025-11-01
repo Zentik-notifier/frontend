@@ -177,7 +177,7 @@ export default function OAuthConnections() {
 
       if (Platform.OS === "web") {
         // Build redirect back to settings (full-page redirect on web)
-        const settingsReturnUrl = `${window.location.origin}/(tablet)/(settings)/user/profile`;
+        const settingsReturnUrl = `${window.location.origin}/(desktop)/(settings)/user/profile`;
         const url = `${baseWithPrefix}/auth/${providerType}?state=${encodeURIComponent(
           state
         )}&redirect=${encodeURIComponent(settingsReturnUrl)}`;

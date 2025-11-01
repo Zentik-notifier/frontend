@@ -29,7 +29,7 @@ export default function UserDropdown({
   const theme = useTheme();
   const { themeMode, setThemeMode } = useAppTheme();
   const { t } = useI18n();
-  const { navigateToSettings, navigateToAdmin, navigateToSelfService, navigateToHome } = useNavigationUtils();
+  const { navigateToSettings, navigateToAdmin, navigateToSelfService } = useNavigationUtils();
 
   const { data: userData } = useGetMeQuery();
   const { data: providersData } = usePublicAppConfigQuery();

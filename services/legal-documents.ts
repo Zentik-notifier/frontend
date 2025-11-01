@@ -12,18 +12,19 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     fileName: 'terms-of-service',
     icon: 'file-document',
   },
-  {
-    id: 'privacy-policy',
-    title: 'Privacy Policy',
-    fileName: 'privacy-policy',
-    icon: 'shield-check',
-  },
-  {
-    id: 'cookie-policy',
-    title: 'Cookie Policy',
-    fileName: 'cookie-policy',
-    icon: 'cookie',
-  },
+  // Privacy Policy and Cookie Policy disabled
+  // {
+  //   id: 'privacy-policy',
+  //   title: 'Privacy Policy',
+  //   fileName: 'privacy-policy',
+  //   icon: 'shield-check',
+  // },
+  // {
+  //   id: 'cookie-policy',
+  //   title: 'Cookie Policy',
+  //   fileName: 'cookie-policy',
+  //   icon: 'cookie',
+  // },
 ];
 
 // Import the markdown content as static assets

@@ -7,8 +7,8 @@ export function useNavigationUtils() {
 
     const homeRoute: Href =
         isMobile ?
-            "/(mobile)/(home)/(tabs)/notifications" :
-            "/(tablet)/(home)/notifications";
+            "/(phone)/(home)/(tabs)/notifications" :
+            "/(desktop)/(home)/notifications";
 
     return {
         homeRoute,
@@ -18,32 +18,32 @@ export function useNavigationUtils() {
 
         navigateToNotificationDetail: (notificationId: string) => {
             if (isMobile) {
-                router.push(`/(mobile)/(home)/notification/${notificationId}`);
+                router.push(`/(phone)/(home)/notification/${notificationId}`);
             } else {
-                router.push(`/(tablet)/(home)/notification/${notificationId}`);
+                router.push(`/(desktop)/(home)/notification/${notificationId}`);
             }
         },
 
         navigateToBucketDetail: (bucketId: string) => {
             if (isMobile) {
-                router.push(`/(mobile)/(home)/bucket/${bucketId}`);
+                router.push(`/(phone)/(home)/bucket/${bucketId}`);
             } else {
-                router.push(`/(tablet)/(home)/bucket/${bucketId}`);
+                router.push(`/(desktop)/(home)/bucket/${bucketId}`);
             }
         },
 
         navigateToEditBucket: (bucketId: string, fromHome: boolean) => {
             if (fromHome) {
                 if (isMobile) {
-                    router.push(`/(mobile)/(home)/bucket/settings/${bucketId}`);
+                    router.push(`/(phone)/(home)/bucket/settings/${bucketId}`);
                 } else {
-                    router.push(`/(tablet)/(home)/bucket/settings/${bucketId}`);
+                    router.push(`/(desktop)/(home)/bucket/settings/${bucketId}`);
                 }
             } else {
                 if (isMobile) {
-                    router.push(`/(mobile)/(settings)/bucket/${bucketId}`);
+                    router.push(`/(phone)/(settings)/bucket/${bucketId}`);
                 } else {
-                    router.push(`/(tablet)/(settings)/bucket/${bucketId}`);
+                    router.push(`/(desktop)/(settings)/bucket/${bucketId}`);
                 }
             }
         },
@@ -51,65 +51,65 @@ export function useNavigationUtils() {
         navigateToCreateBucket: (fromHome: boolean) => {
             if (fromHome) {
                 if (isMobile) {
-                    router.push(`/(mobile)/(home)/bucket/settings/create`);
+                    router.push(`/(phone)/(home)/bucket/settings/create`);
                 } else {
-                    router.push(`/(tablet)/(home)/bucket/settings/create`);
+                    router.push(`/(desktop)/(home)/bucket/settings/create`);
                 }
             } else {
                 if (isMobile) {
-                    router.push(`/(mobile)/(settings)/bucket/create`);
+                    router.push(`/(phone)/(settings)/bucket/create`);
                 } else {
-                    router.push(`/(tablet)/(settings)/bucket/create`);
+                    router.push(`/(desktop)/(settings)/bucket/create`);
                 }
             }
         },
 
         navigateToCreateAccessToken: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/access-token/create`);
+                router.push(`/(phone)/(settings)/access-token/create`);
             } else {
-                router.push(`/(tablet)/(settings)/access-token/create`);
+                router.push(`/(desktop)/(settings)/access-token/create`);
             }
         },
 
         navigateToEditAccessToken: (tokenId: string) => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/access-token/${tokenId}`);
+                router.push(`/(phone)/(settings)/access-token/${tokenId}`);
             } else {
-                router.push(`/(tablet)/(settings)/access-token/${tokenId}`);
+                router.push(`/(desktop)/(settings)/access-token/${tokenId}`);
             }
         },
 
         navigateToCreateWebhook: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/webhook/create`);
+                router.push(`/(phone)/(settings)/webhook/create`);
             } else {
-                router.push(`/(tablet)/(settings)/webhook/create`);
+                router.push(`/(desktop)/(settings)/webhook/create`);
             }
         },
 
         navigateToEditWebhook: (webhookId: string) => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/webhook/${webhookId}`);
+                router.push(`/(phone)/(settings)/webhook/${webhookId}`);
             } else {
-                router.push(`/(tablet)/(settings)/webhook/${webhookId}`);
+                router.push(`/(desktop)/(settings)/webhook/${webhookId}`);
             }
         },
 
         navigateToSettings: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)`);
+                router.push(`/(phone)/(settings)`);
             } else {
-                router.push(`/(tablet)/(settings)/user/profile`);
+                router.push(`/(desktop)/(settings)/user/profile`);
             }
         },
 
         navigateToAppSettings: (fromSettings: boolean) => {
             if (fromSettings) {
                 if (isMobile) {
-                    router.push(`/(mobile)/(settings)/app-settings`);
+                    router.push(`/(phone)/(settings)/app-settings`);
                 } else {
-                    router.push(`/(tablet)/(settings)/app-settings`);
+                    router.push(`/(desktop)/(settings)/app-settings`);
                 }
             } else {
                 router.push(`/(common)/(auth)/app-settings`);
@@ -118,209 +118,209 @@ export function useNavigationUtils() {
 
         navigateToUserProfile: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/user/profile`);
+                router.push(`/(phone)/(settings)/user/profile`);
             } else {
-                router.push(`/(tablet)/(settings)/user/profile`);
+                router.push(`/(desktop)/(settings)/user/profile`);
             }
         },
 
         navigateToUserAttachments: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/user/attachments`);
+                router.push(`/(phone)/(settings)/user/attachments`);
             } else {
-                router.push(`/(tablet)/(settings)/user/attachments`);
+                router.push(`/(desktop)/(settings)/user/attachments`);
             }
         },
 
         navigateToBucketsSettings: () => {
             if (isMobile) {
-                router.push({ pathname: `/(mobile)/(settings)/bucket/list` });
+                router.push({ pathname: `/(phone)/(settings)/bucket/list` });
             } else {
-                router.push({ pathname: `/(tablet)/(settings)/bucket/list` });
+                router.push({ pathname: `/(desktop)/(settings)/bucket/list` });
             }
         },
 
         navigateToAccessTokensSettings: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/access-token/list`);
+                router.push(`/(phone)/(settings)/access-token/list`);
             } else {
-                router.push(`/(tablet)/(settings)/access-token/list`);
+                router.push(`/(desktop)/(settings)/access-token/list`);
             }
         },
 
         navigateToWebhooksSettings: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/webhook/list`);
+                router.push(`/(phone)/(settings)/webhook/list`);
             } else {
-                router.push(`/(tablet)/(settings)/webhook/list`);
+                router.push(`/(desktop)/(settings)/webhook/list`);
             }
         },
 
         navigateToPayloadMappersSettings: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/payload-mapper/list`);
+                router.push(`/(phone)/(settings)/payload-mapper/list`);
             } else {
-                router.push(`/(tablet)/(settings)/payload-mapper/list`);
+                router.push(`/(desktop)/(settings)/payload-mapper/list`);
             }
         },
 
         navigateToCreatePayloadMapper: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/payload-mapper/create`);
+                router.push(`/(phone)/(settings)/payload-mapper/create`);
             } else {
-                router.push(`/(tablet)/(settings)/payload-mapper/create`);
+                router.push(`/(desktop)/(settings)/payload-mapper/create`);
             }
         },
 
         navigateToEditPayloadMapper: (payloadMapperId: string) => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/payload-mapper/${payloadMapperId}`);
+                router.push(`/(phone)/(settings)/payload-mapper/${payloadMapperId}`);
             } else {
-                router.push(`/(tablet)/(settings)/payload-mapper/${payloadMapperId}`);
+                router.push(`/(desktop)/(settings)/payload-mapper/${payloadMapperId}`);
             }
         },
 
         navigateToDevicesSettings: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/devices`);
+                router.push(`/(phone)/(settings)/devices`);
             } else {
-                router.push(`/(tablet)/(settings)/devices`);
+                router.push(`/(desktop)/(settings)/devices`);
             }
         },
 
         navigateToNotificationsSettings: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/notifications`);
+                router.push(`/(phone)/(settings)/notifications`);
             } else {
-                router.push(`/(tablet)/(settings)/notifications`);
+                router.push(`/(desktop)/(settings)/notifications`);
             }
         },
 
         navigateToUserSessionsSettings: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/user-sessions`);
+                router.push(`/(phone)/(settings)/user-sessions`);
             } else {
-                router.push(`/(tablet)/(settings)/user-sessions`);
+                router.push(`/(desktop)/(settings)/user-sessions`);
             }
         },
 
         navigateToLogs: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(settings)/logs`);
+                router.push(`/(phone)/(settings)/logs`);
             } else {
-                router.push(`/(tablet)/(settings)/logs`);
+                router.push(`/(desktop)/(settings)/logs`);
             }
         },
 
         navigateToAdmin: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)`);
+                router.push(`/(phone)/(admin)`);
             } else {
-                router.push(`/(tablet)/(admin)/user-management/list`);
+                router.push(`/(desktop)/(admin)/server-settings`);
             }
         },
 
         navigateToUserManagement: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)/user-management/list`);
+                router.push(`/(phone)/(admin)/user-management/list`);
             } else {
-                router.push(`/(tablet)/(admin)/user-management/list`);
+                router.push(`/(desktop)/(admin)/user-management/list`);
             }
         },
 
         navigateToOauthProviders: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)/oauth-providers/list`);
+                router.push(`/(phone)/(admin)/oauth-providers/list`);
             } else {
-                router.push(`/(tablet)/(admin)/oauth-providers/list`);
+                router.push(`/(desktop)/(admin)/oauth-providers/list`);
             }
         },
 
         navigateToSystemAccessTokens: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)/system-access-tokens/list`);
+                router.push(`/(phone)/(admin)/system-access-tokens/list`);
             } else {
-                router.push(`/(tablet)/(admin)/system-access-tokens/list`);
+                router.push(`/(desktop)/(admin)/system-access-tokens/list`);
             }
         },
 
         navigateToEventsReview: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)/events-review`);
+                router.push(`/(phone)/(admin)/events-review`);
             } else {
-                router.push(`/(tablet)/(admin)/events-review`);
+                router.push(`/(desktop)/(admin)/events-review`);
             }
         },
 
         navigateToServerSettings: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)/server-settings`);
+                router.push(`/(phone)/(admin)/server-settings`);
             } else {
-                router.push(`/(tablet)/(admin)/server-settings`);
+                router.push(`/(desktop)/(admin)/server-settings`);
             }
         },
 
         navigateToBackupManagement: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)/backup-management`);
+                router.push(`/(phone)/(admin)/backup-management`);
             } else {
-                router.push(`/(tablet)/(admin)/backup-management`);
+                router.push(`/(desktop)/(admin)/backup-management`);
             }
         },
 
         navigateToServerLogs: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)/server-logs`);
+                router.push(`/(phone)/(admin)/server-logs`);
             } else {
-                router.push(`/(tablet)/(admin)/server-logs`);
+                router.push(`/(desktop)/(admin)/server-logs`);
             }
         },
 
         navigateToServerFiles: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)/server-files`);
+                router.push(`/(phone)/(admin)/server-files`);
             } else {
-                router.push(`/(tablet)/(admin)/server-files`);
+                router.push(`/(desktop)/(admin)/server-files`);
             }
         },
 
         navigateToCreateOAuthProvider: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)/oauth-providers/create`);
+                router.push(`/(phone)/(admin)/oauth-providers/create`);
             } else {
-                router.push(`/(tablet)/(admin)/oauth-providers/create`);
+                router.push(`/(desktop)/(admin)/oauth-providers/create`);
             }
         },
 
         navigateToEditOAuthProvider: (providerId: string) => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)/oauth-providers/${providerId}`);
+                router.push(`/(phone)/(admin)/oauth-providers/${providerId}`);
             } else {
-                router.push(`/(tablet)/(admin)/oauth-providers/${providerId}`);
+                router.push(`/(desktop)/(admin)/oauth-providers/${providerId}`);
             }
         },
 
         navigateToCreateSystemAccessToken: () => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)/system-access-tokens/create`);
+                router.push(`/(phone)/(admin)/system-access-tokens/create`);
             } else {
-                router.push(`/(tablet)/(admin)/system-access-tokens/create`);
+                router.push(`/(desktop)/(admin)/system-access-tokens/create`);
             }
         },
 
         navigateToEditSystemAccessToken: (tokenId: string) => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)/system-access-tokens/${tokenId}`);
+                router.push(`/(phone)/(admin)/system-access-tokens/${tokenId}`);
             } else {
-                router.push(`/(tablet)/(admin)/system-access-tokens/${tokenId}`);
+                router.push(`/(desktop)/(admin)/system-access-tokens/${tokenId}`);
             }
         },
 
         navigateToUserDetails: (userId: string) => {
             if (isMobile) {
-                router.push(`/(mobile)/(admin)/user-management/${userId}`);
+                router.push(`/(phone)/(admin)/user-management/${userId}`);
             } else {
-                router.push(`/(tablet)/(admin)/user-management/${userId}`);
+                router.push(`/(desktop)/(admin)/user-management/${userId}`);
             }
         },
 
@@ -330,14 +330,14 @@ export function useNavigationUtils() {
 
         navigateToGallery: () => {
             if (isMobile) {
-                router.push("/(mobile)/(home)/(tabs)/gallery");
+                router.push("/(phone)/(home)/(tabs)/gallery");
             } else {
-                router.push("/(tablet)/(home)/gallery");
+                router.push("/(desktop)/(home)/gallery");
             }
         },
 
         navigateToBuckets: () => {
-            router.push("/(mobile)/(home)/(tabs)/buckets");
+            router.push("/(phone)/(home)/(tabs)/buckets");
         },
 
         navigateToLogin: (email?: string) => {
@@ -371,24 +371,24 @@ export function useNavigationUtils() {
 
         navigateToChangePassword: () => {
             if (isMobile) {
-                router.push("/(mobile)/(settings)/user/change-password");
+                router.push("/(phone)/(settings)/user/change-password");
             } else {
-                router.push("/(tablet)/(settings)/user/change-password");
+                router.push("/(desktop)/(settings)/user/change-password");
             }
         },
 
         navigateToDanglingBucket: (bucketId: string, fromHome: boolean) => {
             if (fromHome) {
                 if (isMobile) {
-                    router.push(`/(mobile)/(home)/bucket/link/${bucketId}`);
+                    router.push(`/(phone)/(home)/bucket/link/${bucketId}`);
                 } else {
-                    router.push(`/(tablet)/(home)/bucket/link/${bucketId}`);
+                    router.push(`/(desktop)/(home)/bucket/link/${bucketId}`);
                 }
             } else {
                 if (isMobile) {
-                    router.push(`/(mobile)/(settings)/bucket/link/${bucketId}`);
+                    router.push(`/(phone)/(settings)/bucket/link/${bucketId}`);
                 } else {
-                    router.push(`/(tablet)/(settings)/bucket/link/${bucketId}`);
+                    router.push(`/(desktop)/(settings)/bucket/link/${bucketId}`);
                 }
             }
         },

@@ -192,8 +192,8 @@ export default function OAuthCallbackPage() {
             // Avoid forcing users to Settings after a plain login flow
             const isSettingsRoute =
               typeof redirectPath === "string" &&
-              (redirectPath.includes("/(mobile)/(settings)") ||
-                redirectPath.includes("/(tablet)/(settings)") ||
+              (redirectPath.includes("/(phone)/(settings)") ||
+                redirectPath.includes("/(desktop)/(settings)") ||
                 redirectPath === "/user/profile");
             console.log(
               "🔎 [OAuth] redirectAfterLogin:",

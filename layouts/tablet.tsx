@@ -29,19 +29,19 @@ export default function TabletLayout() {
           }}
         >
           <Stack.Screen
-            name="(tablet)/(home)"
+            name="(desktop)/(home)"
             options={{
               headerShown: false,
             }}
           />
           <Stack.Screen
-            name="(tablet)/(settings)"
+            name="(desktop)/(settings)"
             options={{
               headerShown: false,
             }}
           />
           <Stack.Screen
-            name="(tablet)/(admin)"
+            name="(desktop)/(admin)"
             options={{
               headerShown: false,
             }}

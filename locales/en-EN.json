@@ -152,9 +152,9 @@
       "autoAddOpenNotificationAction": "Auto-add Open Action",
       "autoAddOpenNotificationActionDescription": "Automatically add an open action to all notifications",
       "defaultPostpones": "Default Postpone Options",
-      "defaultPostponesDescription": "Comma-separated list of postpone duration options in minutes (e.g., 5,15,30,60)",
+      "defaultPostponesDescription": "e.g. 5,15,30,60",
       "defaultSnoozes": "Default Snooze Options",
-      "defaultSnoozesDescription": "Comma-separated list of snooze duration options in minutes (e.g., 15,30,60,120,240)"
+      "defaultSnoozesDescription": "e.g. 15,30,60,120,240"
     },
     "theme": {
       "title": "Theme Settings",

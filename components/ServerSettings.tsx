@@ -10,11 +10,11 @@ import {
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useMutation, useQuery } from "@apollo/client";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import {
   Card,
+  Icon,
   SegmentedButtons,
   Switch,
   Text,
@@ -54,7 +54,7 @@ type SectionConfig = {
 const settingSections: Record<string, SectionConfig> = {
   authentication: {
     title: "Authentication & JWT",
-    icon: "shield-key" as const,
+    icon: "lock",
     settings: [
       ServerSettingType.JwtAccessTokenExpiration,
       ServerSettingType.JwtRefreshTokenExpiration,
@@ -64,10 +64,13 @@ const settingSections: Record<string, SectionConfig> = {
   },
   apnPush: {
     title: "Apple Push Notification (APN)",
-    icon: "apple" as const,
+    icon: "cellphone",
     settings: [
       ServerSettingType.ApnPush,
-      { key: ServerSettingType.ApnKeyId, dependsOn: { field: ServerSettingType.ApnPush, values: ["Onboard"] } },
+      {
+        key: ServerSettingType.ApnKeyId,
+        dependsOn: { field: ServerSettingType.ApnPush, values: ["Onboard"] },
+      },
       {
         key: ServerSettingType.ApnTeamId,
         dependsOn: { field: ServerSettingType.ApnPush, values: ["Onboard"] },
@@ -88,26 +91,35 @@ const settingSections: Record<string, SectionConfig> = {
   },
   firebasePush: {
     title: "Firebase Cloud Messaging (FCM)",
-    icon: "firebase" as const,
+    icon: "fire",
     settings: [
       ServerSettingType.FirebasePush,
       {
         key: ServerSettingType.FirebaseProjectId,
-        dependsOn: { field: ServerSettingType.FirebasePush, values: ["Onboard"] },
+        dependsOn: {
+          field: ServerSettingType.FirebasePush,
+          values: ["Onboard"],
+        },
       },
       {
         key: ServerSettingType.FirebasePrivateKey,
-        dependsOn: { field: ServerSettingType.FirebasePush, values: ["Onboard"] },
+        dependsOn: {
+          field: ServerSettingType.FirebasePush,
+          values: ["Onboard"],
+        },
       },
       {
         key: ServerSettingType.FirebaseClientEmail,
-        dependsOn: { field: ServerSettingType.FirebasePush, values: ["Onboard"] },
+        dependsOn: {
+          field: ServerSettingType.FirebasePush,
+          values: ["Onboard"],
+        },
       },
     ],
   },
   webPush: {
     title: "Web Push Notification",
-    icon: "web" as const,
+    icon: "web",
     settings: [
       ServerSettingType.WebPush,
       {
@@ -118,8 +130,12 @@ const settingSections: Record<string, SectionConfig> = {
   },
   pushPassthrough: {
     title: "Push Passthrough",
-    icon: "transit-connection-variant" as const,
-    settings: [ServerSettingType.PushNotificationsPassthroughServer, ServerSettingType.PushPassthroughToken, ServerSettingType.SystemTokenUsageStats],
+    icon: "share-variant",
+    settings: [
+      ServerSettingType.PushNotificationsPassthroughServer,
+      ServerSettingType.PushPassthroughToken,
+      ServerSettingType.SystemTokenUsageStats,
+    ],
     visibleWhen: (values: Record<ServerSettingType, any>) => {
       return (
         values[ServerSettingType.ApnPush] === "Passthrough" ||
@@ -130,7 +146,7 @@ const settingSections: Record<string, SectionConfig> = {
   },
   email: {
     title: "Email Configuration",
-    icon: "email" as const,
+    icon: "email",
     settings: [
       ServerSettingType.EmailEnabled,
       {
@@ -148,55 +164,73 @@ const settingSections: Record<string, SectionConfig> = {
       {
         key: ServerSettingType.EmailHost,
         visibleWhen: (values) =>
-          values[ServerSettingType.EmailEnabled] === true && values[ServerSettingType.EmailType] === "SMTP",
+          values[ServerSettingType.EmailEnabled] === true &&
+          values[ServerSettingType.EmailType] === "SMTP",
       },
       {
         key: ServerSettingType.EmailPort,
         visibleWhen: (values) =>
-          values[ServerSettingType.EmailEnabled] === true && values[ServerSettingType.EmailType] === "SMTP",
+          values[ServerSettingType.EmailEnabled] === true &&
+          values[ServerSettingType.EmailType] === "SMTP",
       },
       {
         key: ServerSettingType.EmailSecure,
         visibleWhen: (values) =>
-          values[ServerSettingType.EmailEnabled] === true && values[ServerSettingType.EmailType] === "SMTP",
+          values[ServerSettingType.EmailEnabled] === true &&
+          values[ServerSettingType.EmailType] === "SMTP",
       },
       {
         key: ServerSettingType.EmailUser,
         visibleWhen: (values) =>
-          values[ServerSettingType.EmailEnabled] === true && values[ServerSettingType.EmailType] === "SMTP",
+          values[ServerSettingType.EmailEnabled] === true &&
+          values[ServerSettingType.EmailType] === "SMTP",
       },
       {
         key: ServerSettingType.EmailPass,
         visibleWhen: (values) =>
-          values[ServerSettingType.EmailEnabled] === true && values[ServerSettingType.EmailType] === "SMTP",
+          values[ServerSettingType.EmailEnabled] === true &&
+          values[ServerSettingType.EmailType] === "SMTP",
       },
       {
         key: ServerSettingType.ResendApiKey,
         visibleWhen: (values) =>
-          values[ServerSettingType.EmailEnabled] === true && values[ServerSettingType.EmailType] === "Resend",
+          values[ServerSettingType.EmailEnabled] === true &&
+          values[ServerSettingType.EmailType] === "Resend",
       },
     ],
   },
   attachments: {
     title: "Attachments",
-    icon: "paperclip" as const,
+    icon: "paperclip",
     settings: [
       ServerSettingType.AttachmentsEnabled,
       {
         key: ServerSettingType.AttachmentsStoragePath,
-        dependsOn: { field: ServerSettingType.AttachmentsEnabled, values: [true] },
+        dependsOn: {
+          field: ServerSettingType.AttachmentsEnabled,
+          values: [true],
+        },
       },
       {
         key: ServerSettingType.AttachmentsMaxFileSize,
-        dependsOn: { field: ServerSettingType.AttachmentsEnabled, values: [true] },
+        dependsOn: {
+          field: ServerSettingType.AttachmentsEnabled,
+          values: [true],
+        },
       },
       {
         key: ServerSettingType.AttachmentsAllowedMimeTypes,
-        dependsOn: { field: ServerSettingType.AttachmentsEnabled, values: [true] },
+        dependsOn: {
+          field: ServerSettingType.AttachmentsEnabled,
+          values: [true],
+        },
       },
       {
         key: ServerSettingType.AttachmentsDeleteJobEnabled,
-        dependsOn: { field: ServerSettingType.AttachmentsEnabled, values: [true] },
+        dependsOn: {
+          field: ServerSettingType.AttachmentsEnabled,
+          values: [true],
+        },
       },
       {
         key: ServerSettingType.AttachmentsMaxAge,
@@ -208,7 +242,7 @@ const settingSections: Record<string, SectionConfig> = {
   },
   backup: {
     title: "Database Backup",
-    icon: "database-arrow-down" as const,
+    icon: "database",
     settings: [
       ServerSettingType.BackupEnabled,
       {
@@ -231,23 +265,26 @@ const settingSections: Record<string, SectionConfig> = {
   },
   serverFiles: {
     title: "Server Files",
-    icon: "file-outline" as const,
+    icon: "folder",
     settings: [ServerSettingType.ServerFilesDirectory],
   },
   messages: {
     title: "Messages Retention",
-    icon: "message-text-clock" as const,
+    icon: "message-text",
     settings: [
       ServerSettingType.MessagesDeleteJobEnabled,
       {
         key: ServerSettingType.MessagesMaxAge,
-        dependsOn: { field: ServerSettingType.MessagesDeleteJobEnabled, values: [true] },
+        dependsOn: {
+          field: ServerSettingType.MessagesDeleteJobEnabled,
+          values: [true],
+        },
       },
     ],
   },
   rateLimit: {
     title: "Rate Limiting",
-    icon: "speedometer" as const,
+    icon: "speedometer",
     settings: [
       ServerSettingType.RateLimitTrustProxyEnabled,
       ServerSettingType.RateLimitForwardHeader,
@@ -260,33 +297,36 @@ const settingSections: Record<string, SectionConfig> = {
   },
   cors: {
     title: "CORS & Security",
-    icon: "shield-check" as const,
+    icon: "shield-check",
     settings: [ServerSettingType.CorsOrigin, ServerSettingType.CorsCredentials],
   },
   logging: {
     title: "Logging",
-    icon: "text-box-multiple" as const,
+    icon: "file-document",
     settings: [ServerSettingType.LogLevel],
   },
   logStorage: {
     title: "Log Storage",
-    icon: "database-clock" as const,
+    icon: "database",
     settings: [
       ServerSettingType.LogStorageEnabled,
       {
         key: ServerSettingType.LogRetentionDays,
-        dependsOn: { field: ServerSettingType.LogStorageEnabled, values: [true] },
+        dependsOn: {
+          field: ServerSettingType.LogStorageEnabled,
+          values: [true],
+        },
       },
     ],
   },
   prometheus: {
     title: "Prometheus Metrics",
-    icon: "chart-line" as const,
+    icon: "chart-line",
     settings: [ServerSettingType.PrometheusEnabled],
   },
   systemAccessTokens: {
     title: "System Access Tokens",
-    icon: "key-variant" as const,
+    icon: "key",
     settings: [ServerSettingType.EnableSystemTokenRequests],
   },
 };
@@ -300,7 +340,8 @@ function getFieldType(
   }
   if (setting.valueBool !== null) return "boolean";
   if (setting.valueNumber !== null) return "number";
-  if (setting.configType === ServerSettingType.SystemTokenUsageStats) return "json";
+  if (setting.configType === ServerSettingType.SystemTokenUsageStats)
+    return "json";
   return "text";
 }
 
@@ -365,8 +406,8 @@ function SettingSection({
     <Card style={styles.sectionCard}>
       <Card.Content>
         <View style={styles.sectionHeader}>
-          <MaterialCommunityIcons
-            name={sectionConfig.icon}
+          <Icon
+            source={sectionConfig.icon}
             size={24}
             color={theme.colors.primary}
           />
@@ -528,9 +569,7 @@ function SettingField({
           ]}
           nestedScrollEnabled
         >
-          <Text style={styles.jsonSnippetText}>
-            {formatJsonValue(value)}
-          </Text>
+          <Text style={styles.jsonSnippetText}>{formatJsonValue(value)}</Text>
         </ScrollView>
       </View>
     );
@@ -553,7 +592,12 @@ function SettingField({
         autoCapitalize="none"
         autoCorrect={false}
         multiline={true}
-        numberOfLines={setting.configType === ServerSettingType.ApnPrivateKeyPath || setting.configType === ServerSettingType.FirebasePrivateKey ? 6 : 3}
+        numberOfLines={
+          setting.configType === ServerSettingType.ApnPrivateKeyPath ||
+          setting.configType === ServerSettingType.FirebasePrivateKey
+            ? 6
+            : 3
+        }
         style={styles.textInput}
         editable={!isSensitive || showSecret}
         right={
@@ -574,8 +618,12 @@ export function ServerSettings() {
   const { t } = useI18n();
 
   // State
-  const [values, setValues] = useState<Record<ServerSettingType, any>>({} as Record<ServerSettingType, any>);
-  const [originalValues, setOriginalValues] = useState<Record<ServerSettingType, any>>({} as Record<ServerSettingType, any>);
+  const [values, setValues] = useState<Record<ServerSettingType, any>>(
+    {} as Record<ServerSettingType, any>
+  );
+  const [originalValues, setOriginalValues] = useState<
+    Record<ServerSettingType, any>
+  >({} as Record<ServerSettingType, any>);
   const [saving, setSaving] = useState(false);
 
   // GraphQL operations
@@ -592,7 +640,10 @@ export function ServerSettings() {
   // Initialize values when data loads
   useEffect(() => {
     if (settings.length > 0) {
-      const initialValues: Record<ServerSettingType, any> = {} as Record<ServerSettingType, any>;
+      const initialValues: Record<ServerSettingType, any> = {} as Record<
+        ServerSettingType,
+        any
+      >;
       settings.forEach((setting: ServerSetting) => {
         if (setting.valueBool !== null) {
           initialValues[setting.configType] = setting.valueBool;
