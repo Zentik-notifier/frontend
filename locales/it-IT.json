@@ -1974,8 +1974,8 @@
       "systemAccessTokens": "Token di Accesso di Sistema"
     },
     "fields": {
-      "JwtAccessTokenExpiration": "Scadenza Token di Accesso JWT (minuti)",
-      "JwtRefreshTokenExpiration": "Scadenza Token di Refresh JWT (minuti)",
+      "JwtAccessTokenExpiration": "Scadenza Token di Accesso JWT",
+      "JwtRefreshTokenExpiration": "Scadenza Token di Refresh JWT",
       "JwtSecret": "Segreto JWT",
       "JwtRefreshSecret": "Segreto Refresh JWT",
       "ApnPush": "Modalità Push APN",
@@ -2047,8 +2047,8 @@
     "logStorage": "Archiviazione Log",
     "prometheus": "Metriche Prometheus",
     "systemAccessTokens": "Token di Accesso di Sistema",
-    "JwtAccessTokenExpiration": "JWT Access Token Expiration (minutes)",
-    "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration (minutes)",
+    "JwtAccessTokenExpiration": "JWT Access Token Expiration",
+    "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration",
     "JwtSecret": "JWT Secret",
     "JwtRefreshSecret": "JWT Refresh Secret",
     "ApnPush": "APN Push Mode",

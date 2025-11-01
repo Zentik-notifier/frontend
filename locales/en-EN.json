@@ -2026,8 +2026,8 @@
     "prometheus": "Prometheus Metrics",
     "systemAccessTokens": "System Access Tokens",
     "fields": {
-      "JwtAccessTokenExpiration": "JWT Access Token Expiration (minutes)",
-      "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration (minutes)",
+      "JwtAccessTokenExpiration": "JWT Access Token Expiration",
+      "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration",
       "JwtSecret": "JWT Secret",
       "JwtRefreshSecret": "JWT Refresh Secret",
       "ApnPush": "APN Push Mode",
@@ -2084,8 +2084,8 @@
       "PrometheusEnabled": "Enable Prometheus Metrics",
       "EnableSystemTokenRequests": "Enable System Token Requests"
     },
-    "JwtAccessTokenExpiration": "JWT Access Token Expiration (minutes)",
-    "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration (minutes)",
+    "JwtAccessTokenExpiration": "JWT Access Token Expiration",
+    "JwtRefreshTokenExpiration": "JWT Refresh Token Expiration",
     "JwtSecret": "JWT Secret",
     "JwtRefreshSecret": "JWT Refresh Secret",
     "ApnPush": "APN Push Mode",
