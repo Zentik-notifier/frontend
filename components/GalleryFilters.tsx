@@ -2,6 +2,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import { useGalleryContext } from "@/contexts/GalleryContext";
 import { MediaType } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
+import { useNotificationUtils } from "@/hooks/useNotificationUtils";
 import { useSettings } from "@/hooks/useSettings";
 import { useGetCacheStats } from "@/hooks/useMediaCache";
 import { DEFAULT_MEDIA_TYPES } from "@/services/settings-service";
@@ -39,6 +40,7 @@ export default function GalleryFilters() {
   const { t } = useI18n();
   const { settings } = useSettings();
   const { cacheStats, updateStats } = useGetCacheStats();
+  const { getMediaTypeIcon, getMediaTypeColor, getMediaTypeFriendlyName } = useNotificationUtils();
 
   useEffect(() => {
     updateStats();
@@ -204,30 +206,19 @@ export default function GalleryFilters() {
 
     const statsItems = Object.entries(cacheStats.itemsByType).map(
       ([type, count]) => {
-        // Get appropriate icon for media type
-        let iconName = "image"; // default
-        switch (type) {
-          case "IMAGE":
-            iconName = "image";
-            break;
-          case "GIF":
-            iconName = "gif";
-            break;
-          case "VIDEO":
-            iconName = "video";
-            break;
-          case "AUDIO":
-            iconName = "music";
-            break;
-          case "ICON":
-            iconName = "star";
-            break;
-        }
+        // Convert string type to MediaType enum
+        const mediaType = type as MediaType;
+        
+        // Use utility functions from useNotificationUtils
+        const iconName = getMediaTypeIcon(mediaType);
+        const color = getMediaTypeColor(mediaType);
+        const friendlyName = getMediaTypeFriendlyName(mediaType);
 
         return {
           id: type,
-          label: `${type}: ${count}`,
+          label: `${friendlyName}: ${count}`,
           icon: iconName,
+          color: color,
           onPress: () => {}, // No action needed
           disabled: true, // Make it non-clickable
         };
@@ -250,28 +241,14 @@ export default function GalleryFilters() {
             borderColor: theme.colors.outlineVariant,
           }}
         >
-          {/* Header */}
-          <View
-            style={[
-              styles.statsHeader,
-              { borderBottomColor: theme.colors.outlineVariant },
-            ]}
-          >
-            <Text
-              style={[styles.statsTitle, { color: theme.colors.onSurface }]}
-            >
-              {t("gallery.statsByType")}
-            </Text>
-          </View>
-
           {/* Stats Items */}
           {statsItems.map((item, index) => (
             <MenuOption key={index} onSelect={() => item.onPress()}>
               <View style={styles.menuItem}>
                 <Icon
                   source={item.icon}
-                  size={20}
-                  color={theme.colors.onSurface}
+                  size={16}
+                  color={item.color || theme.colors.onSurface}
                 />
                 <Text
                   style={[
@@ -489,15 +466,6 @@ const styles = StyleSheet.create({
     top: -6,
     right: -6,
   },
-  // Stats menu styles
-  statsHeader: {
-    padding: 8,
-  },
-  statsTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    textAlign: "center",
-  },
   // Selection bar styles
   selectionBar: {
     flexDirection: "row",
@@ -541,11 +509,11 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
   menuItemText: {
-    marginLeft: 12,
-    fontSize: 16,
+    marginLeft: 8,
+    fontSize: 14,
   },
 });
