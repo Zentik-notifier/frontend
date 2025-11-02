@@ -1,6 +1,8 @@
 import { useAppContext } from "@/contexts/AppContext";
 import {
   MobileAppleAuthDto,
+  OAuthProviderPublicFragment,
+  OAuthProviderType,
   useAppleLoginMobileMutation,
   usePublicAppConfigQuery,
 } from "@/generated/gql-operations-generated";
@@ -10,7 +12,6 @@ import * as Device from "expo-device";
 import React, { useEffect, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { Button, Divider, Text, useTheme } from "react-native-paper";
-import { OAuthProviderType } from "@/generated/gql-operations-generated";
 import {
   MenuOption,
   MenuOptions,
@@ -28,35 +29,56 @@ export function OAuthSelector({ onProviderSelect, disabled }: Props) {
   const { t } = useI18n();
   const theme = useTheme();
   const { data } = usePublicAppConfigQuery({ fetchPolicy: "network-only" });
-  const providers = data?.publicAppConfig.oauthProviders || [];
+  const providersSrc = data?.publicAppConfig.oauthProviders || [];
   const [anchorWidth, setAnchorWidth] = useState(0);
   const { completeAuth } = useAppContext();
-  const [appleAvailable, setAppleAvailable] = useState(false);
   const [appleLoginMobile] = useAppleLoginMobileMutation();
+  const [providers, setProviders] = useState<OAuthProviderPublicFragment[]>([]);
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const available =
-          Platform.OS === "ios"
-            ? await AppleAuthentication.isAvailableAsync()
-            : false;
-        if (mounted) setAppleAvailable(available);
-      } catch {
-        if (mounted) setAppleAvailable(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    const func = async () => {
+      const iosSigninAvailable =
+        Platform.OS === "ios"
+          ? await AppleAuthentication.isAvailableAsync()
+          : false;
 
-  const hasAppleProvider = providers.some((p: any) => p.type === OAuthProviderType.Apple);
+      if (iosSigninAvailable) {
+        return [
+          {
+            __typename: "OAuthProviderPublicDto",
+            clientId: "",
+            clientSecret: "",
+            scopes: [],
+            textColor: "",
+            isEnabled: true,
+            id: "apple_signin",
+            type: OAuthProviderType.AppleSignin,
+            name: "Apple Sign-In",
+            iconUrl: "https://www.apple.com/favicon.ico",
+            color: "#000000",
+          } as OAuthProviderPublicFragment,
+          ...providersSrc,
+        ];
+      } else {
+        return providersSrc;
+      }
+    };
+
+    func().then((foundProviders) => {
+      setProviders(foundProviders);
+    });
+  }, [providersSrc]);
+
+  // const estimatedRowHeight = 44; // approx row height
+  // const estimatedDivider = 1;
+  // const estimatedMenuHeight =
+  //   providers.length > 0
+  //     ? providers.length * estimatedRowHeight +
+  //       (providers.length - 1) * estimatedDivider
+  //     : 0;
 
   const handleAppleSignIn = async () => {
     try {
-      if (!appleAvailable || !hasAppleProvider) return;
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
@@ -117,15 +139,6 @@ export function OAuthSelector({ onProviderSelect, disabled }: Props) {
     }
   };
 
-  const menuProviders = providers.filter((p: any) => p.type !== OAuthProviderType.Apple);
-  const estimatedRowHeight = 44; // approx row height
-  const estimatedDivider = 1;
-  const estimatedMenuHeight =
-    menuProviders.length > 0
-      ? menuProviders.length * estimatedRowHeight +
-        (menuProviders.length - 1) * estimatedDivider
-      : 0;
-
   return (
     <View
       style={styles.container}
@@ -151,79 +164,62 @@ export function OAuthSelector({ onProviderSelect, disabled }: Props) {
             optionsContainer: {
               width: anchorWidth || undefined,
               padding: 0,
-              marginBottom: 52,
-              marginTop: -(estimatedMenuHeight + 8),
+              // marginBottom: 52,
+              // marginTop: -(estimatedMenuHeight + 8),
+              marginTop: -52,
               backgroundColor: theme.colors.surface,
               borderColor: theme.colors.outlineVariant,
               borderWidth: StyleSheet.hairlineWidth,
             },
           }}
         >
-          {providers
-            .filter((p: any) => {
-              if (p.type === OAuthProviderType.Apple)
-                return (
-                  Platform.OS === "ios" && appleAvailable && hasAppleProvider
-                );
-              return true;
-            })
-            .map((p: any, idx: number) => (
-              <React.Fragment key={p.id}>
-                <MenuOption
-                  onSelect={() => {
-                    if (p.type === OAuthProviderType.Apple) {
-                      handleAppleSignIn();
-                    } else {
-                      // derive slug from enum type
-                      const slug = String(p.type).toLowerCase();
-                      onProviderSelect(slug);
-                    }
-                  }}
+          {providers.map((p: any, idx: number) => (
+            <React.Fragment key={p.id}>
+              <MenuOption
+                onSelect={() => {
+                  if (p.type === OAuthProviderType.AppleSignin) {
+                    handleAppleSignIn();
+                  } else {
+                    const slug = String(p.type).toLowerCase();
+                    onProviderSelect(slug);
+                  }
+                }}
+              >
+                <View
+                  style={[
+                    styles.optionRow,
+                    { backgroundColor: theme.colors.surface },
+                  ]}
                 >
-                  <View
-                    style={[
-                      styles.optionRow,
-                      { backgroundColor: theme.colors.surface },
-                    ]}
-                  >
-                    <OAuthProviderIcon
-                      providerType={p.type}
-                      provider={p}
-                      size={28}
-                      iconSize={18}
-                      backgroundColor={p.color || theme.colors.primary}
-                      style={styles.iconWrapper}
-                    />
-                    <Text
-                      style={[
-                        styles.optionLabel,
-                        { color: theme.colors.onSurface },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {p.name}
-                    </Text>
-                  </View>
-                </MenuOption>
-                {idx <
-                  providers.filter(
-                    (x: any) =>
-                      x.type !== OAuthProviderType.Apple ||
-                      (Platform.OS === "ios" &&
-                        appleAvailable &&
-                        hasAppleProvider &&
-                        x.type === OAuthProviderType.Apple)
-                  ).length -
-                    1 && (
-                  <Divider
-                    style={[
-                      styles.menuDivider,
-                      { backgroundColor: theme.colors.outlineVariant },
-                    ]}
+                  <OAuthProviderIcon
+                    providerType={p.type}
+                    provider={p}
+                    size={28}
+                    iconSize={18}
+                    backgroundColor={p.color || theme.colors.primary}
+                    style={styles.iconWrapper}
                   />
-                )}
-              </React.Fragment>
-            ))}
+                  <Text
+                    style={[
+                      styles.optionLabel,
+                      { color: theme.colors.onSurface },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {p.name}
+                  </Text>
+                </View>
+              </MenuOption>
+              {idx < providers.length - 1 && (
+                <Divider
+                  style={[
+                    styles.menuDivider,
+                    { backgroundColor: theme.colors.outlineVariant },
+                  ]}
+                />
+              )}
+            </React.Fragment>
+          ))}
         </MenuOptions>
       </PopupMenu>
     </View>

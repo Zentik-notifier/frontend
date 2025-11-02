@@ -1002,6 +1002,7 @@ export function useCreateBucket(options?: {
             permissions: bucket.permissions,
             userPermissions: bucket.userPermissions,
             userBucket: bucket.userBucket,
+            magicCode: bucket.userBucket?.magicCode ?? null,
             isOrphan: false,
           };
           

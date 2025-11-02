@@ -411,6 +411,7 @@ export function useNotificationsState(
                         permissions: bucket.permissions,
                         userPermissions: bucket.userPermissions,
                         userBucket: bucket.userBucket,
+                        magicCode: bucket.userBucket?.magicCode ?? null,
                         isOrphan: false, // Not orphan
                     };
                 });

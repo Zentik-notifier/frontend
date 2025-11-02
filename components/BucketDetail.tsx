@@ -47,6 +47,9 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
     autoFetch: true,
   });
 
+  // Get magicCode from cache (bucketStats) or from bucket userBucket data
+  const magicCode = bucketStats?.magicCode ?? bucket?.userBucket?.magicCode ?? null;
+
   // Get counts from bucketsStats (automatically updates when cache refreshes)
   const totalCount = bucketStats?.totalMessages ?? 0;
   const unreadCount = bucketStats?.unreadCount ?? 0;
@@ -185,7 +188,7 @@ export default function BucketDetail({ bucketId }: BucketDetailProps) {
               />
 
               <CopyButton
-                text={bucketId}
+                text={magicCode ?? bucketId}
                 size={13}
                 style={[
                   styles.actionButton,

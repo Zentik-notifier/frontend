@@ -279,6 +279,7 @@ export function useRefreshBucket() {
                             isProtected: freshBucket.isProtected,
                             isPublic: freshBucket.isPublic,
                             userBucket: freshBucket.userBucket,
+                            magicCode: freshBucket.userBucket?.magicCode ?? null,
                             user: freshBucket.user,
                             permissions: freshBucket.permissions,
                             isOrphan: false, // Mark as no longer orphan

@@ -177,6 +177,9 @@ export interface BucketWithStats {
   /** User-specific bucket settings */
   userBucket?: any;
   
+  /** Magic code for bucket access */
+  magicCode?: string | null;
+  
   /** Whether the bucket is orphan (exists only through notifications, not in global cache) */
   isOrphan?: boolean;
 }
