@@ -164,7 +164,7 @@ export type CreateMessageDto = {
   attachmentUuids?: InputMaybe<Array<Scalars['String']['input']>>;
   attachments?: InputMaybe<Array<NotificationAttachmentDto>>;
   body?: InputMaybe<Scalars['String']['input']>;
-  bucketId: Scalars['String']['input'];
+  bucketId?: InputMaybe<Scalars['String']['input']>;
   collapseId?: InputMaybe<Scalars['String']['input']>;
   deliveryType: NotificationDeliveryType;
   executionId?: InputMaybe<Scalars['String']['input']>;
@@ -172,6 +172,7 @@ export type CreateMessageDto = {
   groupId?: InputMaybe<Scalars['String']['input']>;
   imageUrl?: InputMaybe<Scalars['String']['input']>;
   locale?: InputMaybe<Scalars['String']['input']>;
+  magicCode?: InputMaybe<Scalars['String']['input']>;
   maxReminders?: InputMaybe<Scalars['Float']['input']>;
   postpones?: InputMaybe<Array<Scalars['Float']['input']>>;
   remindEveryMinutes?: InputMaybe<Scalars['Float']['input']>;
@@ -577,6 +578,7 @@ export type Mutation = {
   deleteBucket: Scalars['Boolean']['output'];
   /** Delete an invite code */
   deleteInviteCode: Scalars['Boolean']['output'];
+  deleteMagicCode: UserBucket;
   deleteNotification: Scalars['Boolean']['output'];
   deleteOAuthProvider: Scalars['Boolean']['output'];
   deletePayloadMapper: Scalars['Boolean']['output'];
@@ -757,6 +759,11 @@ export type MutationDeleteBucketArgs = {
 
 export type MutationDeleteInviteCodeArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteMagicCodeArgs = {
+  bucketId: Scalars['String']['input'];
 };
 
 
@@ -2629,6 +2636,13 @@ export type RegenerateMagicCodeMutationVariables = Exact<{
 
 
 export type RegenerateMagicCodeMutation = { __typename?: 'Mutation', regenerateMagicCode: { __typename?: 'UserBucket', id: string, userId: string, bucketId: string, magicCode: string | null, snoozeUntil: string | null, createdAt: string, updatedAt: string, snoozes: Array<{ __typename?: 'SnoozeSchedule', days: Array<string>, timeFrom: string, timeTill: string, isEnabled: boolean }> | null, user: { __typename?: 'User', id: string, email: string, username: string, firstName: string | null, lastName: string | null, avatar: string | null, hasPassword: boolean, role: UserRole, createdAt: string, updatedAt: string, buckets: Array<{ __typename?: 'Bucket', id: string, name: string, description: string | null, icon: string | null, color: string | null, createdAt: string, updatedAt: string }> | null, devices: Array<{ __typename?: 'UserDevice', id: string, platform: string, deviceName: string | null, deviceModel: string | null, osVersion: string | null, onlyLocal: boolean, lastUsed: string, createdAt: string, updatedAt: string }> | null }, bucket: { __typename?: 'Bucket', id: string, name: string, description: string | null, color: string | null, icon: string | null, iconAttachmentUuid: string | null, createdAt: string, updatedAt: string, isProtected: boolean | null, isPublic: boolean | null, isAdmin: boolean | null } } };
+
+export type DeleteMagicCodeMutationVariables = Exact<{
+  bucketId: Scalars['String']['input'];
+}>;
+
+
+export type DeleteMagicCodeMutation = { __typename?: 'Mutation', deleteMagicCode: { __typename?: 'UserBucket', id: string, userId: string, bucketId: string, magicCode: string | null, snoozeUntil: string | null, createdAt: string, updatedAt: string, snoozes: Array<{ __typename?: 'SnoozeSchedule', days: Array<string>, timeFrom: string, timeTill: string, isEnabled: boolean }> | null, user: { __typename?: 'User', id: string, email: string, username: string, firstName: string | null, lastName: string | null, avatar: string | null, hasPassword: boolean, role: UserRole, createdAt: string, updatedAt: string, buckets: Array<{ __typename?: 'Bucket', id: string, name: string, description: string | null, icon: string | null, color: string | null, createdAt: string, updatedAt: string }> | null, devices: Array<{ __typename?: 'UserDevice', id: string, platform: string, deviceName: string | null, deviceModel: string | null, osVersion: string | null, onlyLocal: boolean, lastUsed: string, createdAt: string, updatedAt: string }> | null }, bucket: { __typename?: 'Bucket', id: string, name: string, description: string | null, color: string | null, icon: string | null, iconAttachmentUuid: string | null, createdAt: string, updatedAt: string, isProtected: boolean | null, isPublic: boolean | null, isAdmin: boolean | null } } };
 
 export type SystemAccessTokenFragment = { __typename?: 'SystemAccessTokenDto', id: string, maxCalls: number, calls: number, totalCalls: number, expiresAt: string | null, lastResetAt: string | null, description: string | null, scopes: Array<string> | null, token: string | null, createdAt: string, updatedAt: string, requester: { __typename?: 'User', id: string, username: string, email: string, firstName: string | null, lastName: string | null } | null };
 
@@ -5512,6 +5526,33 @@ export function useRegenerateMagicCodeMutation(baseOptions?: ApolloReactHooks.Mu
 export type RegenerateMagicCodeMutationHookResult = ReturnType<typeof useRegenerateMagicCodeMutation>;
 export type RegenerateMagicCodeMutationResult = Apollo.MutationResult<RegenerateMagicCodeMutation>;
 export type RegenerateMagicCodeMutationOptions = Apollo.BaseMutationOptions<RegenerateMagicCodeMutation, RegenerateMagicCodeMutationVariables>;
+export const DeleteMagicCodeDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteMagicCode"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"bucketId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteMagicCode"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"bucketId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"bucketId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserBucketFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"BucketFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Bucket"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"iconAttachmentUuid"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"isProtected"}},{"kind":"Field","name":{"kind":"Name","value":"isPublic"}},{"kind":"Field","name":{"kind":"Name","value":"isAdmin"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"firstName"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"avatar"}},{"kind":"Field","name":{"kind":"Name","value":"hasPassword"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"buckets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"devices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"deviceModel"}},{"kind":"Field","name":{"kind":"Name","value":"osVersion"}},{"kind":"Field","name":{"kind":"Name","value":"onlyLocal"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsed"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserBucketFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserBucket"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"bucketId"}},{"kind":"Field","name":{"kind":"Name","value":"magicCode"}},{"kind":"Field","name":{"kind":"Name","value":"snoozeUntil"}},{"kind":"Field","name":{"kind":"Name","value":"snoozes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"days"}},{"kind":"Field","name":{"kind":"Name","value":"timeFrom"}},{"kind":"Field","name":{"kind":"Name","value":"timeTill"}},{"kind":"Field","name":{"kind":"Name","value":"isEnabled"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UserFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"bucket"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"BucketFragment"}}]}}]}}]} as unknown as DocumentNode;
+export type DeleteMagicCodeMutationFn = Apollo.MutationFunction<DeleteMagicCodeMutation, DeleteMagicCodeMutationVariables>;
+
+/**
+ * __useDeleteMagicCodeMutation__
+ *
+ * To run a mutation, you first call `useDeleteMagicCodeMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useDeleteMagicCodeMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [deleteMagicCodeMutation, { data, loading, error }] = useDeleteMagicCodeMutation({
+ *   variables: {
+ *      bucketId: // value for 'bucketId'
+ *   },
+ * });
+ */
+export function useDeleteMagicCodeMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<DeleteMagicCodeMutation, DeleteMagicCodeMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return ApolloReactHooks.useMutation<DeleteMagicCodeMutation, DeleteMagicCodeMutationVariables>(DeleteMagicCodeDocument, options);
+      }
+export type DeleteMagicCodeMutationHookResult = ReturnType<typeof useDeleteMagicCodeMutation>;
+export type DeleteMagicCodeMutationResult = Apollo.MutationResult<DeleteMagicCodeMutation>;
+export type DeleteMagicCodeMutationOptions = Apollo.BaseMutationOptions<DeleteMagicCodeMutation, DeleteMagicCodeMutationVariables>;
 export const SystemAccessTokenRequestsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"SystemAccessTokenRequests"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"systemAccessTokenRequests"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SystemAccessTokenRequestFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SystemAccessTokenRequestFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SystemAccessTokenRequest"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"email"}}]}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessTokenId"}},{"kind":"Field","name":{"kind":"Name","value":"systemAccessToken"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}},{"kind":"Field","name":{"kind":"Name","value":"plainTextToken"}},{"kind":"Field","name":{"kind":"Name","value":"maxRequests"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode;
 
 /**

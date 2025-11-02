@@ -49,6 +49,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const [bucketName, setBucketName] = useState("");
   const [bucketColor, setBucketColor] = useState(defaultColor);
   const [bucketIcon, setBucketIcon] = useState("");
+  const [bucketIconError, setBucketIconError] = useState("");
   const [isIconEditorVisible, setIsIconEditorVisible] = useState(false);
   const [createAccessToken, setCreateAccessToken] = useState(true);
   const colorPickerRef = useRef<ColorPickerRef>(null);
@@ -150,6 +151,11 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
     if (!bucketName.trim() || isLoading || (isEditing && !canWrite) || offline)
       return;
 
+    // Validate icon URL if provided
+    if (bucketIcon.trim() && !validateIconUrl(bucketIcon)) {
+      return;
+    }
+
     try {
       const uploadEnabled = appConfig?.publicAppConfig?.uploadEnabled ?? true;
       const bucketData: CreateBucketDto | UpdateBucketDto = {
@@ -201,6 +207,31 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
     setIsIconEditorVisible(false);
   };
 
+  const validateIconUrl = (url: string): boolean => {
+    if (!url.trim()) {
+      setBucketIconError("");
+      return true;
+    }
+
+    try {
+      new URL(url);
+      setBucketIconError("");
+      return true;
+    } catch {
+      setBucketIconError(t("buckets.form.iconUrlInvalid"));
+      return false;
+    }
+  };
+
+  const handleIconUrlChange = (text: string) => {
+    setBucketIcon(text);
+    if (text.trim()) {
+      validateIconUrl(text);
+    } else {
+      setBucketIconError("");
+    }
+  };
+
   const handleCloseIconEditor = () => {
     setIsIconEditorVisible(false);
   };
@@ -217,6 +248,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       setBucketIcon("");
       setBucketColor(defaultColor);
     }
+    setBucketIconError("");
   };
 
   // Helper to generate initials from bucket name
@@ -320,7 +352,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                 <TextInput
                   style={styles.iconInput}
                   value={bucketIcon}
-                  onChangeText={setBucketIcon}
+                  onChangeText={handleIconUrlChange}
                   placeholder={t("buckets.form.iconPlaceholder")}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -329,6 +361,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                   editable={!isEditing || canWrite}
                   disabled={(isEditing && !canWrite) || offline}
                   mode="outlined"
+                  error={!!bucketIconError}
                 />
                 {appConfig?.publicAppConfig?.uploadEnabled && (
                   <IconButton
@@ -341,6 +374,11 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                 )}
               </View>
             )}
+            {bucketIconError ? (
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                {bucketIconError}
+              </Text>
+            ) : null}
 
             {/* Icon Preview */}
             {!isProtectedBucket && (
@@ -623,6 +661,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontStyle: "italic",
+  },
+  errorText: {
+    fontSize: 12,
+    marginTop: -8,
+    marginBottom: 8,
+    marginLeft: 12,
   },
   accessTokenSection: {
     flexDirection: "row",

@@ -142,7 +142,7 @@ input CreateMessageDto {
   attachmentUuids: [String!]
   attachments: [NotificationAttachmentDto!]
   body: String
-  bucketId: String!
+  bucketId: String
   collapseId: String
   deliveryType: NotificationDeliveryType!
   executionId: String
@@ -150,6 +150,7 @@ input CreateMessageDto {
   groupId: String
   imageUrl: String
   locale: String
+  magicCode: String
   maxReminders: Float
   postpones: [Float!]
   remindEveryMinutes: Float
@@ -548,6 +549,7 @@ type Mutation {
   deleteBucket(id: String!): Boolean!
   """Delete an invite code"""
   deleteInviteCode(id: String!): Boolean!
+  deleteMagicCode(bucketId: String!): UserBucket!
   deleteNotification(id: String!): Boolean!
   deleteOAuthProvider(id: String!): Boolean!
   deletePayloadMapper(id: String!): Boolean!

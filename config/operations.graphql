@@ -990,6 +990,12 @@ mutation RegenerateMagicCode($bucketId: String!) {
   }
 }
 
+mutation DeleteMagicCode($bucketId: String!) {
+  deleteMagicCode(bucketId: $bucketId) {
+    ...UserBucketFragment
+  }
+}
+
 # System Access Token Operations (Admin Only)
 fragment SystemAccessTokenFragment on SystemAccessTokenDto {
   id

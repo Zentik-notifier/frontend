@@ -12,7 +12,9 @@ interface MagicCodeSectionProps {
   bucketId: string;
   magicCode: string | null | undefined;
   onRegenerate: () => void;
+  onDelete?: () => void;
   regenerating?: boolean;
+  deleting?: boolean;
   disabled?: boolean;
 }
 
@@ -20,7 +22,9 @@ export default function MagicCodeSection({
   bucketId,
   magicCode,
   onRegenerate,
+  onDelete,
   regenerating = false,
+  deleting = false,
   disabled = false,
 }: MagicCodeSectionProps) {
   const { t } = useI18n();
@@ -60,6 +64,16 @@ export default function MagicCodeSection({
                         icon: "code-tags",
                         onPress: () => setShowExamplesDialog(true),
                       },
+                      ...(onDelete
+                        ? [
+                            {
+                              icon: "delete",
+                              onPress: onDelete,
+                              disabled: disabled || deleting,
+                              color: theme.colors.error,
+                            },
+                          ]
+                        : []),
                     ]
                   : undefined
               }

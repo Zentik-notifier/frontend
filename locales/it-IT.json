@@ -444,6 +444,7 @@
       "createDescription": "Crea un nuovo bucket per organizzare le tue notifiche.",
       "namePlaceholder": "Inserisci nome bucket",
       "iconPlaceholder": "URL icona (opzionale)",
+      "iconUrlInvalid": "Inserisci un URL valido",
       "preview": "Anteprima:",
       "iconPreview": "Anteprima icona",
       "initialsPreview": "Anteprima iniziali",
@@ -470,6 +471,7 @@
       "magicCodeCopied": "Codice magico copiato negli appunti",
       "magicCodeRegenerated": "Codice magico rigenerato con successo",
       "magicCodeRegenerateError": "Impossibile rigenerare il codice magico",
+      "magicCodeDeleteError": "Impossibile eliminare il codice magico",
       "magicCodeWarning": "Mantieni questo codice al sicuro. Bypassa l'autenticazione e consente a chiunque di creare messaggi in questo bucket."
     },
     "info": {

@@ -8,6 +8,7 @@ import {
   ResourceType,
   useUnshareBucketMutation,
   useRegenerateMagicCodeMutation,
+  useDeleteMagicCodeMutation,
 } from "@/generated/gql-operations-generated";
 import {
   useBucket,
@@ -84,6 +85,20 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
         Alert.alert(
           t("common.error"),
           t("buckets.form.magicCodeRegenerateError")
+        );
+      },
+    });
+
+  const [deleteMagicCode, { loading: deletingMagicCode }] =
+    useDeleteMagicCodeMutation({
+      onCompleted: () => {
+        handleRefresh();
+      },
+      onError: (error) => {
+        console.error("Error deleting magic code:", error);
+        Alert.alert(
+          t("common.error"),
+          t("buckets.form.magicCodeDeleteError")
         );
       },
     });
@@ -170,7 +185,11 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
           onRegenerate={() =>
             regenerateMagicCode({ variables: { bucketId: bucket.id } })
           }
+          onDelete={() =>
+            deleteMagicCode({ variables: { bucketId: bucket.id } })
+          }
           regenerating={regeneratingMagicCode}
+          deleting={deletingMagicCode}
         />
       )}
 

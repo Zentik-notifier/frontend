@@ -434,6 +434,7 @@ export interface Translation {
       createDescription: string;
       namePlaceholder: string;
       iconPlaceholder: string;
+      iconUrlInvalid: string;
       preview: string;
       iconPreview: string;
       initialsPreview: string;
@@ -460,6 +461,7 @@ export interface Translation {
       magicCodeCopied: string;
       magicCodeRegenerated: string;
       magicCodeRegenerateError: string;
+      magicCodeDeleteError: string;
       magicCodeWarning: string;
     };
     info: {

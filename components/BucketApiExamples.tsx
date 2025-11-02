@@ -29,14 +29,14 @@ export default function BucketApiExamples({
     ? [
         {
           title: t("buckets.apiExamples.getRequest" as any),
-          code: `curl "${apiUrl}/messages?bucketId=${magicCode}&title=Hello&body=Test message"`,
+          code: `curl "${apiUrl}/messages?magicCode=${magicCode}&title=Hello&body=Test message"`,
         },
         {
           title: t("buckets.apiExamples.postJson" as any),
           code: `curl -X POST "${apiUrl}/messages" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "bucketId": "${magicCode}",
+    "magicCode": "${magicCode}",
     "title": "Hello",
     "body": "Test message"
   }'`,
@@ -45,14 +45,14 @@ export default function BucketApiExamples({
           title: t("buckets.apiExamples.postForm" as any),
           code: `curl -X POST "${apiUrl}/messages" \\
   -H "Content-Type: application/x-www-form-urlencoded" \\
-  -d "bucketId=${magicCode}" \\
+  -d "magicCode=${magicCode}" \\
   -d "title=Hello" \\
   -d "body=Test message"`,
         },
         {
           title: t("buckets.apiExamples.withHeaders" as any),
           code: `curl -X POST "${apiUrl}/messages" \\
-  -H "x-message-bucketId: ${magicCode}" \\
+  -H "x-message-magicCode: ${magicCode}" \\
   -H "x-message-title: Hello" \\
   -H "x-message-body: Test message"`,
         },
