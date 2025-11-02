@@ -2315,6 +2315,8 @@ export interface Translation {
       bucketStatus: string;
       tokenStatus: string;
       completeSetupWarning: string;
+      magicCodeWarningTitle: string;
+      magicCodeWarning: string;
     };
     step5: {
       title: string;

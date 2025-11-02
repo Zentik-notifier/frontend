@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Switch, View } from "react-native";
 import { Icon, Surface, Text, useTheme } from "react-native-paper";
 import DetailSectionCard from "./ui/DetailSectionCard";
 import DetailItemCard from "./ui/DetailItemCard";
@@ -7,45 +7,93 @@ import CopyButton from "./ui/CopyButton";
 import DetailModal from "./ui/DetailModal";
 import BucketApiExamples from "./BucketApiExamples";
 import { useI18n } from "@/hooks/useI18n";
+import {
+  useRegenerateMagicCodeMutation,
+  useDeleteMagicCodeMutation,
+  GetBucketsDocument,
+} from "@/generated/gql-operations-generated";
+import { useRefreshBucket } from "@/hooks/notifications";
+import { Alert } from "react-native";
 
 interface MagicCodeSectionProps {
   bucketId: string;
   magicCode: string | null | undefined;
-  onRegenerate: () => void;
-  onDelete?: () => void;
-  regenerating?: boolean;
-  deleting?: boolean;
   disabled?: boolean;
 }
 
 export default function MagicCodeSection({
   bucketId,
   magicCode,
-  onRegenerate,
-  onDelete,
-  regenerating = false,
-  deleting = false,
   disabled = false,
 }: MagicCodeSectionProps) {
   const { t } = useI18n();
   const theme = useTheme();
   const [showExamplesDialog, setShowExamplesDialog] = useState(false);
+  const refreshBucket = useRefreshBucket();
+
+  const [regenerateMagicCode, { loading: regeneratingMagicCode }] =
+    useRegenerateMagicCodeMutation({
+      refetchQueries: [{ query: GetBucketsDocument }],
+      onCompleted: async () => {
+        await refreshBucket(bucketId);
+      },
+      onError: (error) => {
+        console.error("Error regenerating magic code:", error);
+        Alert.alert(
+          t("common.error"),
+          t("buckets.form.magicCodeRegenerateError")
+        );
+      },
+    });
+
+  const [deleteMagicCode, { loading: deletingMagicCode }] =
+    useDeleteMagicCodeMutation({
+      refetchQueries: [{ query: GetBucketsDocument }],
+      onCompleted: async () => {
+        await refreshBucket(bucketId);
+      },
+      onError: (error) => {
+        console.error("Error deleting magic code:", error);
+        Alert.alert(
+          t("common.error"),
+          t("buckets.form.magicCodeDeleteError")
+        );
+      },
+    });
+
+  const handleRegenerate = () => {
+    regenerateMagicCode({ variables: { bucketId } });
+  };
+
+  const handleDelete = () => {
+    deleteMagicCode({ variables: { bucketId } });
+  };
+
+  const isLoading = regeneratingMagicCode || deletingMagicCode;
 
   return (
     <>
       <DetailSectionCard
         title={t("buckets.form.magicCodeLabel")}
         description={t("buckets.form.magicCodeDescription")}
-        actionButton={{
-          icon: "refresh",
-          onPress: onRegenerate,
-          loading: regenerating,
-          disabled: disabled || regenerating,
-        }}
-        emptyState={{
-          icon: "key-off",
-          text: t("buckets.form.noMagicCode"),
-        }}
+        headerRight={
+          isLoading ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          ) : (
+            <Switch
+              value={!!magicCode}
+              onValueChange={magicCode ? handleDelete : handleRegenerate}
+              disabled={disabled}
+              trackColor={{
+                false: theme.colors.outline,
+                true: theme.colors.primary,
+              }}
+            />
+          )
+        }
+        // emptyState={{
+        //   text: t("buckets.form.noMagicCode"),
+        // }}
         items={magicCode ? [{ code: magicCode }] : []}
         renderItem={() => (
           <View>
@@ -54,26 +102,25 @@ export default function MagicCodeSection({
               title={magicCode || "-"}
               titleRight={
                 magicCode ? (
-                  <CopyButton text={magicCode} size={18} label={t("common.copy")} />
+                  <CopyButton
+                    text={magicCode}
+                    size={18}
+                    label={t("common.copy")}
+                  />
                 ) : null
               }
               actions={
                 magicCode
                   ? [
                       {
+                        icon: "refresh",
+                        onPress: handleRegenerate,
+                        disabled: disabled || regeneratingMagicCode,
+                      },
+                      {
                         icon: "code-tags",
                         onPress: () => setShowExamplesDialog(true),
                       },
-                      ...(onDelete
-                        ? [
-                            {
-                              icon: "delete",
-                              onPress: onDelete,
-                              disabled: disabled || deleting,
-                              color: theme.colors.error,
-                            },
-                          ]
-                        : []),
                     ]
                   : undefined
               }
@@ -118,10 +165,7 @@ export default function MagicCodeSection({
         }}
       >
         {magicCode && (
-          <BucketApiExamples
-            bucketId={bucketId}
-            magicCode={magicCode}
-          />
+          <BucketApiExamples bucketId={bucketId} magicCode={magicCode} />
         )}
       </DetailModal>
     </>

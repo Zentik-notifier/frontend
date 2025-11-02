@@ -1,17 +1,15 @@
 import BucketSelector from "@/components/BucketSelector";
-import Selector, { SelectorOption } from "@/components/ui/Selector";
-import { useGetAccessTokensForBucketQuery } from "@/generated/gql-operations-generated";
 import { useNotificationsState } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
-import React, { memo, useCallback, useEffect, useMemo } from "react";
+import React, { memo, useCallback, useEffect } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import {
-  ActivityIndicator,
   Button,
   Card,
   Icon,
   RadioButton,
+  Surface,
   Text,
   TextInput,
   useTheme,
@@ -27,18 +25,12 @@ const Step4 = memo(({ push }: Step4Props) => {
   const { t } = useI18n();
   const {
     step4SelectedBucketId: selectedBucketId,
-    step4SelectedTokenId: selectedTokenId,
-    step4TokenSelectionMode: tokenSelectionMode,
     step4BucketName: bucketName,
     step4BucketSelectionMode: bucketSelectionMode,
     setStep4SelectedBucketId: setSelectedBucketId,
-    setStep4SelectedTokenId: setSelectedTokenId,
-    setStep4TokenSelectionMode: setTokenSelectionMode,
     setStep4BucketName: setBucketName,
     setStep4BucketSelectionMode: setBucketSelectionMode,
   } = useOnboarding();
-
-  // Device registration state from usepush
 
   // Get buckets from app state (same as BucketSelector)
   const { data: appState } = useNotificationsState();
@@ -46,51 +38,10 @@ const Step4 = memo(({ push }: Step4Props) => {
     (bucket) => !bucket.isOrphan && !bucket.isProtected
   );
 
-  // Load access tokens for selected bucket
-  const { data: tokensData, loading: tokensLoading } =
-    useGetAccessTokensForBucketQuery({
-      variables: { bucketId: selectedBucketId },
-      skip: !selectedBucketId,
-    });
-
-  // Create token options for selector
-  const tokenOptions = useMemo(() => {
-    if (!tokensData?.getAccessTokensForBucket) return [];
-
-    return tokensData.getAccessTokensForBucket
-      .filter((token) => token.token)
-      .map(
-        (token): SelectorOption => ({
-          id: token.id,
-          name: token.name,
-          description: `${token.scopes?.join(", ") || "No scopes"} • ${new Date(
-            token.createdAt
-          ).toLocaleDateString()}`,
-          iconName: "key",
-          iconColor: theme.colors.primary,
-        })
-      );
-  }, [tokensData, selectedBucketId, theme.colors.primary]);
-
-  // Loading states (questi rimangono locali)
-
-  // GraphQL queries - con gestione errori per quando non autenticati
-
   // Check device registration using usepush
   useEffect(() => {
     checkDeviceRegistration();
   }, []);
-
-  // Reset token selection when bucket changes
-  useEffect(() => {
-    if (selectedBucketId) {
-      // Reset all token state when bucket changes
-      setSelectedTokenId(null);
-      setTokenSelectionMode("create");
-    }
-  }, [selectedBucketId, setSelectedTokenId, setTokenSelectionMode]);
-
-  // Monitor deviceRegistered changes - buckets are now loaded automatically from appState
 
   // Auto-select first bucket when availableBuckets changes
   useEffect(() => {
@@ -130,36 +81,6 @@ const Step4 = memo(({ push }: Step4Props) => {
       console.error("[Step4] Error registering device:", error);
     }
   };
-
-  const handleSelectExistingToken = (tokenId: string) => {
-    // Then set the selection mode and token ID
-    setTokenSelectionMode("existing");
-    setSelectedTokenId(tokenId);
-  };
-
-  // Auto-select first available token when tokens are loaded
-  useEffect(() => {
-    if (
-      tokenSelectionMode === "existing" &&
-      !selectedTokenId &&
-      tokenOptions.length > 0
-    ) {
-      const firstToken = tokenOptions[0];
-      handleSelectExistingToken(firstToken.id);
-    }
-  }, [
-    tokenSelectionMode,
-    selectedTokenId,
-    tokenOptions,
-    handleSelectExistingToken,
-  ]);
-
-  // Sync token selection mode with bucket selection mode
-  useEffect(() => {
-    if (bucketSelectionMode === "create") {
-      setTokenSelectionMode("create");
-    }
-  }, [bucketSelectionMode, setTokenSelectionMode]);
 
   const handleBucketSelect = useCallback(
     (bucketId: string) => {
@@ -272,98 +193,22 @@ const Step4 = memo(({ push }: Step4Props) => {
           )}
         </View>
 
-        {/* Token Creation */}
-        {((bucketSelectionMode === "existing" && selectedBucketId) ||
-          (bucketSelectionMode === "create" &&
-            bucketName.trim() !== "" &&
-            bucketName.trim() !==
-              t("onboardingV2.step4.bucketNamePlaceholder"))) && (
-          <View style={styles.section}>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              {t("onboardingV2.step4.createToken")}
+        {/* Magic Code Disclaimer */}
+        <Surface style={styles.warningSurface} elevation={0}>
+          <View style={styles.warningHeader}>
+            <Icon
+              source="alert"
+              size={24}
+              color={theme.colors.error}
+            />
+            <Text variant="titleSmall" style={styles.warningTitle}>
+              {t("onboardingV2.step4.magicCodeWarningTitle")}
             </Text>
-            <Text variant="bodyMedium" style={styles.sectionDescription}>
-              {t("onboardingV2.step4.createTokenDescription")}
-            </Text>
-
-            {/* Token Selection Mode - Only show when bucket is existing */}
-            {bucketSelectionMode === "existing" && (
-              <RadioButton.Group
-                value={tokenSelectionMode}
-                onValueChange={(value) =>
-                  setTokenSelectionMode(value as "existing" | "create")
-                }
-              >
-                <RadioButton.Item
-                  label={t("onboardingV2.step4.createNewToken")}
-                  value="create"
-                />
-                <RadioButton.Item
-                  label={t("onboardingV2.step4.useExistingToken")}
-                  value="existing"
-                />
-              </RadioButton.Group>
-            )}
-
-            {/* Show message when bucket is create mode */}
-            {bucketSelectionMode === "create" && (
-              <View style={styles.infoBox}>
-                <Icon
-                  source="information"
-                  size={20}
-                  color={theme.colors.primary}
-                />
-                <Text variant="bodySmall" style={styles.infoText}>
-                  {t("onboardingV2.step4.tokenWillBeCreated")}
-                </Text>
-              </View>
-            )}
-
-            {/* Existing Tokens - Always show when in existing mode */}
-            {tokenSelectionMode === "existing" && (
-              <View style={styles.tokensContainer}>
-                {tokensLoading ? (
-                  <ActivityIndicator size="small" />
-                ) : tokenOptions.length > 0 ? (
-                  <Selector
-                    label="Seleziona Token Esistente"
-                    placeholder="Scegli un token..."
-                    options={tokenOptions}
-                    selectedValue={selectedTokenId}
-                    onValueChange={handleSelectExistingToken}
-                    mode="inline"
-                    isSearchable={true}
-                    searchPlaceholder="Cerca token..."
-                  />
-                ) : (
-                  <Text variant="bodyMedium" style={styles.noTokensText}>
-                    {t("onboardingV2.step4.noTokensAvailable")}
-                  </Text>
-                )}
-              </View>
-            )}
-
-            {/* Token will be generated automatically when clicking Next in create mode */}
           </View>
-        )}
-
-        {/* Disclaimer */}
-        <View style={styles.disclaimer}>
-          <Icon
-            source="information-outline"
-            size={20}
-            color={theme.colors.onSurfaceVariant}
-          />
-          <Text
-            variant="bodySmall"
-            style={[
-              styles.disclaimerText,
-              { color: theme.colors.onSurfaceVariant },
-            ]}
-          >
-            {t("onboardingV2.step4.disclaimer")}
+          <Text variant="bodySmall" style={styles.warningText}>
+            {t("onboardingV2.step4.magicCodeWarning")}
           </Text>
-        </View>
+        </Surface>
       </View>
     </ScrollView>
   );
@@ -451,71 +296,27 @@ const styles = StyleSheet.create({
   createBucketContainer: {
     marginTop: 8,
   },
-  tokensContainer: {
-    marginTop: 8,
-  },
-  tokenList: {
-    gap: 8,
-  },
-  tokenItem: {
-    marginBottom: 8,
-  },
-  selectedTokenItem: {
-    borderWidth: 2,
-    borderColor: "#1976d2",
-  },
-  tokenItemContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  tokenItemInfo: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  tokenScopes: {
-    opacity: 0.7,
-    marginTop: 2,
-  },
-  tokenDate: {
-    opacity: 0.5,
-    marginTop: 2,
-  },
-  noTokensText: {
-    textAlign: "center",
-    opacity: 0.7,
-    marginVertical: 16,
-  },
-  warningCard: {
-    marginTop: 8,
-  },
-  disclaimer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 8,
+  warningSurface: {
+    width: "100%",
     padding: 16,
     borderRadius: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
-  },
-  disclaimerText: {
-    flex: 1,
-    lineHeight: 20,
-  },
-  infoBox: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
+    backgroundColor: "rgba(255, 152, 0, 0.1)",
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.1)",
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
+    borderColor: "rgba(255, 152, 0, 0.3)",
   },
-  infoText: {
-    flex: 1,
-    opacity: 0.8,
+  warningHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  warningTitle: {
+    fontWeight: "600",
+  },
+  warningText: {
+    lineHeight: 20,
   },
 });
 
 export default Step4;
+

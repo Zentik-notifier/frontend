@@ -2316,7 +2316,9 @@
       "setupStatus": "Stato Configurazione",
       "bucketStatus": "Bucket selezionato",
       "tokenStatus": "Token generato",
-      "completeSetupWarning": "⚠️ Completa la configurazione di bucket e token per continuare"
+      "completeSetupWarning": "⚠️ Completa la configurazione di bucket e token per continuare",
+      "magicCodeWarningTitle": "Sicurezza Codice Magico",
+      "magicCodeWarning": "Il tuo bucket include un codice magico per un accesso facile senza autenticazione. Sebbene comodo, questo bypassa l'autenticazione. Per una maggiore sicurezza, considera l'utilizzo di un token di accesso, che puoi creare in qualsiasi momento dalle impostazioni del bucket."
     },
     "step5": {
       "title": "Notifica di Test",

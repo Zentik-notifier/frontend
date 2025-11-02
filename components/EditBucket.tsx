@@ -7,8 +7,6 @@ import {
   GetBucketsDocument,
   ResourceType,
   useUnshareBucketMutation,
-  useRegenerateMagicCodeMutation,
-  useDeleteMagicCodeMutation,
 } from "@/generated/gql-operations-generated";
 import {
   useBucket,
@@ -74,34 +72,6 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
     },
     refetchQueries: [{ query: GetBucketsDocument }],
   });
-
-  const [regenerateMagicCode, { loading: regeneratingMagicCode }] =
-    useRegenerateMagicCodeMutation({
-      onCompleted: () => {
-        handleRefresh();
-      },
-      onError: (error) => {
-        console.error("Error regenerating magic code:", error);
-        Alert.alert(
-          t("common.error"),
-          t("buckets.form.magicCodeRegenerateError")
-        );
-      },
-    });
-
-  const [deleteMagicCode, { loading: deletingMagicCode }] =
-    useDeleteMagicCodeMutation({
-      onCompleted: () => {
-        handleRefresh();
-      },
-      onError: (error) => {
-        console.error("Error deleting magic code:", error);
-        Alert.alert(
-          t("common.error"),
-          t("buckets.form.magicCodeDeleteError")
-        );
-      },
-    });
 
   const showDeleteAlert = () => {
     if (!bucket) return;
@@ -182,14 +152,7 @@ export default function EditBucket({ bucketId, onBack }: EditBucketProps) {
         <MagicCodeSection
           bucketId={bucket.id}
           magicCode={magicCode}
-          onRegenerate={() =>
-            regenerateMagicCode({ variables: { bucketId: bucket.id } })
-          }
-          onDelete={() =>
-            deleteMagicCode({ variables: { bucketId: bucket.id } })
-          }
-          regenerating={regeneratingMagicCode}
-          deleting={deletingMagicCode}
+          disabled={offline}
         />
       )}
 

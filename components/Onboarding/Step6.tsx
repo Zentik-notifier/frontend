@@ -17,7 +17,7 @@ import * as Clipboard from "expo-clipboard";
 const Step6 = memo(() => {
   const theme = useTheme();
   const { t } = useI18n();
-  const { token, bucketId } = useOnboarding();
+  const { magicCode } = useOnboarding();
   const [apiUrl, setApiUrl] = useState<string>("");
 
   // Carica l'URL API effettivo
@@ -30,12 +30,11 @@ const Step6 = memo(() => {
   }, []);
 
   const curlCommand = `curl -X POST ${apiUrl}/api/v1/messages \\
-  -H "Authorization: Bearer ${token || "YOUR_TOKEN"}" \\
   -H "Content-Type: application/json" \\
   -d '{
     "title": "Test Notification",
     "body": "Hello from Zentik!",
-    "bucketId": "${bucketId || "YOUR_BUCKET_ID"}"
+    "magicCode": "${magicCode || "YOUR_MAGIC_CODE"}"
   }'`;
 
   const copyToClipboard = async (text: string, label: string) => {
@@ -108,57 +107,25 @@ const Step6 = memo(() => {
             </Card.Content>
           </Card>
 
-          {/* Token */}
-          {token && (
+          {/* Magic Code */}
+          {magicCode && (
             <Card style={styles.infoCard} elevation={0}>
               <Card.Content>
                 <View style={styles.infoRow}>
                   <View style={{ flex: 1 }}>
                     <Text variant="labelSmall" style={styles.infoLabel}>
-                      {t("onboardingV2.step6.accessToken")}
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={styles.tokenValue}
-                      selectable
-                      numberOfLines={2}
-                    >
-                      {token}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => copyToClipboard(token, "Token")}
-                  >
-                    <Icon
-                      source="content-copy"
-                      size={20}
-                      color={theme.colors.primary}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </Card.Content>
-            </Card>
-          )}
-
-          {/* Bucket ID */}
-          {bucketId && (
-            <Card style={styles.infoCard} elevation={0}>
-              <Card.Content>
-                <View style={styles.infoRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text variant="labelSmall" style={styles.infoLabel}>
-                      {t("onboardingV2.step6.bucketId")}
+                      {t("buckets.form.magicCode" as any)}
                     </Text>
                     <Text
                       variant="bodyMedium"
-                      style={styles.infoValue}
+                      style={[styles.infoValue, styles.magicCodeValue]}
                       selectable
                     >
-                      {bucketId}
+                      {magicCode}
                     </Text>
                   </View>
                   <TouchableOpacity
-                    onPress={() => copyToClipboard(bucketId, "Bucket ID")}
+                    onPress={() => copyToClipboard(magicCode, "Magic Code")}
                   >
                     <Icon
                       source="content-copy"
@@ -280,6 +247,9 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
     fontSize: 11,
     opacity: 0.8,
+  },
+  magicCodeValue: {
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
   },
   codeCard: {
     marginBottom: 12,

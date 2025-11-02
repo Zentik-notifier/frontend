@@ -2312,7 +2312,9 @@
       "setupStatus": "Setup Status",
       "bucketStatus": "Bucket selected",
       "tokenStatus": "Token generated",
-      "completeSetupWarning": "⚠️ Complete bucket and token configuration to continue"
+      "completeSetupWarning": "⚠️ Complete bucket and token configuration to continue",
+      "magicCodeWarningTitle": "Magic Code Security",
+      "magicCodeWarning": "Your bucket includes a magic code for easy unauthenticated access. While convenient, this bypasses authentication. For enhanced security, consider using an access token instead, which you can create at any time from the bucket settings."
     },
     "step5": {
       "title": "Test Notification",

@@ -923,6 +923,7 @@ export function useCreateBucket(options?: {
       icon?: string;
       isProtected?: boolean;
       isPublic?: boolean;
+      generateMagicCode?: boolean;
     }) => {
       console.log('[useCreateBucket] Creating bucket:', input.name);
       

@@ -16,8 +16,9 @@ import { ThemePreset } from "@/services/theme-presets";
 import { Locale, useI18n } from "@/hooks/useI18n";
 import { UsePushNotifications } from "@/hooks/usePushNotifications";
 import { detectRetentionPreset } from "./utils";
-import { useCreateAccessTokenForBucketMutation } from "@/generated/gql-operations-generated";
+import { useGetBucketLazyQuery } from "@/generated/gql-operations-generated";
 import { useCreateBucket } from "@/hooks/notifications";
+import { useQuery } from "@tanstack/react-query";
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -68,19 +69,14 @@ interface OnboardingContextType {
 
   // Step 4: Messaging Setup
   deviceRegistered: boolean;
-  tokenCreated: boolean;
   step4SelectedBucketId: string;
-  step4GeneratedToken: string | null;
-  step4SelectedTokenId: string | null;
-  step4TokenSelectionMode: "existing" | "create";
   step4BucketName: string;
   step4BucketSelectionMode: "existing" | "create";
+  step4MagicCode: string | null;
   setStep4SelectedBucketId: (id: string) => void;
-  setStep4GeneratedToken: (token: string | null) => void;
-  setStep4SelectedTokenId: (tokenId: string | null) => void;
-  setStep4TokenSelectionMode: (mode: "existing" | "create") => void;
   setStep4BucketName: (name: string) => void;
   setStep4BucketSelectionMode: (mode: "existing" | "create") => void;
+  setStep4MagicCode: (code: string | null) => void;
   isStep4Complete: () => boolean;
 
   // Step 5: Test Notification
@@ -90,8 +86,7 @@ interface OnboardingContextType {
   ) => Promise<{ success: boolean; message: string }>;
 
   // Step 6: API Integration
-  generatedToken: string | null;
-  setGeneratedToken: (token: string | null) => void;
+  magicCode: string | null;
 
   // Push notifications
   push: UsePushNotifications;
@@ -99,13 +94,12 @@ interface OnboardingContextType {
   // Apply all settings at the end
   applySettings: () => Promise<void>;
 
-  // Create bucket and token for Step 4
+  // Create bucket for Step 4
   createStep4Resources: () => Promise<void>;
 
   // Reset onboarding to step 1
   resetOnboarding: () => void;
 
-  token?: string | null;
   bucketId?: string | null;
 }
 
@@ -208,34 +202,22 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
 
   // Step 4: Messaging Setup
   const [deviceRegistered] = useState(true);
-  const [tokenCreated] = useState(false);
   const [step4SelectedBucketId, setStep4SelectedBucketId] =
     useState<string>("");
   const [step4BucketGenerated, setStep4BucketGenerated] = useState<
     string | null
   >(null);
-  const [step4GeneratedToken, setStep4GeneratedToken] = useState<string | null>(
-    null
-  );
-  const [step4SelectedTokenId, setStep4SelectedTokenId] = useState<
-    string | null
-  >(null);
-  const [step4TokenSelectionMode, setStep4TokenSelectionMode] = useState<
-    "existing" | "create"
-  >("existing");
-  const [step4BucketName, setStep4BucketName] = useState<string>(
-    t("onboardingV2.step4.bucketNamePlaceholder")
-  );
+  const [step4MagicCode, setStep4MagicCode] = useState<string | null>(null);
+  const [step4BucketName, setStep4BucketName] = useState<string>("");
   const [step4BucketSelectionMode, setStep4BucketSelectionMode] = useState<
     "existing" | "create"
   >("existing");
 
   // Step 6: API Integration
-  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
+  const [magicCode, setMagicCode] = useState<string | null>(null);
 
-  // Mutation for creating bucket-scoped tokens
-  const [createAccessTokenForBucket] = useCreateAccessTokenForBucketMutation();
   const { createBucket } = useCreateBucket();
+  const [getBucket] = useGetBucketLazyQuery();
 
   const goToNextStep = useCallback(() => {
     if (currentStep < 6) {
@@ -291,10 +273,10 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
       title: string,
       body: string
     ): Promise<{ success: boolean; message: string }> => {
-      if (!step4GeneratedToken || !step4SelectedBucketId) {
+      if (!step4MagicCode) {
         return {
           success: false,
-          message: "Missing token or bucket ID",
+          message: "Missing magic code",
         };
       }
 
@@ -309,20 +291,18 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
         const apiUrl = settingsService.getApiBaseWithPrefix();
         console.log("[Onboarding] Sending test notification:", {
           apiUrl,
-          token: step4GeneratedToken,
-          bucketId: step4SelectedBucketId,
+          magicCode: step4MagicCode,
         });
 
         const response = await fetch(`${apiUrl}/messages`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${step4GeneratedToken}`,
           },
           body: JSON.stringify({
             title: title.trim(),
             body: body.trim(),
-            bucketId: step4SelectedBucketId,
+            magicCode: step4MagicCode,
             actions: [],
             addMarkAsReadAction: false,
             addDeleteAction: false,
@@ -361,7 +341,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
         };
       }
     },
-    [step4GeneratedToken, step4SelectedBucketId]
+    [step4MagicCode]
   );
 
   const bucketId = useMemo(() => {
@@ -372,29 +352,17 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     }
   }, [step4BucketGenerated, step4SelectedBucketId]);
 
-  const token = useMemo(() => {
-    if (step4TokenSelectionMode === "existing") {
-      return step4SelectedTokenId;
-    } else {
-      return step4GeneratedToken;
-    }
-  }, [step4GeneratedToken, step4SelectedTokenId]);
-
   const isStep4Complete = useCallback(() => {
-    const isBucketValid =
-      step4BucketSelectionMode === "existing" ? !!step4SelectedBucketId : true;
-
-    const isTokenValid =
-      step4TokenSelectionMode === "existing" ? !!step4SelectedTokenId : true;
-
-    return isBucketValid && isTokenValid;
+    // For create mode, just check if bucket name is filled
+    if (step4BucketSelectionMode === "create") {
+      return !!step4BucketName && step4BucketName.trim() !== "";
+    }
+    // For existing mode, just check if a bucket is selected
+    return !!step4SelectedBucketId;
   }, [
     step4BucketSelectionMode,
-    step4BucketGenerated,
+    step4BucketName,
     step4SelectedBucketId,
-    step4TokenSelectionMode,
-    step4SelectedTokenId,
-    step4GeneratedToken,
   ]);
 
   const applySettings = useCallback(async () => {
@@ -460,6 +428,8 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
 
       // Create bucket automatically if in create mode and not already created
       let finalBucketId = step4SelectedBucketId;
+      let finalMagicCode = null;
+      
       if (
         step4BucketSelectionMode === "create" &&
         step4BucketName.trim() &&
@@ -481,46 +451,39 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
 
           if (bucket?.id) {
             finalBucketId = bucket.id;
+            finalMagicCode = bucket.userBucket?.magicCode || null;
             setStep4BucketGenerated(finalBucketId);
             setStep4SelectedBucketId(finalBucketId);
+            setStep4MagicCode(finalMagicCode);
             console.log(
               "[Onboarding] Bucket created successfully:",
-              finalBucketId
+              finalBucketId,
+              "with magicCode:",
+              finalMagicCode
             );
           }
         } catch (error) {
           console.error("[Onboarding] Error creating bucket:", error);
           throw error; // Re-throw to prevent onboarding completion
         }
-      }
-
-      // Generate token automatically if in create mode and not already created
-      if (
-        step4TokenSelectionMode === "create" &&
-        finalBucketId &&
-        !step4GeneratedToken
-      ) {
-        console.log(
-          "[Onboarding] Generating token automatically for bucket:",
-          finalBucketId
-        );
+      } else if (step4BucketSelectionMode === "existing" && step4SelectedBucketId) {
+        // Fetch magic code for existing bucket
+        console.log("[Onboarding] Fetching bucket details for:", step4SelectedBucketId);
         try {
-          const { data } = await createAccessTokenForBucket({
-            variables: {
-              bucketId: finalBucketId,
-              name: "Onboarding Token",
-            },
-          });
-
-          if (data?.createAccessTokenForBucket?.token) {
-            setStep4GeneratedToken(data.createAccessTokenForBucket.token);
-            setGeneratedToken(data.createAccessTokenForBucket.token);
-            console.log("[Onboarding] Token generated successfully");
+          const { data } = await getBucket({ variables: { id: step4SelectedBucketId } });
+          if (data?.bucket?.userBucket?.magicCode) {
+            finalMagicCode = data.bucket.userBucket.magicCode;
+            setStep4MagicCode(finalMagicCode);
+            console.log("[Onboarding] Magic code fetched:", finalMagicCode);
           }
         } catch (error) {
-          console.error("[Onboarding] Error generating token:", error);
-          throw error; // Re-throw to prevent onboarding completion
+          console.error("[Onboarding] Error fetching bucket details:", error);
         }
+      }
+
+      // Set global magic code for Step 6
+      if (finalMagicCode) {
+        setMagicCode(finalMagicCode);
       }
 
       console.log("[Onboarding] Step 4 resources created successfully");
@@ -532,13 +495,13 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     step4BucketSelectionMode,
     step4BucketName,
     step4SelectedBucketId,
-    step4TokenSelectionMode,
-    step4GeneratedToken,
+    step4BucketGenerated,
     createBucket,
-    createAccessTokenForBucket,
+    getBucket,
     setStep4SelectedBucketId,
-    setStep4GeneratedToken,
-    setGeneratedToken,
+    setStep4BucketGenerated,
+    setStep4MagicCode,
+    setMagicCode,
   ]);
 
   const resetOnboarding = useCallback(() => {
@@ -571,14 +534,13 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
 
     // Reset Step 4: Messaging Setup
     setStep4SelectedBucketId("");
-    setStep4GeneratedToken(null);
-    setStep4SelectedTokenId(null);
-    setStep4TokenSelectionMode("existing");
-    setStep4BucketName(t("onboardingV2.step4.bucketNamePlaceholder"));
+    setStep4BucketGenerated(null);
+    setStep4MagicCode(null);
+    setStep4BucketName("");
     setStep4BucketSelectionMode("existing");
 
     // Reset Step 6: API Integration
-    setGeneratedToken(null);
+    setMagicCode(null);
   }, []);
 
   const value: OnboardingContextType = {
@@ -619,29 +581,22 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     step3WifiOnlyDownload,
     setStep3WifiOnlyDownload,
     deviceRegistered,
-    tokenCreated,
     step4SelectedBucketId,
-    step4GeneratedToken,
-    step4SelectedTokenId,
-    step4TokenSelectionMode,
     step4BucketName,
     step4BucketSelectionMode,
+    step4MagicCode,
     setStep4SelectedBucketId,
-    setStep4GeneratedToken,
-    setStep4SelectedTokenId,
-    setStep4TokenSelectionMode,
     setStep4BucketName,
     setStep4BucketSelectionMode,
+    setStep4MagicCode,
     isStep4Complete,
     sendTestNotification,
-    generatedToken,
-    setGeneratedToken,
+    magicCode,
     push,
     applySettings,
     createStep4Resources,
     resetOnboarding,
     bucketId,
-    token,
   };
 
   return (

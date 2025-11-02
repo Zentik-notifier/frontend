@@ -20,9 +20,17 @@ interface DetailSectionCardProps<T> {
     loading?: boolean;
     disabled?: boolean;
   };
+  actionButtons?: Array<{
+    label?: string;
+    icon: string;
+    onPress: () => void;
+    loading?: boolean;
+    disabled?: boolean;
+  }>;
+  headerRight?: ReactNode;
   loading?: boolean;
   emptyState?: {
-    icon: string;
+    icon?: string;
     text: string;
   };
   items: T[];
@@ -34,6 +42,8 @@ export default function DetailSectionCard<T>({
   title,
   description,
   actionButton,
+  actionButtons,
+  headerRight,
   loading = false,
   emptyState,
   items,
@@ -46,13 +56,16 @@ export default function DetailSectionCard<T>({
     <Card style={styles.container}>
       <Card.Content>
         <View style={[styles.header, !description && styles.headerNoDesc]}>
-          {(title || description) ? (
+          {title || description ? (
             <View style={styles.headerText}>
               {title ? (
                 <Text
                   style={[
                     styles.title,
-                    { color: theme.colors.onSurface, marginBottom: description ? 4 : 0 },
+                    {
+                      color: theme.colors.onSurface,
+                      marginBottom: description ? 4 : 0,
+                    },
                   ]}
                 >
                   {title}
@@ -69,27 +82,41 @@ export default function DetailSectionCard<T>({
                 </Text>
               ) : null}
             </View>
-          ) : <View style={{ flex: 1 }} />}
-          {actionButton && (
-            actionButton.label ? (
-              <Button
-                mode="contained-tonal"
-                compact
-                icon={actionButton.icon}
-                onPress={actionButton.onPress}
-                loading={actionButton.loading}
-                disabled={actionButton.disabled || actionButton.loading}
-              >
-                {actionButton.label}
-              </Button>
-            ) : (
-              <IconButton
-                icon={actionButton.icon}
-                size={20}
-                onPress={actionButton.onPress}
-                disabled={actionButton.disabled || actionButton.loading}
-              />
-            )
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+          {headerRight || (
+            <View style={styles.actionButtonsContainer}>
+              {actionButtons?.map((btn, idx) => (
+                <IconButton
+                  key={idx}
+                  icon={btn.icon}
+                  size={20}
+                  onPress={btn.onPress}
+                  disabled={btn.disabled || btn.loading}
+                />
+              ))}
+              {actionButton &&
+                (actionButton.label ? (
+                  <Button
+                    mode="contained-tonal"
+                    compact
+                    icon={actionButton.icon}
+                    onPress={actionButton.onPress}
+                    loading={actionButton.loading}
+                    disabled={actionButton.disabled || actionButton.loading}
+                  >
+                    {actionButton.label}
+                  </Button>
+                ) : (
+                  <IconButton
+                    icon={actionButton.icon}
+                    size={20}
+                    onPress={actionButton.onPress}
+                    disabled={actionButton.disabled || actionButton.loading}
+                  />
+                ))}
+            </View>
           )}
         </View>
 
@@ -100,11 +127,13 @@ export default function DetailSectionCard<T>({
           </View>
         ) : items.length === 0 && emptyState ? (
           <View style={styles.emptyContainer}>
-            <Icon
-              source={emptyState.icon}
-              size={48}
-              color={theme.colors.onSurfaceVariant}
-            />
+            {emptyState.icon && (
+              <Icon
+                source={emptyState.icon}
+                size={48}
+                color={theme.colors.onSurfaceVariant}
+              />
+            )}
             <Text
               variant="titleMedium"
               style={[
@@ -116,7 +145,7 @@ export default function DetailSectionCard<T>({
             </Text>
           </View>
         ) : (
-          <ScrollView 
+          <ScrollView
             style={{ maxHeight }}
             contentContainerStyle={styles.itemsList}
             showsVerticalScrollIndicator={true}
@@ -142,6 +171,10 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 16,
     gap: 12,
+  },
+  actionButtonsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   headerNoDesc: {
     alignItems: "center",
@@ -177,7 +210,6 @@ const styles = StyleSheet.create({
   },
   itemsList: {
     gap: 12,
-    paddingBottom: 16,
+    // paddingBottom: 16,
   },
 });
-

@@ -137,6 +137,7 @@ export type CreateBucketDto = {
   color?: InputMaybe<Scalars['String']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
   generateIconWithInitials?: InputMaybe<Scalars['Boolean']['input']>;
+  generateMagicCode?: InputMaybe<Scalars['Boolean']['input']>;
   icon?: InputMaybe<Scalars['String']['input']>;
   isProtected?: InputMaybe<Scalars['Boolean']['input']>;
   isPublic?: InputMaybe<Scalars['Boolean']['input']>;

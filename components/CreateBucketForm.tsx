@@ -51,7 +51,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   const [bucketIcon, setBucketIcon] = useState("");
   const [bucketIconError, setBucketIconError] = useState("");
   const [isIconEditorVisible, setIsIconEditorVisible] = useState(false);
-  const [createAccessToken, setCreateAccessToken] = useState(true);
+  const [createAccessToken, setCreateAccessToken] = useState(false);
+  const [generateMagicCode, setGenerateMagicCode] = useState(true);
   const colorPickerRef = useRef<ColorPickerRef>(null);
   const isEditing = !!bucketId;
   const { navigateToBucketDetail } = useNavigationUtils();
@@ -188,6 +189,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
           icon: bucketData.icon || undefined,
           isProtected: bucketData.isProtected || undefined,
           isPublic: bucketData.isPublic || undefined,
+          generateMagicCode: generateMagicCode,
         });
       }
     } catch (error: any) {
@@ -247,6 +249,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       setBucketName("");
       setBucketIcon("");
       setBucketColor(defaultColor);
+      setCreateAccessToken(false);
+      setGenerateMagicCode(true);
     }
     setBucketIconError("");
   };
@@ -435,6 +439,44 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                       : t("buckets.form.colorPreview")}
                   </Text>
                 </Surface>
+              </View>
+            )}
+
+            {/* Magic Code Generation - Only show in create mode */}
+            {!isEditing && (
+              <View
+                style={[
+                  styles.accessTokenSection,
+                  { backgroundColor: theme.colors.surfaceVariant },
+                ]}
+              >
+                <View style={styles.switchLabelContainer}>
+                  <Text
+                    style={[
+                      styles.switchLabel,
+                      { color: theme.colors.onSurface },
+                    ]}
+                  >
+                    {t("buckets.form.magicCodeLabel")}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.switchDescription,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {t("buckets.form.magicCodeDescription")}
+                  </Text>
+                </View>
+                <Switch
+                  value={generateMagicCode}
+                  onValueChange={setGenerateMagicCode}
+                  disabled={offline}
+                  trackColor={{
+                    false: theme.colors.outline,
+                    true: theme.colors.primary,
+                  }}
+                />
               </View>
             )}
 
