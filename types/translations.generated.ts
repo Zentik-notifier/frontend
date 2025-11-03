@@ -890,9 +890,13 @@ export interface Translation {
       snoozeTimes: string;
       snoozeTimesDescription: string;
       snoozeTimePlaceholder: string;
+      useDefaultSnoozeTimesDescription: string;
+      customSnoozeTimesDescription: string;
       postponeTimes: string;
       postponeTimesDescription: string;
       postponeTimePlaceholder: string;
+      useDefaultPostponeTimesDescription: string;
+      customPostponeTimesDescription: string;
     };
     attachments: {
       title: string;
@@ -919,6 +923,12 @@ export interface Translation {
       selectBucket: string;
       loadingBuckets: string;
       bucketRequired: string;
+      targetingMode: string;
+      selectTargetingMode: string;
+      modeBucket: string;
+      modeBucketToken: string;
+      modeMagicCode: string;
+      magicCodeValue: string;
       groupId: string;
       groupIdPlaceholder: string;
       groupIdDefault: string;
@@ -1097,6 +1107,9 @@ export interface Translation {
     settings: string;
     general: string;
     info: string;
+    default: string;
+    yes: string;
+    no: string;
     offline: string;
     navigationError: string;
     navigationFailed: string;

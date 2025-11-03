@@ -13,6 +13,7 @@ import {
 import { useLanguageSync, useNotificationUtils } from "@/hooks";
 import { useBucket, useAppState } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
+import { useAuthData } from "@/hooks/useSettings";
 import {
   getNotificationTestData,
   notificationFormDefaults,
@@ -35,6 +36,7 @@ import NotificationTapActionSelector from "./NotificationTapActionSelector";
 import Selector, { SelectorOption } from "./ui/Selector";
 import CopyButton from "./ui/CopyButton";
 import NumberListInput from "./ui/NumberListInput";
+import ButtonGroup from "./ui/ButtonGroup";
 
 export default function NotificationsSettings() {
   const {
@@ -49,6 +51,8 @@ export default function NotificationsSettings() {
     getDeliveryTypeIcon,
     getDeliveryTypeColor,
   } = useNotificationUtils();
+  const { authData } = useAuthData();
+  const accessToken = authData.accessToken;
   const [sending, setSending] = useState(false);
   const [createMessageMutation] = useCreateMessageMutation({
     refetchQueries: [GetNotificationsDocument],
@@ -86,22 +90,18 @@ export default function NotificationsSettings() {
   const [attachments, setAttachments] = useState<NotificationAttachmentDto[]>(
     notificationFormDefaults.attachments
   );
-  const [addMarkAsReadAction, setAddMarkAsReadAction] = useState(
-    notificationFormDefaults.addMarkAsReadAction
-  );
-  const [addDeleteAction, setAddDeleteAction] = useState(
-    notificationFormDefaults.addDeleteAction
-  );
-  const [addOpenNotificationAction, setAddOpenNotificationAction] = useState(
-    notificationFormDefaults.addOpenNotificationAction
-  );
-  const [snoozeTimes, setSnoozeTimes] = useState<number[]>(
-    notificationFormDefaults.snoozeTimes
-  );
+  const [addMarkAsReadAction, setAddMarkAsReadAction] = useState<
+    boolean | null
+  >(null);
+  const [addDeleteAction, setAddDeleteAction] = useState<boolean | null>(null);
+  const [addOpenNotificationAction, setAddOpenNotificationAction] = useState<
+    boolean | null
+  >(null);
+  const [snoozeTimes, setSnoozeTimes] = useState<number[] | null>(null);
   const [locale, setLocale] = useState<string>(notificationFormDefaults.locale);
-  const [postponeTimes, setPostponeTimes] = useState<number[]>(
-    notificationFormDefaults.postponeTimes
-  );
+  const [postponeTimes, setPostponeTimes] = useState<number[] | null>(null);
+  const [useDefaultSnoozeTimes, setUseDefaultSnoozeTimes] = useState(true);
+  const [useDefaultPostponeTimes, setUseDefaultPostponeTimes] = useState(true);
   const [showJsonPreview, setShowJsonPreview] = useState(
     notificationFormDefaults.showJsonPreview
   );
@@ -109,6 +109,9 @@ export default function NotificationsSettings() {
   const [groupId, setGroupId] = useState<string>("");
   const [collapseId, setCollapseId] = useState<string>("");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [targetingMode, setTargetingMode] = useState<
+    "bucket+token" | "magicCode"
+  >("bucket+token");
 
   // TapAction state - optional (can be null)
   const [tapAction, setTapAction] = useState<NotificationActionDto | null>(
@@ -116,10 +119,14 @@ export default function NotificationsSettings() {
   );
 
   // Get bucket data and shared users
-  const { allPermissions } = useBucket(bucketId, {
+  const { allPermissions, bucket: bucketDetail } = useBucket(bucketId, {
     autoFetch: !!bucketId,
     userId: userId ?? undefined,
   });
+
+  // Get magicCode from bucket detail
+  const selectedBucketMagicCode = bucketDetail?.userBucket?.magicCode ?? null;
+  const hasMagicCode = !!selectedBucketMagicCode;
 
   // Set first bucket as default when buckets are loaded
   useEffect(() => {
@@ -129,6 +136,13 @@ export default function NotificationsSettings() {
       }
     }
   }, [bucketsWithStats, bucketId]);
+
+  // Reset targeting mode if magicCode becomes unavailable
+  useEffect(() => {
+    if (targetingMode === "magicCode" && !hasMagicCode) {
+      setTargetingMode("bucket+token");
+    }
+  }, [hasMagicCode, targetingMode]);
 
   const sendMessage = async () => {
     if (!title.trim()) {
@@ -185,11 +199,13 @@ export default function NotificationsSettings() {
     setDeliveryType(testData.deliveryType);
     setActions(testData.actions);
     setAttachments(testData.attachments);
-    setAddMarkAsReadAction(testData.addMarkAsReadAction);
-    setAddDeleteAction(testData.addDeleteAction);
-    setAddOpenNotificationAction(testData.addOpenNotificationAction);
+    setAddMarkAsReadAction(testData.addMarkAsReadAction ?? null);
+    setAddDeleteAction(testData.addDeleteAction ?? null);
+    setAddOpenNotificationAction(testData.addOpenNotificationAction ?? null);
     setSnoozeTimes(testData.snoozeTimes);
     setPostponeTimes(testData.postponeTimes);
+    setUseDefaultSnoozeTimes(false);
+    setUseDefaultPostponeTimes(false);
     setTapAction(testData.tapAction);
   };
 
@@ -206,11 +222,14 @@ export default function NotificationsSettings() {
     }
     setActions(defaults.actions);
     setAttachments(defaults.attachments);
-    setAddMarkAsReadAction(defaults.addMarkAsReadAction);
-    setAddDeleteAction(defaults.addDeleteAction);
-    setAddOpenNotificationAction(defaults.addOpenNotificationAction);
-    setSnoozeTimes(defaults.snoozeTimes);
-    setPostponeTimes(defaults.postponeTimes);
+    setAddMarkAsReadAction(null);
+    setAddDeleteAction(null);
+    setAddOpenNotificationAction(null);
+    setSnoozeTimes(null);
+    setPostponeTimes(null);
+    setUseDefaultSnoozeTimes(true);
+    setUseDefaultPostponeTimes(true);
+    setTargetingMode("bucket+token");
     setLocale(defaults.locale);
     setShowJsonPreview(defaults.showJsonPreview);
     setTapAction(defaults.tapAction);
@@ -221,20 +240,30 @@ export default function NotificationsSettings() {
     const message: CreateMessageDto = {
       title: title.trim(),
       deliveryType: deliveryType,
-      bucketId: bucketId.trim(),
     };
+
+    // Set bucketId or magicCode based on targeting mode
+    if (targetingMode === "magicCode" && selectedBucketMagicCode) {
+      message.magicCode = selectedBucketMagicCode;
+    } else {
+      message.bucketId = bucketId.trim();
+    }
 
     if (subtitle.trim()) message.subtitle = subtitle.trim();
     if (body.trim()) message.body = body.trim();
     if (attachments.length > 0) message.attachments = attachments;
     if (sound.trim()) message.sound = sound.trim();
 
-    // Add automatic actions flags
-    if (addMarkAsReadAction) message.addMarkAsReadAction = true;
-    if (addDeleteAction) message.addDeleteAction = true;
-    if (addOpenNotificationAction) message.addOpenNotificationAction = true;
-    if (snoozeTimes.length > 0) message.snoozes = snoozeTimes;
-    if (postponeTimes.length > 0) message.postpones = postponeTimes;
+    // Add automatic actions flags - only include if explicitly set (not null)
+    if (addMarkAsReadAction !== null)
+      message.addMarkAsReadAction = addMarkAsReadAction;
+    if (addDeleteAction !== null) message.addDeleteAction = addDeleteAction;
+    if (addOpenNotificationAction !== null)
+      message.addOpenNotificationAction = addOpenNotificationAction;
+    if (snoozeTimes !== null && snoozeTimes.length > 0)
+      message.snoozes = snoozeTimes;
+    if (postponeTimes !== null && postponeTimes.length > 0)
+      message.postpones = postponeTimes;
     if (locale) message.locale = locale;
 
     // Add new optional fields
@@ -267,10 +296,25 @@ export default function NotificationsSettings() {
     const payload = buildMessagePayload();
     const jsonPayload = JSON.stringify(payload, null, 2);
 
-    return `curl -X POST "${apiUrl}/messages" \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \\
-  -d '${jsonPayload}'`;
+    // Build authorization header based on targeting mode
+    let authHeader = "";
+    if (targetingMode === "magicCode") {
+      // No authorization header needed for magicCode
+      authHeader = "";
+    } else {
+      // Both "bucket" and "bucket+token" require authentication
+      const token = accessToken || "YOUR_TOKEN_HERE";
+      authHeader = `  -H "Authorization: Bearer ${token}" \\\n`;
+    }
+
+    const curlLines = [
+      `curl -X POST "${apiUrl}/messages" \\`,
+      '  -H "Content-Type: application/json" \\',
+      ...(authHeader ? [authHeader.trim()] : []),
+      `  -d '${jsonPayload}'`,
+    ].filter(Boolean);
+
+    return curlLines.join("\n");
   };
 
   // Copy cURL to clipboard function
@@ -474,150 +518,287 @@ export default function NotificationsSettings() {
                 {t("notifications.automaticActions.description")}
               </Text>
 
-              {/* Mark As Read Action Checkbox */}
-              <View
-                style={[
-                  styles.switchRow,
-                  {
-                    backgroundColor: theme.colors.surfaceVariant,
-                  },
-                ]}
-              >
-                <View style={styles.switchLabelContainer}>
-                  <Text
-                    style={[
-                      styles.switchLabel,
-                      { color: theme.colors.onSurface },
-                    ]}
+              {/* Mark As Read Action - Tri-state Selection */}
+              <View style={styles.field}>
+                <Text
+                  style={[
+                    styles.switchLabel,
+                    { color: theme.colors.onSurface, marginBottom: 8 },
+                  ]}
+                >
+                  {t("notifications.automaticActions.addMarkAsReadAction")}
+                </Text>
+                <Text
+                  style={[
+                    styles.switchDescription,
+                    { color: theme.colors.onSurfaceVariant, marginBottom: 8 },
+                  ]}
+                >
+                  {t(
+                    "notifications.automaticActions.addMarkAsReadActionDescription"
+                  )}
+                </Text>
+                <ButtonGroup variant="segmented">
+                  <Button
+                    mode={
+                      addMarkAsReadAction === null ? "contained" : "outlined"
+                    }
+                    onPress={() => setAddMarkAsReadAction(null)}
+                    compact
+                    style={{ flex: 1 }}
                   >
-                    {t("notifications.automaticActions.addMarkAsReadAction")}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.switchDescription,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
+                    {t("common.default")}
+                  </Button>
+                  <Button
+                    mode={
+                      addMarkAsReadAction === true ? "contained" : "outlined"
+                    }
+                    onPress={() => setAddMarkAsReadAction(true)}
+                    compact
+                    style={{ flex: 1 }}
                   >
-                    {t(
-                      "notifications.automaticActions.addMarkAsReadActionDescription"
-                    )}
-                  </Text>
-                </View>
-                <Switch
-                  value={addMarkAsReadAction}
-                  onValueChange={setAddMarkAsReadAction}
-                  trackColor={{
-                    false: theme.colors.outline,
-                    true: theme.colors.primary,
-                  }}
-                />
+                    {t("common.yes")}
+                  </Button>
+                  <Button
+                    mode={
+                      addMarkAsReadAction === false ? "contained" : "outlined"
+                    }
+                    onPress={() => setAddMarkAsReadAction(false)}
+                    compact
+                    style={{ flex: 1 }}
+                  >
+                    {t("common.no")}
+                  </Button>
+                </ButtonGroup>
               </View>
 
-              {/* Delete Action Checkbox */}
-              <View
-                style={[
-                  styles.switchRow,
-                  {
-                    backgroundColor: theme.colors.surfaceVariant,
-                  },
-                ]}
-              >
-                <View style={styles.switchLabelContainer}>
-                  <Text
-                    style={[
-                      styles.switchLabel,
-                      { color: theme.colors.onSurface },
-                    ]}
+              {/* Delete Action - Tri-state Selection */}
+              <View style={styles.field}>
+                <Text
+                  style={[
+                    styles.switchLabel,
+                    { color: theme.colors.onSurface, marginBottom: 8 },
+                  ]}
+                >
+                  {t("notifications.automaticActions.addDeleteAction")}
+                </Text>
+                <Text
+                  style={[
+                    styles.switchDescription,
+                    { color: theme.colors.onSurfaceVariant, marginBottom: 8 },
+                  ]}
+                >
+                  {t(
+                    "notifications.automaticActions.addDeleteActionDescription"
+                  )}
+                </Text>
+                <ButtonGroup variant="segmented">
+                  <Button
+                    mode={addDeleteAction === null ? "contained" : "outlined"}
+                    onPress={() => setAddDeleteAction(null)}
+                    compact
+                    style={{ flex: 1 }}
                   >
-                    {t("notifications.automaticActions.addDeleteAction")}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.switchDescription,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
+                    {t("common.default")}
+                  </Button>
+                  <Button
+                    mode={addDeleteAction === true ? "contained" : "outlined"}
+                    onPress={() => setAddDeleteAction(true)}
+                    compact
+                    style={{ flex: 1 }}
                   >
-                    {t(
-                      "notifications.automaticActions.addDeleteActionDescription"
-                    )}
-                  </Text>
-                </View>
-                <Switch
-                  value={addDeleteAction}
-                  onValueChange={setAddDeleteAction}
-                  trackColor={{
-                    false: theme.colors.outline,
-                    true: theme.colors.primary,
-                  }}
-                />
+                    {t("common.yes")}
+                  </Button>
+                  <Button
+                    mode={addDeleteAction === false ? "contained" : "outlined"}
+                    onPress={() => setAddDeleteAction(false)}
+                    compact
+                    style={{ flex: 1 }}
+                  >
+                    {t("common.no")}
+                  </Button>
+                </ButtonGroup>
               </View>
 
-              {/* Open Notification Action Checkbox */}
-              <View
-                style={[
-                  styles.switchRow,
-                  {
-                    backgroundColor: theme.colors.surfaceVariant,
-                  },
-                ]}
-              >
-                <View style={styles.switchLabelContainer}>
-                  <Text
-                    style={[
-                      styles.switchLabel,
-                      { color: theme.colors.onSurface },
-                    ]}
+              {/* Open Notification Action - Tri-state Selection */}
+              <View style={styles.field}>
+                <Text
+                  style={[
+                    styles.switchLabel,
+                    { color: theme.colors.onSurface, marginBottom: 8 },
+                  ]}
+                >
+                  {t(
+                    "notifications.automaticActions.addOpenNotificationAction"
+                  )}
+                </Text>
+                <Text
+                  style={[
+                    styles.switchDescription,
+                    { color: theme.colors.onSurfaceVariant, marginBottom: 8 },
+                  ]}
+                >
+                  {t(
+                    "notifications.automaticActions.addOpenNotificationActionDescription"
+                  )}
+                </Text>
+                <ButtonGroup variant="segmented">
+                  <Button
+                    mode={
+                      addOpenNotificationAction === null
+                        ? "contained"
+                        : "outlined"
+                    }
+                    onPress={() => setAddOpenNotificationAction(null)}
+                    compact
+                    style={{ flex: 1 }}
                   >
-                    {t(
-                      "notifications.automaticActions.addOpenNotificationAction"
-                    )}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.switchDescription,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
+                    {t("common.default")}
+                  </Button>
+                  <Button
+                    mode={
+                      addOpenNotificationAction === true
+                        ? "contained"
+                        : "outlined"
+                    }
+                    onPress={() => setAddOpenNotificationAction(true)}
+                    compact
+                    style={{ flex: 1 }}
                   >
-                    {t(
-                      "notifications.automaticActions.addOpenNotificationActionDescription"
-                    )}
-                  </Text>
-                </View>
-                <Switch
-                  value={addOpenNotificationAction}
-                  onValueChange={setAddOpenNotificationAction}
-                  trackColor={{
-                    false: theme.colors.outline,
-                    true: theme.colors.primary,
-                  }}
-                />
+                    {t("common.yes")}
+                  </Button>
+                  <Button
+                    mode={
+                      addOpenNotificationAction === false
+                        ? "contained"
+                        : "outlined"
+                    }
+                    onPress={() => setAddOpenNotificationAction(false)}
+                    compact
+                    style={{ flex: 1 }}
+                  >
+                    {t("common.no")}
+                  </Button>
+                </ButtonGroup>
               </View>
 
               {/* Snooze Times Section */}
-              <NumberListInput
-                label={t("notifications.automaticActions.snoozeTimes")}
-                values={snoozeTimes}
-                onValuesChange={setSnoozeTimes}
-                placeholder={t(
-                  "notifications.automaticActions.snoozeTimePlaceholder"
+              <View style={styles.field}>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchLabelContainer}>
+                    <Text
+                      style={[
+                        styles.switchLabel,
+                        { color: theme.colors.onSurface },
+                      ]}
+                    >
+                      {t("notifications.automaticActions.snoozeTimes")}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.switchDescription,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {useDefaultSnoozeTimes
+                        ? t(
+                            "notifications.automaticActions.useDefaultSnoozeTimesDescription"
+                          )
+                        : t(
+                            "notifications.automaticActions.customSnoozeTimesDescription"
+                          )}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={useDefaultSnoozeTimes}
+                    onValueChange={(value) => {
+                      setUseDefaultSnoozeTimes(value);
+                      if (value) {
+                        setSnoozeTimes(null);
+                      } else {
+                        setSnoozeTimes([]);
+                      }
+                    }}
+                    trackColor={{
+                      false: theme.colors.outline,
+                      true: theme.colors.primary,
+                    }}
+                  />
+                </View>
+                {!useDefaultSnoozeTimes && (
+                  <NumberListInput
+                    label=""
+                    values={snoozeTimes || []}
+                    onValuesChange={(values) => setSnoozeTimes(values)}
+                    placeholder={t(
+                      "notifications.automaticActions.snoozeTimePlaceholder"
+                    )}
+                    unit="m"
+                    min={1}
+                    max={9999}
+                    compact
+                  />
                 )}
-                unit="m"
-                min={1}
-                max={9999}
-              />
+              </View>
 
               {/* Postpone Times Section */}
-              <NumberListInput
-                label={t("notifications.automaticActions.postponeTimes")}
-                values={postponeTimes}
-                onValuesChange={setPostponeTimes}
-                placeholder={t(
-                  "notifications.automaticActions.postponeTimePlaceholder"
+              <View style={styles.field}>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchLabelContainer}>
+                    <Text
+                      style={[
+                        styles.switchLabel,
+                        { color: theme.colors.onSurface },
+                      ]}
+                    >
+                      {t("notifications.automaticActions.postponeTimes")}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.switchDescription,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {useDefaultPostponeTimes
+                        ? t(
+                            "notifications.automaticActions.useDefaultPostponeTimesDescription"
+                          )
+                        : t(
+                            "notifications.automaticActions.customPostponeTimesDescription"
+                          )}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={useDefaultPostponeTimes}
+                    onValueChange={(value) => {
+                      setUseDefaultPostponeTimes(value);
+                      if (value) {
+                        setPostponeTimes(null);
+                      } else {
+                        setPostponeTimes([]);
+                      }
+                    }}
+                    trackColor={{
+                      false: theme.colors.outline,
+                      true: theme.colors.primary,
+                    }}
+                  />
+                </View>
+                {!useDefaultPostponeTimes && (
+                  <NumberListInput
+                    label=""
+                    values={postponeTimes || []}
+                    onValuesChange={(values) => setPostponeTimes(values)}
+                    placeholder={t(
+                      "notifications.automaticActions.postponeTimePlaceholder"
+                    )}
+                    unit="m"
+                    min={1}
+                    max={9999}
+                    compact
+                  />
                 )}
-                unit="m"
-                min={1}
-                max={9999}
-              />
+              </View>
             </View>
 
             {/* Targeting Section */}
@@ -632,12 +813,56 @@ export default function NotificationsSettings() {
                   {t("notifications.targeting.loadingBuckets")}
                 </Text>
               ) : bucketsWithStats && bucketsWithStats.length > 0 ? (
-                <BucketSelector
-                  label={t("notifications.targeting.bucket")}
-                  selectedBucketId={bucketId}
-                  onBucketChange={(id) => setBucketId(id || "")}
-                  searchable
-                />
+                <>
+                  <BucketSelector
+                    label={t("notifications.targeting.bucket")}
+                    selectedBucketId={bucketId}
+                    onBucketChange={(id) => {
+                      setBucketId(id || "");
+                      // Reset targeting mode if bucket changes and magicCode not available
+                      if (
+                        id &&
+                        !hasMagicCode &&
+                        targetingMode === "magicCode"
+                      ) {
+                        setTargetingMode("bucket+token");
+                      }
+                    }}
+                    searchable
+                  />
+                  {bucketId && hasMagicCode && (
+                    <View style={styles.field}>
+                      <Selector
+                        mode="inline"
+                        label={t("notifications.targeting.targetingMode")}
+                        placeholder={t(
+                          "notifications.targeting.selectTargetingMode"
+                        )}
+                        options={[
+                          {
+                            id: "bucket+token",
+                            name: t("notifications.targeting.modeBucketToken"),
+                            iconName: "key",
+                          },
+                          {
+                            id: "magicCode",
+                            name: t(
+                              "notifications.targeting.modeMagicCode"
+                            ),
+                            iconName: "star",
+                          },
+                        ]}
+                        selectedValue={targetingMode}
+                        onValueChange={(value) =>
+                          setTargetingMode(
+                            value as "bucket+token" | "magicCode"
+                          )
+                        }
+                        isSearchable={false}
+                      />
+                    </View>
+                  )}
+                </>
               ) : (
                 <View style={styles.field}>
                   <Text style={styles.label}>

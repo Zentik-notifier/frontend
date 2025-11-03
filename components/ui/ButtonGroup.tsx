@@ -5,7 +5,7 @@ import { useTheme } from "react-native-paper";
 interface ButtonGroupProps {
   children: React.ReactNode;
   style?: any;
-  variant?: "default" | "compact";
+  variant?: "default" | "compact" | "segmented";
 }
 
 export default function ButtonGroup({
@@ -17,13 +17,37 @@ export default function ButtonGroup({
   const bgSecondary = theme.colors.surfaceVariant;
 
   const isCompact = variant === "compact";
+  const isSegmented = variant === "segmented";
+  
   const buttonGroupStyle = isCompact
     ? styles.buttonGroupCompact
+    : isSegmented
+    ? styles.buttonGroupSegmented
     : styles.buttonGroup;
   const dividerStyle = isCompact ? styles.dividerCompact : styles.divider;
 
   const childrenArray = React.Children.toArray(children);
-  const childrenWithDividers = childrenArray.reduce<React.ReactNode[]>(
+  
+  // For segmented variant, wrap each child with additional styling
+  const processedChildren = isSegmented
+    ? childrenArray.map((child, index) => {
+        if (React.isValidElement(child)) {
+          return React.cloneElement(child as React.ReactElement<any>, {
+            key: child.key || `segmented-${index}`,
+            style: [
+              child.props.style,
+              index === 0 && styles.segmentedButtonFirst,
+              index === childrenArray.length - 1 && styles.segmentedButtonLast,
+              index > 0 && index < childrenArray.length - 1 && styles.segmentedButtonMiddle,
+              styles.segmentedButton,
+            ],
+          });
+        }
+        return child;
+      })
+    : childrenArray;
+
+  const childrenWithDividers = processedChildren.reduce<React.ReactNode[]>(
     (acc, child, index) => {
       acc.push(child);
       // if (index < childrenArray.length - 1) {
@@ -47,7 +71,7 @@ export default function ButtonGroup({
   );
 
   return (
-    <View style={[buttonGroupStyle, { backgroundColor: bgSecondary }, style]}>
+    <View style={[buttonGroupStyle, !isSegmented && { backgroundColor: bgSecondary }, style]}>
       {childrenWithDividers}
     </View>
   );
@@ -67,6 +91,37 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     paddingHorizontal: 3,
     borderRadius: 8,
+  },
+  buttonGroupSegmented: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    borderRadius: 8,
+    overflow: "hidden",
+    gap: 0,
+    padding: 0,
+    backgroundColor: "transparent",
+  },
+  segmentedButton: {
+    borderRadius: 0,
+    margin: 0,
+    marginHorizontal: 0,
+    marginVertical: 0,
+    minWidth: 0,
+  },
+  segmentedButtonFirst: {
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  segmentedButtonLast: {
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
+  },
+  segmentedButtonMiddle: {
+    borderRadius: 0,
   },
   divider: {
     width: 1,

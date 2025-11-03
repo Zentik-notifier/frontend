@@ -673,7 +673,8 @@ class NotificationService: UNNotificationServiceExtension {
     if !actions.isEmpty {
       let notificationId = userInfo["notificationId"] as? String ?? UUID().uuidString
       
-      // Filter actions to only include allowed types
+      // Filter actions to only include allowed types for notification buttons
+      // NAVIGATE is excluded from buttons but kept in userInfo for NCE custom UI
       let allowedActionTypes = [
         "MARK_AS_READ",
         "BACKGROUND_CALL",
@@ -688,9 +689,10 @@ class NotificationService: UNNotificationServiceExtension {
         return allowedActionTypes.contains(type)
       }
       
-      print("📱 [NotificationService] 🔍 Original actions: \(actions.count), filtered: \(filteredActions.count)")
+      print("📱 [NotificationService] 🔍 Original actions: \(actions.count), filtered for buttons: \(filteredActions.count)")
       
       // Register notification category with filtered actions for watchOS compatibility
+      // This excludes NAVIGATE from appearing as notification buttons
       registerDynamicCategory(with: filteredActions)
       
       // Use DYNAMIC category
@@ -699,13 +701,14 @@ class NotificationService: UNNotificationServiceExtension {
       print("📱 [NotificationService] 🎭 Registered DYNAMIC category with \(filteredActions.count) actions")
       print("📱 [NotificationService] 🎭 Category identifier: DYNAMIC")
       
-      // Add only filtered actions to userInfo for NCE and watch compatibility
+      // Add ALL actions (including NAVIGATE) to userInfo for NCE
+      // NCE can display NAVIGATE actions in its custom UI
       var mutableUserInfo = content.userInfo as? [String: Any] ?? [:]
-      mutableUserInfo["actions"] = filteredActions
-      mutableUserInfo["hasActions"] = !filteredActions.isEmpty
+      mutableUserInfo["actions"] = actions  // Keep all actions including NAVIGATE
+      mutableUserInfo["hasActions"] = !actions.isEmpty
       
       content.userInfo = mutableUserInfo
-      print("📱 [NotificationService] ⌚️ Filtered actions added to userInfo for watchOS and NCE (no credentials)")
+      print("📱 [NotificationService] ⌚️ All actions (including NAVIGATE) added to userInfo for NCE custom UI")
       
     } else {
       // Use DYNAMIC category even without actions for NCE custom content
