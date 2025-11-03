@@ -8,6 +8,7 @@ import React, {
   useMemo,
 } from "react";
 import {
+  API_PREFIX,
   DateFormatStyle,
   MarkAsReadMode,
   settingsService,
@@ -243,7 +244,13 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     setTestingServer(true);
     setTestResult(null);
     try {
-      const response = await fetch(`${customServerUrl}/health`, {
+      // Clean the URL (remove trailing slashes and /api/v1 if present)
+      let cleanUrl = customServerUrl.trim().replace(/\/+$/, '');
+      cleanUrl = cleanUrl.replace(/\/api\/v1\/?$/, '');
+      
+      const healthUrl = `${cleanUrl}/${API_PREFIX}/health`;
+      
+      const response = await fetch(healthUrl, {
         method: "GET",
       });
 

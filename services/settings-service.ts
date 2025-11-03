@@ -13,7 +13,7 @@ import AsyncStorage from '@/utils/async-storage-wrapper';
 const CURRENT_TERMS_VERSION = '1.0.0';
 
 // API Configuration
-const API_PREFIX = 'api/v1';
+export const API_PREFIX = 'api/v1';
 const IS_SELF_HOSTED = process.env.EXPO_PUBLIC_SELFHOSTED === 'true';
 const DEFAULT_API_URL = IS_SELF_HOSTED && typeof window !== 'undefined'
   ? window.location.origin
