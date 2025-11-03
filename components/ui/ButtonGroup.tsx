@@ -35,7 +35,6 @@ export default function ButtonGroup({
           return React.cloneElement(child as React.ReactElement<any>, {
             key: child.key || `segmented-${index}`,
             style: [
-              child.props.style,
               index === 0 && styles.segmentedButtonFirst,
               index === childrenArray.length - 1 && styles.segmentedButtonLast,
               index > 0 && index < childrenArray.length - 1 && styles.segmentedButtonMiddle,
