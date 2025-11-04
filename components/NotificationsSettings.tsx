@@ -22,6 +22,7 @@ import * as Clipboard from "expo-clipboard";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Platform,
   StyleSheet,
   Switch,
   TextInput,
@@ -1115,23 +1116,33 @@ export default function NotificationsSettings() {
                       styles.jsonPreviewText,
                       {
                         color: theme.colors.onSurface,
-                        fontFamily:
-                          previewFormat === "curl" ? "monospace" : undefined,
                       },
                     ]}
                   >
-                    {previewFormat === "json"
-                      ? JSON.stringify(buildMessagePayload(), null, 2)
-                      : generateCurlCommand()}
+                    {(() => {
+                      try {
+                        const content = previewFormat === "json"
+                          ? JSON.stringify(buildMessagePayload(), null, 2)
+                          : generateCurlCommand();
+                        return content || "No content available";
+                      } catch (error) {
+                        return "Error generating preview content";
+                      }
+                    })()}
                   </Text>
                 </PaperScrollView>
 
                 <CopyButton
-                  text={
-                    previewFormat === "json"
-                      ? JSON.stringify(buildMessagePayload(), null, 2)
-                      : generateCurlCommand()
-                  }
+                  text={(() => {
+                    try {
+                      const content = previewFormat === "json"
+                        ? JSON.stringify(buildMessagePayload(), null, 2)
+                        : generateCurlCommand();
+                      return content || "";
+                    } catch (error) {
+                      return "";
+                    }
+                  })()}
                   label={
                     previewFormat === "json"
                       ? t("notifications.preview.copyJson")
@@ -1293,13 +1304,31 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: 20,
-    height: 300,
+    minHeight: 150,
+    maxHeight: Platform.select({
+      web: 400,
+      ios: 300,
+      android: 300,
+      default: 300
+    }),
+    height: Platform.select({
+      web: 300,
+      ios: 250,
+      android: 250,
+      default: 250
+    }),
     padding: 16,
+    flex: 0,
   },
   jsonPreviewText: {
-    fontFamily: "monospace",
-    fontSize: 12,
-    lineHeight: 20,
+    fontFamily: Platform.select({
+      ios: 'Courier',
+      android: 'monospace',
+      web: 'Consolas, Monaco, "Liberation Mono", "DejaVu Sans Mono", "Bitstream Vera Sans Mono", "Courier New", monospace',
+      default: 'monospace'
+    }),
+    fontSize: Platform.OS === 'web' ? 12 : 13,
+    lineHeight: Platform.OS === 'web' ? 20 : 18,
   },
   previewHeader: {
     flexDirection: "row",
