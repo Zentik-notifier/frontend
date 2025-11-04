@@ -63,6 +63,8 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
   });
   const refreshBucket = useRefreshBucket();
   const { data: appConfig } = usePublicAppConfigQuery();
+  const { uploadEnabled, iconUploaderEnabled } =
+    appConfig?.publicAppConfig ?? {};
 
   const isProtectedBucket = bucket?.isProtected;
 
@@ -367,7 +369,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
                   mode="outlined"
                   error={!!bucketIconError}
                 />
-                {appConfig?.publicAppConfig?.uploadEnabled && (
+                {uploadEnabled && iconUploaderEnabled && (
                   <IconButton
                     icon="camera"
                     size={20}
@@ -568,7 +570,7 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       )}
 
       {/* Icon Editor Modal */}
-      {isIconEditorVisible && (
+      {isIconEditorVisible && uploadEnabled && iconUploaderEnabled && (
         <IconEditor
           currentIcon={bucketIcon || undefined}
           bucketColor={bucketColor}

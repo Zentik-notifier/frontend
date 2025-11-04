@@ -28,7 +28,7 @@ type Props = {
 export function OAuthSelector({ onProviderSelect, disabled }: Props) {
   const { t } = useI18n();
   const theme = useTheme();
-  const { data } = usePublicAppConfigQuery({ fetchPolicy: "network-only" });
+  const { data } = usePublicAppConfigQuery({ fetchPolicy: "cache-first" });
   const providersSrc = data?.publicAppConfig.oauthProviders || [];
   const [anchorWidth, setAnchorWidth] = useState(0);
   const { completeAuth } = useAppContext();

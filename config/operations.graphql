@@ -1160,6 +1160,7 @@ query PublicAppConfig {
   publicAppConfig {
     emailEnabled
     uploadEnabled
+    iconUploaderEnabled
     systemTokenRequestsEnabled
     socialLoginEnabled
     localRegistrationEnabled

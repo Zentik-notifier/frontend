@@ -19,8 +19,8 @@ export default function LoginScreen() {
   const { t } = useI18n();
   const theme = useTheme();
   const router = useRouter();
-  const { data } = usePublicAppConfigQuery();
-  const { emailEnabled, localRegistrationEnabled } = data?.publicAppConfig || {} as any;
+  const { data } = usePublicAppConfigQuery({ fetchPolicy: 'cache-first' });
+  const { emailEnabled, localRegistrationEnabled } = data?.publicAppConfig || ({} as any);
   const { email, error, errorTitle } = useLocalSearchParams<{ email?: string, error?: string, errorTitle?: string }>();
   const { navigateToRegister, navigateToHome, navigateToForgotPassword } =
     useNavigationUtils();
