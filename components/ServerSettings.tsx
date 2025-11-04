@@ -60,6 +60,9 @@ const settingSections: Record<string, SectionConfig> = {
       ServerSettingType.JwtRefreshTokenExpiration,
       ServerSettingType.JwtSecret,
       ServerSettingType.JwtRefreshSecret,
+      ServerSettingType.SocialLoginEnabled,
+      ServerSettingType.LocalRegistrationEnabled,
+      ServerSettingType.SocialRegistrationEnabled,
     ],
   },
   apnPush: {
@@ -204,6 +207,7 @@ const settingSections: Record<string, SectionConfig> = {
     icon: "paperclip",
     settings: [
       ServerSettingType.AttachmentsEnabled,
+      ServerSettingType.IconUploaderEnabled,
       {
         key: ServerSettingType.AttachmentsStoragePath,
         dependsOn: {

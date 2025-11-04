@@ -340,8 +340,16 @@ export function useNavigationUtils() {
             router.push("/(phone)/(home)/(tabs)/buckets");
         },
 
-        navigateToLogin: (email?: string) => {
-            router.push({ pathname: `/(common)/(auth)/login`, params: email ? { email } : undefined });
+        navigateToLogin: (emailOrParams?: string | { email?: string, error?: string, errorTitle?: string }) => {
+            if (typeof emailOrParams === 'string') {
+                router.push({ pathname: `/(common)/(auth)/login`, params: { email: emailOrParams } });
+            } else {
+                const params: any = {};
+                if (emailOrParams?.email) params.email = emailOrParams.email;
+                if (emailOrParams?.error) params.error = emailOrParams.error;
+                if (emailOrParams?.errorTitle) params.errorTitle = emailOrParams.errorTitle;
+                router.push({ pathname: `/(common)/(auth)/login`, params });
+            }
         },
 
         navigateToTerms: () => {

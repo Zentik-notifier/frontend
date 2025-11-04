@@ -2062,6 +2062,10 @@ export interface Translation {
       JwtRefreshTokenExpiration: string;
       JwtSecret: string;
       JwtRefreshSecret: string;
+      SocialLoginEnabled: string;
+      LocalRegistrationEnabled: string;
+      SocialRegistrationEnabled: string;
+      IconUploaderEnabled: string;
       ApnPush: string;
       ApnKeyId: string;
       ApnTeamId: string;

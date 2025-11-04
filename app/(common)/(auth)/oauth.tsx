@@ -11,7 +11,8 @@ import { Text, Button, useTheme, ActivityIndicator } from "react-native-paper";
 
 export default function OAuthCallbackPage() {
   const { refreshUserData, completeAuth, setUserId } = useAppContext();
-  const { navigateToHome, navigateToUserProfile } = useNavigationUtils();
+  const { navigateToHome, navigateToUserProfile, navigateToLogin } =
+    useNavigationUtils();
   const { t } = useI18n();
   const searchParams = useLocalSearchParams();
   const [processing, setProcessing] = useState(false);
@@ -19,6 +20,7 @@ export default function OAuthCallbackPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successTitle, setSuccessTitle] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [flow, setFlow] = useState<string | null>(null);
   const theme = useTheme();
 
   useEffect(() => {
@@ -39,6 +41,7 @@ export default function OAuthCallbackPage() {
         let provider = searchParams.provider as string;
         let errorParam = searchParams.error as string;
         let errorDescriptionParam = searchParams.error_description as string;
+        let flowParam = searchParams.flow as string;
         let codeParam = searchParams.code as string;
         let sessionIdParam = searchParams.sessionId as string;
 
@@ -58,6 +61,8 @@ export default function OAuthCallbackPage() {
               if (code) {
                 codeParam = code as string;
               }
+              const f = params.get("flow");
+              if (f) flowParam = f as string;
             }
           } catch {}
 
@@ -75,12 +80,18 @@ export default function OAuthCallbackPage() {
             : t("oauth.genericSignInTitle");
           const message =
             errorDescriptionParam || t("oauth.accessDeniedMessage");
+          setFlow(flowParam || null);
           try {
             if (Platform.OS !== "web") {
               await WebBrowser.dismissBrowser();
               await WebBrowser.maybeCompleteAuthSession();
             }
           } catch {}
+          // If the error originates from a login flow, redirect immediately to login
+          if (flowParam === "login") {
+            navigateToLogin();
+            return;
+          }
           setErrorTitle(title);
           setErrorMessage(message);
           return;
@@ -159,15 +170,18 @@ export default function OAuthCallbackPage() {
           }
 
           // On web: notify opener (settings page) and close the popup
-          if (Platform.OS === 'web') {
+          if (Platform.OS === "web") {
             try {
-              if (typeof window !== 'undefined' && window.opener) {
-                window.opener.postMessage({ type: 'oauth-connected', provider }, '*');
+              if (typeof window !== "undefined" && window.opener) {
+                window.opener.postMessage(
+                  { type: "oauth-connected", provider },
+                  "*"
+                );
                 window.close();
                 return;
               }
             } catch (e) {
-              console.warn('🔗 Unable to postMessage to opener:', e);
+              console.warn("🔗 Unable to postMessage to opener:", e);
             }
           }
 
@@ -175,7 +189,11 @@ export default function OAuthCallbackPage() {
           navigateToUserProfile();
           return;
         } else if (hasTokens) {
-          console.log("🔗 Saving tokens and fetching user data");
+          console.log(
+            "🔗 Saving tokens and fetching user data",
+            exchangedAccessToken,
+            exchangedRefreshToken
+          );
           setSuccessTitle(t("oauth.successTitle"));
           setSuccessMessage(t("oauth.successMessage"));
           await completeAuth(exchangedAccessToken!, exchangedRefreshToken!);
@@ -185,6 +203,7 @@ export default function OAuthCallbackPage() {
             const redirectPath = await settingsRepository.getSetting(
               "auth_redirectAfterLogin"
             );
+            console.log("🔎 [OAuth] redirectAfterLogin:", redirectPath);
             // Remove redirect intent immediately to avoid later side-effects
             try {
               await settingsRepository.removeSetting("auth_redirectAfterLogin");
@@ -248,7 +267,12 @@ export default function OAuthCallbackPage() {
             >
               {errorMessage}
             </Text>
-            <Button mode="contained" onPress={() => navigateToHome()}>
+            <Button
+              mode="contained"
+              onPress={() =>
+                flow === "login" ? navigateToLogin() : navigateToHome()
+              }
+            >
               {t("oauth.back")}
             </Button>
           </View>

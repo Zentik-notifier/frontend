@@ -10,10 +10,9 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  View
+  View,
 } from "react-native";
 import { Button, Text, useTheme } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { settingsRepository } from "@/services/settings-repository";
 
 export default function LoginScreen() {
@@ -21,24 +20,26 @@ export default function LoginScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { data } = usePublicAppConfigQuery();
-  const emailEnabled = data?.publicAppConfig.emailEnabled;
-  const { email } = useLocalSearchParams<{ email?: string }>();
+  const { emailEnabled, localRegistrationEnabled } = data?.publicAppConfig || {} as any;
+  const { email, error, errorTitle } = useLocalSearchParams<{ email?: string, error?: string, errorTitle?: string }>();
   const { navigateToRegister, navigateToHome, navigateToForgotPassword } =
     useNavigationUtils();
 
   const handleLoginSuccess = async () => {
     // Check for redirect path after login
     try {
-      const redirectPath = await settingsRepository.getSetting('auth_redirectAfterLogin');
-      if (redirectPath && redirectPath !== '/') {
+      const redirectPath = await settingsRepository.getSetting(
+        "auth_redirectAfterLogin"
+      );
+      if (redirectPath && redirectPath !== "/") {
         // Remove redirect path immediately
-        await settingsRepository.removeSetting('auth_redirectAfterLogin');
+        await settingsRepository.removeSetting("auth_redirectAfterLogin");
         // Navigate to the saved path
         router.replace(redirectPath as any);
         return;
       }
     } catch (error) {
-      console.error('Error checking redirect after login:', error);
+      console.error("Error checking redirect after login:", error);
     }
     // Default navigation to home
     navigateToHome();
@@ -49,7 +50,9 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[styles.safeArea, { backgroundColor: theme.colors.background }]}
+    >
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -58,14 +61,15 @@ export default function LoginScreen() {
         enabled
       >
         <ScrollView
-          contentContainerStyle={[
-            styles.scrollContainer,
-          ]}
+          contentContainerStyle={[styles.scrollContainer]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.logoContainer}>
-            <Text variant="headlineLarge" style={[styles.appName, { color: theme.colors.onBackground }]}>
+            <Text
+              variant="headlineLarge"
+              style={[styles.appName, { color: theme.colors.onBackground }]}
+            >
               Zentik
             </Text>
             <View style={styles.logoPlaceholder}>
@@ -77,28 +81,56 @@ export default function LoginScreen() {
                 />
               </View>
             </View>
-            <Text variant="titleMedium" style={[styles.subtitle, { color: theme.colors.onBackground }]}>
+            <Text
+              variant="titleMedium"
+              style={[styles.subtitle, { color: theme.colors.onBackground }]}
+            >
               {t("login.welcomeBack")}
             </Text>
           </View>
+
+          {typeof error === 'string' && (
+            <View style={{ marginBottom: 12 }}>
+              <Text
+                variant="titleSmall"
+                style={{ color: theme.colors.error, marginBottom: 4, textAlign: 'center' }}
+              >
+                {typeof errorTitle === 'string' && errorTitle.length > 0 ? errorTitle : t('login.errors.loginFailed')}
+              </Text>
+              <Text
+                variant="bodyMedium"
+                style={{ color: theme.colors.onBackground, opacity: 0.8, textAlign: 'center' }}
+              >
+                {error}
+              </Text>
+            </View>
+          )}
 
           <LoginForm
             onSuccess={handleLoginSuccess}
             initialEmail={typeof email === "string" ? email : undefined}
           />
 
-          <View style={styles.registerContainer}>
-            <Text variant="bodyLarge" style={[styles.registerText, { color: theme.colors.onBackground }]}>
-              {t("login.noAccount")}
-            </Text>
-            <Button
-              mode="text"
-              onPress={goToRegister}
-              style={styles.registerButton}
-            >
-              {t("login.signUp")}
-            </Button>
-          </View>
+          {localRegistrationEnabled && (
+            <View style={styles.registerContainer}>
+              <Text
+                variant="bodyLarge"
+                style={[
+                  styles.registerText,
+                  { color: theme.colors.onBackground },
+                ]}
+              >
+                {t("login.noAccount")}
+              </Text>
+              <Button
+                mode="text"
+                onPress={goToRegister}
+                style={styles.registerButton}
+              >
+                {t("login.signUp")}
+              </Button>
+            </View>
+          )}
 
           {emailEnabled && (
             <View style={styles.forgotPasswordContainer}>

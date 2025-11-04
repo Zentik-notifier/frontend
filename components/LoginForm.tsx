@@ -1,3 +1,4 @@
+import { OAuthSelector } from "@/components/OAuthSelector";
 import { useAppContext } from "@/contexts/AppContext";
 import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
@@ -6,13 +7,7 @@ import { useNavigationUtils } from "@/utils/navigation";
 import { createOAuthRedirectLink } from "@/utils/universal-links";
 import React, { useState } from "react";
 import { Alert, Platform, StyleSheet, View } from "react-native";
-import {
-  Button,
-  HelperText,
-  TextInput,
-  useTheme,
-} from "react-native-paper";
-import { OAuthSelector } from "@/components/OAuthSelector";
+import { Button, HelperText, TextInput } from "react-native-paper";
 
 type Props = {
   onSuccess?: () => void;
@@ -27,7 +22,6 @@ export default function LoginForm({
 }: Props) {
   const { t } = useI18n();
   const { locale } = useI18n();
-  const theme = useTheme();
   const [emailOrUsername, setEmailOrUsername] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -38,12 +32,8 @@ export default function LoginForm({
   }>({});
   const { login } = useAppContext();
   const { navigateToEmailConfirmation } = useNavigationUtils();
-  const { data: providersData } = usePublicAppConfigQuery({
-    fetchPolicy: "network-only",
-  });
-  const providers = providersData?.publicAppConfig.oauthProviders || [];
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [anchorWidth, setAnchorWidth] = useState<number>(0);
+  const { data: appConfigData } = usePublicAppConfigQuery({ fetchPolicy: 'cache-first' });
+  const socialLoginEnabled = !!appConfigData?.publicAppConfig?.socialLoginEnabled;
 
   const validateForm = () => {
     const newErrors: { emailOrUsername?: string; password?: string } = {};
@@ -166,22 +156,41 @@ export default function LoginForm({
         {errors.password}
       </HelperText>
 
-      <View style={styles.actionsRow}>
-        <View style={styles.half}>
-          <Button
-            mode="contained"
-            onPress={handleLogin}
-            loading={isLoading}
-            disabled={isLoading}
-            style={styles.fullWidth}
-          >
-            {isLoading ? t("login.loggingIn") : t("login.loginButton")}
-          </Button>
+      {socialLoginEnabled ? (
+        <View style={styles.actionsRow}>
+          <View style={styles.half}>
+            <Button
+              mode="contained"
+              onPress={handleLogin}
+              loading={isLoading}
+              disabled={isLoading}
+              style={styles.fullWidth}
+            >
+              {isLoading ? t("login.loggingIn") : t("login.loginButton")}
+            </Button>
+          </View>
+          <View style={styles.half}>
+            <OAuthSelector
+              onProviderSelect={openProviderLogin}
+              disabled={isLoading}
+            />
+          </View>
         </View>
-        <View style={styles.half}>
-          <OAuthSelector onProviderSelect={openProviderLogin} disabled={isLoading} />
+      ) : (
+        <View style={styles.actionsRow}>
+          <View style={styles.half}>
+            <Button
+              mode="contained"
+              onPress={handleLogin}
+              loading={isLoading}
+              disabled={isLoading}
+              style={styles.fullWidth}
+            >
+              {isLoading ? t("login.loggingIn") : t("login.loginButton")}
+            </Button>
+          </View>
         </View>
-      </View>
+      )}
 
       {onCancel && (
         <Button mode="text" onPress={onCancel} style={styles.cancelBtn}>
@@ -228,7 +237,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   oauthMenuButton: {
-    width: '100%',
+    width: "100%",
     borderRadius: 0,
     marginVertical: 0,
   },
@@ -238,6 +247,6 @@ const styles = StyleSheet.create({
   },
   menuDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#00000022',
+    backgroundColor: "#00000022",
   },
 });

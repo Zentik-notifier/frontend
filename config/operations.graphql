@@ -1161,6 +1161,9 @@ query PublicAppConfig {
     emailEnabled
     uploadEnabled
     systemTokenRequestsEnabled
+    socialLoginEnabled
+    localRegistrationEnabled
+    socialRegistrationEnabled
     oauthProviders {
       ...OAuthProviderPublicFragment
     }
