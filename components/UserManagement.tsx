@@ -1,28 +1,33 @@
 import {
   useGetAllUsersQuery,
+  useAdminCreateUserMutation,
+  useAdminDeleteUserMutation,
   UserFragment,
   UserRole,
 } from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
 import React, { useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import { Alert, FlatList, StyleSheet, View } from "react-native";
 import {
   Card,
   Chip,
   Icon,
+  IconButton,
   Surface,
   Text,
   TextInput,
   useTheme,
 } from "react-native-paper";
 import PaperScrollView from "./ui/PaperScrollView";
+import DetailModal from "./ui/DetailModal";
 
 interface UserListItemProps {
   user: UserFragment;
+  onDelete: (userId: string) => void;
 }
 
-const UserListItem: React.FC<UserListItemProps> = ({ user }) => {
+const UserListItem: React.FC<UserListItemProps> = ({ user, onDelete }) => {
   const { t } = useI18n();
   const { navigateToUserDetails } = useNavigationUtils();
 
@@ -79,6 +84,7 @@ const UserListItem: React.FC<UserListItemProps> = ({ user }) => {
           >
             {getUserRoleDisplayName(user.role)?.toUpperCase()}
           </Chip>
+          <IconButton icon="delete" size={20} onPress={() => onDelete(user.id)} />
         </View>
       </Card.Content>
     </Card>
@@ -91,8 +97,86 @@ export default function UserManagement() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data, loading, error, refetch } = useGetAllUsersQuery();
+  const [createUser] = useAdminCreateUserMutation();
+  const [deleteUser] = useAdminDeleteUserMutation();
+
+  const [createVisible, setCreateVisible] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const users = data?.users || [];
+  const handleCreateUser = () => {
+    setNewEmail("");
+    setNewUsername("");
+    setNewPassword("");
+    setCreateVisible(true);
+  };
+
+  const confirmCreateUser = async () => {
+    try {
+      setCreating(true);
+      await createUser({
+        variables: {
+          input: {
+            email: newEmail.trim(),
+            username: newUsername.trim(),
+            password: newPassword,
+          },
+        },
+      });
+      setCreateVisible(false);
+      Alert.alert(t("common.success"), t("administration.userCreated"));
+      refetch();
+    } catch (e: any) {
+      Alert.alert(t("common.error"), e?.message || "");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    Alert.alert(
+      t("administration.deleteUserConfirmTitle"),
+      t("administration.deleteUserConfirmMsg"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("common.continue"),
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              t("administration.deleteUserFinalTitle"),
+              t("administration.deleteUserFinalMsg"),
+              [
+                { text: t("common.cancel"), style: "cancel" },
+                {
+                  text: t("common.delete"),
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await deleteUser({ variables: { userId } });
+                      Alert.alert(
+                        t("common.success"),
+                        t("administration.userDeleted")
+                      );
+                      refetch();
+                    } catch (e: any) {
+                      Alert.alert(
+                        t("common.error"),
+                        e?.message || ""
+                      );
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
 
   const handleRefresh = async () => {
     await refetch();
@@ -109,7 +193,7 @@ export default function UserManagement() {
   });
 
   const renderUserItem = ({ item }: { item: UserFragment }) => (
-    <UserListItem user={item} />
+    <UserListItem user={item} onDelete={handleDeleteUser} />
   );
 
   return (
@@ -122,6 +206,8 @@ export default function UserManagement() {
         <Text variant="bodyMedium" style={styles.statsText}>
           {t("administration.totalUsers")}: {users.length}
         </Text>
+        <View style={{ flex: 1 }} />
+        <IconButton icon="account-plus" size={22} onPress={handleCreateUser} />
       </View>
 
       {/* Search Filter */}
@@ -170,6 +256,50 @@ export default function UserManagement() {
           scrollEnabled={false}
         />
       )}
+
+      <DetailModal
+        visible={createVisible}
+        onDismiss={() => setCreateVisible(false)}
+        title={t("administration.createUserTitle")}
+        icon="account-plus"
+        actions={{
+          cancel: {
+            label: t("common.cancel"),
+            onPress: () => setCreateVisible(false),
+          },
+          confirm: {
+            label: t("common.create"),
+            onPress: confirmCreateUser,
+            loading: creating,
+            disabled: !newEmail || !newUsername || !newPassword,
+          },
+        }}
+      >
+        <TextInput
+          mode="outlined"
+          label={t("administration.email")}
+          value={newEmail}
+          onChangeText={setNewEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          style={{ marginBottom: 12 }}
+        />
+        <TextInput
+          mode="outlined"
+          label={t("administration.username")}
+          value={newUsername}
+          onChangeText={setNewUsername}
+          autoCapitalize="none"
+          style={{ marginBottom: 12 }}
+        />
+        <TextInput
+          mode="outlined"
+          label={t("administration.password")}
+          value={newPassword}
+          onChangeText={setNewPassword}
+          secureTextEntry
+        />
+      </DetailModal>
     </PaperScrollView>
   );
 }

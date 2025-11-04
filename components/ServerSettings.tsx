@@ -207,7 +207,13 @@ const settingSections: Record<string, SectionConfig> = {
     icon: "paperclip",
     settings: [
       ServerSettingType.AttachmentsEnabled,
-      ServerSettingType.IconUploaderEnabled,
+      {
+        key: ServerSettingType.IconUploaderEnabled,
+        dependsOn: {
+          field: ServerSettingType.AttachmentsEnabled,
+          values: [true],
+        },
+      },
       {
         key: ServerSettingType.AttachmentsStoragePath,
         dependsOn: {

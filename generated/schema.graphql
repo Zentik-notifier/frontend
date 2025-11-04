@@ -24,6 +24,12 @@ type AccessTokenResponseDto {
   tokenStored: Boolean!
 }
 
+input AdminCreateUserInput {
+  email: String!
+  password: String!
+  username: String!
+}
+
 input ApproveSystemAccessTokenRequestDto {
   expiresAt: String
 }
@@ -520,6 +526,8 @@ input MobileAppleAuthDto {
 }
 
 type Mutation {
+  adminCreateUser(input: AdminCreateUserInput!): User!
+  adminDeleteUser(userId: String!): Boolean!
   appleConnectMobile(input: MobileAppleAuthDto!): Boolean!
   appleLoginMobile(input: MobileAppleAuthDto!): LoginResponse!
   approveSystemAccessTokenRequest(id: String!, input: ApproveSystemAccessTokenRequestDto): SystemAccessTokenRequest!

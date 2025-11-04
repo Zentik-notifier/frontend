@@ -1078,6 +1078,16 @@ query GetAllUsers {
   }
 }
 
+mutation AdminCreateUser($input: AdminCreateUserInput!) {
+  adminCreateUser(input: $input) {
+    ...UserFragment
+  }
+}
+
+mutation AdminDeleteUser($userId: String!) {
+  adminDeleteUser(userId: $userId)
+}
+
 # Admin: Get single user details
 query GetUserById($id: String!) {
   user(id: $id) {

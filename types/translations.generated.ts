@@ -1085,6 +1085,8 @@ export interface Translation {
     save: string;
     importing: string;
     delete: string;
+    create: string;
+    continue: string;
     noConnection: string;
     updateAvailable: string;
     reset: string;
@@ -1625,6 +1627,7 @@ export interface Translation {
     errorLoadingUsers: string;
     failedToLoadUsers: string;
     retry: string;
+    password: string;
     confirm: string;
     cannotModifyOwnRole: string;
     cannotModifyOwnRoleMessage: string;
@@ -1656,6 +1659,13 @@ export interface Translation {
     tryDifferentSearch: string;
     noUsers: string;
     noUsersSubtext: string;
+    createUserTitle: string;
+    userCreated: string;
+    userDeleted: string;
+    deleteUserConfirmTitle: string;
+    deleteUserConfirmMsg: string;
+    deleteUserFinalTitle: string;
+    deleteUserFinalMsg: string;
     systemSettings: string;
     systemTokensTitle: string;
     systemTokensDescription: string;
