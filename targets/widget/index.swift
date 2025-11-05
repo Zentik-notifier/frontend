@@ -7,6 +7,9 @@ struct exportWidgets: WidgetBundle {
         AllNotificationsWidget()
         UnreadNotificationsWidget()
         widgetControl()
+        if #available(iOS 16.1, *) {
+            NotificationLiveActivity()
+        }
         WidgetLiveActivity()
     }
 }
