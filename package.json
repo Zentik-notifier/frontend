@@ -2,7 +2,7 @@
   "name": "zentik-mobile",
   "main": "index.js",
   "version": "0.1.98",
-  "dockerVersion": "0.0.90",
+  "dockerVersion": "0.0.91",
   "scripts": {
     "start": "expo start",
     "eas-build-post-install": "node scripts/fix-share-extension-entitlements.js",
