@@ -27,6 +27,7 @@ type AccessTokenResponseDto {
 input AdminCreateUserInput {
   email: String!
   password: String!
+  skipEmailConfirmation: Boolean
   username: String!
 }
 
@@ -733,6 +734,7 @@ type OAuthProviderPublicDto {
   iconUrl: String
   id: String!
   name: String!
+  providerKey: String!
   textColor: String
   type: OAuthProviderType!
 }

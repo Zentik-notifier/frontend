@@ -127,7 +127,6 @@ export default function UserManagement() {
         },
       });
       setCreateVisible(false);
-      Alert.alert(t("common.success"), t("administration.userCreated"));
       refetch();
     } catch (e: any) {
       Alert.alert(t("common.error"), e?.message || "");
@@ -143,35 +142,18 @@ export default function UserManagement() {
       [
         { text: t("common.cancel"), style: "cancel" },
         {
-          text: t("common.continue"),
+          text: t("common.delete"),
           style: "destructive",
-          onPress: () => {
-            Alert.alert(
-              t("administration.deleteUserFinalTitle"),
-              t("administration.deleteUserFinalMsg"),
-              [
-                { text: t("common.cancel"), style: "cancel" },
-                {
-                  text: t("common.delete"),
-                  style: "destructive",
-                  onPress: async () => {
-                    try {
-                      await deleteUser({ variables: { userId } });
-                      Alert.alert(
-                        t("common.success"),
-                        t("administration.userDeleted")
-                      );
-                      refetch();
-                    } catch (e: any) {
-                      Alert.alert(
-                        t("common.error"),
-                        e?.message || ""
-                      );
-                    }
-                  },
-                },
-              ]
-            );
+          onPress: async () => {
+            try {
+              await deleteUser({ variables: { userId } });
+              refetch();
+            } catch (e: any) {
+              Alert.alert(
+                t("common.error"),
+                e?.message || ""
+              );
+            }
           },
         },
       ]

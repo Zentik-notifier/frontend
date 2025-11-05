@@ -839,6 +839,7 @@ fragment OAuthProviderPublicFragment on OAuthProviderPublicDto {
   iconUrl
   color
   textColor
+  providerKey
 }
 
 fragment OAuthProviderFragment on OAuthProvider {

@@ -14,6 +14,7 @@ import { useNavigationUtils } from "@/utils/navigation";
 import React, { useMemo } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Text, useTheme } from "react-native-paper";
+import * as Clipboard from "expo-clipboard";
 import BucketIcon from "./BucketIcon";
 import SwipeableItem, { MenuItem } from "./SwipeableItem";
 
@@ -70,6 +71,12 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
     navigateToEditBucket(bucketId, false);
   };
 
+  const copyMagicCode = async () => {
+    if (bucket.userBucket?.magicCode) {
+      await Clipboard.setStringAsync(bucket.userBucket.magicCode);
+    }
+  };
+
   const handleDeletePress = async () => {
     if (canDelete) {
       await deleteBucket(bucket.id);
@@ -96,12 +103,24 @@ const SwipeableBucketItem: React.FC<SwipeableBucketItemProps> = ({
       onPress: () => editBucket(bucket.id),
     });
 
+    // Add magic code copy option if magic code exists
+    if (bucket.userBucket?.magicCode) {
+      items.push({
+        id: "copyMagicCode",
+        label: `${t("common.copy")} Magic Code`,
+        icon: "content-copy",
+        onPress: copyMagicCode,
+      });
+    }
+
     return items;
   }, [
     t,
     bucket.id,
     bucket.name,
+    bucket.userBucket?.magicCode,
     editBucket,
+    copyMagicCode,
     canDelete,
     isSharedWithMe,
     handleDeletePress,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Linking } from 'react-native';
-import { parseZentikLink, createInviteLink } from '@/utils/universal-links';
+import { parseZentikLink } from '@/utils/universal-links';
 
 export function useInviteCodeDeepLink() {
   const [inviteCode, setInviteCode] = useState<string | null>(null);
@@ -51,7 +51,6 @@ export function useInviteCodeDeepLink() {
   return {
     inviteCode,
     clearInviteCode,
-    createInviteLink,
   };
 }
 

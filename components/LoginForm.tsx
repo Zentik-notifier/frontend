@@ -1,6 +1,9 @@
 import { OAuthSelector } from "@/components/OAuthSelector";
 import { useAppContext } from "@/contexts/AppContext";
-import { usePublicAppConfigQuery } from "@/generated/gql-operations-generated";
+import {
+  OAuthProviderPublicFragment,
+  usePublicAppConfigQuery,
+} from "@/generated/gql-operations-generated";
 import { useI18n } from "@/hooks/useI18n";
 import { settingsService } from "@/services/settings-service";
 import { useNavigationUtils } from "@/utils/navigation";
@@ -32,8 +35,11 @@ export default function LoginForm({
   }>({});
   const { login } = useAppContext();
   const { navigateToEmailConfirmation } = useNavigationUtils();
-  const { data: appConfigData } = usePublicAppConfigQuery({ fetchPolicy: 'cache-first' });
-  const socialLoginEnabled = !!appConfigData?.publicAppConfig?.socialLoginEnabled;
+  const { data: appConfigData } = usePublicAppConfigQuery({
+    fetchPolicy: "cache-first",
+  });
+  const socialLoginEnabled =
+    !!appConfigData?.publicAppConfig?.socialLoginEnabled;
 
   const validateForm = () => {
     const newErrors: { emailOrUsername?: string; password?: string } = {};
@@ -74,11 +80,12 @@ export default function LoginForm({
     }
   };
 
-  const openProviderLogin = async (provider: string) => {
+  const openProviderLogin = async (provider: OAuthProviderPublicFragment) => {
     try {
       const baseWithPrefix = settingsService.getApiBaseWithPrefix();
       const redirect = createOAuthRedirectLink();
-      const url = `${baseWithPrefix}/auth/${provider}?redirect=${encodeURIComponent(
+      const providerKey = provider.providerKey;
+      const url = `${baseWithPrefix}/auth/${providerKey}?redirect=${encodeURIComponent(
         redirect
       )}&locale=${encodeURIComponent(locale)}`;
 

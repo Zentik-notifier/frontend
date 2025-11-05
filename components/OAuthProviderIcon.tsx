@@ -1,5 +1,6 @@
 import {
   OAuthProviderFragment,
+  OAuthProviderPublicFragment,
   OAuthProviderType,
   useAllOAuthProvidersQuery,
 } from "@/generated/gql-operations-generated";
@@ -10,7 +11,7 @@ import { Icon } from "react-native-paper";
 
 type Props = {
   providerType: OAuthProviderType;
-  provider?: OAuthProviderFragment;
+  provider?: OAuthProviderPublicFragment;
   size?: number; // outer container size (square)
   iconSize?: number; // inner icon size
   backgroundColor?: string;

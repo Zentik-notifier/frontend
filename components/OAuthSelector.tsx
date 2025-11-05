@@ -21,7 +21,7 @@ import {
 import OAuthProviderIcon from "./OAuthProviderIcon";
 
 type Props = {
-  onProviderSelect: (providerId: string) => void;
+  onProviderSelect: (provider: OAuthProviderPublicFragment) => void;
   disabled?: boolean;
 };
 
@@ -46,16 +46,13 @@ export function OAuthSelector({ onProviderSelect, disabled }: Props) {
         return [
           {
             __typename: "OAuthProviderPublicDto",
-            clientId: "",
-            clientSecret: "",
-            scopes: [],
-            textColor: "",
-            isEnabled: true,
             id: "apple_signin",
             type: OAuthProviderType.AppleSignin,
             name: "Apple Sign-In",
             iconUrl: "https://www.apple.com/favicon.ico",
             color: "#000000",
+            textColor: "#FFFFFF",
+            providerKey: "apple_signin",
           } as OAuthProviderPublicFragment,
           ...providersSrc,
         ];
@@ -164,8 +161,6 @@ export function OAuthSelector({ onProviderSelect, disabled }: Props) {
             optionsContainer: {
               width: anchorWidth || undefined,
               padding: 0,
-              // marginBottom: 52,
-              // marginTop: -(estimatedMenuHeight + 8),
               marginTop: -52,
               backgroundColor: theme.colors.surface,
               borderColor: theme.colors.outlineVariant,
@@ -180,8 +175,7 @@ export function OAuthSelector({ onProviderSelect, disabled }: Props) {
                   if (p.type === OAuthProviderType.AppleSignin) {
                     handleAppleSignIn();
                   } else {
-                    const slug = String(p.type).toLowerCase();
-                    onProviderSelect(slug);
+                    onProviderSelect(p);
                   }
                 }}
               >

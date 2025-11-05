@@ -81,7 +81,14 @@ export default function CreateOAuthProviderForm({
     if (provider && isEditing) {
       setFormData({
         name: provider.name || "",
-        providerId: "",
+        providerId: (() => {
+          try {
+            const cfg = provider.additionalConfig ? JSON.parse(provider.additionalConfig) : undefined;
+            return cfg?.customTypeId || "";
+          } catch {
+            return "";
+          }
+        })(),
         clientId: provider.clientId || "",
         clientSecret: provider.clientSecret || "",
         scopes: provider.scopes?.join(", ") || "",
@@ -157,6 +164,7 @@ export default function CreateOAuthProviderForm({
 
     if (isCustomProvider) {
       // For custom providers, include all fields
+      baseInput.type = OAuthProviderType.Custom;
       baseInput.name = formData.name;
       baseInput.clientId = formData.clientId;
       baseInput.clientSecret = formData.clientSecret;
@@ -168,6 +176,25 @@ export default function CreateOAuthProviderForm({
       baseInput.tokenUrl = formData.tokenUrl || null;
       baseInput.userInfoUrl = formData.userInfoUrl || null;
       baseInput.isEnabled = formData.isEnabled;
+      
+      // Add custom provider ID to additionalConfig for callback URL generation
+      if (formData.providerId) {
+        // Preserve existing additionalConfig and add/update customTypeId
+        let existingConfig = {};
+        if (isEditing && provider?.additionalConfig) {
+          try {
+            existingConfig = JSON.parse(provider.additionalConfig);
+          } catch (error) {
+            console.warn('Failed to parse existing additionalConfig:', error);
+          }
+        }
+        
+        const additionalConfig = {
+          ...existingConfig,
+          customTypeId: formData.providerId,
+        };
+        baseInput.additionalConfig = JSON.stringify(additionalConfig);
+      }
     } else {
       baseInput.clientId = formData.clientId;
       if (!isAppleProvider) {

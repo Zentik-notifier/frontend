@@ -1,6 +1,5 @@
 import { Platform } from 'react-native';
 
-const PWA_DOMAIN = 'https://notifier.zentik.app';
 const isDev = process.env.EXPO_PUBLIC_APP_VARIANT === "development";
 
 /**
@@ -11,16 +10,6 @@ export const getCustomScheme = (): string => {
 };
 
 /**
- * Creates a universal link for invite code redemption
- * @param code - Invite code
- * @returns Universal link that redirects to the app
- */
-export const createInviteLink = (code: string): string => {
-  const envParam = isDev ? '?env=dev' : '';
-  return `${PWA_DOMAIN}/invite/${code}${envParam}`;
-};
-
-/**
  * Creates a universal link for OAuth callback
  * @param provider - OAuth provider name (e.g., 'google', 'github')
  * @returns Universal link for OAuth redirect
@@ -28,27 +17,10 @@ export const createInviteLink = (code: string): string => {
 export const createOAuthRedirectLink = (): string => {
   const scheme = getCustomScheme();
   if (Platform.OS === 'web') {
-    try {
-      // Use current origin to support dev and prod seamlessly
-      const origin = typeof window !== 'undefined' && window.location ? window.location.origin : PWA_DOMAIN;
-      return `${origin}/oauth`;
-    } catch {
-      // Fallback to PWA domain if window is not available
-      return `${PWA_DOMAIN}/oauth`;
-    }
+    return `${window.location.origin}/oauth`;
   }
   return `${scheme}:///oauth`;
 
-};
-
-/**
- * Creates a universal link for notification detail
- * @param notificationId - Notification ID
- * @returns Universal link to notification
- */
-export const createNotificationLink = (notificationId: string): string => {
-  const envParam = isDev ? '?env=dev' : '';
-  return `${PWA_DOMAIN}/notifications/${notificationId}${envParam}`;
 };
 
 /**

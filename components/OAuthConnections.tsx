@@ -1,6 +1,7 @@
 import { useAppContext } from "@/contexts/AppContext";
 import {
   OAuthProviderFragment,
+  OAuthProviderPublicFragment,
   OAuthProviderType,
   useGetMyIdentitiesQuery,
   usePublicAppConfigQuery,
@@ -53,9 +54,9 @@ export default function OAuthConnections() {
 
   // Dynamically include Apple Sign In on iOS if available (not returned by backend providers)
   const providersWithApple = (() => {
-    const list: OAuthProviderFragment[] = [
+    const list: OAuthProviderPublicFragment[] = [
       ...availableProviders,
-    ] as OAuthProviderFragment[];
+    ];
     const hasAppleSignin = list.some(
       (p: any) => p.type === OAuthProviderType.AppleSignin
     );
@@ -67,7 +68,8 @@ export default function OAuthConnections() {
         iconUrl: null,
         textColor: "#000000",
         type: OAuthProviderType.AppleSignin,
-      } as OAuthProviderFragment);
+        providerKey: "apple_signin",
+      } as OAuthProviderPublicFragment);
     }
     return list;
   })();
@@ -99,11 +101,11 @@ export default function OAuthConnections() {
     );
   };
 
-  const handleConnect = async (providerType: OAuthProviderType) => {
+  const handleConnect = async (provider: OAuthProviderPublicFragment) => {
     try {
-      setConnectingProvider(providerType);
+      setConnectingProvider(provider.type);
 
-      console.log(`🔗 Starting OAuth connection for provider: ${providerType}`);
+      console.log(`🔗 Starting OAuth connection for provider: ${provider.name} (${provider.type})`);
 
       // Get the current access token to pass for authentication
       const accessToken = settingsService.getAuthData().accessToken;
@@ -119,7 +121,7 @@ export default function OAuthConnections() {
       const redirect = createOAuthRedirectLink();
 
       // Native Apple Sign In connect flow (no login): do not open browser
-      if (providerType === OAuthProviderType.AppleSignin) {
+      if (provider.type === OAuthProviderType.AppleSignin) {
         if (Platform.OS !== "ios" || !appleAvailable) {
           Alert.alert(
             t("common.error"),
@@ -175,10 +177,14 @@ export default function OAuthConnections() {
       console.log("🔗 Redirect URI:", redirect);
       console.log("🔗 State with connection context:", stateData);
 
+      // Build the OAuth URL using the same method as LoginForm
+      const providerKey = provider.providerKey;
+      const baseUrl = `${baseWithPrefix}/auth/${providerKey}`;
+
       if (Platform.OS === "web") {
         // Build redirect back to settings (full-page redirect on web)
         const settingsReturnUrl = `${window.location.origin}/(desktop)/(settings)/user/profile`;
-        const url = `${baseWithPrefix}/auth/${providerType}?state=${encodeURIComponent(
+        const url = `${baseUrl}?state=${encodeURIComponent(
           state
         )}&redirect=${encodeURIComponent(settingsReturnUrl)}`;
         console.log("🔗 OAuth connection URL:", url);
@@ -187,9 +193,7 @@ export default function OAuthConnections() {
         return;
       } else {
         // Mobile: use the redirect from stateData
-        const url = `${baseWithPrefix}/auth/${providerType}?state=${encodeURIComponent(
-          state
-        )}`;
+        const url = `${baseUrl}?state=${encodeURIComponent(state)}`;
         console.log("🔗 OAuth connection URL:", url);
         const result = await openBrowserAsync(url, {
           showInRecents: false,
@@ -361,7 +365,7 @@ export default function OAuthConnections() {
                       <Button
                         mode="outlined"
                         compact
-                        onPress={() => handleConnect(provider.type)}
+                        onPress={() => handleConnect(provider)}
                         disabled={
                           connectingProvider === provider.type ||
                           isOfflineAuth ||

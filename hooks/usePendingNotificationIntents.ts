@@ -4,7 +4,6 @@ import { Linking } from 'react-native';
 import { settingsRepository } from '@/services/settings-repository';
 import { apolloClient } from '@/config/apollo-client';
 import { MarkNotificationAsReadDocument } from '@/generated/gql-operations-generated';
-import { createNotificationLink } from '@/utils/universal-links';
 
 export function usePendingNotificationIntents() {
   const { navigateToNotificationDetail } = useNavigationUtils();
