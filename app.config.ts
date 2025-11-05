@@ -9,7 +9,7 @@ const bundleIdentifier = isDev ? "com.apocaliss92.zentik.dev" : "com.apocaliss92
 const name = isDev ? "Zentik Dev" : "Zentik";
 const scheme = isDev ? "zentik.dev" : "zentik";
 
-const commonEntitlements = {
+export const commonEntitlements = {
     "com.apple.security.application-groups": [
         `group.${bundleIdentifier}`
     ],
@@ -230,6 +230,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             "expo-video",
             "expo-audio",
             "expo-media-library",
+            "@bacons/apple-targets",
             ["./plugins/withIosNotificationExtensions/withIosNotificationExtensions.ts"],
             ["./plugins/withAndroidManifestFix/withAndroidManifestFix.ts"],
             ["./plugins/withCustomAppDelegate/withCustomAppDelegate.ts"]

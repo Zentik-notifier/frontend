@@ -25,7 +25,7 @@ const scheme = getCustomScheme();
 
 function DeepLinkHandler() {
   const { refreshUserData } = useAppContext();
-  const { navigateToOAuth } = useNavigationUtils();
+  const { navigateToOAuth, navigateToNotificationDetail } = useNavigationUtils();
 
   useEffect(() => {
     const subscription = Linking.addEventListener("url", async ({ url }) => {
@@ -33,28 +33,41 @@ function DeepLinkHandler() {
 
       try {
         const parsed = Linking.parse(url);
-        if (parsed?.scheme === scheme && parsed?.path === "oauth") {
-          const hash = url.split("#")[1] || "";
-          const params = new URLSearchParams(hash);
-          const accessToken = params.get("accessToken");
-          const refreshToken = params.get("refreshToken");
-          const connected = params.get("connected");
-          const provider = params.get("provider");
-          const code = params.get("code");
-          const sessionId = params.get("sessionId");
-          const error = params.get("error");
-          const errorDescription = params.get("error_description");
-          const oauthParams = new URLSearchParams();
-          if (accessToken) oauthParams.set("accessToken", accessToken);
-          if (refreshToken) oauthParams.set("refreshToken", refreshToken);
-          if (connected) oauthParams.set("connected", connected);
-          if (provider) oauthParams.set("provider", provider);
-          if (code) oauthParams.set("code", code);
-          if (sessionId) oauthParams.set("sessionId", sessionId);
-          if (error) oauthParams.set("error", error);
-          if (errorDescription) oauthParams.set("error_description", errorDescription);
-          navigateToOAuth(oauthParams.toString());
-          return;
+        if (parsed?.scheme === scheme) {
+          // Handle OAuth deep link
+          if (parsed?.path === "oauth") {
+            const hash = url.split("#")[1] || "";
+            const params = new URLSearchParams(hash);
+            const accessToken = params.get("accessToken");
+            const refreshToken = params.get("refreshToken");
+            const connected = params.get("connected");
+            const provider = params.get("provider");
+            const code = params.get("code");
+            const sessionId = params.get("sessionId");
+            const error = params.get("error");
+            const errorDescription = params.get("error_description");
+            const oauthParams = new URLSearchParams();
+            if (accessToken) oauthParams.set("accessToken", accessToken);
+            if (refreshToken) oauthParams.set("refreshToken", refreshToken);
+            if (connected) oauthParams.set("connected", connected);
+            if (provider) oauthParams.set("provider", provider);
+            if (code) oauthParams.set("code", code);
+            if (sessionId) oauthParams.set("sessionId", sessionId);
+            if (error) oauthParams.set("error", error);
+            if (errorDescription) oauthParams.set("error_description", errorDescription);
+            navigateToOAuth(oauthParams.toString());
+            return;
+          }
+          
+          // Handle notification deep link (zentik://notification/:id)
+          if (parsed?.path?.startsWith("notification/")) {
+            const notificationId = parsed.path.split("/")[1];
+            if (notificationId) {
+              console.log("🔗 Opening notification from deep link:", notificationId);
+              navigateToNotificationDetail(notificationId);
+              return;
+            }
+          }
         }
       } catch (e) {
         console.error("🔗 Error handling deep link:", e);
@@ -62,7 +75,7 @@ function DeepLinkHandler() {
     });
 
     return () => subscription.remove();
-  }, [refreshUserData]);
+  }, [refreshUserData, navigateToOAuth, navigateToNotificationDetail]);
 
   return null;
 }

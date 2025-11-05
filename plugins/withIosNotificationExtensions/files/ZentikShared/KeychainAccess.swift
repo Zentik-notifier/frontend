@@ -14,12 +14,13 @@ public class KeychainAccess {
     /// Get main app bundle identifier
     public static func getMainBundleIdentifier() -> String {
         if let bundleId = Bundle.main.bundleIdentifier {
-            // Remove extension suffixes (e.g., ".ZentikNotificationService", ".ZentikNotificationContentExtension")
+            // Remove extension suffixes (e.g., ".ZentikNotificationService", ".ZentikNotificationContentExtension", ".WidgetExtension", "widget")
             let extensionSuffixes = [
                 "NotificationServiceExtension",
                 "NotificationContentExtension",
                 "ZentikNotificationService",
-                "ZentikNotificationContentExtension"
+                "ZentikNotificationContentExtension",
+                "WidgetExtension"
             ]
             
             let components = bundleId.components(separatedBy: ".")

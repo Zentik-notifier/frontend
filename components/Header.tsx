@@ -28,7 +28,7 @@ const ROUTES_WITH_HOME_BUTTON: string[] = [
   "/(phone)/(admin)",
   "/(desktop)/(settings)",
   "/(desktop)/(admin)",
-  // "/(phone)/(home)/notification/[id]",
+  "/(phone)/(home)/notification/[id]",
 ];
 
 const HOME_ROUTES: string[] = [
