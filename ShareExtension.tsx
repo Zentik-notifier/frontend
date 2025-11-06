@@ -299,7 +299,18 @@ function ShareExtensionContent(props: InitialProps) {
     const backgroundColor = bucket.color || "#6200EE";
     const initials = bucket.name.substring(0, 2).toUpperCase();
 
-    // Priority: iconAttachmentUuid > icon URL > color + initials
+    // Priority: iconUrl (preferred) > iconAttachmentUuid > icon URL > color + initials
+    if (bucket.iconUrl && bucket.iconUrl.startsWith("http")) {
+      return (
+        <Image
+          source={{ uri: bucket.iconUrl }}
+          style={styles.bucketIcon}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
+      );
+    }
+
     if (bucket.iconAttachmentUuid) {
       const apiUrl = settingsService.getApiUrl();
       if (apiUrl) {

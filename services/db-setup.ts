@@ -31,6 +31,7 @@ export interface WebStorageDB extends DBSchema {
       created_at: string; // ISO timestamp
       read_at: string; // ISO timestamp
       bucket_id: string;
+      bucket_icon_url: string;
     };
   };
   buckets: {
@@ -263,6 +264,19 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
       }
     }
 
+    // Migration: Add bucket_icon_url column to notifications if it doesn't exist
+    try {
+      await db.execAsync(`
+        ALTER TABLE notifications ADD COLUMN bucket_icon_url TEXT;
+      `);
+      console.log('[DB] Migration: Added bucket_icon_url column to notifications');
+    } catch (error: any) {
+      // Column already exists or other error - safe to ignore
+      if (!error?.message?.includes('duplicate column name')) {
+        console.warn('[DB] Migration warning (safe to ignore if column exists):', error?.message);
+      }
+    }
+
     await db.execAsync(`
       CREATE INDEX IF NOT EXISTS idx_cache_item_downloaded_at ON cache_item(downloaded_at);
     `);
@@ -310,6 +324,7 @@ export async function openSharedCacheDb(): Promise<SQLiteDatabase> {
         created_at TEXT NOT NULL,
         read_at TEXT,
         bucket_id TEXT NOT NULL,
+        bucket_icon_url TEXT,
         has_attachments INTEGER NOT NULL DEFAULT 0 CHECK (has_attachments IN (0,1)),
         fragment TEXT NOT NULL
       );
@@ -428,7 +443,8 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
           notificationsStore.createIndex('created_at', 'created_at');
           notificationsStore.createIndex('read_at', 'read_at');
           notificationsStore.createIndex('bucket_id', 'bucket_id');
-        } else if (oldVersion < 7) {
+          notificationsStore.createIndex('bucket_icon_url', 'bucket_icon_url');
+        } else if (oldVersion < 8) {
           // Upgrade existing store to add indices
           const notificationsStore = transaction.objectStore('notifications');
           if (!notificationsStore.indexNames.contains('created_at')) {
@@ -439,6 +455,9 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
           }
           if (!notificationsStore.indexNames.contains('bucket_id')) {
             notificationsStore.createIndex('bucket_id', 'bucket_id');
+          }
+          if (!notificationsStore.indexNames.contains('bucket_icon_url')) {
+            notificationsStore.createIndex('bucket_icon_url', 'bucket_icon_url');
           }
         }
         
@@ -482,6 +501,7 @@ export async function openWebStorageDb(): Promise<IDBPDatabase<WebStorageDB>> {
  * - created_at: notification.createdAt (required)
  * - read_at: notification.readAt (nullable)
  * - bucket_id: notification.message.bucket.id (required)
+ * - bucket_icon_url: notification.message.bucket.iconUrl (nullable)
  * - has_attachments: boolean flag based on notification.message.attachments.length
  * - fragment: complete NotificationFragment as JSON string
  *
@@ -494,6 +514,7 @@ export function parseNotificationForDB(notification: NotificationFragment) {
     created_at: notification.createdAt,
     read_at: notification.readAt,
     bucket_id: notification.message.bucket.id,
+    bucket_icon_url: notification.message.bucket.iconUrl || null,
     has_attachments: notification.message.attachments && notification.message.attachments.length > 0 ? 1 : 0,
     fragment: JSON.stringify(notification)
   };

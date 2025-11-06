@@ -132,12 +132,13 @@ class NotificationService: UNNotificationServiceExtension {
 
     var senderAvatarImageData: Data?
     
-    // Get bucket icon from cache or generate temporary placeholder
+    // Get bucket icon from cache or download from iconUrl or generate temporary placeholder
     if let bucketId = senderId, let bucketName = chatRoomName {
       senderAvatarImageData = MediaAccess.getBucketIconFromSharedCache(
         bucketId: bucketId,
         bucketName: bucketName,
-        bucketColor: bucketColor
+        bucketColor: bucketColor,
+        iconUrl: senderThumbnail
       )
         
       if senderAvatarImageData != nil {
@@ -1659,7 +1660,7 @@ class NotificationService: UNNotificationServiceExtension {
       "name": userInfo["bucketName"] as? String ?? "Unknown",
       "description": NSNull(),
       "color": (userInfo["bucketColor"] as? String) ?? NSNull() as Any,
-      "icon": (userInfo["bucketIconUrl"] as? String) ?? NSNull() as Any,
+      "iconUrl": (userInfo["bucketIconUrl"] as? String) ?? NSNull() as Any,
       "createdAt": now,
       "updatedAt": now,
       "isProtected": NSNull(),

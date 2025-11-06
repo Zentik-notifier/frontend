@@ -52,8 +52,9 @@ struct NotificationProvider: TimelineProvider {
                 let notificationsWithIcons = notifications.map { notification -> WidgetNotificationData in
                     let bucketIconData = MediaAccess.getBucketIconFromSharedCache(
                         bucketId: notification.bucketId,
-                        bucketName: nil,
-                        bucketColor: nil
+                        bucketName: notification.bucketName,
+                        bucketColor: notification.bucketColor,
+                        iconUrl: notification.bucketIconUrl
                     )
                     return WidgetNotificationData(
                         notification: notification,

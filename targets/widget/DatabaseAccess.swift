@@ -662,8 +662,11 @@ public class DatabaseAccess {
         public let createdAt: String
         public let isRead: Bool
         public let bucketId: String
+        public let bucketName: String?
+        public let bucketColor: String?
+        public let bucketIconUrl: String?
         
-        public init(id: String, title: String, body: String, subtitle: String?, createdAt: String, isRead: Bool, bucketId: String) {
+        public init(id: String, title: String, body: String, subtitle: String?, createdAt: String, isRead: Bool, bucketId: String, bucketName: String? = nil, bucketColor: String? = nil, bucketIconUrl: String? = nil) {
             self.id = id
             self.title = title
             self.body = body
@@ -671,6 +674,9 @@ public class DatabaseAccess {
             self.createdAt = createdAt
             self.isRead = isRead
             self.bucketId = bucketId
+            self.bucketName = bucketName
+            self.bucketColor = bucketColor
+            self.bucketIconUrl = bucketIconUrl
         }
     }
     
@@ -734,6 +740,16 @@ public class DatabaseAccess {
                     let body = message["body"] as? String ?? ""
                     let subtitle = message["subtitle"] as? String
                     
+                    // Extract bucket name, color and icon URL from fragment
+                    var bucketName: String? = nil
+                    var bucketColor: String? = nil
+                    var bucketIconUrl: String? = nil
+                    if let bucket = message["bucket"] as? [String: Any] {
+                        bucketName = bucket["name"] as? String
+                        bucketColor = bucket["color"] as? String
+                        bucketIconUrl = bucket["iconUrl"] as? String
+                    }
+                    
                     let notification = WidgetNotification(
                         id: id,
                         title: title,
@@ -741,7 +757,10 @@ public class DatabaseAccess {
                         subtitle: subtitle,
                         createdAt: createdAt,
                         isRead: isRead,
-                        bucketId: bucketId
+                        bucketId: bucketId,
+                        bucketName: bucketName,
+                        bucketColor: bucketColor,
+                        bucketIconUrl: bucketIconUrl
                     )
                     
                     notifications.append(notification)

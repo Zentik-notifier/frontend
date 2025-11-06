@@ -37,7 +37,13 @@ export default function BucketIcon({
     userId: userId ?? undefined,
     autoFetch: true,
   });
-  const { color, icon, iconAttachmentUuid, name: bucketName } = bucket || {};
+  const {
+    color,
+    icon,
+    iconAttachmentUuid,
+    iconUrl,
+    name: bucketName,
+  } = bucket || {};
   const { navigateToDanglingBucket, navigateToBucketDetail } =
     useNavigationUtils();
 
@@ -72,29 +78,11 @@ export default function BucketIcon({
     // Helper function to load icon
     const loadOrGenerateIcon = async () => {
       try {
-        // Determine icon URL: use attachment API if UUID exists, otherwise fallback to custom icon URL
-        let iconUrlToUse: string | undefined = undefined;
-
-        if (iconAttachmentUuid) {
-          // Use attachment API (public endpoint)
-          const apiUrl = await settingsService.getApiUrl();
-          iconUrlToUse = `${apiUrl}/api/v1/attachments/${iconAttachmentUuid}/download/public`;
-        } else if (
-          icon &&
-          typeof icon === "string" &&
-          icon.startsWith("http")
-        ) {
-          // Use custom icon URL
-          iconUrlToUse = icon;
-        }
-
         // Get from cache or add to queue if not found
-        // Pass iconAttachmentUuid for stable caching (instead of full URL that may change)
         const iconUri = await mediaCache.getBucketIcon(
           bucketId,
           bucketName,
-          color ?? undefined,
-          iconUrlToUse
+          iconUrl ?? undefined
         );
 
         // await mediaCache.invalidateBucketIcon(bucketId, bucketName, bucketColor);
@@ -128,7 +116,7 @@ export default function BucketIcon({
       iconReadySubscription.unsubscribe();
       initReadySubscription.unsubscribe();
     };
-  }, [bucketId, bucketName, color, iconAttachmentUuid, uploadEnabled]);
+  }, [bucketId, bucketName, color, iconUrl, iconAttachmentUuid, uploadEnabled]);
 
   if (!bucketId) {
     return null;
@@ -227,12 +215,26 @@ export default function BucketIcon({
                 />
               </View>
             ) : !uploadEnabled &&
-              icon &&
-              typeof icon === "string" &&
-              icon.startsWith("http") ? (
-              // Attachments disabled: Show plain icon URL if available
+              ((iconUrl &&
+                typeof iconUrl === "string" &&
+                iconUrl.startsWith("http")) ||
+                (icon &&
+                  typeof icon === "string" &&
+                  icon.startsWith("http"))) ? (
+              // Attachments disabled: Show iconUrl (preferred) or icon URL if available
               <Image
-                source={{ uri: icon }}
+                source={{
+                  uri:
+                    iconUrl &&
+                    typeof iconUrl === "string" &&
+                    iconUrl.startsWith("http")
+                      ? iconUrl
+                      : icon &&
+                        typeof icon === "string" &&
+                        icon.startsWith("http")
+                      ? icon
+                      : undefined,
+                }}
                 style={{
                   width: currentSize.icon,
                   height: currentSize.icon,

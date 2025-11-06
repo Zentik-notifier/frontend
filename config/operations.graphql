@@ -142,6 +142,7 @@ fragment BucketFragment on Bucket {
   color
   icon
   iconAttachmentUuid
+  iconUrl
   createdAt
   updatedAt
   isProtected

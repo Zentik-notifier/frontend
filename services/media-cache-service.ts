@@ -73,7 +73,6 @@ export interface DownloadQueueItem {
     // For bucket-icon operations
     bucketId?: string;
     bucketName?: string;
-    bucketColor?: string;
 }
 
 export interface DownloadQueueState {
@@ -101,7 +100,6 @@ class MediaCacheService {
     // Track current bucket parameters in memory to detect changes
     private bucketParamsCache = new Map<string, {
         bucketName: string;
-        bucketColor?: string;
         iconUrl?: string;
         timestamp: number;
     }>();
@@ -404,7 +402,7 @@ class MediaCacheService {
     }
 
     private async performBucketIcon(item: DownloadQueueItem) {
-        const { bucketId, bucketName, bucketColor, url } = item;
+        const { bucketId, bucketName, url } = item;
 
         if (!bucketId || !bucketName || !url) {
             console.error('[MediaCache] ❌ Bucket icon item missing required fields');
@@ -414,7 +412,7 @@ class MediaCacheService {
         try {
             console.log(`[MediaCache] 🎭 Downloading bucket icon for ${bucketName}`, { bucketId, url });
 
-            const uri = await this.downloadAndCacheBucketIcon(bucketId, bucketName, bucketColor, url);
+            const uri = await this.downloadAndCacheBucketIcon(bucketId, bucketName, url);
             if (uri) {
                 console.log(`[MediaCache] ✅ Download complete, notifying ${this.bucketIconReady$.observers.length} observers`);
                 this.bucketIconReady$.next({ bucketId, uri });
@@ -1265,7 +1263,6 @@ class MediaCacheService {
     async getBucketIcon(
         bucketId: string,
         bucketName: string,
-        bucketColor?: string,
         iconUrl?: string,
     ): Promise<string | null> {
         await this.initialize();
@@ -1280,26 +1277,25 @@ class MediaCacheService {
             // Use iconAttachmentUuid for comparison if available (more stable than URL)
             const paramsChanged = cachedParams && (
                 cachedParams.bucketName !== bucketName ||
-                cachedParams.bucketColor !== bucketColor ||
                 (cachedParams.iconUrl !== iconUrl)
             );
 
             if (paramsChanged) {
                 // console.log(`[MediaCache] 🔄 Bucket params changed for ${bucketName}`, {
                 //     old: cachedParams,
-                //     new: { bucketName, bucketColor, iconUrl, iconAttachmentUuid }
+                //     new: { bucketName, iconUrl, iconAttachmentUuid }
                 // });
                 // console.log(`[MediaCache] 🗑️ Invalidating cache for ${bucketName}`);
-                await this.invalidateBucketIcon(bucketId, bucketName, bucketColor);
+                await this.invalidateBucketIcon(bucketId, bucketName);
                 // Update timestamp for invalidated icon
-                this.bucketParamsCache.set(bucketId, { bucketName, bucketColor, iconUrl, timestamp: currentTimestamp });
+                this.bucketParamsCache.set(bucketId, { bucketName, iconUrl, timestamp: currentTimestamp });
             } else if (!cachedParams) {
                 // First time seeing this bucket
-                this.bucketParamsCache.set(bucketId, { bucketName, bucketColor, iconUrl, timestamp: currentTimestamp });
+                this.bucketParamsCache.set(bucketId, { bucketName, iconUrl, timestamp: currentTimestamp });
             }
 
             // Generate cache key
-            const cacheKey = this.generateBucketIconCacheKey(bucketId, bucketName, bucketColor);
+            const cacheKey = this.generateBucketIconCacheKey(bucketId, bucketName);
 
             // console.log(`[MediaCache] 🔍 Checking cache for ${bucketName}`, { cacheKey, iconUrl });
 
@@ -1307,7 +1303,7 @@ class MediaCacheService {
             const timestamp = this.bucketParamsCache.get(bucketId)?.timestamp || Date.now();
 
             // Use the same method for both web and mobile
-            const cachedUri = await this.repo.getBucketIconFromSharedCache(bucketId, bucketName, bucketColor, timestamp);
+            const cachedUri = await this.repo.getBucketIconFromSharedCache(bucketId, bucketName, timestamp);
             if (cachedUri) {
                 return cachedUri;
             }
@@ -1315,7 +1311,7 @@ class MediaCacheService {
             // Not in cache - add to queue for download if iconUrl exists
             // Backend automatically generates icons, so iconUrl should always exist
             if (iconUrl) {
-                await this.addBucketIconToQueue(bucketId, bucketName, bucketColor, iconUrl);
+                await this.addBucketIconToQueue(bucketId, bucketName, iconUrl);
                 return null;
             }
             return null;
@@ -1331,7 +1327,6 @@ class MediaCacheService {
     private async addBucketIconToQueue(
         bucketId: string,
         bucketName: string,
-        bucketColor: string | undefined,
         iconUrl: string
     ): Promise<void> {
         const key = `BUCKET_ICON::${bucketId}::bucket-icon`;
@@ -1355,7 +1350,6 @@ class MediaCacheService {
             url: iconUrl,
             bucketId,
             bucketName,
-            bucketColor,
             mediaType: MediaType.Icon,
             op: 'bucket-icon',
             timestamp: Date.now(),
@@ -1374,11 +1368,10 @@ class MediaCacheService {
     private async downloadAndCacheBucketIcon(
         bucketId: string,
         bucketName: string,
-        bucketColor: string | undefined,
         iconUrl: string
     ): Promise<string | null> {
         try {
-            const cacheKey = this.generateBucketIconCacheKey(bucketId, bucketName, bucketColor);
+            const cacheKey = this.generateBucketIconCacheKey(bucketId, bucketName);
             const downloadTimestamp = Date.now();
             const standardSize = 200;
 
@@ -1464,7 +1457,7 @@ class MediaCacheService {
                 await this.ensureDirectories();
 
                 // Download directly to final location (no resize)
-                const finalUri = await this.getBucketIconFilePath(bucketId, bucketName, bucketColor);
+                const finalUri = await this.getBucketIconFilePath(bucketId, bucketName);
                 const finalFile = new File(finalUri);
 
                 // Delete final file if exists
@@ -1500,7 +1493,7 @@ class MediaCacheService {
      * Generate cache key for bucket icon (used for web IndexedDB)
      * Simple naming: just bucketId.png
      */
-    private generateBucketIconCacheKey(bucketId: string, bucketName: string, bucketColor?: string): string {
+    private generateBucketIconCacheKey(bucketId: string, bucketName: string): string {
         return `BUCKET_ICON/${bucketId}.png`;
     }
 
@@ -1508,7 +1501,7 @@ class MediaCacheService {
      * Get bucket icon file path (for mobile filesystem)
      * Simple naming: just bucketId.png
      */
-    private async getBucketIconFilePath(bucketId: string, bucketName: string, bucketColor?: string): Promise<string> {
+    private async getBucketIconFilePath(bucketId: string, bucketName: string): Promise<string> {
         const bucketIconDir = `${this.cacheDir}BUCKET_ICON/`;
         const fileName = `${bucketId}.png`;
         return `${bucketIconDir}${fileName}`;
@@ -1517,7 +1510,7 @@ class MediaCacheService {
     /**
      * Invalidate cached bucket icon using saved parameters
      */
-    async invalidateBucketIcon(bucketId: string, newBucketName?: string, newBucketColor?: string): Promise<void> {
+    async invalidateBucketIcon(bucketId: string, newBucketName?: string): Promise<void> {
         try {
             // Get old params from in-memory cache
             const oldParams = this.bucketParamsCache.get(bucketId);
@@ -1525,7 +1518,7 @@ class MediaCacheService {
             if (!oldParams) {
                 // No old params cached, try to delete file anyway (file path is based on bucketId only)
                 if (!isWeb && newBucketName) {
-                    const fileUri = await this.getBucketIconFilePath(bucketId, newBucketName, newBucketColor);
+                    const fileUri = await this.getBucketIconFilePath(bucketId, newBucketName);
                     const file = new File(fileUri);
                     if (file.exists) {
                         await file.delete();
@@ -1541,7 +1534,6 @@ class MediaCacheService {
             const oldCacheKey = this.generateBucketIconCacheKey(
                 bucketId,
                 oldParams.bucketName,
-                oldParams.bucketColor
             );
 
             if (isWeb) {
@@ -1555,7 +1547,6 @@ class MediaCacheService {
                 const oldFileUri = await this.getBucketIconFilePath(
                     bucketId,
                     oldParams.bucketName,
-                    oldParams.bucketColor
                 );
                 const file = new File(oldFileUri);
                 if (file.exists) {

@@ -545,7 +545,6 @@ export class MediaCacheRepository {
   async getBucketIconFromSharedCache(
     bucketId: string,
     bucketName: string,
-    bucketColor?: string,
     timestamp?: number
   ): Promise<string | null> {
     await this.ensureInitialized();

@@ -100,13 +100,14 @@ export async function saveNotificationToCache(notificationData: NotificationFrag
     } else {
       // SQLite
       await db.runAsync(
-        `INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, has_attachments, fragment)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, bucket_icon_url, has_attachments, fragment)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           parsedData.id,
           parsedData.created_at,
           parsedData.read_at,
           parsedData.bucket_id,
+          parsedData.bucket_icon_url,
           parsedData.has_attachments,
           parsedData.fragment
         ]
@@ -224,13 +225,14 @@ export async function importRawNotificationsToDB(rawNotifications: any[]): Promi
             : JSON.stringify(notification.fragment || notification);
 
           await db.runAsync(
-            `INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, has_attachments, fragment)
-             VALUES (?, ?, ?, ?, ?, ?)`,
+            `INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, bucket_icon_url, has_attachments, fragment)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
               notification.id,
               notification.created_at,
               notification.read_at,
               notification.bucket_id,
+              notification.bucket_icon_url || null,
               notification.has_attachments,
               fragmentString
             ]
@@ -414,13 +416,14 @@ export async function upsertNotificationsBatch(notifications: NotificationFragme
           }
           
           await db.runAsync(
-            `INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, has_attachments, fragment)
-             VALUES (?, ?, ?, ?, ?, ?)`,
+            `INSERT OR REPLACE INTO notifications (id, created_at, read_at, bucket_id, bucket_icon_url, has_attachments, fragment)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
               parsedData.id,
               parsedData.created_at,
               parsedData.read_at,
               parsedData.bucket_id,
+              parsedData.bucket_icon_url,
               parsedData.has_attachments,
               parsedData.fragment
             ]
@@ -632,12 +635,13 @@ export async function updateNotificationsReadStatus(notificationIds: string[], r
 
             // Save back to database
             await db.runAsync(
-              `UPDATE notifications SET created_at = ?, read_at = ?, bucket_id = ?, has_attachments = ?, fragment = ?
+              `UPDATE notifications SET created_at = ?, read_at = ?, bucket_id = ?, bucket_icon_url = ?, has_attachments = ?, fragment = ?
                WHERE id = ?`,
               [
                 updatedRecord.created_at,
                 updatedRecord.read_at,
                 updatedRecord.bucket_id,
+                updatedRecord.bucket_icon_url,
                 updatedRecord.has_attachments,
                 updatedRecord.fragment,
                 id

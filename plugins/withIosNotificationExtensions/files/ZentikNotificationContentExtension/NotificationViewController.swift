@@ -711,11 +711,13 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
             print("📱 [ContentExtension] 🎭 Getting bucket icon...")
             
             let bucketColor = userInfo["bucketColor"] as? String
+            let bucketIconUrl = userInfo["bucketIconUrl"] as? String
             
             if let bucketIconData = MediaAccess.getBucketIconFromSharedCache(
                 bucketId: bucketId,
                 bucketName: bucketName,
-                bucketColor: bucketColor
+                bucketColor: bucketColor,
+                iconUrl: bucketIconUrl
             ),
                let bucketIcon = UIImage(data: bucketIconData) {
                 imageView.image = bucketIcon
