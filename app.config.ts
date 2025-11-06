@@ -267,6 +267,20 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                                     entitlements: {
                                         ...commonEntitlements
                                     },
+                                },
+                                {
+                                    targetName: "WidgetExtension",
+                                    bundleIdentifier: `${bundleIdentifier}.WidgetExtension`,
+                                    entitlements: {
+                                        ...commonEntitlements
+                                    },
+                                },
+                                {
+                                    targetName: "WatchExtension",
+                                    bundleIdentifier: `${bundleIdentifier}.WatchExtension`,
+                                    entitlements: {
+                                        ...commonEntitlements
+                                    },
                                 }
                             ]
                         }

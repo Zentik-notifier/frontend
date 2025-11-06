@@ -20,6 +20,7 @@ import {
 import { closeSharedCacheDb, openSharedCacheDb } from "@/services/db-setup";
 import { logger } from "@/services/logger";
 import { mediaCache } from "@/services/media-cache-service";
+import WatchConnectivityService from "@/services/WatchConnectivityService";
 import { useNavigationUtils } from "@/utils/navigation";
 import * as Localization from "expo-localization";
 import React, {
@@ -431,6 +432,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await openSharedCacheDb();
         await cleanup({ immediate: true });
         await connectionStatus.checkForUpdates();
+        
+        // Notify Apple Watch of updates when app becomes active
+        WatchConnectivityService.notifyWatchOfUpdate().catch((error) => {
+          console.log("[AppContext] Failed to notify Watch:", error);
+        });
       } else if (
         nextAppState === "inactive" &&
         userSettings.settings.notificationsPreferences?.markAsReadMode ===

@@ -29,6 +29,7 @@ type Bucket = {
   name: string;
   color?: string;
   icon?: string;
+  iconUrl?: string;
   iconAttachmentUuid?: string;
 };
 
@@ -304,32 +305,6 @@ function ShareExtensionContent(props: InitialProps) {
       return (
         <Image
           source={{ uri: bucket.iconUrl }}
-          style={styles.bucketIcon}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-        />
-      );
-    }
-
-    if (bucket.iconAttachmentUuid) {
-      const apiUrl = settingsService.getApiUrl();
-      if (apiUrl) {
-        const iconUrl = `${apiUrl}/api/v1/attachments/${bucket.iconAttachmentUuid}/download/public`;
-        return (
-          <Image
-            source={{ uri: iconUrl }}
-            style={styles.bucketIcon}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-          />
-        );
-      }
-    }
-
-    if (bucket.icon && bucket.icon.startsWith("http")) {
-      return (
-        <Image
-          source={{ uri: bucket.icon }}
           style={styles.bucketIcon}
           contentFit="cover"
           cachePolicy="memory-disk"

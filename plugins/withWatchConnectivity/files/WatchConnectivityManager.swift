@@ -32,87 +32,77 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
     }
     
     private func sendDataToWatch(completion: @escaping (Bool) -> Void) {
-        // Limit to 30 most recent notifications to reduce payload size
-        DatabaseAccess.getRecentNotifications(limit: 30, unreadOnly: false, source: "iPhone") { notifications in
-            let notificationsData = notifications.map { notif -> [String: Any] in
-                var dict: [String: Any] = [
-                    "id": notif.id,
-                    "title": notif.title,
-                    "body": notif.body,
-                    "bucketId": notif.bucketId,
-                    "isRead": notif.isRead,
-                    "createdAt": notif.createdAt
-                ]
-                
-                if let subtitle = notif.subtitle, !subtitle.isEmpty {
-                    dict["subtitle"] = subtitle
-                }
-                
-                if let bucketName = notif.bucketName, !bucketName.isEmpty {
-                    dict["bucketName"] = bucketName
-                }
-                
-                if let bucketColor = notif.bucketColor, !bucketColor.isEmpty {
-                    dict["bucketColor"] = bucketColor
-                }
-                
-                if let bucketIconUrl = notif.bucketIconUrl, !bucketIconUrl.isEmpty {
-                    dict["bucketIconUrl"] = bucketIconUrl
-                }
-                
-                return dict
-            }
-            
-            // Build buckets info
-            var bucketsDict: [String: [String: Any]] = [:]
-            var totalUnreadCount = 0
-            
-            for notif in notifications {
-                if !notif.isRead {
-                    totalUnreadCount += 1
-                }
-                
-                if bucketsDict[notif.bucketId] == nil {
-                    var bucketData: [String: Any] = [
-                        "id": notif.bucketId,
-                        "name": notif.bucketName ?? notif.bucketId,
-                        "unreadCount": notif.isRead ? 0 : 1
+        // Get buckets directly from database (not derived from notifications)
+        DatabaseAccess.getAllBuckets(source: "iPhone") { buckets in
+            // Get notifications
+            DatabaseAccess.getRecentNotifications(limit: 100, unreadOnly: false, source: "iPhone") { notifications in
+                let notificationsData = notifications.map { notif -> [String: Any] in
+                    var dict: [String: Any] = [
+                        "id": notif.id,
+                        "title": notif.title,
+                        "body": notif.body,
+                        "bucketId": notif.bucketId,
+                        "isRead": notif.isRead,
+                        "createdAt": notif.createdAt
                     ]
                     
-                    if let color = notif.bucketColor, !color.isEmpty {
-                        bucketData["color"] = color
+                    if let subtitle = notif.subtitle, !subtitle.isEmpty {
+                        dict["subtitle"] = subtitle
                     }
                     
-                    if let iconUrl = notif.bucketIconUrl, !iconUrl.isEmpty {
-                        bucketData["iconUrl"] = iconUrl
+                    if let bucketName = notif.bucketName, !bucketName.isEmpty {
+                        dict["bucketName"] = bucketName
                     }
                     
-                    bucketsDict[notif.bucketId] = bucketData
-                } else if !notif.isRead {
-                    if var bucket = bucketsDict[notif.bucketId] {
-                        bucket["unreadCount"] = (bucket["unreadCount"] as? Int ?? 0) + 1
-                        bucketsDict[notif.bucketId] = bucket
+                    if let bucketColor = notif.bucketColor, !bucketColor.isEmpty {
+                        dict["bucketColor"] = bucketColor
                     }
+                    
+                    if let bucketIconUrl = notif.bucketIconUrl, !bucketIconUrl.isEmpty {
+                        dict["bucketIconUrl"] = bucketIconUrl
+                    }
+                    
+                    return dict
                 }
+                
+                // Convert buckets from database to dictionary format
+                let bucketsData = buckets.map { bucket -> [String: Any] in
+                    var dict: [String: Any] = [
+                        "id": bucket.id,
+                        "name": bucket.name,
+                        "unreadCount": bucket.unreadCount
+                    ]
+                    
+                    if let color = bucket.color, !color.isEmpty {
+                        dict["color"] = color
+                    }
+                    
+                    if let iconUrl = bucket.iconUrl, !iconUrl.isEmpty {
+                        dict["iconUrl"] = iconUrl
+                    }
+                    
+                    return dict
+                }
+                
+                // Calculate total unread count
+                let totalUnreadCount = notifications.filter { !$0.isRead }.count
+                
+                print("📱 Sending \(notificationsData.count) notifications, \(bucketsData.count) buckets, \(totalUnreadCount) unread")
+                
+                let message: [String: Any] = [
+                    "action": "updateData",
+                    "notifications": notificationsData,
+                    "buckets": bucketsData,
+                    "unreadCount": totalUnreadCount
+                ]
+                
+                WCSession.default.sendMessage(message, replyHandler: { _ in
+                    completion(true)
+                }, errorHandler: { error in
+                    print("📱 ❌ Error sending message: \(error.localizedDescription)")
+                    completion(false)
+                })
             }
-            
-            let buckets = Array(bucketsDict.values)
-            
-            print("📱 Sending \(notificationsData.count) notifications, \(buckets.count) buckets, \(totalUnreadCount) unread")
-            
-            let message: [String: Any] = [
-                "action": "updateData",
-                "notifications": notificationsData,
-                "buckets": buckets,
-                "unreadCount": totalUnreadCount
-            ]
-            
-            WCSession.default.sendMessage(message, replyHandler: { _ in
-                completion(true)
-            }, errorHandler: { error in
-                print("📱 ❌ Error sending message: \(error.localizedDescription)")
-                completion(false)
-            })
         }
     }
 }
@@ -157,78 +147,68 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
         switch action {
         case "requestData":
             print("📱 Watch requested data")
-            // Limit to 30 most recent notifications to reduce payload size
-            DatabaseAccess.getRecentNotifications(limit: 30, unreadOnly: false, source: "iPhone") { notifications in
-                let notificationsData = notifications.map { notif -> [String: Any] in
-                    var dict: [String: Any] = [
-                        "id": notif.id,
-                        "title": notif.title,
-                        "body": notif.body,
-                        "bucketId": notif.bucketId,
-                        "isRead": notif.isRead,
-                        "createdAt": notif.createdAt
-                    ]
-                    
-                    if let subtitle = notif.subtitle, !subtitle.isEmpty {
-                        dict["subtitle"] = subtitle
-                    }
-                    
-                    if let bucketName = notif.bucketName, !bucketName.isEmpty {
-                        dict["bucketName"] = bucketName
-                    }
-                    
-                    if let bucketColor = notif.bucketColor, !bucketColor.isEmpty {
-                        dict["bucketColor"] = bucketColor
-                    }
-                    
-                    if let bucketIconUrl = notif.bucketIconUrl, !bucketIconUrl.isEmpty {
-                        dict["bucketIconUrl"] = bucketIconUrl
-                    }
-                    
-                    return dict
-                }
-                
-                // Build buckets info
-                var bucketsDict: [String: [String: Any]] = [:]
-                var totalUnreadCount = 0
-                
-                for notif in notifications {
-                    if !notif.isRead {
-                        totalUnreadCount += 1
-                    }
-                    
-                    if bucketsDict[notif.bucketId] == nil {
-                        var bucketData: [String: Any] = [
-                            "id": notif.bucketId,
-                            "name": notif.bucketName ?? notif.bucketId,
-                            "unreadCount": notif.isRead ? 0 : 1
+            // Get buckets directly from database (not derived from notifications)
+            DatabaseAccess.getAllBuckets(source: "iPhone") { buckets in
+                // Get notifications
+                DatabaseAccess.getRecentNotifications(limit: 100, unreadOnly: false, source: "iPhone") { notifications in
+                    let notificationsData = notifications.map { notif -> [String: Any] in
+                        var dict: [String: Any] = [
+                            "id": notif.id,
+                            "title": notif.title,
+                            "body": notif.body,
+                            "bucketId": notif.bucketId,
+                            "isRead": notif.isRead,
+                            "createdAt": notif.createdAt
                         ]
                         
-                        if let color = notif.bucketColor, !color.isEmpty {
-                            bucketData["color"] = color
+                        if let subtitle = notif.subtitle, !subtitle.isEmpty {
+                            dict["subtitle"] = subtitle
                         }
                         
-                        if let iconUrl = notif.bucketIconUrl, !iconUrl.isEmpty {
-                            bucketData["iconUrl"] = iconUrl
+                        if let bucketName = notif.bucketName, !bucketName.isEmpty {
+                            dict["bucketName"] = bucketName
                         }
                         
-                        bucketsDict[notif.bucketId] = bucketData
-                    } else if !notif.isRead {
-                        if var bucket = bucketsDict[notif.bucketId] {
-                            bucket["unreadCount"] = (bucket["unreadCount"] as? Int ?? 0) + 1
-                            bucketsDict[notif.bucketId] = bucket
+                        if let bucketColor = notif.bucketColor, !bucketColor.isEmpty {
+                            dict["bucketColor"] = bucketColor
                         }
+                        
+                        if let bucketIconUrl = notif.bucketIconUrl, !bucketIconUrl.isEmpty {
+                            dict["bucketIconUrl"] = bucketIconUrl
+                        }
+                        
+                        return dict
                     }
+                    
+                    // Convert buckets from database to dictionary format
+                    let bucketsData = buckets.map { bucket -> [String: Any] in
+                        var dict: [String: Any] = [
+                            "id": bucket.id,
+                            "name": bucket.name,
+                            "unreadCount": bucket.unreadCount
+                        ]
+                        
+                        if let color = bucket.color, !color.isEmpty {
+                            dict["color"] = color
+                        }
+                        
+                        if let iconUrl = bucket.iconUrl, !iconUrl.isEmpty {
+                            dict["iconUrl"] = iconUrl
+                        }
+                        
+                        return dict
+                    }
+                    
+                    // Calculate total unread count
+                    let totalUnreadCount = notifications.filter { !$0.isRead }.count
+                    
+                    print("📱 Sending \(notificationsData.count) notifications, \(bucketsData.count) buckets, \(totalUnreadCount) unread")
+                    replyHandler([
+                        "notifications": notificationsData,
+                        "buckets": bucketsData,
+                        "unreadCount": totalUnreadCount
+                    ])
                 }
-                
-                let buckets = Array(bucketsDict.values)
-                
-                print("📱 Sending \(notificationsData.count) notifications, \(buckets.count) buckets, \(totalUnreadCount) unread")
-                replyHandler([
-                    "notifications": notificationsData,
-                    "buckets": buckets,
-                    "unreadCount": totalUnreadCount
-                ])
             }
             
         case "deleteNotification":

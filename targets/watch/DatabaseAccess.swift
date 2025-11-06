@@ -680,6 +680,122 @@ public class DatabaseAccess {
         }
     }
     
+    /// Bucket entry for watch/widget display
+    public struct WidgetBucket {
+        public let id: String
+        public let name: String
+        public let icon: String?
+        public let description: String?
+        public let color: String?
+        public let iconUrl: String?
+        public let unreadCount: Int
+        
+        public init(id: String, name: String, icon: String? = nil, description: String? = nil, color: String? = nil, iconUrl: String? = nil, unreadCount: Int = 0) {
+            self.id = id
+            self.name = name
+            self.icon = icon
+            self.description = description
+            self.color = color
+            self.iconUrl = iconUrl
+            self.unreadCount = unreadCount
+        }
+    }
+    
+    /// Get all buckets with unread counts
+    /// - Parameters:
+    ///   - source: Source identifier for logging (default: "Widget")
+    ///   - completion: Completion handler with array of buckets
+    public static func getAllBuckets(
+        source: String = "Widget",
+        completion: @escaping ([WidgetBucket]) -> Void
+    ) {
+        var buckets: [WidgetBucket] = []
+        
+        performDatabaseOperation(
+            type: .read,
+            name: "GetAllBuckets",
+            source: source,
+            operation: { db in
+                // First, get all buckets from buckets table
+                let bucketsQuery = "SELECT id, name, icon, description, fragment FROM buckets ORDER BY name ASC"
+                var stmt: OpaquePointer?
+                
+                guard sqlite3_prepare_v2(db, bucketsQuery, -1, &stmt, nil) == SQLITE_OK else {
+                    return .failure("Failed to prepare buckets query")
+                }
+                
+                defer { sqlite3_finalize(stmt) }
+                
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    guard let idCStr = sqlite3_column_text(stmt, 0),
+                          let nameCStr = sqlite3_column_text(stmt, 1) else {
+                        continue
+                    }
+                    
+                    let bucketId = String(cString: idCStr)
+                    let bucketName = String(cString: nameCStr)
+                    
+                    var icon: String?
+                    var description: String?
+                    var color: String?
+                    var iconUrl: String?
+                    
+                    if let iconCStr = sqlite3_column_text(stmt, 2) {
+                        icon = String(cString: iconCStr)
+                    }
+                    
+                    if let descCStr = sqlite3_column_text(stmt, 3) {
+                        description = String(cString: descCStr)
+                    }
+                    
+                    // Parse fragment to extract color and iconUrl
+                    if let fragmentCStr = sqlite3_column_text(stmt, 4) {
+                        let fragmentString = String(cString: fragmentCStr)
+                        if let fragmentData = fragmentString.data(using: .utf8),
+                           let json = try? JSONSerialization.jsonObject(with: fragmentData) as? [String: Any] {
+                            color = json["color"] as? String
+                            iconUrl = json["iconUrl"] as? String
+                        }
+                    }
+                    
+                    // Get unread count for this bucket
+                    var unreadCount = 0
+                    let countQuery = "SELECT COUNT(*) FROM notifications WHERE bucket_id = ? AND read_at IS NULL"
+                    var countStmt: OpaquePointer?
+                    
+                    if sqlite3_prepare_v2(db, countQuery, -1, &countStmt, nil) == SQLITE_OK {
+                        sqlite3_bind_text(countStmt, 1, (bucketId as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                        
+                        if sqlite3_step(countStmt) == SQLITE_ROW {
+                            unreadCount = Int(sqlite3_column_int(countStmt, 0))
+                        }
+                        sqlite3_finalize(countStmt)
+                    }
+                    
+                    let bucket = WidgetBucket(
+                        id: bucketId,
+                        name: bucketName,
+                        icon: icon,
+                        description: description,
+                        color: color,
+                        iconUrl: iconUrl,
+                        unreadCount: unreadCount
+                    )
+                    buckets.append(bucket)
+                }
+                
+                return .success
+            }
+        ) { (dbResult: DatabaseOperationResult) in
+            switch dbResult {
+            case .success:
+                completion(buckets)
+            default:
+                completion([])
+            }
+        }
+    }
+    
     /// Get recent notifications for widget display
     /// - Parameters:
     ///   - limit: Maximum number of notifications to return (default: 5)
