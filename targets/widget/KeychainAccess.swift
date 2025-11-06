@@ -18,8 +18,8 @@ public class KeychainAccess {
         "NotificationContentExtension",
         "ZentikNotificationService",
         "ZentikNotificationContentExtension",
+        "WatchExtension",
         "WidgetExtension",
-        "widget",
       ]
 
       let components = bundleId.components(separatedBy: ".")

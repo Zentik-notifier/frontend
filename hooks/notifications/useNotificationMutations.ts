@@ -32,6 +32,7 @@ import {
     useQueryClient,
 } from '@tanstack/react-query';
 import { notificationKeys } from './useNotificationQueries';
+import WatchConnectivityService from '@/services/WatchConnectivityService';
 
 // ====================
 // HELPER FUNCTIONS
@@ -299,6 +300,9 @@ export function useMarkAsRead(
                     { ...cachedNotification, readAt: now }
                 );
             }
+            
+            // Notify Watch of updated data
+            WatchConnectivityService.notifyWatchOfUpdate();
         },
         ...mutationOptions,
     });
@@ -376,6 +380,9 @@ export function useMarkAsUnread(
                     { ...cachedNotification, readAt: null }
                 );
             }
+            
+            // Notify Watch of updated data
+            WatchConnectivityService.notifyWatchOfUpdate();
         },
         ...mutationOptions,
     });
@@ -491,6 +498,9 @@ export function useBatchMarkAsRead(
                     updateAppStateBucketStats(queryClient, bucketId, 0, unreadDelta);
                 }
             });
+            
+            // Notify Watch of updated data
+            WatchConnectivityService.notifyWatchOfUpdate();
         },
         ...mutationOptions,
     });
@@ -587,6 +597,9 @@ export function useMarkAllAsRead(
                     };
                 }
             );
+            
+            // Notify Watch of updated data
+            WatchConnectivityService.notifyWatchOfUpdate();
         },
         ...mutationOptions,
     });
@@ -669,6 +682,9 @@ export function useDeleteNotification(
             queryClient.removeQueries({
                 queryKey: notificationKeys.detail(notificationId),
             });
+            
+            // Notify Watch of updated data
+            WatchConnectivityService.notifyWatchOfUpdate();
         },
         ...mutationOptions,
     });

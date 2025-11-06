@@ -24,7 +24,10 @@ import {
 import {
   refreshNotificationQueries,
 } from '@/hooks/notifications/useNotificationQueries';
-import { useQueryClient } from '@tanstack/react-query';/**
+import { useQueryClient } from '@tanstack/react-query';
+import WatchConnectivityService from '@/services/WatchConnectivityService';
+
+/**
  * Hook that provides callbacks for handling notification actions
  * Centralizes all action logic with access to GraphQL and API
  */
@@ -310,6 +313,9 @@ export function useNotificationActions() {
 
         const currentCount = await Notifications.getBadgeCountAsync();
         await setBadgeCount(currentCount + 1);
+        
+        // Notify Watch of new notification
+        WatchConnectivityService.notifyWatchOfUpdate();
       } catch (e) {
         console.warn('[useNotificationActions] Failed to handle push notification:', e);
       }

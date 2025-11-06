@@ -6,7 +6,7 @@ import 'tsx/cjs';
 
 const isDev = process.env.APP_VARIANT === "development";
 const bundleIdentifier = isDev ? "com.apocaliss92.zentik.dev" : "com.apocaliss92.zentik";
-const name = isDev ? "Zentik Dev" : "Zentik";
+export const name = isDev ? "Zentik Dev" : "Zentik";
 const scheme = isDev ? "zentik.dev" : "zentik";
 
 export const commonEntitlements = {
@@ -233,7 +233,8 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             "@bacons/apple-targets",
             ["./plugins/withIosNotificationExtensions/withIosNotificationExtensions.ts"],
             ["./plugins/withAndroidManifestFix/withAndroidManifestFix.ts"],
-            ["./plugins/withCustomAppDelegate/withCustomAppDelegate.ts"]
+            ["./plugins/withCustomAppDelegate/withCustomAppDelegate.ts"],
+            ["./plugins/withWatchConnectivity/withWatchConnectivity.ts"]
         ],
 
         experiments: {
