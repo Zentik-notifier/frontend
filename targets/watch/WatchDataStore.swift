@@ -12,7 +12,7 @@ class WatchDataStore {
     private let maxNotifications = 100
     private let fileName = "watch_cache.json"
     
-    // MARK: - Data Models
+    // MARK: - Data Models (Public for WatchConnectivityManager)
     
     struct WatchCache: Codable {
         var notifications: [CachedNotification]
@@ -28,8 +28,20 @@ class WatchDataStore {
         }
     }
     
-    struct CachedNotification: Codable, Identifiable {
-        let id: String
+    public struct CachedAttachment: Codable, Equatable {
+        let mediaType: String
+        let url: String?
+        let name: String?
+        
+        public init(mediaType: String, url: String?, name: String?) {
+            self.mediaType = mediaType
+            self.url = url
+            self.name = name
+        }
+    }
+    
+    public struct CachedNotification: Codable, Identifiable {
+        public let id: String
         let title: String
         let body: String
         let subtitle: String?
@@ -39,6 +51,21 @@ class WatchDataStore {
         let bucketName: String?
         let bucketColor: String?
         let bucketIconUrl: String?
+        let attachments: [CachedAttachment]
+        
+        public init(id: String, title: String, body: String, subtitle: String?, createdAt: String, isRead: Bool, bucketId: String, bucketName: String?, bucketColor: String?, bucketIconUrl: String?, attachments: [CachedAttachment]) {
+            self.id = id
+            self.title = title
+            self.body = body
+            self.subtitle = subtitle
+            self.createdAt = createdAt
+            self.isRead = isRead
+            self.bucketId = bucketId
+            self.bucketName = bucketName
+            self.bucketColor = bucketColor
+            self.bucketIconUrl = bucketIconUrl
+            self.attachments = attachments
+        }
     }
     
     struct CachedBucket: Codable, Identifiable {
@@ -84,11 +111,6 @@ class WatchDataStore {
             decoder.dateDecodingStrategy = .iso8601
             let cache = try decoder.decode(WatchCache.self, from: data)
             
-            let formatter = DateFormatter()
-            formatter.dateStyle = .short
-            formatter.timeStyle = .short
-            print("⌚ [WatchDataStore] ✅ Loaded cache: \(cache.notifications.count) notifications, \(cache.buckets.count) buckets, last update: \(formatter.string(from: cache.lastUpdate))")
-            
             return cache
         } catch {
             print("⌚ [WatchDataStore] ❌ Error loading cache: \(error.localizedDescription)")
@@ -113,7 +135,6 @@ class WatchDataStore {
             let data = try encoder.encode(cache)
             
             try data.write(to: filePath, options: .atomic)
-            print("⌚ [WatchDataStore] ✅ Saved cache: \(cache.notifications.count) notifications, \(cache.buckets.count) buckets")
         } catch {
             print("⌚ [WatchDataStore] ❌ Error saving cache: \(error.localizedDescription)")
         }
@@ -140,6 +161,23 @@ class WatchDataStore {
                 return nil
             }
             
+            // Extract attachments
+            var attachments: [CachedAttachment] = []
+            if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
+                attachments = attachmentsArray.compactMap { attachmentDict in
+                    guard let mediaType = attachmentDict["mediaType"] as? String else {
+                        return nil
+                    }
+                    let url = attachmentDict["url"] as? String
+                    let name = attachmentDict["name"] as? String
+                    return CachedAttachment(
+                        mediaType: mediaType,
+                        url: url,
+                        name: name
+                    )
+                }
+            }
+            
             return CachedNotification(
                 id: id,
                 title: title,
@@ -150,7 +188,8 @@ class WatchDataStore {
                 bucketId: bucketId,
                 bucketName: notifDict["bucketName"] as? String,
                 bucketColor: notifDict["bucketColor"] as? String,
-                bucketIconUrl: notifDict["bucketIconUrl"] as? String
+                bucketIconUrl: notifDict["bucketIconUrl"] as? String,
+                attachments: attachments
             )
         }
         

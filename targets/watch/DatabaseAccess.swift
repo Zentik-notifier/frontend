@@ -653,6 +653,19 @@ public class DatabaseAccess {
     
     // MARK: - Widget Notification Operations
     
+    /// Attachment entry for notifications
+    public struct WidgetAttachment {
+        public let mediaType: String
+        public let url: String?
+        public let name: String?
+        
+        public init(mediaType: String, url: String?, name: String?) {
+            self.mediaType = mediaType
+            self.url = url
+            self.name = name
+        }
+    }
+    
     /// Notification entry for widget display
     public struct WidgetNotification {
         public let id: String
@@ -665,8 +678,9 @@ public class DatabaseAccess {
         public let bucketName: String?
         public let bucketColor: String?
         public let bucketIconUrl: String?
+        public let attachments: [WidgetAttachment]
         
-        public init(id: String, title: String, body: String, subtitle: String?, createdAt: String, isRead: Bool, bucketId: String, bucketName: String? = nil, bucketColor: String? = nil, bucketIconUrl: String? = nil) {
+        public init(id: String, title: String, body: String, subtitle: String?, createdAt: String, isRead: Bool, bucketId: String, bucketName: String? = nil, bucketColor: String? = nil, bucketIconUrl: String? = nil, attachments: [WidgetAttachment] = []) {
             self.id = id
             self.title = title
             self.body = body
@@ -677,6 +691,7 @@ public class DatabaseAccess {
             self.bucketName = bucketName
             self.bucketColor = bucketColor
             self.bucketIconUrl = bucketIconUrl
+            self.attachments = attachments
         }
     }
     
@@ -866,6 +881,18 @@ public class DatabaseAccess {
                         bucketIconUrl = bucket["iconUrl"] as? String
                     }
                     
+                    // Extract attachments from fragment
+                    var attachments: [WidgetAttachment] = []
+                    if let attachmentsArray = message["attachments"] as? [[String: Any]] {
+                        for attachmentDict in attachmentsArray {
+                            if let mediaType = attachmentDict["mediaType"] as? String {
+                                let url = attachmentDict["url"] as? String
+                                let name = attachmentDict["name"] as? String
+                                attachments.append(WidgetAttachment(mediaType: mediaType, url: url, name: name))
+                            }
+                        }
+                    }
+                    
                     let notification = WidgetNotification(
                         id: id,
                         title: title,
@@ -876,7 +903,8 @@ public class DatabaseAccess {
                         bucketId: bucketId,
                         bucketName: bucketName,
                         bucketColor: bucketColor,
-                        bucketIconUrl: bucketIconUrl
+                        bucketIconUrl: bucketIconUrl,
+                        attachments: attachments
                     )
                     
                     notifications.append(notification)

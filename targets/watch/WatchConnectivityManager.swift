@@ -30,7 +30,18 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     private func loadCachedData() {
         let cache = dataStore.loadCache()
         
+        print("⌚ [WatchConnectivity] 📦 Loading \(cache.notifications.count) notifications from cache")
+        
         self.notifications = cache.notifications.map { cachedNotif in
+            // Convert CachedAttachment to WidgetAttachment
+            let attachments = cachedNotif.attachments.map { cachedAttachment in
+                DatabaseAccess.WidgetAttachment(
+                    mediaType: cachedAttachment.mediaType,
+                    url: cachedAttachment.url,
+                    name: cachedAttachment.name
+                )
+            }
+            
             let notification = DatabaseAccess.WidgetNotification(
                 id: cachedNotif.id,
                 title: cachedNotif.title,
@@ -41,20 +52,40 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 bucketId: cachedNotif.bucketId,
                 bucketName: cachedNotif.bucketName,
                 bucketColor: cachedNotif.bucketColor,
-                bucketIconUrl: cachedNotif.bucketIconUrl
+                bucketIconUrl: cachedNotif.bucketIconUrl,
+                attachments: attachments
             )
             return NotificationData(notification: notification)
         }
         
-        self.buckets = cache.buckets.map { cachedBucket in
-            BucketItem(
+        // Calculate last notification date for each bucket and sort by it
+        var bucketsWithDates: [(bucket: BucketItem, lastNotificationDate: Date)] = []
+        
+        for cachedBucket in cache.buckets {
+            // Find the most recent notification for this bucket
+            let bucketNotifications = self.notifications.filter { $0.notification.bucketId == cachedBucket.id }
+            let lastNotificationDate = bucketNotifications
+                .compactMap { notification -> Date? in
+                    let formatter = ISO8601DateFormatter()
+                    return formatter.date(from: notification.notification.createdAt)
+                }
+                .max() ?? Date.distantPast
+            
+            let bucket = BucketItem(
                 id: cachedBucket.id,
                 name: cachedBucket.name,
                 unreadCount: cachedBucket.unreadCount,
                 color: cachedBucket.color,
                 iconUrl: cachedBucket.iconUrl
             )
+            
+            bucketsWithDates.append((bucket: bucket, lastNotificationDate: lastNotificationDate))
         }
+        
+        // Sort buckets by last notification date (most recent first)
+        self.buckets = bucketsWithDates
+            .sorted { $0.lastNotificationDate > $1.lastNotificationDate }
+            .map { $0.bucket }
         
         self.unreadCount = cache.unreadCount
         self.lastUpdate = cache.lastUpdate
@@ -133,7 +164,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 bucketId: updatedNotif.bucketId,
                 bucketName: updatedNotif.bucketName,
                 bucketColor: updatedNotif.bucketColor,
-                bucketIconUrl: updatedNotif.bucketIconUrl
+                bucketIconUrl: updatedNotif.bucketIconUrl,
+                attachments: updatedNotif.attachments
             )
             notifications[index] = NotificationData(notification: updatedNotif)
             
@@ -218,6 +250,123 @@ extension WatchConnectivityManager: WCSessionDelegate {
         DispatchQueue.main.async {
             self.isConnected = session.isReachable
         }
+    }
+    
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
+        print("⌚ [WatchConnectivity] 📦 Received background transfer")
+        
+        guard let action = userInfo["action"] as? String else {
+            print("⌚ [WatchConnectivity] ⚠️ No action in userInfo")
+            return
+        }
+        
+        DispatchQueue.main.async {
+            switch action {
+            case "newNotification":
+                self.handleNewNotification(userInfo)
+            default:
+                print("⌚ [WatchConnectivity] ⚠️ Unknown action: \(action)")
+            }
+        }
+    }
+    
+    private func handleNewNotification(_ notifDict: [String: Any]) {
+        guard let id = notifDict["id"] as? String,
+              let title = notifDict["title"] as? String,
+              let body = notifDict["body"] as? String,
+              let bucketId = notifDict["bucketId"] as? String,
+              let isRead = notifDict["isRead"] as? Bool,
+              let createdAt = notifDict["createdAt"] as? String else {
+            print("⌚ [WatchConnectivity] ❌ Invalid notification data")
+            return
+        }
+        
+        // Extract attachments
+        var attachments: [DatabaseAccess.WidgetAttachment] = []
+        if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
+            attachments = attachmentsArray.compactMap { attachmentDict in
+                guard let mediaType = attachmentDict["mediaType"] as? String else {
+                    return nil
+                }
+                let url = attachmentDict["url"] as? String
+                let name = attachmentDict["name"] as? String
+                return DatabaseAccess.WidgetAttachment(
+                    mediaType: mediaType,
+                    url: url,
+                    name: name
+                )
+            }
+            print("⌚ [WatchConnectivity] ✅ Successfully parsed \(attachments.count) attachments")
+        } else {
+            print("⌚ [WatchConnectivity] ⚠️ attachments key not found or not an array")
+        }
+        
+        let notification = DatabaseAccess.WidgetNotification(
+            id: id,
+            title: title,
+            body: body,
+            subtitle: notifDict["subtitle"] as? String,
+            createdAt: createdAt,
+            isRead: isRead,
+            bucketId: bucketId,
+            bucketName: notifDict["bucketName"] as? String,
+            bucketColor: notifDict["bucketColor"] as? String,
+            bucketIconUrl: notifDict["bucketIconUrl"] as? String,
+            attachments: attachments
+        )
+        
+        // Add to local cache
+        var cache = dataStore.loadCache()
+        
+        // Check if notification already exists
+        if let existingIndex = cache.notifications.firstIndex(where: { $0.id == id }) {
+            print("⌚ [WatchConnectivity] ℹ️ Notification already exists, skipping: \(title)")
+            return
+        }
+        
+        // Convert to CachedNotification
+        let cachedAttachments = attachments.map { attachment in
+            WatchDataStore.CachedAttachment(
+                mediaType: attachment.mediaType,
+                url: attachment.url,
+                name: attachment.name
+            )
+        }
+        
+        let cachedNotif = WatchDataStore.CachedNotification(
+            id: id,
+            title: title,
+            body: body,
+            subtitle: notifDict["subtitle"] as? String,
+            createdAt: createdAt,
+            isRead: isRead,
+            bucketId: bucketId,
+            bucketName: notifDict["bucketName"] as? String,
+            bucketColor: notifDict["bucketColor"] as? String,
+            bucketIconUrl: notifDict["bucketIconUrl"] as? String,
+            attachments: cachedAttachments
+        )
+        
+        // Add to beginning of array (most recent first)
+        cache.notifications.insert(cachedNotif, at: 0)
+        
+        // Limit to 100 notifications
+        if cache.notifications.count > 100 {
+            cache.notifications = Array(cache.notifications.prefix(100))
+        }
+        
+        // Update unread count
+        if !isRead {
+            cache.unreadCount += 1
+        }
+        
+        cache.lastUpdate = Date()
+        dataStore.saveCache(cache)
+        
+        // Update published properties
+        loadCachedData()
+        
+        print("⌚ [WatchConnectivity] ✅ Added new notification to cache: \(title)")
     }
 }
 

@@ -92,7 +92,7 @@ struct BucketMenuView: View {
                 } else {
                     List {
                         // All notifications item
-                        NavigationLink(destination: FilteredNotificationListView(bucketId: nil, bucketName: nil, bucket: nil)) {
+                        NavigationLink(destination: FilteredNotificationListView(bucketId: nil, bucketName: nil, bucket: nil, allBuckets: buckets)) {
                             HStack(spacing: 10) {
                                 Image(systemName: "bell.fill")
                                     .font(.system(size: 20))
@@ -128,7 +128,7 @@ struct BucketMenuView: View {
                         if !buckets.isEmpty {
                             Section(header: Text("Buckets")) {
                                 ForEach(buckets) { bucket in
-                                    NavigationLink(destination: FilteredNotificationListView(bucketId: bucket.id, bucketName: bucket.name, bucket: bucket)) {
+                                    NavigationLink(destination: FilteredNotificationListView(bucketId: bucket.id, bucketName: bucket.name, bucket: bucket, allBuckets: buckets)) {
                                         BucketRowView(bucket: bucket)
                                     }
                                 }
@@ -262,6 +262,7 @@ struct FilteredNotificationListView: View {
     let bucketId: String?
     let bucketName: String?
     let bucket: BucketItem?
+    let allBuckets: [BucketItem]
     
     @StateObject private var connectivityManager = WatchConnectivityManager.shared
     @State private var filteredNotifications: [NotificationData] = []
@@ -287,9 +288,11 @@ struct FilteredNotificationListView: View {
             } else {
                 List {
                     ForEach(filteredNotifications) { notificationData in
+                        let notificationBucket = bucket ?? allBuckets.first(where: { $0.id == notificationData.notification.bucketId })
+                        
                         NavigationLink(destination: NotificationDetailView(
                             notificationData: notificationData,
-                            bucket: bucket,
+                            bucket: notificationBucket,
                             onDelete: {
                                 deleteNotification(notificationData)
                             },
@@ -299,7 +302,7 @@ struct FilteredNotificationListView: View {
                         )) {
                             NotificationRowView(
                                 notificationData: notificationData,
-                                bucket: bucket
+                                bucket: notificationBucket
                             )
                         }
                     }
@@ -386,10 +389,23 @@ struct NotificationRowView: View {
                     }
                 }
                 
-                Text(notificationData.notification.body)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
+                HStack(spacing: 4) {
+                    Text(notificationData.notification.body)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                    
+                    if !notificationData.notification.attachments.isEmpty {
+                        Spacer()
+                        HStack(spacing: 2) {
+                            Image(systemName: "paperclip")
+                                .font(.system(size: 8))
+                            Text("\(notificationData.notification.attachments.count)")
+                                .font(.system(size: 8))
+                        }
+                        .foregroundColor(.secondary)
+                    }
+                }
             }
         }
         .padding(.vertical, 4)
@@ -465,7 +481,7 @@ struct NotificationDetailView: View {
                     }
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(bucket?.name ?? notificationData.notification.bucketName ?? "Notification")
+                        Text(notificationData.notification.title)
                             .font(.headline)
                             .foregroundColor(.primary)
                         
@@ -483,33 +499,28 @@ struct NotificationDetailView: View {
                 
                 Divider()
                 
-                // Title
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Title")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Text(notificationData.notification.title)
-                        .font(.headline)
-                }
-                
                 // Subtitle (if exists)
                 if let subtitle = notificationData.notification.subtitle, !subtitle.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Subtitle")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        Text(subtitle)
-                            .font(.subheadline)
-                    }
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
                 }
                 
                 // Body
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Message")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Text(notificationData.notification.body)
-                        .font(.body)
+                Text(notificationData.notification.body)
+                    .font(.body)
+                
+                // Attachments
+                if !notificationData.notification.attachments.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Attachments (\(notificationData.notification.attachments.count))")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        
+                        ForEach(Array(notificationData.notification.attachments.enumerated()), id: \.offset) { index, attachment in
+                            AttachmentRowView(attachment: attachment, notificationId: notificationData.notification.id)
+                        }
+                    }
                 }
                 
                 Spacer()
@@ -538,7 +549,7 @@ struct NotificationDetailView: View {
             }
             .padding()
         }
-        .navigationTitle("Details")
+        .navigationTitle(bucket?.name ?? notificationData.notification.bucketName ?? "Notification")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Delete Notification", isPresented: $showDeleteConfirmation) {
             Button("Cancel", role: .cancel) { }
@@ -586,6 +597,87 @@ struct NotificationDetailView: View {
         let b = Double(rgb & 0x0000FF) / 255.0
         
         return Color(red: r, green: g, blue: b)
+    }
+}
+
+struct AttachmentRowView: View {
+    let attachment: DatabaseAccess.WidgetAttachment
+    let notificationId: String
+    @State private var thumbnailImage: UIImage?
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            // Media type icon or thumbnail
+            if let thumbnailImage = thumbnailImage {
+                Image(uiImage: thumbnailImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 60, height: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.secondary.opacity(0.2))
+                        .frame(width: 60, height: 60)
+                    
+                    Image(systemName: mediaTypeIcon(attachment.mediaType))
+                        .font(.system(size: 24))
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(attachment.name ?? "Attachment")
+                    .font(.caption)
+                    .lineLimit(2)
+                
+                Text(mediaTypeLabel(attachment.mediaType))
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding(.vertical, 4)
+        .onAppear {
+            loadThumbnail()
+        }
+    }
+    
+    private func loadThumbnail() {
+        guard let url = attachment.url else { return }
+        
+        // Only load thumbnails for images and GIFs
+        if attachment.mediaType == "IMAGE" || attachment.mediaType == "GIF" {
+            // Try to get from cache
+            if let cachedData = MediaAccess.getNotificationMediaFromSharedCache(
+                url: url,
+                mediaType: attachment.mediaType,
+                notificationId: notificationId
+            ) {
+                self.thumbnailImage = UIImage(data: cachedData)
+            }
+        }
+    }
+    
+    private func mediaTypeIcon(_ mediaType: String) -> String {
+        switch mediaType {
+        case "IMAGE": return "photo"
+        case "VIDEO": return "video"
+        case "AUDIO": return "waveform"
+        case "GIF": return "photo.on.rectangle.angled"
+        default: return "doc"
+        }
+    }
+    
+    private func mediaTypeLabel(_ mediaType: String) -> String {
+        switch mediaType {
+        case "IMAGE": return "Image"
+        case "VIDEO": return "Video"
+        case "AUDIO": return "Audio"
+        case "GIF": return "GIF"
+        default: return "File"
+        }
     }
 }
 

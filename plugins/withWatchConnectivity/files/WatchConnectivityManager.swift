@@ -31,6 +31,60 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
         }
     }
     
+    /// Transfer a single notification to Watch (works even when Watch is asleep)
+    /// Uses transferUserInfo which queues the message for delivery
+    func transferNotification(_ notification: DatabaseAccess.WidgetNotification) {
+        var notifDict: [String: Any] = [
+            "action": "newNotification",
+            "id": notification.id,
+            "title": notification.title,
+            "body": notification.body,
+            "bucketId": notification.bucketId,
+            "isRead": notification.isRead,
+            "createdAt": notification.createdAt
+        ]
+        
+        if let subtitle = notification.subtitle, !subtitle.isEmpty {
+            notifDict["subtitle"] = subtitle
+        }
+        
+        if let bucketName = notification.bucketName, !bucketName.isEmpty {
+            notifDict["bucketName"] = bucketName
+        }
+        
+        if let bucketColor = notification.bucketColor, !bucketColor.isEmpty {
+            notifDict["bucketColor"] = bucketColor
+        }
+        
+        if let bucketIconUrl = notification.bucketIconUrl, !bucketIconUrl.isEmpty {
+            notifDict["bucketIconUrl"] = bucketIconUrl
+        }
+        
+        // Include attachments
+        if !notification.attachments.isEmpty {
+            let attachmentsData = notification.attachments.map { attachment -> [String: Any] in
+                var attachmentDict: [String: Any] = [
+                    "mediaType": attachment.mediaType
+                ]
+                
+                if let url = attachment.url {
+                    attachmentDict["url"] = url
+                }
+                
+                if let name = attachment.name {
+                    attachmentDict["name"] = name
+                }
+                
+                return attachmentDict
+            }
+            notifDict["attachments"] = attachmentsData
+        }
+        
+        // Use transferUserInfo for guaranteed delivery (even when Watch is asleep)
+        WCSession.default.transferUserInfo(notifDict)
+        print("📱 ✅ Queued notification transfer to Watch: \(notification.title)")
+    }
+    
     private func sendDataToWatch(completion: @escaping (Bool) -> Void) {
         // Get buckets directly from database (not derived from notifications)
         DatabaseAccess.getAllBuckets(source: "iPhone") { buckets in
@@ -60,6 +114,26 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
                     
                     if let bucketIconUrl = notif.bucketIconUrl, !bucketIconUrl.isEmpty {
                         dict["bucketIconUrl"] = bucketIconUrl
+                    }
+                    
+                    // Include attachments
+                    if !notif.attachments.isEmpty {
+                        let attachmentsData = notif.attachments.map { attachment -> [String: Any] in
+                            var attachmentDict: [String: Any] = [
+                                "mediaType": attachment.mediaType
+                            ]
+                            
+                            if let url = attachment.url {
+                                attachmentDict["url"] = url
+                            }
+                            
+                            if let name = attachment.name {
+                                attachmentDict["name"] = name
+                            }
+                            
+                            return attachmentDict
+                        }
+                        dict["attachments"] = attachmentsData
                     }
                     
                     return dict
@@ -177,6 +251,26 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                             dict["bucketIconUrl"] = bucketIconUrl
                         }
                         
+                        // Include attachments
+                        if !notif.attachments.isEmpty {
+                            let attachmentsData = notif.attachments.map { attachment -> [String: Any] in
+                                var attachmentDict: [String: Any] = [
+                                    "mediaType": attachment.mediaType
+                                ]
+                                
+                                if let url = attachment.url {
+                                    attachmentDict["url"] = url
+                                }
+                                
+                                if let name = attachment.name {
+                                    attachmentDict["name"] = name
+                                }
+                                
+                                return attachmentDict
+                            }
+                            dict["attachments"] = attachmentsData
+                        }
+                        
                         return dict
                     }
                     
@@ -203,6 +297,7 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                     let totalUnreadCount = notifications.filter { !$0.isRead }.count
                     
                     print("📱 Sending \(notificationsData.count) notifications, \(bucketsData.count) buckets, \(totalUnreadCount) unread")
+                    
                     replyHandler([
                         "notifications": notificationsData,
                         "buckets": bucketsData,
