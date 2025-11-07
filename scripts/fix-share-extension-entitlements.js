@@ -42,6 +42,17 @@ for (const { path: shareExtDir, name: entitlementsFileName, isDev: isDevDir } of
       <string>$(AppIdentifierPrefix)${currentBundleId}.keychain</string>
       <string>$(AppIdentifierPrefix)*</string>
     </array>
+    <key>com.apple.developer.icloud-services</key>
+    <array>
+      <string>CloudKit</string>
+      <string>CloudDocuments</string>
+    </array>
+    <key>com.apple.developer.icloud-container-identifiers</key>
+    <array>
+      <string>iCloud.${currentBundleId}</string>
+    </array>
+    <key>com.apple.developer.ubiquity-kvstore-identifier</key>
+    <string>$(TeamIdentifierPrefix)${currentBundleId}</string>
   </dict>
 </plist>`;
 

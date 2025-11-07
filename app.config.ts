@@ -17,6 +17,14 @@ export const commonEntitlements = {
         `$(AppIdentifierPrefix)${bundleIdentifier}.keychain`,
         "$(AppIdentifierPrefix)*"
     ],
+    "com.apple.developer.icloud-services": [
+        "CloudKit",
+        "CloudDocuments"
+    ],
+    "com.apple.developer.icloud-container-identifiers": [
+        `iCloud.${bundleIdentifier}`
+    ],
+    "com.apple.developer.ubiquity-kvstore-identifier": `$(TeamIdentifierPrefix)${bundleIdentifier}`,
 }
 
 const config = ({ config }: ConfigContext): ExpoConfig => {

@@ -415,37 +415,7 @@ public class MediaAccess {
         }
     }
     
-    // MARK: - Media Cache Operations
-    
-    /// Get notification media from shared cache
-    /// - Parameters:
-    ///   - url: Media URL
-    ///   - mediaType: Type of media (IMAGE, VIDEO, AUDIO, GIF, etc.)
-    ///   - notificationId: Notification ID for logging
-    /// - Returns: Data if found in cache, nil otherwise
-    public static func getNotificationMediaFromSharedCache(url: String, mediaType: String, notificationId: String) -> Data? {
-        // First check if media exists in database cache
-        guard let localPath = getLocalPathFromDb(url: url, mediaType: mediaType) else {
-            return nil
-        }
-        
-        let cacheDirectory = getSharedMediaCacheDirectory()
-        let mediaTypeDirectory = cacheDirectory.appendingPathComponent(mediaType)
-        let fileURL = mediaTypeDirectory.appendingPathComponent(localPath)
-        
-        // Check if file exists in cache
-        if FileManager.default.fileExists(atPath: fileURL.path) {
-            do {
-                let data = try Data(contentsOf: fileURL)
-                return data
-            } catch {
-                print("⌚ [MediaAccess] ❌ Failed to load cached media for notification \(notificationId): \(error)")
-                return nil
-            }
-        }
-        
-        return nil
-    }
+    // MARK: - Bucket Icon Cache Operations
     
     /// Get bucket icon from shared cache, download from URL if not cached, or generate placeholder
     /// Priority: 1) Cached icon 2) Download from iconUrl 3) Generate temporary placeholder

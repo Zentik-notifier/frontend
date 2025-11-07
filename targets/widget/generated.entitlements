@@ -11,5 +11,16 @@
       <string>$(AppIdentifierPrefix)com.apocaliss92.zentik.dev.keychain</string>
       <string>$(AppIdentifierPrefix)*</string>
     </array>
+    <key>com.apple.developer.icloud-services</key>
+    <array>
+      <string>CloudKit</string>
+      <string>CloudDocuments</string>
+    </array>
+    <key>com.apple.developer.icloud-container-identifiers</key>
+    <array>
+      <string>iCloud.com.apocaliss92.zentik.dev</string>
+    </array>
+    <key>com.apple.developer.ubiquity-kvstore-identifier</key>
+    <string>$(TeamIdentifierPrefix)com.apocaliss92.zentik.dev</string>
   </dict>
 </plist>

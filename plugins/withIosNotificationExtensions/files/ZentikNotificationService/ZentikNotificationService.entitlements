@@ -11,5 +11,16 @@
 	<array>
 		<string>group.{{MAIN_BUNDLE_ID}}</string>
 	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudKit</string>
+		<string>CloudDocuments</string>
+	</array>
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.{{MAIN_BUNDLE_ID}}</string>
+	</array>
+	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
+	<string>$(TeamIdentifierPrefix){{MAIN_BUNDLE_ID}}</string>
 </dict>
 </plist>
