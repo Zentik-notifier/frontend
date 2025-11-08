@@ -22,6 +22,7 @@ public class CloudKitSyncManager {
     private let container: CKContainer
     private let privateDatabase: CKDatabase
     private let customZone: CKRecordZone
+    private let logger = LoggingSystem.shared
     
     // Zone ID per la zona condivisa con iOS
     private let zoneID: CKRecordZone.ID
@@ -68,6 +69,19 @@ public class CloudKitSyncManager {
         // Create custom zone for better performance and atomic operations
         self.zoneID = CKRecordZone.ID(zoneName: "ZentikSyncZone", ownerName: CKCurrentUserDefaultName)
         self.customZone = CKRecordZone(zoneID: zoneID)
+        
+        logger.info(
+            tag: "Initialization",
+            message: "CloudKit container initialized on Watch",
+            metadata: [
+                "mainBundleId": mainBundleId,
+                "containerIdentifier": containerIdentifier,
+                "zoneName": zoneID.zoneName,
+                "bucketsFilePath": bucketsFilePath.path,
+                "notificationsFilePath": notificationsFilePath.path
+            ],
+            source: "CloudKit-Watch"
+        )
         
         print("☁️ [CloudKitSync][Watch] Using container: \(containerIdentifier)")
         print("☁️ [CloudKitSync][Watch] Target zone: \(zoneID.zoneName)")
@@ -196,14 +210,39 @@ public class CloudKitSyncManager {
     public func fetchBucketsFromCloudKit(completion: @escaping ([Bucket]) -> Void) {
         let recordID = CKRecord.ID(recordName: "buckets_data", zoneID: zoneID)
         
+        logger.info(
+            tag: "FetchBuckets",
+            message: "Starting fetch buckets from CloudKit",
+            metadata: [
+                "recordName": recordID.recordName,
+                "zoneName": recordID.zoneID.zoneName
+            ],
+            source: "CloudKit-Watch"
+        )
+        
         privateDatabase.fetch(withRecordID: recordID) { (record, error) in
             if let error = error {
+                let ckError = error as? CKError
+                self.logger.error(
+                    tag: "FetchBuckets",
+                    message: "Failed to fetch buckets",
+                    metadata: [
+                        "error": error.localizedDescription,
+                        "errorCode": ckError.map { String($0.code.rawValue) } ?? "unknown"
+                    ],
+                    source: "CloudKit-Watch"
+                )
                 print("☁️ [CloudKitSync][Watch] ❌ Failed to fetch buckets: \(error.localizedDescription)")
                 completion([])
                 return
             }
             
             guard let record = record else {
+                self.logger.warn(
+                    tag: "FetchBuckets",
+                    message: "No buckets record found in CloudKit",
+                    source: "CloudKit-Watch"
+                )
                 print("☁️ [CloudKitSync][Watch] ⚠️ No buckets record found")
                 completion([])
                 return
@@ -211,6 +250,18 @@ public class CloudKitSyncManager {
             
             do {
                 let container = try BucketsDataContainer.from(record: record)
+                
+                self.logger.info(
+                    tag: "FetchBuckets",
+                    message: "Successfully fetched buckets from CloudKit",
+                    metadata: [
+                        "count": String(container.buckets.count),
+                        "firstId": container.buckets.first?.id ?? "none",
+                        "lastId": container.buckets.last?.id ?? "none"
+                    ],
+                    source: "CloudKit-Watch"
+                )
+                
                 print("☁️ [CloudKitSync][Watch] ✅ Fetched \(container.buckets.count) buckets from CloudKit")
                 
                 // Save to file
@@ -221,6 +272,12 @@ public class CloudKitSyncManager {
                 
                 completion(container.buckets)
             } catch {
+                self.logger.error(
+                    tag: "FetchBuckets",
+                    message: "Error parsing/saving buckets",
+                    metadata: ["error": error.localizedDescription],
+                    source: "CloudKit-Watch"
+                )
                 print("☁️ [CloudKitSync][Watch] ❌ Error parsing/saving buckets: \(error.localizedDescription)")
                 completion([])
             }
@@ -233,14 +290,40 @@ public class CloudKitSyncManager {
     public func fetchNotificationsFromCloudKit(limit: Int? = nil, completion: @escaping ([SyncNotification]) -> Void) {
         let recordID = CKRecord.ID(recordName: "notifications_data", zoneID: zoneID)
         
+        logger.info(
+            tag: "FetchNotifications",
+            message: "Starting fetch notifications from CloudKit",
+            metadata: [
+                "recordName": recordID.recordName,
+                "zoneName": recordID.zoneID.zoneName,
+                "limit": limit.map { String($0) } ?? "none"
+            ],
+            source: "CloudKit-Watch"
+        )
+        
         privateDatabase.fetch(withRecordID: recordID) { (record, error) in
             if let error = error {
+                let ckError = error as? CKError
+                self.logger.error(
+                    tag: "FetchNotifications",
+                    message: "Failed to fetch notifications",
+                    metadata: [
+                        "error": error.localizedDescription,
+                        "errorCode": ckError.map { String($0.code.rawValue) } ?? "unknown"
+                    ],
+                    source: "CloudKit-Watch"
+                )
                 print("☁️ [CloudKitSync][Watch] ❌ Failed to fetch notifications: \(error.localizedDescription)")
                 completion([])
                 return
             }
             
             guard let record = record else {
+                self.logger.warn(
+                    tag: "FetchNotifications",
+                    message: "No notifications record found in CloudKit",
+                    source: "CloudKit-Watch"
+                )
                 print("☁️ [CloudKitSync][Watch] ⚠️ No notifications record found")
                 completion([])
                 return
@@ -253,6 +336,23 @@ public class CloudKitSyncManager {
                 // Apply limit if specified
                 let limitedNotifications = limit.map { Array(syncNotifications.prefix($0)) } ?? syncNotifications
                 
+                let unreadCount = limitedNotifications.filter { $0.readAt == nil }.count
+                
+                self.logger.info(
+                    tag: "FetchNotifications",
+                    message: "Successfully fetched notifications from CloudKit",
+                    metadata: [
+                        "totalCount": String(syncNotifications.count),
+                        "limitedCount": String(limitedNotifications.count),
+                        "unreadCount": String(unreadCount),
+                        "firstId": limitedNotifications.first?.id ?? "none",
+                        "firstTitle": limitedNotifications.first?.title ?? "none",
+                        "lastId": limitedNotifications.last?.id ?? "none",
+                        "lastTitle": limitedNotifications.last?.title ?? "none"
+                    ],
+                    source: "CloudKit-Watch"
+                )
+                
                 print("☁️ [CloudKitSync][Watch] ✅ Fetched \(limitedNotifications.count) notifications from CloudKit")
                 
                 // Save to file (save all, not just limited)
@@ -263,6 +363,12 @@ public class CloudKitSyncManager {
                 
                 completion(limitedNotifications)
             } catch {
+                self.logger.error(
+                    tag: "FetchNotifications",
+                    message: "Error parsing/saving notifications",
+                    metadata: ["error": error.localizedDescription],
+                    source: "CloudKit-Watch"
+                )
                 print("☁️ [CloudKitSync][Watch] ❌ Error parsing/saving notifications: \(error.localizedDescription)")
                 completion([])
             }

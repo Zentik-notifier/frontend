@@ -87,6 +87,15 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
         sendMessageToWatch(message, description: "reload trigger")
     }
     
+    /**
+     * Request logs from Watch for debugging
+     */
+    func requestWatchLogs() {
+        let message: [String: Any] = ["action": "requestLogs"]
+        sendMessageToWatch(message, description: "request Watch logs")
+        print("📱 📤 Sent log request to Watch")
+    }
+    
     // MARK: - Private Helpers
     
     /**
@@ -222,6 +231,35 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
             // We can still respond with a reload trigger for backward compatibility
             print("📱 Watch requested data - responding with reload trigger")
             replyHandler(["action": "reload", "message": "Please fetch from CloudKit"])
+        
+        case "watchLogs":
+            // Watch is sending logs for debugging
+            if let logsString = message["logs"] as? String,
+               let count = message["count"] as? Int {
+                print("📱 📥 Received \(count) logs from Watch")
+                
+                // Parse and save logs to iOS LoggingSystem
+                if let logsData = logsString.data(using: .utf8),
+                   let watchLogs = try? JSONDecoder().decode([LoggingSystem.LogEntry].self, from: logsData) {
+                    // Write each log entry to iOS logging system with "Watch-Forward" source
+                    for log in watchLogs {
+                        LoggingSystem.shared.log(
+                            level: log.level,
+                            tag: log.tag,
+                            message: "[Watch] \(log.message)",
+                            metadata: log.metadata,
+                            source: "Watch-Forward"
+                        )
+                    }
+                    print("📱 ✅ Forwarded \(watchLogs.count) Watch logs to iOS logging system")
+                    replyHandler(["success": true, "logsReceived": watchLogs.count])
+                } else {
+                    print("📱 ❌ Failed to decode Watch logs")
+                    replyHandler(["error": "Failed to decode logs"])
+                }
+            } else {
+                replyHandler(["error": "Missing logs or count"])
+            }
             
         default:
             print("📱 ❌ Unknown action: \(action)")

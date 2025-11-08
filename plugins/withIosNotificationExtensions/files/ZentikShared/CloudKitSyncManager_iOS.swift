@@ -175,13 +175,28 @@ public class CloudKitSyncManager {
      * Parses retentionPolicies JSON to extract watchNMaxNotifications
      */
     private func getWatchNMaxNotifications() -> Int {
-        guard let settingValue = DatabaseAccess.getSettingValue(key: retentionPoliciesKey),
-              let jsonData = settingValue.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-              let watchNMaxNotifications = json["watchNMaxNotifications"] as? Int else {
-            return defaultWatchNMaxNotifications
+        var result = defaultWatchNMaxNotifications
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        DatabaseAccess.performDatabaseOperation(
+            type: .read,
+            name: "GetWatchMaxNotifications",
+            source: "CloudKitSync"
+        ) { db in
+            guard let settingValue = DatabaseAccess.getSettingValue(key: self.retentionPoliciesKey),
+                  let jsonData = settingValue.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                  let watchNMaxNotifications = json["watchNMaxNotifications"] as? Int else {
+                return .success
+            }
+            result = watchNMaxNotifications
+            return .success
+        } completion: { _ in
+            semaphore.signal()
         }
-        return watchNMaxNotifications
+        
+        _ = semaphore.wait(timeout: .now() + 5.0)
+        return result
     }
     
     // MARK: - Database to JSON Export
@@ -190,74 +205,84 @@ public class CloudKitSyncManager {
      * Esporta tutti i buckets dal database locale a un array di Bucket (JSON-serializable)
      */
     private func exportBucketsFromDatabase() throws -> [Bucket] {
-        guard let dbPath = DatabaseAccess.getDbPath() else {
-            throw NSError(domain: "CloudKitSync", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to get database path"])
-        }
-        
-        var db: OpaquePointer?
-        guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
-            throw NSError(domain: "CloudKitSync", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to open database"])
-        }
-        defer { sqlite3_close(db) }
-        
-        let sql = "SELECT id, name, fragment, updated_at FROM buckets"
-        var stmt: OpaquePointer?
-        
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            throw NSError(domain: "CloudKitSync", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to prepare statement"])
-        }
-        defer { sqlite3_finalize(stmt) }
-        
         var buckets: [Bucket] = []
-        var skippedOrphans = 0
+        var exportError: Error?
+        let semaphore = DispatchSemaphore(value: 0)
         
-        while sqlite3_step(stmt) == SQLITE_ROW {
-            guard let idCString = sqlite3_column_text(stmt, 0),
-                  let nameCString = sqlite3_column_text(stmt, 1),
-                  let fragmentCString = sqlite3_column_text(stmt, 2),
-                  let updatedAtCString = sqlite3_column_text(stmt, 3) else {
-                continue
+        DatabaseAccess.performDatabaseOperation(
+            type: .read,
+            name: "ExportBuckets",
+            source: "CloudKitSync"
+        ) { db in
+            let sql = "SELECT id, name, fragment, updated_at FROM buckets"
+            var stmt: OpaquePointer?
+            
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                exportError = NSError(domain: "CloudKitSync", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to prepare statement"])
+                return .failure("Failed to prepare statement")
+            }
+            defer { sqlite3_finalize(stmt) }
+            
+            var skippedOrphans = 0
+            
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let idCString = sqlite3_column_text(stmt, 0),
+                      let nameCString = sqlite3_column_text(stmt, 1),
+                      let fragmentCString = sqlite3_column_text(stmt, 2),
+                      let updatedAtCString = sqlite3_column_text(stmt, 3) else {
+                    continue
+                }
+                
+                let id = String(cString: idCString)
+                let name = String(cString: nameCString)
+                let fragment = String(cString: fragmentCString)
+                let updatedAtString = String(cString: updatedAtCString)
+                
+                // Parse fragment JSON
+                guard let fragmentData = fragment.data(using: .utf8),
+                      let fragmentJson = try? JSONSerialization.jsonObject(with: fragmentData) as? [String: Any] else {
+                    print("☁️ [CloudKitSync][iOS] ⚠️ Failed to parse fragment for bucket \(id)")
+                    continue
+                }
+                
+                // Skip orphan buckets
+                let isOrphan = fragmentJson["isOrphan"] as? Bool ?? false
+                if isOrphan {
+                    skippedOrphans += 1
+                    continue
+                }
+                
+                let description = fragmentJson["description"] as? String
+                let color = fragmentJson["color"] as? String
+                let iconUrl = fragmentJson["iconUrl"] as? String
+                let createdAtString = fragmentJson["createdAt"] as? String ?? updatedAtString
+                
+                let bucket = Bucket(
+                    id: id,
+                    name: name,
+                    description: description,
+                    color: color,
+                    iconUrl: iconUrl,
+                    createdAt: createdAtString,
+                    updatedAt: updatedAtString,
+                    isOrphan: false
+                )
+                
+                buckets.append(bucket)
             }
             
-            let id = String(cString: idCString)
-            let name = String(cString: nameCString)
-            let fragment = String(cString: fragmentCString)
-            let updatedAtString = String(cString: updatedAtCString)
-            
-            // Parse fragment JSON
-            guard let fragmentData = fragment.data(using: .utf8),
-                  let fragmentJson = try? JSONSerialization.jsonObject(with: fragmentData) as? [String: Any] else {
-                print("☁️ [CloudKitSync][iOS] ⚠️ Failed to parse fragment for bucket \(id)")
-                continue
-            }
-            
-            // Skip orphan buckets
-            let isOrphan = fragmentJson["isOrphan"] as? Bool ?? false
-            if isOrphan {
-                skippedOrphans += 1
-                continue
-            }
-            
-            let description = fragmentJson["description"] as? String
-            let color = fragmentJson["color"] as? String
-            let iconUrl = fragmentJson["iconUrl"] as? String
-            let createdAtString = fragmentJson["createdAt"] as? String ?? updatedAtString
-            
-            let bucket = Bucket(
-                id: id,
-                name: name,
-                description: description,
-                color: color,
-                iconUrl: iconUrl,
-                createdAt: createdAtString,
-                updatedAt: updatedAtString,
-                isOrphan: false
-            )
-            
-            buckets.append(bucket)
+            print("☁️ [CloudKitSync][iOS] 📦 Exported \(buckets.count) buckets from database (\(skippedOrphans) orphans skipped)")
+            return .success
+        } completion: { _ in
+            semaphore.signal()
         }
         
-        print("☁️ [CloudKitSync][iOS] 📦 Exported \(buckets.count) buckets from database (\(skippedOrphans) orphans skipped)")
+        _ = semaphore.wait(timeout: .now() + DatabaseAccess.DB_OPERATION_TIMEOUT)
+        
+        if let error = exportError {
+            throw error
+        }
+        
         return buckets
     }
     
@@ -265,114 +290,124 @@ public class CloudKitSyncManager {
      * Esporta le notifiche recenti dal database locale a un array di SyncNotification (JSON-serializable)
      */
     private func exportNotificationsFromDatabase(limit: Int) throws -> [SyncNotification] {
-        guard let dbPath = DatabaseAccess.getDbPath() else {
-            throw NSError(domain: "CloudKitSync", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to get database path"])
-        }
-        
-        var db: OpaquePointer?
-        guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
-            throw NSError(domain: "CloudKitSync", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to open database"])
-        }
-        defer { sqlite3_close(db) }
-        
-        let sql = "SELECT id, fragment, created_at, read_at, bucket_id FROM notifications ORDER BY created_at DESC LIMIT ?"
-        var stmt: OpaquePointer?
-        
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            throw NSError(domain: "CloudKitSync", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to prepare statement"])
-        }
-        defer { sqlite3_finalize(stmt) }
-        
-        let safeLimit = min(limit, Int(Int32.max))
-        guard sqlite3_bind_int64(stmt, 1, Int64(safeLimit)) == SQLITE_OK else {
-            throw NSError(domain: "CloudKitSync", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to bind limit parameter"])
-        }
-        
         var notifications: [SyncNotification] = []
+        var exportError: Error?
+        let semaphore = DispatchSemaphore(value: 0)
         
-        while sqlite3_step(stmt) == SQLITE_ROW {
-            guard let idCString = sqlite3_column_text(stmt, 0),
-                  let fragmentCString = sqlite3_column_text(stmt, 1),
-                  let createdAtCString = sqlite3_column_text(stmt, 2),
-                  let bucketIdCString = sqlite3_column_text(stmt, 4) else {
-                continue
+        DatabaseAccess.performDatabaseOperation(
+            type: .read,
+            name: "ExportNotifications",
+            source: "CloudKitSync"
+        ) { db in
+            let sql = "SELECT id, fragment, created_at, read_at, bucket_id FROM notifications ORDER BY created_at DESC LIMIT ?"
+            var stmt: OpaquePointer?
+            
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                exportError = NSError(domain: "CloudKitSync", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to prepare statement"])
+                return .failure("Failed to prepare statement")
+            }
+            defer { sqlite3_finalize(stmt) }
+            
+            let safeLimit = min(limit, Int(Int32.max))
+            guard sqlite3_bind_int64(stmt, 1, Int64(safeLimit)) == SQLITE_OK else {
+                exportError = NSError(domain: "CloudKitSync", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to bind limit parameter"])
+                return .failure("Failed to bind limit parameter")
             }
             
-            let id = String(cString: idCString)
-            let fragment = String(cString: fragmentCString)
-            let createdAtString = String(cString: createdAtCString)
-            let bucketId = String(cString: bucketIdCString)
-            let readAtString = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
-            
-            // Parse fragment JSON
-            guard let fragmentData = fragment.data(using: .utf8),
-                  let fragmentJson = try? JSONSerialization.jsonObject(with: fragmentData) as? [String: Any],
-                  let message = fragmentJson["message"] as? [String: Any] else {
-                print("☁️ [CloudKitSync][iOS] ⚠️ Failed to parse fragment for notification \(id)")
-                continue
-            }
-            
-            let title = message["title"] as? String ?? ""
-            let subtitle = message["subtitle"] as? String
-            let body = message["body"] as? String
-            
-            let sentAtString = fragmentJson["sentAt"] as? String ?? createdAtString
-            let updatedAtString = fragmentJson["updatedAt"] as? String ?? createdAtString
-            
-            // Extract attachments
-            var attachments: [SyncAttachment] = []
-            if let attachmentsArray = message["attachments"] as? [[String: Any]] {
-                attachments = attachmentsArray.compactMap { attDict in
-                    guard let mediaType = attDict["mediaType"] as? String else { return nil }
-                    let url = attDict["url"] as? String
-                    let name = attDict["name"] as? String
-                    return SyncAttachment(mediaType: mediaType, url: url, name: name)
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let idCString = sqlite3_column_text(stmt, 0),
+                      let fragmentCString = sqlite3_column_text(stmt, 1),
+                      let createdAtCString = sqlite3_column_text(stmt, 2),
+                      let bucketIdCString = sqlite3_column_text(stmt, 4) else {
+                    continue
                 }
-            }
-            
-            // Extract actions
-            var actions: [SyncAction] = []
-            if let actionsArray = message["actions"] as? [[String: Any]] {
-                actions = actionsArray.compactMap { actionDict in
-                    guard let type = actionDict["type"] as? String else { return nil }
-                    let value = actionDict["value"] as? String
-                    let title = actionDict["title"] as? String
-                    let icon = actionDict["icon"] as? String
-                    let destructive = actionDict["destructive"] as? Bool ?? false
-                    return SyncAction(type: type, value: value, title: title, icon: icon, destructive: destructive)
+                
+                let id = String(cString: idCString)
+                let fragment = String(cString: fragmentCString)
+                let createdAtString = String(cString: createdAtCString)
+                let bucketId = String(cString: bucketIdCString)
+                let readAtString = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
+                
+                // Parse fragment JSON
+                guard let fragmentData = fragment.data(using: .utf8),
+                      let fragmentJson = try? JSONSerialization.jsonObject(with: fragmentData) as? [String: Any],
+                      let message = fragmentJson["message"] as? [String: Any] else {
+                    print("☁️ [CloudKitSync][iOS] ⚠️ Failed to parse fragment for notification \(id)")
+                    continue
                 }
+                
+                let title = message["title"] as? String ?? ""
+                let subtitle = message["subtitle"] as? String
+                let body = message["body"] as? String
+                
+                let sentAtString = fragmentJson["sentAt"] as? String ?? createdAtString
+                let updatedAtString = fragmentJson["updatedAt"] as? String ?? createdAtString
+                
+                // Extract attachments
+                var attachments: [SyncAttachment] = []
+                if let attachmentsArray = message["attachments"] as? [[String: Any]] {
+                    attachments = attachmentsArray.compactMap { attDict in
+                        guard let mediaType = attDict["mediaType"] as? String else { return nil }
+                        let url = attDict["url"] as? String
+                        let name = attDict["name"] as? String
+                        return SyncAttachment(mediaType: mediaType, url: url, name: name)
+                    }
+                }
+                
+                // Extract actions
+                var actions: [SyncAction] = []
+                if let actionsArray = message["actions"] as? [[String: Any]] {
+                    actions = actionsArray.compactMap { actionDict in
+                        guard let type = actionDict["type"] as? String else { return nil }
+                        let value = actionDict["value"] as? String
+                        let title = actionDict["title"] as? String
+                        let icon = actionDict["icon"] as? String
+                        let destructive = actionDict["destructive"] as? Bool ?? false
+                        return SyncAction(type: type, value: value, title: title, icon: icon, destructive: destructive)
+                    }
+                }
+                
+                // Extract tapAction
+                var tapAction: SyncAction? = nil
+                if let tapActionDict = message["tapAction"] as? [String: Any],
+                   let type = tapActionDict["type"] as? String {
+                    let value = tapActionDict["value"] as? String
+                    let title = tapActionDict["title"] as? String
+                    let icon = tapActionDict["icon"] as? String
+                    let destructive = tapActionDict["destructive"] as? Bool ?? false
+                    tapAction = SyncAction(type: type, value: value, title: title, icon: icon, destructive: destructive)
+                }
+                
+                let notification = SyncNotification(
+                    id: id,
+                    title: title,
+                    subtitle: subtitle,
+                    body: body,
+                    readAt: readAtString,
+                    sentAt: sentAtString,
+                    createdAt: createdAtString,
+                    updatedAt: updatedAtString,
+                    bucketId: bucketId,
+                    attachments: attachments,
+                    actions: actions,
+                    tapAction: tapAction
+                )
+                
+                notifications.append(notification)
             }
             
-            // Extract tapAction
-            var tapAction: SyncAction? = nil
-            if let tapActionDict = message["tapAction"] as? [String: Any],
-               let type = tapActionDict["type"] as? String {
-                let value = tapActionDict["value"] as? String
-                let title = tapActionDict["title"] as? String
-                let icon = tapActionDict["icon"] as? String
-                let destructive = tapActionDict["destructive"] as? Bool ?? false
-                tapAction = SyncAction(type: type, value: value, title: title, icon: icon, destructive: destructive)
-            }
-            
-            let notification = SyncNotification(
-                id: id,
-                title: title,
-                subtitle: subtitle,
-                body: body,
-                readAt: readAtString,
-                sentAt: sentAtString,
-                createdAt: createdAtString,
-                updatedAt: updatedAtString,
-                bucketId: bucketId,
-                attachments: attachments,
-                actions: actions,
-                tapAction: tapAction
-            )
-            
-            notifications.append(notification)
+            print("☁️ [CloudKitSync][iOS] 📦 Exported \(notifications.count) notifications from database")
+            return .success
+        } completion: { _ in
+            semaphore.signal()
         }
         
-        print("☁️ [CloudKitSync][iOS] 📦 Exported \(notifications.count) notifications from database")
+        _ = semaphore.wait(timeout: .now() + DatabaseAccess.DB_OPERATION_TIMEOUT)
+        
+        if let error = exportError {
+            throw error
+        }
+        
         return notifications
     }
     

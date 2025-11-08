@@ -362,6 +362,30 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
     }
     
+    /**
+     * Send logs from Watch to iPhone for debugging
+     */
+    public func sendLogsToiPhone() {
+        // Get recent logs from LoggingSystem
+        let logs = LoggingSystem.shared.readLogs()
+        
+        // Convert to JSON array
+        do {
+            let jsonData = try JSONEncoder().encode(logs)
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                sendMessageToiPhone([
+                    "action": "watchLogs",
+                    "logs": jsonString,
+                    "count": logs.count,
+                    "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
+                ])
+                print("⌚ [Watch] 📤 Sent \(logs.count) logs to iPhone")
+            }
+        } catch {
+            print("⌚ [Watch] ❌ Failed to encode logs: \(error.localizedDescription)")
+        }
+    }
+    
     // MARK: - Local Update Methods
     
     /**
@@ -644,6 +668,12 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 // Full reload - fetch fresh data from CloudKit
                 print("⌚ [WatchConnectivity] 🔄 Received reload trigger from iPhone")
                 self.fetchFromCloudKit()
+                replyHandler(["success": true])
+            
+            case "requestLogs":
+                // iPhone requesting Watch logs
+                print("⌚ [WatchConnectivity] 📤 iPhone requested logs, sending...")
+                self.sendLogsToiPhone()
                 replyHandler(["success": true])
                 
             case "fullUpdate":

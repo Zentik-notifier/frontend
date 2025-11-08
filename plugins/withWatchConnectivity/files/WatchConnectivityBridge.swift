@@ -146,4 +146,19 @@ class WatchConnectivityBridge: RCTEventEmitter {
     iPhoneWatchConnectivityManager.shared.notifyWatchNotificationAdded(notificationId: notificationId)
     resolve(["success": true])
   }
+  
+    @objc
+  func requestWatchLogs(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    logger.info(
+      tag: "ReactNative→Watch",
+      message: "React Native requested Watch logs",
+      metadata: ["action": "requestLogs"],
+      source: "WatchBridge"
+    )
+    
+    // This will be handled by WatchConnectivityManager sending a message to Watch
+    // The Watch will respond via the "watchLogs" action which will be logged automatically
+    iPhoneWatchConnectivityManager.shared.requestWatchLogs()
+    resolve(["success": true, "message": "Watch logs request sent"])
+  }
 }

@@ -278,6 +278,25 @@ class IosBridgeService {
   async notifyAll(type: 'read' | 'unread' | 'delete' | 'add' | 'reload', payload: any = {}): Promise<boolean> {
     return this.syncAll(type, payload, false);
   }
+
+  /**
+   * Request Watch logs for debugging
+   */
+  async requestWatchLogs(): Promise<boolean> {
+    if (!isIOS || !WatchConnectivityBridge) {
+      console.log('[IosBridge] WatchConnectivityBridge not available');
+      return false;
+    }
+
+    try {
+      await WatchConnectivityBridge.requestWatchLogs();
+      console.log('[IosBridge] ✅ Watch logs request sent');
+      return true;
+    } catch (error) {
+      console.error('[IosBridge] ❌ Failed to request Watch logs:', error);
+      return false;
+    }
+  }
 }
 
 export default new IosBridgeService();
