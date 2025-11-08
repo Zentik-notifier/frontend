@@ -751,6 +751,11 @@ extension WatchConnectivityManager: WCSessionDelegate {
             case "reload":
                 print("⌚ [WatchConnectivity] 🔄 Received reload trigger from iPhone (background)")
                 self.fetchFromCloudKit()
+            
+            case "requestLogs":
+                // iPhone requesting Watch logs (background transfer)
+                print("⌚ [WatchConnectivity] 📤 iPhone requested logs (background), sending...")
+                self.sendLogsToiPhone()
                 
             case "fullUpdate":
                 // Full data update from iPhone - completely overwrite cache
