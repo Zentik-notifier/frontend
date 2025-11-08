@@ -44,15 +44,14 @@ public class CloudKitSyncManager {
     // MARK: - Initialization
     
     private init() {
-        // Get container identifier from bundle
-        let mainBundleId = KeychainAccess.getMainBundleIdentifier()
-        let containerIdentifier = "iCloud.\(mainBundleId)"
+        // Get container identifier from KeychainAccess
+        let containerIdentifier = KeychainAccess.getCloudKitContainerIdentifier()
         
         self.container = CKContainer(identifier: containerIdentifier)
         self.privateDatabase = container.privateCloudDatabase
         
-        // Create custom zone for better performance and atomic operations
-        self.zoneID = CKRecordZone.ID(zoneName: "ZentikSyncZone", ownerName: CKCurrentUserDefaultName)
+        // Create custom zone using centralized method
+        self.zoneID = KeychainAccess.getCloudKitZoneID()
         self.customZone = CKRecordZone(zoneID: zoneID)
         
         // Log detailed initialization info
@@ -60,14 +59,14 @@ public class CloudKitSyncManager {
             tag: "Initialization",
             message: "CloudKit container initialized",
             metadata: [
-                "mainBundleId": mainBundleId,
+                "mainBundleId": KeychainAccess.getMainBundleIdentifier(),
                 "containerIdentifier": containerIdentifier,
                 "zoneName": zoneID.zoneName
             ],
             source: "CloudKit"
         )
         
-        print("☁️ [CloudKitSync][iOS] Using container: \(containerIdentifier) (bundle: \(mainBundleId))")
+        print("☁️ [CloudKitSync][iOS] Using container: \(containerIdentifier) (bundle: \(KeychainAccess.getMainBundleIdentifier()))")
         print("☁️ [CloudKitSync][iOS] Target zone: \(zoneID.zoneName)")
         ensureCustomZoneExists()
     }

@@ -213,85 +213,131 @@ class CloudKitSyncBridge: NSObject {
       source: "CloudKitBridge"
     )
     
-    let container = CKContainer(identifier: "iCloud.com.zentik.notifier")
-    let privateDatabase = container.privateCloudDatabase
-    let customZone = CKRecordZone(zoneName: "ZentikSyncZone")
-    
-    let bucketsQuery = CKQuery(recordType: "buckets_data", predicate: NSPredicate(value: true))
-    let notificationsQuery = CKQuery(recordType: "notifications_data", predicate: NSPredicate(value: true))
-    
-    let group = DispatchGroup()
-    var bucketsCount = 0
-    var notificationsCount = 0
-    var hasError = false
-    
-    // Fetch buckets count
-    group.enter()
-    privateDatabase.fetch(withQuery: bucketsQuery, inZoneWith: customZone.zoneID, desiredKeys: nil, resultsLimit: CKQueryOperation.maximumResults) { result in
-      switch result {
-      case .success(let queryResult):
-        bucketsCount = queryResult.matchResults.count
-        self.logger.info(
-          tag: "CloudKitFetch",
-          message: "Buckets count fetched",
-          metadata: ["count": String(bucketsCount)],
-          source: "CloudKitBridge"
-        )
-      case .failure(let error):
+    // Check iCloud account status first
+    CKContainer(identifier: KeychainAccess.getCloudKitContainerIdentifier()).accountStatus { accountStatus, error in
+      if let error = error {
         self.logger.error(
           tag: "CloudKitFetch",
-          message: "Failed to fetch buckets count",
+          message: "Failed to check iCloud account status",
           metadata: ["error": error.localizedDescription],
           source: "CloudKitBridge"
         )
-        hasError = true
+        reject("ACCOUNT_ERROR", "iCloud account error: \(error.localizedDescription)", error)
+        return
       }
-      group.leave()
-    }
-    
-    // Fetch notifications count
-    group.enter()
-    privateDatabase.fetch(withQuery: notificationsQuery, inZoneWith: customZone.zoneID, desiredKeys: nil, resultsLimit: CKQueryOperation.maximumResults) { result in
-      switch result {
-      case .success(let queryResult):
-        notificationsCount = queryResult.matchResults.count
-        self.logger.info(
-          tag: "CloudKitFetch",
-          message: "Notifications count fetched",
-          metadata: ["count": String(notificationsCount)],
-          source: "CloudKitBridge"
-        )
-      case .failure(let error):
+      
+      guard accountStatus == .available else {
+        let statusMessage = self.getAccountStatusMessage(accountStatus)
         self.logger.error(
           tag: "CloudKitFetch",
-          message: "Failed to fetch notifications count",
-          metadata: ["error": error.localizedDescription],
+          message: "iCloud account not available",
+          metadata: ["status": statusMessage],
           source: "CloudKitBridge"
         )
-        hasError = true
+        reject("ACCOUNT_UNAVAILABLE", "iCloud account not available: \(statusMessage)", nil)
+        return
       }
-      group.leave()
+      
+      // Use centralized CloudKit setup
+      let setup = KeychainAccess.getCloudKitSetup()
+      let group = DispatchGroup()
+      var bucketsCount = 0
+      var notificationsCount = 0
+      var fetchError: Error?
+      
+      // Fetch buckets count
+      group.enter()
+      setup.privateDatabase.fetch(withQuery: setup.bucketsQuery, inZoneWith: setup.customZone.zoneID, desiredKeys: nil, resultsLimit: CKQueryOperation.maximumResults) { result in
+        switch result {
+        case .success(let queryResult):
+          bucketsCount = queryResult.matchResults.count
+          self.logger.info(
+            tag: "CloudKitFetch",
+            message: "Buckets count fetched",
+            metadata: ["count": String(bucketsCount)],
+            source: "CloudKitBridge"
+          )
+        case .failure(let error):
+          self.logger.error(
+            tag: "CloudKitFetch",
+            message: "Failed to fetch buckets count",
+            metadata: ["error": error.localizedDescription],
+            source: "CloudKitBridge"
+          )
+          if fetchError == nil {
+            fetchError = error
+          }
+        }
+        group.leave()
+      }
+      
+      // Fetch notifications count
+      group.enter()
+      setup.privateDatabase.fetch(withQuery: setup.notificationsQuery, inZoneWith: setup.customZone.zoneID, desiredKeys: nil, resultsLimit: CKQueryOperation.maximumResults) { result in
+        switch result {
+        case .success(let queryResult):
+          notificationsCount = queryResult.matchResults.count
+          self.logger.info(
+            tag: "CloudKitFetch",
+            message: "Notifications count fetched",
+            metadata: ["count": String(notificationsCount)],
+            source: "CloudKitBridge"
+          )
+        case .failure(let error):
+          self.logger.error(
+            tag: "CloudKitFetch",
+            message: "Failed to fetch notifications count",
+            metadata: ["error": error.localizedDescription],
+            source: "CloudKitBridge"
+          )
+          if fetchError == nil {
+            fetchError = error
+          }
+        }
+        group.leave()
+      }
+      
+      group.notify(queue: .main) {
+        if let error = fetchError {
+          reject("FETCH_ERROR", "Failed to fetch CloudKit records: \(error.localizedDescription)", error)
+        } else {
+          self.logger.info(
+            tag: "CloudKitFetch",
+            message: "CloudKit records count completed",
+            metadata: [
+              "bucketsCount": String(bucketsCount),
+              "notificationsCount": String(notificationsCount),
+              "containerIdentifier": KeychainAccess.getCloudKitContainerIdentifier()
+            ],
+            source: "CloudKitBridge"
+          )
+          resolve([
+            "success": true,
+            "bucketsCount": bucketsCount,
+            "notificationsCount": notificationsCount
+          ])
+        }
+      }
     }
-    
-    group.notify(queue: .main) {
-      if hasError {
-        reject("FETCH_ERROR", "Failed to fetch CloudKit records count", nil)
-      } else {
-        self.logger.info(
-          tag: "CloudKitFetch",
-          message: "CloudKit records count completed",
-          metadata: [
-            "bucketsCount": String(bucketsCount),
-            "notificationsCount": String(notificationsCount)
-          ],
-          source: "CloudKitBridge"
-        )
-        resolve([
-          "success": true,
-          "bucketsCount": bucketsCount,
-          "notificationsCount": notificationsCount
-        ])
-      }
+  }
+  
+  /**
+   * Helper to get human-readable account status message
+   */
+  private func getAccountStatusMessage(_ status: CKAccountStatus) -> String {
+    switch status {
+    case .available:
+      return "available"
+    case .noAccount:
+      return "no iCloud account"
+    case .restricted:
+      return "restricted (parental controls)"
+    case .couldNotDetermine:
+      return "could not determine"
+    case .temporarilyUnavailable:
+      return "temporarily unavailable"
+    @unknown default:
+      return "unknown status"
     }
   }
   
@@ -306,13 +352,9 @@ class CloudKitSyncBridge: NSObject {
       source: "CloudKitBridge"
     )
     
-    let container = CKContainer(identifier: "iCloud.com.zentik.notifier")
-    let privateDatabase = container.privateCloudDatabase
-    let customZone = CKRecordZone(zoneName: "ZentikSyncZone")
+    let setup = KeychainAccess.getCloudKitSetup()
     
-    let query = CKQuery(recordType: "buckets_data", predicate: NSPredicate(value: true))
-    
-    privateDatabase.fetch(withQuery: query, inZoneWith: customZone.zoneID, desiredKeys: nil, resultsLimit: CKQueryOperation.maximumResults) { result in
+    setup.privateDatabase.fetch(withQuery: setup.bucketsQuery, inZoneWith: setup.customZone.zoneID, desiredKeys: nil, resultsLimit: CKQueryOperation.maximumResults) { result in
       switch result {
       case .success(let queryResult):
         var buckets: [[String: Any]] = []
@@ -379,13 +421,9 @@ class CloudKitSyncBridge: NSObject {
       source: "CloudKitBridge"
     )
     
-    let container = CKContainer(identifier: "iCloud.com.zentik.notifier")
-    let privateDatabase = container.privateCloudDatabase
-    let customZone = CKRecordZone(zoneName: "ZentikSyncZone")
+    let setup = KeychainAccess.getCloudKitSetup()
     
-    let query = CKQuery(recordType: "notifications_data", predicate: NSPredicate(value: true))
-    
-    privateDatabase.fetch(withQuery: query, inZoneWith: customZone.zoneID, desiredKeys: nil, resultsLimit: CKQueryOperation.maximumResults) { result in
+    setup.privateDatabase.fetch(withQuery: setup.notificationsQuery, inZoneWith: setup.customZone.zoneID, desiredKeys: nil, resultsLimit: CKQueryOperation.maximumResults) { result in
       switch result {
       case .success(let queryResult):
         var notifications: [[String: Any]] = []
@@ -453,13 +491,10 @@ class CloudKitSyncBridge: NSObject {
       source: "CloudKitBridge"
     )
     
-    let container = CKContainer(identifier: "iCloud.com.zentik.notifier")
-    let privateDatabase = container.privateCloudDatabase
-    let customZone = CKRecordZone(zoneName: "ZentikSyncZone")
+    let setup = KeychainAccess.getCloudKitSetup()
+    let recordID = CKRecord.ID(recordName: recordName, zoneID: setup.customZone.zoneID)
     
-    let recordID = CKRecord.ID(recordName: recordName, zoneID: customZone.zoneID)
-    
-    privateDatabase.fetch(withRecordID: recordID) { record, error in
+    setup.privateDatabase.fetch(withRecordID: recordID) { record, error in
       if let error = error {
         self.logger.error(
           tag: "CloudKitFetch",
@@ -519,13 +554,10 @@ class CloudKitSyncBridge: NSObject {
       source: "CloudKitBridge"
     )
     
-    let container = CKContainer(identifier: "iCloud.com.zentik.notifier")
-    let privateDatabase = container.privateCloudDatabase
-    let customZone = CKRecordZone(zoneName: "ZentikSyncZone")
+    let setup = KeychainAccess.getCloudKitSetup()
+    let recordID = CKRecord.ID(recordName: recordName, zoneID: setup.customZone.zoneID)
     
-    let recordID = CKRecord.ID(recordName: recordName, zoneID: customZone.zoneID)
-    
-    privateDatabase.delete(withRecordID: recordID) { recordID, error in
+    setup.privateDatabase.delete(withRecordID: recordID) { recordID, error in
       if let error = error {
         self.logger.error(
           tag: "CloudKitDelete",

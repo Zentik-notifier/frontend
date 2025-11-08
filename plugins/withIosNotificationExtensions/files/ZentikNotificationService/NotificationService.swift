@@ -1842,10 +1842,9 @@ class NotificationService: UNNotificationServiceExtension {
     
     print("📱 [NotificationService] 📤 Exported \(notifications.count) notifications from database")
     
-    // Save to CloudKit
-    let container = CKContainer(identifier: "iCloud.io.zentik.notifier")
-    let privateDB = container.privateCloudDatabase
-    let zoneID = CKRecordZone.ID(zoneName: "ZentikSyncZone", ownerName: CKCurrentUserDefaultName)
+    // Save to CloudKit using centralized setup
+    let setup = KeychainAccess.getCloudKitSetup()
+    let zoneID = KeychainAccess.getCloudKitZoneID()
     
     let notificationsData = NotificationsDataContainer(notifications: notifications)
     
@@ -1860,7 +1859,7 @@ class NotificationService: UNNotificationServiceExtension {
     record["notificationsJson"] = asset
     record["lastUpdated"] = Date()
     
-    privateDB.save(record) { savedRecord, error in
+    setup.privateDatabase.save(record) { savedRecord, error in
       if let error = error {
         print("📱 [NotificationService] ❌ CloudKit sync failed: \(error.localizedDescription)")
       } else {

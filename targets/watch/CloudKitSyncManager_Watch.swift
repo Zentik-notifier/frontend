@@ -59,16 +59,17 @@ public class CloudKitSyncManager {
     // MARK: - Initialization
     
     private init() {
-        // Get container identifier from bundle
-        let mainBundleId = KeychainAccess.getMainBundleIdentifier()
-        let containerIdentifier = "iCloud.\(mainBundleId)"
+        // Use centralized CloudKit setup
+        let setup = KeychainAccess.getCloudKitSetup()
+        self.container = setup.container
+        self.privateDatabase = setup.privateDatabase
         
-        self.container = CKContainer(identifier: containerIdentifier)
-        self.privateDatabase = container.privateCloudDatabase
-        
-        // Create custom zone for better performance and atomic operations
-        self.zoneID = CKRecordZone.ID(zoneName: "ZentikSyncZone", ownerName: CKCurrentUserDefaultName)
+        // Create custom zone using centralized method
+        self.zoneID = KeychainAccess.getCloudKitZoneID()
         self.customZone = CKRecordZone(zoneID: zoneID)
+        
+        let containerIdentifier = KeychainAccess.getCloudKitContainerIdentifier()
+        let mainBundleId = KeychainAccess.getMainBundleIdentifier()
         
         logger.info(
             tag: "Initialization",
@@ -170,8 +171,8 @@ public class CloudKitSyncManager {
      * Check if the custom zone exists (watch only checks, doesn't create)
      */
     private func checkZoneExists(completion: @escaping (Bool) -> Void) {
+        let containerIdentifier = KeychainAccess.getCloudKitContainerIdentifier()
         let mainBundleId = KeychainAccess.getMainBundleIdentifier()
-        let containerIdentifier = "iCloud.\(mainBundleId)"
         
         logger.info(
             tag: "ZoneCheck",
@@ -304,8 +305,8 @@ public class CloudKitSyncManager {
      */
     public func fetchBucketsFromCloudKit(completion: @escaping ([Bucket]) -> Void) {
         let recordID = CKRecord.ID(recordName: "buckets_data", zoneID: zoneID)
+        let containerIdentifier = KeychainAccess.getCloudKitContainerIdentifier()
         let mainBundleId = KeychainAccess.getMainBundleIdentifier()
-        let containerIdentifier = "iCloud.\(mainBundleId)"
         
         logger.info(
             tag: "FetchBuckets",
@@ -390,8 +391,8 @@ public class CloudKitSyncManager {
      */
     public func fetchNotificationsFromCloudKit(limit: Int? = nil, completion: @escaping ([SyncNotification]) -> Void) {
         let recordID = CKRecord.ID(recordName: "notifications_data", zoneID: zoneID)
+        let containerIdentifier = KeychainAccess.getCloudKitContainerIdentifier()
         let mainBundleId = KeychainAccess.getMainBundleIdentifier()
-        let containerIdentifier = "iCloud.\(mainBundleId)"
         
         logger.info(
             tag: "FetchNotifications",

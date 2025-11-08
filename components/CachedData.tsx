@@ -591,7 +591,7 @@ export default function CachedData() {
         </Dialog>
       </Portal>
 
-      {/* Storage Info Card */}
+      {/* Storage Info Card
       <Card style={styles.card}>
         <Card.Title
           title={t("cachedData.storageInfo")}
@@ -619,7 +619,7 @@ export default function CachedData() {
             </Text>
           </View>
         </Card.Content>
-      </Card>
+      </Card> */}
     </PaperScrollView>
   );
 }

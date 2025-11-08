@@ -301,6 +301,34 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                 WatchConnectivityBridge.shared?.emitNotificationDeleted(notificationId: notificationId)
             }
             
+        case "watchLogs":
+            // Watch is sending logs via background transfer
+            if let logs = userInfo["logs"] as? [[String: Any]],
+               let count = userInfo["count"] as? Int {
+                print("📱 📥 Received \(count) logs from Watch (background)")
+                
+                // Parse and save logs to iOS LoggingSystem
+                for logDict in logs {
+                    guard let levelStr = logDict["level"] as? String,
+                          let level = LoggingSystem.LogLevel(rawValue: levelStr),
+                          let tag = logDict["tag"] as? String,
+                          let message = logDict["message"] as? String else {
+                        continue
+                    }
+                    
+                    let metadata = logDict["metadata"] as? [String: String]
+                    
+                    LoggingSystem.shared.log(
+                        level: level,
+                        tag: tag,
+                        message: "[Watch] \(message)",
+                        metadata: metadata,
+                        source: "Watch-Forward"
+                    )
+                }
+                print("📱 ✅ Forwarded \(logs.count) Watch logs to iOS logging system")
+            }
+            
         default:
             print("📱 ⚠️ Unknown action: \(action)")
         }

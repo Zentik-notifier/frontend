@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import CloudKit
 
 /**
  * KeychainAccess - Shared keychain utilities
@@ -38,6 +39,56 @@ public class KeychainAccess {
         let mainBundleId = getMainBundleIdentifier()
         let teamId = "C3F24V5NS5"
         return "\(teamId).\(mainBundleId).keychain"
+    }
+    
+    /// Get CloudKit container identifier
+    public static func getCloudKitContainerIdentifier() -> String {
+        let mainBundleId = getMainBundleIdentifier()
+        return "iCloud.\(mainBundleId)"
+    }
+    
+    /// Get CloudKit zone name
+    public static func getCloudKitZoneName() -> String {
+        return "ZentikSyncZone"
+    }
+    
+    /// Get CloudKit zone ID
+    public static func getCloudKitZoneID() -> CKRecordZone.ID {
+        return CKRecordZone.ID(zoneName: getCloudKitZoneName(), ownerName: CKCurrentUserDefaultName)
+    }
+    
+    /// Get CloudKit custom zone
+    public static func getCloudKitCustomZone() -> CKRecordZone {
+        return CKRecordZone(zoneName: getCloudKitZoneName())
+    }
+    
+    // MARK: - CloudKit Setup
+    
+    /// CloudKit setup result containing all necessary components
+    public struct CloudKitSetup {
+        public let container: CKContainer
+        public let privateDatabase: CKDatabase
+        public let customZone: CKRecordZone
+        public let bucketsQuery: CKQuery
+        public let notificationsQuery: CKQuery
+    }
+    
+    /// Get complete CloudKit setup with container, database, zone, and queries
+    public static func getCloudKitSetup() -> CloudKitSetup {
+        let containerIdentifier = getCloudKitContainerIdentifier()
+        let container = CKContainer(identifier: containerIdentifier)
+        let privateDatabase = container.privateCloudDatabase
+        let customZone = getCloudKitCustomZone()
+        let bucketsQuery = CKQuery(recordType: "buckets_data", predicate: NSPredicate(value: true))
+        let notificationsQuery = CKQuery(recordType: "notifications_data", predicate: NSPredicate(value: true))
+        
+        return CloudKitSetup(
+            container: container,
+            privateDatabase: privateDatabase,
+            customZone: customZone,
+            bucketsQuery: bucketsQuery,
+            notificationsQuery: notificationsQuery
+        )
     }
     
     // MARK: - Keychain Operations
