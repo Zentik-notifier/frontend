@@ -55,6 +55,18 @@ public class CloudKitSyncManager {
         self.zoneID = CKRecordZone.ID(zoneName: "ZentikSyncZone", ownerName: CKCurrentUserDefaultName)
         self.customZone = CKRecordZone(zoneID: zoneID)
         
+        // Log detailed initialization info
+        logger.info(
+            tag: "Initialization",
+            message: "CloudKit container initialized",
+            metadata: [
+                "mainBundleId": mainBundleId,
+                "containerIdentifier": containerIdentifier,
+                "zoneName": zoneID.zoneName
+            ],
+            source: "CloudKit"
+        )
+        
         print("☁️ [CloudKitSync][iOS] Using container: \(containerIdentifier) (bundle: \(mainBundleId))")
         print("☁️ [CloudKitSync][iOS] Target zone: \(zoneID.zoneName)")
         ensureCustomZoneExists()
@@ -66,34 +78,89 @@ public class CloudKitSyncManager {
      * Ensure custom zone exists in CloudKit
      */
     private func ensureCustomZoneExists(completion: @escaping (Bool) -> Void = { _ in }) {
+        logger.debug(
+            tag: "ZoneSetup",
+            message: "Checking if custom zone exists",
+            metadata: ["zoneName": zoneID.zoneName],
+            source: "CloudKit"
+        )
+        
         privateDatabase.fetch(withRecordZoneID: zoneID) { (zone, error) in
             if let error = error as? CKError {
+                self.logger.warn(
+                    tag: "ZoneSetup",
+                    message: "Error fetching zone",
+                    metadata: [
+                        "errorCode": String(error.code.rawValue),
+                        "errorDescription": error.localizedDescription
+                    ],
+                    source: "CloudKit"
+                )
+                
                 if error.code == .unknownItem || error.code == .zoneNotFound {
-                    print("☁️ [CloudKitSync][iOS] Creating custom zone...")
+                    self.logger.info(
+                        tag: "ZoneSetup",
+                        message: "Zone not found, creating new zone",
+                        source: "CloudKit"
+                    )
                     self.privateDatabase.save(self.customZone) { (zone, error) in
                         if let error = error {
-                            print("☁️ [CloudKitSync][iOS] ❌ Failed to create custom zone: \(error.localizedDescription)")
+                            self.logger.error(
+                                tag: "ZoneSetup",
+                                message: "Failed to create custom zone",
+                                metadata: ["error": error.localizedDescription],
+                                source: "CloudKit"
+                            )
                             completion(false)
                         } else {
-                            print("☁️ [CloudKitSync][iOS] ✅ Created custom zone: \(self.zoneID.zoneName)")
+                            self.logger.info(
+                                tag: "ZoneSetup",
+                                message: "Successfully created custom zone",
+                                metadata: ["zoneName": self.zoneID.zoneName],
+                                source: "CloudKit"
+                            )
                             completion(true)
                         }
                     }
                 } else {
-                    print("☁️ [CloudKitSync][iOS] ⚠️ Error checking zone: \(error.localizedDescription)")
+                    self.logger.error(
+                        tag: "ZoneSetup",
+                        message: "Unexpected error checking zone",
+                        metadata: ["error": error.localizedDescription],
+                        source: "CloudKit"
+                    )
                     completion(false)
                 }
             } else if zone != nil {
-                print("☁️ [CloudKitSync][iOS] ✅ Custom zone exists: \(self.zoneID.zoneName)")
+                self.logger.info(
+                    tag: "ZoneSetup",
+                    message: "Custom zone already exists",
+                    metadata: ["zoneName": self.zoneID.zoneName],
+                    source: "CloudKit"
+                )
                 completion(true)
             } else {
-                print("☁️ [CloudKitSync][iOS] ⚠️ Zone fetch returned nil without error. Retrying creation...")
+                self.logger.warn(
+                    tag: "ZoneSetup",
+                    message: "Zone fetch returned nil without error, retrying creation",
+                    source: "CloudKit"
+                )
                 self.privateDatabase.save(self.customZone) { (zone, error) in
                     if let error = error {
-                        print("☁️ [CloudKitSync][iOS] ❌ Failed to create custom zone: \(error.localizedDescription)")
+                        self.logger.error(
+                            tag: "ZoneSetup",
+                            message: "Failed to create custom zone on retry",
+                            metadata: ["error": error.localizedDescription],
+                            source: "CloudKit"
+                        )
                         completion(false)
                     } else {
-                        print("☁️ [CloudKitSync][iOS] ✅ Created custom zone: \(self.zoneID.zoneName)")
+                        self.logger.info(
+                            tag: "ZoneSetup",
+                            message: "Successfully created custom zone on retry",
+                            metadata: ["zoneName": self.zoneID.zoneName],
+                            source: "CloudKit"
+                        )
                         completion(true)
                     }
                 }
