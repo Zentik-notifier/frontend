@@ -245,7 +245,6 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             ["./plugins/withWatchConnectivity/withWatchConnectivity.ts"],
             ["./plugins/withWidgetReload/withWidgetReload.ts"]
         ],
-
         experiments: {
             typedRoutes: true,
         },
@@ -298,7 +297,9 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             },
         },
         owner: "apocaliss92",
-        runtimeVersion: "1.0.0",
+        runtimeVersion: {
+            policy: "fingerprint"
+        },
         updates: {
             url: "https://u.expo.dev/17f4d8f2-e90d-4862-ae67-97592dbcb8b7",
         },
