@@ -30,6 +30,10 @@ public class DatabaseAccess {
     /// Database queue for thread-safe operations
     private static let dbQueue = DispatchQueue(label: "com.zentik.shared.database", qos: .userInitiated)
     
+    /// File lock for cross-process synchronization
+    private static var lockFileDescriptor: Int32 = -1
+    private static let lockQueue = DispatchQueue(label: "com.zentik.shared.database.lock")
+    
     /// Database operation configuration
     public static let DB_OPERATION_TIMEOUT: TimeInterval = 10.0  // Max 10 seconds per operation
     private static let DB_BUSY_TIMEOUT: Int32 = 5000  // 5 seconds busy timeout
@@ -51,6 +55,54 @@ public class DatabaseAccess {
         // Database is in shared_media_cache subdirectory (matches TypeScript db-setup.ts)
         let dbPath = sharedContainerURL.appendingPathComponent("shared_media_cache/cache.db").path
         return dbPath
+    }
+    
+    // MARK: - File Locking for Cross-Process Synchronization
+    
+    /// Acquire file lock to prevent concurrent access from different SQLite instances
+    private static func acquireLock(for path: String, type: DatabaseOperationType) -> Bool {
+        return lockQueue.sync {
+            let lockPath = path + ".lock"
+            
+            // Create lock file if it doesn't exist
+            if !FileManager.default.fileExists(atPath: lockPath) {
+                FileManager.default.createFile(atPath: lockPath, contents: nil)
+            }
+            
+            // Open lock file
+            let fd = open(lockPath, O_RDWR | O_CREAT, 0o666)
+            guard fd != -1 else {
+                print("📱 [Lock] ❌ Failed to open lock file")
+                return false
+            }
+            
+            // Try to acquire lock (shared for reads, exclusive for writes)
+            let lockType = type == .write ? LOCK_EX : LOCK_SH
+            let lockResult = flock(fd, lockType | LOCK_NB) // Non-blocking
+            
+            if lockResult == 0 {
+                lockFileDescriptor = fd
+                print("📱 [Lock] ✅ Acquired \(type == .write ? "exclusive" : "shared") lock")
+                return true
+            } else {
+                // Lock failed, try blocking mode with timeout
+                print("📱 [Lock] ⏳ Lock busy, waiting...")
+                close(fd)
+                return false
+            }
+        }
+    }
+    
+    /// Release file lock
+    private static func releaseLock() {
+        lockQueue.sync {
+            if lockFileDescriptor != -1 {
+                flock(lockFileDescriptor, LOCK_UN)
+                close(lockFileDescriptor)
+                lockFileDescriptor = -1
+                print("📱 [Lock] 🔓 Released lock")
+            }
+        }
     }
     
     // MARK: - Database Operations
@@ -275,6 +327,18 @@ public class DatabaseAccess {
                 }
                 
                 print("📱 [\(source)] 📂 [\(operationName)] DB path: \(dbPath)")
+                
+                // Acquire file lock to prevent conflicts with expo-sqlite
+                guard acquireLock(for: dbPath, type: operationType) else {
+                    print("📱 [\(source)] ⏸️ [\(operationName)] Could not acquire lock, database busy")
+                    finalResult = .locked
+                    operationCompleted = true
+                    return
+                }
+                
+                defer {
+                    releaseLock()
+                }
                 
                 // Check if database file exists
                 let fileManager = FileManager.default
