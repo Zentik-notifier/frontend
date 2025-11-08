@@ -1,16 +1,15 @@
+import { NotificationFragment } from "@/generated/gql-operations-generated";
 import {
-  NotificationFragment,
-  useMassDeleteNotificationsMutation,
-} from "@/generated/gql-operations-generated";
-import { useAppState, useCreateBucket } from "@/hooks/notifications";
+  useAppState,
+  useCreateBucket,
+  useDeleteBucketWithNotifications,
+} from "@/hooks/notifications";
 import { notificationKeys } from "@/hooks/notifications/useNotificationQueries";
 import { useI18n } from "@/hooks/useI18n";
 import {
-  deleteBucketNotificationsCompletely,
   getAllNotificationsFromCache,
   upsertNotificationsBatch,
 } from "@/services/notifications-repository";
-import { getNotificationStats } from "@/db/repositories/notifications-query-repository";
 import { useNavigationUtils } from "@/utils/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
@@ -40,7 +39,6 @@ export default function DanglingBucketResolver({
   const theme = useTheme();
   const { t } = useI18n();
   const queryClient = useQueryClient();
-  const [massDeleteNotifications] = useMassDeleteNotificationsMutation();
 
   // Local state for notifications from DB
   const [notifications, setNotifications] = useState<NotificationFragment[]>(
@@ -52,6 +50,8 @@ export default function DanglingBucketResolver({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { createBucket, isLoading: creatingBucket } = useCreateBucket();
+  const { deleteBucket: deleteBucketWithNotifications } =
+    useDeleteBucketWithNotifications();
   const { data: appState, isLoading: loading, refreshAll } = useAppState();
   const bucketsWithStats = appState?.buckets || [];
   const buckets = bucketsWithStats;
@@ -78,19 +78,26 @@ export default function DanglingBucketResolver({
     return buckets.find(
       (bucket) => bucket.isOrphan === true && bucket.id === id
     );
-  }, [buckets]);
+  }, [buckets, id]);
 
-  // if (!currentDanglingBucket && !loading) {
-  //   navigateToHome();
-  // }
-
-  // if (!currentDanglingBucket) {
-  //   return (
-  //     <View style={styles.container}>
-  //       <Text>{t("buckets.bucketNotFound")}</Text>
-  //     </View>
-  //   );
-  // }
+  // Se il bucket non esiste più (es. dopo cancellazione) e non stiamo caricando, torna home
+  useEffect(() => {
+    if (
+      !currentDanglingBucket &&
+      !loading &&
+      !isMigrating &&
+      buckets.length > 0
+    ) {
+      console.log("[DanglingBucketResolver] Bucket not found, navigating home");
+      navigateToHome();
+    }
+  }, [
+    currentDanglingBucket,
+    loading,
+    isMigrating,
+    buckets.length,
+    navigateToHome,
+  ]);
 
   const migrateNotificationsToBucket = async (
     fromBucketId: string,
@@ -307,79 +314,27 @@ export default function DanglingBucketResolver({
     }
 
     console.log(
-      `🗑️ Starting complete deletion of dangling bucket ${currentDanglingBucket.id} with ${currentDanglingBucket.totalMessages} notifications`
+      `🗑️ Starting deletion of dangling bucket ${currentDanglingBucket.id} with ${currentDanglingBucket.totalMessages} notifications using useDeleteBucketWithNotifications`
     );
 
     setIsMigrating(true);
+    setShowDeleteDialog(false); // Close dialog immediately
+
     try {
-      // Step 1: Complete deletion from cache, database, and remote server
-      console.log("📝 Step 1: Complete deletion from all sources...");
-      const deletionResult = await deleteBucketNotificationsCompletely(
-        currentDanglingBucket.id,
-        massDeleteNotifications
-      );
+      await deleteBucketWithNotifications(currentDanglingBucket.id);
 
       console.log(
-        `✅ Step 1 completed: Deleted ${deletionResult.localCount} notifications locally and ${deletionResult.remoteCount} from server`
+        "✅ Bucket deleted successfully via useDeleteBucketWithNotifications!"
       );
 
-      // Step 2: Aggiorna l'appState per rimuovere il bucket orfano
-      console.log("📝 Step 2: Updating app state cache...");
-
-      // Prima ricalcola le statistiche dal database
-      console.log("📊 Recalculating stats from database...");
-      const recalculatedStats = await getNotificationStats([]);
-      console.log(
-        `📊 Stats recalculated: ${recalculatedStats.totalCount} total, ${recalculatedStats.unreadCount} unread`
-      );
-
-      queryClient.setQueryData<{
-        buckets: any[];
-        notifications: NotificationFragment[];
-        stats: any;
-        lastSync: string;
-      }>(["app-state"], (oldAppState) => {
-        if (!oldAppState) {
-          console.warn("⚠️ Old app state is null, skipping cache update");
-          return oldAppState;
-        }
-
-        // Rimuovi il bucket orfano dalla lista
-        const updatedBuckets = oldAppState.buckets.filter(
-          (bucket) => bucket.id !== currentDanglingBucket.id
-        );
-
-        // Rimuovi le notifiche del bucket orfano
-        const updatedNotifications = oldAppState.notifications.filter(
-          (notification) =>
-            notification.message?.bucket?.id !== currentDanglingBucket.id
-        );
-
-        console.log(
-          `📊 Cache update: ${oldAppState.buckets.length} → ${updatedBuckets.length} buckets, ${oldAppState.notifications.length} → ${updatedNotifications.length} notifications`
-        );
-
-        return {
-          ...oldAppState,
-          buckets: updatedBuckets,
-          notifications: updatedNotifications,
-          stats: recalculatedStats,
-        };
-      });
-      console.log("✅ Step 2 completed: Updated app state cache");
-
-      // Step 3: Aggiorna anche le notifiche locali
-      console.log("📝 Step 3: Reloading notifications from cache...");
+      // Update local notifications list
       const allNotifications = await getAllNotificationsFromCache();
       setNotifications(allNotifications);
       console.log(
-        `✅ Step 3 completed: Reloaded ${allNotifications.length} notifications from cache`
+        `✅ Reloaded ${allNotifications.length} notifications from cache`
       );
 
-      // Step 4: Mostra messaggio di successo con Alert
-      console.log("📝 Step 4: Showing success message...");
-
-      console.log("✅ All steps completed successfully!");
+      // Navigate home after cleanup is complete
       navigateToHome();
     } catch (error) {
       console.error("❌ Delete bucket error:", error);
@@ -389,8 +344,6 @@ export default function DanglingBucketResolver({
           error: error instanceof Error ? error.message : "Unknown error",
         })
       );
-    } finally {
-      console.log("🔄 Setting isMigrating to false");
       setIsMigrating(false);
     }
   };

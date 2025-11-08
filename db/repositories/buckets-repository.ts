@@ -60,10 +60,10 @@ function parseBucketForDB(bucket: BucketData): BucketRecord {
  */
 function parseBucketFromDB(record: any): BucketData {
   try {
-    const bucket = typeof record.fragment === 'string' 
-      ? JSON.parse(record.fragment) 
+    const bucket = typeof record.fragment === 'string'
+      ? JSON.parse(record.fragment)
       : record.fragment;
-    
+
     // Override with column values for consistency
     if (record.name !== undefined) {
       bucket.name = record.name;
@@ -77,7 +77,7 @@ function parseBucketFromDB(record: any): BucketData {
     if (record.updated_at !== undefined) {
       bucket.updatedAt = record.updated_at;
     }
-    
+
     return bucket as BucketData;
   } catch (error) {
     console.error('[parseBucketFromDB] Parse error:', error);
@@ -91,7 +91,7 @@ function parseBucketFromDB(record: any): BucketData {
 export async function saveBucket(bucket: BucketData): Promise<void> {
   return await executeQuery(async (db) => {
     const record = parseBucketForDB(bucket);
-    
+
     if (Platform.OS === 'web') {
       // IndexedDB
       const tx = db.transaction('buckets', 'readwrite');
@@ -123,18 +123,18 @@ export async function saveBucket(bucket: BucketData): Promise<void> {
  */
 export async function saveBuckets(buckets: BucketData[]): Promise<void> {
   if (!buckets || buckets.length === 0) return;
-  
+
   return await executeQuery(async (db) => {
     if (Platform.OS === 'web') {
       // IndexedDB - use transaction for bulk insert
       const tx = db.transaction('buckets', 'readwrite');
       const store = tx.objectStore('buckets');
-      
+
       for (const bucket of buckets) {
         const record = parseBucketForDB(bucket);
         await store.put(record, bucket.id);
       }
-      
+
       await tx.done;
     } else {
       // SQLite - use batch insert
@@ -155,7 +155,7 @@ export async function saveBuckets(buckets: BucketData[]): Promise<void> {
           ],
         };
       });
-      
+
       // Execute all statements in a transaction
       await db.withTransactionAsync(async () => {
         for (const statement of statements) {
@@ -177,7 +177,7 @@ export async function getBucket(bucketId: string): Promise<BucketData | null> {
       const store = tx.objectStore('buckets');
       const record = await store.get(bucketId);
       await tx.done;
-      
+
       return record ? parseBucketFromDB(record) : null;
     } else {
       // SQLite
@@ -185,7 +185,7 @@ export async function getBucket(bucketId: string): Promise<BucketData | null> {
         'SELECT * FROM buckets WHERE id = ?',
         [bucketId]
       );
-      
+
       return result ? parseBucketFromDB(result) : null;
     }
   });
@@ -202,7 +202,7 @@ export async function getAllBuckets(): Promise<BucketData[]> {
       const store = tx.objectStore('buckets');
       const records = await store.getAll();
       await tx.done;
-      
+
       return records.map((record: any) => parseBucketFromDB(record));
     } else {
       // SQLite
@@ -258,11 +258,11 @@ export async function getLastBucketSyncTime(): Promise<number> {
       const tx = db.transaction('buckets', 'readonly');
       const store = tx.objectStore('buckets');
       const index = store.index('synced_at');
-      
+
       // Get all keys, find max
       let cursor = await index.openCursor(null, 'prev'); // Reverse order
       const maxSyncedAt = cursor ? cursor.value.synced_at : 0;
-      
+
       await tx.done;
       return maxSyncedAt;
     } else {
@@ -270,7 +270,7 @@ export async function getLastBucketSyncTime(): Promise<number> {
       const result: any = await db.getFirstAsync(
         'SELECT MAX(synced_at) as max_synced FROM buckets'
       );
-      
+
       return result?.max_synced || 0;
     }
   });

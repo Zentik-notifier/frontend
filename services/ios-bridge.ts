@@ -62,11 +62,14 @@ class IosBridgeService {
     }
 
     try {
+      console.log('[CloudKitSync] 🚀 Starting buckets sync to CloudKit...');
+      const startTime = Date.now();
       const result = await CloudKitSyncBridge.syncBucketsToCloudKit();
-      console.log('[CloudKitSync] Buckets sync completed:', result);
+      const duration = Date.now() - startTime;
+      console.log(`[CloudKitSync] ✅ Buckets sync completed in ${duration}ms:`, result);
       return result;
     } catch (error) {
-      console.error('[CloudKitSync] Failed to sync buckets:', error);
+      console.error('[CloudKitSync] ❌ Failed to sync buckets:', error);
       return { success: false, count: 0 };
     }
   }
@@ -204,9 +207,30 @@ class IosBridgeService {
       if (syncCloudKit) {
         console.log('[IosBridge] ⬇️ Step 1/3: CloudKit sync starting...');
         const startTime = Date.now();
-        await this.syncNotificationsToCloudKit();
+        
+        // Sync both buckets and notifications to CloudKit
+        console.log('[IosBridge] 📦 Syncing buckets to CloudKit...');
+        const bucketsPromise = this.syncBucketsToCloudKit();
+        
+        console.log('[IosBridge] 📬 Syncing notifications to CloudKit...');
+        const notificationsPromise = this.syncNotificationsToCloudKit();
+        
+        const [bucketsResult, notificationsResult] = await Promise.all([
+          bucketsPromise,
+          notificationsPromise
+        ]);
+        
         const duration = Date.now() - startTime;
         console.log(`[IosBridge] ✅ Step 1/3: CloudKit sync completed (${duration}ms)`);
+        console.log(`[IosBridge]   - Buckets: ${bucketsResult.success ? 'SUCCESS' : 'FAILED'} (${bucketsResult.count} items)`);
+        console.log(`[IosBridge]   - Notifications: ${notificationsResult.success ? 'SUCCESS' : 'FAILED'} (${notificationsResult.count} items)`);
+        
+        if (!bucketsResult.success) {
+          console.warn('[IosBridge] ⚠️ Bucket sync failed but continuing with Watch/Widget updates');
+        }
+        if (!notificationsResult.success) {
+          console.warn('[IosBridge] ⚠️ Notification sync failed but continuing with Watch/Widget updates');
+        }
       } else {
         console.log('[IosBridge] ⏭️ Step 1/3: CloudKit sync skipped');
       }

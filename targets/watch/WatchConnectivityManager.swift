@@ -380,6 +380,10 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                     "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
                 ])
                 print("⌚ [Watch] 📤 Sent \(logs.count) logs to iPhone")
+                
+                // Clear logs after successful send
+                LoggingSystem.shared.clearAllLogs()
+                print("⌚ [Watch] 🧹 Cleared \(logs.count) logs after sending to iPhone")
             }
         } catch {
             print("⌚ [Watch] ❌ Failed to encode logs: \(error.localizedDescription)")

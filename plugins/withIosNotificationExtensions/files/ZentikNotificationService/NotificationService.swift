@@ -6,9 +6,91 @@ import UIKit
 import UniformTypeIdentifiers
 import UserNotifications
 import WatchConnectivity
+import CloudKit
 
 // SQLite helper for Swift bindings
 private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
+// CloudKit data container for notifications
+private struct NotificationsDataContainer: Codable {
+  let notifications: [[String: Any]]
+  
+  enum CodingKeys: String, CodingKey {
+    case notifications
+  }
+  
+  init(notifications: [[String: Any]]) {
+    self.notifications = notifications
+  }
+  
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    // Decode as array of dictionaries
+    let notificationsData = try container.decode([[String: AnyCodable]].self, forKey: .notifications)
+    self.notifications = notificationsData.map { dict in
+      dict.mapValues { $0.value }
+    }
+  }
+  
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    // Encode as array of dictionaries
+    let notificationsData = notifications.map { dict in
+      dict.mapValues { AnyCodable($0) }
+    }
+    try container.encode(notificationsData, forKey: .notifications)
+  }
+}
+
+// Helper for encoding/decoding Any types
+private struct AnyCodable: Codable {
+  let value: Any
+  
+  init(_ value: Any) {
+    self.value = value
+  }
+  
+  init(from decoder: Decoder) throws {
+    let container = try decoder.singleValueContainer()
+    
+    if let intValue = try? container.decode(Int.self) {
+      value = intValue
+    } else if let doubleValue = try? container.decode(Double.self) {
+      value = doubleValue
+    } else if let boolValue = try? container.decode(Bool.self) {
+      value = boolValue
+    } else if let stringValue = try? container.decode(String.self) {
+      value = stringValue
+    } else if let arrayValue = try? container.decode([AnyCodable].self) {
+      value = arrayValue.map { $0.value }
+    } else if let dictValue = try? container.decode([String: AnyCodable].self) {
+      value = dictValue.mapValues { $0.value }
+    } else {
+      value = NSNull()
+    }
+  }
+  
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.singleValueContainer()
+    
+    switch value {
+    case let intValue as Int:
+      try container.encode(intValue)
+    case let doubleValue as Double:
+      try container.encode(doubleValue)
+    case let boolValue as Bool:
+      try container.encode(boolValue)
+    case let stringValue as String:
+      try container.encode(stringValue)
+    case let arrayValue as [Any]:
+      try container.encode(arrayValue.map { AnyCodable($0) })
+    case let dictValue as [String: Any]:
+      try container.encode(dictValue.mapValues { AnyCodable($0) })
+    default:
+      try container.encodeNil()
+    }
+  }
+}
 
 class NotificationService: UNNotificationServiceExtension {
 
@@ -1713,10 +1795,93 @@ class NotificationService: UNNotificationServiceExtension {
     if sqlite3_step(stmt) == SQLITE_DONE {
       print("📱 [NotificationService] ✅ Notification saved to database: \(notificationId)")
       
+      // Sync to CloudKit so Watch can see the new notification
+      self.syncNotificationsToCloudKit()
+      
       // Transfer notification to Watch (works even when Watch is asleep)
       self.transferNotificationToWatch(userInfo: userInfo, notificationId: notificationId)
     } else {
       print("📱 [NotificationService] ❌ Failed to save notification to database")
+    }
+  }
+
+  private func syncNotificationsToCloudKit() {
+    print("📱 [NotificationService] 🔄 Starting CloudKit sync for notifications...")
+    
+    let fileManager = FileManager.default
+    let sharedContainerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.io.zentik.notifier")!
+    let dbPath = sharedContainerURL.appendingPathComponent("zentik.db").path
+    
+    var db: OpaquePointer?
+    guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
+      print("📱 [NotificationService] ❌ Failed to open database for CloudKit sync")
+      return
+    }
+    defer { sqlite3_close(db) }
+    
+    // Export all notifications
+    let query = "SELECT fragment FROM notifications WHERE fragment IS NOT NULL"
+    var stmt: OpaquePointer?
+    
+    guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else {
+      print("📱 [NotificationService] ❌ Failed to prepare query for CloudKit sync")
+      return
+    }
+    defer { sqlite3_finalize(stmt) }
+    
+    var notifications: [[String: Any]] = []
+    while sqlite3_step(stmt) == SQLITE_ROW {
+      if let fragmentData = sqlite3_column_text(stmt, 0) {
+        let fragmentString = String(cString: fragmentData)
+        if let data = fragmentString.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+          notifications.append(json)
+        }
+      }
+    }
+    
+    print("📱 [NotificationService] 📤 Exported \(notifications.count) notifications from database")
+    
+    // Save to CloudKit
+    let container = CKContainer(identifier: "iCloud.io.zentik.notifier")
+    let privateDB = container.privateCloudDatabase
+    let zoneID = CKRecordZone.ID(zoneName: "ZentikSyncZone", ownerName: CKCurrentUserDefaultName)
+    
+    let notificationsData = NotificationsDataContainer(notifications: notifications)
+    
+    guard let jsonData = try? JSONEncoder().encode(notificationsData),
+          let tempURL = writeTempFile(data: jsonData, filename: "notifications.json") else {
+      print("📱 [NotificationService] ❌ Failed to encode notifications data")
+      return
+    }
+    
+    let asset = CKAsset(fileURL: tempURL)
+    let record = CKRecord(recordType: "NotificationsData", recordID: CKRecord.ID(recordName: "zentik-notifications", zoneID: zoneID))
+    record["notificationsJson"] = asset
+    record["lastUpdated"] = Date()
+    
+    privateDB.save(record) { savedRecord, error in
+      if let error = error {
+        print("📱 [NotificationService] ❌ CloudKit sync failed: \(error.localizedDescription)")
+      } else {
+        print("📱 [NotificationService] ✅ Synced \(notifications.count) notifications to CloudKit")
+      }
+      
+      // Clean up temp file
+      try? FileManager.default.removeItem(at: tempURL)
+    }
+  }
+  
+  private func writeTempFile(data: Data, filename: String) -> URL? {
+    let tempDir = FileManager.default.temporaryDirectory
+    let fileURL = tempDir.appendingPathComponent(filename)
+    
+    do {
+      try data.write(to: fileURL)
+      return fileURL
+    } catch {
+      print("📱 [NotificationService] ❌ Failed to write temp file: \(error)")
+      return nil
     }
   }
 

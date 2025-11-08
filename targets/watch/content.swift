@@ -131,10 +131,11 @@ struct BucketMenuView: View {
                             }
                         }
                         
-                        // Buckets section
-                        if !buckets.isEmpty {
+                        // Buckets section - only show buckets with notifications
+                        let bucketsWithNotifications = buckets.filter { $0.unreadCount > 0 || $0.totalCount > 0 }
+                        if !bucketsWithNotifications.isEmpty {
                             Section(header: Text("Buckets")) {
-                                ForEach(buckets) { bucket in
+                                ForEach(bucketsWithNotifications) { bucket in
                                     NavigationLink(destination: FilteredNotificationListView(bucketId: bucket.id, bucketName: bucket.name, bucket: bucket, allBuckets: buckets)) {
                                         BucketRowView(bucket: bucket)
                                     }

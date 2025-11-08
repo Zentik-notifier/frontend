@@ -13,6 +13,7 @@ import {
 } from "@/hooks/notifications";
 import { useI18n } from "@/hooks/useI18n";
 import { useNavigationUtils } from "@/utils/navigation";
+import IosBridgeService from "@/services/ios-bridge";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -116,6 +117,14 @@ export default function CreateBucketForm({ bucketId }: CreateBucketFormProps) {
       onCompleted: async (data) => {
         if (bucketId) {
           await refreshBucket(bucketId).catch(console.error);
+          
+          // Sync to CloudKit so Watch can see the changes
+          try {
+            await IosBridgeService.syncAll('reload');
+            console.log('[CreateBucketForm] Synced updated bucket to CloudKit, Watch, and Widget');
+          } catch (error) {
+            console.error('[CreateBucketForm] Failed to sync updated bucket:', error);
+          }
         }
         router.back();
       },

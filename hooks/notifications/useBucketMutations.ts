@@ -21,6 +21,7 @@ import { mediaCache } from '@/services/media-cache-service';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BucketDetailData, bucketKeys } from './useBucketQueries';
 import { notificationKeys } from './useNotificationQueries';
+import IosBridgeService from '@/services/ios-bridge';
 
 /**
  * Hook for deleting a bucket and all its notifications with optimistic updates
@@ -49,7 +50,7 @@ export function useDeleteBucketWithNotifications(options?: {
   const mutation = useMutation({
     mutationFn: async (bucketId: string) => {
       console.log('[useDeleteBucketWithNotifications] Deleting bucket:', bucketId);
-      
+
       // Step 1: Delete all notifications for this bucket from local database
       const deletedCount = await deleteNotificationsByBucketId(bucketId);
       console.log(
@@ -75,8 +76,8 @@ export function useDeleteBucketWithNotifications(options?: {
         }
       } catch (serverError: any) {
         // If bucket not found on server, that's OK - it was already deleted
-        if (serverError.message?.includes('Bucket not found') || 
-            serverError.graphQLErrors?.[0]?.message?.includes('Bucket not found')) {
+        if (serverError.message?.includes('Bucket not found') ||
+          serverError.graphQLErrors?.[0]?.message?.includes('Bucket not found')) {
           console.log('[useDeleteBucketWithNotifications] Bucket already deleted on server, continuing with local cleanup');
         } else {
           // For other errors, log but still continue with local cleanup
@@ -104,7 +105,7 @@ export function useDeleteBucketWithNotifications(options?: {
           console.log('[useDeleteBucketWithNotifications] No bucketsStats cache found, skipping optimistic update');
           return old;
         }
-        
+
         console.log(`[useDeleteBucketWithNotifications] Removing bucket ${bucketId} from bucketsStats cache`);
         return old.filter((bucket) => bucket.id !== bucketId);
       });
@@ -169,11 +170,11 @@ export function useDeleteBucketWithNotifications(options?: {
       try {
         const updatedStats = await getNotificationStats([]);
         console.log(`[useDeleteBucketWithNotifications] Recalculated stats: ${updatedStats.totalCount} total notifications (${updatedStats.unreadCount} unread)`);
-        
+
         // Update appState cache with new stats
         queryClient.setQueryData(['app-state'], (oldAppState: any) => {
           if (!oldAppState) return oldAppState;
-          
+
           return {
             ...oldAppState,
             stats: updatedStats,
@@ -187,7 +188,6 @@ export function useDeleteBucketWithNotifications(options?: {
 
       // Step 6: Sync CloudKit + Watch + Widget
       try {
-        const { default: IosBridgeService } = await import('@/services/ios-bridge');
         await IosBridgeService.syncAll('reload');
         console.log('[useDeleteBucketWithNotifications] Synced to CloudKit, Watch, and Widget');
       } catch (error) {
@@ -200,7 +200,7 @@ export function useDeleteBucketWithNotifications(options?: {
     },
     onError: async (error, variables, context) => {
       // Check if error is "Bucket not found" - in this case, don't rollback
-      const isBucketNotFound = error.message?.includes('Bucket not found') || 
+      const isBucketNotFound = error.message?.includes('Bucket not found') ||
         (error as any).graphQLErrors?.[0]?.message?.includes('Bucket not found');
 
       if (isBucketNotFound) {
@@ -210,11 +210,11 @@ export function useDeleteBucketWithNotifications(options?: {
         try {
           const updatedStats = await getNotificationStats([]);
           console.log(`[useDeleteBucketWithNotifications] Recalculated stats after bucket not found: ${updatedStats.totalCount} total notifications (${updatedStats.unreadCount} unread)`);
-          
+
           // Update appState cache with new stats
           queryClient.setQueryData(['app-state'], (oldAppState: any) => {
             if (!oldAppState) return oldAppState;
-            
+
             return {
               ...oldAppState,
               stats: updatedStats,
@@ -225,7 +225,7 @@ export function useDeleteBucketWithNotifications(options?: {
         } catch (error) {
           console.error('[useDeleteBucketWithNotifications] Error recalculating stats after bucket not found:', error);
         }
-        
+
         // Call onSuccess callback
         if (options?.onSuccess) {
           options.onSuccess();
@@ -286,9 +286,9 @@ export function useSetBucketSnooze(options?: {
   const mutation = useMutation({
     mutationFn: async ({ bucketId, snoozeUntil }: { bucketId: string; snoozeUntil: Date | null }) => {
       const snoozeUntilISO = snoozeUntil ? snoozeUntil.toISOString() : null;
-      
+
       console.log('[useSetBucketSnooze] Setting snooze:', { bucketId, snoozeUntil: snoozeUntilISO });
-      
+
       const result = await setBucketSnoozeMutation({
         variables: { bucketId, snoozeUntil: snoozeUntilISO },
       });
@@ -320,11 +320,11 @@ export function useSetBucketSnooze(options?: {
           console.log('[useSetBucketSnooze] No bucket detail cache found, skipping optimistic update');
           return old;
         }
-        
+
         console.log(`[useSetBucketSnooze] Updating bucket ${bucketId} detail cache:`, {
           snoozeUntil: snoozeUntilISO,
         });
-        
+
         // useBucket stores bucket directly (not in a nested object)
         return {
           ...old,
@@ -346,12 +346,12 @@ export function useSetBucketSnooze(options?: {
           console.log('[useSetBucketSnooze] No appState cache found, skipping optimistic update');
           return oldAppState;
         }
-        
+
         console.log(`[useSetBucketSnooze] Updating bucket ${bucketId} in appState cache:`, {
           isSnoozed,
           snoozeUntil: snoozeUntilISO,
         });
-        
+
         const updatedBuckets = oldAppState.buckets.map((bucket) =>
           bucket.id === bucketId
             ? { ...bucket, isSnoozed, snoozeUntil: snoozeUntilISO }
@@ -376,7 +376,7 @@ export function useSetBucketSnooze(options?: {
       await queryClient.invalidateQueries({
         queryKey: ['app-state'],
       });
-      
+
       // Also invalidate specific bucket detail
       await queryClient.invalidateQueries({
         queryKey: bucketKeys.detail(variables.bucketId),
@@ -438,7 +438,7 @@ export function useUpdateBucketSnoozes(options?: {
   const mutation = useMutation({
     mutationFn: async (variables: UpdateBucketSnoozesMutationVariables) => {
       console.log('[useUpdateBucketSnoozes] Updating snooze schedules:', variables);
-      
+
       const result = await updateBucketSnoozesMutation({
         variables,
       });
@@ -479,15 +479,15 @@ export function useUpdateBucketSnoozes(options?: {
             ...old,
             userBucket: old.userBucket
               ? {
-                  ...old.userBucket,
-                  snoozes: snoozesArray.map((s: SnoozeScheduleInput) => ({
-                    __typename: 'SnoozeSchedule' as const,
-                    days: s.days,
-                    timeFrom: s.timeFrom,
-                    timeTill: s.timeTill,
-                    isEnabled: s.isEnabled,
-                  })),
-                }
+                ...old.userBucket,
+                snoozes: snoozesArray.map((s: SnoozeScheduleInput) => ({
+                  __typename: 'SnoozeSchedule' as const,
+                  days: s.days,
+                  timeFrom: s.timeFrom,
+                  timeTill: s.timeTill,
+                  isEnabled: s.isEnabled,
+                })),
+              }
               : null,
           };
         }
@@ -510,7 +510,6 @@ export function useUpdateBucketSnoozes(options?: {
 
       // Sync CloudKit + Watch + Widget
       try {
-        const { default: IosBridgeService } = await import('@/services/ios-bridge');
         await IosBridgeService.syncAll('reload');
         console.log('[useUpdateBucketSnoozes] Synced to CloudKit, Watch, and Widget');
       } catch (error) {
@@ -572,7 +571,7 @@ export function useShareBucket(options?: {
   const mutation = useMutation({
     mutationFn: async (variables: ShareBucketMutationVariables) => {
       console.log('[useShareBucket] Sharing bucket:', variables);
-      
+
       const result = await shareBucketMutation({
         variables,
       });
@@ -581,8 +580,8 @@ export function useShareBucket(options?: {
         throw new Error('Failed to share bucket');
       }
 
-      return { 
-        bucketId: variables.input.resourceId, 
+      return {
+        bucketId: variables.input.resourceId,
         targetUserId: variables.input.userId,
         newPermission: result.data.shareBucket,
       };
@@ -654,7 +653,7 @@ export function useShareBucket(options?: {
       // Update appState with optimistic permission
       queryClient.setQueryData(['app-state'], (oldAppState: any) => {
         if (!oldAppState) return oldAppState;
-        
+
         const updatedBuckets = oldAppState.buckets.map((bucket: any) => {
           if (bucket.id === bucketId) {
             return {
@@ -664,7 +663,7 @@ export function useShareBucket(options?: {
           }
           return bucket;
         });
-        
+
         return {
           ...oldAppState,
           buckets: updatedBuckets,
@@ -707,7 +706,7 @@ export function useShareBucket(options?: {
       // Update appState with new permission
       queryClient.setQueryData(['app-state'], (oldAppState: any) => {
         if (!oldAppState) return oldAppState;
-        
+
         const updatedBuckets = oldAppState.buckets.map((bucket: any) => {
           if (bucket.id === bucketId) {
             return {
@@ -720,7 +719,7 @@ export function useShareBucket(options?: {
           }
           return bucket;
         });
-        
+
         return {
           ...oldAppState,
           buckets: updatedBuckets,
@@ -731,7 +730,6 @@ export function useShareBucket(options?: {
 
       // Sync CloudKit + Watch + Widget
       try {
-        const { default: IosBridgeService } = await import('@/services/ios-bridge');
         await IosBridgeService.syncAll('reload');
         console.log('[useShareBucket] Synced to CloudKit, Watch, and Widget');
       } catch (error) {
@@ -752,7 +750,7 @@ export function useShareBucket(options?: {
           context.previousBucket
         );
       }
-      
+
       // Rollback appState
       if (context?.previousAppState) {
         queryClient.setQueryData(['app-state'], context.previousAppState);
@@ -800,7 +798,7 @@ export function useUnshareBucket(options?: {
   const mutation = useMutation({
     mutationFn: async (variables: UnshareBucketMutationVariables) => {
       console.log('[useUnshareBucket] Unsharing bucket:', variables);
-      
+
       const result = await unshareBucketMutation({
         variables,
       });
@@ -809,9 +807,9 @@ export function useUnshareBucket(options?: {
         throw new Error('Failed to unshare bucket');
       }
 
-      return { 
-        bucketId: variables.input.resourceId, 
-        targetUserId: variables.input.userId 
+      return {
+        bucketId: variables.input.resourceId,
+        targetUserId: variables.input.userId
       };
     },
     onMutate: async (variables) => {
@@ -851,7 +849,7 @@ export function useUnshareBucket(options?: {
       // Update appState with optimistic permission removal
       queryClient.setQueryData(['app-state'], (oldAppState: any) => {
         if (!oldAppState) return oldAppState;
-        
+
         const updatedBuckets = oldAppState.buckets.map((bucket: any) => {
           if (bucket.id === bucketId) {
             return {
@@ -861,7 +859,7 @@ export function useUnshareBucket(options?: {
           }
           return bucket;
         });
-        
+
         return {
           ...oldAppState,
           buckets: updatedBuckets,
@@ -881,7 +879,6 @@ export function useUnshareBucket(options?: {
 
       // Sync CloudKit + Watch + Widget
       try {
-        const { default: IosBridgeService } = await import('@/services/ios-bridge');
         await IosBridgeService.syncAll('reload');
         console.log('[useUnshareBucket] Synced to CloudKit, Watch, and Widget');
       } catch (error) {
@@ -902,7 +899,7 @@ export function useUnshareBucket(options?: {
           context.previousBucket
         );
       }
-      
+
       // Rollback appState
       if (context?.previousAppState) {
         queryClient.setQueryData(['app-state'], context.previousAppState);
@@ -962,7 +959,7 @@ export function useCreateBucket(options?: {
       generateMagicCode?: boolean;
     }) => {
       console.log('[useCreateBucket] Creating bucket:', input.name);
-      
+
       const { data } = await createBucketMutation({
         variables: { input },
       });
@@ -975,14 +972,14 @@ export function useCreateBucket(options?: {
     },
     onMutate: async (input) => {
       console.log('[useCreateBucket] Optimistic update:', input.name);
-      
+
       // Cancel all queries to prevent refetch during creation
       await queryClient.cancelQueries();
       console.log('[useCreateBucket] Cancelled all queries');
     },
     onSuccess: async (bucket, variables) => {
       console.log('[useCreateBucket] Bucket created successfully:', bucket.id);
-      
+
       // Step 1: Save bucket to local database
       try {
         await saveBuckets([{
@@ -1013,11 +1010,11 @@ export function useCreateBucket(options?: {
       try {
         const updatedStats = await getNotificationStats([]);
         console.log(`[useCreateBucket] Recalculated stats: ${updatedStats.totalCount} total notifications (${updatedStats.unreadCount} unread)`);
-        
+
         // Update appState cache with new bucket and stats
         queryClient.setQueryData(['app-state'], (oldAppState: any) => {
           if (!oldAppState) return oldAppState;
-          
+
           // Add new bucket to buckets list
           const newBucket: BucketWithStats = {
             id: bucket.id,
@@ -1044,7 +1041,7 @@ export function useCreateBucket(options?: {
             magicCode: bucket.userBucket?.magicCode ?? null,
             isOrphan: false,
           };
-          
+
           return {
             ...oldAppState,
             buckets: [...oldAppState.buckets, newBucket],
@@ -1070,7 +1067,6 @@ export function useCreateBucket(options?: {
 
       // Step 4: Sync CloudKit + Watch + Widget
       try {
-        const { default: IosBridgeService } = await import('@/services/ios-bridge');
         await IosBridgeService.syncAll('reload');
         console.log('[useCreateBucket] Synced to CloudKit, Watch, and Widget');
       } catch (error) {
@@ -1083,7 +1079,7 @@ export function useCreateBucket(options?: {
     },
     onError: (error, variables) => {
       console.error('[useCreateBucket] Mutation failed:', error);
-      
+
       if (options?.onError) {
         options.onError(error as Error);
       }

@@ -209,6 +209,8 @@ public class CloudKitSyncManager {
         var exportError: Error?
         let semaphore = DispatchSemaphore(value: 0)
         
+        print("☁️ [CloudKitSync][iOS] 🔍 Starting bucket export from database...")
+        
         DatabaseAccess.performDatabaseOperation(
             type: .read,
             name: "ExportBuckets",
@@ -219,17 +221,22 @@ public class CloudKitSyncManager {
             
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
                 exportError = NSError(domain: "CloudKitSync", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to prepare statement"])
+                print("☁️ [CloudKitSync][iOS] ❌ Failed to prepare SQL statement for buckets export")
                 return .failure("Failed to prepare statement")
             }
             defer { sqlite3_finalize(stmt) }
             
             var skippedOrphans = 0
+            var totalRows = 0
             
             while sqlite3_step(stmt) == SQLITE_ROW {
+                totalRows += 1
+                
                 guard let idCString = sqlite3_column_text(stmt, 0),
                       let nameCString = sqlite3_column_text(stmt, 1),
                       let fragmentCString = sqlite3_column_text(stmt, 2),
                       let updatedAtCString = sqlite3_column_text(stmt, 3) else {
+                    print("☁️ [CloudKitSync][iOS] ⚠️ Skipping bucket row \(totalRows) - missing columns")
                     continue
                 }
                 
@@ -237,6 +244,8 @@ public class CloudKitSyncManager {
                 let name = String(cString: nameCString)
                 let fragment = String(cString: fragmentCString)
                 let updatedAtString = String(cString: updatedAtCString)
+                
+                print("☁️ [CloudKitSync][iOS] 🔍 Processing bucket: \(id) - \(name)")
                 
                 // Parse fragment JSON
                 guard let fragmentData = fragment.data(using: .utf8),
@@ -248,6 +257,7 @@ public class CloudKitSyncManager {
                 // Skip orphan buckets
                 let isOrphan = fragmentJson["isOrphan"] as? Bool ?? false
                 if isOrphan {
+                    print("☁️ [CloudKitSync][iOS] ⏭️ Skipping orphan bucket: \(id) - \(name)")
                     skippedOrphans += 1
                     continue
                 }
@@ -268,10 +278,11 @@ public class CloudKitSyncManager {
                     isOrphan: false
                 )
                 
+                print("☁️ [CloudKitSync][iOS] ✅ Added bucket to export: \(id) - \(name) (color: \(color ?? "none"))")
                 buckets.append(bucket)
             }
             
-            print("☁️ [CloudKitSync][iOS] 📦 Exported \(buckets.count) buckets from database (\(skippedOrphans) orphans skipped)")
+            print("☁️ [CloudKitSync][iOS] 📦 Bucket export complete: \(buckets.count) exported, \(skippedOrphans) orphans skipped, \(totalRows) total rows")
             return .success
         } completion: { _ in
             semaphore.signal()
@@ -280,9 +291,11 @@ public class CloudKitSyncManager {
         _ = semaphore.wait(timeout: .now() + DatabaseAccess.DB_OPERATION_TIMEOUT)
         
         if let error = exportError {
+            print("☁️ [CloudKitSync][iOS] ❌ Export error: \(error.localizedDescription)")
             throw error
         }
         
+        print("☁️ [CloudKitSync][iOS] 🎯 Final bucket count for CloudKit: \(buckets.count)")
         return buckets
     }
     
@@ -313,6 +326,8 @@ public class CloudKitSyncManager {
                 exportError = NSError(domain: "CloudKitSync", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to bind limit parameter"])
                 return .failure("Failed to bind limit parameter")
             }
+            
+            var skippedOrphans = 0
             
             while sqlite3_step(stmt) == SQLITE_ROW {
                 guard let idCString = sqlite3_column_text(stmt, 0),
@@ -396,7 +411,7 @@ public class CloudKitSyncManager {
                 notifications.append(notification)
             }
             
-            print("☁️ [CloudKitSync][iOS] 📦 Exported \(notifications.count) notifications from database")
+            print("☁️ [CloudKitSync][iOS] 📦 Exported \(notifications.count) notifications from database (orphan bucket notifications excluded)")
             return .success
         } completion: { _ in
             semaphore.signal()
@@ -457,7 +472,7 @@ public class CloudKitSyncManager {
             
             // 4. Usa CKModifyRecordsOperation per UPDATE o INSERT automatico
             let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
-            operation.savePolicy = .changedKeys  // Permette UPDATE se esiste, INSERT se non esiste
+            operation.savePolicy = .allKeys  // Sostituisce completamente il record (rimuove bucket vecchi)
             operation.qualityOfService = .userInitiated
             
             operation.modifyRecordsResultBlock = { result in
@@ -559,7 +574,7 @@ public class CloudKitSyncManager {
             
             // 4. Usa CKModifyRecordsOperation per UPDATE o INSERT automatico
             let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
-            operation.savePolicy = .changedKeys  // Permette UPDATE se esiste, INSERT se non esiste
+            operation.savePolicy = .allKeys  // Sostituisce completamente il record (rimuove notifiche vecchie)
             operation.qualityOfService = .userInitiated
             
             operation.modifyRecordsResultBlock = { result in
