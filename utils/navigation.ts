@@ -212,6 +212,14 @@ export function useNavigationUtils() {
             }
         },
 
+        navigateToCachedData: () => {
+            if (isMobile) {
+                router.push(`/(phone)/(settings)/cached-data`);
+            } else {
+                router.push(`/(desktop)/(settings)/cached-data`);
+            }
+        },
+
         navigateToAdmin: () => {
             if (isMobile) {
                 router.push(`/(phone)/(admin)`);

@@ -201,5 +201,388 @@ class CloudKitSyncBridge: NSObject {
       }
     }
   }
+  
+  /**
+   * Fetch CloudKit records count (buckets and notifications)
+   */
+  @objc
+  func fetchCloudKitRecordsCount(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    logger.info(
+      tag: "ReactNative→CloudKit",
+      message: "React Native requested CloudKit records count",
+      source: "CloudKitBridge"
+    )
+    
+    let container = CKContainer(identifier: "iCloud.com.zentik.notifier")
+    let privateDatabase = container.privateCloudDatabase
+    let customZone = CKRecordZone(zoneName: "ZentikSyncZone")
+    
+    let bucketsQuery = CKQuery(recordType: "buckets_data", predicate: NSPredicate(value: true))
+    let notificationsQuery = CKQuery(recordType: "notifications_data", predicate: NSPredicate(value: true))
+    
+    let group = DispatchGroup()
+    var bucketsCount = 0
+    var notificationsCount = 0
+    var hasError = false
+    
+    // Fetch buckets count
+    group.enter()
+    privateDatabase.fetch(withQuery: bucketsQuery, inZoneWith: customZone.zoneID, desiredKeys: nil, resultsLimit: CKQueryOperation.maximumResults) { result in
+      switch result {
+      case .success(let queryResult):
+        bucketsCount = queryResult.matchResults.count
+        self.logger.info(
+          tag: "CloudKitFetch",
+          message: "Buckets count fetched",
+          metadata: ["count": String(bucketsCount)],
+          source: "CloudKitBridge"
+        )
+      case .failure(let error):
+        self.logger.error(
+          tag: "CloudKitFetch",
+          message: "Failed to fetch buckets count",
+          metadata: ["error": error.localizedDescription],
+          source: "CloudKitBridge"
+        )
+        hasError = true
+      }
+      group.leave()
+    }
+    
+    // Fetch notifications count
+    group.enter()
+    privateDatabase.fetch(withQuery: notificationsQuery, inZoneWith: customZone.zoneID, desiredKeys: nil, resultsLimit: CKQueryOperation.maximumResults) { result in
+      switch result {
+      case .success(let queryResult):
+        notificationsCount = queryResult.matchResults.count
+        self.logger.info(
+          tag: "CloudKitFetch",
+          message: "Notifications count fetched",
+          metadata: ["count": String(notificationsCount)],
+          source: "CloudKitBridge"
+        )
+      case .failure(let error):
+        self.logger.error(
+          tag: "CloudKitFetch",
+          message: "Failed to fetch notifications count",
+          metadata: ["error": error.localizedDescription],
+          source: "CloudKitBridge"
+        )
+        hasError = true
+      }
+      group.leave()
+    }
+    
+    group.notify(queue: .main) {
+      if hasError {
+        reject("FETCH_ERROR", "Failed to fetch CloudKit records count", nil)
+      } else {
+        self.logger.info(
+          tag: "CloudKitFetch",
+          message: "CloudKit records count completed",
+          metadata: [
+            "bucketsCount": String(bucketsCount),
+            "notificationsCount": String(notificationsCount)
+          ],
+          source: "CloudKitBridge"
+        )
+        resolve([
+          "success": true,
+          "bucketsCount": bucketsCount,
+          "notificationsCount": notificationsCount
+        ])
+      }
+    }
+  }
+  
+  /**
+   * Fetch all buckets from CloudKit
+   */
+  @objc
+  func fetchAllBucketsFromCloudKit(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    logger.info(
+      tag: "ReactNative→CloudKit",
+      message: "React Native requested all buckets from CloudKit",
+      source: "CloudKitBridge"
+    )
+    
+    let container = CKContainer(identifier: "iCloud.com.zentik.notifier")
+    let privateDatabase = container.privateCloudDatabase
+    let customZone = CKRecordZone(zoneName: "ZentikSyncZone")
+    
+    let query = CKQuery(recordType: "buckets_data", predicate: NSPredicate(value: true))
+    
+    privateDatabase.fetch(withQuery: query, inZoneWith: customZone.zoneID, desiredKeys: nil, resultsLimit: CKQueryOperation.maximumResults) { result in
+      switch result {
+      case .success(let queryResult):
+        var buckets: [[String: Any]] = []
+        
+        for (_, recordResult) in queryResult.matchResults {
+          switch recordResult {
+          case .success(let record):
+            var bucketData: [String: Any] = [
+              "recordName": record.recordID.recordName,
+              "createdAt": record.creationDate?.timeIntervalSince1970 ?? 0,
+              "modifiedAt": record.modificationDate?.timeIntervalSince1970 ?? 0
+            ]
+            
+            // Extract all fields from the record
+            for key in record.allKeys() {
+              if let value = record[key] {
+                bucketData[key] = self.convertCKValueToJSON(value)
+              }
+            }
+            
+            buckets.append(bucketData)
+          case .failure(let error):
+            self.logger.error(
+              tag: "CloudKitFetch",
+              message: "Failed to fetch bucket record",
+              metadata: ["error": error.localizedDescription],
+              source: "CloudKitBridge"
+            )
+          }
+        }
+        
+        self.logger.info(
+          tag: "CloudKitFetch",
+          message: "All buckets fetched",
+          metadata: ["count": String(buckets.count)],
+          source: "CloudKitBridge"
+        )
+        
+        resolve([
+          "success": true,
+          "buckets": buckets
+        ])
+        
+      case .failure(let error):
+        self.logger.error(
+          tag: "CloudKitFetch",
+          message: "Failed to fetch buckets",
+          metadata: ["error": error.localizedDescription],
+          source: "CloudKitBridge"
+        )
+        reject("FETCH_ERROR", "Failed to fetch buckets from CloudKit: \(error.localizedDescription)", nil)
+      }
+    }
+  }
+  
+  /**
+   * Fetch all notifications from CloudKit
+   */
+  @objc
+  func fetchAllNotificationsFromCloudKit(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    logger.info(
+      tag: "ReactNative→CloudKit",
+      message: "React Native requested all notifications from CloudKit",
+      source: "CloudKitBridge"
+    )
+    
+    let container = CKContainer(identifier: "iCloud.com.zentik.notifier")
+    let privateDatabase = container.privateCloudDatabase
+    let customZone = CKRecordZone(zoneName: "ZentikSyncZone")
+    
+    let query = CKQuery(recordType: "notifications_data", predicate: NSPredicate(value: true))
+    
+    privateDatabase.fetch(withQuery: query, inZoneWith: customZone.zoneID, desiredKeys: nil, resultsLimit: CKQueryOperation.maximumResults) { result in
+      switch result {
+      case .success(let queryResult):
+        var notifications: [[String: Any]] = []
+        
+        for (_, recordResult) in queryResult.matchResults {
+          switch recordResult {
+          case .success(let record):
+            var notificationData: [String: Any] = [
+              "recordName": record.recordID.recordName,
+              "createdAt": record.creationDate?.timeIntervalSince1970 ?? 0,
+              "modifiedAt": record.modificationDate?.timeIntervalSince1970 ?? 0
+            ]
+            
+            // Extract all fields from the record
+            for key in record.allKeys() {
+              if let value = record[key] {
+                notificationData[key] = self.convertCKValueToJSON(value)
+              }
+            }
+            
+            notifications.append(notificationData)
+          case .failure(let error):
+            self.logger.error(
+              tag: "CloudKitFetch",
+              message: "Failed to fetch notification record",
+              metadata: ["error": error.localizedDescription],
+              source: "CloudKitBridge"
+            )
+          }
+        }
+        
+        self.logger.info(
+          tag: "CloudKitFetch",
+          message: "All notifications fetched",
+          metadata: ["count": String(notifications.count)],
+          source: "CloudKitBridge"
+        )
+        
+        resolve([
+          "success": true,
+          "notifications": notifications
+        ])
+        
+      case .failure(let error):
+        self.logger.error(
+          tag: "CloudKitFetch",
+          message: "Failed to fetch notifications",
+          metadata: ["error": error.localizedDescription],
+          source: "CloudKitBridge"
+        )
+        reject("FETCH_ERROR", "Failed to fetch notifications from CloudKit: \(error.localizedDescription)", nil)
+      }
+    }
+  }
+  
+  /**
+   * Fetch a single record from CloudKit by recordName
+   */
+  @objc
+  func fetchRecordFromCloudKit(_ recordName: String, recordType: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    logger.info(
+      tag: "ReactNative→CloudKit",
+      message: "React Native requested record from CloudKit",
+      metadata: ["recordName": recordName, "recordType": recordType],
+      source: "CloudKitBridge"
+    )
+    
+    let container = CKContainer(identifier: "iCloud.com.zentik.notifier")
+    let privateDatabase = container.privateCloudDatabase
+    let customZone = CKRecordZone(zoneName: "ZentikSyncZone")
+    
+    let recordID = CKRecord.ID(recordName: recordName, zoneID: customZone.zoneID)
+    
+    privateDatabase.fetch(withRecordID: recordID) { record, error in
+      if let error = error {
+        self.logger.error(
+          tag: "CloudKitFetch",
+          message: "Failed to fetch record",
+          metadata: [
+            "recordName": recordName,
+            "error": error.localizedDescription
+          ],
+          source: "CloudKitBridge"
+        )
+        reject("FETCH_ERROR", "Failed to fetch record from CloudKit: \(error.localizedDescription)", nil)
+        return
+      }
+      
+      guard let record = record else {
+        reject("FETCH_ERROR", "Record not found", nil)
+        return
+      }
+      
+      var recordData: [String: Any] = [
+        "recordName": record.recordID.recordName,
+        "recordType": record.recordType,
+        "createdAt": record.creationDate?.timeIntervalSince1970 ?? 0,
+        "modifiedAt": record.modificationDate?.timeIntervalSince1970 ?? 0
+      ]
+      
+      // Extract all fields from the record
+      for key in record.allKeys() {
+        if let value = record[key] {
+          recordData[key] = self.convertCKValueToJSON(value)
+        }
+      }
+      
+      self.logger.info(
+        tag: "CloudKitFetch",
+        message: "Record fetched successfully",
+        metadata: ["recordName": recordName],
+        source: "CloudKitBridge"
+      )
+      
+      resolve([
+        "success": true,
+        "record": recordData
+      ])
+    }
+  }
+  
+  /**
+   * Delete a record from CloudKit by recordName
+   */
+  @objc
+  func deleteRecordFromCloudKit(_ recordName: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    logger.info(
+      tag: "ReactNative→CloudKit",
+      message: "React Native requested to delete record from CloudKit",
+      metadata: ["recordName": recordName],
+      source: "CloudKitBridge"
+    )
+    
+    let container = CKContainer(identifier: "iCloud.com.zentik.notifier")
+    let privateDatabase = container.privateCloudDatabase
+    let customZone = CKRecordZone(zoneName: "ZentikSyncZone")
+    
+    let recordID = CKRecord.ID(recordName: recordName, zoneID: customZone.zoneID)
+    
+    privateDatabase.delete(withRecordID: recordID) { recordID, error in
+      if let error = error {
+        self.logger.error(
+          tag: "CloudKitDelete",
+          message: "Failed to delete record",
+          metadata: [
+            "recordName": recordName,
+            "error": error.localizedDescription
+          ],
+          source: "CloudKitBridge"
+        )
+        reject("DELETE_ERROR", "Failed to delete record from CloudKit: \(error.localizedDescription)", nil)
+        return
+      }
+      
+      self.logger.info(
+        tag: "CloudKitDelete",
+        message: "Record deleted successfully",
+        metadata: ["recordName": recordName],
+        source: "CloudKitBridge"
+      )
+      
+      resolve([
+        "success": true,
+        "recordName": recordName
+      ])
+    }
+  }
+  
+  /**
+   * Helper function to convert CKRecord values to JSON-compatible types
+   */
+  private func convertCKValueToJSON(_ value: Any) -> Any {
+    if let stringValue = value as? String {
+      return stringValue
+    } else if let numberValue = value as? NSNumber {
+      return numberValue
+    } else if let dateValue = value as? Date {
+      return dateValue.timeIntervalSince1970
+    } else if let arrayValue = value as? [Any] {
+      return arrayValue.map { convertCKValueToJSON($0) }
+    } else if let locationValue = value as? CLLocation {
+      return [
+        "latitude": locationValue.coordinate.latitude,
+        "longitude": locationValue.coordinate.longitude
+      ]
+    } else if let assetValue = value as? CKAsset {
+      return [
+        "fileURL": assetValue.fileURL?.absoluteString ?? ""
+      ]
+    } else if let referenceValue = value as? CKRecord.Reference {
+      return [
+        "recordName": referenceValue.recordID.recordName,
+        "action": referenceValue.action.rawValue
+      ]
+    } else {
+      return String(describing: value)
+    }
+  }
 }
 

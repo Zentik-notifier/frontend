@@ -153,6 +153,120 @@ class IosBridgeService {
     }
   }
 
+  /**
+   * Fetch CloudKit records count (buckets and notifications)
+   */
+  async fetchCloudKitRecordsCount(): Promise<{
+    success: boolean;
+    bucketsCount: number;
+    notificationsCount: number;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      console.log('[CloudKitSync] Not available on this platform');
+      return { success: false, bucketsCount: 0, notificationsCount: 0 };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.fetchCloudKitRecordsCount();
+      console.log('[CloudKitSync] CloudKit records count fetched:', result);
+      return result;
+    } catch (error) {
+      console.error('[CloudKitSync] Failed to fetch CloudKit records count:', error);
+      return { success: false, bucketsCount: 0, notificationsCount: 0 };
+    }
+  }
+
+  /**
+   * Fetch all buckets from CloudKit with full record data
+   */
+  async fetchAllBucketsFromCloudKit(): Promise<{
+    success: boolean;
+    buckets: Array<Record<string, any>>;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      console.log('[CloudKitSync] Not available on this platform');
+      return { success: false, buckets: [] };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.fetchAllBucketsFromCloudKit();
+      console.log('[CloudKitSync] All buckets fetched:', result);
+      return result;
+    } catch (error) {
+      console.error('[CloudKitSync] Failed to fetch all buckets:', error);
+      return { success: false, buckets: [] };
+    }
+  }
+
+  /**
+   * Fetch all notifications from CloudKit with full record data
+   */
+  async fetchAllNotificationsFromCloudKit(): Promise<{
+    success: boolean;
+    notifications: Array<Record<string, any>>;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      console.log('[CloudKitSync] Not available on this platform');
+      return { success: false, notifications: [] };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.fetchAllNotificationsFromCloudKit();
+      console.log('[CloudKitSync] All notifications fetched:', result);
+      return result;
+    } catch (error) {
+      console.error('[CloudKitSync] Failed to fetch all notifications:', error);
+      return { success: false, notifications: [] };
+    }
+  }
+
+  /**
+   * Fetch a single record from CloudKit by recordName
+   * @param recordName - The CloudKit record name
+   * @param recordType - The record type ('buckets_data' or 'notifications_data')
+   */
+  async fetchRecordFromCloudKit(recordName: string, recordType: 'buckets_data' | 'notifications_data'): Promise<{
+    success: boolean;
+    record?: Record<string, any>;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      console.log('[CloudKitSync] Not available on this platform');
+      return { success: false };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.fetchRecordFromCloudKit(recordName, recordType);
+      console.log('[CloudKitSync] Record fetched:', recordName);
+      return result;
+    } catch (error) {
+      console.error('[CloudKitSync] Failed to fetch record:', error);
+      return { success: false };
+    }
+  }
+
+  /**
+   * Delete a record from CloudKit by recordName
+   * @param recordName - The CloudKit record name to delete
+   */
+  async deleteRecordFromCloudKit(recordName: string): Promise<{
+    success: boolean;
+    recordName?: string;
+  }> {
+    if (!isIOS || !CloudKitSyncBridge) {
+      console.log('[CloudKitSync] Not available on this platform');
+      return { success: false };
+    }
+
+    try {
+      const result = await CloudKitSyncBridge.deleteRecordFromCloudKit(recordName);
+      console.log('[CloudKitSync] Record deleted:', recordName);
+      return result;
+    } catch (error) {
+      console.error('[CloudKitSync] Failed to delete record:', error);
+      return { success: false };
+    }
+  }
+
   // ========== Event Listeners ==========
 
   initializeEventListeners(handlers: IosBridgeEventHandlers) {

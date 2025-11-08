@@ -512,11 +512,16 @@ export function useNotificationsState(
                     return a.name.localeCompare(b.name);
                 });
 
-                console.log(`[useNotificationsState] ✅ Complete: ${apiNotifications.length || cachedNotifications.length} notifications, ${finalBuckets.length} buckets, ${freshStats.totalCount} total (${freshStats.unreadCount} unread)`);
+                // After API sync, re-fetch from cache to get the complete merged state
+                const finalNotifications = apiNotifications.length > 0 
+                    ? await getAllNotificationsFromCache() 
+                    : cachedNotifications;
+
+                console.log(`[useNotificationsState] ✅ Complete: ${finalNotifications.length} notifications, ${finalBuckets.length} buckets, ${freshStats.totalCount} total (${freshStats.unreadCount} unread)`);
 
                 return {
                     buckets: finalBuckets,
-                    notifications: apiNotifications.length > 0 ? apiNotifications : cachedNotifications,
+                    notifications: finalNotifications,
                     stats: freshStats,
                     lastSync: new Date().toISOString(),
                 };

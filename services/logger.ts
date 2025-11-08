@@ -152,7 +152,36 @@ class JsonFileLogger {
   }
 
   private convertMetadataToStrings(meta: any): Record<string, string> | undefined {
-    if (!meta || typeof meta !== 'object') return undefined;
+    if (!meta) return undefined;
+
+    // If meta is a string, try to parse it as JSON first
+    if (typeof meta === 'string') {
+      try {
+        const parsed = JSON.parse(meta);
+        if (typeof parsed === 'object' && parsed !== null) {
+          // Recursively convert the parsed object
+          return this.convertMetadataToStrings(parsed);
+        }
+        // If parsed is not an object, return it as a single value
+        return { value: meta };
+      } catch {
+        // Not valid JSON, return as-is
+        return { value: meta };
+      }
+    }
+
+    if (typeof meta !== 'object') {
+      return { value: String(meta) };
+    }
+
+    // Handle arrays
+    if (Array.isArray(meta)) {
+      try {
+        return { value: JSON.stringify(meta) };
+      } catch {
+        return { value: String(meta) };
+      }
+    }
 
     const result: Record<string, string> = {};
     for (const [key, value] of Object.entries(meta)) {
@@ -304,7 +333,36 @@ class WebJsonFileLogger {
   }
 
   private convertMetadataToStrings(meta: any): Record<string, string> | undefined {
-    if (!meta || typeof meta !== 'object') return undefined;
+    if (!meta) return undefined;
+
+    // If meta is a string, try to parse it as JSON first
+    if (typeof meta === 'string') {
+      try {
+        const parsed = JSON.parse(meta);
+        if (typeof parsed === 'object' && parsed !== null) {
+          // Recursively convert the parsed object
+          return this.convertMetadataToStrings(parsed);
+        }
+        // If parsed is not an object, return it as a single value
+        return { value: meta };
+      } catch {
+        // Not valid JSON, return as-is
+        return { value: meta };
+      }
+    }
+
+    if (typeof meta !== 'object') {
+      return { value: String(meta) };
+    }
+
+    // Handle arrays
+    if (Array.isArray(meta)) {
+      try {
+        return { value: JSON.stringify(meta) };
+      } catch {
+        return { value: String(meta) };
+      }
+    }
 
     const result: Record<string, string> = {};
     for (const [key, value] of Object.entries(meta)) {

@@ -88,6 +88,61 @@ public class CloudKitSyncManager {
         print("☁️ [CloudKitSync][Watch] Buckets file: \(bucketsFilePath.path)")
         print("☁️ [CloudKitSync][Watch] Notifications file: \(notificationsFilePath.path)")
         
+        // Check iCloud account status
+        container.accountStatus { status, error in
+            if let error = error {
+                self.logger.error(
+                    tag: "Initialization",
+                    message: "Failed to check iCloud account status",
+                    metadata: [
+                        "error": error.localizedDescription,
+                        "containerIdentifier": containerIdentifier
+                    ],
+                    source: "CloudKit-Watch"
+                )
+                print("☁️ [CloudKitSync][Watch] ❌ Failed to check iCloud account: \(error.localizedDescription)")
+            } else {
+                let statusString: String
+                switch status {
+                case .available:
+                    statusString = "available"
+                case .noAccount:
+                    statusString = "noAccount"
+                case .restricted:
+                    statusString = "restricted"
+                case .couldNotDetermine:
+                    statusString = "couldNotDetermine"
+                case .temporarilyUnavailable:
+                    statusString = "temporarilyUnavailable"
+                @unknown default:
+                    statusString = "unknown"
+                }
+                
+                self.logger.info(
+                    tag: "Initialization",
+                    message: "iCloud account status checked",
+                    metadata: [
+                        "status": statusString,
+                        "statusRawValue": String(status.rawValue),
+                        "containerIdentifier": containerIdentifier
+                    ],
+                    source: "CloudKit-Watch"
+                )
+                
+                print("☁️ [CloudKitSync][Watch] iCloud account status: \(statusString)")
+                
+                if status != .available {
+                    self.logger.warn(
+                        tag: "Initialization",
+                        message: "iCloud account not available",
+                        metadata: ["status": statusString],
+                        source: "CloudKit-Watch"
+                    )
+                    print("☁️ [CloudKitSync][Watch] ⚠️ iCloud not available! Status: \(statusString)")
+                }
+            }
+        }
+        
         // Load last sync timestamps
         loadSyncTimestamps()
     }
@@ -115,8 +170,36 @@ public class CloudKitSyncManager {
      * Check if the custom zone exists (watch only checks, doesn't create)
      */
     private func checkZoneExists(completion: @escaping (Bool) -> Void) {
+        let mainBundleId = KeychainAccess.getMainBundleIdentifier()
+        let containerIdentifier = "iCloud.\(mainBundleId)"
+        
+        logger.info(
+            tag: "ZoneCheck",
+            message: "Checking if CloudKit zone exists",
+            metadata: [
+                "zoneName": zoneID.zoneName,
+                "zoneOwner": zoneID.ownerName,
+                "containerIdentifier": containerIdentifier,
+                "mainBundleId": mainBundleId
+            ],
+            source: "CloudKit-Watch"
+        )
+        
         privateDatabase.fetch(withRecordZoneID: zoneID) { (zone, error) in
             if let error = error as? CKError {
+                self.logger.error(
+                    tag: "ZoneCheck",
+                    message: "Error checking zone",
+                    metadata: [
+                        "error": error.localizedDescription,
+                        "errorCode": String(error.code.rawValue),
+                        "zoneName": self.zoneID.zoneName,
+                        "isZoneNotFound": String(error.code == .zoneNotFound),
+                        "isUnknownItem": String(error.code == .unknownItem)
+                    ],
+                    source: "CloudKit-Watch"
+                )
+                
                 if error.code == .unknownItem || error.code == .zoneNotFound {
                     print("☁️ [CloudKitSync][Watch] ⚠️ Zone \(self.zoneID.zoneName) not found. Waiting for iOS to create it...")
                     completion(false)
@@ -125,9 +208,21 @@ public class CloudKitSyncManager {
                     completion(false)
                 }
             } else if zone != nil {
+                self.logger.info(
+                    tag: "ZoneCheck",
+                    message: "Custom zone exists",
+                    metadata: ["zoneName": self.zoneID.zoneName],
+                    source: "CloudKit-Watch"
+                )
                 print("☁️ [CloudKitSync][Watch] ✅ Custom zone exists: \(self.zoneID.zoneName)")
                 completion(true)
             } else {
+                self.logger.warn(
+                    tag: "ZoneCheck",
+                    message: "Zone fetch returned nil without error",
+                    metadata: ["zoneName": self.zoneID.zoneName],
+                    source: "CloudKit-Watch"
+                )
                 print("☁️ [CloudKitSync][Watch] ⚠️ Zone fetch returned nil without error. Waiting for iOS...")
                 completion(false)
             }
@@ -209,13 +304,19 @@ public class CloudKitSyncManager {
      */
     public func fetchBucketsFromCloudKit(completion: @escaping ([Bucket]) -> Void) {
         let recordID = CKRecord.ID(recordName: "buckets_data", zoneID: zoneID)
+        let mainBundleId = KeychainAccess.getMainBundleIdentifier()
+        let containerIdentifier = "iCloud.\(mainBundleId)"
         
         logger.info(
             tag: "FetchBuckets",
             message: "Starting fetch buckets from CloudKit",
             metadata: [
                 "recordName": recordID.recordName,
-                "zoneName": recordID.zoneID.zoneName
+                "zoneName": recordID.zoneID.zoneName,
+                "zoneOwner": recordID.zoneID.ownerName,
+                "containerIdentifier": containerIdentifier,
+                "mainBundleId": mainBundleId,
+                "databaseType": "privateDatabase"
             ],
             source: "CloudKit-Watch"
         )
@@ -289,6 +390,8 @@ public class CloudKitSyncManager {
      */
     public func fetchNotificationsFromCloudKit(limit: Int? = nil, completion: @escaping ([SyncNotification]) -> Void) {
         let recordID = CKRecord.ID(recordName: "notifications_data", zoneID: zoneID)
+        let mainBundleId = KeychainAccess.getMainBundleIdentifier()
+        let containerIdentifier = "iCloud.\(mainBundleId)"
         
         logger.info(
             tag: "FetchNotifications",
@@ -296,6 +399,10 @@ public class CloudKitSyncManager {
             metadata: [
                 "recordName": recordID.recordName,
                 "zoneName": recordID.zoneID.zoneName,
+                "zoneOwner": recordID.zoneID.ownerName,
+                "containerIdentifier": containerIdentifier,
+                "mainBundleId": mainBundleId,
+                "databaseType": "privateDatabase",
                 "limit": limit.map { String($0) } ?? "none"
             ],
             source: "CloudKit-Watch"

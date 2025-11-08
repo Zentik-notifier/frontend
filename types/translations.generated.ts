@@ -1963,6 +1963,37 @@ export interface Translation {
       timestamp: string;
     };
   };
+  cachedData: {
+    title: string;
+    description: string;
+    refresh: string;
+    export: string;
+    delete: string;
+    buckets: string;
+    notifications: string;
+    totalSize: string;
+    lastSync: string;
+    noData: string;
+    confirmDelete: string;
+    confirmDeleteMessage: string;
+    deleteSuccess: string;
+    deleteError: string;
+    exportSuccess: string;
+    exportError: string;
+    loadError: string;
+    cached: string;
+    storageInfo: string;
+    cloudKit: string;
+    cloudKitDescription: string;
+    fetchCloudKit: string;
+    cloudKitError: string;
+    viewAllRecords: string;
+    viewRecord: string;
+    deleteRecord: string;
+    recordDetails: string;
+    bucketsInCloud: string;
+    notificationsInCloud: string;
+  };
   backupManagement: {
     title: string;
     description: string;

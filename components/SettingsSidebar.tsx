@@ -124,6 +124,15 @@ export default function SettingsSidebar() {
       onPress: nav.navigateToLogs,
       selectionSegment: "logs",
     },
+    {
+      id: "cached-data",
+      title: t("cachedData.title"),
+      description: t("cachedData.description"),
+      icon: "database",
+      iconColor: "#6366F1", // Indigo
+      onPress: nav.navigateToCachedData,
+      selectionSegment: "cached-data",
+    },
   ];
 
   if (!isMobile) {
