@@ -32,8 +32,7 @@ import {
     useQueryClient,
 } from '@tanstack/react-query';
 import { notificationKeys } from './useNotificationQueries';
-import WatchConnectivityService from '@/services/WatchConnectivityService';
-import CloudKitSyncService from '@/services/CloudKitSyncService';
+import IosBridgeService from '@/services/ios-bridge';
 
 // ====================
 // HELPER FUNCTIONS
@@ -302,18 +301,10 @@ export function useMarkAsRead(
                 );
             }
             
-            // Sync to CloudKit FIRST, then notify Watch with specific update
-            // This ensures Watch gets the update from CloudKit if needed
-            CloudKitSyncService.syncNotificationsToCloudKit()
-                .then(() => {
-                    // Send specific notification read update to Watch
-                    console.log('[useMarkAsRead] CloudKit sync completed, notifying Watch of specific update');
-                    WatchConnectivityService.notifyWatchNotificationRead(notificationId, now);
-                })
+            // Sync CloudKit + Watch + Widget in one call
+            IosBridgeService.syncAll('read', { notificationId, readAt: now })
                 .catch((error) => {
-                    console.error('[useMarkAsRead] Failed to sync notifications to CloudKit:', error);
-                    // Still notify Watch even if CloudKit sync fails
-                    WatchConnectivityService.notifyWatchNotificationRead(notificationId, now);
+                    console.error('[useMarkAsRead] Failed to sync:', error);
                 });
         },
         ...mutationOptions,
@@ -393,18 +384,10 @@ export function useMarkAsUnread(
                 );
             }
             
-            // Sync to CloudKit FIRST, then notify Watch with specific update
-            // This ensures Watch gets the update from CloudKit if needed
-            CloudKitSyncService.syncNotificationsToCloudKit()
-                .then(() => {
-                    // Send specific notification unread update to Watch
-                    console.log('[useMarkAsUnread] CloudKit sync completed, notifying Watch of specific update');
-                    WatchConnectivityService.notifyWatchNotificationUnread(notificationId);
-                })
+            // Sync CloudKit + Watch + Widget in one call
+            IosBridgeService.syncAll('unread', { notificationId })
                 .catch((error) => {
-                    console.error('[useMarkAsUnread] Failed to sync notifications to CloudKit:', error);
-                    // Still notify Watch even if CloudKit sync fails
-                    WatchConnectivityService.notifyWatchNotificationUnread(notificationId);
+                    console.error('[useMarkAsUnread] Failed to sync:', error);
                 });
         },
         ...mutationOptions,
@@ -522,32 +505,21 @@ export function useBatchMarkAsRead(
                 }
             });
             
-            // Sync to CloudKit FIRST, then notify Watch with batch update
-            // This ensures Watch gets the update from CloudKit if needed
-            CloudKitSyncService.syncNotificationsToCloudKit()
-                .then(() => {
-                    // Send batch notification read update to Watch
-                    console.log('[useBatchMarkAsRead] CloudKit sync completed, notifying Watch of batch update');
-                    if (isMarkingAsRead && timestamp) {
-                        WatchConnectivityService.notifyWatchNotificationsRead(notificationIds, timestamp);
-                    } else {
-                        // For unread batch, send individual unread messages (less common)
-                        notificationIds.forEach(id => {
-                            WatchConnectivityService.notifyWatchNotificationUnread(id);
+            // Sync CloudKit + Watch + Widget in one call
+            if (isMarkingAsRead && timestamp) {
+                IosBridgeService.syncAll('read', { notificationIds, readAt: timestamp })
+                    .catch((error) => {
+                        console.error('[useBatchMarkAsRead] Failed to sync:', error);
+                    });
+            } else {
+                // For unread batch, send individual unread messages
+                notificationIds.forEach(id => {
+                    IosBridgeService.syncAll('unread', { notificationId: id })
+                        .catch((error) => {
+                            console.error('[useBatchMarkAsRead] Failed to sync:', error);
                         });
-                    }
-                })
-                .catch((error) => {
-                    console.error('[useBatchMarkAsRead] Failed to sync notifications to CloudKit:', error);
-                    // Still notify Watch even if CloudKit sync fails
-                    if (isMarkingAsRead && timestamp) {
-                        WatchConnectivityService.notifyWatchNotificationsRead(notificationIds, timestamp);
-                    } else {
-                        notificationIds.forEach(id => {
-                            WatchConnectivityService.notifyWatchNotificationUnread(id);
-                        });
-                    }
                 });
+            }
         },
         ...mutationOptions,
     });
@@ -645,18 +617,10 @@ export function useMarkAllAsRead(
                 }
             );
             
-            // Sync to CloudKit FIRST, then notify Watch
-            // For "mark all as read", we use generic reload since it's a major operation
-            CloudKitSyncService.syncNotificationsToCloudKit()
-                .then(() => {
-                    // Use generic reload for "mark all" operation
-                    console.log('[useMarkAllAsRead] CloudKit sync completed, triggering Watch reload');
-                    WatchConnectivityService.notifyWatchOfUpdate();
-                })
+            // Sync CloudKit + Watch + Widget in one call
+            IosBridgeService.syncAll('reload')
                 .catch((error) => {
-                    console.error('[useMarkAllAsRead] Failed to sync notifications to CloudKit:', error);
-                    // Still notify Watch even if CloudKit sync fails
-                    WatchConnectivityService.notifyWatchOfUpdate();
+                    console.error('[useMarkAllAsRead] Failed to sync:', error);
                 });
         },
         ...mutationOptions,
@@ -741,13 +705,11 @@ export function useDeleteNotification(
                 queryKey: notificationKeys.detail(notificationId),
             });
             
-            // Notify Watch of updated data
-            WatchConnectivityService.notifyWatchOfUpdate();
-            
-            // Sync all notifications to CloudKit (JSON file approach - no individual deletes)
-            CloudKitSyncService.syncNotificationsToCloudKit().catch((error) => {
-                console.error('[useDeleteNotification] Failed to sync notifications to CloudKit:', error);
-            });
+            // Sync CloudKit + Watch + Widget in one call
+            IosBridgeService.syncAll('delete', { notificationId })
+                .catch((error) => {
+                    console.error('[useDeleteNotification] Failed to sync:', error);
+                });
         },
         ...mutationOptions,
     });
@@ -838,14 +800,11 @@ export function useBatchDeleteNotifications(
                 });
             });
             
-            // Notify Watch of updated data
-            WatchConnectivityService.notifyWatchOfUpdate();
-            
-            // Delete each notification from CloudKit immediately
-            // Sync all notifications to CloudKit (JSON file approach - no individual deletes)
-            CloudKitSyncService.syncNotificationsToCloudKit().catch((error) => {
-                console.error('[useBatchDeleteNotifications] Failed to sync notifications to CloudKit:', error);
-            });
+            // Sync CloudKit + Watch + Widget in one call
+            IosBridgeService.syncAll('delete', { notificationIds: deletedIds })
+                .catch((error) => {
+                    console.error('[useBatchDeleteNotifications] Failed to sync:', error);
+                });
         },
         ...mutationOptions,
     });

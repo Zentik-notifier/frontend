@@ -7,8 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
     useNotificationsState,
 } from "@/hooks/notifications/useNotificationQueries";
-import WatchConnectivityService from "@/services/WatchConnectivityService";
-import CloudKitSyncService from "@/services/CloudKitSyncService";
+import IosBridgeService from "@/services/ios-bridge";
 
 // Polyfill for requestIdleCallback (not available in React Native)
 const requestIdleCallbackPolyfill = (callback: () => void) => {
@@ -82,7 +81,7 @@ export const useCleanup = () => {
         await executeWithRAF(
             async () => {
                 console.log('[Cleanup] 📱 Notifying Apple Watch of updates (BEFORE cleanup)...');
-                await WatchConnectivityService.notifyWatchOfUpdate();
+                await IosBridgeService.notifyAll('reload');
                 console.log('[Cleanup] 📱 Watch notified (will use transferUserInfo buffer if unreachable)');
             },
             'notifying watch before cleanup'
@@ -92,16 +91,16 @@ export const useCleanup = () => {
 
         await waitRAF();
 
-        // 5. SECOND: Sync to CloudKit BEFORE cleaning (upload current complete data)
+        // 5. SECOND: Sync to CloudKit + Watch + Widget BEFORE cleaning (upload current complete data)
         await executeWithRAF(
             async () => {
-                console.log('[Cleanup] ☁️ Syncing to CloudKit (BEFORE cleanup)...');
-                await CloudKitSyncService.syncAllToCloudKit();
-                console.log('[Cleanup] ☁️ CloudKit sync completed with complete data');
+                console.log('[Cleanup] ☁️ Syncing to CloudKit/Watch/Widget (BEFORE cleanup)...');
+                await IosBridgeService.syncAll('reload');
+                console.log('[Cleanup] ☁️ Sync completed with complete data');
             },
-            'syncing to cloudkit before cleanup'
+            'syncing before cleanup'
         ).catch((e) => {
-            console.error('[Cleanup] Error syncing to CloudKit:', e);
+            console.error('[Cleanup] Error syncing:', e);
         });
 
         await waitRAF();

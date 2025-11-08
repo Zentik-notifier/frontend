@@ -435,8 +435,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         
         // Ensure Watch gets latest data from CloudKit
         console.log("[AppContext] 📱 Notifying Watch to refresh from CloudKit...");
-        const { default: WatchConnectivityService } = await import('@/services/WatchConnectivityService');
-        await WatchConnectivityService.notifyWatchOfUpdate().catch((error) => {
+        const { default: IosBridgeService } = await import('@/services/ios-bridge');
+        await IosBridgeService.notifyAll('reload').catch((error) => {
           console.log("[AppContext] Failed to notify Watch:", error);
         });
         

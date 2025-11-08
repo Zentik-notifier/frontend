@@ -229,13 +229,13 @@ export function useNotificationsState(
                         // Save notifications to local DB
                         await upsertNotificationsBatch(notifications);
                         
-                        // Sync to CloudKit after saving notifications
+                        // Sync to CloudKit + Watch + Widget after saving notifications
                         try {
-                            const { default: CloudKitSyncService } = await import('@/services/CloudKitSyncService');
-                            await CloudKitSyncService.syncNotificationsToCloudKit();
-                            console.log('[useNotificationsState] Notifications synced to CloudKit');
+                            const { default: IosBridgeService } = await import('@/services/ios-bridge');
+                            await IosBridgeService.syncAll('reload');
+                            console.log('[useNotificationsState] Synced to CloudKit, Watch, and Widget');
                         } catch (error) {
-                            console.error('[useNotificationsState] Failed to sync notifications to CloudKit:', error);
+                            console.error('[useNotificationsState] Failed to sync:', error);
                         }
                     }
 

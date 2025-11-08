@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import WatchConnectivityService from '@/services/WatchConnectivityService';
+import IosBridgeService from '@/services/ios-bridge';
 import { useMarkAsRead, useMarkAsUnread, useDeleteNotification } from './notifications';
 
 /**
@@ -14,7 +14,7 @@ export function useWatchConnectivityEvents() {
   useEffect(() => {
     console.log('[useWatchConnectivity] Initializing Watch event listeners...');
 
-    WatchConnectivityService.initializeEventListeners({
+    IosBridgeService.initializeEventListeners({
       onNotificationRead: async ({ notificationId, readAt }) => {
         console.log('[useWatchConnectivity] ⌚→📱 Watch marked as read:', notificationId, readAt);
         try {
@@ -52,7 +52,7 @@ export function useWatchConnectivityEvents() {
 
     return () => {
       console.log('[useWatchConnectivity] Removing Watch event listeners...');
-      WatchConnectivityService.removeEventListeners();
+      IosBridgeService.removeEventListeners();
     };
   }, [markAsRead, markAsUnread, deleteNotification]);
 }

@@ -185,13 +185,13 @@ export function useDeleteBucketWithNotifications(options?: {
         console.error('[useDeleteBucketWithNotifications] Error recalculating stats:', error);
       }
 
-      // Step 6: Sync to CloudKit
+      // Step 6: Sync CloudKit + Watch + Widget
       try {
-        const { default: CloudKitSyncService } = await import('@/services/CloudKitSyncService');
-        await CloudKitSyncService.syncBucketsToCloudKit();
-        console.log('[useDeleteBucketWithNotifications] Buckets synced to CloudKit');
+        const { default: IosBridgeService } = await import('@/services/ios-bridge');
+        await IosBridgeService.syncAll('reload');
+        console.log('[useDeleteBucketWithNotifications] Synced to CloudKit, Watch, and Widget');
       } catch (error) {
-        console.error('[useDeleteBucketWithNotifications] Failed to sync buckets to CloudKit:', error);
+        console.error('[useDeleteBucketWithNotifications] Failed to sync:', error);
       }
 
       if (options?.onSuccess) {
@@ -508,13 +508,13 @@ export function useUpdateBucketSnoozes(options?: {
 
       console.log('[useUpdateBucketSnoozes] Queries invalidated');
 
-      // Sync to CloudKit
+      // Sync CloudKit + Watch + Widget
       try {
-        const { default: CloudKitSyncService } = await import('@/services/CloudKitSyncService');
-        await CloudKitSyncService.syncBucketsToCloudKit();
-        console.log('[useUpdateBucketSnoozes] Buckets synced to CloudKit');
+        const { default: IosBridgeService } = await import('@/services/ios-bridge');
+        await IosBridgeService.syncAll('reload');
+        console.log('[useUpdateBucketSnoozes] Synced to CloudKit, Watch, and Widget');
       } catch (error) {
-        console.error('[useUpdateBucketSnoozes] Failed to sync buckets to CloudKit:', error);
+        console.error('[useUpdateBucketSnoozes] Failed to sync:', error);
       }
 
       if (options?.onSuccess) {
@@ -729,13 +729,13 @@ export function useShareBucket(options?: {
       });
       console.log('[useShareBucket] AppState updated with new permission');
 
-      // Sync to CloudKit
+      // Sync CloudKit + Watch + Widget
       try {
-        const { default: CloudKitSyncService } = await import('@/services/CloudKitSyncService');
-        await CloudKitSyncService.syncBucketsToCloudKit();
-        console.log('[useShareBucket] Buckets synced to CloudKit');
+        const { default: IosBridgeService } = await import('@/services/ios-bridge');
+        await IosBridgeService.syncAll('reload');
+        console.log('[useShareBucket] Synced to CloudKit, Watch, and Widget');
       } catch (error) {
-        console.error('[useShareBucket] Failed to sync buckets to CloudKit:', error);
+        console.error('[useShareBucket] Failed to sync:', error);
       }
 
       if (options?.onSuccess) {
@@ -879,13 +879,13 @@ export function useUnshareBucket(options?: {
       // No need to update cache again, optimistic update is already correct
       console.log('[useUnshareBucket] Optimistic update confirmed');
 
-      // Sync to CloudKit
+      // Sync CloudKit + Watch + Widget
       try {
-        const { default: CloudKitSyncService } = await import('@/services/CloudKitSyncService');
-        await CloudKitSyncService.syncBucketsToCloudKit();
-        console.log('[useUnshareBucket] Buckets synced to CloudKit');
+        const { default: IosBridgeService } = await import('@/services/ios-bridge');
+        await IosBridgeService.syncAll('reload');
+        console.log('[useUnshareBucket] Synced to CloudKit, Watch, and Widget');
       } catch (error) {
-        console.error('[useUnshareBucket] Failed to sync buckets to CloudKit:', error);
+        console.error('[useUnshareBucket] Failed to sync:', error);
       }
 
       if (options?.onSuccess) {
@@ -1068,13 +1068,13 @@ export function useCreateBucket(options?: {
       });
       console.log('[useCreateBucket] Related queries invalidated');
 
-      // Step 4: Sync to CloudKit
+      // Step 4: Sync CloudKit + Watch + Widget
       try {
-        const { default: CloudKitSyncService } = await import('@/services/CloudKitSyncService');
-        await CloudKitSyncService.syncBucketsToCloudKit();
-        console.log('[useCreateBucket] Buckets synced to CloudKit');
+        const { default: IosBridgeService } = await import('@/services/ios-bridge');
+        await IosBridgeService.syncAll('reload');
+        console.log('[useCreateBucket] Synced to CloudKit, Watch, and Widget');
       } catch (error) {
-        console.error('[useCreateBucket] Failed to sync buckets to CloudKit:', error);
+        console.error('[useCreateBucket] Failed to sync:', error);
       }
 
       if (options?.onSuccess) {

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Alert, ScrollView, TouchableOpacity } from 'react-native';
-import CloudKitSyncService from '@/services/CloudKitSyncService';
-import WatchConnectivityService from '@/services/WatchConnectivityService';
+import IosBridgeService from '@/services/ios-bridge';
 import { useAppContext } from '@/contexts/AppContext';
 import { useCleanup } from '@/hooks/useCleanup';
 
@@ -46,7 +45,7 @@ export default function CloudKitDebugScreen() {
     setIsLoading(true);
     try {
       addLog('🪣 Starting bucket sync to CloudKit...');
-      const result = await CloudKitSyncService.syncBucketsToCloudKit();
+      const result = await IosBridgeService.syncBucketsToCloudKit();
       addLog(`🪣 Bucket sync result: success=${result.success}, count=${result.count}`);
       
       if (result.success) {
@@ -66,7 +65,7 @@ export default function CloudKitDebugScreen() {
     setIsLoading(true);
     try {
       addLog('📱 Starting notification sync to CloudKit...');
-      const result = await CloudKitSyncService.syncNotificationsToCloudKit();
+      const result = await IosBridgeService.syncNotificationsToCloudKit();
       addLog(`📱 Notification sync result: success=${result.success}, count=${result.count}`);
       
       if (result.success) {
@@ -86,7 +85,7 @@ export default function CloudKitDebugScreen() {
     setIsLoading(true);
     try {
       addLog('☁️ Starting full sync to CloudKit...');
-      const result = await CloudKitSyncService.syncAllToCloudKit();
+      const result = await IosBridgeService.syncAllToCloudKit();
       addLog(`☁️ Full sync result: success=${result.success}, buckets=${result.bucketsCount}, notifications=${result.notificationsCount}`);
       
       if (result.success) {
@@ -95,7 +94,7 @@ export default function CloudKitDebugScreen() {
         // Notify Watch of update
         try {
           addLog('⌚ Notifying Apple Watch of update...');
-          await WatchConnectivityService.notifyWatchOfUpdate();
+          await IosBridgeService.notifyAll('reload');
           addLog('⌚ ✅ Successfully notified Apple Watch');
         } catch (watchError) {
           addLog(`⌚ ⚠️ Failed to notify Watch: ${watchError}`);
@@ -115,7 +114,7 @@ export default function CloudKitDebugScreen() {
     setIsLoading(true);
     try {
       addLog('🔔 Setting up CloudKit subscriptions...');
-      const success = await CloudKitSyncService.setupSubscriptions();
+      const success = await IosBridgeService.setupSubscriptions();
       addLog(`🔔 Subscription setup result: ${success}`);
       
       if (success) {

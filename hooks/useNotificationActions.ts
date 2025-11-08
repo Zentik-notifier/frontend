@@ -25,7 +25,7 @@ import {
   refreshNotificationQueries,
 } from '@/hooks/notifications/useNotificationQueries';
 import { useQueryClient } from '@tanstack/react-query';
-import WatchConnectivityService from '@/services/WatchConnectivityService';
+import IosBridgeService from '@/services/ios-bridge';
 
 /**
  * Hook that provides callbacks for handling notification actions
@@ -315,7 +315,7 @@ export function useNotificationActions() {
         await setBadgeCount(currentCount + 1);
         
         // Notify Watch of new notification
-        WatchConnectivityService.notifyWatchOfUpdate();
+        IosBridgeService.notifyAll('add');
       } catch (e) {
         console.warn('[useNotificationActions] Failed to handle push notification:', e);
       }
