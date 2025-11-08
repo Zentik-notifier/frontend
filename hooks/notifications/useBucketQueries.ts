@@ -300,6 +300,7 @@ export function useRefreshBucket() {
                 name: freshBucket.name,
                 icon: freshBucket.icon,
                 iconAttachmentUuid: freshBucket.iconAttachmentUuid,
+                iconUrl: freshBucket.iconUrl,
                 description: freshBucket.description,
                 updatedAt: freshBucket.updatedAt,
                 color: freshBucket.color,
@@ -309,6 +310,7 @@ export function useRefreshBucket() {
                 userBucket: freshBucket.userBucket,
                 user: freshBucket.user,
                 permissions: freshBucket.permissions,
+                isOrphan: false, // Refreshed buckets are never orphans
             });
 
             console.log(`[refreshBucket] Bucket ${bucketId} refreshed successfully in all caches and DB`);

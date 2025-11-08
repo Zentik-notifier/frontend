@@ -1,23 +1,30 @@
 import SwiftUI
+import ImageIO
 
 struct ContentView: View {
     @StateObject private var connectivityManager = WatchConnectivityManager.shared
     @State private var isRefreshing: Bool = false
+    @State private var isInitialLoad: Bool = true
     
     var body: some View {
         BucketMenuView(
             buckets: connectivityManager.buckets,
             totalUnreadCount: connectivityManager.unreadCount,
+            totalNotificationsCount: connectivityManager.notifications.count,
             isLoading: isRefreshing,
+            isInitialLoad: isInitialLoad,
             isConnected: connectivityManager.isConnected,
             lastUpdate: connectivityManager.lastUpdate,
             hasCache: !connectivityManager.notifications.isEmpty,
             onRefresh: loadData
         )
+        .environmentObject(connectivityManager)
         .onAppear {
-            // Only show loading if no cached data
+            // Only load if no cached data
             if connectivityManager.notifications.isEmpty {
                 loadData()
+            } else {
+                isInitialLoad = false
             }
         }
     }
@@ -27,8 +34,9 @@ struct ContentView: View {
         connectivityManager.requestData()
         
         // Stop loading after a timeout
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             isRefreshing = false
+            isInitialLoad = false
         }
     }
 }
@@ -37,6 +45,7 @@ struct BucketItem: Identifiable {
     let id: String
     let name: String
     let unreadCount: Int
+    let totalCount: Int
     let color: String?
     let iconUrl: String?
 }
@@ -54,7 +63,9 @@ struct NotificationData: Identifiable, Equatable {
 struct BucketMenuView: View {
     let buckets: [BucketItem]
     let totalUnreadCount: Int
+    let totalNotificationsCount: Int
     let isLoading: Bool
+    let isInitialLoad: Bool
     let isConnected: Bool
     let lastUpdate: Date?
     let hasCache: Bool
@@ -63,30 +74,28 @@ struct BucketMenuView: View {
     var body: some View {
         NavigationView {
             Group {
-                if isLoading && !hasCache {
-                    VStack(spacing: 8) {
+                // Show full screen loader only on initial load with no cache
+                if isInitialLoad && !hasCache {
+                    VStack(spacing: 16) {
                         ProgressView()
-                        Text("Loading...")
-                            .font(.caption2)
+                            .scaleEffect(1.2)
+                        Text("Loading notifications...")
+                            .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if !isConnected && !hasCache {
                     VStack(spacing: 12) {
                         Image(systemName: "iphone.slash")
                             .font(.system(size: 40))
                             .foregroundColor(.secondary)
-                        Text("iPhone not reachable")
+                        Text("No data available")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text("Make sure iPhone is nearby and unlocked")
+                        Text("Pull down to refresh from CloudKit")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
-                        
-                        Button(action: onRefresh) {
-                            Label("Try Again", systemImage: "arrow.clockwise")
-                        }
-                        .buttonStyle(.borderedProminent)
                     }
                     .padding()
                 } else {
@@ -102,11 +111,9 @@ struct BucketMenuView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("All Notifications")
                                         .font(.headline)
-                                    if totalUnreadCount > 0 {
-                                        Text("\(totalUnreadCount) unread")
-                                            .font(.caption2)
-                                            .foregroundColor(.secondary)
-                                    }
+                                    Text("\(totalNotificationsCount) notifications")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
                                 }
                                 
                                 Spacer()
@@ -140,20 +147,24 @@ struct BucketMenuView: View {
             .navigationTitle("Zentik")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    HStack(spacing: 4) {
-                        if let lastUpdate = lastUpdate {
-                            Text(timeAgo(from: lastUpdate))
-                                .font(.system(size: 8))
-                                .foregroundColor(.secondary)
-                        }
-                        if isLoading {
-                            ProgressView()
-                                .scaleEffect(0.7)
-                        } else {
-                            Button(action: onRefresh) {
-                                Image(systemName: "arrow.clockwise")
-                            }
+                ToolbarItem(placement: .topBarLeading) {
+                    if let lastUpdate = lastUpdate {
+                        Text("Synced \(timeAgo(from: lastUpdate))")
+                            .font(.system(size: 8))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                ToolbarItem(placement: .topBarTrailing) {
+                    if isLoading {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                    } else {
+                        Button(action: {
+                            onRefresh()
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 14))
                         }
                     }
                 }
@@ -201,11 +212,9 @@ struct BucketRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(bucket.name)
                     .font(.headline)
-                if bucket.unreadCount > 0 {
-                    Text("\(bucket.unreadCount) unread")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
+                Text("\(bucket.totalCount) notifications")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
             
             Spacer()
@@ -227,7 +236,12 @@ struct BucketRowView: View {
     }
     
     private func loadIcon() {
-        guard let iconUrl = bucket.iconUrl else { return }
+        guard let iconUrl = bucket.iconUrl, !iconUrl.isEmpty else {
+            print("⌚ [BucketRowView] ⚠️ No iconUrl for bucket \(bucket.id) (\(bucket.name))")
+            return
+        }
+        
+        print("⌚ [BucketRowView] 🔍 Loading icon for bucket \(bucket.id) (\(bucket.name)), iconUrl: \(iconUrl)")
         
         // Try to get icon from cache or download
         if let iconData = MediaAccess.getBucketIconFromSharedCache(
@@ -237,6 +251,9 @@ struct BucketRowView: View {
             iconUrl: iconUrl
         ) {
             self.iconImage = UIImage(data: iconData)
+            print("⌚ [BucketRowView] ✅ Loaded icon for bucket \(bucket.id) (\(bucket.name))")
+        } else {
+            print("⌚ [BucketRowView] ⚠️ Icon not found in cache for bucket \(bucket.id) (\(bucket.name)), iconUrl: \(iconUrl)")
         }
     }
     
@@ -279,11 +296,6 @@ struct FilteredNotificationListView: View {
                     Text("No notifications")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    
-                    Button(action: refreshData) {
-                        Label("Refresh", systemImage: "arrow.clockwise")
-                    }
-                    .buttonStyle(.borderedProminent)
                 }
             } else {
                 List {
@@ -291,14 +303,8 @@ struct FilteredNotificationListView: View {
                         let notificationBucket = bucket ?? allBuckets.first(where: { $0.id == notificationData.notification.bucketId })
                         
                         NavigationLink(destination: NotificationDetailView(
-                            notificationData: notificationData,
-                            bucket: notificationBucket,
-                            onDelete: {
-                                deleteNotification(notificationData)
-                            },
-                            onMarkAsRead: {
-                                markAsRead(notificationData)
-                            }
+                            notificationId: notificationData.notification.id,
+                            bucket: notificationBucket
                         )) {
                             NotificationRowView(
                                 notificationData: notificationData,
@@ -312,16 +318,28 @@ struct FilteredNotificationListView: View {
         .navigationTitle(bucketId == nil ? "All" : (bucketName ?? "Bucket"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button(action: refreshData) {
-                    Image(systemName: "arrow.clockwise")
+            ToolbarItem(placement: .topBarTrailing) {
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                } else {
+                    Button(action: {
+                        isLoading = true
+                        connectivityManager.requestData()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                            isLoading = false
+                        }
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 14))
+                    }
                 }
             }
         }
         .onAppear {
             filterNotifications()
         }
-        .onChange(of: connectivityManager.notifications) { _ in
+        .onChange(of: connectivityManager.notifications) {
             filterNotifications()
         }
     }
@@ -331,26 +349,6 @@ struct FilteredNotificationListView: View {
             filteredNotifications = connectivityManager.notifications.filter { $0.notification.bucketId == bucketId }
         } else {
             filteredNotifications = connectivityManager.notifications
-        }
-    }
-    
-    private func refreshData() {
-        connectivityManager.requestData()
-    }
-    
-    private func deleteNotification(_ notificationData: NotificationData) {
-        connectivityManager.deleteNotification(id: notificationData.notification.id) { success in
-            if success {
-                filterNotifications()
-            }
-        }
-    }
-    
-    private func markAsRead(_ notificationData: NotificationData) {
-        connectivityManager.markAsRead(id: notificationData.notification.id) { success in
-            if success {
-                filterNotifications()
-            }
         }
     }
 }
@@ -370,9 +368,9 @@ struct NotificationRowView: View {
                     .frame(width: 24, height: 24)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             } else {
-                RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: 4)
                     .fill(hexColor(bucket?.color ?? notificationData.notification.bucketColor) ?? Color.blue)
-                    .frame(width: 24, height: 24)
+                .frame(width: 24, height: 24)
             }
             
             VStack(alignment: .leading, spacing: 2) {
@@ -390,10 +388,10 @@ struct NotificationRowView: View {
                 }
                 
                 HStack(spacing: 4) {
-                    Text(notificationData.notification.body)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
+                Text(notificationData.notification.body)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
                     
                     if !notificationData.notification.attachments.isEmpty {
                         Spacer()
@@ -453,35 +451,49 @@ struct NotificationRowView: View {
 }
 
 struct NotificationDetailView: View {
-    let notificationData: NotificationData
+    let notificationId: String
     let bucket: BucketItem?
-    let onDelete: () -> Void
-    let onMarkAsRead: () -> Void
     
-    @Environment(\.dismiss) var dismiss
-    @State private var showDeleteConfirmation = false
     @State private var iconImage: UIImage?
+    @State private var isDeleted = false
+    @EnvironmentObject var connectivityManager: WatchConnectivityManager
+    @Environment(\.dismiss) var dismiss
+    
+    // Computed property to get the latest notification data from manager
+    private var notificationData: NotificationData? {
+        connectivityManager.notifications.first { $0.notification.id == notificationId }
+    }
+    
+    // Filter to only show supported attachments (IMAGE and GIF)
+    private var supportedAttachments: [DatabaseAccess.WidgetAttachment] {
+        guard let notificationData = notificationData else { return [] }
+        return notificationData.notification.attachments.filter { attachment in
+            let type = attachment.mediaType.uppercased()
+            return type == "IMAGE" || type == "GIF"
+        }
+    }
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                // Header with bucket icon
-                HStack(spacing: 10) {
-                    // Show bucket icon if available, otherwise show colored rectangle
-                    if let iconImage = iconImage {
-                        Image(uiImage: iconImage)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 40, height: 40)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                    } else {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(hexColor(bucket?.color ?? notificationData.notification.bucketColor) ?? Color.blue)
-                            .frame(width: 40, height: 40)
-                    }
-                    
+        if let notificationData = notificationData {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Header with bucket icon
+                    HStack(spacing: 10) {
+                        // Show bucket icon if available, otherwise show colored rectangle
+                        if let iconImage = iconImage {
+                            Image(uiImage: iconImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 40, height: 40)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        } else {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(hexColor(bucket?.color ?? notificationData.notification.bucketColor) ?? Color.blue)
+                                .frame(width: 40, height: 40)
+                        }
+                        
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(notificationData.notification.title)
+                            Text(notificationData.notification.title)
                             .font(.headline)
                             .foregroundColor(.primary)
                         
@@ -489,13 +501,13 @@ struct NotificationDetailView: View {
                             Text("Unread")
                                 .font(.caption2)
                                 .foregroundColor(.blue)
+                            }
                         }
                     }
-                }
-                .padding(.bottom, 4)
-                .onAppear {
-                    loadIcon()
-                }
+                    .padding(.bottom, 4)
+                    .onAppear {
+                        loadIcon()
+                    }
                 
                 Divider()
                 
@@ -510,59 +522,112 @@ struct NotificationDetailView: View {
                 Text(notificationData.notification.body)
                     .font(.body)
                 
-                // Attachments
-                if !notificationData.notification.attachments.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Attachments (\(notificationData.notification.attachments.count))")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        
-                        ForEach(Array(notificationData.notification.attachments.enumerated()), id: \.offset) { index, attachment in
-                            AttachmentRowView(attachment: attachment, notificationId: notificationData.notification.id)
-                        }
-                    }
-                }
-                
-                Spacer()
-                
-                // Actions
-                VStack(spacing: 8) {
-                    if !notificationData.notification.isRead {
-                        Button(action: {
-                            onMarkAsRead()
-                            dismiss()
-                        }) {
-                            Label("Mark as Read", systemImage: "checkmark.circle.fill")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
+                // Attachments - only show supported types (IMAGE and GIF)
+                if !supportedAttachments.isEmpty {
+                    Divider()
+                        .padding(.vertical, 4)
                     
-                    Button(role: .destructive, action: {
-                        showDeleteConfirmation = true
-                    }) {
-                        Label("Delete", systemImage: "trash.fill")
-                            .frame(maxWidth: .infinity)
+                    if supportedAttachments.count == 1 {
+                        // Single attachment - show full size immediately
+                        AttachmentFullView(
+                            attachment: supportedAttachments[0],
+                            notificationId: notificationData.notification.id
+                        )
+                    } else {
+                        // Multiple attachments - show grid of thumbnails
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Attachments (\(supportedAttachments.count))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            LazyVGrid(columns: [
+                                GridItem(.flexible(), spacing: 8),
+                                GridItem(.flexible(), spacing: 8)
+                            ], spacing: 8) {
+                                ForEach(Array(supportedAttachments.enumerated()), id: \.offset) { index, attachment in
+                                    NavigationLink(destination: AttachmentFullScreenView(
+                                        attachment: attachment,
+                                        notificationId: notificationData.notification.id
+                                    )) {
+                                        AttachmentThumbnailView(
+                                            attachment: attachment,
+                                            notificationId: notificationData.notification.id
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
-                    .buttonStyle(.bordered)
                 }
             }
             .padding()
         }
         .navigationTitle(bucket?.name ?? notificationData.notification.bucketName ?? "Notification")
         .navigationBarTitleDisplayMode(.inline)
-        .alert("Delete Notification", isPresented: $showDeleteConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
-                onDelete()
-                dismiss()
+        .toolbar {
+            ToolbarItemGroup(placement: .bottomBar) {
+                // Mark as read/unread button
+                Button(action: toggleReadStatus) {
+                    Label(notificationData.notification.isRead ? "Mark Unread" : "Mark Read",
+                          systemImage: notificationData.notification.isRead ? "envelope.badge" : "envelope.open")
+                }
+                .disabled(isDeleted)
+                
+                Spacer()
+                
+                // Delete button
+                Button(role: .destructive, action: deleteNotification) {
+                    Label("Delete", systemImage: "trash")
+                }
+                .disabled(isDeleted)
             }
-        } message: {
-            Text("Are you sure you want to delete this notification?")
+        }
+        } else {
+            // Notification not found (deleted or not loaded yet)
+            VStack {
+                Text("Notification not available")
+                    .foregroundColor(.secondary)
+            }
+            .navigationTitle("Notification")
+            .onAppear {
+                // If notification is gone, go back
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    if notificationData == nil {
+                        dismiss()
+                    }
+                }
+            }
         }
     }
     
+    private func toggleReadStatus() {
+        guard let notificationData = notificationData else { return }
+        let notifId = notificationData.notification.id
+        
+        if notificationData.notification.isRead {
+            // Mark as unread
+            connectivityManager.markNotificationAsUnreadFromWatch(id: notifId)
+        } else {
+            // Mark as read
+            connectivityManager.markNotificationAsReadFromWatch(id: notifId)
+        }
+    }
+    
+    private func deleteNotification() {
+        guard let notificationData = notificationData else { return }
+        let notifId = notificationData.notification.id
+        
+        // Delete locally and notify iPhone
+        connectivityManager.deleteNotificationFromWatch(id: notifId)
+        
+        // Mark as deleted and dismiss
+        isDeleted = true
+        dismiss()
+    }
+    
     private func loadIcon() {
+        guard let notificationData = notificationData else { return }
+        
         // Use bucket data if available (from main page), otherwise fallback to notification data
         let iconUrl = bucket?.iconUrl ?? notificationData.notification.bucketIconUrl
         let bucketId = bucket?.id ?? notificationData.notification.bucketId
@@ -597,6 +662,200 @@ struct NotificationDetailView: View {
         let b = Double(rgb & 0x0000FF) / 255.0
         
         return Color(red: r, green: g, blue: b)
+    }
+}
+
+// MARK: - Attachment Views
+
+struct AttachmentThumbnailView: View {
+    let attachment: DatabaseAccess.WidgetAttachment
+    let notificationId: String
+    @State private var thumbnailData: Data?
+    
+    var body: some View {
+        ZStack {
+            if let thumbnailData = thumbnailData {
+                // For GIFs, use AnimatedImageView to show animation
+                if attachment.mediaType.uppercased() == "GIF" {
+                    AnimatedImageView(imageData: thumbnailData)
+                        .frame(maxWidth: .infinity, maxHeight: 60)
+                        .clipped()
+                        .cornerRadius(8)
+                } else if let uiImage = UIImage(data: thumbnailData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: .infinity, maxHeight: 60)
+                        .clipped()
+                        .cornerRadius(8)
+                }
+            } else {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(maxWidth: .infinity, maxHeight: 60)
+                    .overlay(
+                        Image(systemName: iconForMediaType(attachment.mediaType))
+                            .foregroundColor(.white)
+                    )
+            }
+        }
+        .onAppear {
+            loadThumbnail()
+        }
+    }
+    
+    private func loadThumbnail() {
+        guard let url = attachment.url else {
+            print("⌚️ [AttachmentThumbnail] ❌ No URL for attachment")
+            return
+        }
+        
+        print("⌚️ [AttachmentThumbnail] 🔍 Loading for: \(url)")
+        print("⌚️ [AttachmentThumbnail] 📝 Type: \(attachment.mediaType), NotificationID: \(notificationId)")
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            let cacheDir = MediaAccess.getSharedMediaCacheDirectory()
+            print("⌚️ [AttachmentThumbnail] 📂 Cache dir: \(cacheDir.path)")
+            
+            if let localPath = MediaAccess.getLocalPathFromDb(url: url, mediaType: attachment.mediaType) {
+                print("⌚️ [AttachmentThumbnail] 💾 DB path: \(localPath)")
+                print("⌚️ [AttachmentThumbnail] 📁 Exists: \(FileManager.default.fileExists(atPath: localPath))")
+            } else {
+                print("⌚️ [AttachmentThumbnail] ⚠️ No DB path")
+            }
+            
+            let notifDir = cacheDir.appendingPathComponent("NOTIFICATION_MEDIA").appendingPathComponent(notificationId)
+            if FileManager.default.fileExists(atPath: notifDir.path) {
+                if let files = try? FileManager.default.contentsOfDirectory(at: notifDir, includingPropertiesForKeys: nil) {
+                    print("⌚️ [AttachmentThumbnail] 📄 Files: \(files.map { $0.lastPathComponent })")
+                }
+            } else {
+                print("⌚️ [AttachmentThumbnail] ⚠️ Notif dir missing: \(notifDir.path)")
+            }
+            
+            if let data = MediaAccess.getNotificationMediaForWatch(
+                url: url,
+                mediaType: attachment.mediaType,
+                notificationId: notificationId
+            ) {
+                print("⌚️ [AttachmentThumbnail] ✅ Got \(data.count) bytes")
+                DispatchQueue.main.async {
+                    self.thumbnailData = data
+                }
+            } else {
+                print("⌚️ [AttachmentThumbnail] ❌ No cache data")
+            }
+        }
+    }
+    
+    private func iconForMediaType(_ type: String) -> String {
+        switch type.uppercased() {
+        case "IMAGE": return "photo"
+        case "VIDEO": return "video"
+        case "AUDIO": return "waveform"
+        case "GIF": return "photo.on.rectangle.angled"
+        default: return "doc"
+        }
+    }
+}
+
+struct AttachmentFullView: View {
+    let attachment: DatabaseAccess.WidgetAttachment
+    let notificationId: String
+    @State private var mediaData: Data?
+    
+    var body: some View {
+        VStack {
+            if let mediaData = mediaData {
+                if attachment.mediaType.uppercased() == "IMAGE" {
+                    if let uiImage = UIImage(data: mediaData) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxWidth: .infinity)
+                            .cornerRadius(8)
+                    }
+                } else if attachment.mediaType.uppercased() == "GIF" {
+                    // Use AnimatedImageView for GIFs to show animation
+                    AnimatedImageView(imageData: mediaData)
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: .infinity)
+                        .cornerRadius(8)
+                }
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 100)
+            }
+        }
+        .onAppear {
+            loadMedia()
+        }
+    }
+    
+    private func loadMedia() {
+        guard let url = attachment.url else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            if let data = MediaAccess.getNotificationMediaForWatch(
+                url: url,
+                mediaType: attachment.mediaType,
+                notificationId: notificationId
+            ) {
+                DispatchQueue.main.async {
+                    self.mediaData = data
+                }
+            }
+        }
+    }
+}
+
+struct AttachmentFullScreenView: View {
+    let attachment: DatabaseAccess.WidgetAttachment
+    let notificationId: String
+    @State private var mediaData: Data?
+    
+    var body: some View {
+        ScrollView {
+            VStack {
+                if let mediaData = mediaData {
+                    if attachment.mediaType.uppercased() == "IMAGE" {
+                        if let uiImage = UIImage(data: mediaData) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxWidth: .infinity)
+                        }
+                    } else if attachment.mediaType.uppercased() == "GIF" {
+                        // Use AnimatedImageView for GIFs
+                        AnimatedImageView(imageData: mediaData)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxWidth: .infinity)
+                    }
+                } else {
+                    ProgressView()
+                        .padding()
+                }
+            }
+        }
+        .navigationTitle(attachment.name ?? "Attachment")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            loadMedia()
+        }
+    }
+    
+    private func loadMedia() {
+        guard let url = attachment.url else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            if let data = MediaAccess.getNotificationMediaForWatch(
+                url: url,
+                mediaType: attachment.mediaType,
+                notificationId: notificationId
+            ) {
+                DispatchQueue.main.async {
+                    self.mediaData = data
+                }
+            }
+        }
     }
 }
 
@@ -645,17 +904,28 @@ struct AttachmentRowView: View {
     }
     
     private func loadThumbnail() {
-        guard let url = attachment.url else { return }
+        guard let url = attachment.url else {
+            print("⌚️ [AttachmentRow] ❌ No URL")
+            return
+        }
+        
+        print("⌚️ [AttachmentRow] 🔍 Type: \(attachment.mediaType)")
         
         // Only load thumbnails for images and GIFs
         if attachment.mediaType == "IMAGE" || attachment.mediaType == "GIF" {
+            let cacheDir = MediaAccess.getSharedMediaCacheDirectory()
+            print("⌚️ [AttachmentRow] 📂 Cache: \(cacheDir.path)")
+            
             // Try to get from cache
-            if let cachedData = MediaAccess.getNotificationMediaFromSharedCache(
+            if let cachedData = MediaAccess.getNotificationMediaForWatch(
                 url: url,
                 mediaType: attachment.mediaType,
                 notificationId: notificationId
             ) {
+                print("⌚️ [AttachmentRow] ✅ Got \(cachedData.count) bytes")
                 self.thumbnailImage = UIImage(data: cachedData)
+            } else {
+                print("⌚️ [AttachmentRow] ❌ No cache")
             }
         }
     }
@@ -681,9 +951,76 @@ struct AttachmentRowView: View {
     }
 }
 
+// MARK: - Animated Image View for GIFs
+struct AnimatedImageView: View {
+    let imageData: Data
+    @State private var frames: [UIImage] = []
+    @State private var currentFrameIndex = 0
+    @State private var timer: Timer?
+    
+    var body: some View {
+        Group {
+            if !frames.isEmpty {
+                Image(uiImage: frames[currentFrameIndex])
+                    .resizable()
+            } else if let staticImage = UIImage(data: imageData) {
+                // Fallback to static image if GIF parsing fails
+                Image(uiImage: staticImage)
+                    .resizable()
+            } else {
+                Color.gray.opacity(0.2)
+            }
+        }
+        .onAppear {
+            extractFrames()
+            startAnimation()
+        }
+        .onDisappear {
+            stopAnimation()
+        }
+    }
+    
+    private func extractFrames() {
+        guard let source = CGImageSourceCreateWithData(imageData as CFData, nil) else {
+            print("⌚️ [AnimatedImage] ❌ Failed to create image source")
+            return
+        }
+        
+        let count = CGImageSourceGetCount(source)
+        print("⌚️ [AnimatedImage] 🎬 Found \(count) frames")
+        
+        var extractedFrames: [UIImage] = []
+        for i in 0..<count {
+            if let cgImage = CGImageSourceCreateImageAtIndex(source, i, nil) {
+                extractedFrames.append(UIImage(cgImage: cgImage))
+            }
+        }
+        
+        if !extractedFrames.isEmpty {
+            frames = extractedFrames
+            print("⌚️ [AnimatedImage] ✅ Extracted \(extractedFrames.count) frames")
+        }
+    }
+    
+    private func startAnimation() {
+        guard frames.count > 1 else { return }
+        
+        // Animate at ~10fps to save battery on Watch
+        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            currentFrameIndex = (currentFrameIndex + 1) % frames.count
+        }
+    }
+    
+    private func stopAnimation() {
+        timer?.invalidate()
+        timer = nil
+    }
+}
+
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
     }
 }
+
 

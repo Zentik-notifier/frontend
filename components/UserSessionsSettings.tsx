@@ -11,14 +11,13 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useEntitySorting } from "@/hooks/useEntitySorting";
 import { useI18n } from "@/hooks/useI18n";
 import React, { useState } from "react";
-import { Image, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import {
-  Button,
   Dialog,
   Icon,
   Portal,
   Text,
-  useTheme,
+  useTheme
 } from "react-native-paper";
 import OAuthProviderIcon from "./OAuthProviderIcon";
 import SwipeableItem from "./SwipeableItem";

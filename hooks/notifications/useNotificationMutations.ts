@@ -33,6 +33,7 @@ import {
 } from '@tanstack/react-query';
 import { notificationKeys } from './useNotificationQueries';
 import WatchConnectivityService from '@/services/WatchConnectivityService';
+import CloudKitSyncService from '@/services/CloudKitSyncService';
 
 // ====================
 // HELPER FUNCTIONS
@@ -301,8 +302,19 @@ export function useMarkAsRead(
                 );
             }
             
-            // Notify Watch of updated data
-            WatchConnectivityService.notifyWatchOfUpdate();
+            // Sync to CloudKit FIRST, then notify Watch with specific update
+            // This ensures Watch gets the update from CloudKit if needed
+            CloudKitSyncService.syncNotificationsToCloudKit()
+                .then(() => {
+                    // Send specific notification read update to Watch
+                    console.log('[useMarkAsRead] CloudKit sync completed, notifying Watch of specific update');
+                    WatchConnectivityService.notifyWatchNotificationRead(notificationId, now);
+                })
+                .catch((error) => {
+                    console.error('[useMarkAsRead] Failed to sync notifications to CloudKit:', error);
+                    // Still notify Watch even if CloudKit sync fails
+                    WatchConnectivityService.notifyWatchNotificationRead(notificationId, now);
+                });
         },
         ...mutationOptions,
     });
@@ -381,8 +393,19 @@ export function useMarkAsUnread(
                 );
             }
             
-            // Notify Watch of updated data
-            WatchConnectivityService.notifyWatchOfUpdate();
+            // Sync to CloudKit FIRST, then notify Watch with specific update
+            // This ensures Watch gets the update from CloudKit if needed
+            CloudKitSyncService.syncNotificationsToCloudKit()
+                .then(() => {
+                    // Send specific notification unread update to Watch
+                    console.log('[useMarkAsUnread] CloudKit sync completed, notifying Watch of specific update');
+                    WatchConnectivityService.notifyWatchNotificationUnread(notificationId);
+                })
+                .catch((error) => {
+                    console.error('[useMarkAsUnread] Failed to sync notifications to CloudKit:', error);
+                    // Still notify Watch even if CloudKit sync fails
+                    WatchConnectivityService.notifyWatchNotificationUnread(notificationId);
+                });
         },
         ...mutationOptions,
     });
@@ -499,8 +522,32 @@ export function useBatchMarkAsRead(
                 }
             });
             
-            // Notify Watch of updated data
-            WatchConnectivityService.notifyWatchOfUpdate();
+            // Sync to CloudKit FIRST, then notify Watch with batch update
+            // This ensures Watch gets the update from CloudKit if needed
+            CloudKitSyncService.syncNotificationsToCloudKit()
+                .then(() => {
+                    // Send batch notification read update to Watch
+                    console.log('[useBatchMarkAsRead] CloudKit sync completed, notifying Watch of batch update');
+                    if (isMarkingAsRead && timestamp) {
+                        WatchConnectivityService.notifyWatchNotificationsRead(notificationIds, timestamp);
+                    } else {
+                        // For unread batch, send individual unread messages (less common)
+                        notificationIds.forEach(id => {
+                            WatchConnectivityService.notifyWatchNotificationUnread(id);
+                        });
+                    }
+                })
+                .catch((error) => {
+                    console.error('[useBatchMarkAsRead] Failed to sync notifications to CloudKit:', error);
+                    // Still notify Watch even if CloudKit sync fails
+                    if (isMarkingAsRead && timestamp) {
+                        WatchConnectivityService.notifyWatchNotificationsRead(notificationIds, timestamp);
+                    } else {
+                        notificationIds.forEach(id => {
+                            WatchConnectivityService.notifyWatchNotificationUnread(id);
+                        });
+                    }
+                });
         },
         ...mutationOptions,
     });
@@ -598,8 +645,19 @@ export function useMarkAllAsRead(
                 }
             );
             
-            // Notify Watch of updated data
-            WatchConnectivityService.notifyWatchOfUpdate();
+            // Sync to CloudKit FIRST, then notify Watch
+            // For "mark all as read", we use generic reload since it's a major operation
+            CloudKitSyncService.syncNotificationsToCloudKit()
+                .then(() => {
+                    // Use generic reload for "mark all" operation
+                    console.log('[useMarkAllAsRead] CloudKit sync completed, triggering Watch reload');
+                    WatchConnectivityService.notifyWatchOfUpdate();
+                })
+                .catch((error) => {
+                    console.error('[useMarkAllAsRead] Failed to sync notifications to CloudKit:', error);
+                    // Still notify Watch even if CloudKit sync fails
+                    WatchConnectivityService.notifyWatchOfUpdate();
+                });
         },
         ...mutationOptions,
     });
@@ -685,6 +743,11 @@ export function useDeleteNotification(
             
             // Notify Watch of updated data
             WatchConnectivityService.notifyWatchOfUpdate();
+            
+            // Sync all notifications to CloudKit (JSON file approach - no individual deletes)
+            CloudKitSyncService.syncNotificationsToCloudKit().catch((error) => {
+                console.error('[useDeleteNotification] Failed to sync notifications to CloudKit:', error);
+            });
         },
         ...mutationOptions,
     });
@@ -773,6 +836,15 @@ export function useBatchDeleteNotifications(
                 queryClient.removeQueries({
                     queryKey: notificationKeys.detail(id),
                 });
+            });
+            
+            // Notify Watch of updated data
+            WatchConnectivityService.notifyWatchOfUpdate();
+            
+            // Delete each notification from CloudKit immediately
+            // Sync all notifications to CloudKit (JSON file approach - no individual deletes)
+            CloudKitSyncService.syncNotificationsToCloudKit().catch((error) => {
+                console.error('[useBatchDeleteNotifications] Failed to sync notifications to CloudKit:', error);
             });
         },
         ...mutationOptions,

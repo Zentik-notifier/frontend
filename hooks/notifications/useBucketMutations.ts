@@ -185,6 +185,15 @@ export function useDeleteBucketWithNotifications(options?: {
         console.error('[useDeleteBucketWithNotifications] Error recalculating stats:', error);
       }
 
+      // Step 6: Sync to CloudKit
+      try {
+        const { default: CloudKitSyncService } = await import('@/services/CloudKitSyncService');
+        await CloudKitSyncService.syncBucketsToCloudKit();
+        console.log('[useDeleteBucketWithNotifications] Buckets synced to CloudKit');
+      } catch (error) {
+        console.error('[useDeleteBucketWithNotifications] Failed to sync buckets to CloudKit:', error);
+      }
+
       if (options?.onSuccess) {
         options.onSuccess();
       }
@@ -499,6 +508,15 @@ export function useUpdateBucketSnoozes(options?: {
 
       console.log('[useUpdateBucketSnoozes] Queries invalidated');
 
+      // Sync to CloudKit
+      try {
+        const { default: CloudKitSyncService } = await import('@/services/CloudKitSyncService');
+        await CloudKitSyncService.syncBucketsToCloudKit();
+        console.log('[useUpdateBucketSnoozes] Buckets synced to CloudKit');
+      } catch (error) {
+        console.error('[useUpdateBucketSnoozes] Failed to sync buckets to CloudKit:', error);
+      }
+
       if (options?.onSuccess) {
         options.onSuccess();
       }
@@ -711,6 +729,15 @@ export function useShareBucket(options?: {
       });
       console.log('[useShareBucket] AppState updated with new permission');
 
+      // Sync to CloudKit
+      try {
+        const { default: CloudKitSyncService } = await import('@/services/CloudKitSyncService');
+        await CloudKitSyncService.syncBucketsToCloudKit();
+        console.log('[useShareBucket] Buckets synced to CloudKit');
+      } catch (error) {
+        console.error('[useShareBucket] Failed to sync buckets to CloudKit:', error);
+      }
+
       if (options?.onSuccess) {
         options.onSuccess();
       }
@@ -852,6 +879,15 @@ export function useUnshareBucket(options?: {
       // No need to update cache again, optimistic update is already correct
       console.log('[useUnshareBucket] Optimistic update confirmed');
 
+      // Sync to CloudKit
+      try {
+        const { default: CloudKitSyncService } = await import('@/services/CloudKitSyncService');
+        await CloudKitSyncService.syncBucketsToCloudKit();
+        console.log('[useUnshareBucket] Buckets synced to CloudKit');
+      } catch (error) {
+        console.error('[useUnshareBucket] Failed to sync buckets to CloudKit:', error);
+      }
+
       if (options?.onSuccess) {
         options.onSuccess();
       }
@@ -955,6 +991,7 @@ export function useCreateBucket(options?: {
           description: bucket.description,
           icon: bucket.icon,
           iconAttachmentUuid: bucket.iconAttachmentUuid,
+          iconUrl: bucket.iconUrl,
           color: bucket.color,
           createdAt: bucket.createdAt,
           updatedAt: bucket.updatedAt,
@@ -965,6 +1002,7 @@ export function useCreateBucket(options?: {
           user: bucket.user,
           permissions: bucket.permissions,
           userPermissions: bucket.userPermissions,
+          isOrphan: false, // Newly created buckets are never orphans
         }]);
         console.log('[useCreateBucket] Bucket saved to local database');
       } catch (error) {
@@ -987,6 +1025,7 @@ export function useCreateBucket(options?: {
             description: bucket.description,
             icon: bucket.icon,
             iconAttachmentUuid: bucket.iconAttachmentUuid,
+            iconUrl: bucket.iconUrl,
             color: bucket.color,
             createdAt: bucket.createdAt,
             updatedAt: bucket.updatedAt,
@@ -1028,6 +1067,15 @@ export function useCreateBucket(options?: {
         refetchType: 'none',
       });
       console.log('[useCreateBucket] Related queries invalidated');
+
+      // Step 4: Sync to CloudKit
+      try {
+        const { default: CloudKitSyncService } = await import('@/services/CloudKitSyncService');
+        await CloudKitSyncService.syncBucketsToCloudKit();
+        console.log('[useCreateBucket] Buckets synced to CloudKit');
+      } catch (error) {
+        console.error('[useCreateBucket] Failed to sync buckets to CloudKit:', error);
+      }
 
       if (options?.onSuccess) {
         options.onSuccess(bucket);

@@ -20,7 +20,6 @@ import {
 import { closeSharedCacheDb, openSharedCacheDb } from "@/services/db-setup";
 import { logger } from "@/services/logger";
 import { mediaCache } from "@/services/media-cache-service";
-import WatchConnectivityService from "@/services/WatchConnectivityService";
 import { useNavigationUtils } from "@/utils/navigation";
 import * as Localization from "expo-localization";
 import React, {
@@ -32,9 +31,9 @@ import React, {
 } from "react";
 import { Alert, AppState } from "react-native";
 import { registerTranslation } from "react-native-paper-dates";
-import { settingsService } from "../services/settings-service";
+import { useSettings } from "../hooks/useSettings";
 import { settingsRepository } from "../services/settings-repository";
-import { useSettings, useAuthData } from "../hooks/useSettings";
+import { settingsService } from "../services/settings-service";
 
 type RegisterResult = "ok" | "emailConfirmationRequired" | "error";
 
@@ -427,16 +426,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "active" && userId) {
-        console.log("[AppContext] App is active, cleaning up");
+        console.log("[AppContext] App is active, cleaning up and syncing");
         await processPendingNavigationIntent();
         await openSharedCacheDb();
-        await cleanup({ immediate: true });
-        await connectionStatus.checkForUpdates();
         
-        // Notify Apple Watch of updates when app becomes active
-        WatchConnectivityService.notifyWatchOfUpdate().catch((error) => {
+        // Force refresh from backend and sync to CloudKit
+        await cleanup({ immediate: true });
+        
+        // Ensure Watch gets latest data from CloudKit
+        console.log("[AppContext] 📱 Notifying Watch to refresh from CloudKit...");
+        const { default: WatchConnectivityService } = await import('@/services/WatchConnectivityService');
+        await WatchConnectivityService.notifyWatchOfUpdate().catch((error) => {
           console.log("[AppContext] Failed to notify Watch:", error);
         });
+        
+        await connectionStatus.checkForUpdates();
       } else if (
         nextAppState === "inactive" &&
         userSettings.settings.notificationsPreferences?.markAsReadMode ===

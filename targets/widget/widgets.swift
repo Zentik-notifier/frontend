@@ -69,6 +69,9 @@ struct NotificationProvider: TimelineProvider {
                     widgetType: widgetType
                 )
                 
+                // Auto-refresh policy:
+                // 1. .atEnd = refresh immediately when widget becomes visible
+                // 2. .after(nextUpdate) = also refresh every 15 minutes automatically
                 let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: currentDate)!
                 let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
                 completion(timeline)
@@ -420,6 +423,10 @@ struct AllNotificationsWidget: Widget {
         .configurationDisplayName("All Notifications")
         .description("View all your recent notifications")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        // Auto-refresh when widget becomes visible
+        .onBackgroundURLSessionEvents { _, _ in
+            WidgetCenter.shared.reloadTimelines(ofKind: "zentik-notifications-all")
+        }
     }
 }
 
@@ -434,6 +441,10 @@ struct UnreadNotificationsWidget: Widget {
         .configurationDisplayName("Unread Notifications")
         .description("View only your unread notifications")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        // Auto-refresh when widget becomes visible
+        .onBackgroundURLSessionEvents { _, _ in
+            WidgetCenter.shared.reloadTimelines(ofKind: "zentik-notifications-unread")
+        }
     }
 }
 

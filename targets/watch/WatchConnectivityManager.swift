@@ -1,5 +1,6 @@
 import Foundation
 import WatchConnectivity
+import CloudKit
 
 class WatchConnectivityManager: NSObject, ObservableObject {
     static let shared = WatchConnectivityManager()
@@ -11,12 +12,16 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     @Published var lastUpdate: Date?
     
     private let dataStore = WatchDataStore.shared
+    private let cloudKitManager = CloudKitSyncManager.shared
     
     private override init() {
         super.init()
         
-        // Load cached data immediately on init
+        // Load cached data immediately on init (fast startup)
         loadCachedData()
+        
+        // Then fetch from CloudKit to update data
+        fetchFromCloudKit()
         
         if WCSession.isSupported() {
             let session = WCSession.default
@@ -27,11 +32,13 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     
     // MARK: - Load Cached Data
     
+    /**
+     * Load data from cache and completely overwrite in-memory state
+     */
     private func loadCachedData() {
         let cache = dataStore.loadCache()
         
-        print("⌚ [WatchConnectivity] 📦 Loading \(cache.notifications.count) notifications from cache")
-        
+        // COMPLETE OVERWRITE of notifications array
         self.notifications = cache.notifications.map { cachedNotif in
             // Convert CachedAttachment to WidgetAttachment
             let attachments = cachedNotif.attachments.map { cachedAttachment in
@@ -64,17 +71,41 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         for cachedBucket in cache.buckets {
             // Find the most recent notification for this bucket
             let bucketNotifications = self.notifications.filter { $0.notification.bucketId == cachedBucket.id }
-            let lastNotificationDate = bucketNotifications
-                .compactMap { notification -> Date? in
-                    let formatter = ISO8601DateFormatter()
-                    return formatter.date(from: notification.notification.createdAt)
+            
+            // Parse dates and find the most recent
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            
+            let notificationDates = bucketNotifications.compactMap { notification -> (id: String, date: Date)? in
+                if let date = formatter.date(from: notification.notification.createdAt) {
+                    return (id: notification.notification.id, date: date)
+                } else {
+                    // Try without fractional seconds
+                    formatter.formatOptions = [.withInternetDateTime]
+                    if let date = formatter.date(from: notification.notification.createdAt) {
+                        return (id: notification.notification.id, date: date)
+                    } else {
+                        print("⌚ [WatchConnectivity] ⚠️ Failed to parse date for notification \(notification.notification.id): \(notification.notification.createdAt)")
+                        return nil
+                    }
                 }
-                .max() ?? Date.distantPast
+            }
+            
+            let lastNotificationDate = notificationDates.max(by: { $0.date < $1.date })?.date ?? Date.distantPast
+            
+            if !notificationDates.isEmpty {
+                let mostRecent = notificationDates.max(by: { $0.date < $1.date })!
+                print("⌚ [WatchConnectivity] 📅 Bucket '\(cachedBucket.name)' - Most recent: \(mostRecent.id) at \(mostRecent.date)")
+            }
+            
+            // Calculate total count for this bucket
+            let totalCount = bucketNotifications.count
             
             let bucket = BucketItem(
                 id: cachedBucket.id,
                 name: cachedBucket.name,
                 unreadCount: cachedBucket.unreadCount,
+                totalCount: totalCount,
                 color: cachedBucket.color,
                 iconUrl: cachedBucket.iconUrl
             )
@@ -87,135 +118,450 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             .sorted { $0.lastNotificationDate > $1.lastNotificationDate }
             .map { $0.bucket }
         
+        // Log bucket order for debugging
+        print("⌚ [WatchConnectivity] 📊 Bucket order:")
+        for (index, item) in self.buckets.enumerated() {
+            let lastNotifDate = bucketsWithDates.first(where: { $0.bucket.id == item.id })?.lastNotificationDate ?? Date.distantPast
+            print("  \(index + 1). \(item.name) - \(item.totalCount) notifications - Last: \(lastNotifDate)")
+        }
+        
+        // COMPLETE OVERWRITE of unread count and lastUpdate
         self.unreadCount = cache.unreadCount
         self.lastUpdate = cache.lastUpdate
         
         print("⌚ [WatchConnectivity] ✅ Loaded \(notifications.count) notifications from cache")
     }
     
-    func requestData() {
-        guard WCSession.default.isReachable else {
-            print("⌚ [WatchConnectivity] iPhone is not reachable, using cached data")
-            // Reload from cache in case it was updated by another process
-            loadCachedData()
-            return
-        }
-        
-        print("⌚ [WatchConnectivity] 🔄 Requesting fresh data from iPhone...")
-        let message = ["action": "requestData"]
-        WCSession.default.sendMessage(message, replyHandler: { reply in
-            DispatchQueue.main.async {
-                self.processReceivedData(reply)
-            }
-        }) { error in
-            print("⌚ [WatchConnectivity] ❌ Error requesting data: \(error.localizedDescription)")
-            // Fallback to cached data
-            self.loadCachedData()
-        }
-    }
-    
-    func deleteNotification(id: String, completion: @escaping (Bool) -> Void) {
-        // Always update local cache first for instant feedback
-        dataStore.deleteNotification(id: id)
-        notifications.removeAll { $0.notification.id == id }
-        
-        // Recalculate unread count
-        unreadCount = notifications.filter { !$0.notification.isRead }.count
-        
-        print("⌚ [WatchConnectivity] ✅ Deleted notification locally: \(id)")
-        
-        // Try to sync with iPhone if available
-        guard WCSession.default.isReachable else {
-            print("⌚ [WatchConnectivity] iPhone not reachable, deletion saved locally only")
-            completion(true) // Return success since local operation succeeded
-            return
-        }
-        
-        let message = ["action": "deleteNotification", "notificationId": id]
-        WCSession.default.sendMessage(message, replyHandler: { reply in
-            let success = reply["success"] as? Bool ?? false
-            DispatchQueue.main.async {
-                if success {
-                    print("⌚ [WatchConnectivity] ✅ Deletion synced with iPhone")
-                } else {
-                    print("⌚ [WatchConnectivity] ⚠️ iPhone deletion failed, but local deletion succeeded")
-                }
-                completion(true) // Always return success since local operation succeeded
-            }
-        }) { error in
-            print("⌚ [WatchConnectivity] ⚠️ Error syncing deletion with iPhone: \(error.localizedDescription)")
-            completion(true) // Still return success since local operation succeeded
-        }
-    }
-    
-    func markAsRead(id: String, completion: @escaping (Bool) -> Void) {
-        // Always update local cache first for instant feedback
-        dataStore.markNotificationAsRead(id: id)
-        
-        if let index = notifications.firstIndex(where: { $0.notification.id == id }) {
-            var updatedNotif = notifications[index].notification
-            updatedNotif = DatabaseAccess.WidgetNotification(
-                id: updatedNotif.id,
-                title: updatedNotif.title,
-                body: updatedNotif.body,
-                subtitle: updatedNotif.subtitle,
-                createdAt: updatedNotif.createdAt,
-                isRead: true, // Mark as read
-                bucketId: updatedNotif.bucketId,
-                bucketName: updatedNotif.bucketName,
-                bucketColor: updatedNotif.bucketColor,
-                bucketIconUrl: updatedNotif.bucketIconUrl,
-                attachments: updatedNotif.attachments
-            )
-            notifications[index] = NotificationData(notification: updatedNotif)
+    /**
+     * Fetch data from CloudKit (primary source)
+     * This method completely overwrites local cache and in-memory data
+     */
+    func fetchFromCloudKit() {
+        cloudKitManager.fetchAllFromCloudKit { [weak self] (ckBuckets, ckNotifications) in
+            guard let self = self else { return }
             
-            // Update unread count
-            unreadCount = max(0, unreadCount - 1)
-        }
-        
-        print("⌚ [WatchConnectivity] ✅ Marked as read locally: \(id)")
-        
-        // Try to sync with iPhone if available
-        guard WCSession.default.isReachable else {
-            print("⌚ [WatchConnectivity] iPhone not reachable, mark as read saved locally only")
-            completion(true) // Return success since local operation succeeded
-            return
-        }
-        
-        let message = ["action": "markAsRead", "notificationId": id]
-        WCSession.default.sendMessage(message, replyHandler: { reply in
-            let success = reply["success"] as? Bool ?? false
-            DispatchQueue.main.async {
-                if success {
-                    print("⌚ [WatchConnectivity] ✅ Mark as read synced with iPhone")
-                } else {
-                    print("⌚ [WatchConnectivity] ⚠️ iPhone mark as read failed, but local update succeeded")
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                
+                // Convert CloudKit data to cache format
+                var bucketsData = ckBuckets.map { bucket -> [String: Any] in
+                    var dict: [String: Any] = [
+                        "id": bucket.id,
+                        "name": bucket.name,
+                        "unreadCount": 0 // Will be calculated from notifications
+                    ]
+                    
+                    if let color = bucket.color, !color.isEmpty {
+                        dict["color"] = color
+                    }
+                    
+                    if let iconUrl = bucket.iconUrl, !iconUrl.isEmpty {
+                        dict["iconUrl"] = iconUrl
+                    }
+                    
+                    return dict
                 }
-                completion(true) // Always return success since local operation succeeded
+                
+                // Calculate unread count per bucket
+                var bucketUnreadCounts: [String: Int] = [:]
+                for notification in ckNotifications {
+                    if notification.readAt == nil {
+                        bucketUnreadCounts[notification.bucketId, default: 0] += 1
+                    }
+                }
+                
+                // Update bucket unread counts
+                for i in 0..<bucketsData.count {
+                    if let bucketId = bucketsData[i]["id"] as? String {
+                        bucketsData[i]["unreadCount"] = bucketUnreadCounts[bucketId] ?? 0
+                    }
+                }
+                
+                // Create a lookup map for buckets by ID (handle duplicates by keeping first occurrence)
+                var bucketMap: [String: Bucket] = [:]
+                for bucket in ckBuckets {
+                    if bucketMap[bucket.id] == nil {
+                        bucketMap[bucket.id] = bucket
+                    }
+                }
+                
+                let notificationsData = ckNotifications.map { notif -> [String: Any] in
+                    var dict: [String: Any] = [
+                        "id": notif.id,
+                        "title": notif.title,
+                        "body": notif.body ?? "",
+                        "bucketId": notif.bucketId,
+                        "isRead": notif.readAt != nil,
+                        "createdAt": notif.createdAt  // Already an ISO8601 string
+                    ]
+                    
+                    if let subtitle = notif.subtitle, !subtitle.isEmpty {
+                        dict["subtitle"] = subtitle
+                    }
+                    
+                    // Add bucket info from bucket lookup
+                    if let bucket = bucketMap[notif.bucketId] {
+                        dict["bucketName"] = bucket.name
+                        if let color = bucket.color, !color.isEmpty {
+                            dict["bucketColor"] = color
+                        }
+                        if let iconUrl = bucket.iconUrl, !iconUrl.isEmpty {
+                            dict["bucketIconUrl"] = iconUrl
+                        }
+                    }
+                    
+                    // Attachments
+                    if !notif.attachments.isEmpty {
+                        let attachmentsData = notif.attachments.map { attachment -> [String: Any] in
+                            var attachmentDict: [String: Any] = [
+                                "mediaType": attachment.mediaType
+                            ]
+                            
+                            if let url = attachment.url {
+                                attachmentDict["url"] = url
+                            }
+                            
+                            if let name = attachment.name {
+                                attachmentDict["name"] = name
+                            }
+                            
+                            return attachmentDict
+                        }
+                        dict["attachments"] = attachmentsData
+                    }
+                    
+                    return dict
+                }
+                
+                let totalUnreadCount = ckNotifications.filter { $0.readAt == nil }.count
+                
+                // Update cache with CloudKit data (COMPLETE OVERWRITE)
+                self.dataStore.updateFromiPhone(
+                    notifications: notificationsData,
+                    buckets: bucketsData,
+                    unreadCount: totalUnreadCount
+                )
+                
+                // Reload from cache (this resets all in-memory data)
+                self.loadCachedData()
+                
+                print("⌚ [WatchConnectivity] ✅ Synced from CloudKit: \(ckNotifications.count) notifications")
             }
-        }) { error in
-            print("⌚ [WatchConnectivity] ⚠️ Error syncing mark as read with iPhone: \(error.localizedDescription)")
-            completion(true) // Still return success since local operation succeeded
         }
     }
     
-    private func processReceivedData(_ data: [String: Any]) {
-        let notificationsData = data["notifications"] as? [[String: Any]] ?? []
-        let bucketsData = data["buckets"] as? [[String: Any]] ?? []
-        let unreadCount = data["unreadCount"] as? Int ?? 0
-        
-        // Save to JSON cache first
+    /**
+     * Request data refresh from CloudKit
+     * Used by manual refresh button in Watch UI
+     * Forces full fetch from CloudKit
+     */
+    func requestData() {
+        // Fetch directly from CloudKit (no WatchConnectivity involved)
+        fetchFromCloudKit()
+    }
+    
+    /**
+     * Update data from iPhone via WatchConnectivity
+     * Completely overwrites local cache and in-memory data
+     */
+    private func updateFromiPhoneMessage(notifications: [[String: Any]], buckets: [[String: Any]], unreadCount: Int) {
+        // Update cache (COMPLETE OVERWRITE)
         dataStore.updateFromiPhone(
-            notifications: notificationsData,
-            buckets: bucketsData,
+            notifications: notifications,
+            buckets: buckets,
             unreadCount: unreadCount
         )
         
-        // Then update published properties from cache
+        // Reload from cache (this resets all in-memory data)
         loadCachedData()
         
-        print("⌚ [WatchConnectivity] ✅ Received and saved fresh data from iPhone")
+        print("⌚ [WatchConnectivity] ✅ Updated from iPhone: \(notifications.count) notifications")
     }
+    
+    // MARK: - Public Actions (Called from SwiftUI)
+    
+    /**
+     * Mark notification as read from Watch UI
+     * Updates local cache and notifies iPhone (iPhone will sync to CloudKit)
+     */
+    func markNotificationAsReadFromWatch(id: String) {
+        let now = ISO8601DateFormatter().string(from: Date())
+        
+        // 1. Update local cache immediately
+        markNotificationAsRead(id: id, readAt: now)
+        
+        // 2. Notify iPhone to sync to backend and CloudKit
+        // (Will be buffered automatically if iPhone not reachable)
+        sendMessageToiPhone([
+            "action": "notificationRead",
+            "notificationId": id,
+            "readAt": now
+        ])
+        
+        print("⌚ [Watch] ✅ Marked as read locally, notified iPhone")
+    }
+    
+    /**
+     * Mark notification as unread from Watch UI
+     * Updates local cache and notifies iPhone (iPhone will sync to CloudKit)
+     */
+    func markNotificationAsUnreadFromWatch(id: String) {
+        // 1. Update local cache immediately
+        markNotificationAsUnread(id: id)
+        
+        // 2. Notify iPhone to sync to backend and CloudKit
+        // (Will be buffered automatically if iPhone not reachable)
+        sendMessageToiPhone([
+            "action": "notificationUnread",
+            "notificationId": id
+        ])
+        
+        print("⌚ [Watch] ✅ Marked as unread locally, notified iPhone")
+    }
+    
+    /**
+     * Delete notification from Watch UI
+     * Updates local cache and notifies iPhone (iPhone will handle backend/CloudKit)
+     */
+    func deleteNotificationFromWatch(id: String) {
+        // 1. Delete from local cache immediately
+        deleteNotificationLocally(id: id)
+        
+        // 2. Notify iPhone to delete from backend and CloudKit
+        // (Will be buffered automatically if iPhone not reachable)
+        sendMessageToiPhone([
+            "action": "notificationDeleted",
+            "notificationId": id
+        ])
+        
+        print("⌚ [Watch] ✅ Deleted locally, notified iPhone")
+    }
+    
+    /**
+     * Send message to iPhone (with fallback to background transfer)
+     */
+    private func sendMessageToiPhone(_ message: [String: Any]) {
+        guard WCSession.default.activationState == .activated else {
+            print("⌚ [Watch] ⚠️ WCSession not activated, cannot send message")
+            return
+        }
+        
+        if WCSession.default.isReachable {
+            // iPhone is reachable, send immediately
+            WCSession.default.sendMessage(message, replyHandler: { reply in
+                print("⌚ [Watch] ✅ Message sent to iPhone: \(message["action"] ?? "")")
+            }) { error in
+                print("⌚ [Watch] ⚠️ Failed to send message, using background transfer: \(error.localizedDescription)")
+                // Fallback to background transfer
+                WCSession.default.transferUserInfo(message)
+            }
+        } else {
+            // iPhone not reachable, use background transfer (guaranteed delivery)
+            WCSession.default.transferUserInfo(message)
+            print("⌚ [Watch] 📦 Queued message to iPhone (background): \(message["action"] ?? "")")
+        }
+    }
+    
+    // MARK: - Local Update Methods
+    
+    /**
+     * Mark a notification as read locally (update cache immediately)
+     */
+    private func markNotificationAsRead(id: String, readAt: String) {
+        // Update in-memory notifications by creating new instances
+        if let index = notifications.firstIndex(where: { $0.id == id }) {
+            let oldNotification = notifications[index].notification
+            
+            // Check if it was unread before
+            let wasUnread = !oldNotification.isRead
+            
+            // Create new notification with updated isRead flag
+            let updatedNotification = DatabaseAccess.WidgetNotification(
+                id: oldNotification.id,
+                title: oldNotification.title,
+                body: oldNotification.body,
+                subtitle: oldNotification.subtitle,
+                createdAt: oldNotification.createdAt,
+                isRead: true,  // Mark as read
+                bucketId: oldNotification.bucketId,
+                bucketName: oldNotification.bucketName,
+                bucketColor: oldNotification.bucketColor,
+                bucketIconUrl: oldNotification.bucketIconUrl,
+                attachments: oldNotification.attachments
+            )
+            
+            notifications[index] = NotificationData(notification: updatedNotification)
+            
+            // Update unread count if it was unread
+            if wasUnread {
+                unreadCount = max(0, unreadCount - 1)
+                
+                // Update bucket unread count by creating new bucket
+                if let bucketIndex = buckets.firstIndex(where: { $0.id == oldNotification.bucketId }) {
+                    let oldBucket = buckets[bucketIndex]
+                    let newBucket = BucketItem(
+                        id: oldBucket.id,
+                        name: oldBucket.name,
+                        unreadCount: max(0, oldBucket.unreadCount - 1),
+                        totalCount: oldBucket.totalCount,
+                        color: oldBucket.color,
+                        iconUrl: oldBucket.iconUrl
+                    )
+                    buckets[bucketIndex] = newBucket
+                }
+            }
+            
+            // Save to cache
+            saveToCache()
+            
+            print("⌚ [WatchConnectivity] ✅ Marked notification \(id) as read locally")
+        }
+    }
+    
+    /**
+     * Mark a notification as unread locally (update cache immediately)
+     */
+    private func markNotificationAsUnread(id: String) {
+        // Update in-memory notifications by creating new instances
+        if let index = notifications.firstIndex(where: { $0.id == id }) {
+            let oldNotification = notifications[index].notification
+            
+            // Check if it was read before
+            let wasRead = oldNotification.isRead
+            
+            // Create new notification with updated isRead flag
+            let updatedNotification = DatabaseAccess.WidgetNotification(
+                id: oldNotification.id,
+                title: oldNotification.title,
+                body: oldNotification.body,
+                subtitle: oldNotification.subtitle,
+                createdAt: oldNotification.createdAt,
+                isRead: false,  // Mark as unread
+                bucketId: oldNotification.bucketId,
+                bucketName: oldNotification.bucketName,
+                bucketColor: oldNotification.bucketColor,
+                bucketIconUrl: oldNotification.bucketIconUrl,
+                attachments: oldNotification.attachments
+            )
+            
+            notifications[index] = NotificationData(notification: updatedNotification)
+            
+            // Update unread count if it was read
+            if wasRead {
+                unreadCount += 1
+                
+                // Update bucket unread count by creating new bucket
+                if let bucketIndex = buckets.firstIndex(where: { $0.id == oldNotification.bucketId }) {
+                    let oldBucket = buckets[bucketIndex]
+                    let newBucket = BucketItem(
+                        id: oldBucket.id,
+                        name: oldBucket.name,
+                        unreadCount: oldBucket.unreadCount + 1,
+                        totalCount: oldBucket.totalCount,
+                        color: oldBucket.color,
+                        iconUrl: oldBucket.iconUrl
+                    )
+                    buckets[bucketIndex] = newBucket
+                }
+            }
+            
+            // Save to cache
+            saveToCache()
+            
+            print("⌚ [WatchConnectivity] ✅ Marked notification \(id) as unread locally")
+        }
+    }
+    
+    /**
+     * Delete a notification locally (remove from cache immediately)
+     */
+    private func deleteNotificationLocally(id: String) {
+        // Find and remove notification from in-memory array
+        if let index = notifications.firstIndex(where: { $0.id == id }) {
+            let deletedNotification = notifications[index].notification
+            let wasUnread = !deletedNotification.isRead
+            
+            notifications.remove(at: index)
+            
+            // Update unread count if it was unread
+            if wasUnread {
+                unreadCount = max(0, unreadCount - 1)
+                
+                // Update bucket unread count and total count
+                if let bucketIndex = buckets.firstIndex(where: { $0.id == deletedNotification.bucketId }) {
+                    let oldBucket = buckets[bucketIndex]
+                    let newBucket = BucketItem(
+                        id: oldBucket.id,
+                        name: oldBucket.name,
+                        unreadCount: max(0, oldBucket.unreadCount - 1),
+                        totalCount: max(0, oldBucket.totalCount - 1),
+                        color: oldBucket.color,
+                        iconUrl: oldBucket.iconUrl
+                    )
+                    buckets[bucketIndex] = newBucket
+                }
+            }
+            
+            // Save to cache
+            saveToCache()
+            
+            print("⌚ [WatchConnectivity] ✅ Deleted notification \(id) locally")
+        }
+    }
+    
+    /**
+     * Save current state to cache
+     */
+    private func saveToCache() {
+        // Convert to cache format
+        let cachedNotifications = notifications.map { notifData -> WatchDataStore.CachedNotification in
+            let cachedAttachments = notifData.notification.attachments.map { attachment in
+                WatchDataStore.CachedAttachment(
+                    mediaType: attachment.mediaType,
+                    url: attachment.url,
+                    name: attachment.name
+                )
+            }
+            
+            return WatchDataStore.CachedNotification(
+                id: notifData.notification.id,
+                title: notifData.notification.title,
+                body: notifData.notification.body,
+                subtitle: notifData.notification.subtitle,
+                createdAt: notifData.notification.createdAt,
+                isRead: notifData.notification.isRead,
+                bucketId: notifData.notification.bucketId,
+                bucketName: notifData.notification.bucketName,
+                bucketColor: notifData.notification.bucketColor,
+                bucketIconUrl: notifData.notification.bucketIconUrl,
+                attachments: cachedAttachments
+            )
+        }
+        
+        let cachedBuckets = buckets.map { bucket in
+            WatchDataStore.CachedBucket(
+                id: bucket.id,
+                name: bucket.name,
+                unreadCount: bucket.unreadCount,
+                color: bucket.color,
+                iconUrl: bucket.iconUrl
+            )
+        }
+        
+        let cache = WatchDataStore.WatchCache(
+            notifications: cachedNotifications,
+            buckets: cachedBuckets,
+            unreadCount: unreadCount,
+            lastUpdate: Date()
+        )
+        
+        dataStore.saveCache(cache)
+    }
+    
+    // MARK: - Read-only mode (operations removed)
+    // Watch is now readonly - no delete or mark as read operations
+    // All operations must be done from iPhone app
+    // Watch only receives specific update messages from iPhone
     
 }
 
@@ -232,14 +578,90 @@ extension WatchConnectivityManager: WCSessionDelegate {
     }
     
     func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
-        // Handle messages from iPhone
-        if let action = message["action"] as? String {
+        // Handle messages from iPhone - specific update messages
+        guard let action = message["action"] as? String else {
+            replyHandler(["error": "Missing action"])
+            return
+        }
+        
+        DispatchQueue.main.async {
             switch action {
-            case "updateData":
-                DispatchQueue.main.async {
-                    self.processReceivedData(message)
+            case "notificationRead":
+                // Mark specific notification as read
+                if let notificationId = message["notificationId"] as? String,
+                   let readAt = message["readAt"] as? String {
+                    print("⌚ [WatchConnectivity] 📖 Marking notification \(notificationId) as read")
+                    self.markNotificationAsRead(id: notificationId, readAt: readAt)
+                    replyHandler(["success": true])
+                } else {
+                    replyHandler(["error": "Missing notificationId or readAt"])
                 }
+                
+            case "notificationUnread":
+                // Mark specific notification as unread
+                if let notificationId = message["notificationId"] as? String {
+                    print("⌚ [WatchConnectivity] � Marking notification \(notificationId) as unread")
+                    self.markNotificationAsUnread(id: notificationId)
+                    replyHandler(["success": true])
+                } else {
+                    replyHandler(["error": "Missing notificationId"])
+                }
+                
+            case "notificationsRead":
+                // Mark multiple notifications as read
+                if let notificationIds = message["notificationIds"] as? [String],
+                   let readAt = message["readAt"] as? String {
+                    print("⌚ [WatchConnectivity] 📖 Marking \(notificationIds.count) notifications as read")
+                    for id in notificationIds {
+                        self.markNotificationAsRead(id: id, readAt: readAt)
+                    }
+                    replyHandler(["success": true])
+                } else {
+                    replyHandler(["error": "Missing notificationIds or readAt"])
+                }
+                
+            case "notificationDeleted":
+                // Delete specific notification from local cache
+                if let notificationId = message["notificationId"] as? String {
+                    print("⌚ [WatchConnectivity] 🗑️ Deleting notification \(notificationId)")
+                    self.deleteNotificationLocally(id: notificationId)
+                    replyHandler(["success": true])
+                } else {
+                    replyHandler(["error": "Missing notificationId"])
+                }
+                
+            case "notificationAdded":
+                // New notification added - trigger reload from CloudKit
+                if let notificationId = message["notificationId"] as? String {
+                    print("⌚ [WatchConnectivity] ➕ New notification \(notificationId) - fetching from CloudKit")
+                    self.fetchFromCloudKit()
+                    replyHandler(["success": true])
+                } else {
+                    replyHandler(["error": "Missing notificationId"])
+                }
+                
+            case "reload":
+                // Full reload - fetch fresh data from CloudKit
+                print("⌚ [WatchConnectivity] 🔄 Received reload trigger from iPhone")
+                self.fetchFromCloudKit()
                 replyHandler(["success": true])
+                
+            case "fullUpdate":
+                // Full data update from iPhone - completely overwrite cache
+                if let notificationsData = message["notifications"] as? [[String: Any]],
+                   let bucketsData = message["buckets"] as? [[String: Any]],
+                   let unreadCount = message["unreadCount"] as? Int {
+                    print("⌚ [WatchConnectivity] 📲 Received full data update from iPhone")
+                    self.updateFromiPhoneMessage(
+                        notifications: notificationsData,
+                        buckets: bucketsData,
+                        unreadCount: unreadCount
+                    )
+                    replyHandler(["success": true])
+                } else {
+                    replyHandler(["error": "Missing data in fullUpdate"])
+                }
+                
             default:
                 replyHandler(["error": "Unknown action"])
             }
@@ -262,111 +684,61 @@ extension WatchConnectivityManager: WCSessionDelegate {
         
         DispatchQueue.main.async {
             switch action {
-            case "newNotification":
-                self.handleNewNotification(userInfo)
+            case "notificationRead":
+                if let notificationId = userInfo["notificationId"] as? String,
+                   let readAt = userInfo["readAt"] as? String {
+                    print("⌚ [WatchConnectivity] 📖 Marking notification \(notificationId) as read (background)")
+                    self.markNotificationAsRead(id: notificationId, readAt: readAt)
+                }
+                
+            case "notificationUnread":
+                if let notificationId = userInfo["notificationId"] as? String {
+                    print("⌚ [WatchConnectivity] 📭 Marking notification \(notificationId) as unread (background)")
+                    self.markNotificationAsUnread(id: notificationId)
+                }
+                
+            case "notificationsRead":
+                if let notificationIds = userInfo["notificationIds"] as? [String],
+                   let readAt = userInfo["readAt"] as? String {
+                    print("⌚ [WatchConnectivity] 📖 Marking \(notificationIds.count) notifications as read (background)")
+                    for id in notificationIds {
+                        self.markNotificationAsRead(id: id, readAt: readAt)
+                    }
+                }
+                
+            case "notificationDeleted":
+                if let notificationId = userInfo["notificationId"] as? String {
+                    print("⌚ [WatchConnectivity] 🗑️ Deleting notification \(notificationId) (background)")
+                    self.deleteNotificationLocally(id: notificationId)
+                }
+                
+            case "notificationAdded":
+                if let notificationId = userInfo["notificationId"] as? String {
+                    print("⌚ [WatchConnectivity] ➕ New notification \(notificationId) - fetching from CloudKit (background)")
+                    self.fetchFromCloudKit()
+                }
+                
+            case "reload":
+                print("⌚ [WatchConnectivity] 🔄 Received reload trigger from iPhone (background)")
+                self.fetchFromCloudKit()
+                
+            case "fullUpdate":
+                // Full data update from iPhone - completely overwrite cache
+                if let notificationsData = userInfo["notifications"] as? [[String: Any]],
+                   let bucketsData = userInfo["buckets"] as? [[String: Any]],
+                   let unreadCount = userInfo["unreadCount"] as? Int {
+                    print("⌚ [WatchConnectivity] 📲 Received full data update from iPhone (background)")
+                    self.updateFromiPhoneMessage(
+                        notifications: notificationsData,
+                        buckets: bucketsData,
+                        unreadCount: unreadCount
+                    )
+                }
+                
             default:
                 print("⌚ [WatchConnectivity] ⚠️ Unknown action: \(action)")
             }
         }
-    }
-    
-    private func handleNewNotification(_ notifDict: [String: Any]) {
-        guard let id = notifDict["id"] as? String,
-              let title = notifDict["title"] as? String,
-              let body = notifDict["body"] as? String,
-              let bucketId = notifDict["bucketId"] as? String,
-              let isRead = notifDict["isRead"] as? Bool,
-              let createdAt = notifDict["createdAt"] as? String else {
-            print("⌚ [WatchConnectivity] ❌ Invalid notification data")
-            return
-        }
-        
-        // Extract attachments
-        var attachments: [DatabaseAccess.WidgetAttachment] = []
-        if let attachmentsArray = notifDict["attachments"] as? [[String: Any]] {
-            attachments = attachmentsArray.compactMap { attachmentDict in
-                guard let mediaType = attachmentDict["mediaType"] as? String else {
-                    return nil
-                }
-                let url = attachmentDict["url"] as? String
-                let name = attachmentDict["name"] as? String
-                return DatabaseAccess.WidgetAttachment(
-                    mediaType: mediaType,
-                    url: url,
-                    name: name
-                )
-            }
-            print("⌚ [WatchConnectivity] ✅ Successfully parsed \(attachments.count) attachments")
-        } else {
-            print("⌚ [WatchConnectivity] ⚠️ attachments key not found or not an array")
-        }
-        
-        let notification = DatabaseAccess.WidgetNotification(
-            id: id,
-            title: title,
-            body: body,
-            subtitle: notifDict["subtitle"] as? String,
-            createdAt: createdAt,
-            isRead: isRead,
-            bucketId: bucketId,
-            bucketName: notifDict["bucketName"] as? String,
-            bucketColor: notifDict["bucketColor"] as? String,
-            bucketIconUrl: notifDict["bucketIconUrl"] as? String,
-            attachments: attachments
-        )
-        
-        // Add to local cache
-        var cache = dataStore.loadCache()
-        
-        // Check if notification already exists
-        if let existingIndex = cache.notifications.firstIndex(where: { $0.id == id }) {
-            print("⌚ [WatchConnectivity] ℹ️ Notification already exists, skipping: \(title)")
-            return
-        }
-        
-        // Convert to CachedNotification
-        let cachedAttachments = attachments.map { attachment in
-            WatchDataStore.CachedAttachment(
-                mediaType: attachment.mediaType,
-                url: attachment.url,
-                name: attachment.name
-            )
-        }
-        
-        let cachedNotif = WatchDataStore.CachedNotification(
-            id: id,
-            title: title,
-            body: body,
-            subtitle: notifDict["subtitle"] as? String,
-            createdAt: createdAt,
-            isRead: isRead,
-            bucketId: bucketId,
-            bucketName: notifDict["bucketName"] as? String,
-            bucketColor: notifDict["bucketColor"] as? String,
-            bucketIconUrl: notifDict["bucketIconUrl"] as? String,
-            attachments: cachedAttachments
-        )
-        
-        // Add to beginning of array (most recent first)
-        cache.notifications.insert(cachedNotif, at: 0)
-        
-        // Limit to 100 notifications
-        if cache.notifications.count > 100 {
-            cache.notifications = Array(cache.notifications.prefix(100))
-        }
-        
-        // Update unread count
-        if !isRead {
-            cache.unreadCount += 1
-        }
-        
-        cache.lastUpdate = Date()
-        dataStore.saveCache(cache)
-        
-        // Update published properties
-        loadCachedData()
-        
-        print("⌚ [WatchConnectivity] ✅ Added new notification to cache: \(title)")
     }
 }
 

@@ -25,6 +25,8 @@ function copySharedFilesToAppDelegate(
     'SharedTypes.swift',
     'NotificationActionHandler.swift',
     'MediaAccess.swift',
+    'CloudKitModels.swift',
+    'CloudKitSyncManager_iOS.swift',
   ];
   
   for (const file of sharedFiles) {
@@ -86,6 +88,10 @@ const withCustomAppDelegate: ConfigPlugin = (config) => {
       'SharedTypes.swift',
       'NotificationActionHandler.swift',
       'MediaAccess.swift',
+      'CloudKitModels.swift',
+      'CloudKitSyncManager_iOS.swift',
+      'CloudKitSyncBridge.swift',
+      'CloudKitSyncBridge.m',
     ];
     
     // Find the main app target
@@ -177,6 +183,25 @@ const withCustomAppDelegate: ConfigPlugin = (config) => {
       // Copy shared files to the same directory as AppDelegate
       const appDelegateDir = path.dirname(appDelegatePath);
       copySharedFilesToAppDelegate(__dirname, appDelegateDir);
+      
+      // Copy CloudKit bridge files from plugin files directory
+      const pluginFilesDir = path.join(__dirname, 'files');
+      const bridgeFiles = [
+        'CloudKitSyncBridge.swift',
+        'CloudKitSyncBridge.m',
+      ];
+      
+      for (const file of bridgeFiles) {
+        const sourcePath = path.join(pluginFilesDir, file);
+        const destPath = path.join(appDelegateDir, file);
+        
+        if (fs.existsSync(sourcePath)) {
+          fs.copyFileSync(sourcePath, destPath);
+          console.log(`[AppDelegate] ✓ Copied bridge file: ${file}`);
+        } else {
+          console.warn(`[AppDelegate] ⚠️ Bridge file not found: ${file}`);
+        }
+      }
       
       return config;
     },

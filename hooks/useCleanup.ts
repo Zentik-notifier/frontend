@@ -7,6 +7,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
     useNotificationsState,
 } from "@/hooks/notifications/useNotificationQueries";
+import WatchConnectivityService from "@/services/WatchConnectivityService";
+import CloudKitSyncService from "@/services/CloudKitSyncService";
 
 // Polyfill for requestIdleCallback (not available in React Native)
 const requestIdleCallbackPolyfill = (callback: () => void) => {
@@ -76,12 +78,41 @@ export const useCleanup = () => {
         });
         await waitRAF();
 
-        // 4. Cleanup notifications by settings
+        // 4. FIRST: Notify Watch BEFORE cleaning (with current complete data)
+        await executeWithRAF(
+            async () => {
+                console.log('[Cleanup] 📱 Notifying Apple Watch of updates (BEFORE cleanup)...');
+                await WatchConnectivityService.notifyWatchOfUpdate();
+                console.log('[Cleanup] 📱 Watch notified (will use transferUserInfo buffer if unreachable)');
+            },
+            'notifying watch before cleanup'
+        ).catch((e) => {
+            console.error('[Cleanup] Error notifying watch:', e);
+        });
+
+        await waitRAF();
+
+        // 5. SECOND: Sync to CloudKit BEFORE cleaning (upload current complete data)
+        await executeWithRAF(
+            async () => {
+                console.log('[Cleanup] ☁️ Syncing to CloudKit (BEFORE cleanup)...');
+                await CloudKitSyncService.syncAllToCloudKit();
+                console.log('[Cleanup] ☁️ CloudKit sync completed with complete data');
+            },
+            'syncing to cloudkit before cleanup'
+        ).catch((e) => {
+            console.error('[Cleanup] Error syncing to CloudKit:', e);
+        });
+
+        await waitRAF();
+
+        // 6. THIRD: Now cleanup local notifications by settings
         if (shouldCleanup || force) {
             await executeWithRAF(
                 async () => {
+                    console.log('[Cleanup] 🧹 Starting local cleanup...');
                     await cleanupNotificationsBySettings();
-                    console.log('[Cleanup] Cleaned up notifications');
+                    console.log('[Cleanup] 🧹 Cleaned up notifications');
                 },
                 'cleaning notifications'
             ).catch(() => {
@@ -90,7 +121,7 @@ export const useCleanup = () => {
 
             await waitRAF();
 
-            // 5. Cleanup gallery by settings
+            // 7. Cleanup gallery by settings
             await executeWithRAF(
                 async () => {
                     await cleanupGalleryBySettings();
@@ -106,7 +137,7 @@ export const useCleanup = () => {
             await waitRAF();
         }
 
-        // 6. Reload media cache metadata
+        // 8. Reload media cache metadata
         await executeWithRAF(
             async () => {
                 await mediaCache.reloadMetadata();

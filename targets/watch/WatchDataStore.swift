@@ -3,13 +3,12 @@ import Foundation
 /**
  * WatchDataStore - Local JSON cache for Watch data
  * 
- * Stores last 100 notifications, buckets, and stats in a simple JSON file
+ * Stores all notifications, buckets, and stats in a simple JSON file
  * in the shared App Group container. Watch can function completely offline.
  */
 class WatchDataStore {
     static let shared = WatchDataStore()
     
-    private let maxNotifications = 100
     private let fileName = "watch_cache.json"
     
     // MARK: - Data Models (Public for WatchConnectivityManager)
@@ -25,6 +24,13 @@ class WatchDataStore {
             self.buckets = []
             self.unreadCount = 0
             self.lastUpdate = Date()
+        }
+        
+        init(notifications: [CachedNotification], buckets: [CachedBucket], unreadCount: Int, lastUpdate: Date) {
+            self.notifications = notifications
+            self.buckets = buckets
+            self.unreadCount = unreadCount
+            self.lastUpdate = lastUpdate
         }
     }
     
@@ -123,6 +129,10 @@ class WatchDataStore {
     
     // MARK: - Save Cache
     
+    /**
+     * Save cache to disk
+     * Completely overwrites the existing cache file
+     */
     func saveCache(_ cache: WatchCache) {
         guard let filePath = getCacheFilePath() else {
             print("⌚ [WatchDataStore] Failed to get file path for saving")
@@ -134,6 +144,7 @@ class WatchDataStore {
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(cache)
             
+            // .atomic option ensures complete file overwrite (not append)
             try data.write(to: filePath, options: .atomic)
         } catch {
             print("⌚ [WatchDataStore] ❌ Error saving cache: \(error.localizedDescription)")
@@ -142,17 +153,22 @@ class WatchDataStore {
     
     // MARK: - Update Cache
     
+    /**
+     * Update cache from iPhone data
+     * Completely overwrites existing cache with new data
+     */
     func updateFromiPhone(
         notifications: [[String: Any]],
         buckets: [[String: Any]],
         unreadCount: Int
     ) {
+        // Create a completely new cache object (not modifying existing)
         var cache = WatchCache()
         cache.lastUpdate = Date()
         cache.unreadCount = unreadCount
         
-        // Parse notifications (limit to 100 most recent)
-        cache.notifications = notifications.prefix(maxNotifications).compactMap { notifDict -> CachedNotification? in
+        // Parse notifications (all notifications, no limit)
+        cache.notifications = notifications.compactMap { notifDict -> CachedNotification? in
             guard let id = notifDict["id"] as? String,
                   let title = notifDict["title"] as? String,
                   let body = notifDict["body"] as? String,
@@ -210,6 +226,7 @@ class WatchDataStore {
             )
         }
         
+        // Save the new cache (COMPLETE OVERWRITE of file)
         saveCache(cache)
     }
     

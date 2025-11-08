@@ -1719,7 +1719,7 @@ class NotificationService: UNNotificationServiceExtension {
       print("📱 [NotificationService] ❌ Failed to save notification to database")
     }
   }
-  
+
   private func transferNotificationToWatch(userInfo: [String: Any], notificationId: String) {
     guard WCSession.isSupported() else {
       print("📱 [NotificationService] ⚠️ WatchConnectivity not supported")
@@ -1728,63 +1728,12 @@ class NotificationService: UNNotificationServiceExtension {
     
     let session = WCSession.default
     
-    // Get bucket info from database for complete data
-    DatabaseAccess.getRecentNotifications(limit: 1, unreadOnly: false, source: "NSE") { notifications in
-      guard let notification = notifications.first(where: { $0.id == notificationId }) else {
-        print("📱 [NotificationService] ⚠️ Could not find notification in database")
-        return
-      }
-      
-      var notifDict: [String: Any] = [
-        "action": "newNotification",
-        "id": notification.id,
-        "title": notification.title,
-        "body": notification.body,
-        "bucketId": notification.bucketId,
-        "isRead": notification.isRead,
-        "createdAt": notification.createdAt
-      ]
-      
-      if let subtitle = notification.subtitle, !subtitle.isEmpty {
-        notifDict["subtitle"] = subtitle
-      }
-      
-      if let bucketName = notification.bucketName, !bucketName.isEmpty {
-        notifDict["bucketName"] = bucketName
-      }
-      
-      if let bucketColor = notification.bucketColor, !bucketColor.isEmpty {
-        notifDict["bucketColor"] = bucketColor
-      }
-      
-      if let bucketIconUrl = notification.bucketIconUrl, !bucketIconUrl.isEmpty {
-        notifDict["bucketIconUrl"] = bucketIconUrl
-      }
-      
-      // Include attachments
-      if !notification.attachments.isEmpty {
-        let attachmentsData = notification.attachments.map { attachment -> [String: Any] in
-          var attachmentDict: [String: Any] = [
-            "mediaType": attachment.mediaType
-          ]
-          
-          if let url = attachment.url {
-            attachmentDict["url"] = url
-          }
-          
-          if let name = attachment.name {
-            attachmentDict["name"] = name
-          }
-          
-          return attachmentDict
-        }
-        notifDict["attachments"] = attachmentsData
-      }
-      
-      // Use transferUserInfo for guaranteed delivery (even when Watch is asleep)
-      session.transferUserInfo(notifDict)
-      print("📱 [NotificationService] ✅ Queued notification transfer to Watch: \(notification.title)")
-    }
+    // Only send reload trigger - Watch will fetch fresh data from CloudKit
+    let message: [String: Any] = ["action": "reload"]
+    
+    // Use transferUserInfo for guaranteed delivery (even when Watch is asleep)
+    session.transferUserInfo(message)
+    print("📱 [NotificationService] ✅ Queued reload trigger to Watch for notification: \(notificationId)")
   }
 
 

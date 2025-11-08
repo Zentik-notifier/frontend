@@ -2,6 +2,7 @@ import { I18nProvider } from "@/components/I18nProvider";
 import { QueryProviders } from "@/components/QueryProviders";
 import { AlertDialog } from "@/components/ui/AlertDialog";
 import { useDeviceType } from "@/hooks/useDeviceType";
+import { useWatchConnectivityEvents } from "@/hooks/useWatchConnectivityEvents";
 import { ThemeProvider } from "@/hooks/useTheme";
 import MobileLayout from "@/layouts/mobile";
 import TabletLayout from "@/layouts/tablet";
@@ -80,6 +81,12 @@ function DeepLinkHandler() {
   return null;
 }
 
+function WatchConnectivityHandler() {
+  // Initialize Watch connectivity event listeners
+  useWatchConnectivityEvents();
+  return null;
+}
+
 function AppContent() {
   const { isMobile } = useDeviceType();
 
@@ -87,6 +94,7 @@ function AppContent() {
     <AppProvider>
       <MenuProvider>
         <DeepLinkHandler />
+        <WatchConnectivityHandler />
         <RequireAuth>
           {isMobile ? <MobileLayout /> : <TabletLayout />}
           {Platform.OS === "web" && <AlertDialog />}

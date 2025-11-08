@@ -651,7 +651,120 @@ public class DatabaseAccess {
         }
     }
     
+    // MARK: - Widget Bucket Operations
+    
+    /// Bucket entry for widget/watch display
+    public struct WidgetBucket {
+        public let id: String
+        public let name: String
+        public let unreadCount: Int
+        public let color: String?
+        public let iconUrl: String?
+        
+        public init(id: String, name: String, unreadCount: Int, color: String? = nil, iconUrl: String? = nil) {
+            self.id = id
+            self.name = name
+            self.unreadCount = unreadCount
+            self.color = color
+            self.iconUrl = iconUrl
+        }
+    }
+    
+    /// Get all buckets from database
+    /// - Parameters:
+    ///   - source: Source identifier for logging (default: "Widget")
+    ///   - completion: Completion handler with array of buckets
+    public static func getAllBuckets(
+        source: String = "Widget",
+        completion: @escaping ([WidgetBucket]) -> Void
+    ) {
+        var buckets: [WidgetBucket] = []
+        
+        performDatabaseOperation(
+            type: .read,
+            name: "GetAllBuckets",
+            source: source,
+            operation: { db in
+                let sql = "SELECT id, name, fragment, updated_at FROM buckets ORDER BY name ASC"
+                var stmt: OpaquePointer?
+                
+                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                    return .failure("Failed to prepare statement")
+                }
+                
+                defer { sqlite3_finalize(stmt) }
+                
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    guard let idCString = sqlite3_column_text(stmt, 0),
+                          let nameCString = sqlite3_column_text(stmt, 1),
+                          let fragmentCString = sqlite3_column_text(stmt, 2) else {
+                        continue
+                    }
+                    
+                    let id = String(cString: idCString)
+                    let name = String(cString: nameCString)
+                    let fragment = String(cString: fragmentCString)
+                    
+                    // Parse fragment JSON
+                    guard let fragmentData = fragment.data(using: .utf8),
+                          let fragmentJson = try? JSONSerialization.jsonObject(with: fragmentData) as? [String: Any] else {
+                        continue
+                    }
+                    
+                    // Extract color and iconUrl from fragment
+                    let color = fragmentJson["color"] as? String
+                    let iconUrl = fragmentJson["iconUrl"] as? String
+                    
+                    // Calculate unread count for this bucket
+                    // Query notifications table for unread notifications in this bucket
+                    var unreadCount = 0
+                    let unreadSql = "SELECT COUNT(*) FROM notifications WHERE bucket_id = ? AND read_at IS NULL"
+                    var unreadStmt: OpaquePointer?
+                    if sqlite3_prepare_v2(db, unreadSql, -1, &unreadStmt, nil) == SQLITE_OK {
+                        sqlite3_bind_text(unreadStmt, 1, (id as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                        if sqlite3_step(unreadStmt) == SQLITE_ROW {
+                            unreadCount = Int(sqlite3_column_int(unreadStmt, 0))
+                        }
+                        sqlite3_finalize(unreadStmt)
+                    }
+                    
+                    let bucket = WidgetBucket(
+                        id: id,
+                        name: name,
+                        unreadCount: unreadCount,
+                        color: color,
+                        iconUrl: iconUrl
+                    )
+                    
+                    buckets.append(bucket)
+                }
+                
+                return .success
+            }
+        ) { (dbResult: DatabaseOperationResult) in
+            switch dbResult {
+            case .success:
+                completion(buckets)
+            default:
+                completion([])
+            }
+        }
+    }
+    
     // MARK: - Widget Notification Operations
+    
+    /// Attachment entry for notifications
+    public struct WidgetAttachment {
+        public let mediaType: String
+        public let url: String?
+        public let name: String?
+        
+        public init(mediaType: String, url: String?, name: String?) {
+            self.mediaType = mediaType
+            self.url = url
+            self.name = name
+        }
+    }
     
     /// Notification entry for widget display
     public struct WidgetNotification {
@@ -665,8 +778,9 @@ public class DatabaseAccess {
         public let bucketName: String?
         public let bucketColor: String?
         public let bucketIconUrl: String?
+        public let attachments: [WidgetAttachment]
         
-        public init(id: String, title: String, body: String, subtitle: String?, createdAt: String, isRead: Bool, bucketId: String, bucketName: String? = nil, bucketColor: String? = nil, bucketIconUrl: String? = nil) {
+        public init(id: String, title: String, body: String, subtitle: String?, createdAt: String, isRead: Bool, bucketId: String, bucketName: String? = nil, bucketColor: String? = nil, bucketIconUrl: String? = nil, attachments: [WidgetAttachment] = []) {
             self.id = id
             self.title = title
             self.body = body
@@ -677,6 +791,7 @@ public class DatabaseAccess {
             self.bucketName = bucketName
             self.bucketColor = bucketColor
             self.bucketIconUrl = bucketIconUrl
+            self.attachments = attachments
         }
     }
     
@@ -714,7 +829,11 @@ public class DatabaseAccess {
                 
                 defer { sqlite3_finalize(stmt) }
                 
-                sqlite3_bind_int(stmt, 1, Int32(limit))
+                // Ensure limit fits in Int32, use Int32.max as upper bound
+                let safeLimit = min(limit, Int(Int32.max))
+                guard sqlite3_bind_int64(stmt, 1, Int64(safeLimit)) == SQLITE_OK else {
+                    return .failure("Failed to bind limit parameter")
+                }
                 
                 while sqlite3_step(stmt) == SQLITE_ROW {
                     guard let idCString = sqlite3_column_text(stmt, 0),
@@ -750,6 +869,18 @@ public class DatabaseAccess {
                         bucketIconUrl = bucket["iconUrl"] as? String
                     }
                     
+                    // Extract attachments from fragment
+                    var attachments: [WidgetAttachment] = []
+                    if let attachmentsArray = message["attachments"] as? [[String: Any]] {
+                        for attachmentDict in attachmentsArray {
+                            if let mediaType = attachmentDict["mediaType"] as? String {
+                                let url = attachmentDict["url"] as? String
+                                let name = attachmentDict["name"] as? String
+                                attachments.append(WidgetAttachment(mediaType: mediaType, url: url, name: name))
+                            }
+                        }
+                    }
+                    
                     let notification = WidgetNotification(
                         id: id,
                         title: title,
@@ -760,7 +891,8 @@ public class DatabaseAccess {
                         bucketId: bucketId,
                         bucketName: bucketName,
                         bucketColor: bucketColor,
-                        bucketIconUrl: bucketIconUrl
+                        bucketIconUrl: bucketIconUrl,
+                        attachments: attachments
                     )
                     
                     notifications.append(notification)

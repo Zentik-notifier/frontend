@@ -228,6 +228,15 @@ export function useNotificationsState(
                     if (notifications.length > 0) {
                         // Save notifications to local DB
                         await upsertNotificationsBatch(notifications);
+                        
+                        // Sync to CloudKit after saving notifications
+                        try {
+                            const { default: CloudKitSyncService } = await import('@/services/CloudKitSyncService');
+                            await CloudKitSyncService.syncNotificationsToCloudKit();
+                            console.log('[useNotificationsState] Notifications synced to CloudKit');
+                        } catch (error) {
+                            console.error('[useNotificationsState] Failed to sync notifications to CloudKit:', error);
+                        }
                     }
 
                     notificationSyncSuccess = true;
@@ -322,6 +331,7 @@ export function useNotificationsState(
                         name: bucket.name,
                         icon: bucket.icon,
                         iconAttachmentUuid: bucket.iconAttachmentUuid,
+                        iconUrl: bucket.iconUrl,
                         description: bucket.description,
                         updatedAt: bucket.updatedAt,
                         color: bucket.color,
@@ -333,6 +343,7 @@ export function useNotificationsState(
                         user: bucket.user,
                         permissions: bucket.permissions,
                         userPermissions: bucket.userPermissions,
+                        isOrphan: false, // Buckets from API are never orphans
                     }));
 
                     await saveBuckets(bucketsToSave);
@@ -396,6 +407,7 @@ export function useNotificationsState(
                         description: bucket.description,
                         icon: bucket.icon,
                         iconAttachmentUuid: bucket.iconAttachmentUuid,
+                        iconUrl: bucket.iconUrl,
                         color: bucket.color,
                         createdAt: bucket.createdAt,
                         updatedAt: bucket.updatedAt,

@@ -548,4 +548,162 @@ public class MediaAccess {
             alpha: 1.0
         )
     }
+    
+    // MARK: - Notification Media Cache Operations
+    
+    /// Get notification media (attachment) from shared cache
+    /// - Parameters:
+    ///   - url: Media URL
+    ///   - mediaType: Media type (IMAGE, GIF, VIDEO, AUDIO)
+    ///   - notificationId: Notification ID for cache lookup
+    /// - Returns: Media data if found in cache, or nil
+    public static func getNotificationMediaFromSharedCache(url: String, mediaType: String, notificationId: String) -> Data? {
+        // First try to get from database cache_item table
+        if let localPath = getLocalPathFromDb(url: url, mediaType: mediaType) {
+            let fileURL = URL(fileURLWithPath: localPath)
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                do {
+                    let data = try Data(contentsOf: fileURL)
+                    return data
+                } catch {
+                    print("📱 [MediaAccess] ❌ Failed to load cached media from \(localPath): \(error)")
+                }
+            }
+        }
+        
+        // Fallback: try to find in shared cache directory by notification ID
+        let cacheDirectory = getSharedMediaCacheDirectory()
+        let notificationMediaDirectory = cacheDirectory.appendingPathComponent("NOTIFICATION_MEDIA")
+        let notificationDir = notificationMediaDirectory.appendingPathComponent(notificationId)
+        
+        // Try to find media file in notification directory
+        if FileManager.default.fileExists(atPath: notificationDir.path) {
+            do {
+                let files = try FileManager.default.contentsOfDirectory(at: notificationDir, includingPropertiesForKeys: nil)
+                // Find file that matches the URL or media type
+                for file in files {
+                    if let data = try? Data(contentsOf: file) {
+                        return data
+                    }
+                }
+            } catch {
+                print("📱 [MediaAccess] ❌ Failed to read notification media directory: \(error)")
+            }
+        }
+        
+        return nil
+    }
+    
+    // MARK: - watchOS-specific Media Operations
+    
+    /// Get notification media (attachment) from shared cache for watchOS
+    /// watchOS doesn't have SQLite database, so only search in shared directory
+    /// Uses same structure as iOS: shared_media_cache/{MEDIA_TYPE}/{filename}
+    /// If not found in cache, downloads from URL (watchOS only)
+    /// - Parameters:
+    ///   - url: Media URL
+    ///   - mediaType: Media type (IMAGE, GIF, VIDEO, AUDIO)
+    ///   - notificationId: Notification ID for cache lookup
+    /// - Returns: Media data if found in cache or downloaded, or nil
+    public static func getNotificationMediaForWatch(url: String, mediaType: String, notificationId: String) -> Data? {
+        print("⌚️ [MediaAccess] 🔍 Looking for media: \(mediaType) - \(url)")
+        
+        let cacheDirectory = getSharedMediaCacheDirectory()
+        
+        // Use same structure as iOS: shared_media_cache/{MEDIA_TYPE}/{filename}
+        let mediaTypeDirectory = cacheDirectory.appendingPathComponent(mediaType.uppercased())
+        
+        // Generate filename using same algorithm as iOS (hash-based)
+        let generatedFilename = generateSafeFileName(url: url, mediaType: mediaType, originalFileName: nil)
+        let mediaFile = mediaTypeDirectory.appendingPathComponent(generatedFilename)
+        
+        print("⌚️ [MediaAccess] 📂 Cache dir: \(cacheDirectory.path)")
+        print("⌚️ [MediaAccess] 📂 Media type dir: \(mediaTypeDirectory.path)")
+        print("⌚️ [MediaAccess] 📄 Looking for file: \(generatedFilename)")
+        print("⌚️ [MediaAccess] 📍 Full path: \(mediaFile.path)")
+        
+        // Check if file exists in cache
+        if FileManager.default.fileExists(atPath: mediaFile.path) {
+            do {
+                let data = try Data(contentsOf: mediaFile)
+                print("⌚️ [MediaAccess] ✅ Found file in cache! Size: \(data.count) bytes")
+                return data
+            } catch {
+                print("⌚️ [MediaAccess] ❌ Failed to read cached file: \(error)")
+            }
+        }
+        
+        // File not in cache - download from URL (watchOS only)
+        #if os(watchOS)
+        print("⌚️ [MediaAccess] 🌐 File not in cache, downloading from URL...")
+        
+        guard let downloadUrl = URL(string: url) else {
+            print("⌚️ [MediaAccess] ❌ Invalid URL: \(url)")
+            return nil
+        }
+        
+        // Use semaphore for synchronous download
+        let semaphore = DispatchSemaphore(value: 0)
+        var downloadedData: Data?
+        
+        let task = URLSession.shared.dataTask(with: downloadUrl) { data, response, error in
+            defer { semaphore.signal() }
+            
+            if let error = error {
+                print("⌚️ [MediaAccess] ❌ Download failed: \(error.localizedDescription)")
+                return
+            }
+            
+            guard let data = data, !data.isEmpty else {
+                print("⌚️ [MediaAccess] ❌ Downloaded data is empty")
+                return
+            }
+            
+            print("⌚️ [MediaAccess] ✅ Downloaded \(data.count) bytes")
+            
+            // Save to cache for future use
+            do {
+                try FileManager.default.createDirectory(at: mediaTypeDirectory, withIntermediateDirectories: true, attributes: nil)
+                try data.write(to: mediaFile, options: .atomic)
+                print("⌚️ [MediaAccess] ✅ Saved to cache: \(generatedFilename)")
+            } catch {
+                print("⌚️ [MediaAccess] ⚠️ Failed to save to cache: \(error)")
+                // Continue anyway with downloaded data
+            }
+            
+            downloadedData = data
+        }
+        
+        task.resume()
+        
+        // Wait for download (max 10 seconds for watchOS)
+        let timeout = DispatchTime.now() + .seconds(10)
+        if semaphore.wait(timeout: timeout) == .timedOut {
+            print("⌚️ [MediaAccess] ⚠️ Download timeout after 10 seconds")
+            task.cancel()
+            return nil
+        }
+        
+        return downloadedData
+        #else
+        print("⌚️ [MediaAccess] ⚠️ File not in cache and download not available on this platform")
+        
+        // Debug: list all files in media type directory
+        if FileManager.default.fileExists(atPath: mediaTypeDirectory.path) {
+            do {
+                let files = try FileManager.default.contentsOfDirectory(at: mediaTypeDirectory, includingPropertiesForKeys: nil)
+                print("⌚️ [MediaAccess] 📋 Files in \(mediaType) directory (\(files.count)):")
+                for file in files {
+                    print("⌚️ [MediaAccess]   - \(file.lastPathComponent)")
+                }
+            } catch {
+                print("⌚️ [MediaAccess] ❌ Failed to list directory: \(error)")
+            }
+        } else {
+            print("⌚️ [MediaAccess] ⚠️ Media type directory doesn't exist")
+        }
+        
+        return nil
+        #endif
+    }
 }

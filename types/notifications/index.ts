@@ -124,6 +124,9 @@ export interface BucketWithStats {
   /** Bucket icon attachment UUID */
   iconAttachmentUuid?: string | null;
   
+  /** Bucket icon URL (public URL for the icon) */
+  iconUrl?: string | null;
+  
   /** Bucket color */
   color?: string | null;
   

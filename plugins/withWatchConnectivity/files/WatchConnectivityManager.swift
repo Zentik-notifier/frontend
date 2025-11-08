@@ -15,168 +15,120 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
         }
     }
     
+    // MARK: - Notification Updates
+    
+    /**
+     * Notify Watch that a notification was marked as read
+     */
+    func notifyWatchNotificationRead(notificationId: String, readAt: String) {
+        let message: [String: Any] = [
+            "action": "notificationRead",
+            "notificationId": notificationId,
+            "readAt": readAt
+        ]
+        
+        sendMessageToWatch(message, description: "notification \(notificationId) marked as read")
+    }
+    
+    /**
+     * Notify Watch that a notification was marked as unread
+     */
+    func notifyWatchNotificationUnread(notificationId: String) {
+        let message: [String: Any] = [
+            "action": "notificationUnread",
+            "notificationId": notificationId
+        ]
+        
+        sendMessageToWatch(message, description: "notification \(notificationId) marked as unread")
+    }
+    
+    /**
+     * Notify Watch that multiple notifications were marked as read
+     */
+    func notifyWatchNotificationsRead(notificationIds: [String], readAt: String) {
+        let message: [String: Any] = [
+            "action": "notificationsRead",
+            "notificationIds": notificationIds,
+            "readAt": readAt
+        ]
+        
+        sendMessageToWatch(message, description: "\(notificationIds.count) notifications marked as read")
+    }
+    
+    /**
+     * Notify Watch that a notification was deleted
+     */
+    func notifyWatchNotificationDeleted(notificationId: String) {
+        let message: [String: Any] = [
+            "action": "notificationDeleted",
+            "notificationId": notificationId
+        ]
+        
+        sendMessageToWatch(message, description: "notification \(notificationId) deleted")
+    }
+    
+    /**
+     * Notify Watch that a new notification was added
+     */
+    func notifyWatchNotificationAdded(notificationId: String) {
+        let message: [String: Any] = [
+            "action": "notificationAdded",
+            "notificationId": notificationId
+        ]
+        
+        sendMessageToWatch(message, description: "notification \(notificationId) added")
+    }
+    
+    /**
+     * Generic method to send reload trigger (used for new notifications or full sync)
+     */
     func notifyWatchOfUpdate() {
+        let message: [String: Any] = ["action": "reload"]
+        sendMessageToWatch(message, description: "reload trigger")
+    }
+    
+    // MARK: - Private Helpers
+    
+    /**
+     * Send message to Watch with fallback to background transfer
+     */
+    private func sendMessageToWatch(_ message: [String: Any], description: String) {
         guard WCSession.default.isReachable else {
-            print("📱 Watch is not reachable")
+            print("📱 Watch is not reachable, using background transfer for \(description)")
+            WCSession.default.transferUserInfo(message)
             return
         }
         
-        print("📱 Sending data to Watch...")
-        sendDataToWatch { success in
-            if success {
-                print("📱 ✅ Data sent to Watch successfully")
-            } else {
-                print("📱 ❌ Failed to send data to Watch")
-            }
+        print("📱 Sending \(description) to Watch...")
+        
+        WCSession.default.sendMessage(message, replyHandler: { _ in
+            print("📱 ✅ Sent \(description) to Watch successfully")
+        }) { error in
+            print("📱 ⚠️ Failed to send \(description), using background transfer: \(error.localizedDescription)")
+            // Fallback: try background transfer
+            WCSession.default.transferUserInfo(message)
         }
     }
     
-    /// Transfer a single notification to Watch (works even when Watch is asleep)
-    /// Uses transferUserInfo which queues the message for delivery
+    /// Trigger a reload on Watch when a new notification arrives
+    /// Watch will fetch fresh data from CloudKit
     func transferNotification(_ notification: DatabaseAccess.WidgetNotification) {
-        var notifDict: [String: Any] = [
-            "action": "newNotification",
-            "id": notification.id,
-            "title": notification.title,
-            "body": notification.body,
-            "bucketId": notification.bucketId,
-            "isRead": notification.isRead,
-            "createdAt": notification.createdAt
-        ]
+        // Only send reload trigger - Watch will fetch from CloudKit
+        let message: [String: Any] = ["action": "reload"]
         
-        if let subtitle = notification.subtitle, !subtitle.isEmpty {
-            notifDict["subtitle"] = subtitle
-        }
-        
-        if let bucketName = notification.bucketName, !bucketName.isEmpty {
-            notifDict["bucketName"] = bucketName
-        }
-        
-        if let bucketColor = notification.bucketColor, !bucketColor.isEmpty {
-            notifDict["bucketColor"] = bucketColor
-        }
-        
-        if let bucketIconUrl = notification.bucketIconUrl, !bucketIconUrl.isEmpty {
-            notifDict["bucketIconUrl"] = bucketIconUrl
-        }
-        
-        // Include attachments
-        if !notification.attachments.isEmpty {
-            let attachmentsData = notification.attachments.map { attachment -> [String: Any] in
-                var attachmentDict: [String: Any] = [
-                    "mediaType": attachment.mediaType
-                ]
-                
-                if let url = attachment.url {
-                    attachmentDict["url"] = url
-                }
-                
-                if let name = attachment.name {
-                    attachmentDict["name"] = name
-                }
-                
-                return attachmentDict
+        // Try immediate message first
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(message, replyHandler: { _ in
+                print("📱 ✅ Reload trigger sent to Watch for notification: \(notification.title)")
+            }) { error in
+                print("📱 ⚠️ Failed to send reload trigger, using background transfer: \(error.localizedDescription)")
+                // Fallback: use background transfer
+                WCSession.default.transferUserInfo(message)
             }
-            notifDict["attachments"] = attachmentsData
-        }
-        
-        // Use transferUserInfo for guaranteed delivery (even when Watch is asleep)
-        WCSession.default.transferUserInfo(notifDict)
-        print("📱 ✅ Queued notification transfer to Watch: \(notification.title)")
-    }
-    
-    private func sendDataToWatch(completion: @escaping (Bool) -> Void) {
-        // Get buckets directly from database (not derived from notifications)
-        DatabaseAccess.getAllBuckets(source: "iPhone") { buckets in
-            // Get notifications
-            DatabaseAccess.getRecentNotifications(limit: 100, unreadOnly: false, source: "iPhone") { notifications in
-                let notificationsData = notifications.map { notif -> [String: Any] in
-                    var dict: [String: Any] = [
-                        "id": notif.id,
-                        "title": notif.title,
-                        "body": notif.body,
-                        "bucketId": notif.bucketId,
-                        "isRead": notif.isRead,
-                        "createdAt": notif.createdAt
-                    ]
-                    
-                    if let subtitle = notif.subtitle, !subtitle.isEmpty {
-                        dict["subtitle"] = subtitle
-                    }
-                    
-                    if let bucketName = notif.bucketName, !bucketName.isEmpty {
-                        dict["bucketName"] = bucketName
-                    }
-                    
-                    if let bucketColor = notif.bucketColor, !bucketColor.isEmpty {
-                        dict["bucketColor"] = bucketColor
-                    }
-                    
-                    if let bucketIconUrl = notif.bucketIconUrl, !bucketIconUrl.isEmpty {
-                        dict["bucketIconUrl"] = bucketIconUrl
-                    }
-                    
-                    // Include attachments
-                    if !notif.attachments.isEmpty {
-                        let attachmentsData = notif.attachments.map { attachment -> [String: Any] in
-                            var attachmentDict: [String: Any] = [
-                                "mediaType": attachment.mediaType
-                            ]
-                            
-                            if let url = attachment.url {
-                                attachmentDict["url"] = url
-                            }
-                            
-                            if let name = attachment.name {
-                                attachmentDict["name"] = name
-                            }
-                            
-                            return attachmentDict
-                        }
-                        dict["attachments"] = attachmentsData
-                    }
-                    
-                    return dict
-                }
-                
-                // Convert buckets from database to dictionary format
-                let bucketsData = buckets.map { bucket -> [String: Any] in
-                    var dict: [String: Any] = [
-                        "id": bucket.id,
-                        "name": bucket.name,
-                        "unreadCount": bucket.unreadCount
-                    ]
-                    
-                    if let color = bucket.color, !color.isEmpty {
-                        dict["color"] = color
-                    }
-                    
-                    if let iconUrl = bucket.iconUrl, !iconUrl.isEmpty {
-                        dict["iconUrl"] = iconUrl
-                    }
-                    
-                    return dict
-                }
-                
-                // Calculate total unread count
-                let totalUnreadCount = notifications.filter { !$0.isRead }.count
-                
-                print("📱 Sending \(notificationsData.count) notifications, \(bucketsData.count) buckets, \(totalUnreadCount) unread")
-                
-                let message: [String: Any] = [
-                    "action": "updateData",
-                    "notifications": notificationsData,
-                    "buckets": bucketsData,
-                    "unreadCount": totalUnreadCount
-                ]
-                
-                WCSession.default.sendMessage(message, replyHandler: { _ in
-                    completion(true)
-                }, errorHandler: { error in
-                    print("📱 ❌ Error sending message: \(error.localizedDescription)")
-                    completion(false)
-                })
-            }
+        } else {
+            // Use transferUserInfo for guaranteed delivery (even when Watch is asleep)
+            WCSession.default.transferUserInfo(message)
+            print("📱 ✅ Queued reload trigger to Watch for notification: \(notification.title)")
         }
     }
 }
@@ -205,6 +157,7 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
     func sessionReachabilityDidChange(_ session: WCSession) {
         print("📱 Watch reachability changed: \(session.isReachable)")
         
+        // When Watch becomes reachable, trigger a reload so it fetches fresh data from CloudKit
         if session.isReachable {
             notifyWatchOfUpdate()
         }
@@ -219,126 +172,99 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
         }
         
         switch action {
+        case "notificationRead":
+            // Watch marked notification as read
+            if let notificationId = message["notificationId"] as? String,
+               let readAt = message["readAt"] as? String {
+                print("📱 Watch marked notification \(notificationId) as read")
+                
+                // Notify React Native to update backend
+                if WatchConnectivityBridge.shared != nil {
+                    print("📱 Calling WatchConnectivityBridge.shared.emitNotificationRead...")
+                    WatchConnectivityBridge.shared?.emitNotificationRead(notificationId: notificationId, readAt: readAt)
+                } else {
+                    print("📱 ❌ WatchConnectivityBridge.shared is nil!")
+                }
+                
+                replyHandler(["success": true])
+            } else {
+                replyHandler(["error": "Missing notificationId or readAt"])
+            }
+            
+        case "notificationUnread":
+            // Watch marked notification as unread
+            if let notificationId = message["notificationId"] as? String {
+                print("📱 Watch marked notification \(notificationId) as unread")
+                
+                // Notify React Native to update backend
+                WatchConnectivityBridge.shared?.emitNotificationUnread(notificationId: notificationId)
+                
+                replyHandler(["success": true])
+            } else {
+                replyHandler(["error": "Missing notificationId"])
+            }
+            
+        case "notificationDeleted":
+            // Watch deleted notification - notify React Native to delete from backend
+            if let notificationId = message["notificationId"] as? String {
+                print("📱 Watch deleted notification \(notificationId)")
+                
+                // Notify React Native to delete from backend via GraphQL
+                WatchConnectivityBridge.shared?.emitNotificationDeleted(notificationId: notificationId)
+                
+                replyHandler(["success": true])
+            } else {
+                replyHandler(["error": "Missing notificationId"])
+            }
+            
         case "requestData":
-            print("📱 Watch requested data")
-            // Get buckets directly from database (not derived from notifications)
-            DatabaseAccess.getAllBuckets(source: "iPhone") { buckets in
-                // Get notifications
-                DatabaseAccess.getRecentNotifications(limit: 100, unreadOnly: false, source: "iPhone") { notifications in
-                    let notificationsData = notifications.map { notif -> [String: Any] in
-                        var dict: [String: Any] = [
-                            "id": notif.id,
-                            "title": notif.title,
-                            "body": notif.body,
-                            "bucketId": notif.bucketId,
-                            "isRead": notif.isRead,
-                            "createdAt": notif.createdAt
-                        ]
-                        
-                        if let subtitle = notif.subtitle, !subtitle.isEmpty {
-                            dict["subtitle"] = subtitle
-                        }
-                        
-                        if let bucketName = notif.bucketName, !bucketName.isEmpty {
-                            dict["bucketName"] = bucketName
-                        }
-                        
-                        if let bucketColor = notif.bucketColor, !bucketColor.isEmpty {
-                            dict["bucketColor"] = bucketColor
-                        }
-                        
-                        if let bucketIconUrl = notif.bucketIconUrl, !bucketIconUrl.isEmpty {
-                            dict["bucketIconUrl"] = bucketIconUrl
-                        }
-                        
-                        // Include attachments
-                        if !notif.attachments.isEmpty {
-                            let attachmentsData = notif.attachments.map { attachment -> [String: Any] in
-                                var attachmentDict: [String: Any] = [
-                                    "mediaType": attachment.mediaType
-                                ]
-                                
-                                if let url = attachment.url {
-                                    attachmentDict["url"] = url
-                                }
-                                
-                                if let name = attachment.name {
-                                    attachmentDict["name"] = name
-                                }
-                                
-                                return attachmentDict
-                            }
-                            dict["attachments"] = attachmentsData
-                        }
-                        
-                        return dict
-                    }
-                    
-                    // Convert buckets from database to dictionary format
-                    let bucketsData = buckets.map { bucket -> [String: Any] in
-                        var dict: [String: Any] = [
-                            "id": bucket.id,
-                            "name": bucket.name,
-                            "unreadCount": bucket.unreadCount
-                        ]
-                        
-                        if let color = bucket.color, !color.isEmpty {
-                            dict["color"] = color
-                        }
-                        
-                        if let iconUrl = bucket.iconUrl, !iconUrl.isEmpty {
-                            dict["iconUrl"] = iconUrl
-                        }
-                        
-                        return dict
-                    }
-                    
-                    // Calculate total unread count
-                    let totalUnreadCount = notifications.filter { !$0.isRead }.count
-                    
-                    print("📱 Sending \(notificationsData.count) notifications, \(bucketsData.count) buckets, \(totalUnreadCount) unread")
-                    
-                    replyHandler([
-                        "notifications": notificationsData,
-                        "buckets": bucketsData,
-                        "unreadCount": totalUnreadCount
-                    ])
-                }
-            }
-            
-        case "deleteNotification":
-            guard let notificationId = message["notificationId"] as? String else {
-                replyHandler(["error": "Missing notificationId"])
-                return
-            }
-            
-            print("📱 Watch requested delete notification: \(notificationId)")
-            DatabaseAccess.deleteNotification(notificationId: notificationId, source: "iPhone") { success in
-                replyHandler(["success": success])
-                if success {
-                    print("📱 ✅ Notification deleted, notifying Watch")
-                    self.notifyWatchOfUpdate()
-                }
-            }
-            
-        case "markAsRead":
-            guard let notificationId = message["notificationId"] as? String else {
-                replyHandler(["error": "Missing notificationId"])
-                return
-            }
-            
-            print("📱 Watch requested mark as read: \(notificationId)")
-            DatabaseAccess.markNotificationAsRead(notificationId: notificationId, source: "iPhone") { success in
-                replyHandler(["success": success])
-                if success {
-                    print("📱 ✅ Notification marked as read, notifying Watch")
-                    self.notifyWatchOfUpdate()
-                }
-            }
+            // Watch is requesting data - but now it should fetch from CloudKit
+            // We can still respond with a reload trigger for backward compatibility
+            print("📱 Watch requested data - responding with reload trigger")
+            replyHandler(["action": "reload", "message": "Please fetch from CloudKit"])
             
         default:
             print("📱 ❌ Unknown action: \(action)")
             replyHandler(["error": "Unknown action"])
+        }
+    }
+    
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
+        print("📱 Received background transfer from Watch: \(userInfo)")
+        
+        guard let action = userInfo["action"] as? String else {
+            print("📱 ⚠️ No action in userInfo")
+            return
+        }
+        
+        switch action {
+        case "notificationRead":
+            if let notificationId = userInfo["notificationId"] as? String,
+               let readAt = userInfo["readAt"] as? String {
+                print("📱 Watch marked notification \(notificationId) as read (background)")
+                
+                // Notify React Native to update backend
+                WatchConnectivityBridge.shared?.emitNotificationRead(notificationId: notificationId, readAt: readAt)
+            }
+            
+        case "notificationUnread":
+            if let notificationId = userInfo["notificationId"] as? String {
+                print("📱 Watch marked notification \(notificationId) as unread (background)")
+                
+                // Notify React Native to update backend
+                WatchConnectivityBridge.shared?.emitNotificationUnread(notificationId: notificationId)
+            }
+            
+        case "notificationDeleted":
+            if let notificationId = userInfo["notificationId"] as? String {
+                print("📱 Watch deleted notification \(notificationId) (background)")
+                
+                // Notify React Native to delete from backend via GraphQL
+                WatchConnectivityBridge.shared?.emitNotificationDeleted(notificationId: notificationId)
+            }
+            
+        default:
+            print("📱 ⚠️ Unknown action: \(action)")
         }
     }
 }

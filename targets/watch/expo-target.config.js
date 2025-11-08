@@ -4,7 +4,7 @@ const { commonEntitlements, name } = require('../../app.config');
 module.exports = config => ({
   type: "watch",
   colors: { $accent: "darkcyan", },
-  deploymentTarget: "9.4",
+  deploymentTarget: "10.0",
   icon: 'https://github.com/Zentik-notifier/backend/blob/main/assets/Zentik.png?raw=true',
   entitlements: { ...commonEntitlements },
   name: "WatchExtension",
