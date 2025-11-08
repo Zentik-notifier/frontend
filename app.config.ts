@@ -32,7 +32,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
         ...config,
         name,
         slug: "zentik",
-        version: "1.6.2",
+        version: "1.6.1",
         orientation: "default",
         icon: "./assets/icons/generators/glas_default.png",
         scheme,
@@ -60,7 +60,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             supportsTablet: true,
             bundleIdentifier,
             appleTeamId: "C3F24V5NS5",
-            buildNumber: "56",
+            buildNumber: "55",
             usesAppleSignIn: true,
             associatedDomains: [
                 "applinks:notifier.zentik.app"
@@ -94,7 +94,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
                 backgroundColor: "#ffffff",
             },
             package: bundleIdentifier,
-            versionCode: 56,
+            versionCode: 55,
             googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './keys/google-services.json',
             permissions: [
                 "android.permission.RECEIVE_BOOT_COMPLETED",
@@ -245,6 +245,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             ["./plugins/withWatchConnectivity/withWatchConnectivity.ts"],
             ["./plugins/withWidgetReload/withWidgetReload.ts"]
         ],
+
         experiments: {
             typedRoutes: true,
         },
@@ -297,9 +298,7 @@ const config = ({ config }: ConfigContext): ExpoConfig => {
             },
         },
         owner: "apocaliss92",
-        runtimeVersion: {
-            policy: "fingerprint"
-        },
+        runtimeVersion: "1.0.1",
         updates: {
             url: "https://u.expo.dev/17f4d8f2-e90d-4862-ae67-97592dbcb8b7",
         },
