@@ -125,7 +125,7 @@ export default function TabsLayout() {
           },
         }}
       />
-      {__DEV__ && (
+      {/* {__DEV__ && (
         <Tabs.Screen
           name="cloudkit-debug"
           options={{
@@ -139,7 +139,7 @@ export default function TabsLayout() {
             ),
           }}
         />
-      )}
+      )} */}
     </Tabs>
   );
 
