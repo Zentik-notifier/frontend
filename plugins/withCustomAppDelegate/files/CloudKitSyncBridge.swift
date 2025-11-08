@@ -5,6 +5,8 @@ import CloudKit
 @objc(CloudKitSyncBridge)
 class CloudKitSyncBridge: NSObject {
   
+  private let logger = LoggingSystem.shared
+  
   @objc
   static func requiresMainQueueSetup() -> Bool {
     return false
@@ -15,16 +17,36 @@ class CloudKitSyncBridge: NSObject {
    */
   @objc
   func syncAllToCloudKit(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    print("☁️ [CloudKitBridge] React Native requested full sync to CloudKit")
+    logger.info(
+      tag: "ReactNative→CloudKit",
+      message: "React Native requested full sync to CloudKit",
+      metadata: ["syncType": "all"],
+      source: "CloudKitBridge"
+    )
     
     CloudKitSyncManager.shared.syncAllToCloudKit { (success, bucketsCount, notificationsCount) in
       if success {
+        self.logger.info(
+          tag: "CloudKitSync",
+          message: "Full sync completed",
+          metadata: [
+            "success": "true",
+            "bucketsCount": String(bucketsCount),
+            "notificationsCount": String(notificationsCount)
+          ],
+          source: "CloudKitBridge"
+        )
         resolve([
           "success": true,
           "bucketsCount": bucketsCount,
           "notificationsCount": notificationsCount
         ])
       } else {
+        self.logger.error(
+          tag: "CloudKitSync",
+          message: "Full sync failed",
+          source: "CloudKitBridge"
+        )
         reject("SYNC_ERROR", "Failed to sync to CloudKit", nil)
       }
     }
@@ -35,15 +57,31 @@ class CloudKitSyncBridge: NSObject {
    */
   @objc
   func syncBucketsToCloudKit(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    print("☁️ [CloudKitBridge] React Native requested bucket sync to CloudKit")
+    logger.info(
+      tag: "ReactNative→CloudKit",
+      message: "React Native requested bucket sync to CloudKit",
+      metadata: ["syncType": "buckets"],
+      source: "CloudKitBridge"
+    )
     
     CloudKitSyncManager.shared.syncBucketsToCloudKit { (success, count) in
       if success {
+        self.logger.info(
+          tag: "CloudKitSync",
+          message: "Bucket sync completed",
+          metadata: ["success": "true", "count": String(count)],
+          source: "CloudKitBridge"
+        )
         resolve([
           "success": true,
           "count": count
         ])
       } else {
+        self.logger.error(
+          tag: "CloudKitSync",
+          message: "Bucket sync failed",
+          source: "CloudKitBridge"
+        )
         reject("SYNC_ERROR", "Failed to sync buckets to CloudKit", nil)
       }
     }
@@ -54,15 +92,31 @@ class CloudKitSyncBridge: NSObject {
    */
   @objc
   func syncNotificationsToCloudKit(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    print("☁️ [CloudKitBridge] React Native requested notification sync to CloudKit")
+    logger.info(
+      tag: "ReactNative→CloudKit",
+      message: "React Native requested notification sync to CloudKit",
+      metadata: ["syncType": "notifications"],
+      source: "CloudKitBridge"
+    )
     
     CloudKitSyncManager.shared.syncNotificationsToCloudKit { (success, count) in
       if success {
+        self.logger.info(
+          tag: "CloudKitSync",
+          message: "Notification sync completed",
+          metadata: ["success": "true", "count": String(count)],
+          source: "CloudKitBridge"
+        )
         resolve([
           "success": true,
           "count": count
         ])
       } else {
+        self.logger.error(
+          tag: "CloudKitSync",
+          message: "Notification sync failed",
+          source: "CloudKitBridge"
+        )
         reject("SYNC_ERROR", "Failed to sync notifications to CloudKit", nil)
       }
     }
@@ -73,12 +127,27 @@ class CloudKitSyncBridge: NSObject {
    */
   @objc
   func setupSubscriptions(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    print("☁️ [CloudKitBridge] React Native requested to setup CloudKit subscriptions")
+    logger.info(
+      tag: "ReactNative→CloudKit",
+      message: "React Native requested CloudKit subscriptions setup",
+      source: "CloudKitBridge"
+    )
     
     CloudKitSyncManager.shared.setupSubscriptions { (success) in
       if success {
+        self.logger.info(
+          tag: "CloudKitSync",
+          message: "Subscriptions setup completed",
+          metadata: ["success": "true"],
+          source: "CloudKitBridge"
+        )
         resolve(["success": true])
       } else {
+        self.logger.error(
+          tag: "CloudKitSync",
+          message: "Subscriptions setup failed",
+          source: "CloudKitBridge"
+        )
         reject("SUBSCRIPTION_ERROR", "Failed to setup CloudKit subscriptions", nil)
       }
     }
@@ -89,12 +158,29 @@ class CloudKitSyncBridge: NSObject {
    */
   @objc
   func deleteNotificationFromCloudKit(_ notificationId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    print("☁️ [CloudKitBridge] React Native requested to delete notification \(notificationId) from CloudKit")
+    logger.info(
+      tag: "ReactNative→CloudKit",
+      message: "React Native requested delete notification from CloudKit",
+      metadata: ["notificationId": notificationId, "action": "delete"],
+      source: "CloudKitBridge"
+    )
     
     CloudKitSyncManager.shared.deleteNotificationFromCloudKit(id: notificationId) { success in
       if success {
+        self.logger.info(
+          tag: "CloudKitSync",
+          message: "Notification deleted from CloudKit",
+          metadata: ["success": "true", "notificationId": notificationId],
+          source: "CloudKitBridge"
+        )
         resolve(["success": true])
       } else {
+        self.logger.error(
+          tag: "CloudKitSync",
+          message: "Failed to delete notification from CloudKit",
+          metadata: ["notificationId": notificationId],
+          source: "CloudKitBridge"
+        )
         reject("DELETE_ERROR", "Failed to delete notification from CloudKit", nil)
       }
     }

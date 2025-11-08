@@ -5,10 +5,12 @@ import React
 class WatchConnectivityBridge: RCTEventEmitter {
   
   public static var shared: WatchConnectivityBridge?
+  private let logger = LoggingSystem.shared
   
   override init() {
     super.init()
     WatchConnectivityBridge.shared = self
+    logger.info(tag: "Init", message: "WatchConnectivityBridge initialized", source: "WatchBridge")
   }
   
   @objc
@@ -28,33 +30,53 @@ class WatchConnectivityBridge: RCTEventEmitter {
   // MARK: - Event Emitters (called from WatchConnectivityManager)
   
   func emitNotificationRead(notificationId: String, readAt: String) {
-    print("📱 [WatchBridge] 🔔 Emitting onWatchNotificationRead event for: \(notificationId)")
+    logger.info(
+      tag: "EmitEvent",
+      message: "Emitting onWatchNotificationRead to React Native",
+      metadata: ["notificationId": notificationId, "readAt": readAt],
+      source: "WatchBridge"
+    )
     sendEvent(withName: "onWatchNotificationRead", body: [
       "notificationId": notificationId,
       "readAt": readAt
     ])
-    print("📱 [WatchBridge] ✅ Event emitted")
+    logger.debug(tag: "EmitEvent", message: "Event emitted successfully", source: "WatchBridge")
   }
   
   func emitNotificationUnread(notificationId: String) {
-    print("📱 [WatchBridge] 🔔 Emitting onWatchNotificationUnread event for: \(notificationId)")
+    logger.info(
+      tag: "EmitEvent",
+      message: "Emitting onWatchNotificationUnread to React Native",
+      metadata: ["notificationId": notificationId],
+      source: "WatchBridge"
+    )
     sendEvent(withName: "onWatchNotificationUnread", body: [
       "notificationId": notificationId
     ])
-    print("📱 [WatchBridge] ✅ Event emitted")
+    logger.debug(tag: "EmitEvent", message: "Event emitted successfully", source: "WatchBridge")
   }
   
   func emitNotificationDeleted(notificationId: String) {
-    print("📱 [WatchBridge] 🔔 Emitting onWatchNotificationDeleted event for: \(notificationId)")
+    logger.info(
+      tag: "EmitEvent",
+      message: "Emitting onWatchNotificationDeleted to React Native",
+      metadata: ["notificationId": notificationId],
+      source: "WatchBridge"
+    )
     sendEvent(withName: "onWatchNotificationDeleted", body: [
       "notificationId": notificationId
     ])
-    print("📱 [WatchBridge] ✅ Event emitted")
+    logger.debug(tag: "EmitEvent", message: "Event emitted successfully", source: "WatchBridge")
   }
   
   @objc
   func notifyWatchOfUpdate(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    print("📱 [WatchBridge] React Native requested to notify Watch (reload)")
+    logger.info(
+      tag: "ReactNative→Watch",
+      message: "React Native requested Watch reload",
+      metadata: ["action": "reload"],
+      source: "WatchBridge"
+    )
     
     iPhoneWatchConnectivityManager.shared.notifyWatchOfUpdate()
     resolve(["success": true])
@@ -62,7 +84,12 @@ class WatchConnectivityBridge: RCTEventEmitter {
   
   @objc
   func notifyWatchNotificationRead(_ notificationId: String, readAt: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    print("📱 [WatchBridge] React Native requested to notify Watch: notification \(notificationId) marked as read")
+    logger.info(
+      tag: "ReactNative→Watch",
+      message: "React Native requested mark as read",
+      metadata: ["notificationId": notificationId, "readAt": readAt, "action": "read"],
+      source: "WatchBridge"
+    )
     
     iPhoneWatchConnectivityManager.shared.notifyWatchNotificationRead(notificationId: notificationId, readAt: readAt)
     resolve(["success": true])
@@ -70,7 +97,12 @@ class WatchConnectivityBridge: RCTEventEmitter {
   
   @objc
   func notifyWatchNotificationUnread(_ notificationId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    print("📱 [WatchBridge] React Native requested to notify Watch: notification \(notificationId) marked as unread")
+    logger.info(
+      tag: "ReactNative→Watch",
+      message: "React Native requested mark as unread",
+      metadata: ["notificationId": notificationId, "action": "unread"],
+      source: "WatchBridge"
+    )
     
     iPhoneWatchConnectivityManager.shared.notifyWatchNotificationUnread(notificationId: notificationId)
     resolve(["success": true])
@@ -78,7 +110,12 @@ class WatchConnectivityBridge: RCTEventEmitter {
   
   @objc
   func notifyWatchNotificationsRead(_ notificationIds: [String], readAt: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    print("📱 [WatchBridge] React Native requested to notify Watch: \(notificationIds.count) notifications marked as read")
+    logger.info(
+      tag: "ReactNative→Watch",
+      message: "React Native requested batch mark as read",
+      metadata: ["count": String(notificationIds.count), "readAt": readAt, "action": "batchRead"],
+      source: "WatchBridge"
+    )
     
     iPhoneWatchConnectivityManager.shared.notifyWatchNotificationsRead(notificationIds: notificationIds, readAt: readAt)
     resolve(["success": true])
@@ -86,7 +123,12 @@ class WatchConnectivityBridge: RCTEventEmitter {
   
   @objc
   func notifyWatchNotificationDeleted(_ notificationId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    print("📱 [WatchBridge] React Native requested to notify Watch: notification \(notificationId) deleted")
+    logger.info(
+      tag: "ReactNative→Watch",
+      message: "React Native requested delete notification",
+      metadata: ["notificationId": notificationId, "action": "delete"],
+      source: "WatchBridge"
+    )
     
     iPhoneWatchConnectivityManager.shared.notifyWatchNotificationDeleted(notificationId: notificationId)
     resolve(["success": true])
@@ -94,7 +136,12 @@ class WatchConnectivityBridge: RCTEventEmitter {
   
   @objc
   func notifyWatchNotificationAdded(_ notificationId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    print("📱 [WatchBridge] React Native requested to notify Watch: notification \(notificationId) added")
+    logger.info(
+      tag: "ReactNative→Watch",
+      message: "React Native requested add notification",
+      metadata: ["notificationId": notificationId, "action": "add"],
+      source: "WatchBridge"
+    )
     
     iPhoneWatchConnectivityManager.shared.notifyWatchNotificationAdded(notificationId: notificationId)
     resolve(["success": true])

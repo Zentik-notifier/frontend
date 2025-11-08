@@ -190,17 +190,31 @@ class IosBridgeService {
   ): Promise<boolean> {
     if (!isIOS) return false;
 
+    const logMetadata = {
+      type,
+      syncCloudKit: String(syncCloudKit),
+      hasPayload: String(!!payload),
+      payloadKeys: payload ? Object.keys(payload).join(',') : 'none'
+    };
+
+    console.log('[IosBridge] 🚀 Starting sync flow:', JSON.stringify(logMetadata));
+
     try {
       // 1. Sync to CloudKit FIRST (se richiesto)
       if (syncCloudKit) {
-        console.log('[IosBridge] 🔄 Syncing to CloudKit...');
+        console.log('[IosBridge] ⬇️ Step 1/3: CloudKit sync starting...');
+        const startTime = Date.now();
         await this.syncNotificationsToCloudKit();
-        console.log('[IosBridge] ✅ CloudKit sync completed');
+        const duration = Date.now() - startTime;
+        console.log(`[IosBridge] ✅ Step 1/3: CloudKit sync completed (${duration}ms)`);
+      } else {
+        console.log('[IosBridge] ⏭️ Step 1/3: CloudKit sync skipped');
       }
 
       // 2. Notify Watch
       if (WatchConnectivityBridge) {
-        console.log(`[IosBridge] 📱 Notifying Watch of '${type}' action...`);
+        console.log(`[IosBridge] ⬇️ Step 2/3: Watch notification starting (${type})...`);
+        const startTime = Date.now();
         switch (type) {
           case 'read':
             if (payload.notificationIds && Array.isArray(payload.notificationIds)) {
@@ -228,27 +242,31 @@ class IosBridgeService {
             await WatchConnectivityBridge.notifyWatchOfUpdate();
             break;
         }
-        console.log(`[IosBridge] ✅ Watch notified`);
+        const duration = Date.now() - startTime;
+        console.log(`[IosBridge] ✅ Step 2/3: Watch notified (${duration}ms)`);
       } else {
-        console.warn('[IosBridge] ⚠️ WatchConnectivityBridge not available');
+        console.warn('[IosBridge] ⚠️ Step 2/3: WatchConnectivityBridge not available');
       }
 
       // 3. Reload Widget
-      console.log('[IosBridge] 🔄 Reloading widgets...');
+      console.log('[IosBridge] ⬇️ Step 3/3: Widget reload starting...');
+      const widgetStartTime = Date.now();
       if (WidgetReloadBridge) {
         try {
           WidgetReloadBridge.reloadAllWidgets();
-          console.log('[IosBridge] ✅ Widget reload requested');
+          const duration = Date.now() - widgetStartTime;
+          console.log(`[IosBridge] ✅ Step 3/3: Widget reload completed (${duration}ms)`);
         } catch (error) {
           console.error('[IosBridge] ❌ Widget reload error:', error);
         }
       } else {
-        console.warn('[IosBridge] ⚠️ WidgetReloadBridge not available');
+        console.warn('[IosBridge] ⚠️ Step 3/3: WidgetReloadBridge not available');
       }
 
+      console.log('[IosBridge] 🎉 Sync flow completed successfully');
       return true;
     } catch (e) {
-      console.error('[IosBridge] syncAll error', e);
+      console.error('[IosBridge] ❌ Sync flow failed:', e);
       return false;
     }
   }

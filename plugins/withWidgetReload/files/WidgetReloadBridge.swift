@@ -4,6 +4,8 @@ import WidgetKit
 @objc(WidgetReloadBridge)
 class WidgetReloadBridge: NSObject {
     
+    private let logger = LoggingSystem.shared
+    
     @objc
     static func requiresMainQueueSetup() -> Bool {
         return false
@@ -11,11 +13,31 @@ class WidgetReloadBridge: NSObject {
     
     @objc
     func reloadAllWidgets() {
-        print("📦 [WidgetReload] reloadAllWidgets() called from React Native")
+        logger.info(
+            tag: "ReactNative→Widget",
+            message: "Reloading all widgets requested from React Native",
+            metadata: ["widgets": "all,unread"],
+            source: "WidgetReloadBridge"
+        )
+        
         WidgetCenter.shared.reloadTimelines(ofKind: "zentik-notifications-all")
-        print("📦 [WidgetReload] Reloaded 'zentik-notifications-all' widget")
+        logger.debug(
+            tag: "WidgetReload",
+            message: "Reloaded zentik-notifications-all widget",
+            source: "WidgetReloadBridge"
+        )
+        
         WidgetCenter.shared.reloadTimelines(ofKind: "zentik-notifications-unread")
-        print("📦 [WidgetReload] Reloaded 'zentik-notifications-unread' widget")
-        print("📦 [WidgetReload] All widgets reload completed")
+        logger.debug(
+            tag: "WidgetReload",
+            message: "Reloaded zentik-notifications-unread widget",
+            source: "WidgetReloadBridge"
+        )
+        
+        logger.info(
+            tag: "WidgetReload",
+            message: "All widgets reload completed",
+            source: "WidgetReloadBridge"
+        )
     }
 }
