@@ -263,6 +263,17 @@ class IosBridgeService {
         console.warn('[IosBridge] ⚠️ Step 3/3: WidgetReloadBridge not available');
       }
 
+      // 4. Request Watch logs (for debugging)
+      if (type === 'reload' && WatchConnectivityBridge) {
+        console.log('[IosBridge] 🔍 Requesting Watch logs for debugging...');
+        try {
+          await WatchConnectivityBridge.requestWatchLogs();
+          console.log('[IosBridge] ✅ Watch logs requested successfully');
+        } catch (error) {
+          console.error('[IosBridge] ⚠️ Failed to request Watch logs:', error);
+        }
+      }
+
       console.log('[IosBridge] 🎉 Sync flow completed successfully');
       return true;
     } catch (e) {
