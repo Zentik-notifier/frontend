@@ -125,21 +125,6 @@ export default function TabsLayout() {
           },
         }}
       />
-      {/* {__DEV__ && (
-        <Tabs.Screen
-          name="cloudkit-debug"
-          options={{
-            title: "CloudKit",
-            tabBarIcon: ({ color, focused }) => (
-              <Icon
-                source={focused ? "cloud" : "cloud-outline"}
-                size={24}
-                color={color}
-              />
-            ),
-          }}
-        />
-      )} */}
     </Tabs>
   );
 
