@@ -30,13 +30,6 @@ public class CloudKitSyncManager {
     // Default value if setting not found
     private let defaultWatchNMaxNotifications = 150
     
-    // Date formatter for ISO8601 strings
-    private let dateFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-    
     // MARK: - Initialization
     
     private init() {
@@ -58,38 +51,6 @@ public class CloudKitSyncManager {
         )
         
         print("☁️ [CloudKitSync][iOS] Using container: \(containerIdentifier) (bundle: \(KeychainAccess.getMainBundleIdentifier()))")
-    }
-    
-    // MARK: - Date Conversion Helpers
-    
-    /**
-     * Convert ISO8601 string to Date
-     */
-    private func stringToDate(_ dateString: String) -> Date {
-        return dateFormatter.date(from: dateString) ?? Date()
-    }
-    
-    /**
-     * Convert optional ISO8601 string to optional Date
-     */
-    private func stringToDate(_ dateString: String?) -> Date? {
-        guard let dateString = dateString else { return nil }
-        return dateFormatter.date(from: dateString)
-    }
-    
-    /**
-     * Convert Date to ISO8601 string
-     */
-    private func dateToString(_ date: Date) -> String {
-        return dateFormatter.string(from: date)
-    }
-    
-    /**
-     * Convert optional Date to optional ISO8601 string
-     */
-    private func dateToString(_ date: Date?) -> String? {
-        guard let date = date else { return nil }
-        return dateFormatter.string(from: date)
     }
     
     // MARK: - Settings Helper
@@ -377,8 +338,8 @@ public class CloudKitSyncManager {
                     description: bucket.description,
                     color: bucket.color,
                     iconUrl: bucket.iconUrl,
-                    createdAt: self.stringToDate(bucket.createdAt),
-                    updatedAt: self.stringToDate(bucket.updatedAt),
+                    createdAt: DateConverter.stringToDate(bucket.createdAt),
+                    updatedAt: DateConverter.stringToDate(bucket.updatedAt),
                 )
             }
             
@@ -468,10 +429,10 @@ public class CloudKitSyncManager {
                     title: notification.title,
                     subtitle: notification.subtitle,
                     body: notification.body,
-                    readAt: self.stringToDate(notification.readAt),
-                    sentAt: self.stringToDate(notification.sentAt),
-                    createdAt: self.stringToDate(notification.createdAt),
-                    updatedAt: self.stringToDate(notification.updatedAt),
+                    readAt: DateConverter.stringToDate(notification.readAt),
+                    sentAt: DateConverter.stringToDate(notification.sentAt),
+                    createdAt: DateConverter.stringToDate(notification.createdAt),
+                    updatedAt: DateConverter.stringToDate(notification.updatedAt),
                     bucketId: notification.bucketId,
                     attachments: notification.attachments.map { attachment in
                         CloudKitAttachment(
@@ -623,8 +584,8 @@ public class CloudKitSyncManager {
                         description: ckBucket.description,
                         color: ckBucket.color,
                         iconUrl: ckBucket.iconUrl,
-                        createdAt: self.dateToString(ckBucket.createdAt),
-                        updatedAt: self.dateToString(ckBucket.updatedAt),
+                        createdAt: DateConverter.dateToString(ckBucket.createdAt),
+                        updatedAt: DateConverter.dateToString(ckBucket.updatedAt),
                     )
                 }
                 print("☁️ [CloudKitSync][iOS] ✅ Fetched \(buckets.count) buckets from CloudKit")
@@ -650,10 +611,10 @@ public class CloudKitSyncManager {
                         title: ckNotification.title,
                         subtitle: ckNotification.subtitle,
                         body: ckNotification.body,
-                        readAt: self.dateToString(ckNotification.readAt),
-                        sentAt: self.dateToString(ckNotification.sentAt),
-                        createdAt: self.dateToString(ckNotification.createdAt),
-                        updatedAt: self.dateToString(ckNotification.updatedAt),
+                        readAt: DateConverter.dateToString(ckNotification.readAt),
+                        sentAt: DateConverter.dateToString(ckNotification.sentAt),
+                        createdAt: DateConverter.dateToString(ckNotification.createdAt),
+                        updatedAt: DateConverter.dateToString(ckNotification.updatedAt),
                         bucketId: ckNotification.bucketId,
                         attachments: ckNotification.attachments.map { ckAttachment in
                             SyncAttachment(

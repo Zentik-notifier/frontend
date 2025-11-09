@@ -64,6 +64,43 @@ public struct CloudKitField {
     public static let notificationTapAction = "tapAction"
 }
 
+// MARK: - Date Conversion Helpers
+
+/**
+ * Helper functions for converting between Date and ISO8601 String
+ * Used to convert CloudKit Date fields to/from String format
+ */
+public struct DateConverter {
+    
+    private static let formatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+    
+    /// Convert ISO8601 String to Date (non-optional)
+    public static func stringToDate(_ dateString: String) -> Date {
+        return formatter.date(from: dateString) ?? Date()
+    }
+    
+    /// Convert ISO8601 String to Date (optional)
+    public static func stringToDate(_ dateString: String?) -> Date? {
+        guard let dateString = dateString else { return nil }
+        return formatter.date(from: dateString)
+    }
+    
+    /// Convert Date to ISO8601 String (non-optional)
+    public static func dateToString(_ date: Date) -> String {
+        return formatter.string(from: date)
+    }
+    
+    /// Convert Date to ISO8601 String (optional)
+    public static func dateToString(_ date: Date?) -> String? {
+        guard let date = date else { return nil }
+        return formatter.string(from: date)
+    }
+}
+
 // MARK: - Bucket Model
 
 /**

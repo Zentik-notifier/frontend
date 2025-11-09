@@ -228,7 +228,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                         "body": notif.body ?? "",
                         "bucketId": notif.bucketId,
                         "isRead": notif.readAt != nil,
-                        "createdAt": notif.createdAt  // Already an ISO8601 string
+                        "createdAt": DateConverter.dateToString(notif.createdAt)
                     ]
                     
                     if let subtitle = notif.subtitle, !subtitle.isEmpty {

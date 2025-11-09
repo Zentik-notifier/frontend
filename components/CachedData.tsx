@@ -302,9 +302,9 @@ export default function CachedData() {
   // Fetch CloudKit data on mount (iOS only)
   useEffect(() => {
     if (Platform.OS === 'ios') {
-      fetchCloudKitData();
+      fetchAllCloudKitRecords();
     }
-  }, [fetchCloudKitData]);
+  }, [fetchAllCloudKitRecords]);
 
   return (
     <PaperScrollView onRefresh={refreshData} loading={isLoading}>
@@ -409,130 +409,95 @@ export default function CachedData() {
       {/* CloudKit Records Card - iOS Only */}
       {Platform.OS === 'ios' && (
         <>
-          {/* CloudKit Summary */}
+          {/* CloudKit Buckets Detail */}
           <DetailSectionCard
-            title={t("cachedData.cloudKit")}
-            description={t("cachedData.cloudKitDescription")}
+            title="CloudKit Buckets"
+            description={cloudKitBuckets.length > 0 ? `${cloudKitBuckets.length} buckets in iCloud` : "CloudKit buckets stored in your private database"}
             actionButtons={[
               {
                 icon: "refresh",
-                onPress: fetchCloudKitData,
-                disabled: loadingCloudKit,
-              },
-              {
-                icon: "cloud-download",
                 onPress: fetchAllCloudKitRecords,
                 disabled: loadingCloudKitRecords,
               },
             ]}
-            loading={loadingCloudKit}
+            loading={loadingCloudKitRecords}
             emptyState={{
-              icon: "cloud-outline",
-              text: "No CloudKit data available",
+              icon: "folder-cloud-outline",
+              text: "No buckets in CloudKit",
             }}
-            items={cloudKitData ? [cloudKitData] : []}
-            renderItem={(data) => (
-              <>
-                <List.Item
-                  title={t("cachedData.bucketsInCloud")}
-                  description={`${data.bucketsCount} buckets`}
-                  left={(props) => (
-                    <List.Icon {...props} icon="folder-multiple" color={theme.colors.primary} />
-                  )}
-                />
-                <List.Item
-                  title={t("cachedData.notificationsInCloud")}
-                  description={`${data.notificationsCount} notifications`}
-                  left={(props) => (
-                    <List.Icon {...props} icon="bell-ring" color={theme.colors.primary} />
-                  )}
-                />
-              </>
+            items={cloudKitBuckets}
+            renderItem={(bucket) => (
+              <List.Item
+                title={bucket.name || bucket.recordName}
+                description={`ID: ${bucket.id || bucket.recordName.substring(0, 30)}...`}
+                left={(props) => (
+                  <List.Icon {...props} icon="folder-cloud" color={theme.colors.primary} />
+                )}
+                right={(props) => (
+                  <View style={{ flexDirection: 'row' }}>
+                    <IconButton
+                      icon="eye"
+                      iconColor={theme.colors.primary}
+                      size={20}
+                      onPress={() => handleViewRecord(bucket)}
+                    />
+                    <IconButton
+                      icon="delete"
+                      iconColor={theme.colors.error}
+                      size={20}
+                      onPress={() => handleDeleteRecord(bucket.recordName)}
+                    />
+                  </View>
+                )}
+              />
             )}
-            maxHeight={200}
+            maxHeight={400}
           />
 
-          {/* CloudKit Buckets Detail */}
-          {cloudKitBuckets.length > 0 && (
-            <DetailSectionCard
-              title="CloudKit Buckets"
-              description={`${cloudKitBuckets.length} buckets in iCloud`}
-              actionButtons={[]}
-              loading={loadingCloudKitRecords}
-              emptyState={{
-                icon: "folder-outline",
-                text: "No buckets in CloudKit",
-              }}
-              items={cloudKitBuckets}
-              renderItem={(bucket) => (
-                <List.Item
-                  title={bucket.data_id || bucket.recordName}
-                  description={`Record: ${bucket.recordName.substring(0, 20)}...`}
-                  left={(props) => (
-                    <List.Icon {...props} icon="folder-cloud" color={theme.colors.primary} />
-                  )}
-                  right={(props) => (
-                    <View style={{ flexDirection: 'row' }}>
-                      <IconButton
-                        icon="eye"
-                        iconColor={theme.colors.primary}
-                        size={20}
-                        onPress={() => handleViewRecord(bucket)}
-                      />
-                      <IconButton
-                        icon="delete"
-                        iconColor={theme.colors.error}
-                        size={20}
-                        onPress={() => handleDeleteRecord(bucket.recordName)}
-                      />
-                    </View>
-                  )}
-                />
-              )}
-              maxHeight={400}
-            />
-          )}
-
           {/* CloudKit Notifications Detail */}
-          {cloudKitNotifications.length > 0 && (
-            <DetailSectionCard
-              title="CloudKit Notifications"
-              description={`${cloudKitNotifications.length} notifications in iCloud`}
-              actionButtons={[]}
-              loading={loadingCloudKitRecords}
-              emptyState={{
-                icon: "bell-outline",
-                text: "No notifications in CloudKit",
-              }}
-              items={cloudKitNotifications}
-              renderItem={(notification) => (
-                <List.Item
-                  title={notification.data_id || notification.recordName}
-                  description={`Record: ${notification.recordName.substring(0, 20)}...`}
-                  left={(props) => (
-                    <List.Icon {...props} icon="bell-badge" color={theme.colors.secondary} />
-                  )}
-                  right={(props) => (
-                    <View style={{ flexDirection: 'row' }}>
-                      <IconButton
-                        icon="eye"
-                        iconColor={theme.colors.primary}
-                        size={20}
-                        onPress={() => handleViewRecord(notification)}
-                      />
-                      <IconButton
-                        icon="delete"
-                        iconColor={theme.colors.error}
-                        size={20}
-                        onPress={() => handleDeleteRecord(notification.recordName)}
-                      />
-                    </View>
-                  )}
-                />
-              )}
-              maxHeight={400}
-            />
-          )}
+          <DetailSectionCard
+            title="CloudKit Notifications"
+            description={cloudKitNotifications.length > 0 ? `${cloudKitNotifications.length} notifications in iCloud` : "CloudKit notifications stored in your private database"}
+            actionButtons={[
+              {
+                icon: "refresh",
+                onPress: fetchAllCloudKitRecords,
+                disabled: loadingCloudKitRecords,
+              },
+            ]}
+            loading={loadingCloudKitRecords}
+            emptyState={{
+              icon: "bell-badge-outline",
+              text: "No notifications in CloudKit",
+            }}
+            items={cloudKitNotifications}
+            renderItem={(notification) => (
+              <List.Item
+                title={notification.title || notification.recordName}
+                description={`Bucket: ${notification.bucketId ? notification.bucketId.substring(0, 30) : 'Unknown'}...`}
+                left={(props) => (
+                  <List.Icon {...props} icon="bell-badge" color={theme.colors.secondary} />
+                )}
+                right={(props) => (
+                  <View style={{ flexDirection: 'row' }}>
+                    <IconButton
+                      icon="eye"
+                      iconColor={theme.colors.primary}
+                      size={20}
+                      onPress={() => handleViewRecord(notification)}
+                    />
+                    <IconButton
+                      icon="delete"
+                      iconColor={theme.colors.error}
+                      size={20}
+                      onPress={() => handleDeleteRecord(notification.recordName)}
+                    />
+                  </View>
+                )}
+              />
+            )}
+            maxHeight={400}
+          />
         </>
       )}
 
