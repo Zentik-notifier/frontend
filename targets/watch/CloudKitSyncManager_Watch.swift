@@ -598,14 +598,6 @@ public class CloudKitSyncManager {
     /**
      * DEPRECATO: Watch non scrive mai su CloudKit, solo iOS
      */
-    public func syncNotificationsToCloudKit(completion: @escaping (Bool, Int) -> Void) {
-        print("☁️ [CloudKitSync][Watch] ⚠️ Watch cannot sync to CloudKit (read-only)")
-        completion(false, 0)
-    }
-    
-    /**
-     * DEPRECATO: Watch non scrive mai su CloudKit, solo iOS
-     */
     public func syncAllToCloudKit(completion: @escaping (Bool, Int, Int) -> Void) {
         print("☁️ [CloudKitSync][Watch] ⚠️ Watch cannot sync to CloudKit (read-only)")
         completion(false, 0, 0)

@@ -309,8 +309,7 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
                 
                 // Parse and save logs to iOS LoggingSystem
                 for logDict in logs {
-                    guard let levelStr = logDict["level"] as? String,
-                          let level = LoggingSystem.LogLevel(rawValue: levelStr),
+                    guard let level = logDict["level"] as? String,
                           let tag = logDict["tag"] as? String,
                           let message = logDict["message"] as? String else {
                         continue
