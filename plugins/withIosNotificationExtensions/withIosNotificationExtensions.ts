@@ -33,8 +33,8 @@ function copySharedFilesToTarget(
   targetDir: string,
   targetName: string
 ) {
-  const sharedFilesSource = path.join(pluginDir, 'files', 'ZentikShared');
-  
+  const sharedFilesSource = path.join(pluginDir, '..', 'ZentikShared');
+
   if (!fs.existsSync(sharedFilesSource)) {
     console.log(`[${targetName}] ⚠️  Shared files directory not found: ${sharedFilesSource}`);
     return;
@@ -48,11 +48,11 @@ function copySharedFilesToTarget(
     'NotificationActionHandler.swift',
     'MediaAccess.swift',
   ];
-  
+
   for (const file of sharedFiles) {
     const sourcePath = path.join(sharedFilesSource, file);
     const destPath = path.join(targetDir, file);
-    
+
     if (fs.existsSync(sourcePath)) {
       fs.copyFileSync(sourcePath, destPath);
       console.log(`[${targetName}] ✓ Copied shared file: ${file}`);
@@ -84,7 +84,7 @@ async function addAppExtensionTarget(
 
   // Copy target-specific files
   copyDirSync(sourceDir, destDir, mainBundleId);
-  
+
   // Copy shared files into the target directory
   copySharedFilesToTarget(pluginDir, destDir, targetName);
 
@@ -169,7 +169,7 @@ async function addAppExtensionTarget(
   }
 
   console.log(`Target ${targetName} creato con bundle identifier ${bundleId}`);
-  
+
   return target.uuid;  // Return the target UUID
 }
 
@@ -182,7 +182,7 @@ async function addCommunicationNotificationsCapability(
     // Find the main app target
     const targets = pbxProject.hash.project.objects.PBXNativeTarget;
     let mainTarget = null;
-    
+
     for (const targetId in targets) {
       const target = targets[targetId];
       if (target.name === targetName) {
@@ -190,18 +190,18 @@ async function addCommunicationNotificationsCapability(
         break;
       }
     }
-    
+
     if (!mainTarget) {
       console.log(`Target ${targetName} not found, skipping Communication Notifications capability`);
       return;
     }
-    
+
     // Add Communication Notifications capability
     const entitlementsPath = path.join(projectRoot, 'ios', targetName, `${targetName}.entitlements`);
-    
+
     let entitlements = '';
     let fileExists = fs.existsSync(entitlementsPath);
-    
+
     if (fileExists) {
       // Read existing entitlements
       entitlements = fs.readFileSync(entitlementsPath, 'utf8');
@@ -215,14 +215,14 @@ async function addCommunicationNotificationsCapability(
 </plist>`;
       console.log(`Created entitlements file for ${targetName}`);
     }
-    
+
     // Add Communication Notifications capability if not already present
     if (!entitlements.includes('com.apple.developer.usernotifications.communication')) {
       // Find the closing </dict> tag and add the capability before it
       const capabilityEntry = `    <key>com.apple.developer.usernotifications.communication</key>
     <true/>
 `;
-      
+
       if (entitlements.includes('</dict>')) {
         entitlements = entitlements.replace('</dict>', `${capabilityEntry}</dict>`);
         fs.writeFileSync(entitlementsPath, entitlements, 'utf8');
@@ -277,13 +277,13 @@ const withZentikNotificationExtensions: ConfigPlugin = (config) => {
     const iosDir = path.join(projectRoot, 'ios');
     const entries = fs.readdirSync(iosDir);
     let appTargetName = 'Runner'; // Default fallback
-    
+
     for (const entry of entries) {
       if (fs.statSync(path.join(iosDir, entry)).isDirectory() &&
-          !entry.includes('Extension') &&
-          !entry.includes('Service') &&
-          !entry.endsWith('.xcodeproj') &&
-          !entry.startsWith('.')) {
+        !entry.includes('Extension') &&
+        !entry.includes('Service') &&
+        !entry.endsWith('.xcodeproj') &&
+        !entry.startsWith('.')) {
         appTargetName = entry;
         break;
       }

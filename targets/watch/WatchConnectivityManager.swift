@@ -14,6 +14,10 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     private let dataStore = WatchDataStore.shared
     private let cloudKitManager = CloudKitSyncManager.shared
     
+    // Timer per invio automatico log
+    private var logSyncTimer: Timer?
+    private let logSyncInterval: TimeInterval = 10.0 // Ogni 10 secondi
+    
     private override init() {
         super.init()
         
@@ -28,6 +32,38 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             session.delegate = self
             session.activate()
         }
+        
+        // Setup automatic log sync
+        setupAutomaticLogSync()
+    }
+    
+    // MARK: - Automatic Log Sync
+    
+    /**
+     * Setup timer to automatically send logs to iPhone periodically
+     */
+    private func setupAutomaticLogSync() {
+        // Send logs every minute if there are any
+        logSyncTimer = Timer.scheduledTimer(withTimeInterval: logSyncInterval, repeats: true) { [weak self] _ in
+            self?.sendLogsToiPhoneIfNeeded()
+        }
+        
+        print("⌚ [WatchConnectivity] 🔄 Automatic log sync enabled (every \(Int(logSyncInterval))s)")
+    }
+    
+    /**
+     * Send logs to iPhone only if there are logs to send
+     */
+    private func sendLogsToiPhoneIfNeeded() {
+        let logs = LoggingSystem.shared.readLogs()
+        
+        // Only send if there are logs
+        guard logs.count > 0 else {
+            return
+        }
+        
+        print("⌚ [WatchConnectivity] 📊 Auto-sync: Found \(logs.count) logs to send")
+        sendLogsToiPhone()
     }
     
     // MARK: - Load Cached Data
@@ -137,7 +173,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
      * This method completely overwrites local cache and in-memory data
      */
     func fetchFromCloudKit() {
-        cloudKitManager.fetchAllFromCloudKit { [weak self] (ckBuckets, ckNotifications) in
+        cloudKitManager.fetchAll { [weak self] (ckBuckets: [CloudKitBucket], ckNotifications: [CloudKitNotification]) in
             guard let self = self else { return }
             
             DispatchQueue.main.async { [weak self] in
@@ -178,7 +214,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 }
                 
                 // Create a lookup map for buckets by ID (handle duplicates by keeping first occurrence)
-                var bucketMap: [String: Bucket] = [:]
+                var bucketMap: [String: CloudKitBucket] = [:]
                 for bucket in ckBuckets {
                     if bucketMap[bucket.id] == nil {
                         bucketMap[bucket.id] = bucket
@@ -364,26 +400,43 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     
     /**
      * Send logs from Watch to iPhone for debugging
+     * Uses background transfer to guarantee delivery even if iPhone is not reachable
      */
     public func sendLogsToiPhone() {
         // Get recent logs from LoggingSystem
         let logs = LoggingSystem.shared.readLogs()
         
+        guard logs.count > 0 else {
+            print("⌚ [Watch] ℹ️ No logs to send")
+            return
+        }
+        
         // Convert to JSON array
         do {
             let jsonData = try JSONEncoder().encode(logs)
             if let jsonString = String(data: jsonData, encoding: .utf8) {
-                sendMessageToiPhone([
+                let message: [String: Any] = [
                     "action": "watchLogs",
                     "logs": jsonString,
                     "count": logs.count,
-                    "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
-                ])
-                print("⌚ [Watch] 📤 Sent \(logs.count) logs to iPhone")
+                    "timestamp": Int64(Date().timeIntervalSince1970 * 1000),
+                ]
                 
-                // Clear logs after successful send
+                guard WCSession.default.activationState == .activated else {
+                    print("⌚ [Watch] ⚠️ WCSession not activated, cannot send logs")
+                    return
+                }
+                
+                // Usa sempre transferUserInfo per garantire la consegna
+                // anche quando l'iPhone non è raggiungibile
+                WCSession.default.transferUserInfo(message)
+                
+                print("⌚ [Watch] 📤 Queued \(logs.count) logs for background transfer to iPhone")
+                
+                // Cancella i log dopo averli accodati per l'invio
+                // (verranno consegnati in modo affidabile dal sistema)
                 LoggingSystem.shared.clearAllLogs()
-                print("⌚ [Watch] 🧹 Cleared \(logs.count) logs after sending to iPhone")
+                print("⌚ [Watch] 🧹 Cleared \(logs.count) logs after queueing for transfer")
             }
         } catch {
             print("⌚ [Watch] ❌ Failed to encode logs: \(error.localizedDescription)")
@@ -673,12 +726,6 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 print("⌚ [WatchConnectivity] 🔄 Received reload trigger from iPhone")
                 self.fetchFromCloudKit()
                 replyHandler(["success": true])
-            
-            case "requestLogs":
-                // iPhone requesting Watch logs
-                print("⌚ [WatchConnectivity] 📤 iPhone requested logs, sending...")
-                self.sendLogsToiPhone()
-                replyHandler(["success": true])
                 
             case "fullUpdate":
                 // Full data update from iPhone - completely overwrite cache
@@ -756,11 +803,6 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 print("⌚ [WatchConnectivity] 🔄 Received reload trigger from iPhone (background)")
                 self.fetchFromCloudKit()
             
-            case "requestLogs":
-                // iPhone requesting Watch logs (background transfer)
-                print("⌚ [WatchConnectivity] 📤 iPhone requested logs (background), sending...")
-                self.sendLogsToiPhone()
-                
             case "fullUpdate":
                 // Full data update from iPhone - completely overwrite cache
                 if let notificationsData = userInfo["notifications"] as? [[String: Any]],

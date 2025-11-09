@@ -5,9 +5,23 @@ const path = require('path');
 
 const iosDir = path.join(__dirname, '..', 'ios');
 const watchTargetDir = path.join(__dirname, '..', 'targets', 'watch');
-const sharedFilesDir = path.join(__dirname, '..', 'plugins', 'withIosNotificationExtensions', 'files', 'ZentikShared');
+const sharedFilesDir = path.join(__dirname, '..', 'plugins', 'ZentikShared');
 const isDev = process.env.APP_VARIANT === 'development';
 const bundleIdentifier = isDev ? 'com.apocaliss92.zentik.dev' : 'com.apocaliss92.zentik';
+
+/**
+ * Get all Swift files from the ZentikShared directory
+ */
+function getSharedSwiftFiles(sharedDir) {
+  if (!fs.existsSync(sharedDir)) {
+    return [];
+  }
+
+  const entries = fs.readdirSync(sharedDir, { withFileTypes: true });
+  return entries
+    .filter(entry => entry.isFile() && entry.name.endsWith('.swift'))
+    .map(entry => entry.name);
+}
 
 console.log('🔧 Fixing ShareExtension entitlements and copying shared files...');
 
@@ -66,30 +80,58 @@ for (const { path: shareExtDir, name: entitlementsFileName, isDev: isDevDir } of
 
 console.log(`\n✅ Successfully updated ${updated} entitlements file(s)!`);
 
-// Copy shared files to watch target
-if (fs.existsSync(watchTargetDir) && fs.existsSync(sharedFilesDir)) {
-  console.log('\n⌚ Copying shared files to watch target...');
+// Copy shared files to all iOS targets
+if (fs.existsSync(sharedFilesDir)) {
+  console.log('\n📦 Copying shared files to all iOS targets...');
   
-  const sharedFiles = [
-    'DatabaseAccess.swift',
-    'KeychainAccess.swift',
-    'LoggingSystem.swift',
-    'SharedTypes.swift',
-    'MediaAccess.swift'
-  ];
+  // Get all Swift files from ZentikShared directory
+  const sharedFiles = getSharedSwiftFiles(sharedFilesDir);
   
-  let copiedFiles = 0;
-  
-  for (const fileName of sharedFiles) {
-    const sourcePath = path.join(sharedFilesDir, fileName);
-    const targetPath = path.join(watchTargetDir, fileName);
-    
-    if (fs.existsSync(sourcePath)) {
-      fs.copyFileSync(sourcePath, targetPath);
-      console.log(`  ✅ Copied ${fileName}`);
-      copiedFiles++;
-    }
+  if (sharedFiles.length === 0) {
+    console.log('  ⚠️  No Swift files found in ZentikShared directory');
+  } else {
+    console.log(`  📁 Found ${sharedFiles.length} shared Swift files`);
   }
   
-  console.log(`\n✅ Successfully copied ${copiedFiles} shared files to watch target!`);
+  const iosTargets = [
+    { path: path.join(iosDir, 'ZentikDev'), name: 'iOS App (ZentikDev)' },
+    { path: path.join(iosDir, 'ZentikNotificationService'), name: 'Notification Service Extension' },
+    { path: path.join(iosDir, 'ZentikNotificationContentExtension'), name: 'Notification Content Extension' },
+    { path: watchTargetDir, name: 'Watch Target' },
+    { path: path.join(__dirname, '..', 'targets', 'widget'), name: 'Widget Target' }
+  ];
+  
+  let totalCopied = 0;
+  
+  for (const target of iosTargets) {
+    if (!fs.existsSync(target.path)) {
+      console.log(`  ⚠️  Skipping ${target.name} (directory not found)`);
+      continue;
+    }
+    
+    console.log(`\n  📁 ${target.name}:`);
+    let copiedFiles = 0;
+    
+    for (const fileName of sharedFiles) {
+      const sourcePath = path.join(sharedFilesDir, fileName);
+      const targetPath = path.join(target.path, fileName);
+      
+      if (fs.existsSync(sourcePath)) {
+        fs.copyFileSync(sourcePath, targetPath);
+        
+        // Replace bundle ID placeholder
+        let content = fs.readFileSync(targetPath, 'utf-8');
+        content = content.replace(/BUNDLE_ID_PLACEHOLDER/g, bundleIdentifier);
+        fs.writeFileSync(targetPath, content, 'utf-8');
+        
+        console.log(`    ✅ ${fileName}`);
+        copiedFiles++;
+        totalCopied++;
+      }
+    }
+    
+    console.log(`    Total: ${copiedFiles}/${sharedFiles.length} files`);
+  }
+  
+  console.log(`\n✅ Successfully copied ${totalCopied} files across all targets!`);
 }

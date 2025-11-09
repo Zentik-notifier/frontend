@@ -2,38 +2,22 @@ import Foundation
 import CloudKit
 
 /**
- * CloudKitModels - Data structures for CloudKit synchronization (Watch)
+ * CloudKitModels - Data structures for CloudKit synchronization
  * 
- * Nuovo approccio basato su file JSON:
- * - Un file JSON per i buckets (buckets.json)
- * - Un file JSON per le notifications (notifications.json)
- * - iOS sincronizza il DB locale SQL -> JSON -> CloudKit (CKAsset)
- * - Watch scarica i JSON da CloudKit -> sostituisce il DB locale
- * - Messaggi real-time tra dispositivi per aggiornamenti immediati
+ * Approccio basato su record individuali:
+ * - Ogni bucket è un CKRecord separato
+ * - Ogni notifica è un CKRecord separato
+ * - Utilizza la zona di default
+ * - iOS sincronizza il DB locale SQL -> CloudKit (record individuali)
+ * - Watch scarica i record individuali da CloudKit -> salva nel DB locale
  */
-
-// MARK: - CloudKit Record Type Names
-
-public struct CloudKitRecordType {
-    public static let bucketsData = "BucketsData"
-    public static let notificationsData = "NotificationsData"
-}
-
-// MARK: - CloudKit Field Names
-
-public struct CloudKitField {
-    // SyncData fields (JSON file as CKAsset)
-    public static let dataFile = "dataFile"
-    public static let syncTimestamp = "syncTimestamp"
-    public static let recordCount = "recordCount" // numero di record nel JSON
-}
 
 // MARK: - Bucket Model (JSON-serializable)
 
 /**
- * Bucket - Modello per sincronizzazione JSON
+ * Bucket - Modello per sincronizzazione
  * 
- * Rappresenta un bucket nel file JSON condiviso via CloudKit
+ * Rappresenta un bucket sincronizzato via CloudKit come record individuale
  */
 public struct Bucket: Codable {
     public let id: String
@@ -43,10 +27,9 @@ public struct Bucket: Codable {
     public let iconUrl: String?
     public let createdAt: String // ISO8601 string
     public let updatedAt: String // ISO8601 string
-    public let isOrphan: Bool?
     
     enum CodingKeys: String, CodingKey {
-        case id, name, description, color, iconUrl, createdAt, updatedAt, isOrphan
+        case id, name, description, color, iconUrl, createdAt, updatedAt
     }
     
     public init(
@@ -57,7 +40,6 @@ public struct Bucket: Codable {
         iconUrl: String? = nil,
         createdAt: String,
         updatedAt: String,
-        isOrphan: Bool? = nil
     ) {
         self.id = id
         self.name = name
@@ -66,7 +48,6 @@ public struct Bucket: Codable {
         self.iconUrl = iconUrl
         self.createdAt = createdAt
         self.updatedAt = updatedAt
-        self.isOrphan = isOrphan
     }
 }
 
@@ -155,74 +136,6 @@ public struct SyncNotification: Codable {
         self.attachments = attachments
         self.actions = actions
         self.tapAction = tapAction
-    }
-}
-
-// MARK: - CloudKit Sync Data Container
-
-/**
- * BucketsDataContainer - Container per i dati dei buckets
- * 
- * Questo è il JSON che viene salvato come CKAsset su CloudKit
- */
-public struct BucketsDataContainer: Codable {
-    public let buckets: [Bucket]
-    public let syncTimestamp: String // ISO8601 string
-    
-    public init(buckets: [Bucket], syncTimestamp: String = ISO8601DateFormatter().string(from: Date())) {
-        self.buckets = buckets
-        self.syncTimestamp = syncTimestamp
-    }
-}
-
-/**
- * NotificationsDataContainer - Container per i dati delle notifiche
- * 
- * Questo è il JSON che viene salvato come CKAsset su CloudKit
- */
-public struct NotificationsDataContainer: Codable {
-    public let notifications: [SyncNotification]
-    public let syncTimestamp: String // ISO8601 string
-    
-    public init(notifications: [SyncNotification], syncTimestamp: String = ISO8601DateFormatter().string(from: Date())) {
-        self.notifications = notifications
-        self.syncTimestamp = syncTimestamp
-    }
-}
-
-// MARK: - CloudKit Helper Methods (Watch - Read Only)
-
-public extension BucketsDataContainer {
-    /**
-     * Crea BucketsDataContainer da un CKRecord (Watch legge solo)
-     */
-    static func from(record: CKRecord) throws -> BucketsDataContainer {
-        guard record.recordType == CloudKitRecordType.bucketsData,
-              let asset = record[CloudKitField.dataFile] as? CKAsset,
-              let fileURL = asset.fileURL else {
-            throw NSError(domain: "CloudKitModels", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid buckets record"])
-        }
-        
-        let jsonData = try Data(contentsOf: fileURL)
-        let decoder = JSONDecoder()
-        return try decoder.decode(BucketsDataContainer.self, from: jsonData)
-    }
-}
-
-public extension NotificationsDataContainer {
-    /**
-     * Crea NotificationsDataContainer da un CKRecord (Watch legge solo)
-     */
-    static func from(record: CKRecord) throws -> NotificationsDataContainer {
-        guard record.recordType == CloudKitRecordType.notificationsData,
-              let asset = record[CloudKitField.dataFile] as? CKAsset,
-              let fileURL = asset.fileURL else {
-            throw NSError(domain: "CloudKitModels", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid notifications record"])
-        }
-        
-        let jsonData = try Data(contentsOf: fileURL)
-        let decoder = JSONDecoder()
-        return try decoder.decode(NotificationsDataContainer.self, from: jsonData)
     }
 }
 

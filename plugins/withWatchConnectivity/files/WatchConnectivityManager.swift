@@ -87,15 +87,6 @@ class iPhoneWatchConnectivityManager: NSObject, ObservableObject {
         sendMessageToWatch(message, description: "reload trigger")
     }
     
-    /**
-     * Request logs from Watch for debugging
-     */
-    func requestWatchLogs() {
-        let message: [String: Any] = ["action": "requestLogs"]
-        sendMessageToWatch(message, description: "request Watch logs")
-        print("📱 📤 Sent log request to Watch")
-    }
-    
     // MARK: - Private Helpers
     
     /**
@@ -236,7 +227,10 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
             // Watch is sending logs for debugging
             if let logsString = message["logs"] as? String,
                let count = message["count"] as? Int {
-                print("📱 📥 Received \(count) logs from Watch")
+                let autoSent = message["autoSent"] as? Bool ?? false
+                let logType = autoSent ? "auto-sent" : "requested"
+                
+                print("📱 📥 Received \(count) \(logType) logs from Watch")
                 
                 // Parse and save logs to iOS LoggingSystem
                 if let logsData = logsString.data(using: .utf8),
@@ -302,30 +296,31 @@ extension iPhoneWatchConnectivityManager: WCSessionDelegate {
             }
             
         case "watchLogs":
-            // Watch is sending logs via background transfer
-            if let logs = userInfo["logs"] as? [[String: Any]],
+            // Watch is sending logs via background transfer (auto-sent)
+            if let logsString = userInfo["logs"] as? String,
                let count = userInfo["count"] as? Int {
-                print("📱 📥 Received \(count) logs from Watch (background)")
+                let autoSent = userInfo["autoSent"] as? Bool ?? false
+                let logType = autoSent ? "auto-sent" : "requested"
+                
+                print("📱 📥 Received \(count) \(logType) logs from Watch (background transfer)")
                 
                 // Parse and save logs to iOS LoggingSystem
-                for logDict in logs {
-                    guard let level = logDict["level"] as? String,
-                          let tag = logDict["tag"] as? String,
-                          let message = logDict["message"] as? String else {
-                        continue
+                if let logsData = logsString.data(using: .utf8),
+                   let watchLogs = try? JSONDecoder().decode([LoggingSystem.LogEntry].self, from: logsData) {
+                    // Write each log entry to iOS logging system with "Watch-Forward" source
+                    for log in watchLogs {
+                        LoggingSystem.shared.log(
+                            level: log.level,
+                            tag: log.tag,
+                            message: "[Watch] \(log.message)",
+                            metadata: log.metadata,
+                            source: "Watch-Forward"
+                        )
                     }
-                    
-                    let metadata = logDict["metadata"] as? [String: String]
-                    
-                    LoggingSystem.shared.log(
-                        level: level,
-                        tag: tag,
-                        message: "[Watch] \(message)",
-                        metadata: metadata,
-                        source: "Watch-Forward"
-                    )
+                    print("📱 ✅ Forwarded \(watchLogs.count) Watch logs to iOS logging system (background)")
+                } else {
+                    print("📱 ❌ Failed to decode Watch logs from background transfer")
                 }
-                print("📱 ✅ Forwarded \(logs.count) Watch logs to iOS logging system")
             }
             
         default:

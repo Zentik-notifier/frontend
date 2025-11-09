@@ -3,13 +3,13 @@ import CloudKit
 import SQLite3
 
 /**
- * CloudKitSyncManager (iOS) – Gestisce la sincronizzazione tramite file JSON su CloudKit
+ * CloudKitSyncManager (iOS) – Gestisce la sincronizzazione tramite record individuali su CloudKit
  * 
- * Nuovo approccio:
- * - iOS esporta il DB locale SQL -> file JSON -> carica su CloudKit come CKAsset
- * - Un record per i buckets (buckets.json)
- * - Un record per le notifications (notifications.json)
- * - Watch scarica i JSON e sostituisce il DB locale
+ * Approccio con record individuali:
+ * - iOS esporta il DB locale SQL -> record CloudKit individuali
+ * - Un record per ogni bucket
+ * - Un record per ogni notifica
+ * - Watch scarica i record individuali e aggiorna il DB locale
  * - Messaggi real-time via WatchConnectivity per aggiornamenti immediati
  */
 public class CloudKitSyncManager {
@@ -22,11 +22,7 @@ public class CloudKitSyncManager {
     
     private let container: CKContainer
     private let privateDatabase: CKDatabase
-    private let customZone: CKRecordZone
     private let logger = LoggingSystem.shared
-    
-    // Zone ID for custom zone
-    private let zoneID: CKRecordZone.ID
     
     // Settings key for retentionPolicies
     private let retentionPoliciesKey = "retentionPolicies"
@@ -50,121 +46,50 @@ public class CloudKitSyncManager {
         self.container = CKContainer(identifier: containerIdentifier)
         self.privateDatabase = container.privateCloudDatabase
         
-        // Create custom zone using centralized method
-        self.zoneID = KeychainAccess.getCloudKitZoneID()
-        self.customZone = CKRecordZone(zoneID: zoneID)
-        
         // Log detailed initialization info
         logger.info(
             tag: "Initialization",
             message: "CloudKit container initialized",
             metadata: [
                 "mainBundleId": KeychainAccess.getMainBundleIdentifier(),
-                "containerIdentifier": containerIdentifier,
-                "zoneName": zoneID.zoneName
+                "containerIdentifier": containerIdentifier
             ],
             source: "CloudKit"
         )
         
         print("☁️ [CloudKitSync][iOS] Using container: \(containerIdentifier) (bundle: \(KeychainAccess.getMainBundleIdentifier()))")
-        print("☁️ [CloudKitSync][iOS] Target zone: \(zoneID.zoneName)")
-        ensureCustomZoneExists()
     }
     
-    // MARK: - Zone Setup
+    // MARK: - Date Conversion Helpers
     
     /**
-     * Ensure custom zone exists in CloudKit
+     * Convert ISO8601 string to Date
      */
-    private func ensureCustomZoneExists(completion: @escaping (Bool) -> Void = { _ in }) {
-        logger.debug(
-            tag: "ZoneSetup",
-            message: "Checking if custom zone exists",
-            metadata: ["zoneName": zoneID.zoneName],
-            source: "CloudKit"
-        )
-        
-        privateDatabase.fetch(withRecordZoneID: zoneID) { (zone, error) in
-            if let error = error as? CKError {
-                self.logger.warn(
-                    tag: "ZoneSetup",
-                    message: "Error fetching zone",
-                    metadata: [
-                        "errorCode": String(error.code.rawValue),
-                        "errorDescription": error.localizedDescription
-                    ],
-                    source: "CloudKit"
-                )
-                
-                if error.code == .unknownItem || error.code == .zoneNotFound {
-                    self.logger.info(
-                        tag: "ZoneSetup",
-                        message: "Zone not found, creating new zone",
-                        source: "CloudKit"
-                    )
-                    self.privateDatabase.save(self.customZone) { (zone, error) in
-                        if let error = error {
-                            self.logger.error(
-                                tag: "ZoneSetup",
-                                message: "Failed to create custom zone",
-                                metadata: ["error": error.localizedDescription],
-                                source: "CloudKit"
-                            )
-                            completion(false)
-                        } else {
-                            self.logger.info(
-                                tag: "ZoneSetup",
-                                message: "Successfully created custom zone",
-                                metadata: ["zoneName": self.zoneID.zoneName],
-                                source: "CloudKit"
-                            )
-                            completion(true)
-                        }
-                    }
-                } else {
-                    self.logger.error(
-                        tag: "ZoneSetup",
-                        message: "Unexpected error checking zone",
-                        metadata: ["error": error.localizedDescription],
-                        source: "CloudKit"
-                    )
-                    completion(false)
-                }
-            } else if zone != nil {
-                self.logger.info(
-                    tag: "ZoneSetup",
-                    message: "Custom zone already exists",
-                    metadata: ["zoneName": self.zoneID.zoneName],
-                    source: "CloudKit"
-                )
-                completion(true)
-            } else {
-                self.logger.warn(
-                    tag: "ZoneSetup",
-                    message: "Zone fetch returned nil without error, retrying creation",
-                    source: "CloudKit"
-                )
-                self.privateDatabase.save(self.customZone) { (zone, error) in
-                    if let error = error {
-                        self.logger.error(
-                            tag: "ZoneSetup",
-                            message: "Failed to create custom zone on retry",
-                            metadata: ["error": error.localizedDescription],
-                            source: "CloudKit"
-                        )
-                        completion(false)
-                    } else {
-                        self.logger.info(
-                            tag: "ZoneSetup",
-                            message: "Successfully created custom zone on retry",
-                            metadata: ["zoneName": self.zoneID.zoneName],
-                            source: "CloudKit"
-                        )
-                        completion(true)
-                    }
-                }
-            }
-        }
+    private func stringToDate(_ dateString: String) -> Date {
+        return dateFormatter.date(from: dateString) ?? Date()
+    }
+    
+    /**
+     * Convert optional ISO8601 string to optional Date
+     */
+    private func stringToDate(_ dateString: String?) -> Date? {
+        guard let dateString = dateString else { return nil }
+        return dateFormatter.date(from: dateString)
+    }
+    
+    /**
+     * Convert Date to ISO8601 string
+     */
+    private func dateToString(_ date: Date) -> String {
+        return dateFormatter.string(from: date)
+    }
+    
+    /**
+     * Convert optional Date to optional ISO8601 string
+     */
+    private func dateToString(_ date: Date?) -> String? {
+        guard let date = date else { return nil }
+        return dateFormatter.string(from: date)
     }
     
     // MARK: - Settings Helper
@@ -253,14 +178,6 @@ public class CloudKitSyncManager {
                     continue
                 }
                 
-                // Skip orphan buckets
-                let isOrphan = fragmentJson["isOrphan"] as? Bool ?? false
-                if isOrphan {
-                    print("☁️ [CloudKitSync][iOS] ⏭️ Skipping orphan bucket: \(id) - \(name)")
-                    skippedOrphans += 1
-                    continue
-                }
-                
                 let description = fragmentJson["description"] as? String
                 let color = fragmentJson["color"] as? String
                 let iconUrl = fragmentJson["iconUrl"] as? String
@@ -274,7 +191,6 @@ public class CloudKitSyncManager {
                     iconUrl: iconUrl,
                     createdAt: createdAtString,
                     updatedAt: updatedAtString,
-                    isOrphan: false
                 )
                 
                 print("☁️ [CloudKitSync][iOS] ✅ Added bucket to export: \(id) - \(name) (color: \(color ?? "none"))")
@@ -428,13 +344,13 @@ public class CloudKitSyncManager {
     // MARK: - CloudKit Sync Methods
     
     /**
-     * Sincronizza i buckets su CloudKit come file JSON
+     * Sincronizza i buckets su CloudKit come record individuali
      */
     public func syncBucketsToCloudKit(completion: @escaping (Bool, Int) -> Void) {
         logger.info(
             tag: "CloudKitSync",
             message: "Starting buckets sync to CloudKit",
-            metadata: ["syncType": "buckets", "method": "JSON"],
+            metadata: ["syncType": "buckets", "method": "individual-records"],
             source: "CloudKitSyncManager"
         )
         
@@ -453,40 +369,32 @@ public class CloudKitSyncManager {
                 source: "CloudKitSyncManager"
             )
             
-            // 2. Crea container JSON
-            let container = BucketsDataContainer(buckets: buckets)
+            // 2. Converti Bucket -> CloudKitBucket
+            let cloudKitBuckets = buckets.map { bucket in
+                CloudKitBucket(
+                    id: bucket.id,
+                    name: bucket.name,
+                    description: bucket.description,
+                    color: bucket.color,
+                    iconUrl: bucket.iconUrl,
+                    createdAt: self.stringToDate(bucket.createdAt),
+                    updatedAt: self.stringToDate(bucket.updatedAt),
+                )
+            }
             
-            // 3. Crea CKRecord con JSON come CKAsset
-            let record = try container.toCKRecord(zoneID: zoneID)
-            
-            logger.debug(
-                tag: "CloudKitSync",
-                message: "Created CloudKit record",
-                metadata: [
-                    "recordName": record.recordID.recordName,
-                    "zoneName": record.recordID.zoneID.zoneName
-                ],
-                source: "CloudKitSyncManager"
-            )
-            
-            // 4. Usa CKModifyRecordsOperation per UPDATE o INSERT automatico
-            let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
-            operation.savePolicy = .allKeys  // Sostituisce completamente il record (rimuove bucket vecchi)
-            operation.qualityOfService = .userInitiated
-            
-            operation.modifyRecordsResultBlock = { result in
+            // 3. Salva tutti i bucket come record individuali
+            CloudKitAccess.saveBuckets(cloudKitBuckets) { result in
                 switch result {
-                case .success():
+                case .success(let savedBuckets):
                     self.logger.info(
                         tag: "CloudKitSync",
                         message: "Successfully synced buckets to CloudKit",
                         metadata: [
-                            "count": String(buckets.count),
-                            "recordName": record.recordID.recordName
+                            "count": String(savedBuckets.count)
                         ],
                         source: "CloudKitSyncManager"
                     )
-                    completion(true, buckets.count)
+                    completion(true, savedBuckets.count)
                 case .failure(let error):
                     self.logger.error(
                         tag: "CloudKitSync",
@@ -500,8 +408,6 @@ public class CloudKitSyncManager {
                     completion(false, 0)
                 }
             }
-            
-            privateDatabase.add(operation)
         } catch {
             logger.error(
                 tag: "CloudKitSync",
@@ -514,7 +420,7 @@ public class CloudKitSyncManager {
     }
     
     /**
-     * Sincronizza le notifiche su CloudKit come file JSON
+     * Sincronizza le notifiche su CloudKit come record individuali
      */
     public func syncNotificationsToCloudKit(completion: @escaping (Bool, Int) -> Void) {
         let limit = getWatchNMaxNotifications()
@@ -524,7 +430,7 @@ public class CloudKitSyncManager {
             message: "Starting notifications sync to CloudKit",
             metadata: [
                 "syncType": "notifications",
-                "method": "JSON",
+                "method": "individual-records",
                 "limit": String(limit)
             ],
             source: "CloudKitSyncManager"
@@ -555,41 +461,60 @@ public class CloudKitSyncManager {
                 source: "CloudKitSyncManager"
             )
             
-            // 2. Crea container JSON
-            let container = NotificationsDataContainer(notifications: notifications)
+            // 2. Converti SyncNotification -> CloudKitNotification
+            let cloudKitNotifications = notifications.map { notification in
+                CloudKitNotification(
+                    id: notification.id,
+                    title: notification.title,
+                    subtitle: notification.subtitle,
+                    body: notification.body,
+                    readAt: self.stringToDate(notification.readAt),
+                    sentAt: self.stringToDate(notification.sentAt),
+                    createdAt: self.stringToDate(notification.createdAt),
+                    updatedAt: self.stringToDate(notification.updatedAt),
+                    bucketId: notification.bucketId,
+                    attachments: notification.attachments.map { attachment in
+                        CloudKitAttachment(
+                            mediaType: attachment.mediaType,
+                            url: attachment.url,
+                            name: attachment.name
+                        )
+                    },
+                    actions: notification.actions.map { action in
+                        CloudKitAction(
+                            type: action.type,
+                            value: action.value,
+                            title: action.title,
+                            icon: action.icon,
+                            destructive: action.destructive
+                        )
+                    },
+                    tapAction: notification.tapAction.map { tapAction in
+                        CloudKitAction(
+                            type: tapAction.type,
+                            value: tapAction.value,
+                            title: tapAction.title,
+                            icon: tapAction.icon,
+                            destructive: tapAction.destructive
+                        )
+                    }
+                )
+            }
             
-            // 3. Crea CKRecord con JSON come CKAsset
-            let record = try container.toCKRecord(zoneID: zoneID)
-            
-            logger.debug(
-                tag: "CloudKitSync",
-                message: "Created CloudKit record",
-                metadata: [
-                    "recordName": record.recordID.recordName,
-                    "zoneName": record.recordID.zoneID.zoneName
-                ],
-                source: "CloudKitSyncManager"
-            )
-            
-            // 4. Usa CKModifyRecordsOperation per UPDATE o INSERT automatico
-            let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
-            operation.savePolicy = .allKeys  // Sostituisce completamente il record (rimuove notifiche vecchie)
-            operation.qualityOfService = .userInitiated
-            
-            operation.modifyRecordsResultBlock = { result in
+            // 3. Salva tutte le notifiche come record individuali
+            CloudKitAccess.saveNotifications(cloudKitNotifications) { result in
                 switch result {
-                case .success():
+                case .success(let savedNotifications):
                     self.logger.info(
                         tag: "CloudKitSync",
                         message: "Successfully synced notifications to CloudKit",
                         metadata: [
-                            "count": String(notifications.count),
-                            "unreadCount": String(unreadCount),
-                            "recordName": record.recordID.recordName
+                            "count": String(savedNotifications.count),
+                            "unreadCount": String(unreadCount)
                         ],
                         source: "CloudKitSyncManager"
                     )
-                    completion(true, notifications.count)
+                    completion(true, savedNotifications.count)
                 case .failure(let error):
                     self.logger.error(
                         tag: "CloudKitSync",
@@ -603,8 +528,6 @@ public class CloudKitSyncManager {
                     completion(false, 0)
                 }
             }
-            
-            privateDatabase.add(operation)
         } catch {
             logger.error(
                 tag: "CloudKitSync",
@@ -615,6 +538,8 @@ public class CloudKitSyncManager {
             completion(false, 0)
         }
     }
+    
+    // MARK: - Sync All
     
     /**
      * Sincronizza sia buckets che notifications su CloudKit
@@ -681,68 +606,92 @@ public class CloudKitSyncManager {
         }
     }
     
-    // MARK: - Download from CloudKit (per compatibilità)
+    // MARK: - Download from CloudKit
     
     /**
-     * Scarica i buckets da CloudKit (iOS normalmente non ne ha bisogno, solo Watch)
+     * Scarica i buckets da CloudKit come record individuali
      */
     public func fetchBucketsFromCloudKit(completion: @escaping ([Bucket]) -> Void) {
-        let recordID = CKRecord.ID(recordName: "buckets_data", zoneID: zoneID)
-        
-        privateDatabase.fetch(withRecordID: recordID) { (record, error) in
-            if let error = error {
+        CloudKitAccess.fetchAllBuckets { result in
+            switch result {
+            case .success(let cloudKitBuckets):
+                // Converti CloudKitBucket -> Bucket
+                let buckets = cloudKitBuckets.map { ckBucket in
+                    Bucket(
+                        id: ckBucket.id,
+                        name: ckBucket.name,
+                        description: ckBucket.description,
+                        color: ckBucket.color,
+                        iconUrl: ckBucket.iconUrl,
+                        createdAt: self.dateToString(ckBucket.createdAt),
+                        updatedAt: self.dateToString(ckBucket.updatedAt),
+                    )
+                }
+                print("☁️ [CloudKitSync][iOS] ✅ Fetched \(buckets.count) buckets from CloudKit")
+                completion(buckets)
+            case .failure(let error):
                 print("☁️ [CloudKitSync][iOS] ❌ Failed to fetch buckets: \(error.localizedDescription)")
-                completion([])
-                return
-            }
-            
-            guard let record = record else {
-                print("☁️ [CloudKitSync][iOS] ⚠️ No buckets record found")
-                completion([])
-                return
-            }
-            
-            do {
-                let container = try BucketsDataContainer.from(record: record)
-                print("☁️ [CloudKitSync][iOS] ✅ Fetched \(container.buckets.count) buckets from CloudKit")
-                completion(container.buckets)
-            } catch {
-                print("☁️ [CloudKitSync][iOS] ❌ Error parsing buckets: \(error.localizedDescription)")
                 completion([])
             }
         }
     }
     
     /**
-     * Scarica le notifiche da CloudKit (iOS normalmente non ne ha bisogno, solo Watch)
+     * Scarica le notifiche da CloudKit come record individuali
      */
     public func fetchNotificationsFromCloudKit(limit: Int? = nil, completion: @escaping ([SyncNotification]) -> Void) {
-        let recordID = CKRecord.ID(recordName: "notifications_data", zoneID: zoneID)
-        
-        privateDatabase.fetch(withRecordID: recordID) { (record, error) in
-            if let error = error {
-                print("☁️ [CloudKitSync][iOS] ❌ Failed to fetch notifications: \(error.localizedDescription)")
-                completion([])
-                return
-            }
-            
-            guard let record = record else {
-                print("☁️ [CloudKitSync][iOS] ⚠️ No notifications record found")
-                completion([])
-                return
-            }
-            
-            do {
-                let container = try NotificationsDataContainer.from(record: record)
-                let notifications = container.notifications
+        CloudKitAccess.fetchAllNotifications { result in
+            switch result {
+            case .success(let cloudKitNotifications):
+                // Converti CloudKitNotification -> SyncNotification
+                var syncNotifications = cloudKitNotifications.map { ckNotification in
+                    SyncNotification(
+                        id: ckNotification.id,
+                        title: ckNotification.title,
+                        subtitle: ckNotification.subtitle,
+                        body: ckNotification.body,
+                        readAt: self.dateToString(ckNotification.readAt),
+                        sentAt: self.dateToString(ckNotification.sentAt),
+                        createdAt: self.dateToString(ckNotification.createdAt),
+                        updatedAt: self.dateToString(ckNotification.updatedAt),
+                        bucketId: ckNotification.bucketId,
+                        attachments: ckNotification.attachments.map { ckAttachment in
+                            SyncAttachment(
+                                mediaType: ckAttachment.mediaType,
+                                url: ckAttachment.url,
+                                name: ckAttachment.name
+                            )
+                        },
+                        actions: ckNotification.actions.map { ckAction in
+                            SyncAction(
+                                type: ckAction.type,
+                                value: ckAction.value,
+                                title: ckAction.title,
+                                icon: ckAction.icon,
+                                destructive: ckAction.destructive
+                            )
+                        },
+                        tapAction: ckNotification.tapAction.map { ckTapAction in
+                            SyncAction(
+                                type: ckTapAction.type,
+                                value: ckTapAction.value,
+                                title: ckTapAction.title,
+                                icon: ckTapAction.icon,
+                                destructive: ckTapAction.destructive
+                            )
+                        }
+                    )
+                }
                 
                 // Apply limit if specified
-                let limitedNotifications = limit.map { Array(notifications.prefix($0)) } ?? notifications
+                if let limit = limit {
+                    syncNotifications = Array(syncNotifications.prefix(limit))
+                }
                 
-                print("☁️ [CloudKitSync][iOS] ✅ Fetched \(limitedNotifications.count) notifications from CloudKit")
-                completion(limitedNotifications)
-            } catch {
-                print("☁️ [CloudKitSync][iOS] ❌ Error parsing notifications: \(error.localizedDescription)")
+                print("☁️ [CloudKitSync][iOS] ✅ Fetched \(syncNotifications.count) notifications from CloudKit")
+                completion(syncNotifications)
+            case .failure(let error):
+                print("☁️ [CloudKitSync][iOS] ❌ Failed to fetch notifications: \(error.localizedDescription)")
                 completion([])
             }
         }
@@ -776,42 +725,10 @@ public class CloudKitSyncManager {
     // MARK: - Subscriptions
     
     /**
-     * Setup CloudKit subscriptions for real-time updates
-     * Subscription sui record BucketsData e NotificationsData
+     * Setup CloudKit subscriptions for real-time updates on individual records
      */
     public func setupSubscriptions(completion: @escaping (Bool) -> Void) {
-        // Subscription for buckets data
-        let bucketSubscription = CKQuerySubscription(
-            recordType: CloudKitRecordType.bucketsData,
-            predicate: NSPredicate(value: true),
-            subscriptionID: "ZentikBucketsDataSubscription",
-            options: [.firesOnRecordCreation, .firesOnRecordUpdate]
-        )
-        
-        let bucketNotification = CKSubscription.NotificationInfo()
-        bucketNotification.shouldSendContentAvailable = true
-        bucketSubscription.notificationInfo = bucketNotification
-        
-        // Subscription for notifications data
-        let notificationSubscription = CKQuerySubscription(
-            recordType: CloudKitRecordType.notificationsData,
-            predicate: NSPredicate(value: true),
-            subscriptionID: "ZentikNotificationsDataSubscription",
-            options: [.firesOnRecordCreation, .firesOnRecordUpdate]
-        )
-        
-        let notificationNotification = CKSubscription.NotificationInfo()
-        notificationNotification.shouldSendContentAvailable = true
-        notificationSubscription.notificationInfo = notificationNotification
-        
-        // Save subscriptions
-        let operation = CKModifySubscriptionsOperation(
-            subscriptionsToSave: [bucketSubscription, notificationSubscription],
-            subscriptionIDsToDelete: nil
-        )
-        operation.qualityOfService = .utility
-        
-        operation.modifySubscriptionsResultBlock = { result in
+        CloudKitAccess.setupSubscriptions { result in
             switch result {
             case .success:
                 print("☁️ [CloudKitSync][iOS] ✅ Subscriptions setup successful")
@@ -821,29 +738,39 @@ public class CloudKitSyncManager {
                 completion(false)
             }
         }
-        
-        privateDatabase.add(operation)
     }
     
-    // MARK: - Individual Delete Methods (deprecati nel nuovo approccio)
+    // MARK: - Individual Delete Methods
     
     /**
-     * DEPRECATO: Nel nuovo approccio basato su JSON, non si cancellano record individuali.
-     * Le modifiche vengono applicate al DB locale e poi si riesporta tutto il JSON.
+     * Delete a notification from CloudKit by ID
      */
     public func deleteNotificationFromCloudKit(id: String, completion: @escaping (Bool) -> Void = { _ in }) {
-        print("☁️ [CloudKitSync][iOS] ⚠️ deleteNotificationFromCloudKit is deprecated with JSON sync")
-        print("☁️ [CloudKitSync][iOS] ℹ️ Please update local DB and call syncNotificationsToCloudKit()")
-        completion(false)
+        CloudKitAccess.deleteNotification(id: id) { result in
+            switch result {
+            case .success:
+                print("☁️ [CloudKitSync][iOS] ✅ Deleted notification \(id) from CloudKit")
+                completion(true)
+            case .failure(let error):
+                print("☁️ [CloudKitSync][iOS] ❌ Failed to delete notification: \(error.localizedDescription)")
+                completion(false)
+            }
+        }
     }
     
     /**
-     * DEPRECATO: Nel nuovo approccio basato su JSON, non si cancellano record individuali.
-     * Le modifiche vengono applicate al DB locale e poi si riesporta tutto il JSON.
+     * Delete a bucket from CloudKit by ID
      */
     public func deleteBucketFromCloudKit(id: String, completion: @escaping (Bool) -> Void = { _ in }) {
-        print("☁️ [CloudKitSync][iOS] ⚠️ deleteBucketFromCloudKit is deprecated with JSON sync")
-        print("☁️ [CloudKitSync][iOS] ℹ️ Please update local DB and call syncBucketsToCloudKit()")
-        completion(false)
+        CloudKitAccess.deleteBucket(id: id) { result in
+            switch result {
+            case .success:
+                print("☁️ [CloudKitSync][iOS] ✅ Deleted bucket \(id) from CloudKit")
+                completion(true)
+            case .failure(let error):
+                print("☁️ [CloudKitSync][iOS] ❌ Failed to delete bucket: \(error.localizedDescription)")
+                completion(false)
+            }
+        }
     }
 }

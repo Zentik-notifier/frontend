@@ -5,7 +5,7 @@
   "dockerVersion": "0.0.92",
   "scripts": {
     "start": "expo start",
-    "eas-build-post-install": "node scripts/fix-share-extension-entitlements.js",
+    "eas-build-post-install": "node scripts/post-build-ios.js",
     "export:web": "npx expo export --platform web --output-dir dist",
     "build:web": "npx expo export -p web --output-dir dist && npx workbox-cli injectManifest workbox-config.js",
     "release:web:patch": "node scripts/release-web.js patch",
@@ -32,7 +32,7 @@
     "start:prod": "npx expo start --no-dev --minify",
     "start:android": "npx expo run:android --device",
     "start:web": "npx expo start --web",
-    "prebuild:ios": "npx expo prebuild --clean --platform ios && node scripts/fix-share-extension-entitlements.js",
+    "prebuild:ios": "npx expo prebuild --clean --platform ios && node scripts/post-build-ios.js",
     "prebuild:android": "npx expo prebuild --clean --platform android",
     "android": "expo run:android",
     "ios": "expo run:ios",

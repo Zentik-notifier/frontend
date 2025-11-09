@@ -162,16 +162,16 @@ class IosBridgeService {
     notificationsCount: number;
   }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      console.log('[CloudKitSync] Not available on this platform');
       return { success: false, bucketsCount: 0, notificationsCount: 0 };
     }
 
     try {
+      console.log('[CloudKitSync] Fetching records count...');
       const result = await CloudKitSyncBridge.fetchCloudKitRecordsCount();
-      console.log('[CloudKitSync] CloudKit records count fetched:', result);
+      console.log(`[CloudKitSync] ✓ Count: ${result.bucketsCount} buckets, ${result.notificationsCount} notifications`);
       return result;
     } catch (error) {
-      console.error('[CloudKitSync] Failed to fetch CloudKit records count:', error);
+      console.error('[CloudKitSync] Failed to fetch records count:', error);
       return { success: false, bucketsCount: 0, notificationsCount: 0 };
     }
   }
@@ -184,16 +184,16 @@ class IosBridgeService {
     buckets: Array<Record<string, any>>;
   }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      console.log('[CloudKitSync] Not available on this platform');
       return { success: false, buckets: [] };
     }
 
     try {
+      console.log('[CloudKitSync] Fetching buckets...');
       const result = await CloudKitSyncBridge.fetchAllBucketsFromCloudKit();
-      console.log('[CloudKitSync] All buckets fetched:', result);
+      console.log(`[CloudKitSync] ✓ Fetched ${result.buckets.length} buckets`);
       return result;
     } catch (error) {
-      console.error('[CloudKitSync] Failed to fetch all buckets:', error);
+      console.error('[CloudKitSync] Failed to fetch buckets:', error);
       return { success: false, buckets: [] };
     }
   }
@@ -206,16 +206,16 @@ class IosBridgeService {
     notifications: Array<Record<string, any>>;
   }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      console.log('[CloudKitSync] Not available on this platform');
       return { success: false, notifications: [] };
     }
 
     try {
+      console.log('[CloudKitSync] Fetching notifications...');
       const result = await CloudKitSyncBridge.fetchAllNotificationsFromCloudKit();
-      console.log('[CloudKitSync] All notifications fetched:', result);
+      console.log(`[CloudKitSync] ✓ Fetched ${result.notifications.length} notifications`);
       return result;
     } catch (error) {
-      console.error('[CloudKitSync] Failed to fetch all notifications:', error);
+      console.error('[CloudKitSync] Failed to fetch notifications:', error);
       return { success: false, notifications: [] };
     }
   }
@@ -230,16 +230,16 @@ class IosBridgeService {
     record?: Record<string, any>;
   }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      console.log('[CloudKitSync] Not available on this platform');
       return { success: false };
     }
 
     try {
+      console.log(`[CloudKitSync] Fetching record: ${recordName}`);
       const result = await CloudKitSyncBridge.fetchRecordFromCloudKit(recordName, recordType);
-      console.log('[CloudKitSync] Record fetched:', recordName);
+      console.log(`[CloudKitSync] ✓ Record fetched: ${recordName}`);
       return result;
     } catch (error) {
-      console.error('[CloudKitSync] Failed to fetch record:', error);
+      console.error(`[CloudKitSync] Failed to fetch record ${recordName}:`, error);
       return { success: false };
     }
   }
@@ -253,16 +253,16 @@ class IosBridgeService {
     recordName?: string;
   }> {
     if (!isIOS || !CloudKitSyncBridge) {
-      console.log('[CloudKitSync] Not available on this platform');
       return { success: false };
     }
 
     try {
+      console.log(`[CloudKitSync] Deleting record: ${recordName}`);
       const result = await CloudKitSyncBridge.deleteRecordFromCloudKit(recordName);
-      console.log('[CloudKitSync] Record deleted:', recordName);
+      console.log(`[CloudKitSync] ✓ Record deleted: ${recordName}`);
       return result;
     } catch (error) {
-      console.error('[CloudKitSync] Failed to delete record:', error);
+      console.error(`[CloudKitSync] Failed to delete record ${recordName}:`, error);
       return { success: false };
     }
   }
@@ -401,17 +401,6 @@ class IosBridgeService {
         console.warn('[IosBridge] ⚠️ Step 3/3: WidgetReloadBridge not available');
       }
 
-      // 4. Request Watch logs (for debugging)
-      if (type === 'reload' && WatchConnectivityBridge) {
-        console.log('[IosBridge] 🔍 Requesting Watch logs for debugging...');
-        try {
-          await WatchConnectivityBridge.requestWatchLogs();
-          console.log('[IosBridge] ✅ Watch logs requested successfully');
-        } catch (error) {
-          console.error('[IosBridge] ⚠️ Failed to request Watch logs:', error);
-        }
-      }
-
       console.log('[IosBridge] 🎉 Sync flow completed successfully');
       return true;
     } catch (e) {
@@ -426,25 +415,6 @@ class IosBridgeService {
    */
   async notifyAll(type: 'read' | 'unread' | 'delete' | 'add' | 'reload', payload: any = {}): Promise<boolean> {
     return this.syncAll(type, payload, false);
-  }
-
-  /**
-   * Request Watch logs for debugging
-   */
-  async requestWatchLogs(): Promise<boolean> {
-    if (!isIOS || !WatchConnectivityBridge) {
-      console.log('[IosBridge] WatchConnectivityBridge not available');
-      return false;
-    }
-
-    try {
-      await WatchConnectivityBridge.requestWatchLogs();
-      console.log('[IosBridge] ✅ Watch logs request sent');
-      return true;
-    } catch (error) {
-      console.error('[IosBridge] ❌ Failed to request Watch logs:', error);
-      return false;
-    }
   }
 }
 

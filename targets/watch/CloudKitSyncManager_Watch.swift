@@ -2,14 +2,14 @@ import Foundation
 import CloudKit
 
 /**
- * CloudKitSyncManager (watchOS) – Gestisce la sincronizzazione tramite file JSON da CloudKit
+ * CloudKitSyncManager (watchOS) – Approccio con record individuali
  * 
- * Nuovo approccio Watch:
- * - Watch scarica i file JSON da CloudKit (buckets.json e notifications.json)
- * - Salva i JSON in file locali nella cartella shared dell'app
- * - Non usa SQL, solo file JSON
- * - Notifiche modificate vengono segnalate a iOS via WatchConnectivity
- * - iOS poi riesporta il JSON aggiornato su CloudKit
+ * Gestione CloudKit con record separati:
+ * - Ogni bucket è un CKRecord separato
+ * - Ogni notifica è un CKRecord separato
+ * - Utilizza la zona di default (_defaultZone)
+ * - Watch legge i dati e li salva localmente
+ * - iOS scrive e aggiorna i record
  */
 public class CloudKitSyncManager {
     
@@ -19,516 +19,278 @@ public class CloudKitSyncManager {
     
     // MARK: - Properties
     
-    private let container: CKContainer
-    private let privateDatabase: CKDatabase
-    private let customZone: CKRecordZone
     private let logger = LoggingSystem.shared
     
-    // Zone ID per la zona condivisa con iOS
-    private let zoneID: CKRecordZone.ID
-    
-    // Watch-specific limit for notifications (no need to read from iOS settings)
+    // Watch-specific limit for notifications
     private let watchNotificationLimit = 150
     
-    // Last sync timestamp
-    private var lastBucketsSyncTimestamp: String?
-    private var lastNotificationsSyncTimestamp: String?
-    
-    // Date formatter for ISO8601 strings
-    private let dateFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-    
-    // File paths for local JSON storage
-    private var bucketsFilePath: URL {
-        let sharedContainerURL = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: "group.\(KeychainAccess.getMainBundleIdentifier())"
-        )!
-        return sharedContainerURL.appendingPathComponent("buckets.json")
+    // Last sync timestamps (stored in UserDefaults)
+    private var lastBucketsSyncDate: Date? {
+        get {
+            return UserDefaults.standard.object(forKey: "lastBucketsSyncDate") as? Date
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "lastBucketsSyncDate")
+        }
     }
     
-    private var notificationsFilePath: URL {
-        let sharedContainerURL = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: "group.\(KeychainAccess.getMainBundleIdentifier())"
-        )!
-        return sharedContainerURL.appendingPathComponent("notifications.json")
+    private var lastNotificationsSyncDate: Date? {
+        get {
+            return UserDefaults.standard.object(forKey: "lastNotificationsSyncDate") as? Date
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "lastNotificationsSyncDate")
+        }
     }
     
     // MARK: - Initialization
     
     private init() {
-        // Use centralized CloudKit setup
-        let setup = KeychainAccess.getCloudKitSetup()
-        self.container = setup.container
-        self.privateDatabase = setup.privateDatabase
-        
-        // Create custom zone using centralized method
-        self.zoneID = KeychainAccess.getCloudKitZoneID()
-        self.customZone = CKRecordZone(zoneID: zoneID)
-        
-        let containerIdentifier = KeychainAccess.getCloudKitContainerIdentifier()
+        let containerIdentifier = CloudKitConfig.getContainerIdentifier()
         let mainBundleId = KeychainAccess.getMainBundleIdentifier()
         
         logger.info(
             tag: "Initialization",
-            message: "CloudKit container initialized on Watch",
+            message: "CloudKit manager initialized on Watch (new approach)",
             metadata: [
                 "mainBundleId": mainBundleId,
-                "containerIdentifier": containerIdentifier,
-                "zoneName": zoneID.zoneName,
-                "bucketsFilePath": bucketsFilePath.path,
-                "notificationsFilePath": notificationsFilePath.path
+                "containerIdentifier": containerIdentifier
             ],
-            source: "CloudKit-Watch"
+            source: "CloudKit-Watch-New"
         )
         
-        print("☁️ [CloudKitSync][Watch] Using container: \(containerIdentifier)")
-        print("☁️ [CloudKitSync][Watch] Target zone: \(zoneID.zoneName)")
-        print("☁️ [CloudKitSync][Watch] Buckets file: \(bucketsFilePath.path)")
-        print("☁️ [CloudKitSync][Watch] Notifications file: \(notificationsFilePath.path)")
+        print("☁️ [CloudKitSync][Watch-New] Using container: \(containerIdentifier)")
+        print("☁️ [CloudKitSync][Watch-New] Using default zone (_defaultZone)")
         
         // Check iCloud account status
-        container.accountStatus { status, error in
-            if let error = error {
-                self.logger.error(
-                    tag: "Initialization",
-                    message: "Failed to check iCloud account status",
-                    metadata: [
-                        "error": error.localizedDescription,
-                        "containerIdentifier": containerIdentifier
-                    ],
-                    source: "CloudKit-Watch"
-                )
-                print("☁️ [CloudKitSync][Watch] ❌ Failed to check iCloud account: \(error.localizedDescription)")
-            } else {
-                let statusString: String
-                switch status {
-                case .available:
-                    statusString = "available"
-                case .noAccount:
-                    statusString = "noAccount"
-                case .restricted:
-                    statusString = "restricted"
-                case .couldNotDetermine:
-                    statusString = "couldNotDetermine"
-                case .temporarilyUnavailable:
-                    statusString = "temporarilyUnavailable"
-                @unknown default:
-                    statusString = "unknown"
-                }
-                
-                self.logger.info(
-                    tag: "Initialization",
-                    message: "iCloud account status checked",
-                    metadata: [
-                        "status": statusString,
-                        "statusRawValue": String(status.rawValue),
-                        "containerIdentifier": containerIdentifier
-                    ],
-                    source: "CloudKit-Watch"
-                )
-                
-                print("☁️ [CloudKitSync][Watch] iCloud account status: \(statusString)")
+        CloudKitAccess.checkAccountStatus { result in
+            switch result {
+            case .success(let status):
+                let statusString = self.accountStatusToString(status)
+                print("☁️ [CloudKitSync][Watch-New] iCloud account status: \(statusString)")
                 
                 if status != .available {
                     self.logger.warn(
                         tag: "Initialization",
                         message: "iCloud account not available",
                         metadata: ["status": statusString],
-                        source: "CloudKit-Watch"
+                        source: "CloudKit-Watch-New"
                     )
-                    print("☁️ [CloudKitSync][Watch] ⚠️ iCloud not available! Status: \(statusString)")
                 }
-            }
-        }
-        
-        // Load last sync timestamps
-        loadSyncTimestamps()
-    }
-    
-    // MARK: - Sync Timestamp Management
-    
-    private func loadSyncTimestamps() {
-        lastBucketsSyncTimestamp = UserDefaults.standard.string(forKey: "lastBucketsSyncTimestamp")
-        lastNotificationsSyncTimestamp = UserDefaults.standard.string(forKey: "lastNotificationsSyncTimestamp")
-    }
-    
-    private func saveBucketsSyncTimestamp(_ timestamp: String) {
-        lastBucketsSyncTimestamp = timestamp
-        UserDefaults.standard.set(timestamp, forKey: "lastBucketsSyncTimestamp")
-    }
-    
-    private func saveNotificationsSyncTimestamp(_ timestamp: String) {
-        lastNotificationsSyncTimestamp = timestamp
-        UserDefaults.standard.set(timestamp, forKey: "lastNotificationsSyncTimestamp")
-    }
-    
-    // MARK: - Zone Setup
-    
-    /**
-     * Check if the custom zone exists (watch only checks, doesn't create)
-     */
-    private func checkZoneExists(completion: @escaping (Bool) -> Void) {
-        let containerIdentifier = KeychainAccess.getCloudKitContainerIdentifier()
-        let mainBundleId = KeychainAccess.getMainBundleIdentifier()
-        
-        logger.info(
-            tag: "ZoneCheck",
-            message: "Checking if CloudKit zone exists",
-            metadata: [
-                "zoneName": zoneID.zoneName,
-                "zoneOwner": zoneID.ownerName,
-                "containerIdentifier": containerIdentifier,
-                "mainBundleId": mainBundleId
-            ],
-            source: "CloudKit-Watch"
-        )
-        
-        privateDatabase.fetch(withRecordZoneID: zoneID) { (zone, error) in
-            if let error = error as? CKError {
-                self.logger.error(
-                    tag: "ZoneCheck",
-                    message: "Error checking zone",
-                    metadata: [
-                        "error": error.localizedDescription,
-                        "errorCode": String(error.code.rawValue),
-                        "zoneName": self.zoneID.zoneName,
-                        "isZoneNotFound": String(error.code == .zoneNotFound),
-                        "isUnknownItem": String(error.code == .unknownItem)
-                    ],
-                    source: "CloudKit-Watch"
-                )
-                
-                if error.code == .unknownItem || error.code == .zoneNotFound {
-                    print("☁️ [CloudKitSync][Watch] ⚠️ Zone \(self.zoneID.zoneName) not found. Waiting for iOS to create it...")
-                    completion(false)
-                } else {
-                    print("☁️ [CloudKitSync][Watch] ⚠️ Error checking zone: \(error.localizedDescription)")
-                    completion(false)
-                }
-            } else if zone != nil {
-                self.logger.info(
-                    tag: "ZoneCheck",
-                    message: "Custom zone exists",
-                    metadata: ["zoneName": self.zoneID.zoneName],
-                    source: "CloudKit-Watch"
-                )
-                print("☁️ [CloudKitSync][Watch] ✅ Custom zone exists: \(self.zoneID.zoneName)")
-                completion(true)
-            } else {
-                self.logger.warn(
-                    tag: "ZoneCheck",
-                    message: "Zone fetch returned nil without error",
-                    metadata: ["zoneName": self.zoneID.zoneName],
-                    source: "CloudKit-Watch"
-                )
-                print("☁️ [CloudKitSync][Watch] ⚠️ Zone fetch returned nil without error. Waiting for iOS...")
-                completion(false)
+            case .failure(let error):
+                print("☁️ [CloudKitSync][Watch-New] ❌ Failed to check iCloud account: \(error.localizedDescription)")
             }
         }
     }
     
-    // MARK: - Local JSON File Management
+    // MARK: - Helper Methods
     
-    /**
-     * Salva i buckets in un file JSON locale
-     */
-    private func saveBucketsToFile(_ container: BucketsDataContainer) throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        
-        let data = try encoder.encode(container)
-        try data.write(to: bucketsFilePath, options: .atomic)
-        
-        print("☁️ [CloudKitSync][Watch] ✅ Saved \(container.buckets.count) buckets to file: \(bucketsFilePath.path)")
-    }
-    
-    /**
-     * Salva le notifiche in un file JSON locale
-     */
-    private func saveNotificationsToFile(_ container: NotificationsDataContainer) throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        
-        let data = try encoder.encode(container)
-        try data.write(to: notificationsFilePath, options: .atomic)
-        
-        print("☁️ [CloudKitSync][Watch] ✅ Saved \(container.notifications.count) notifications to file: \(notificationsFilePath.path)")
-    }
-    
-    /**
-     * Carica i buckets dal file JSON locale
-     */
-    public func loadBucketsFromFile() -> BucketsDataContainer? {
-        guard FileManager.default.fileExists(atPath: bucketsFilePath.path) else {
-            print("☁️ [CloudKitSync][Watch] ⚠️ Buckets file does not exist")
-            return nil
-        }
-        
-        do {
-            let data = try Data(contentsOf: bucketsFilePath)
-            let container = try JSONDecoder().decode(BucketsDataContainer.self, from: data)
-            print("☁️ [CloudKitSync][Watch] ✅ Loaded \(container.buckets.count) buckets from file")
-            return container
-        } catch {
-            print("☁️ [CloudKitSync][Watch] ❌ Failed to load buckets from file: \(error.localizedDescription)")
-            return nil
+    private func accountStatusToString(_ status: CKAccountStatus) -> String {
+        switch status {
+        case .available:
+            return "available"
+        case .noAccount:
+            return "noAccount"
+        case .restricted:
+            return "restricted"
+        case .couldNotDetermine:
+            return "couldNotDetermine"
+        case .temporarilyUnavailable:
+            return "temporarilyUnavailable"
+        @unknown default:
+            return "unknown"
         }
     }
     
-    /**
-     * Carica le notifiche dal file JSON locale
-     */
-    public func loadNotificationsFromFile() -> NotificationsDataContainer? {
-        guard FileManager.default.fileExists(atPath: notificationsFilePath.path) else {
-            print("☁️ [CloudKitSync][Watch] ⚠️ Notifications file does not exist")
-            return nil
-        }
-        
-        do {
-            let data = try Data(contentsOf: notificationsFilePath)
-            let container = try JSONDecoder().decode(NotificationsDataContainer.self, from: data)
-            print("☁️ [CloudKitSync][Watch] ✅ Loaded \(container.notifications.count) notifications from file")
-            return container
-        } catch {
-            print("☁️ [CloudKitSync][Watch] ❌ Failed to load notifications from file: \(error.localizedDescription)")
-            return nil
-        }
-    }
+    // MARK: - Bucket Operations
     
-    // MARK: - CloudKit Fetch Methods
-    
-    /**
-     * Scarica i buckets da CloudKit e salva nel file JSON locale
-     */
-    public func fetchBucketsFromCloudKit(completion: @escaping ([Bucket]) -> Void) {
-        let recordID = CKRecord.ID(recordName: "buckets_data", zoneID: zoneID)
-        let containerIdentifier = KeychainAccess.getCloudKitContainerIdentifier()
-        let mainBundleId = KeychainAccess.getMainBundleIdentifier()
-        
+    /// Fetch all buckets from CloudKit
+    public func fetchBuckets(completion: @escaping ([CloudKitBucket]) -> Void) {
         logger.info(
             tag: "FetchBuckets",
-            message: "Starting fetch buckets from CloudKit",
-            metadata: [
-                "recordName": recordID.recordName,
-                "zoneName": recordID.zoneID.zoneName,
-                "zoneOwner": recordID.zoneID.ownerName,
-                "containerIdentifier": containerIdentifier,
-                "mainBundleId": mainBundleId,
-                "databaseType": "privateDatabase"
-            ],
-            source: "CloudKit-Watch"
+            message: "Fetching buckets from CloudKit",
+            source: "CloudKit-Watch-New"
         )
         
-        privateDatabase.fetch(withRecordID: recordID) { (record, error) in
-            if let error = error {
-                let ckError = error as? CKError
+        CloudKitAccess.fetchAllBuckets { result in
+            switch result {
+            case .success(let buckets):
+                self.logger.info(
+                    tag: "FetchBuckets",
+                    message: "Successfully fetched buckets",
+                    metadata: ["count": String(buckets.count)],
+                    source: "CloudKit-Watch-New"
+                )
+                
+                print("☁️ [CloudKitSync][Watch-New] ✅ Fetched \(buckets.count) buckets from CloudKit")
+                
+                // Update last sync date
+                self.lastBucketsSyncDate = Date()
+                
+                completion(buckets)
+                
+            case .failure(let error):
                 self.logger.error(
                     tag: "FetchBuckets",
                     message: "Failed to fetch buckets",
-                    metadata: [
-                        "error": error.localizedDescription,
-                        "errorCode": ckError.map { String($0.code.rawValue) } ?? "unknown"
-                    ],
-                    source: "CloudKit-Watch"
-                )
-                print("☁️ [CloudKitSync][Watch] ❌ Failed to fetch buckets: \(error.localizedDescription)")
-                completion([])
-                return
-            }
-            
-            guard let record = record else {
-                self.logger.warn(
-                    tag: "FetchBuckets",
-                    message: "No buckets record found in CloudKit",
-                    source: "CloudKit-Watch"
-                )
-                print("☁️ [CloudKitSync][Watch] ⚠️ No buckets record found")
-                completion([])
-                return
-            }
-            
-            do {
-                let container = try BucketsDataContainer.from(record: record)
-                
-                self.logger.info(
-                    tag: "FetchBuckets",
-                    message: "Successfully fetched buckets from CloudKit",
-                    metadata: [
-                        "count": String(container.buckets.count),
-                        "firstId": container.buckets.first?.id ?? "none",
-                        "lastId": container.buckets.last?.id ?? "none"
-                    ],
-                    source: "CloudKit-Watch"
-                )
-                
-                print("☁️ [CloudKitSync][Watch] ✅ Fetched \(container.buckets.count) buckets from CloudKit")
-                
-                // Save to file
-                try self.saveBucketsToFile(container)
-                
-                // Save sync timestamp
-                self.saveBucketsSyncTimestamp(container.syncTimestamp)
-                
-                completion(container.buckets)
-            } catch {
-                self.logger.error(
-                    tag: "FetchBuckets",
-                    message: "Error parsing/saving buckets",
                     metadata: ["error": error.localizedDescription],
-                    source: "CloudKit-Watch"
+                    source: "CloudKit-Watch-New"
                 )
-                print("☁️ [CloudKitSync][Watch] ❌ Error parsing/saving buckets: \(error.localizedDescription)")
+                
+                print("☁️ [CloudKitSync][Watch-New] ❌ Failed to fetch buckets: \(error.localizedDescription)")
                 completion([])
             }
         }
     }
     
-    /**
-     * Scarica le notifiche da CloudKit e salva nel file JSON locale
-     */
-    public func fetchNotificationsFromCloudKit(limit: Int? = nil, completion: @escaping ([SyncNotification]) -> Void) {
-        let recordID = CKRecord.ID(recordName: "notifications_data", zoneID: zoneID)
-        let containerIdentifier = KeychainAccess.getCloudKitContainerIdentifier()
-        let mainBundleId = KeychainAccess.getMainBundleIdentifier()
+    // MARK: - Notification Operations
+    
+    /// Fetch all notifications from CloudKit
+    public func fetchNotifications(limit: Int? = nil, completion: @escaping ([CloudKitNotification]) -> Void) {
+        let effectiveLimit = limit ?? watchNotificationLimit
         
         logger.info(
             tag: "FetchNotifications",
-            message: "Starting fetch notifications from CloudKit",
-            metadata: [
-                "recordName": recordID.recordName,
-                "zoneName": recordID.zoneID.zoneName,
-                "zoneOwner": recordID.zoneID.ownerName,
-                "containerIdentifier": containerIdentifier,
-                "mainBundleId": mainBundleId,
-                "databaseType": "privateDatabase",
-                "limit": limit.map { String($0) } ?? "none"
-            ],
-            source: "CloudKit-Watch"
+            message: "Fetching notifications from CloudKit",
+            metadata: ["limit": String(effectiveLimit)],
+            source: "CloudKit-Watch-New"
         )
         
-        privateDatabase.fetch(withRecordID: recordID) { (record, error) in
-            if let error = error {
-                let ckError = error as? CKError
-                self.logger.error(
-                    tag: "FetchNotifications",
-                    message: "Failed to fetch notifications",
-                    metadata: [
-                        "error": error.localizedDescription,
-                        "errorCode": ckError.map { String($0.code.rawValue) } ?? "unknown"
-                    ],
-                    source: "CloudKit-Watch"
-                )
-                print("☁️ [CloudKitSync][Watch] ❌ Failed to fetch notifications: \(error.localizedDescription)")
-                completion([])
-                return
-            }
-            
-            guard let record = record else {
-                self.logger.warn(
-                    tag: "FetchNotifications",
-                    message: "No notifications record found in CloudKit",
-                    source: "CloudKit-Watch"
-                )
-                print("☁️ [CloudKitSync][Watch] ⚠️ No notifications record found")
-                completion([])
-                return
-            }
-            
-            do {
-                let container = try NotificationsDataContainer.from(record: record)
-                let syncNotifications = container.notifications
-                
-                // Apply limit if specified
-                let limitedNotifications = limit.map { Array(syncNotifications.prefix($0)) } ?? syncNotifications
-                
-                let unreadCount = limitedNotifications.filter { $0.readAt == nil }.count
+        CloudKitAccess.fetchAllNotifications(limit: effectiveLimit) { result in
+            switch result {
+            case .success(let notifications):
+                let unreadCount = notifications.filter { $0.readAt == nil }.count
                 
                 self.logger.info(
                     tag: "FetchNotifications",
-                    message: "Successfully fetched notifications from CloudKit",
+                    message: "Successfully fetched notifications",
                     metadata: [
-                        "totalCount": String(syncNotifications.count),
-                        "limitedCount": String(limitedNotifications.count),
-                        "unreadCount": String(unreadCount),
-                        "firstId": limitedNotifications.first?.id ?? "none",
-                        "firstTitle": limitedNotifications.first?.title ?? "none",
-                        "lastId": limitedNotifications.last?.id ?? "none",
-                        "lastTitle": limitedNotifications.last?.title ?? "none"
+                        "totalCount": String(notifications.count),
+                        "unreadCount": String(unreadCount)
                     ],
-                    source: "CloudKit-Watch"
+                    source: "CloudKit-Watch-New"
                 )
                 
-                print("☁️ [CloudKitSync][Watch] ✅ Fetched \(limitedNotifications.count) notifications from CloudKit")
+                print("☁️ [CloudKitSync][Watch-New] ✅ Fetched \(notifications.count) notifications from CloudKit (\(unreadCount) unread)")
                 
-                // Save to file (save all, not just limited)
-                try self.saveNotificationsToFile(container)
+                // Update last sync date
+                self.lastNotificationsSyncDate = Date()
                 
-                // Save sync timestamp
-                self.saveNotificationsSyncTimestamp(container.syncTimestamp)
+                completion(notifications)
                 
-                completion(limitedNotifications)
-            } catch {
+            case .failure(let error):
                 self.logger.error(
                     tag: "FetchNotifications",
-                    message: "Error parsing/saving notifications",
+                    message: "Failed to fetch notifications",
                     metadata: ["error": error.localizedDescription],
-                    source: "CloudKit-Watch"
+                    source: "CloudKit-Watch-New"
                 )
-                print("☁️ [CloudKitSync][Watch] ❌ Error parsing/saving notifications: \(error.localizedDescription)")
+                
+                print("☁️ [CloudKitSync][Watch-New] ❌ Failed to fetch notifications: \(error.localizedDescription)")
                 completion([])
             }
         }
     }
     
-    /**
-     * Scarica tutto da CloudKit (buckets + notifications) e aggiorna il DB locale
-     */
-    public func fetchAllFromCloudKit(completion: @escaping ([Bucket], [SyncNotification]) -> Void) {
-        // First check if the zone exists
-        checkZoneExists { zoneExists in
-            guard zoneExists else {
-                print("☁️ [CloudKitSync][Watch] ⚠️ Zone \(self.zoneID.zoneName) doesn't exist - iOS app needs to create it first")
-                completion([], [])
-                return
-            }
-            
-            let group = DispatchGroup()
-            var fetchedBuckets: [Bucket] = []
-            var fetchedNotifications: [SyncNotification] = []
-            
-            group.enter()
-            self.fetchBucketsFromCloudKit { buckets in
-                fetchedBuckets = buckets
-                group.leave()
-            }
-            
-            group.enter()
-            self.fetchNotificationsFromCloudKit { notifications in
-                fetchedNotifications = notifications
-                group.leave()
-            }
-            
-            group.notify(queue: .main) {
-                completion(fetchedBuckets, fetchedNotifications)
+    /// Fetch notifications for a specific bucket
+    public func fetchNotifications(bucketId: String, limit: Int? = nil, completion: @escaping ([CloudKitNotification]) -> Void) {
+        logger.info(
+            tag: "FetchNotifications",
+            message: "Fetching notifications for bucket",
+            metadata: [
+                "bucketId": bucketId,
+                "limit": limit.map { String($0) } ?? "none"
+            ],
+            source: "CloudKit-Watch-New"
+        )
+        
+        CloudKitAccess.fetchNotifications(bucketId: bucketId, limit: limit) { result in
+            switch result {
+            case .success(let notifications):
+                self.logger.info(
+                    tag: "FetchNotifications",
+                    message: "Successfully fetched notifications for bucket",
+                    metadata: [
+                        "bucketId": bucketId,
+                        "count": String(notifications.count)
+                    ],
+                    source: "CloudKit-Watch-New"
+                )
+                
+                print("☁️ [CloudKitSync][Watch-New] ✅ Fetched \(notifications.count) notifications for bucket \(bucketId)")
+                completion(notifications)
+                
+            case .failure(let error):
+                self.logger.error(
+                    tag: "FetchNotifications",
+                    message: "Failed to fetch notifications for bucket",
+                    metadata: [
+                        "bucketId": bucketId,
+                        "error": error.localizedDescription
+                    ],
+                    source: "CloudKit-Watch-New"
+                )
+                
+                print("☁️ [CloudKitSync][Watch-New] ❌ Failed to fetch notifications for bucket \(bucketId): \(error.localizedDescription)")
+                completion([])
             }
         }
     }
     
-    /**
-     * Force refresh - ricarica tutto da CloudKit ignorando i timestamp
-     */
-    public func forceRefreshFromCloudKit(completion: @escaping (Bool) -> Void) {
-        print("☁️ [CloudKitSync][Watch] 🔄 Force refresh from CloudKit...")
+    // MARK: - Sync Operations
+    
+    /// Fetch all data from CloudKit (buckets + notifications)
+    public func fetchAll(completion: @escaping ([CloudKitBucket], [CloudKitNotification]) -> Void) {
+        logger.info(
+            tag: "FetchAll",
+            message: "Fetching all data from CloudKit",
+            source: "CloudKit-Watch-New"
+        )
         
-        fetchAllFromCloudKit { buckets, notifications in
+        let group = DispatchGroup()
+        var fetchedBuckets: [CloudKitBucket] = []
+        var fetchedNotifications: [CloudKitNotification] = []
+        
+        // Fetch buckets
+        group.enter()
+        fetchBuckets { buckets in
+            fetchedBuckets = buckets
+            group.leave()
+        }
+        
+        // Fetch notifications
+        group.enter()
+        fetchNotifications { notifications in
+            fetchedNotifications = notifications
+            group.leave()
+        }
+        
+        group.notify(queue: .main) {
+            self.logger.info(
+                tag: "FetchAll",
+                message: "Completed fetching all data",
+                metadata: [
+                    "bucketsCount": String(fetchedBuckets.count),
+                    "notificationsCount": String(fetchedNotifications.count)
+                ],
+                source: "CloudKit-Watch-New"
+            )
+            
+            print("☁️ [CloudKitSync][Watch-New] ✅ Fetch all completed: \(fetchedBuckets.count) buckets, \(fetchedNotifications.count) notifications")
+            completion(fetchedBuckets, fetchedNotifications)
+        }
+    }
+    
+    /// Force refresh - reload all data from CloudKit
+    public func forceRefresh(completion: @escaping (Bool) -> Void) {
+        print("☁️ [CloudKitSync][Watch-New] 🔄 Force refresh from CloudKit...")
+        
+        fetchAll { buckets, notifications in
             let success = !buckets.isEmpty || !notifications.isEmpty
             if success {
-                print("☁️ [CloudKitSync][Watch] ✅ Force refresh completed: \(buckets.count) buckets, \(notifications.count) notifications")
+                print("☁️ [CloudKitSync][Watch-New] ✅ Force refresh completed: \(buckets.count) buckets, \(notifications.count) notifications")
             } else {
-                print("☁️ [CloudKitSync][Watch] ⚠️ Force refresh returned no data")
+                print("☁️ [CloudKitSync][Watch-New] ⚠️ Force refresh returned no data")
             }
             completion(success)
         }
@@ -536,70 +298,56 @@ public class CloudKitSyncManager {
     
     // MARK: - Subscriptions
     
-    /**
-     * Setup CloudKit subscriptions for real-time updates
-     */
+    /// Setup CloudKit subscriptions for real-time updates
     public func setupSubscriptions(completion: @escaping (Bool) -> Void) {
-        // Subscription for buckets data
-        let bucketSubscription = CKQuerySubscription(
-            recordType: CloudKitRecordType.bucketsData,
-            predicate: NSPredicate(value: true),
-            subscriptionID: "ZentikBucketsDataSubscription",
-            options: [.firesOnRecordCreation, .firesOnRecordUpdate]
+        logger.info(
+            tag: "SetupSubscriptions",
+            message: "Setting up CloudKit subscriptions",
+            source: "CloudKit-Watch-New"
         )
         
-        let bucketNotification = CKSubscription.NotificationInfo()
-        bucketNotification.shouldSendContentAvailable = true
-        bucketSubscription.notificationInfo = bucketNotification
-        
-        // Subscription for notifications data
-        let notificationSubscription = CKQuerySubscription(
-            recordType: CloudKitRecordType.notificationsData,
-            predicate: NSPredicate(value: true),
-            subscriptionID: "ZentikNotificationsDataSubscription",
-            options: [.firesOnRecordCreation, .firesOnRecordUpdate]
-        )
-        
-        let notificationNotification = CKSubscription.NotificationInfo()
-        notificationNotification.shouldSendContentAvailable = true
-        notificationSubscription.notificationInfo = notificationNotification
-        
-        // Save subscriptions
-        let operation = CKModifySubscriptionsOperation(
-            subscriptionsToSave: [bucketSubscription, notificationSubscription],
-            subscriptionIDsToDelete: nil
-        )
-        operation.qualityOfService = .utility
-        
-        operation.modifySubscriptionsResultBlock = { result in
+        CloudKitAccess.setupSubscriptions { result in
             switch result {
             case .success:
-                print("☁️ [CloudKitSync][Watch] ✅ Subscriptions setup successful")
+                self.logger.info(
+                    tag: "SetupSubscriptions",
+                    message: "Successfully setup subscriptions",
+                    source: "CloudKit-Watch-New"
+                )
+                print("☁️ [CloudKitSync][Watch-New] ✅ Subscriptions setup successful")
                 completion(true)
+                
             case .failure(let error):
-                print("☁️ [CloudKitSync][Watch] ❌ Failed to setup subscriptions: \(error.localizedDescription)")
+                self.logger.error(
+                    tag: "SetupSubscriptions",
+                    message: "Failed to setup subscriptions",
+                    metadata: ["error": error.localizedDescription],
+                    source: "CloudKit-Watch-New"
+                )
+                print("☁️ [CloudKitSync][Watch-New] ❌ Failed to setup subscriptions: \(error.localizedDescription)")
                 completion(false)
             }
         }
+    }
+    
+    // MARK: - Sync Status
+    
+    /// Get last sync information
+    public func getLastSyncInfo() -> (buckets: Date?, notifications: Date?) {
+        return (lastBucketsSyncDate, lastNotificationsSyncDate)
+    }
+    
+    /// Check if sync is needed (based on time elapsed since last sync)
+    public func isSyncNeeded(threshold: TimeInterval = 300) -> Bool { // 5 minutes default
+        guard let lastBucketsSync = lastBucketsSyncDate,
+              let lastNotificationsSync = lastNotificationsSyncDate else {
+            return true // Never synced
+        }
         
-        privateDatabase.add(operation)
-    }
-    
-    // MARK: - Deprecated Upload Methods (Watch is read-only)
-    
-    /**
-     * DEPRECATO: Watch non scrive mai su CloudKit, solo iOS
-     */
-    public func syncBucketsToCloudKit(completion: @escaping (Bool, Int) -> Void) {
-        print("☁️ [CloudKitSync][Watch] ⚠️ Watch cannot sync to CloudKit (read-only)")
-        completion(false, 0)
-    }
-    
-    /**
-     * DEPRECATO: Watch non scrive mai su CloudKit, solo iOS
-     */
-    public func syncAllToCloudKit(completion: @escaping (Bool, Int, Int) -> Void) {
-        print("☁️ [CloudKitSync][Watch] ⚠️ Watch cannot sync to CloudKit (read-only)")
-        completion(false, 0, 0)
+        let now = Date()
+        let bucketsSyncAge = now.timeIntervalSince(lastBucketsSync)
+        let notificationsSyncAge = now.timeIntervalSince(lastNotificationsSync)
+        
+        return bucketsSyncAge > threshold || notificationsSyncAge > threshold
     }
 }

@@ -1803,71 +1803,6 @@ class NotificationService: UNNotificationServiceExtension {
     }
   }
 
-  // private func syncNotificationsToCloudKit() {
-  //   print("📱 [NotificationService] 🔄 Starting CloudKit sync for notifications...")
-    
-  //   let fileManager = FileManager.default
-  //   let sharedContainerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.io.zentik.notifier")!
-  //   let dbPath = sharedContainerURL.appendingPathComponent("zentik.db").path
-    
-  //   var db: OpaquePointer?
-  //   guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
-  //     print("📱 [NotificationService] ❌ Failed to open database for CloudKit sync")
-  //     return
-  //   }
-  //   defer { sqlite3_close(db) }
-    
-  //   // Export all notifications
-  //   let query = "SELECT fragment FROM notifications WHERE fragment IS NOT NULL"
-  //   var stmt: OpaquePointer?
-    
-  //   guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else {
-  //     print("📱 [NotificationService] ❌ Failed to prepare query for CloudKit sync")
-  //     return
-  //   }
-  //   defer { sqlite3_finalize(stmt) }
-    
-  //   var notifications: [[String: Any]] = []
-  //   while sqlite3_step(stmt) == SQLITE_ROW {
-  //     if let fragmentData = sqlite3_column_text(stmt, 0) {
-  //       let fragmentString = String(cString: fragmentData)
-  //       if let data = fragmentString.data(using: .utf8),
-  //          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-  //         notifications.append(json)
-  //       }
-  //     }
-  //   }
-    
-  //   print("📱 [NotificationService] 📤 Exported \(notifications.count) notifications from database")
-    
-  //   // Save to CloudKit using centralized setup
-  //   let setup = KeychainAccess.getCloudKitSetup()
-  //   let zoneID = KeychainAccess.getCloudKitZoneID()
-    
-  //   let notificationsData = NotificationsDataContainer(notifications: notifications)
-    
-  //   guard let jsonData = try? JSONEncoder().encode(notificationsData),
-  //         let tempURL = writeTempFile(data: jsonData, filename: "notifications.json") else {
-  //     print("📱 [NotificationService] ❌ Failed to encode notifications data")
-  //     return
-  //   }
-    
-  //   let asset = CKAsset(fileURL: tempURL)
-  //   let record = CKRecord(recordType: "NotificationsData", recordID: CKRecord.ID(recordName: "zentik-notifications", zoneID: zoneID))
-  //   record["notificationsJson"] = asset
-  //   record["lastUpdated"] = Date()
-    
-  //   setup.privateDatabase.save(record) { savedRecord, error in
-  //     if let error = error {
-  //       print("📱 [NotificationService] ❌ CloudKit sync failed: \(error.localizedDescription)")
-  //     } else {
-  //       print("📱 [NotificationService] ✅ Synced \(notifications.count) notifications to CloudKit")
-  //     }
-      
-  //     // Clean up temp file
-  //     try? FileManager.default.removeItem(at: tempURL)
-  //   }
-  // }
   
   private func writeTempFile(data: Data, filename: String) -> URL? {
     let tempDir = FileManager.default.temporaryDirectory
@@ -1897,8 +1832,6 @@ class NotificationService: UNNotificationServiceExtension {
     session.transferUserInfo(message)
     print("📱 [NotificationService] ✅ Queued reload trigger to Watch for notification: \(notificationId)")
   }
-
-
 
   // MARK: - Pending Notifications Storage
   // NOTE: Removed savePendingNotification and storePendingNotification methods.
