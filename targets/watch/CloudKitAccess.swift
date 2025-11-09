@@ -381,7 +381,8 @@ public class CloudKitAccess {
     /// Fetch all buckets
     public static func fetchAllBuckets(completion: @escaping (Result<[CloudKitBucket], Error>) -> Void) {
         let query = CKQuery(recordType: CloudKitRecordType.bucket, predicate: NSPredicate(value: true))
-        query.sortDescriptors = [NSSortDescriptor(key: CloudKitField.bucketName, ascending: true)]
+        // Don't use sortDescriptors - fields may not be marked as sortable in CloudKit
+        // We'll sort locally instead
         
         logger.info(
             tag: "FetchBuckets",
@@ -399,7 +400,9 @@ public class CloudKitAccess {
                 )
                 completion(.failure(error))
             } else {
-                let buckets = records?.compactMap { CloudKitBucket.from(record: $0) } ?? []
+                // Parse and sort locally by name
+                let buckets = records?.compactMap { CloudKitBucket.from(record: $0) }
+                    .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending } ?? []
                 logger.info(
                     tag: "FetchBuckets",
                     message: "Successfully fetched buckets",
@@ -511,7 +514,8 @@ public class CloudKitAccess {
     /// Fetch all notifications
     public static func fetchAllNotifications(limit: Int? = nil, completion: @escaping (Result<[CloudKitNotification], Error>) -> Void) {
         let query = CKQuery(recordType: CloudKitRecordType.notification, predicate: NSPredicate(value: true))
-        query.sortDescriptors = [NSSortDescriptor(key: CloudKitField.notificationCreatedAt, ascending: false)]
+        // Don't use sortDescriptors - fields may not be marked as sortable in CloudKit
+        // We'll sort locally instead
         
         logger.info(
             tag: "FetchNotifications",
@@ -547,7 +551,9 @@ public class CloudKitAccess {
         operation.queryResultBlock = { result in
             switch result {
             case .success:
+                // Parse and sort locally by createdAt (most recent first)
                 let notifications = fetchedRecords.compactMap { CloudKitNotification.from(record: $0) }
+                    .sorted { $0.createdAt > $1.createdAt }
                 logger.info(
                     tag: "FetchNotifications",
                     message: "Successfully fetched notifications",
@@ -573,7 +579,8 @@ public class CloudKitAccess {
     public static func fetchNotifications(bucketId: String, limit: Int? = nil, completion: @escaping (Result<[CloudKitNotification], Error>) -> Void) {
         let predicate = NSPredicate(format: "%K == %@", CloudKitField.notificationBucketId, bucketId)
         let query = CKQuery(recordType: CloudKitRecordType.notification, predicate: predicate)
-        query.sortDescriptors = [NSSortDescriptor(key: CloudKitField.notificationCreatedAt, ascending: false)]
+        // Don't use sortDescriptors - fields may not be marked as sortable in CloudKit
+        // We'll sort locally instead
         
         logger.info(
             tag: "FetchNotifications",
@@ -612,7 +619,9 @@ public class CloudKitAccess {
         operation.queryResultBlock = { result in
             switch result {
             case .success:
+                // Parse and sort locally by createdAt (most recent first)
                 let notifications = fetchedRecords.compactMap { CloudKitNotification.from(record: $0) }
+                    .sorted { $0.createdAt > $1.createdAt }
                 logger.info(
                     tag: "FetchNotifications",
                     message: "Successfully fetched notifications for bucket",

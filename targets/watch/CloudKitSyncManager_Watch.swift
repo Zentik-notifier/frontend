@@ -56,29 +56,29 @@ public class CloudKitSyncManager {
                 "mainBundleId": mainBundleId,
                 "containerIdentifier": containerIdentifier
             ],
-            source: "CloudKit-Watch-New"
+            source: "CloudKit-Watch"
         )
         
-        print("☁️ [CloudKitSync][Watch-New] Using container: \(containerIdentifier)")
-        print("☁️ [CloudKitSync][Watch-New] Using default zone (_defaultZone)")
+        print("☁️ [CloudKitSync][Watch] Using container: \(containerIdentifier)")
+        print("☁️ [CloudKitSync][Watch] Using default zone (_defaultZone)")
         
         // Check iCloud account status
         CloudKitAccess.checkAccountStatus { result in
             switch result {
             case .success(let status):
                 let statusString = self.accountStatusToString(status)
-                print("☁️ [CloudKitSync][Watch-New] iCloud account status: \(statusString)")
+                print("☁️ [CloudKitSync][Watch] iCloud account status: \(statusString)")
                 
                 if status != .available {
                     self.logger.warn(
                         tag: "Initialization",
                         message: "iCloud account not available",
                         metadata: ["status": statusString],
-                        source: "CloudKit-Watch-New"
+                        source: "CloudKit-Watch"
                     )
                 }
             case .failure(let error):
-                print("☁️ [CloudKitSync][Watch-New] ❌ Failed to check iCloud account: \(error.localizedDescription)")
+                print("☁️ [CloudKitSync][Watch] ❌ Failed to check iCloud account: \(error.localizedDescription)")
             }
         }
     }
@@ -109,7 +109,7 @@ public class CloudKitSyncManager {
         logger.info(
             tag: "FetchBuckets",
             message: "Fetching buckets from CloudKit",
-            source: "CloudKit-Watch-New"
+            source: "CloudKit-Watch"
         )
         
         CloudKitAccess.fetchAllBuckets { result in
@@ -119,10 +119,10 @@ public class CloudKitSyncManager {
                     tag: "FetchBuckets",
                     message: "Successfully fetched buckets",
                     metadata: ["count": String(buckets.count)],
-                    source: "CloudKit-Watch-New"
+                    source: "CloudKit-Watch"
                 )
                 
-                print("☁️ [CloudKitSync][Watch-New] ✅ Fetched \(buckets.count) buckets from CloudKit")
+                print("☁️ [CloudKitSync][Watch] ✅ Fetched \(buckets.count) buckets from CloudKit")
                 
                 // Update last sync date
                 self.lastBucketsSyncDate = Date()
@@ -134,10 +134,10 @@ public class CloudKitSyncManager {
                     tag: "FetchBuckets",
                     message: "Failed to fetch buckets",
                     metadata: ["error": error.localizedDescription],
-                    source: "CloudKit-Watch-New"
+                    source: "CloudKit-Watch"
                 )
                 
-                print("☁️ [CloudKitSync][Watch-New] ❌ Failed to fetch buckets: \(error.localizedDescription)")
+                print("☁️ [CloudKitSync][Watch] ❌ Failed to fetch buckets: \(error.localizedDescription)")
                 completion([])
             }
         }
@@ -153,7 +153,7 @@ public class CloudKitSyncManager {
             tag: "FetchNotifications",
             message: "Fetching notifications from CloudKit",
             metadata: ["limit": String(effectiveLimit)],
-            source: "CloudKit-Watch-New"
+            source: "CloudKit-Watch"
         )
         
         CloudKitAccess.fetchAllNotifications(limit: effectiveLimit) { result in
@@ -168,10 +168,10 @@ public class CloudKitSyncManager {
                         "totalCount": String(notifications.count),
                         "unreadCount": String(unreadCount)
                     ],
-                    source: "CloudKit-Watch-New"
+                    source: "CloudKit-Watch"
                 )
                 
-                print("☁️ [CloudKitSync][Watch-New] ✅ Fetched \(notifications.count) notifications from CloudKit (\(unreadCount) unread)")
+                print("☁️ [CloudKitSync][Watch] ✅ Fetched \(notifications.count) notifications from CloudKit (\(unreadCount) unread)")
                 
                 // Update last sync date
                 self.lastNotificationsSyncDate = Date()
@@ -183,10 +183,10 @@ public class CloudKitSyncManager {
                     tag: "FetchNotifications",
                     message: "Failed to fetch notifications",
                     metadata: ["error": error.localizedDescription],
-                    source: "CloudKit-Watch-New"
+                    source: "CloudKit-Watch"
                 )
                 
-                print("☁️ [CloudKitSync][Watch-New] ❌ Failed to fetch notifications: \(error.localizedDescription)")
+                print("☁️ [CloudKitSync][Watch] ❌ Failed to fetch notifications: \(error.localizedDescription)")
                 completion([])
             }
         }
@@ -201,7 +201,7 @@ public class CloudKitSyncManager {
                 "bucketId": bucketId,
                 "limit": limit.map { String($0) } ?? "none"
             ],
-            source: "CloudKit-Watch-New"
+            source: "CloudKit-Watch"
         )
         
         CloudKitAccess.fetchNotifications(bucketId: bucketId, limit: limit) { result in
@@ -214,10 +214,10 @@ public class CloudKitSyncManager {
                         "bucketId": bucketId,
                         "count": String(notifications.count)
                     ],
-                    source: "CloudKit-Watch-New"
+                    source: "CloudKit-Watch"
                 )
                 
-                print("☁️ [CloudKitSync][Watch-New] ✅ Fetched \(notifications.count) notifications for bucket \(bucketId)")
+                print("☁️ [CloudKitSync][Watch] ✅ Fetched \(notifications.count) notifications for bucket \(bucketId)")
                 completion(notifications)
                 
             case .failure(let error):
@@ -228,10 +228,10 @@ public class CloudKitSyncManager {
                         "bucketId": bucketId,
                         "error": error.localizedDescription
                     ],
-                    source: "CloudKit-Watch-New"
+                    source: "CloudKit-Watch"
                 )
                 
-                print("☁️ [CloudKitSync][Watch-New] ❌ Failed to fetch notifications for bucket \(bucketId): \(error.localizedDescription)")
+                print("☁️ [CloudKitSync][Watch] ❌ Failed to fetch notifications for bucket \(bucketId): \(error.localizedDescription)")
                 completion([])
             }
         }
@@ -244,7 +244,7 @@ public class CloudKitSyncManager {
         logger.info(
             tag: "FetchAll",
             message: "Fetching all data from CloudKit",
-            source: "CloudKit-Watch-New"
+            source: "CloudKit-Watch"
         )
         
         let group = DispatchGroup()
@@ -273,24 +273,24 @@ public class CloudKitSyncManager {
                     "bucketsCount": String(fetchedBuckets.count),
                     "notificationsCount": String(fetchedNotifications.count)
                 ],
-                source: "CloudKit-Watch-New"
+                source: "CloudKit-Watch"
             )
             
-            print("☁️ [CloudKitSync][Watch-New] ✅ Fetch all completed: \(fetchedBuckets.count) buckets, \(fetchedNotifications.count) notifications")
+            print("☁️ [CloudKitSync][Watch] ✅ Fetch all completed: \(fetchedBuckets.count) buckets, \(fetchedNotifications.count) notifications")
             completion(fetchedBuckets, fetchedNotifications)
         }
     }
     
     /// Force refresh - reload all data from CloudKit
     public func forceRefresh(completion: @escaping (Bool) -> Void) {
-        print("☁️ [CloudKitSync][Watch-New] 🔄 Force refresh from CloudKit...")
+        print("☁️ [CloudKitSync][Watch] 🔄 Force refresh from CloudKit...")
         
         fetchAll { buckets, notifications in
             let success = !buckets.isEmpty || !notifications.isEmpty
             if success {
-                print("☁️ [CloudKitSync][Watch-New] ✅ Force refresh completed: \(buckets.count) buckets, \(notifications.count) notifications")
+                print("☁️ [CloudKitSync][Watch] ✅ Force refresh completed: \(buckets.count) buckets, \(notifications.count) notifications")
             } else {
-                print("☁️ [CloudKitSync][Watch-New] ⚠️ Force refresh returned no data")
+                print("☁️ [CloudKitSync][Watch] ⚠️ Force refresh returned no data")
             }
             completion(success)
         }
@@ -303,7 +303,7 @@ public class CloudKitSyncManager {
         logger.info(
             tag: "SetupSubscriptions",
             message: "Setting up CloudKit subscriptions",
-            source: "CloudKit-Watch-New"
+            source: "CloudKit-Watch"
         )
         
         CloudKitAccess.setupSubscriptions { result in
@@ -312,9 +312,9 @@ public class CloudKitSyncManager {
                 self.logger.info(
                     tag: "SetupSubscriptions",
                     message: "Successfully setup subscriptions",
-                    source: "CloudKit-Watch-New"
+                    source: "CloudKit-Watch"
                 )
-                print("☁️ [CloudKitSync][Watch-New] ✅ Subscriptions setup successful")
+                print("☁️ [CloudKitSync][Watch] ✅ Subscriptions setup successful")
                 completion(true)
                 
             case .failure(let error):
@@ -322,9 +322,9 @@ public class CloudKitSyncManager {
                     tag: "SetupSubscriptions",
                     message: "Failed to setup subscriptions",
                     metadata: ["error": error.localizedDescription],
-                    source: "CloudKit-Watch-New"
+                    source: "CloudKit-Watch"
                 )
-                print("☁️ [CloudKitSync][Watch-New] ❌ Failed to setup subscriptions: \(error.localizedDescription)")
+                print("☁️ [CloudKitSync][Watch] ❌ Failed to setup subscriptions: \(error.localizedDescription)")
                 completion(false)
             }
         }
