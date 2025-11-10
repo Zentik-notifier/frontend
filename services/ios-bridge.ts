@@ -244,7 +244,7 @@ class IosBridgeService {
   /**
    * Sync all data (buckets and notifications) to CloudKit
    */
-  async syncAllToCloudKit(): Promise<{
+  async syncAllToCloudKit(limit: number): Promise<{
     success: boolean;
     bucketsCount: number;
     notificationsCount: number;
@@ -255,7 +255,7 @@ class IosBridgeService {
     }
 
     try {
-      const result = await CloudKitSyncBridge.syncAllToCloudKit();
+      const result = await CloudKitSyncBridge.syncAllToCloudKit(limit);
       console.log('[CloudKitSync] Full sync completed:', result);
       return result;
     } catch (error) {
@@ -292,7 +292,7 @@ class IosBridgeService {
   /**
    * Sync only notifications to CloudKit
    */
-  async syncNotificationsToCloudKit(): Promise<{
+  async syncNotificationsToCloudKit(limit: number): Promise<{
     success: boolean;
     count: number;
   }> {
@@ -302,7 +302,7 @@ class IosBridgeService {
     }
 
     try {
-      const result = await CloudKitSyncBridge.syncNotificationsToCloudKit();
+      const result = await CloudKitSyncBridge.syncNotificationsToCloudKit(limit);
       console.log('[CloudKitSync] Notifications sync completed:', result);
       return result;
     } catch (error) {

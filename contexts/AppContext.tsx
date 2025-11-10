@@ -182,7 +182,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     console.debug("🧹 Clearing tokens and setting logout state...");
     await settingsService.clearTokens();
     // Clear any stored redirect intent
-    try { await settingsRepository.removeSetting('auth_redirectAfterLogin'); } catch {}
+    try {
+      await settingsRepository.removeSetting("auth_redirectAfterLogin");
+    } catch {}
     await settingsService.savePushNotificationsInitialized(false);
     await settingsService.saveLastUserId("");
     setUserId(null);
@@ -430,11 +432,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.log("[AppContext] App is active, cleaning up and syncing");
         await processPendingNavigationIntent();
         await openSharedCacheDb();
-        
+
         // Force refresh from backend and sync to CloudKit
-        await cleanup({ immediate: true });
-        
-        
+        await cleanup({ immediate: true, syncCloud: true });
+
         await connectionStatus.checkForUpdates();
       } else if (
         nextAppState === "inactive" &&

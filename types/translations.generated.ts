@@ -88,6 +88,8 @@ export interface Translation {
       maxStoredDescription: string;
       maxStoredDaysTitle: string;
       maxStoredDaysDescription: string;
+      watchNMaxNotificationsTitle: string;
+      watchNMaxNotificationsDescription: string;
       importExport: {
         title: string;
         description: string;

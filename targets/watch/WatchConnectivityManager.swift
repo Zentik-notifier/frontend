@@ -185,7 +185,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 unreadCount: cachedBucket.unreadCount,
                 totalCount: totalCount,
                 color: cachedBucket.color,
-                iconUrl: cachedBucket.iconUrl
+                iconUrl: cachedBucket.iconUrl,
+                lastNotificationDate: lastNotificationDate
             )
             
             bucketsWithDates.append((bucket: bucket, lastNotificationDate: lastNotificationDate))
@@ -393,13 +394,27 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 $0.notification.bucketId == bucket.id 
             }.count
             
+            // Calculate last notification date
+            let bucketNotifications = notifications.filter { $0.notification.bucketId == bucket.id }
+            let lastNotificationDate = bucketNotifications.compactMap { notifData -> Date? in
+                let isoFormatter = ISO8601DateFormatter()
+                isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let date = isoFormatter.date(from: notifData.notification.createdAt) {
+                    return date
+                }
+                // Try without fractional seconds
+                isoFormatter.formatOptions = [.withInternetDateTime]
+                return isoFormatter.date(from: notifData.notification.createdAt)
+            }.max()
+            
             let bucketItem = BucketItem(
                 id: bucket.id,
                 name: bucket.name,
                 unreadCount: unreadCount,
                 totalCount: totalCount,
                 color: bucket.color,
-                iconUrl: bucket.iconUrl
+                iconUrl: bucket.iconUrl,
+                lastNotificationDate: lastNotificationDate
             )
             
             if let index = buckets.firstIndex(where: { $0.id == bucket.id }) {
@@ -437,13 +452,26 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 // Update bucket counts
                 if let bucket = bucketMap[deletedNotif.notification.bucketId],
                    let bucketIndex = buckets.firstIndex(where: { $0.id == bucket.id }) {
+                    // Recalculate last notification date after deletion
+                    let remainingBucketNotifications = notifications.filter { $0.notification.bucketId == bucket.id }
+                    let lastNotificationDate = remainingBucketNotifications.compactMap { notifData -> Date? in
+                        let isoFormatter = ISO8601DateFormatter()
+                        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                        if let date = isoFormatter.date(from: notifData.notification.createdAt) {
+                            return date
+                        }
+                        isoFormatter.formatOptions = [.withInternetDateTime]
+                        return isoFormatter.date(from: notifData.notification.createdAt)
+                    }.max()
+                    
                     let newBucket = BucketItem(
                         id: bucket.id,
                         name: bucket.name,
                         unreadCount: max(0, bucket.unreadCount - (deletedNotif.notification.isRead ? 0 : 1)),
                         totalCount: max(0, bucket.totalCount - 1),
                         color: bucket.color,
-                        iconUrl: bucket.iconUrl
+                        iconUrl: bucket.iconUrl,
+                        lastNotificationDate: lastNotificationDate
                     )
                     buckets[bucketIndex] = newBucket
                 }
@@ -495,13 +523,27 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                     if let bucket = bucketMap[ckNotification.bucketId],
                        let bucketIndex = buckets.firstIndex(where: { $0.id == bucket.id }) {
                         let delta = isUnread ? 1 : -1
+                        
+                        // Recalculate last notification date
+                        let bucketNotifications = notifications.filter { $0.notification.bucketId == bucket.id }
+                        let lastNotificationDate = bucketNotifications.compactMap { notifData -> Date? in
+                            let isoFormatter = ISO8601DateFormatter()
+                            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                            if let date = isoFormatter.date(from: notifData.notification.createdAt) {
+                                return date
+                            }
+                            isoFormatter.formatOptions = [.withInternetDateTime]
+                            return isoFormatter.date(from: notifData.notification.createdAt)
+                        }.max()
+                        
                         let newBucket = BucketItem(
                             id: bucket.id,
                             name: bucket.name,
                             unreadCount: max(0, bucket.unreadCount + delta),
                             totalCount: bucket.totalCount,
                             color: bucket.color,
-                            iconUrl: bucket.iconUrl
+                            iconUrl: bucket.iconUrl,
+                            lastNotificationDate: lastNotificationDate
                         )
                         buckets[bucketIndex] = newBucket
                     }
@@ -514,13 +556,26 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 // Update bucket counts
                 if let bucket = bucketMap[ckNotification.bucketId],
                    let bucketIndex = buckets.firstIndex(where: { $0.id == bucket.id }) {
+                    // Recalculate last notification date including the new notification
+                    let bucketNotifications = notifications.filter { $0.notification.bucketId == bucket.id }
+                    let lastNotificationDate = bucketNotifications.compactMap { notifData -> Date? in
+                        let isoFormatter = ISO8601DateFormatter()
+                        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                        if let date = isoFormatter.date(from: notifData.notification.createdAt) {
+                            return date
+                        }
+                        isoFormatter.formatOptions = [.withInternetDateTime]
+                        return isoFormatter.date(from: notifData.notification.createdAt)
+                    }.max()
+                    
                     let newBucket = BucketItem(
                         id: bucket.id,
                         name: bucket.name,
                         unreadCount: bucket.unreadCount + (notification.isRead ? 0 : 1),
                         totalCount: bucket.totalCount + 1,
                         color: bucket.color,
-                        iconUrl: bucket.iconUrl
+                        iconUrl: bucket.iconUrl,
+                        lastNotificationDate: lastNotificationDate
                     )
                     buckets[bucketIndex] = newBucket
                 }
@@ -598,7 +653,17 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         // 1. Update local cache immediately
         markNotificationAsRead(id: id, readAt: now)
         
-        // 2. Notify iPhone to sync to backend and CloudKit
+        // 2. Update CloudKit (non-blocking)
+        CloudKitAccess.markNotificationAsRead(id: id) { result in
+            switch result {
+            case .success:
+                print("⌚ [Watch] ✅ CloudKit updated for MARK_AS_READ")
+            case .failure(let error):
+                print("⌚ [Watch] ⚠️ CloudKit update failed (non-critical): \(error.localizedDescription)")
+            }
+        }
+        
+        // 3. Notify iPhone to sync to backend and CloudKit
         // (Will be buffered automatically if iPhone not reachable)
         sendMessageToiPhone([
             "action": "notificationRead",
@@ -617,7 +682,17 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         // 1. Update local cache immediately
         markNotificationAsUnread(id: id)
         
-        // 2. Notify iPhone to sync to backend and CloudKit
+        // 2. Update CloudKit (non-blocking)
+        CloudKitAccess.markNotificationAsUnread(id: id) { result in
+            switch result {
+            case .success:
+                print("⌚ [Watch] ✅ CloudKit updated for MARK_AS_UNREAD")
+            case .failure(let error):
+                print("⌚ [Watch] ⚠️ CloudKit update failed (non-critical): \(error.localizedDescription)")
+            }
+        }
+        
+        // 3. Notify iPhone to sync to backend and CloudKit
         // (Will be buffered automatically if iPhone not reachable)
         sendMessageToiPhone([
             "action": "notificationUnread",
@@ -629,20 +704,30 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     
     /**
      * Delete notification from Watch UI
-     * Updates local cache and notifies iPhone (iPhone will handle backend/CloudKit)
+     * Updates local cache and notifies iPhone (iPhone will handle backend)
      */
     func deleteNotificationFromWatch(id: String) {
         // 1. Delete from local cache immediately
         deleteNotificationLocally(id: id)
         
-        // 2. Notify iPhone to delete from backend and CloudKit
+        // 2. Delete from CloudKit (non-blocking)
+        CloudKitAccess.deleteNotification(id: id) { result in
+            switch result {
+            case .success:
+                print("⌚ [Watch] ✅ CloudKit updated for DELETE")
+            case .failure(let error):
+                print("⌚ [Watch] ⚠️ CloudKit delete failed (non-critical): \(error.localizedDescription)")
+            }
+        }
+        
+        // 3. Notify iPhone to delete from backend (not CloudKit - Watch already did it)
         // (Will be buffered automatically if iPhone not reachable)
         sendMessageToiPhone([
             "action": "notificationDeleted",
             "notificationId": id
         ])
         
-        print("⌚ [Watch] ✅ Deleted locally, notified iPhone")
+        print("⌚ [Watch] ✅ Deleted locally and from CloudKit, notified iPhone for backend sync")
     }
     
     /**
@@ -760,13 +845,27 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 // Update bucket unread count by creating new bucket
                 if let bucketIndex = buckets.firstIndex(where: { $0.id == oldNotification.bucketId }) {
                     let oldBucket = buckets[bucketIndex]
+                    
+                    // Recalculate last notification date
+                    let bucketNotifications = notifications.filter { $0.notification.bucketId == oldBucket.id }
+                    let lastNotificationDate = bucketNotifications.compactMap { notifData -> Date? in
+                        let isoFormatter = ISO8601DateFormatter()
+                        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                        if let date = isoFormatter.date(from: notifData.notification.createdAt) {
+                            return date
+                        }
+                        isoFormatter.formatOptions = [.withInternetDateTime]
+                        return isoFormatter.date(from: notifData.notification.createdAt)
+                    }.max()
+                    
                     let newBucket = BucketItem(
                         id: oldBucket.id,
                         name: oldBucket.name,
                         unreadCount: max(0, oldBucket.unreadCount - 1),
                         totalCount: oldBucket.totalCount,
                         color: oldBucket.color,
-                        iconUrl: oldBucket.iconUrl
+                        iconUrl: oldBucket.iconUrl,
+                        lastNotificationDate: lastNotificationDate
                     )
                     buckets[bucketIndex] = newBucket
                 }
@@ -814,13 +913,27 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 // Update bucket unread count by creating new bucket
                 if let bucketIndex = buckets.firstIndex(where: { $0.id == oldNotification.bucketId }) {
                     let oldBucket = buckets[bucketIndex]
+                    
+                    // Recalculate last notification date
+                    let bucketNotifications = notifications.filter { $0.notification.bucketId == oldBucket.id }
+                    let lastNotificationDate = bucketNotifications.compactMap { notifData -> Date? in
+                        let isoFormatter = ISO8601DateFormatter()
+                        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                        if let date = isoFormatter.date(from: notifData.notification.createdAt) {
+                            return date
+                        }
+                        isoFormatter.formatOptions = [.withInternetDateTime]
+                        return isoFormatter.date(from: notifData.notification.createdAt)
+                    }.max()
+                    
                     let newBucket = BucketItem(
                         id: oldBucket.id,
                         name: oldBucket.name,
                         unreadCount: oldBucket.unreadCount + 1,
                         totalCount: oldBucket.totalCount,
                         color: oldBucket.color,
-                        iconUrl: oldBucket.iconUrl
+                        iconUrl: oldBucket.iconUrl,
+                        lastNotificationDate: lastNotificationDate
                     )
                     buckets[bucketIndex] = newBucket
                 }
@@ -852,13 +965,27 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             // ALWAYS update bucket counts (both total and unread if applicable)
             if let bucketIndex = buckets.firstIndex(where: { $0.id == deletedNotification.bucketId }) {
                 let oldBucket = buckets[bucketIndex]
+                
+                // Recalculate last notification date after deletion
+                let remainingBucketNotifications = notifications.filter { $0.notification.bucketId == oldBucket.id }
+                let lastNotificationDate = remainingBucketNotifications.compactMap { notifData -> Date? in
+                    let isoFormatter = ISO8601DateFormatter()
+                    isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    if let date = isoFormatter.date(from: notifData.notification.createdAt) {
+                        return date
+                    }
+                    isoFormatter.formatOptions = [.withInternetDateTime]
+                    return isoFormatter.date(from: notifData.notification.createdAt)
+                }.max()
+                
                 let newBucket = BucketItem(
                     id: oldBucket.id,
                     name: oldBucket.name,
                     unreadCount: wasUnread ? max(0, oldBucket.unreadCount - 1) : oldBucket.unreadCount,
                     totalCount: max(0, oldBucket.totalCount - 1),
                     color: oldBucket.color,
-                    iconUrl: oldBucket.iconUrl
+                    iconUrl: oldBucket.iconUrl,
+                    lastNotificationDate: lastNotificationDate
                 )
                 buckets[bucketIndex] = newBucket
             }

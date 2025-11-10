@@ -26,7 +26,8 @@ const scheme = getCustomScheme();
 
 function DeepLinkHandler() {
   const { refreshUserData } = useAppContext();
-  const { navigateToOAuth, navigateToNotificationDetail } = useNavigationUtils();
+  const { navigateToOAuth, navigateToNotificationDetail } =
+    useNavigationUtils();
 
   useEffect(() => {
     const subscription = Linking.addEventListener("url", async ({ url }) => {
@@ -55,16 +56,20 @@ function DeepLinkHandler() {
             if (code) oauthParams.set("code", code);
             if (sessionId) oauthParams.set("sessionId", sessionId);
             if (error) oauthParams.set("error", error);
-            if (errorDescription) oauthParams.set("error_description", errorDescription);
+            if (errorDescription)
+              oauthParams.set("error_description", errorDescription);
             navigateToOAuth(oauthParams.toString());
             return;
           }
-          
+
           // Handle notification deep link (zentik://notification/:id)
           if (parsed?.path?.startsWith("notification/")) {
             const notificationId = parsed.path.split("/")[1];
             if (notificationId) {
-              console.log("🔗 Opening notification from deep link:", notificationId);
+              console.log(
+                "🔗 Opening notification from deep link:",
+                notificationId
+              );
               navigateToNotificationDetail(notificationId);
               return;
             }

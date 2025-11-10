@@ -161,7 +161,7 @@ const DEFAULT_SETTINGS: UserSettings = {
     maxCachedNotificationsDay: 14,
     maxCacheSizeMB: undefined,
     maxCageAgeDays: 120,
-    watchNMaxNotifications: 150,
+    watchNMaxNotifications: 9999,
   },
   downloadSettings: {
     autoDownloadEnabled: true,
@@ -679,6 +679,16 @@ class SettingsService {
       retentionPolicies: {
         ...current.retentionPolicies,
         maxCachedNotificationsDay: days,
+      },
+    });
+  }
+
+  public async setWatchNMaxNotifications(max: number | undefined): Promise<void> {
+    const current = this.settingsSubject.value;
+    await this.updateSettings({
+      retentionPolicies: {
+        ...current.retentionPolicies,
+        watchNMaxNotifications: max,
       },
     });
   }

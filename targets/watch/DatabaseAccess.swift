@@ -486,7 +486,7 @@ public class DatabaseAccess {
                 
                 // Ensure notifications table exists (create if missing)
                 // This is critical for extensions that may run before main app
-                let createTableSQL = """
+                let createNotificationsTableSQL = """
                     CREATE TABLE IF NOT EXISTS notifications (
                         id TEXT PRIMARY KEY,
                         created_at TEXT NOT NULL,
@@ -497,13 +497,32 @@ public class DatabaseAccess {
                     );
                     """
                 var createStmt: OpaquePointer?
-                if sqlite3_prepare_v2(database, createTableSQL, -1, &createStmt, nil) == SQLITE_OK {
+                if sqlite3_prepare_v2(database, createNotificationsTableSQL, -1, &createStmt, nil) == SQLITE_OK {
                     sqlite3_step(createStmt)
                     sqlite3_finalize(createStmt)
                     print("📱 [\(source)] ✅ [\(operationName)] Notifications table schema verified")
                 } else {
                     let errorMsg = String(cString: sqlite3_errmsg(database))
-                    print("📱 [\(source)] ⚠️ [\(operationName)] Failed to create table: \(errorMsg)")
+                    print("📱 [\(source)] ⚠️ [\(operationName)] Failed to create notifications table: \(errorMsg)")
+                }
+                
+                // Ensure buckets table exists (create if missing)
+                // This is critical for CloudKit sync operations
+                let createBucketsTableSQL = """
+                    CREATE TABLE IF NOT EXISTS buckets (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        fragment TEXT NOT NULL,
+                        updated_at TEXT NOT NULL
+                    );
+                    """
+                if sqlite3_prepare_v2(database, createBucketsTableSQL, -1, &createStmt, nil) == SQLITE_OK {
+                    sqlite3_step(createStmt)
+                    sqlite3_finalize(createStmt)
+                    print("📱 [\(source)] ✅ [\(operationName)] Buckets table schema verified")
+                } else {
+                    let errorMsg = String(cString: sqlite3_errmsg(database))
+                    print("📱 [\(source)] ⚠️ [\(operationName)] Failed to create buckets table: \(errorMsg)")
                 }
                 
                 // For write operations, use immediate transaction

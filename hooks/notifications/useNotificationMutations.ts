@@ -346,8 +346,8 @@ export function useMarkAsRead(
                                 body: notification.message.body || undefined,
                                 bucketId: notification.message.bucket.id,
                                 readAt: now,
-                                createdAt: notification.message.createdAt,
-                                updatedAt: notification.message.updatedAt,
+                                createdAt: notification.createdAt,
+                                updatedAt: notification.updatedAt,
                                 attachments: notification.message.attachments?.map(a => ({
                                     mediaType: a.mediaType,
                                     url: a.url || undefined,
@@ -497,8 +497,8 @@ export function useMarkAsUnread(
                                 body: notification.message.body || undefined,
                                 bucketId: notification.message.bucket.id,
                                 readAt: undefined, // Mark as unread
-                                createdAt: notification.message.createdAt,
-                                updatedAt: notification.message.updatedAt,
+                                createdAt: notification.createdAt,
+                                updatedAt: notification.updatedAt,
                                 attachments: notification.message.attachments?.map(a => ({
                                     mediaType: a.mediaType,
                                     url: a.url || undefined,
@@ -664,8 +664,8 @@ export function useBatchMarkAsRead(
                                 body: notification.message.body || undefined,
                                 bucketId: notification.message.bucket.id,
                                 readAt: timestamp || undefined,
-                                createdAt: notification.message.createdAt,
-                                updatedAt: notification.message.updatedAt,
+                                createdAt: notification.createdAt,
+                                updatedAt: notification.updatedAt,
                                 attachments: notification.message.attachments?.map(a => ({
                                     mediaType: a.mediaType,
                                     url: a.url || undefined,

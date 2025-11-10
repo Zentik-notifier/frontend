@@ -707,7 +707,7 @@ export async function getNotificationStats(
             MAX(created_at) as last_notification_date,
             MIN(created_at) as first_notification_date
            FROM notifications ${whereClause}`;
-        console.log('[getNotificationStats] Query:', overallStatsQuery, 'Params:', params);
+        // console.log('[getNotificationStats] Query:', overallStatsQuery, 'Params:', params);
 
         let overallStats;
         try {
@@ -731,7 +731,7 @@ export async function getNotificationStats(
            FROM notifications 
            ${whereClause}
            GROUP BY bucket_id`;
-        console.log('[getNotificationStats] Query:', bucketStatsQuery, 'Params:', params);
+        // console.log('[getNotificationStats] Query:', bucketStatsQuery, 'Params:', params);
 
         let bucketStatsResults;
         try {
@@ -746,8 +746,6 @@ export async function getNotificationStats(
         console.log('[getNotificationStats] Fetching bucket names...');
         const byBucket: BucketStats[] = await Promise.all(
           bucketStatsResults.map(async (stats: any, index: number) => {
-            console.log(`[getNotificationStats] Fetching name for bucket ${index + 1}/${bucketStatsResults.length}: ${stats.bucket_id}`);
-
             let firstNotification;
             try {
               firstNotification = await db.getFirstAsync(

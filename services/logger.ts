@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
 import { File } from '../utils/filesystem-wrapper';
+import * as ExpoFileSystem from 'expo-file-system';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -528,7 +529,7 @@ class WebJsonFileLogger {
 export const logger = Platform.OS === 'web' ? new WebJsonFileLogger() : new JsonFileLogger();
 
 // Static method to read logs from both sources
-export async function readLogs(tsFrom: number = 0): Promise<AppLog[]> {
+export async function readLogs(tsFrom: number = 0, fromSource?: string): Promise<AppLog[]> {
   if (Platform.OS === 'web') {
     try {
       const stored = localStorage.getItem('zentik-logs-json');
@@ -536,9 +537,9 @@ export async function readLogs(tsFrom: number = 0): Promise<AppLog[]> {
 
       const allLogs: AppLog[] = JSON.parse(stored);
 
-      // Filter by timestamp and sort by timestamp DESC
+      // Filter by timestamp, source (if specified) and sort by timestamp DESC
       return allLogs
-        .filter(log => log.timestamp >= tsFrom)
+        .filter(log => log.timestamp >= tsFrom && (!fromSource || log.source === fromSource))
         .sort((a, b) => b.timestamp - a.timestamp);
     } catch (error) {
       console.warn('Failed to read web logs:', error);
@@ -546,22 +547,48 @@ export async function readLogs(tsFrom: number = 0): Promise<AppLog[]> {
     }
   } else {
     try {
-      const logFilePath = await (async () => {
-        const cacheDir = await getSharedMediaCacheDirectoryAsync();
-        return `${cacheDir}/logs.json`;
-      })();
-      const logFile = new File(logFilePath);
+      const cacheDir = await getSharedMediaCacheDirectoryAsync();
+      const logsDir = `${cacheDir}/logs`;
+      
+      const allLogs: AppLog[] = [];
 
-      if (!logFile.exists) return [];
+      // Read from multi-file structure
+      const dirInfo = await ExpoFileSystem.getInfoAsync(logsDir);
+      
+      if (dirInfo.exists && dirInfo.isDirectory) {
+        const files = await ExpoFileSystem.readDirectoryAsync(logsDir);
+        
+        for (const fileName of files) {
+          // Skip corrupted backup files
+          if (fileName.includes('_corrupted_')) continue;
+          
+          // Only process .json files
+          if (!fileName.endsWith('.json')) continue;
+          
+          // If filtering by source, skip non-matching files
+          if (fromSource) {
+            const sourceFromFile = fileName.replace('.json', '');
+            if (sourceFromFile !== fromSource) continue;
+          }
+          
+          try {
+            const filePath = `${logsDir}/${fileName}`;
+            const content = await ExpoFileSystem.readAsStringAsync(filePath);
+            
+            if (content) {
+              const logs: AppLog[] = JSON.parse(content);
+              allLogs.push(...logs);
+            }
+          } catch (error) {
+            console.warn(`Failed to read log file ${fileName}:`, error);
+            // Continue with next file
+          }
+        }
+      }
 
-      const content = await logFile.read();
-      if (!content) return [];
-
-      const allLogs: AppLog[] = JSON.parse(content);
-
-      // Filter by timestamp and sort by timestamp DESC
+      // Filter by timestamp, source (if specified) and sort by timestamp DESC
       return allLogs
-        .filter(log => log.timestamp >= tsFrom)
+        .filter(log => log.timestamp >= tsFrom && (!fromSource || log.source === fromSource))
         .sort((a, b) => b.timestamp - a.timestamp);
     } catch (error) {
       console.warn('Failed to read mobile logs:', error);
@@ -581,14 +608,25 @@ export async function clearAllLogs(): Promise<void> {
     }
   } else {
     try {
-      const logFilePath = await (async () => {
-        const cacheDir = await getSharedMediaCacheDirectoryAsync();
-        return `${cacheDir}/logs.json`;
-      })();
-      const logFile = new File(logFilePath);
-
-      if (logFile.exists) {
-        logFile.delete();
+      const cacheDir = await getSharedMediaCacheDirectoryAsync();
+      const logsDir = `${cacheDir}/logs`;
+      
+      const dirInfo = await ExpoFileSystem.getInfoAsync(logsDir);
+      
+      if (dirInfo.exists && dirInfo.isDirectory) {
+        // Delete all log files in the directory
+        const files = await ExpoFileSystem.readDirectoryAsync(logsDir);
+        
+        for (const fileName of files) {
+          if (fileName.endsWith('.json')) {
+            try {
+              const filePath = `${logsDir}/${fileName}`;
+              await ExpoFileSystem.deleteAsync(filePath, { idempotent: true });
+            } catch (error) {
+              console.warn(`Failed to delete log file ${fileName}:`, error);
+            }
+          }
+        }
       }
     } catch (error) {
       console.warn('Failed to clear mobile logs:', error);

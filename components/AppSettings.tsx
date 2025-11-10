@@ -254,9 +254,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderRadius: 12,
   },
-  retentionSection: {
-    marginBottom: 20,
-  },
   apiUrlActions: {
     flexDirection: "row",
     gap: 8,

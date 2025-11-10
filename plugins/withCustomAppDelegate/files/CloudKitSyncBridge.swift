@@ -92,15 +92,20 @@ class CloudKitSyncBridge: RCTEventEmitter {
    * Sync all data (buckets and notifications) to CloudKit
    */
   @objc
-  func syncAllToCloudKit(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+  func syncAllToCloudKit(_ limit: NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let limitInt = limit.intValue
+    
     logger.info(
       tag: "ReactNative→CloudKit",
       message: "React Native requested full sync to CloudKit",
-      metadata: ["syncType": "all"],
+      metadata: [
+        "syncType": "all",
+        "limit": String(limitInt)
+      ],
       source: "CloudKitBridge"
     )
     
-    CloudKitSyncManager.shared.syncAllToCloudKit { (success, bucketsCount, notificationsCount) in
+    CloudKitSyncManager.shared.syncAllToCloudKit(limit: limitInt) { (success, bucketsCount, notificationsCount) in
       if success {
         self.logger.info(
           tag: "CloudKitSync",
@@ -167,15 +172,20 @@ class CloudKitSyncBridge: RCTEventEmitter {
    * Sync only notifications to CloudKit
    */
   @objc
-  func syncNotificationsToCloudKit(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+  func syncNotificationsToCloudKit(_ limit: NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let limitInt = limit.intValue
+    
     logger.info(
       tag: "ReactNative→CloudKit",
       message: "React Native requested notification sync to CloudKit",
-      metadata: ["syncType": "notifications"],
+      metadata: [
+        "syncType": "notifications",
+        "limit": String(limitInt)
+      ],
       source: "CloudKitBridge"
     )
     
-    CloudKitSyncManager.shared.syncNotificationsToCloudKit { (success, count) in
+    CloudKitSyncManager.shared.syncNotificationsToCloudKit(limit: limitInt) { (success, count) in
       if success {
         self.logger.info(
           tag: "CloudKitSync",

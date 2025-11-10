@@ -2,13 +2,15 @@
 
 @interface RCT_EXTERN_MODULE(CloudKitSyncBridge, NSObject)
 
-RCT_EXTERN_METHOD(syncAllToCloudKit:(RCTPromiseResolveBlock)resolve
+RCT_EXTERN_METHOD(syncAllToCloudKit:(nonnull NSNumber *)limit
+                  resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(syncBucketsToCloudKit:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(syncNotificationsToCloudKit:(RCTPromiseResolveBlock)resolve
+RCT_EXTERN_METHOD(syncNotificationsToCloudKit:(nonnull NSNumber *)limit
+                  resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(setupSubscriptions:(RCTPromiseResolveBlock)resolve

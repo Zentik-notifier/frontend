@@ -40,6 +40,7 @@ export default function UnifiedCacheSettings() {
     setAutoAddOpenNotificationAction,
     setDefaultPostpones,
     setDefaultSnoozes,
+    setWatchNMaxNotifications,
   } = useSettings();
   const [showResetModal, setShowResetModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -71,6 +72,14 @@ export default function UnifiedCacheSettings() {
   const [isEditingMaxNotifications, setIsEditingMaxNotifications] =
     useState(false);
   const [isEditingMaxNotificationsDays, setIsEditingMaxNotificationsDays] =
+    useState(false);
+  const [localWatchNMaxNotifications, setLocalWatchNMaxNotifications] =
+    useState<string>(
+      settings.retentionPolicies.watchNMaxNotifications !== undefined
+        ? String(settings.retentionPolicies.watchNMaxNotifications)
+        : ""
+    );
+  const [isEditingWatchNMaxNotifications, setIsEditingWatchNMaxNotifications] =
     useState(false);
 
   // Default postpones and snoozes
@@ -106,6 +115,13 @@ export default function UnifiedCacheSettings() {
           : ""
       );
     }
+    if (!isEditingWatchNMaxNotifications) {
+      setLocalWatchNMaxNotifications(
+        settings.retentionPolicies.watchNMaxNotifications !== undefined
+          ? String(settings.retentionPolicies.watchNMaxNotifications)
+          : ""
+      );
+    }
     // Sync default snoozes and postpones
     setLocalDefaultPostpones(settings.notificationsPreferences?.defaultPostpones || []);
     setLocalDefaultSnoozes(settings.notificationsPreferences?.defaultSnoozes || []);
@@ -114,10 +130,12 @@ export default function UnifiedCacheSettings() {
     settings.retentionPolicies?.maxCageAgeDays,
     settings.retentionPolicies.maxCachedNotifications,
     settings.retentionPolicies.maxCachedNotificationsDay,
+    settings.retentionPolicies.watchNMaxNotifications,
     settings.notificationsPreferences?.defaultPostpones,
     settings.notificationsPreferences?.defaultSnoozes,
     isEditingMaxNotifications,
     isEditingMaxNotificationsDays,
+    isEditingWatchNMaxNotifications,
   ]);
 
   const { cacheStats } = useGetCacheStats();
@@ -676,6 +694,60 @@ export default function UnifiedCacheSettings() {
             </View>
           </Card.Content>
         </Card>
+
+        {/* Max Watch Notifications - iOS only */}
+        {/* {Platform.OS === 'ios' && (
+          <Card style={styles.settingCard} elevation={0}>
+            <Card.Content>
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <View style={styles.settingTextContainer}>
+                    <Text variant="titleMedium" style={styles.settingTitle}>
+                      {t("appSettings.gqlCache.watchNMaxNotificationsTitle")}
+                    </Text>
+                    <Text
+                      variant="bodyMedium"
+                      style={[
+                        styles.settingDescription,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {t("appSettings.gqlCache.watchNMaxNotificationsDescription")}
+                    </Text>
+                  </View>
+                </View>
+                <TextInput
+                  mode="outlined"
+                  value={localWatchNMaxNotifications}
+                  onFocus={() => setIsEditingWatchNMaxNotifications(true)}
+                  onBlur={async () => {
+                    const text = localWatchNMaxNotifications;
+                    if (text.trim() === "") {
+                      await setWatchNMaxNotifications(undefined);
+                    } else {
+                      const parsed = parseInt(text, 10);
+                      if (
+                        !Number.isNaN(parsed) &&
+                        parsed >= 0 &&
+                        parsed <= 1000
+                      ) {
+                        await setWatchNMaxNotifications(parsed);
+                      }
+                    }
+                    setIsEditingWatchNMaxNotifications(false);
+                  }}
+                  onChangeText={(text) => {
+                    setLocalWatchNMaxNotifications(text);
+                  }}
+                  keyboardType="numeric"
+                  maxLength={4}
+                  style={styles.compactInput}
+                  dense
+                />
+              </View>
+            </Card.Content>
+          </Card>
+        )} */}
       </Surface>
 
       {/* GraphQL Cache Settings */}

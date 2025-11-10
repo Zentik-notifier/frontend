@@ -79,6 +79,7 @@ struct BucketItem: Identifiable {
     let totalCount: Int
     let color: String?
     let iconUrl: String?
+    let lastNotificationDate: Date?
 }
 
 struct NotificationData: Identifiable, Equatable {
@@ -131,6 +132,37 @@ struct BucketMenuView: View {
                     .padding()
                 } else {
                     List {
+                        // Unread notifications item - only show if there are unread notifications
+                        if totalUnreadCount > 0 {
+                            NavigationLink(destination: FilteredNotificationListView(bucketId: nil, bucketName: nil, bucket: nil, allBuckets: buckets, showOnlyUnread: true)) {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "envelope.badge.fill")
+                                        .font(.system(size: 20))
+                                        .foregroundColor(.red)
+                                        .frame(width: 32, height: 32)
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Unread")
+                                            .font(.headline)
+                                        Text("\(totalUnreadCount) unread")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Text("\(totalUnreadCount)")
+                                        .font(.caption2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.red)
+                                        .clipShape(Capsule())
+                                }
+                            }
+                        }
+                        
                         // All notifications item
                         NavigationLink(destination: FilteredNotificationListView(bucketId: nil, bucketName: nil, bucket: nil, allBuckets: buckets)) {
                             HStack(spacing: 10) {
@@ -244,9 +276,21 @@ struct BucketRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(bucket.name)
                     .font(.headline)
-                Text("\(bucket.totalCount) notifications")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                HStack(spacing: 4) {
+                    Text("\(bucket.totalCount) notifications")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    
+                    // Show date of most recent notification
+                    if let lastDate = bucket.lastNotificationDate {
+                        Text("•")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text(formatDate(lastDate))
+                            .font(.caption2)
+                            .foregroundColor(.secondary.opacity(0.8))
+                    }
+                }
             }
             
             Spacer()
@@ -312,6 +356,7 @@ struct FilteredNotificationListView: View {
     let bucketName: String?
     let bucket: BucketItem?
     let allBuckets: [BucketItem]
+    var showOnlyUnread: Bool = false
     
     @StateObject private var connectivityManager = WatchConnectivityManager.shared
     @State private var filteredNotifications: [NotificationData] = []
@@ -322,10 +367,10 @@ struct FilteredNotificationListView: View {
         Group {
             if filteredNotifications.isEmpty {
                 VStack(spacing: 12) {
-                    Image(systemName: "bell.slash")
+                    Image(systemName: showOnlyUnread ? "envelope.open" : "bell.slash")
                         .font(.system(size: 40))
                         .foregroundColor(.secondary)
-                    Text("No notifications")
+                    Text(showOnlyUnread ? "No unread notifications" : "No notifications")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -347,7 +392,7 @@ struct FilteredNotificationListView: View {
                 }
             }
         }
-        .navigationTitle(bucketId == nil ? "All" : (bucketName ?? "Bucket"))
+        .navigationTitle(showOnlyUnread ? "Unread" : (bucketId == nil ? "All" : (bucketName ?? "Bucket")))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -378,11 +423,37 @@ struct FilteredNotificationListView: View {
     }
     
     private func filterNotifications() {
+        var notifications = connectivityManager.notifications
+        
+        // Filter by bucket if specified
         if let bucketId = bucketId {
-            filteredNotifications = connectivityManager.notifications.filter { $0.notification.bucketId == bucketId }
-        } else {
-            filteredNotifications = connectivityManager.notifications
+            notifications = notifications.filter { $0.notification.bucketId == bucketId }
         }
+        
+        // Filter only unread if specified
+        if showOnlyUnread {
+            notifications = notifications.filter { !$0.notification.isRead }
+        }
+        
+        // Sort by creation date (most recent first)
+        notifications.sort { lhs, rhs in
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            
+            let lhsDate = isoFormatter.date(from: lhs.notification.createdAt) ?? {
+                isoFormatter.formatOptions = [.withInternetDateTime]
+                return isoFormatter.date(from: lhs.notification.createdAt) ?? Date.distantPast
+            }()
+            
+            let rhsDate = isoFormatter.date(from: rhs.notification.createdAt) ?? {
+                isoFormatter.formatOptions = [.withInternetDateTime]
+                return isoFormatter.date(from: rhs.notification.createdAt) ?? Date.distantPast
+            }()
+            
+            return lhsDate > rhsDate  // Most recent first
+        }
+        
+        filteredNotifications = notifications
     }
 }
 
@@ -436,6 +507,13 @@ struct NotificationRowView: View {
                         }
                         .foregroundColor(.secondary)
                     }
+                }
+                
+                // Date/Time display
+                if let formattedDate = formatNotificationDate(notificationData.notification.createdAt) {
+                    Text(formattedDate)
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary.opacity(0.8))
                 }
             }
         }
@@ -695,6 +773,53 @@ struct NotificationDetailView: View {
         let b = Double(rgb & 0x0000FF) / 255.0
         
         return Color(red: r, green: g, blue: b)
+    }
+}
+
+// MARK: - Date Formatting Helper
+
+/// Format notification date - show time if today, otherwise show date
+/// - Parameter dateString: ISO date string from notification
+/// - Returns: Formatted string (e.g., "14:30" or "9 Nov")
+private func formatNotificationDate(_ dateString: String) -> String? {
+    let isoFormatter = ISO8601DateFormatter()
+    isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    
+    guard let date = isoFormatter.date(from: dateString) else {
+        // Try without fractional seconds
+        isoFormatter.formatOptions = [.withInternetDateTime]
+        guard let date = isoFormatter.date(from: dateString) else {
+            return nil
+        }
+        return formatDate(date)
+    }
+    
+    return formatDate(date)
+}
+
+private func formatDate(_ date: Date) -> String {
+    let calendar = Calendar.current
+    let now = Date()
+    
+    // Check if date is today
+    if calendar.isDateInToday(date) {
+        // Show time only (e.g., "14:30")
+        let timeFormatter = DateFormatter()
+        timeFormatter.timeStyle = .short
+        return timeFormatter.string(from: date)
+    } else {
+        // Show date (e.g., "9 Nov" or "9/11/24" for older dates)
+        let dateFormatter = DateFormatter()
+        
+        // If within the same year, show day and month
+        if calendar.component(.year, from: date) == calendar.component(.year, from: now) {
+            dateFormatter.dateFormat = "d MMM"
+        } else {
+            // Different year, show full date
+            dateFormatter.dateFormat = "d/M/yy"
+        }
+        
+        return dateFormatter.string(from: date)
     }
 }
 

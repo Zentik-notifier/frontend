@@ -21,7 +21,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LoginModal } from "./LoginModal";
 import StatusBadge from "./StatusBadge";
 import UserDropdown from "./UserDropdown";
-import { is } from "date-fns/locale";
 
 const ROUTES_WITH_HOME_BUTTON: string[] = [
   "/(phone)/(settings)",
@@ -29,6 +28,7 @@ const ROUTES_WITH_HOME_BUTTON: string[] = [
   "/(desktop)/(settings)",
   "/(desktop)/(admin)",
   "/(phone)/(home)/notification/[id]",
+  "/(phone)/(home)/bucket/[id]",
 ];
 
 const HOME_ROUTES: string[] = [

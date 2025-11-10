@@ -2,6 +2,7 @@ import IosBridgeService from '@/services/ios-bridge';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useMarkAsRead, useMarkAsUnread, useDeleteNotification } from './notifications';
+import { useSettings } from './useSettings';
 
 /**
  * Hook to handle events from Apple Watch
@@ -15,6 +16,7 @@ import { useMarkAsRead, useMarkAsUnread, useDeleteNotification } from './notific
  */
 export function useWatchConnectivityEvents() {
   const queryClient = useQueryClient();
+  const { settings } = useSettings();
   
   // Mutation hooks that handle backend sync + React Query cache updates
   // We use skipLocalDb and skipCloudKit options for Watch events (native already updated those)
@@ -32,7 +34,8 @@ export function useWatchConnectivityEvents() {
       console.log('[WatchSync] ⌚→📱 Watch requested full refresh');
       try {
         // Trigger full sync to CloudKit
-        const result = await IosBridgeService.syncAllToCloudKit();
+        const limit = settings.retentionPolicies?.watchNMaxNotifications ?? 150;
+        const result = await IosBridgeService.syncAllToCloudKit(limit);
         if (result.success) {
           console.log(`[WatchSync] ✅ Full sync completed: ${result.bucketsCount} buckets, ${result.notificationsCount} notifications`);
         } else {
@@ -54,11 +57,17 @@ export function useWatchConnectivityEvents() {
         // But skip: SQLite update (native did it), CloudKit update (native did it)
         await markAsRead.mutateAsync({
           notificationId: event.notificationId,
-          skipLocalDb: true,      // ❌ Skip SQLite (already done by native)
+          skipLocalDb: false,      // ❌ Skip SQLite (already done by native)
           skipCloudKit: true,     // ❌ Skip CloudKit (already done by native)
           readAt: event.readAt,   // Use timestamp from Watch
         } as any);
-        console.log('[WatchSync] ✅ Synced to backend + updated React Query cache (SQLite+CloudKit skipped)');
+        
+        // Invalidate app state to recalculate unreadCount from updated SQLite DB
+        // Note: We don't invalidate ['notifications', 'lists'] because the mutation's onSuccess already updates the cache
+        // But we need to invalidate ['app-state'] to recalculate stats from SQLite
+        await queryClient.invalidateQueries({ queryKey: ['app-state'] });
+        
+        console.log('[WatchSync] ✅ Synced to backend + updated React Query cache + invalidated app-state');
       } catch (error) {
         console.error('[WatchSync] ❌ Failed to sync read status:', error);
       }
@@ -71,10 +80,16 @@ export function useWatchConnectivityEvents() {
         // Use hook with skipLocalDb and skipCloudKit options
         await markAsUnread.mutateAsync({
           notificationId: event.notificationId,
-          skipLocalDb: true,      // ❌ Skip SQLite (already done by native)
+          skipLocalDb: false,      // ❌ Skip SQLite (already done by native)
           skipCloudKit: true,     // ❌ Skip CloudKit (already done by native)
         } as any);
-        console.log('[WatchSync] ✅ Synced to backend + updated React Query cache (SQLite+CloudKit skipped)');
+        
+        // Invalidate app state to recalculate unreadCount from updated SQLite DB
+        // Note: We don't invalidate ['notifications', 'lists'] because the mutation's onSuccess already updates the cache
+        // But we need to invalidate ['app-state'] to recalculate stats from SQLite
+        await queryClient.invalidateQueries({ queryKey: ['app-state'] });
+        
+        console.log('[WatchSync] ✅ Synced to backend + updated React Query cache + invalidated app-state');
       } catch (error) {
         console.error('[WatchSync] ❌ Failed to sync unread status:', error);
       }
@@ -91,7 +106,13 @@ export function useWatchConnectivityEvents() {
           skipLocalDb: true,      // ❌ Skip SQLite (already done by native)
           skipCloudKit: true,     // ❌ Skip CloudKit (already done by native)
         } as any);
-        console.log('[WatchSync] ✅ Synced deletion to backend + updated React Query cache (SQLite+CloudKit skipped)');
+        
+        // Invalidate app state to recalculate unreadCount from updated SQLite DB
+        // Note: We don't invalidate ['notifications', 'lists'] because the mutation's onSuccess already updates the cache
+        // But we need to invalidate ['app-state'] to recalculate stats from SQLite
+        await queryClient.invalidateQueries({ queryKey: ['app-state'] });
+        
+        console.log('[WatchSync] ✅ Synced deletion to backend + updated React Query cache + invalidated app-state');
       } catch (error) {
         console.error('[WatchSync] ❌ Failed to sync deletion:', error);
       }

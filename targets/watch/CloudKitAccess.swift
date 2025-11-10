@@ -637,6 +637,51 @@ public class CloudKitAccess {
         }
     }
     
+    /// Delete multiple buckets (batch delete)
+    public static func deleteBuckets(ids: [String], completion: @escaping (Result<Void, Error>) -> Void) {
+        guard !ids.isEmpty else {
+            completion(.success(()))
+            return
+        }
+        
+        let recordIDs = ids.map { CKRecord.ID(recordName: $0, zoneID: customZoneID) }
+        
+        logger.info(
+            tag: "DeleteBuckets",
+            message: "Batch deleting buckets from CloudKit",
+            metadata: ["count": String(ids.count)],
+            source: "CloudKitAccess"
+        )
+        
+        let operation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: recordIDs)
+        
+        operation.modifyRecordsResultBlock = { result in
+            switch result {
+            case .success:
+                logger.info(
+                    tag: "DeleteBuckets",
+                    message: "Successfully batch deleted buckets",
+                    metadata: ["count": String(ids.count)],
+                    source: "CloudKitAccess"
+                )
+                completion(.success(()))
+            case .failure(let error):
+                logger.error(
+                    tag: "DeleteBuckets",
+                    message: "Failed to batch delete buckets",
+                    metadata: [
+                        "count": String(ids.count),
+                        "error": error.localizedDescription
+                    ],
+                    source: "CloudKitAccess"
+                )
+                completion(.failure(error))
+            }
+        }
+        
+        database.add(operation)
+    }
+    
     // MARK: - Notification Operations
     
     /// Save a notification to CloudKit
@@ -903,6 +948,51 @@ public class CloudKitAccess {
         }
     }
     
+    /// Delete multiple notifications (batch delete)
+    public static func deleteNotifications(ids: [String], completion: @escaping (Result<Void, Error>) -> Void) {
+        guard !ids.isEmpty else {
+            completion(.success(()))
+            return
+        }
+        
+        let recordIDs = ids.map { CKRecord.ID(recordName: $0, zoneID: customZoneID) }
+        
+        logger.info(
+            tag: "DeleteNotifications",
+            message: "Batch deleting notifications from CloudKit",
+            metadata: ["count": String(ids.count)],
+            source: "CloudKitAccess"
+        )
+        
+        let operation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: recordIDs)
+        
+        operation.modifyRecordsResultBlock = { result in
+            switch result {
+            case .success:
+                logger.info(
+                    tag: "DeleteNotifications",
+                    message: "Successfully batch deleted notifications",
+                    metadata: ["count": String(ids.count)],
+                    source: "CloudKitAccess"
+                )
+                completion(.success(()))
+            case .failure(let error):
+                logger.error(
+                    tag: "DeleteNotifications",
+                    message: "Failed to batch delete notifications",
+                    metadata: [
+                        "count": String(ids.count),
+                        "error": error.localizedDescription
+                    ],
+                    source: "CloudKitAccess"
+                )
+                completion(.failure(error))
+            }
+        }
+        
+        database.add(operation)
+    }
+    
     /// Mark notification as read
     public static func markNotificationAsRead(id: String, completion: @escaping (Result<CloudKitNotification, Error>) -> Void) {
         let recordID = CKRecord.ID(recordName: id, zoneID: customZoneID)
@@ -1013,43 +1103,96 @@ public class CloudKitAccess {
     
     /// Save multiple notifications
     public static func saveNotifications(_ notifications: [CloudKitNotification], completion: @escaping (Result<[CloudKitNotification], Error>) -> Void) {
-        let records = notifications.map { $0.toCKRecord() }
+        guard !notifications.isEmpty else {
+            completion(.success([]))
+            return
+        }
+        
+        // CloudKit has a limit of 400 records per batch operation
+        // Split into chunks to avoid exceeding the limit
+        let batchSize = 400
+        let chunks = stride(from: 0, to: notifications.count, by: batchSize).map {
+            Array(notifications[$0..<min($0 + batchSize, notifications.count)])
+        }
         
         logger.info(
             tag: "SaveNotifications",
             message: "Saving multiple notifications to CloudKit",
-            metadata: ["count": String(notifications.count)],
+            metadata: [
+                "count": String(notifications.count),
+                "batches": String(chunks.count)
+            ],
             source: "CloudKitAccess"
         )
         
-        let operation = CKModifyRecordsOperation(recordsToSave: records, recordIDsToDelete: nil)
-        operation.savePolicy = .changedKeys
+        var savedNotifications: [CloudKitNotification] = []
+        var hasError = false
+        let group = DispatchGroup()
         
-        operation.modifyRecordsResultBlock = { result in
-            switch result {
-            case .success:
-                logger.info(
-                    tag: "SaveNotifications",
-                    message: "Successfully saved notifications",
-                    metadata: ["count": String(notifications.count)],
-                    source: "CloudKitAccess"
-                )
-                completion(.success(notifications))
-            case .failure(let error):
+        for (index, chunk) in chunks.enumerated() {
+            group.enter()
+            
+            let records = chunk.map { $0.toCKRecord() }
+            let operation = CKModifyRecordsOperation(recordsToSave: records, recordIDsToDelete: nil)
+            operation.savePolicy = .changedKeys
+            
+            operation.modifyRecordsResultBlock = { result in
+                switch result {
+                case .success:
+                    logger.debug(
+                        tag: "SaveNotifications",
+                        message: "Successfully saved notification batch",
+                        metadata: [
+                            "batch": String(index + 1),
+                            "count": String(chunk.count)
+                        ],
+                        source: "CloudKitAccess"
+                    )
+                    savedNotifications.append(contentsOf: chunk)
+                case .failure(let error):
+                    logger.error(
+                        tag: "SaveNotifications",
+                        message: "Failed to save notification batch",
+                        metadata: [
+                            "batch": String(index + 1),
+                            "count": String(chunk.count),
+                            "error": error.localizedDescription
+                        ],
+                        source: "CloudKitAccess"
+                    )
+                    hasError = true
+                }
+                group.leave()
+            }
+            
+            database.add(operation)
+        }
+        
+        group.notify(queue: .main) {
+            if hasError {
+                let error = NSError(domain: "CloudKitAccess", code: 5, userInfo: [
+                    NSLocalizedDescriptionKey: "Failed to save some notification batches"
+                ])
                 logger.error(
                     tag: "SaveNotifications",
-                    message: "Failed to save notifications",
+                    message: "Failed to save all notifications",
                     metadata: [
-                        "count": String(notifications.count),
-                        "error": error.localizedDescription
+                        "totalCount": String(notifications.count),
+                        "savedCount": String(savedNotifications.count)
                     ],
                     source: "CloudKitAccess"
                 )
                 completion(.failure(error))
+            } else {
+                logger.info(
+                    tag: "SaveNotifications",
+                    message: "Successfully saved all notifications",
+                    metadata: ["count": String(savedNotifications.count)],
+                    source: "CloudKitAccess"
+                )
+                completion(.success(savedNotifications))
             }
         }
-        
-        database.add(operation)
     }
     
     // MARK: - Subscriptions
@@ -1236,69 +1379,213 @@ public class CloudKitAccess {
     
     // MARK: - Change Token Management
     
-    /// UserDefaults keys for storing change tokens
-    private static let bucketChangeTokenKey = "CloudKitBucketChangeToken"
-    private static let notificationChangeTokenKey = "CloudKitNotificationChangeToken"
+    /// Get device-specific identifier prefix (iOS vs Watch)
+    private static func getDevicePrefix() -> String {
+        #if os(watchOS)
+        return "Watch"
+        #else
+        return "iOS"
+        #endif
+    }
     
-    /// Save bucket change token
+    /// Keychain service names for storing change tokens (device-specific to avoid conflicts)
+    private static var bucketChangeTokenService: String {
+        return "\(getDevicePrefix())_CloudKitBucketChangeToken"
+    }
+    
+    private static var notificationChangeTokenService: String {
+        return "\(getDevicePrefix())_CloudKitNotificationChangeToken"
+    }
+    
+    /// Save bucket change token to Keychain (device-specific storage)
     public static func saveBucketChangeToken(_ token: CKServerChangeToken) {
-        if let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) {
-            UserDefaults.standard.set(data, forKey: bucketChangeTokenKey)
+        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) else {
+            logger.error(
+                tag: "ChangeToken",
+                message: "Failed to archive bucket change token",
+                source: "CloudKitAccess"
+            )
+            return
+        }
+        
+        let keychainAccessGroup = KeychainAccess.getKeychainAccessGroup()
+        
+        // Delete existing token first
+        let deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: bucketChangeTokenService,
+            kSecAttrAccessGroup as String: keychainAccessGroup
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+        
+        // Add new token
+        let addQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: bucketChangeTokenService,
+            kSecAttrAccount as String: "token",
+            kSecAttrAccessGroup as String: keychainAccessGroup,
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+        ]
+        
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        if status == errSecSuccess {
             logger.debug(
                 tag: "ChangeToken",
-                message: "Saved bucket change token",
+                message: "Saved bucket change token to Keychain (\(getDevicePrefix()))",
+                source: "CloudKitAccess"
+            )
+        } else {
+            logger.error(
+                tag: "ChangeToken",
+                message: "Failed to save bucket change token (\(getDevicePrefix()), status: \(status))",
                 source: "CloudKitAccess"
             )
         }
     }
     
-    /// Load bucket change token
+    /// Load bucket change token from Keychain
     public static func loadBucketChangeToken() -> CKServerChangeToken? {
-        guard let data = UserDefaults.standard.data(forKey: bucketChangeTokenKey),
+        let keychainAccessGroup = KeychainAccess.getKeychainAccessGroup()
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: bucketChangeTokenService,
+            kSecAttrAccessGroup as String: keychainAccessGroup,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        
+        guard status == errSecSuccess,
+              let data = result as? Data,
               let token = try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKServerChangeToken.self, from: data) else {
+            if status != errSecItemNotFound {
+                logger.error(
+                    tag: "ChangeToken",
+                    message: "Failed to load bucket change token (\(getDevicePrefix()), status: \(status))",
+                    source: "CloudKitAccess"
+                )
+            }
             return nil
         }
+        
         logger.debug(
             tag: "ChangeToken",
-            message: "Loaded bucket change token",
+            message: "Loaded bucket change token from Keychain (\(getDevicePrefix()))",
             source: "CloudKitAccess"
         )
         return token
     }
     
-    /// Save notification change token
+    /// Save notification change token to Keychain (device-specific storage)
     public static func saveNotificationChangeToken(_ token: CKServerChangeToken) {
-        if let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) {
-            UserDefaults.standard.set(data, forKey: notificationChangeTokenKey)
+        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) else {
+            logger.error(
+                tag: "ChangeToken",
+                message: "Failed to archive notification change token",
+                source: "CloudKitAccess"
+            )
+            return
+        }
+        
+        let keychainAccessGroup = KeychainAccess.getKeychainAccessGroup()
+        
+        // Delete existing token first
+        let deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: notificationChangeTokenService,
+            kSecAttrAccessGroup as String: keychainAccessGroup
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+        
+        // Add new token
+        let addQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: notificationChangeTokenService,
+            kSecAttrAccount as String: "token",
+            kSecAttrAccessGroup as String: keychainAccessGroup,
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+        ]
+        
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        if status == errSecSuccess {
             logger.debug(
                 tag: "ChangeToken",
-                message: "Saved notification change token",
+                message: "Saved notification change token to Keychain (\(getDevicePrefix()))",
+                source: "CloudKitAccess"
+            )
+        } else {
+            logger.error(
+                tag: "ChangeToken",
+                message: "Failed to save notification change token (\(getDevicePrefix()), status: \(status))",
                 source: "CloudKitAccess"
             )
         }
     }
     
-    /// Load notification change token
+    /// Load notification change token from Keychain
     public static func loadNotificationChangeToken() -> CKServerChangeToken? {
-        guard let data = UserDefaults.standard.data(forKey: notificationChangeTokenKey),
+        let keychainAccessGroup = KeychainAccess.getKeychainAccessGroup()
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: notificationChangeTokenService,
+            kSecAttrAccessGroup as String: keychainAccessGroup,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        
+        guard status == errSecSuccess,
+              let data = result as? Data,
               let token = try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKServerChangeToken.self, from: data) else {
+            if status != errSecItemNotFound {
+                logger.error(
+                    tag: "ChangeToken",
+                    message: "Failed to load notification change token (\(getDevicePrefix()), status: \(status))",
+                    source: "CloudKitAccess"
+                )
+            }
             return nil
         }
+        
         logger.debug(
             tag: "ChangeToken",
-            message: "Loaded notification change token",
+            message: "Loaded notification change token from Keychain (\(getDevicePrefix()))",
             source: "CloudKitAccess"
         )
         return token
     }
     
-    /// Clear all change tokens (useful for forced full sync)
+    /// Clear all change tokens from Keychain (useful for forced full sync)
     public static func clearAllChangeTokens() {
-        UserDefaults.standard.removeObject(forKey: bucketChangeTokenKey)
-        UserDefaults.standard.removeObject(forKey: notificationChangeTokenKey)
+        let keychainAccessGroup = KeychainAccess.getKeychainAccessGroup()
+        
+        // Clear bucket token
+        let bucketQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: bucketChangeTokenService,
+            kSecAttrAccessGroup as String: keychainAccessGroup
+        ]
+        SecItemDelete(bucketQuery as CFDictionary)
+        
+        // Clear notification token
+        let notificationQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: notificationChangeTokenService,
+            kSecAttrAccessGroup as String: keychainAccessGroup
+        ]
+        SecItemDelete(notificationQuery as CFDictionary)
+        
         logger.info(
             tag: "ChangeToken",
-            message: "Cleared all change tokens",
+            message: "Cleared all change tokens from Keychain (\(getDevicePrefix()))",
             source: "CloudKitAccess"
         )
     }

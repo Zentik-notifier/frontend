@@ -38,7 +38,8 @@ export default function AppLogs() {
   const loadLogs = useCallback(async () => {
     setIsLoading(true);
     try {
-      const all = await readLogs(0);
+      // Load all logs (from all sources)
+      const all = await readLogs(0, sourceFilter ?? undefined);
       setLogs(all);
     } catch (e) {
       console.warn("Failed to load logs", e);
@@ -46,7 +47,7 @@ export default function AppLogs() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [sourceFilter]);
   // console.log({ isLoading, logs });
 
   const refreshFromDb = useCallback(async () => {
@@ -71,6 +72,11 @@ export default function AppLogs() {
   useEffect(() => {
     loadLogs();
   }, [loadLogs]);
+
+  // Reload logs when source filter changes
+  useEffect(() => {
+    loadLogs();
+  }, [sourceFilter]);
 
   const levelToColor = useMemo(
     () =>
@@ -190,10 +196,8 @@ export default function AppLogs() {
       validLogs = validLogs.filter((l) => l.level === levelFilter);
     }
 
-    // Apply source filter
-    if (sourceFilter) {
-      validLogs = validLogs.filter((l) => l.source === sourceFilter);
-    }
+    // Note: source filter is already applied during loading in readLogs()
+    // so we don't need to filter again here
 
     // Apply search query
     if (!query) return validLogs;
@@ -209,7 +213,7 @@ export default function AppLogs() {
       ];
       return parts.some((p) => (p ?? "").toString().toLowerCase().includes(q));
     });
-  }, [logs, query, levelFilter, sourceFilter]);
+  }, [logs, query, levelFilter]);
 
   const handleExportLogs = useCallback(async () => {
     try {
@@ -353,6 +357,19 @@ export default function AppLogs() {
           />
         </View>
       </View>
+
+      {/* Info badge showing logs stats */}
+      {sourceOptions.length > 0 && (
+        <Surface style={[styles.infoBadge, { backgroundColor: theme.colors.surfaceVariant }]}>
+          <Icon source="information" size={16} color={theme.colors.onSurfaceVariant} />
+          <Text style={[styles.infoBadgeText, { color: theme.colors.onSurfaceVariant }]}>
+            {sourceFilter 
+              ? `${filteredLogs.length} logs from ${sourceFilter}`
+              : `${filteredLogs.length} logs from ${sourceOptions.length} source${sourceOptions.length !== 1 ? 's' : ''}`
+            }
+          </Text>
+        </Surface>
+      )}
 
       <FlatList
         data={filteredLogs}
@@ -540,6 +557,19 @@ const styles = StyleSheet.create({
   },
   filterItem: {
     flex: 1,
+  },
+  infoBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  infoBadgeText: {
+    fontSize: 12,
+    fontWeight: "500",
   },
   listContent: {
     paddingVertical: 8,

@@ -4,7 +4,7 @@ import Foundation
  * LoggingSystem - Shared structured logging utilities
  *
  * Provides JSON-based logging with buffering and batch persistence
- * to JSON file shared across app and extensions.
+ * to separate JSON files per source to avoid concurrent write conflicts.
  */
 public class LoggingSystem {
 
@@ -34,13 +34,24 @@ public class LoggingSystem {
 
     public static let shared = LoggingSystem()
 
-    private var logBuffer: [LogEntry] = []
+    // Separate buffer per source to enable parallel logging without conflicts
+    private var logBuffers: [String: [LogEntry]] = [:]
     private let bufferLimit = 20
-    private var flushTimer: Timer?
+    private var flushTimers: [String: Timer] = [:]
     private let flushInterval: TimeInterval = 5.0
-    private var logFilePath: String?
+    private let queue = DispatchQueue(label: "com.zentik.loggingsystem", attributes: .concurrent)
+    private let logsDirectory: String
 
-    private init() {}
+    private init() {
+        let cacheDirectory = MediaAccess.getSharedMediaCacheDirectory()
+        logsDirectory = cacheDirectory.appendingPathComponent("logs").path
+        
+        // Create logs directory if it doesn't exist
+        let fileManager = FileManager.default
+        if !fileManager.fileExists(atPath: logsDirectory) {
+            try? fileManager.createDirectory(atPath: logsDirectory, withIntermediateDirectories: true, attributes: nil)
+        }
+    }
     
     // MARK: - Logging Methods
     
@@ -66,19 +77,25 @@ public class LoggingSystem {
             source: source
         )
         
-        logBuffer.append(entry)
-        
         // Print to console
         if let jsonData = try? JSONEncoder().encode(entry),
            let jsonString = String(data: jsonData, encoding: .utf8) {
             print("[\(source)] \(jsonString)")
         }
         
-        // Flush if buffer is full
-        if logBuffer.count >= bufferLimit {
-            flushLogs()
-        } else {
-            scheduleFlush()
+        // Add to source-specific buffer (thread-safe)
+        queue.async(flags: .barrier) {
+            if self.logBuffers[source] == nil {
+                self.logBuffers[source] = []
+            }
+            self.logBuffers[source]?.append(entry)
+            
+            // Flush if buffer is full for this source
+            if let count = self.logBuffers[source]?.count, count >= self.bufferLimit {
+                self.flushLogs(forSource: source)
+            } else {
+                self.scheduleFlush(forSource: source)
+            }
         }
     }
     
@@ -104,29 +121,29 @@ public class LoggingSystem {
     
     // MARK: - Buffer Management
     
-    /// Schedule flush timer
-    private func scheduleFlush() {
-        flushTimer?.invalidate()
-        flushTimer = Timer.scheduledTimer(withTimeInterval: flushInterval, repeats: false) { [weak self] _ in
-            self?.flushLogs()
+    /// Schedule flush timer for a specific source
+    private func scheduleFlush(forSource source: String) {
+        DispatchQueue.main.async {
+            // Cancel existing timer for this source
+            self.flushTimers[source]?.invalidate()
+            
+            // Schedule new timer
+            self.flushTimers[source] = Timer.scheduledTimer(withTimeInterval: self.flushInterval, repeats: false) { [weak self] _ in
+                self?.flushLogs(forSource: source)
+            }
         }
     }
     
-    /// Get log file path
-    private func getLogFilePath() -> String {
-        if let path = logFilePath {
-            return path
-        }
-
-        let cacheDirectory = MediaAccess.getSharedMediaCacheDirectory()
-        let filePath = cacheDirectory.appendingPathComponent("logs.json").path
-        logFilePath = filePath
-        return filePath
+    /// Get log file path for a specific source
+    private func getLogFilePath(forSource source: String) -> String {
+        // Sanitize source name for filename (remove special characters)
+        let sanitizedSource = source.replacingOccurrences(of: "[^a-zA-Z0-9_-]", with: "_", options: .regularExpression)
+        return "\(logsDirectory)/\(sanitizedSource).json"
     }
 
-    /// Read existing logs from JSON file
-    private func readExistingLogs() -> [LogEntry] {
-        let filePath = getLogFilePath()
+    /// Read existing logs from JSON file for a specific source
+    private func readExistingLogs(forSource source: String) -> [LogEntry] {
+        let filePath = getLogFilePath(forSource: source)
         let fileManager = FileManager.default
 
         guard fileManager.fileExists(atPath: filePath) else {
@@ -138,11 +155,11 @@ public class LoggingSystem {
             let logs = try JSONDecoder().decode([LogEntry].self, from: data)
             return logs
         } catch {
-            print("[LoggingSystem] ⚠️ Failed to read existing logs: \(error)")
+            print("[LoggingSystem] ⚠️ Failed to read existing logs for \(source): \(error)")
             
             // If JSON is corrupted, backup the corrupted file and start fresh
-            if let decodingError = error as? DecodingError {
-                print("[LoggingSystem] 🔧 Detected corrupted log file, creating backup and starting fresh")
+            if error is DecodingError {
+                print("[LoggingSystem] 🔧 Detected corrupted log file for \(source), creating backup and starting fresh")
                 
                 let backupPath = filePath.replacingOccurrences(of: ".json", with: "_corrupted_\(Int(Date().timeIntervalSince1970)).json")
                 
@@ -162,64 +179,118 @@ public class LoggingSystem {
         }
     }
 
-    /// Write logs to JSON file
-    private func writeLogsToFile(logs: [LogEntry]) {
-        let filePath = getLogFilePath()
+    /// Write logs to JSON file for a specific source
+    private func writeLogsToFile(logs: [LogEntry], forSource source: String) {
+        let filePath = getLogFilePath(forSource: source)
 
         do {
             // Read existing logs
-            var existingLogs = readExistingLogs()
+            var existingLogs = readExistingLogs(forSource: source)
 
             // Append new logs
             existingLogs.append(contentsOf: logs)
 
-            // Write back to file (no cleanup)
+            // Write back to file atomically
             let data = try JSONEncoder().encode(existingLogs)
             try data.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
 
-            print("[LoggingSystem] ✅ Wrote \(logs.count) logs to JSON file")
+            print("[LoggingSystem] ✅ Wrote \(logs.count) logs to \(source).json")
         } catch {
-            print("[LoggingSystem] ⚠️ Failed to write logs to file: \(error)")
+            print("[LoggingSystem] ⚠️ Failed to write logs to file for \(source): \(error)")
         }
     }
 
-    /// Flush logs to JSON file
-    public func flushLogs() {
-        guard !logBuffer.isEmpty else { return }
-
-        let logsToWrite = logBuffer
-        logBuffer.removeAll()
-
-        writeLogsToFile(logs: logsToWrite)
+    /// Flush logs to JSON file for a specific source
+    private func flushLogs(forSource source: String) {
+        queue.async(flags: .barrier) {
+            guard let logs = self.logBuffers[source], !logs.isEmpty else { return }
+            
+            // Get logs and clear buffer
+            let logsToWrite = logs
+            self.logBuffers[source] = []
+            
+            // Cancel timer
+            DispatchQueue.main.async {
+                self.flushTimers[source]?.invalidate()
+                self.flushTimers[source] = nil
+            }
+            
+            // Write to file
+            self.writeLogsToFile(logs: logsToWrite, forSource: source)
+        }
     }
 
-    /// Read logs from file, optionally filtered by timestamp
-    public func readLogs(fromTimestamp: Int64 = 0) -> [LogEntry] {
-        let existingLogs = readExistingLogs()
+    /// Flush all buffered logs
+    public func flushLogs() {
+        queue.sync {
+            let sources = Array(logBuffers.keys)
+            for source in sources {
+                flushLogs(forSource: source)
+            }
+        }
+    }
 
+    /// Read logs from file, optionally filtered by timestamp and source
+    public func readLogs(fromTimestamp: Int64 = 0, fromSource: String? = nil) -> [LogEntry] {
+        var allLogs: [LogEntry] = []
+        
+        queue.sync {
+            let fileManager = FileManager.default
+            
+            if let source = fromSource {
+                // Read from specific source file
+                allLogs = readExistingLogs(forSource: source)
+            } else {
+                // Read from all source files
+                if let files = try? fileManager.contentsOfDirectory(atPath: logsDirectory) {
+                    for file in files where file.hasSuffix(".json") && !file.contains("_corrupted_") {
+                        let source = file.replacingOccurrences(of: ".json", with: "")
+                        let logs = readExistingLogs(forSource: source)
+                        allLogs.append(contentsOf: logs)
+                    }
+                }
+            }
+        }
+        
         // Filter by timestamp and sort by timestamp DESC
-        return existingLogs
+        return allLogs
             .filter { $0.timestamp >= fromTimestamp }
             .sorted { $0.timestamp > $1.timestamp }
     }
 
-    /// Clear all logs from file
+    /// Clear all logs from files
     public func clearAllLogs() {
-        let filePath = getLogFilePath()
-        let fileManager = FileManager.default
-
-        do {
-            if fileManager.fileExists(atPath: filePath) {
-                try fileManager.removeItem(atPath: filePath)
+        queue.async(flags: .barrier) {
+            let fileManager = FileManager.default
+            
+            // Clear all source-specific log files
+            if let files = try? fileManager.contentsOfDirectory(atPath: self.logsDirectory) {
+                for file in files where file.hasSuffix(".json") {
+                    let filePath = "\(self.logsDirectory)/\(file)"
+                    try? fileManager.removeItem(atPath: filePath)
+                }
             }
-        } catch {
-            print("[LoggingSystem] ⚠️ Failed to clear logs: \(error)")
+            
+            // Clear all buffers
+            self.logBuffers.removeAll()
+            
+            // Cancel all timers
+            DispatchQueue.main.async {
+                for timer in self.flushTimers.values {
+                    timer.invalidate()
+                }
+                self.flushTimers.removeAll()
+            }
         }
     }
 
     /// Force flush on deinit
     deinit {
-        flushTimer?.invalidate()
+        DispatchQueue.main.async {
+            for timer in self.flushTimers.values {
+                timer.invalidate()
+            }
+        }
         flushLogs()
     }
 }

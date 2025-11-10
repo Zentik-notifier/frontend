@@ -102,6 +102,10 @@ export function useSettings() {
     await settingsService.setMaxCachedNotificationsDay(days);
   }, []);
 
+  const setWatchNMaxNotifications = useCallback(async (max: number | undefined) => {
+    await settingsService.setWatchNMaxNotifications(max);
+  }, []);
+
   const setNotificationsLastSeenId = useCallback(async (id: string | undefined) => {
     await settingsService.setNotificationsLastSeenId(id);
   }, []);
@@ -225,6 +229,7 @@ export function useSettings() {
     setIsCompactMode,
     setMaxCachedNotifications,
     setMaxCachedNotificationsDay,
+    setWatchNMaxNotifications,
     updateRetentionPolicies,
     updateDownloadSettings,
     setNotificationsLastSeenId,

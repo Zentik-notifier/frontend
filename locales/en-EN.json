@@ -85,6 +85,8 @@
       "maxStoredDescription": "Keep at most this number of notifications in the local cache",
       "maxStoredDaysTitle": "Max days to keep",
       "maxStoredDaysDescription": "Delete cached notifications older than this number of days",
+      "watchNMaxNotificationsTitle": "Max Watch notifications",
+      "watchNMaxNotificationsDescription": "Maximum number of notifications to sync with Apple Watch (default: 150)",
       "importExport": {
         "title": "Advanced",
         "description": "Advanced tools and utilities",
