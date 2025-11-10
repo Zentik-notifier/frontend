@@ -346,11 +346,29 @@ public struct CloudKitNotification: Codable, Identifiable {
     
     /// Create from CKRecord
     public static func from(record: CKRecord) -> CloudKitNotification? {
-        guard record.recordType == CloudKitRecordType.notification,
-              let title = record[CloudKitField.notificationTitle] as? String,
-              let createdAt = record[CloudKitField.notificationCreatedAt] as? Date,
-              let updatedAt = record[CloudKitField.notificationUpdatedAt] as? Date,
-              let bucketId = record[CloudKitField.notificationBucketId] as? String else {
+        guard record.recordType == CloudKitRecordType.notification else {
+            print("⚠️ [CloudKitNotification] Wrong record type: \(record.recordType)")
+            return nil
+        }
+        
+        guard let title = record[CloudKitField.notificationTitle] as? String else {
+            print("⚠️ [CloudKitNotification] Missing title for record: \(record.recordID.recordName)")
+            return nil
+        }
+        
+        guard let createdAt = record[CloudKitField.notificationCreatedAt] as? Date else {
+            print("⚠️ [CloudKitNotification] Missing createdAt for record: \(record.recordID.recordName)")
+            return nil
+        }
+        
+        guard let updatedAt = record[CloudKitField.notificationUpdatedAt] as? Date else {
+            print("⚠️ [CloudKitNotification] Missing updatedAt for record: \(record.recordID.recordName)")
+            return nil
+        }
+        
+        guard let bucketId = record[CloudKitField.notificationBucketId] as? String else {
+            print("⚠️ [CloudKitNotification] Missing bucketId for record: \(record.recordID.recordName)")
+            print("   Available fields: \(record.allKeys())")
             return nil
         }
         
@@ -578,28 +596,80 @@ public class CloudKitAccess {
             source: "CloudKitAccess"
         )
         
-        database.perform(query, inZoneWith: customZoneID) { records, error in
-            if let error = error {
-                logger.error(
-                    tag: "FetchBuckets",
-                    message: "Failed to fetch buckets",
-                    metadata: ["error": error.localizedDescription],
-                    source: "CloudKitAccess"
-                )
-                completion(.failure(error))
+        var allRecords: [CKRecord] = []
+        
+        // Recursive function to fetch all records using cursor-based pagination
+        func fetchBatch(cursor: CKQueryOperation.Cursor? = nil) {
+            let operation: CKQueryOperation
+            
+            if let cursor = cursor {
+                operation = CKQueryOperation(cursor: cursor)
             } else {
-                // Parse and sort locally by name
-                let buckets = records?.compactMap { CloudKitBucket.from(record: $0) }
-                    .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending } ?? []
-                logger.info(
-                    tag: "FetchBuckets",
-                    message: "Successfully fetched buckets",
-                    metadata: ["count": String(buckets.count)],
-                    source: "CloudKitAccess"
-                )
-                completion(.success(buckets))
+                operation = CKQueryOperation(query: query)
             }
+            
+            operation.zoneID = customZoneID
+            // Set maximum batch size (400 is CloudKit's max per operation)
+            // This overrides the default limit of ~25-100 records
+            operation.resultsLimit = 400
+            
+            operation.recordMatchedBlock = { recordID, result in
+                switch result {
+                case .success(let record):
+                    allRecords.append(record)
+                case .failure(let error):
+                    logger.warn(
+                        tag: "FetchBuckets",
+                        message: "Failed to fetch individual bucket",
+                        metadata: [
+                            "recordId": recordID.recordName,
+                            "error": error.localizedDescription
+                        ],
+                        source: "CloudKitAccess"
+                    )
+                }
+            }
+            
+            operation.queryResultBlock = { result in
+                switch result {
+                case .success(let cursor):
+                    // If there's a cursor, more results are available - fetch next batch
+                    if let cursor = cursor {
+                        logger.info(
+                            tag: "FetchBuckets",
+                            message: "Fetching next batch of buckets (cursor-based)",
+                            metadata: ["currentCount": String(allRecords.count)],
+                            source: "CloudKitAccess"
+                        )
+                        fetchBatch(cursor: cursor)
+                    } else {
+                        // No more results - parse and return all records
+                        let buckets = allRecords.compactMap { CloudKitBucket.from(record: $0) }
+                            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                        logger.info(
+                            tag: "FetchBuckets",
+                            message: "Successfully fetched ALL buckets",
+                            metadata: ["totalCount": String(buckets.count)],
+                            source: "CloudKitAccess"
+                        )
+                        completion(.success(buckets))
+                    }
+                case .failure(let error):
+                    logger.error(
+                        tag: "FetchBuckets",
+                        message: "Failed to fetch buckets",
+                        metadata: ["error": error.localizedDescription],
+                        source: "CloudKitAccess"
+                    )
+                    completion(.failure(error))
+                }
+            }
+            
+            database.add(operation)
         }
+        
+        // Start fetching from the first batch
+        fetchBatch()
     }
     
     /// Delete a bucket
@@ -786,56 +856,80 @@ public class CloudKitAccess {
             source: "CloudKitAccess"
         )
         
-        let operation = CKQueryOperation(query: query)
-        operation.zoneID = customZoneID
-        if let limit = limit {
-            operation.resultsLimit = limit
-        }
+        var allRecords: [CKRecord] = []
         
-        var fetchedRecords: [CKRecord] = []
-        
-        operation.recordMatchedBlock = { recordID, result in
-            switch result {
-            case .success(let record):
-                fetchedRecords.append(record)
-            case .failure(let error):
-                logger.warn(
-                    tag: "FetchNotifications",
-                    message: "Failed to fetch individual notification",
-                    metadata: [
-                        "recordId": recordID.recordName,
-                        "error": error.localizedDescription
-                    ],
-                    source: "CloudKitAccess"
-                )
+        // Recursive function to fetch all records using cursor-based pagination
+        func fetchBatch(cursor: CKQueryOperation.Cursor? = nil) {
+            let operation: CKQueryOperation
+            
+            if let cursor = cursor {
+                operation = CKQueryOperation(cursor: cursor)
+            } else {
+                operation = CKQueryOperation(query: query)
             }
-        }
-        
-        operation.queryResultBlock = { result in
-            switch result {
-            case .success:
-                // Parse and sort locally by createdAt (most recent first)
-                let notifications = fetchedRecords.compactMap { CloudKitNotification.from(record: $0) }
-                    .sorted { $0.createdAt > $1.createdAt }
-                logger.info(
-                    tag: "FetchNotifications",
-                    message: "Successfully fetched notifications",
-                    metadata: ["count": String(notifications.count)],
-                    source: "CloudKitAccess"
-                )
-                completion(.success(notifications))
-            case .failure(let error):
-                logger.error(
-                    tag: "FetchNotifications",
-                    message: "Failed to fetch notifications",
-                    metadata: ["error": error.localizedDescription],
-                    source: "CloudKitAccess"
-                )
-                completion(.failure(error))
+            
+            operation.zoneID = customZoneID
+            // Set maximum batch size (400 is CloudKit's max per operation)
+            // This overrides the default limit of ~25-100 records
+            operation.resultsLimit = limit ?? 400
+            
+            operation.recordMatchedBlock = { recordID, result in
+                switch result {
+                case .success(let record):
+                    allRecords.append(record)
+                case .failure(let error):
+                    logger.warn(
+                        tag: "FetchNotifications",
+                        message: "Failed to fetch individual notification",
+                        metadata: [
+                            "recordId": recordID.recordName,
+                            "error": error.localizedDescription
+                        ],
+                        source: "CloudKitAccess"
+                    )
+                }
             }
+            
+            operation.queryResultBlock = { result in
+                switch result {
+                case .success(let cursor):
+                    // If there's a cursor, more results are available - fetch next batch
+                    if let cursor = cursor {
+                        logger.info(
+                            tag: "FetchNotifications",
+                            message: "Fetching next batch of notifications (cursor-based)",
+                            metadata: ["currentCount": String(allRecords.count)],
+                            source: "CloudKitAccess"
+                        )
+                        fetchBatch(cursor: cursor)
+                    } else {
+                        // No more results - parse and return all records
+                        let notifications = allRecords.compactMap { CloudKitNotification.from(record: $0) }
+                            .sorted { $0.createdAt > $1.createdAt }
+                        logger.info(
+                            tag: "FetchNotifications",
+                            message: "Successfully fetched ALL notifications",
+                            metadata: ["totalCount": String(notifications.count)],
+                            source: "CloudKitAccess"
+                        )
+                        completion(.success(notifications))
+                    }
+                case .failure(let error):
+                    logger.error(
+                        tag: "FetchNotifications",
+                        message: "Failed to fetch notifications",
+                        metadata: ["error": error.localizedDescription],
+                        source: "CloudKitAccess"
+                    )
+                    completion(.failure(error))
+                }
+            }
+            
+            database.add(operation)
         }
         
-        database.add(operation)
+        // Start fetching from the first batch
+        fetchBatch()
     }
     
     /// Fetch notifications by bucket ID
@@ -857,9 +951,8 @@ public class CloudKitAccess {
         
         let operation = CKQueryOperation(query: query)
         operation.zoneID = customZoneID
-        if let limit = limit {
-            operation.resultsLimit = limit
-        }
+        // Set maximum batch size (400 is CloudKit's max per operation)
+        operation.resultsLimit = limit ?? 400
         
         var fetchedRecords: [CKRecord] = []
         
@@ -955,8 +1048,6 @@ public class CloudKitAccess {
             return
         }
         
-        let recordIDs = ids.map { CKRecord.ID(recordName: $0, zoneID: customZoneID) }
-        
         logger.info(
             tag: "DeleteNotifications",
             message: "Batch deleting notifications from CloudKit",
@@ -964,19 +1055,52 @@ public class CloudKitAccess {
             source: "CloudKitAccess"
         )
         
-        let operation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: recordIDs)
+        // CloudKit allows max 400 records per batch
+        let chunkSize = 400
+        let chunks = stride(from: 0, to: ids.count, by: chunkSize).map {
+            Array(ids[$0..<min($0 + chunkSize, ids.count)])
+        }
         
-        operation.modifyRecordsResultBlock = { result in
-            switch result {
-            case .success:
-                logger.info(
-                    tag: "DeleteNotifications",
-                    message: "Successfully batch deleted notifications",
-                    metadata: ["count": String(ids.count)],
-                    source: "CloudKitAccess"
-                )
-                completion(.success(()))
-            case .failure(let error):
+        var hasError = false
+        var errorToReport: Error?
+        let dispatchGroup = DispatchGroup()
+        
+        for (index, chunk) in chunks.enumerated() {
+            dispatchGroup.enter()
+            
+            let recordIDs = chunk.map { CKRecord.ID(recordName: $0, zoneID: customZoneID) }
+            let operation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: recordIDs)
+            
+            operation.modifyRecordsResultBlock = { result in
+                switch result {
+                case .success:
+                    logger.info(
+                        tag: "DeleteNotifications",
+                        message: "Successfully deleted chunk \(index + 1)/\(chunks.count)",
+                        metadata: ["chunkSize": String(chunk.count)],
+                        source: "CloudKitAccess"
+                    )
+                case .failure(let error):
+                    hasError = true
+                    errorToReport = error
+                    logger.error(
+                        tag: "DeleteNotifications",
+                        message: "Failed to delete chunk \(index + 1)/\(chunks.count)",
+                        metadata: [
+                            "chunkSize": String(chunk.count),
+                            "error": error.localizedDescription
+                        ],
+                        source: "CloudKitAccess"
+                    )
+                }
+                dispatchGroup.leave()
+            }
+            
+            database.add(operation)
+        }
+        
+        dispatchGroup.notify(queue: .main) {
+            if hasError, let error = errorToReport {
                 logger.error(
                     tag: "DeleteNotifications",
                     message: "Failed to batch delete notifications",
@@ -987,10 +1111,16 @@ public class CloudKitAccess {
                     source: "CloudKitAccess"
                 )
                 completion(.failure(error))
+            } else {
+                logger.info(
+                    tag: "DeleteNotifications",
+                    message: "Successfully batch deleted all notifications",
+                    metadata: ["count": String(ids.count)],
+                    source: "CloudKitAccess"
+                )
+                completion(.success(()))
             }
         }
-        
-        database.add(operation)
     }
     
     /// Mark notification as read
@@ -1972,6 +2102,8 @@ public class CloudKitAccess {
         createdAt: String,
         readAt: String? = nil,
         attachments: [[String: Any]]? = nil,
+        actions: [[String: Any]]? = nil,
+        tapAction: [String: Any]? = nil,
         logger: ((String) -> Void)? = nil
     ) {
         // Run in background queue to avoid blocking notification delivery
@@ -2007,6 +2139,22 @@ public class CloudKitAccess {
                 if let jsonData = try? JSONSerialization.data(withJSONObject: attachments),
                    let jsonString = String(data: jsonData, encoding: .utf8) {
                     record[CloudKitField.notificationAttachments] = jsonString as CKRecordValue
+                }
+            }
+            
+            // Add actions as JSON string (CloudKit format)
+            if let actions = actions, !actions.isEmpty {
+                if let jsonData = try? JSONSerialization.data(withJSONObject: actions),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    record[CloudKitField.notificationActions] = jsonString as CKRecordValue
+                }
+            }
+            
+            // Add tapAction as JSON string (CloudKit format)
+            if let tapAction = tapAction {
+                if let jsonData = try? JSONSerialization.data(withJSONObject: tapAction),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    record[CloudKitField.notificationTapAction] = jsonString as CKRecordValue
                 }
             }
             

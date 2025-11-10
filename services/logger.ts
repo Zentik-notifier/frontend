@@ -1,9 +1,13 @@
 import { Platform } from 'react-native';
 import { getSharedMediaCacheDirectoryAsync } from '../utils/shared-cache';
-import { File } from '../utils/filesystem-wrapper';
-import * as ExpoFileSystem from 'expo-file-system';
+import { File, Directory } from '../utils/filesystem-wrapper';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export const getLogsDirectory = async (): Promise<string> => {
+  const cacheDir = await getSharedMediaCacheDirectoryAsync();
+  return `${cacheDir}/logs`;
+};
 
 export interface AppLog {
   id: string; // Unique identifier (UUID)
@@ -53,7 +57,7 @@ class JsonFileLogger {
   private logBuffer: AppLog[] = [];
   private flushTimeout: NodeJS.Timeout | null = null;
   private isFlushingPromise: Promise<void> | null = null;
-  private logFilePath: string | null = null;
+  private logsDir: string | null = null;
 
   // Generate UUID v4 (simplified version)
   private generateUUID(): string {
@@ -64,12 +68,16 @@ class JsonFileLogger {
     });
   }
 
-  private async getLogFilePath(): Promise<string> {
-    if (!this.logFilePath) {
-      const cacheDir = await getSharedMediaCacheDirectoryAsync();
-      this.logFilePath = `${cacheDir}/logs.json`;
+  private async getLogsDirectory(): Promise<string> {
+    if (!this.logsDir) {
+      this.logsDir = await getLogsDirectory();
+      // Ensure logs directory exists
+      const directory = new Directory(this.logsDir);
+      if (!directory.exists) {
+        await directory.create();
+      }
     }
-    return this.logFilePath;
+    return this.logsDir;
   }
 
   private async flushLogs(): Promise<void> {
@@ -95,7 +103,8 @@ class JsonFileLogger {
 
     this.isFlushingPromise = (async () => {
       try {
-        const logFilePath = await this.getLogFilePath();
+        const logsDir = await this.getLogsDirectory();
+        const logFilePath = `${logsDir}/React.json`;
         const logFile = new File(logFilePath);
 
         // Read existing logs
@@ -118,7 +127,7 @@ class JsonFileLogger {
         const cutoff = Date.now() - ONE_DAY_MS;
         existingLogs = existingLogs.filter(log => log.timestamp > cutoff);
 
-        // Keep max 1000 logs to prevent file growth
+        // Keep max 10000 logs to prevent file growth
         if (existingLogs.length > MAX_LOGS) {
           existingLogs = existingLogs.slice(-MAX_LOGS);
         }
@@ -126,7 +135,7 @@ class JsonFileLogger {
         // Write back to file
         await logFile.write(JSON.stringify(existingLogs, null, 2));
 
-        // console.log(`[Logger] ✅ Flushed ${logsToWrite.length} logs to JSON`);
+        // console.log(`[Logger] ✅ Flushed ${logsToWrite.length} logs to React.json`);
       } catch (e) {
         // Avoid throwing from logger
         console.warn('[Logger] Failed to write log batch', e);
@@ -547,34 +556,34 @@ export async function readLogs(tsFrom: number = 0, fromSource?: string): Promise
     }
   } else {
     try {
-      const cacheDir = await getSharedMediaCacheDirectoryAsync();
-      const logsDir = `${cacheDir}/logs`;
-      
+      const logsDir = await getLogsDirectory();
+
       const allLogs: AppLog[] = [];
 
-      // Read from multi-file structure
-      const dirInfo = await ExpoFileSystem.getInfoAsync(logsDir);
-      
-      if (dirInfo.exists && dirInfo.isDirectory) {
-        const files = await ExpoFileSystem.readDirectoryAsync(logsDir);
-        
-        for (const fileName of files) {
+      // Read from multi-file structure using new API
+      const directory = new Directory(logsDir);
+
+      if (directory.exists) {
+        const files = await directory.list();
+
+        for (const file of files) {
           // Skip corrupted backup files
+          const fileName = file.name;
           if (fileName.includes('_corrupted_')) continue;
-          
+
           // Only process .json files
           if (!fileName.endsWith('.json')) continue;
-          
+
           // If filtering by source, skip non-matching files
           if (fromSource) {
             const sourceFromFile = fileName.replace('.json', '');
             if (sourceFromFile !== fromSource) continue;
           }
-          
+
           try {
-            const filePath = `${logsDir}/${fileName}`;
-            const content = await ExpoFileSystem.readAsStringAsync(filePath);
-            
+            const logFile = new File(`${logsDir}/${fileName}`);
+            const content = await logFile.read();
+
             if (content) {
               const logs: AppLog[] = JSON.parse(content);
               allLogs.push(...logs);
@@ -608,20 +617,20 @@ export async function clearAllLogs(): Promise<void> {
     }
   } else {
     try {
-      const cacheDir = await getSharedMediaCacheDirectoryAsync();
-      const logsDir = `${cacheDir}/logs`;
-      
-      const dirInfo = await ExpoFileSystem.getInfoAsync(logsDir);
-      
-      if (dirInfo.exists && dirInfo.isDirectory) {
+      const logsDir = await getLogsDirectory();
+
+      const directory = new Directory(logsDir);
+
+      if (directory.exists) {
         // Delete all log files in the directory
-        const files = await ExpoFileSystem.readDirectoryAsync(logsDir);
-        
-        for (const fileName of files) {
+        const files = await directory.list();
+
+        for (const file of files) {
+          const fileName = file.name;
           if (fileName.endsWith('.json')) {
             try {
-              const filePath = `${logsDir}/${fileName}`;
-              await ExpoFileSystem.deleteAsync(filePath, { idempotent: true });
+              const logFile = new File(`${logsDir}/${fileName}`);
+              await logFile.delete();
             } catch (error) {
               console.warn(`Failed to delete log file ${fileName}:`, error);
             }

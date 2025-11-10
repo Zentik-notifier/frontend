@@ -21,9 +21,6 @@ public class CloudKitSyncManager {
     
     private let logger = LoggingSystem.shared
     
-    // Watch-specific limit for notifications
-    private let watchNotificationLimit = 150
-    
     // Last sync timestamps (stored in UserDefaults)
     private var lastBucketsSyncDate: Date? {
         get {
@@ -141,9 +138,7 @@ public class CloudKitSyncManager {
     
     /// Fetch all notifications from CloudKit
     public func fetchNotifications(limit: Int? = nil, completion: @escaping ([CloudKitNotification]) -> Void) {
-        let effectiveLimit = limit ?? watchNotificationLimit
-        
-        CloudKitAccess.fetchAllNotifications(limit: effectiveLimit) { result in
+        CloudKitAccess.fetchAllNotifications(limit: limit) { result in
             switch result {
             case .success(let notifications):
                 let unreadCount = notifications.filter { $0.readAt == nil }.count
@@ -269,17 +264,30 @@ public class CloudKitSyncManager {
     }
     
     /// Force refresh - reload all data from CloudKit
-    public func forceRefresh(completion: @escaping (Bool) -> Void) {
+    public func forceRefresh(completion: @escaping ([CloudKitBucket], [CloudKitNotification]) -> Void) {
         print("☁️ [CloudKitSync][Watch] 🔄 Force refresh from CloudKit...")
         
-        fetchAll { buckets, notifications in
-            let success = !buckets.isEmpty || !notifications.isEmpty
-            if success {
+        // Clear all change tokens to force a complete full sync (not incremental)
+        CloudKitAccess.clearAllChangeTokens()
+        print("☁️ [CloudKitSync][Watch] 🗑️ Cleared all change tokens for full refresh")
+        
+        fetchAll { [weak self] buckets, notifications in
+            guard let self = self else {
+                completion([], [])
+                return
+            }
+            
+            if !buckets.isEmpty || !notifications.isEmpty {
                 print("☁️ [CloudKitSync][Watch] ✅ Force refresh completed: \(buckets.count) buckets, \(notifications.count) notifications")
+                
+                // Update last sync dates
+                self.lastBucketsSyncDate = Date()
+                self.lastNotificationsSyncDate = Date()
             } else {
                 print("☁️ [CloudKitSync][Watch] ⚠️ Force refresh returned no data")
             }
-            completion(success)
+            
+            completion(buckets, notifications)
         }
     }
     

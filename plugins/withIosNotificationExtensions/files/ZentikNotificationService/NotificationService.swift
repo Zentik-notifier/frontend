@@ -1805,7 +1805,9 @@ class NotificationService: UNNotificationServiceExtension {
         subtitle: content.subtitle.isEmpty ? nil : content.subtitle,
         createdAt: now,
         readAt: nil,
-        attachments: userInfo["attachmentData"] as? [[String: Any]]
+        attachments: userInfo["attachmentData"] as? [[String: Any]],
+        actions: userInfo["actions"] as? [[String: Any]],
+        tapAction: userInfo["tapAction"] as? [String: Any]
       )
     } else {
       print("📱 [NotificationService] ❌ Failed to save notification to database")
@@ -1856,7 +1858,9 @@ class NotificationService: UNNotificationServiceExtension {
     subtitle: String?,
     createdAt: String,
     readAt: String?,
-    attachments: [[String: Any]]?
+    attachments: [[String: Any]]?,
+    actions: [[String: Any]]?,
+    tapAction: [String: Any]?
   ) {
     // Delegate to CloudKitAccess for all CloudKit logic
     CloudKitAccess.syncNotificationFromNSE(
@@ -1868,6 +1872,8 @@ class NotificationService: UNNotificationServiceExtension {
       createdAt: createdAt,
       readAt: readAt,
       attachments: attachments,
+      actions: actions,
+      tapAction: tapAction,
       logger: { message in
         print("📱 [NotificationService] \(message)")
       }

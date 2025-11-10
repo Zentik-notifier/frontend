@@ -160,11 +160,14 @@ else
     print_warning "Cartella Content Extension non trovata: $CONTENT_SOURCE"
 fi
 
-# 3. AppDelegate
-print_status "Sincronizzazione AppDelegate..."
+# 3. AppDelegate e CloudKitSyncManager
+print_status "Sincronizzazione AppDelegate e CloudKitSyncManager..."
 
 APPDELEGATE_SOURCE="plugins/withCustomAppDelegate/files/AppDelegate.swift"
 APPDELEGATE_DEST="$IOS_DIR/ZentikDev/AppDelegate.swift"
+
+CLOUDKIT_SYNC_SOURCE="plugins/withCustomAppDelegate/files/CloudKitSyncManager_iOS.swift"
+CLOUDKIT_SYNC_DEST="$IOS_DIR/ZentikDev/CloudKitSyncManager_iOS.swift"
 
 if [ -f "$APPDELEGATE_SOURCE" ]; then
     # Copia AppDelegate
@@ -177,6 +180,19 @@ if [ -f "$APPDELEGATE_SOURCE" ]; then
     print_status "  ✅ AppDelegate.swift copiato"
 else
     print_warning "AppDelegate non trovato: $APPDELEGATE_SOURCE"
+fi
+
+if [ -f "$CLOUDKIT_SYNC_SOURCE" ]; then
+    # Copia CloudKitSyncManager_iOS
+    cp -f "$CLOUDKIT_SYNC_SOURCE" "$CLOUDKIT_SYNC_DEST"
+    
+    # Sostituisci placeholder
+    replace_placeholders "$CLOUDKIT_SYNC_DEST" "$BUNDLE_ID"
+    
+    print_success "CloudKitSyncManager_iOS sincronizzato"
+    print_status "  ✅ CloudKitSyncManager_iOS.swift copiato"
+else
+    print_warning "CloudKitSyncManager_iOS non trovato: $CLOUDKIT_SYNC_SOURCE"
 fi
 
 # 3.5 WatchConnectivity (per app iOS principale)
@@ -317,6 +333,9 @@ print_status "  📱 Notification Service Extension: $SERVICE_FILES file"
 print_status "  🎨 Content Extension: $CONTENT_FILES file"
 if [ -f "$APPDELEGATE_DEST" ]; then
     print_status "  🎯 AppDelegate: copiato + file condivisi"
+fi
+if [ -f "$CLOUDKIT_SYNC_DEST" ]; then
+    print_status "  ☁️  CloudKitSyncManager_iOS: copiato"
 fi
 if [ $watch_conn_copied -gt 0 ]; then
     print_status "  📡 WatchConnectivity: $watch_conn_copied file copiati in iOS App"

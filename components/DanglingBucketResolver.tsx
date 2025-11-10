@@ -35,7 +35,7 @@ interface DanglingBucketResolverProps {
 export default function DanglingBucketResolver({
   id,
 }: DanglingBucketResolverProps) {
-  const { navigateToBucketDetail, navigateToHome } = useNavigationUtils();
+  const { navigateToHome } = useNavigationUtils();
   const theme = useTheme();
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -219,7 +219,7 @@ export default function DanglingBucketResolver({
         [
           {
             text: t("common.ok"),
-            onPress: () => navigateToBucketDetail(selectedBucketId),
+            onPress: () => navigateToHome(),
           },
         ]
       );
@@ -287,7 +287,7 @@ export default function DanglingBucketResolver({
           [
             {
               text: t("common.ok"),
-              onPress: () => navigateToBucketDetail(newBucket.id),
+              onPress: () => navigateToHome(),
             },
           ]
         );

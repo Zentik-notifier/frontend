@@ -1,5 +1,10 @@
 import { useI18n } from "@/hooks/useI18n";
-import { AppLog, clearAllLogs, readLogs } from "@/services/logger";
+import {
+  AppLog,
+  clearAllLogs,
+  getLogsDirectory,
+  readLogs,
+} from "@/services/logger";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -7,6 +12,7 @@ import {
   Alert,
   FlatList,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -18,6 +24,7 @@ import { Icon, Surface, Text, useTheme } from "react-native-paper";
 import CopyButton from "./ui/CopyButton";
 import PaperScrollView from "./ui/PaperScrollView";
 import Selector from "./ui/Selector";
+import { Directory } from "@/utils/filesystem-wrapper";
 
 export default function AppLogs() {
   const { t } = useI18n();
@@ -32,14 +39,15 @@ export default function AppLogs() {
   const [isClearing, setIsClearing] = useState<boolean>(false);
   const [selectedLog, setSelectedLog] = useState<AppLog | null>(null);
   const [showLogDialog, setShowLogDialog] = useState<boolean>(false);
-
-  const isOperationInProgress = isExporting || isClearing;
+  const [sourceOptions, setSourceOptions] = useState<
+    { id: string; name: string }[]
+  >([]);
 
   const loadLogs = useCallback(async () => {
     setIsLoading(true);
     try {
       // Load all logs (from all sources)
-      const all = await readLogs(0, sourceFilter ?? undefined);
+      const all = await readLogs(0);
       setLogs(all);
     } catch (e) {
       console.warn("Failed to load logs", e);
@@ -47,8 +55,44 @@ export default function AppLogs() {
     } finally {
       setIsLoading(false);
     }
-  }, [sourceFilter]);
+  }, []);
   // console.log({ isLoading, logs });
+
+  const loadSourceOptions = useCallback(async () => {
+    try {
+      const dirUrl = await getLogsDirectory();
+      const dir = new Directory(dirUrl);
+      const files = await dir.list();
+      const sources: string[] = [];
+
+      for (const file of files) {
+        const fileName = file.name;
+        // Su web, accetta tutti i file JSON
+        // Su native, cerca solo nella cartella logs
+        if (Platform.OS === 'web') {
+          if (fileName.endsWith(".json")) {
+            const source = fileName.split(".")[0];
+            sources.push(source);
+          }
+        } else {
+          // Su native, i file sono già in logs/ quindi filtra solo .json
+          if (fileName.endsWith(".json")) {
+            const source = fileName.split(".")[0];
+            sources.push(source);
+          }
+        }
+      }
+
+      const options = sources.map((source) => ({
+        id: source,
+        name: source,
+      }));
+      setSourceOptions(options);
+    } catch (error) {
+      console.error("Error loading source options:", error);
+      setSourceOptions([]);
+    }
+  }, []);
 
   const refreshFromDb = useCallback(async () => {
     setIsRefreshing(true);
@@ -71,12 +115,8 @@ export default function AppLogs() {
 
   useEffect(() => {
     loadLogs();
-  }, [loadLogs]);
-
-  // Reload logs when source filter changes
-  useEffect(() => {
-    loadLogs();
-  }, [sourceFilter]);
+    loadSourceOptions();
+  }, []);
 
   const levelToColor = useMemo(
     () =>
@@ -89,26 +129,17 @@ export default function AppLogs() {
     [theme.colors]
   );
 
-  // Extract unique levels and sources from logs in a single pass
-  const { levelOptions, sourceOptions } = useMemo(() => {
+  const { levelOptions } = useMemo(() => {
     const uniqueLevels = new Set<string>();
-    const uniqueSources = new Set<string>();
 
     logs.forEach((log) => {
-      uniqueLevels.add(log.level);
-      if (log.source && log.source.trim() !== "") {
-        uniqueSources.add(log.source);
-      }
+      uniqueLevels.add(log.level.trim().toUpperCase());
     });
 
     return {
       levelOptions: Array.from(uniqueLevels).map((level) => ({
         id: level,
-        name: level.toUpperCase(),
-      })),
-      sourceOptions: Array.from(uniqueSources).map((source) => ({
-        id: source,
-        name: source,
+        name: level,
       })),
     };
   }, [logs]);
@@ -191,13 +222,13 @@ export default function AppLogs() {
     // Filter out logs with empty messages first
     let validLogs = logs.filter((l) => l.message && l.message.trim() !== "");
 
-    // Apply level filter
     if (levelFilter) {
-      validLogs = validLogs.filter((l) => l.level === levelFilter);
+      validLogs = validLogs.filter((l) => l.level.trim().toUpperCase() === levelFilter);
     }
 
-    // Note: source filter is already applied during loading in readLogs()
-    // so we don't need to filter again here
+    if (sourceFilter) {
+      validLogs = validLogs.filter((l) => l.source === sourceFilter);
+    }
 
     // Apply search query
     if (!query) return validLogs;
@@ -213,7 +244,7 @@ export default function AppLogs() {
       ];
       return parts.some((p) => (p ?? "").toString().toLowerCase().includes(q));
     });
-  }, [logs, query, levelFilter]);
+  }, [logs, query, levelFilter, sourceFilter]);
 
   const handleExportLogs = useCallback(async () => {
     try {
@@ -360,13 +391,28 @@ export default function AppLogs() {
 
       {/* Info badge showing logs stats */}
       {sourceOptions.length > 0 && (
-        <Surface style={[styles.infoBadge, { backgroundColor: theme.colors.surfaceVariant }]}>
-          <Icon source="information" size={16} color={theme.colors.onSurfaceVariant} />
-          <Text style={[styles.infoBadgeText, { color: theme.colors.onSurfaceVariant }]}>
-            {sourceFilter 
+        <Surface
+          style={[
+            styles.infoBadge,
+            { backgroundColor: theme.colors.surfaceVariant },
+          ]}
+        >
+          <Icon
+            source="information"
+            size={16}
+            color={theme.colors.onSurfaceVariant}
+          />
+          <Text
+            style={[
+              styles.infoBadgeText,
+              { color: theme.colors.onSurfaceVariant },
+            ]}
+          >
+            {sourceFilter
               ? `${filteredLogs.length} logs from ${sourceFilter}`
-              : `${filteredLogs.length} logs from ${sourceOptions.length} source${sourceOptions.length !== 1 ? 's' : ''}`
-            }
+              : `${filteredLogs.length} logs from ${
+                  sourceOptions.length
+                } source${sourceOptions.length !== 1 ? "s" : ""}`}
           </Text>
         </Surface>
       )}

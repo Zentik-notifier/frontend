@@ -1300,7 +1300,7 @@ public class CloudKitSyncManager {
                     
                     // Apply changes to local SQLite database
                     self.applyChangesToDatabase(
-                        bucketChanges: bucketChanges,
+                        // bucketChanges: bucketChanges,
                         notificationChanges: notificationChanges
                     ) { dbSuccess in
                         if dbSuccess {
@@ -1337,7 +1337,7 @@ public class CloudKitSyncManager {
      * Apply CloudKit changes to local SQLite database
      */
     private func applyChangesToDatabase(
-        bucketChanges: CloudKitAccess.BucketChanges,
+        // bucketChanges: CloudKitAccess.BucketChanges,
         notificationChanges: CloudKitAccess.NotificationChanges,
         completion: @escaping (Bool) -> Void
     ) {
@@ -1345,21 +1345,21 @@ public class CloudKitSyncManager {
         let group = DispatchGroup()
         
         // Apply bucket changes
-        for bucket in bucketChanges.added + bucketChanges.modified {
-            group.enter()
-            self.saveBucketToDatabase(bucket) { success in
-                if !success { allSuccess = false }
-                group.leave()
-            }
-        }
+        // for bucket in bucketChanges.added + bucketChanges.modified {
+        //     group.enter()
+        //     self.saveBucketToDatabase(bucket) { success in
+        //         if !success { allSuccess = false }
+        //         group.leave()
+        //     }
+        // }
         
-        for bucketId in bucketChanges.deleted {
-            group.enter()
-            self.deleteBucketFromDatabase(bucketId) { success in
-                if !success { allSuccess = false }
-                group.leave()
-            }
-        }
+        // for bucketId in bucketChanges.deleted {
+        //     group.enter()
+        //     self.deleteBucketFromDatabase(bucketId) { success in
+        //         if !success { allSuccess = false }
+        //         group.leave()
+        //     }
+        // }
         
         // Apply notification changes
         for notification in notificationChanges.added + notificationChanges.modified {
@@ -1410,19 +1410,24 @@ public class CloudKitSyncManager {
                 VALUES (?, ?, ?, ?)
             """
             
+            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-                return .failure("Failed to prepare statement")
+                let errMsg = String(cString: sqlite3_errmsg(db))
+                return .failure("Failed to prepare bucket statement: \(errMsg)")
             }
             defer { sqlite3_finalize(stmt) }
             
-            sqlite3_bind_text(stmt, 1, bucket.id, -1, self.SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 2, bucket.name, -1, self.SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 3, fragmentString, -1, self.SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 4, (DateConverter.dateToString(bucket.updatedAt) as String), -1, self.SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 1, bucket.id, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 2, bucket.name, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 3, fragmentString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 4, (DateConverter.dateToString(bucket.updatedAt) as String), -1, SQLITE_TRANSIENT)
             
             guard sqlite3_step(stmt) == SQLITE_DONE else {
-                return .failure("Failed to save bucket")
+                let errMsg = String(cString: sqlite3_errmsg(db))
+                let errCode = sqlite3_errcode(db)
+                return .failure("Failed to save bucket (code \(errCode)): \(errMsg)")
             }
             
             return .success
@@ -1482,7 +1487,8 @@ public class CloudKitSyncManager {
             var message: [String: Any?] = [
                 "title": notification.title,
                 "subtitle": notification.subtitle,
-                "body": notification.body
+                "body": notification.body,
+                "bucket": ["id": notification.bucketId] // Include bucket in fragment for TypeScript parser
             ]
             
             if !notification.attachments.isEmpty {
@@ -1513,10 +1519,20 @@ public class CloudKitSyncManager {
                 ]
             }
             
+            
+            let sentAtString: String? = DateConverter.dateToString(notification.sentAt)
+            let createdAtString: String = DateConverter.dateToString(notification.createdAt)
+            let readAtString: String? = DateConverter.dateToString(notification.readAt)
+            let updatedAtString: String = DateConverter.dateToString(notification.updatedAt)
+            
             let fragment: [String: Any?] = [
+                "id": notification.id, // Include ID in fragment for JavaScript parser
                 "message": message,
-                "sentAt": DateConverter.dateToString(notification.sentAt) as String?,
-                "updatedAt": DateConverter.dateToString(notification.updatedAt) as String
+                "bucketId": notification.bucketId, // Include bucketId at root for fallback parsing
+                "sentAt": sentAtString,
+                "createdAt": createdAtString,
+                "readAt": readAtString,
+                "updatedAt": updatedAtString
             ]
             
             guard let fragmentData = try? JSONSerialization.data(withJSONObject: fragment),
@@ -1529,26 +1545,31 @@ public class CloudKitSyncManager {
                 VALUES (?, ?, ?, ?, ?)
             """
             
+            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-                return .failure("Failed to prepare statement")
+                let errMsg = String(cString: sqlite3_errmsg(db))
+                return .failure("Failed to prepare notification statement: \(errMsg)")
             }
             defer { sqlite3_finalize(stmt) }
             
-            sqlite3_bind_text(stmt, 1, notification.id, -1, self.SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 2, fragmentString, -1, self.SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 3, (DateConverter.dateToString(notification.createdAt) as String), -1, self.SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 1, notification.id, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 2, fragmentString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 3, (DateConverter.dateToString(notification.createdAt) as String), -1, SQLITE_TRANSIENT)
             
             if let readAt = notification.readAt {
-                sqlite3_bind_text(stmt, 4, (DateConverter.dateToString(readAt) as String), -1, self.SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 4, (DateConverter.dateToString(readAt) as String), -1, SQLITE_TRANSIENT)
             } else {
                 sqlite3_bind_null(stmt, 4)
             }
             
-            sqlite3_bind_text(stmt, 5, notification.bucketId, -1, self.SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 5, notification.bucketId, -1, SQLITE_TRANSIENT)
             
             guard sqlite3_step(stmt) == SQLITE_DONE else {
-                return .failure("Failed to save notification")
+                let errMsg = String(cString: sqlite3_errmsg(db))
+                let errCode = sqlite3_errcode(db)
+                return .failure("Failed to save notification (code \(errCode)): \(errMsg)")
             }
             
             return .success

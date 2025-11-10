@@ -269,6 +269,10 @@ class WebDirectory {
     return true; // For now, assume directories exist if they're referenced
   }
 
+  async list() {
+    return [];
+  }
+
   async create(): Promise<void> {
     // For web, directory creation is implicit - we don't need to explicitly create directories
     // The directory structure is managed through the file paths in media_item keys

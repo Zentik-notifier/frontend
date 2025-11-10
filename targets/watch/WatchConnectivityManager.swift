@@ -173,7 +173,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             
             if !notificationDates.isEmpty {
                 let mostRecent = notificationDates.max(by: { $0.date < $1.date })!
-                print("⌚ [WatchConnectivity] 📅 Bucket '\(cachedBucket.name)' - Most recent: \(mostRecent.id) at \(mostRecent.date)")
+                // print("⌚ [WatchConnectivity] 📅 Bucket '\(cachedBucket.name)' - Most recent: \(mostRecent.id) at \(mostRecent.date)")
             }
             
             // Calculate total count for this bucket
@@ -197,12 +197,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             .sorted { $0.lastNotificationDate > $1.lastNotificationDate }
             .map { $0.bucket }
         
-        // Log bucket order for debugging
-        print("⌚ [WatchConnectivity] 📊 Bucket order:")
-        for (index, item) in self.buckets.enumerated() {
-            let lastNotifDate = bucketsWithDates.first(where: { $0.bucket.id == item.id })?.lastNotificationDate ?? Date.distantPast
-            print("  \(index + 1). \(item.name) - \(item.totalCount) notifications - Last: \(lastNotifDate)")
-        }
+        // // Log bucket order for debugging
+        // print("⌚ [WatchConnectivity] 📊 Bucket order:")
+        // for (index, item) in self.buckets.enumerated() {
+        //     let lastNotifDate = bucketsWithDates.first(where: { $0.bucket.id == item.id })?.lastNotificationDate ?? Date.distantPast
+        //     print("  \(index + 1). \(item.name) - \(item.totalCount) notifications - Last: \(lastNotifDate)")
+        // }
         
         // COMPLETE OVERWRITE of unread count and lastUpdate
         self.unreadCount = cache.unreadCount
@@ -595,22 +595,126 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     func requestFullRefresh() {
         print("⌚ [Watch] 🔄 FULL refresh requested (manual button)")
         
-        // 1. Send refresh request to iPhone to sync with backend first (only if reachable)
+        // Clear CloudKit change tokens to force FULL sync (not incremental)
+        cloudKitManager.forceRefresh { [weak self] (ckBuckets: [CloudKitBucket], ckNotifications: [CloudKitNotification]) in
+            guard let self = self else { return }
+            
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                
+                // Convert CloudKit data to cache format
+                var bucketsData = ckBuckets.map { bucket -> [String: Any] in
+                    var dict: [String: Any] = [
+                        "id": bucket.id,
+                        "name": bucket.name,
+                        "unreadCount": 0 // Will be calculated from notifications
+                    ]
+                    
+                    if let color = bucket.color, !color.isEmpty {
+                        dict["color"] = color
+                    }
+                    
+                    if let iconUrl = bucket.iconUrl, !iconUrl.isEmpty {
+                        dict["iconUrl"] = iconUrl
+                    }
+                    
+                    return dict
+                }
+                
+                // Calculate unread count per bucket
+                var bucketUnreadCounts: [String: Int] = [:]
+                for notification in ckNotifications {
+                    if notification.readAt == nil {
+                        bucketUnreadCounts[notification.bucketId, default: 0] += 1
+                    }
+                }
+                
+                // Update bucket unread counts
+                for i in 0..<bucketsData.count {
+                    if let bucketId = bucketsData[i]["id"] as? String {
+                        bucketsData[i]["unreadCount"] = bucketUnreadCounts[bucketId] ?? 0
+                    }
+                }
+                
+                // Create a lookup map for buckets by ID
+                var bucketMap: [String: CloudKitBucket] = [:]
+                for bucket in ckBuckets {
+                    if bucketMap[bucket.id] == nil {
+                        bucketMap[bucket.id] = bucket
+                    }
+                }
+                
+                let notificationsData = ckNotifications.map { notif -> [String: Any] in
+                    var dict: [String: Any] = [
+                        "id": notif.id,
+                        "title": notif.title,
+                        "body": notif.body ?? "",
+                        "bucketId": notif.bucketId,
+                        "isRead": notif.readAt != nil,
+                        "createdAt": DateConverter.dateToString(notif.createdAt)
+                    ]
+                    
+                    if let subtitle = notif.subtitle, !subtitle.isEmpty {
+                        dict["subtitle"] = subtitle
+                    }
+                    
+                    // Add bucket info from bucket lookup
+                    if let bucket = bucketMap[notif.bucketId] {
+                        dict["bucketName"] = bucket.name
+                        if let color = bucket.color, !color.isEmpty {
+                            dict["bucketColor"] = color
+                        }
+                        if let iconUrl = bucket.iconUrl, !iconUrl.isEmpty {
+                            dict["bucketIconUrl"] = iconUrl
+                        }
+                    }
+                    
+                    // Attachments
+                    if !notif.attachments.isEmpty {
+                        let attachmentsData = notif.attachments.map { attachment -> [String: Any] in
+                            var attachmentDict: [String: Any] = [
+                                "mediaType": attachment.mediaType
+                            ]
+                            
+                            if let url = attachment.url {
+                                attachmentDict["url"] = url
+                            }
+                            
+                            if let name = attachment.name {
+                                attachmentDict["name"] = name
+                            }
+                            
+                            return attachmentDict
+                        }
+                        dict["attachments"] = attachmentsData
+                    }
+                    
+                    return dict
+                }
+                
+                let totalUnreadCount = ckNotifications.filter { $0.readAt == nil }.count
+                
+                // Update cache with CloudKit data (COMPLETE OVERWRITE)
+                self.dataStore.updateFromiPhone(
+                    notifications: notificationsData,
+                    buckets: bucketsData,
+                    unreadCount: totalUnreadCount
+                )
+                
+                // Reload from cache (this resets all in-memory data)
+                self.loadCachedData()
+                
+                print("⌚ [Watch] ✅ Full CloudKit refresh completed: \(ckNotifications.count) notifications, \(ckBuckets.count) buckets")
+            }
+        }
+        
+        // Also send refresh request to iPhone to sync with backend (only if reachable)
         if WCSession.default.isReachable {
             print("⌚ [Watch] 📱 iPhone reachable - requesting full iOS sync")
             sendMessageToiPhone([
                 "action": "refresh",
                 "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
             ])
-            
-            // 2. Wait a moment for iPhone to sync, then fetch from CloudKit
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.fetchFromCloudKit()
-            }
-        } else {
-            print("⌚ [Watch] ⚠️ iPhone not reachable - fetching from CloudKit only")
-            // iPhone not reachable, just fetch from CloudKit
-            fetchFromCloudKit()
         }
     }
     
